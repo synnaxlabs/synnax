@@ -165,9 +165,7 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
     stateObserverRef.current = await task.openStateObserver<ReadStateDetails>();
-    stateObserverRef.current.onChange((s) => {
-      setTaskState(s);
-    });
+    stateObserverRef.current.onChange((s) => setTaskState(s));
     return async () => await stateObserverRef.current?.close().catch(console.error);
   }, [client?.key, task?.key, setTaskState]);
 
@@ -180,7 +178,7 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
         key: task?.key,
         name: methods.value().name,
         type: READ_TYPE,
-        config: methods.value().config,
+        config: readConfigZ.parse(methods.value().config),
       });
       setTask(t);
     },
@@ -214,6 +212,9 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
                   searchOptions={{ makes: ["opc"] }}
                 />
               )}
+            </Form.Field>
+            <Form.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
+              {(p) => <Input.Switch {...p} />}
             </Form.Field>
             <Form.Field<number> label="Sample Rate" path="config.sampleRate">
               {(p) => <Input.Numeric {...p} />}
@@ -416,9 +417,7 @@ export const ChannelListItem = ({
       entry={childValues}
       justify="spaceBetween"
       align="center"
-      onKeyDown={(e) => {
-        if (["Delete", "Backspace"].includes(e.key)) props.remove?.();
-      }}
+      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && props.remove?.()}
     >
       <Align.Space direction="y" size="small">
         <Text.Text level="p" weight={500} shade={9} color={channelColor}>
@@ -434,9 +433,7 @@ export const ChannelListItem = ({
         value={entry.enabled}
         size="small"
         onClick={(e) => e.stopPropagation()}
-        onChange={(v) => {
-          ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
-        }}
+        onChange={(v) => ctx.set({ path: `${path}.${props.index}.enabled`, value: v })}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>
             Data acquisition for this channel is{" "}

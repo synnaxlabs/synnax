@@ -21,12 +21,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = select({
         "@bazel_tools//src/conditions:windows": [
+            "//driver/loop",
             "//driver/pipeline",
-            "//driver/task",
         ],
         "//conditions:default": [
+            "//driver/loop",
             "//driver/pipeline",
-            "//driver/task",
         ],
     }),
 )

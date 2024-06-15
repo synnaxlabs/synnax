@@ -49,8 +49,7 @@ def create_valve_set(
 @pytest.mark.control
 class TestController:
     def test_valve_toggle(self, client: sy.Synnax):
-        """A happy path test that asserts basic functionality on the controller
-        """
+        """A happy path test that asserts basic functionality on the controller"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = {}
@@ -98,8 +97,7 @@ class TestController:
         assert assertions["seq_second_ack"]
 
     def test_controller_channel_not_found(self, client: sy.Synnax):
-        """Test that the controller raises a KeyError when a channel is not found
-        """
+        """Test that the controller raises a KeyError when a channel is not found"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
         with pytest.raises(KeyError, match="Channel .* not found in controller state"):
             with client.control.acquire(

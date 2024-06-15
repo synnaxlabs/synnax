@@ -2,10 +2,9 @@ cc_library(
     name = "driver",
     srcs = [
         "config.cpp",
-        "driver.cpp",
     ],
     hdrs = [
-        "driver.h",
+        "config.h",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
@@ -48,6 +47,7 @@ cc_binary(
     srcs = ["main.cpp"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:linux": ["-std=c++20"],
         "//conditions:default": [],
     }),
     linkopts = select({
@@ -63,7 +63,7 @@ cc_binary(
             "//driver",
             "//driver/breaker",
             "//driver/meminfo",
-            "//driver/ni",
+            #            "//driver/ni",
             "//driver/opc",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",
@@ -74,7 +74,7 @@ cc_binary(
             "//driver",
             "//driver/breaker",
             "//driver/meminfo",
-            "//driver/ni",
+            #            "//driver/ni",
             "//driver/opc",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",
@@ -85,7 +85,7 @@ cc_binary(
             "//driver",
             "//driver/breaker",
             "//driver/meminfo",
-            "//driver/ni",
+            #            "//driver/ni",
             "//driver/opc",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",

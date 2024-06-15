@@ -9,8 +9,8 @@
 
 import { QueryError } from "@synnaxlabs/client";
 import { Status, Synnax, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
-import { useEffect } from "react";
+import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { useEffect, useReducer, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -22,11 +22,13 @@ export const useSyncLayout = async (): Promise<void> => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
+  const prevSync = useRef<unknown>();
   const sync = useDebouncedCallback(
     (s: RootState): void => {
       const key = selectActiveKey(s);
       if (key == null || client == null) return;
       const layoutSlice = Layout.selectSliceState(s);
+      if (deep.equal(prevSync.current, layoutSlice)) return;
       client.workspaces
         .setLayout(key, layoutSlice as unknown as UnknownRecord)
         .catch((e) => {

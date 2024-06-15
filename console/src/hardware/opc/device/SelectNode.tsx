@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type List, Select, Synnax } from "@synnaxlabs/pluto";
+import { type List, Select, Synnax, Text } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement, useMemo } from "react";
 
@@ -41,6 +41,10 @@ const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
   {
     name: "Is Array",
     key: "isArray",
+    width: 100,
+    render: ({ entry: { isArray } }) => (
+      <Text.Text level="p">{isArray ? "Yes" : "No"}</Text.Text>
+    ),
   },
 ];
 
@@ -55,7 +59,13 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
         .map((c) => {
           const n = parseNodeId(c.nodeId);
           if (n == null) return null;
-          return { name: c.name, key: c.nodeId, ...n, dataType: c.dataType };
+          return {
+            name: c.name,
+            key: c.nodeId,
+            ...n,
+            dataType: c.dataType,
+            isArray: c.isArray,
+          };
         })
         .filter((n) => n != null) as NodeEntry[],
     [data],

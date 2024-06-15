@@ -107,7 +107,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				_, ok := tracker.GetTask(ctx, taskKey)
 				g.Expect(ok).To(BeTrue())
 			})
-			Expect(trackerCfg.Task.NewWriter(nil).Delete(ctx, taskKey)).To(Succeed())
+			Expect(trackerCfg.Task.NewWriter(nil).Delete(ctx, taskKey, false)).To(Succeed())
 			Eventually(func(g Gomega) {
 				_, ok := tracker.GetTask(ctx, taskKey)
 				g.Expect(ok).To(BeFalse())

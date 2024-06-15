@@ -33,16 +33,43 @@ export const readChanZ = z.object({
 export const readConfigZ = z
   .object({
     device: z.string().min(1, "Device must be specified"),
-    sampleRate: z.number().min(0).max(10000),
-    streamRate: z.number().min(0).max(200),
+    sampleRate: z.number().min(1).max(10000),
+    streamRate: z.number(),
     arrayMode: z.boolean(),
     arraySize: z.number().min(1),
     channels: z.array(readChanZ),
+    dataSaving: z.boolean().optional().default(true),
   })
-  .refine((cfg) => cfg.sampleRate >= cfg.streamRate, {
-    message: "Sample rate must be greater than or equal to stream rate",
-    path: ["sampleRate"],
-  })
+  .refine(
+    (cfg) => {
+      if (cfg.arrayMode) return true;
+      return cfg.sampleRate >= cfg.streamRate;
+    },
+    {
+      message: "Sample rate must be greater than or equal to stream rate",
+      path: ["sampleRate"],
+    },
+  )
+  .refine(
+    (cfg) => {
+      if (!cfg.arrayMode) return true;
+      return cfg.sampleRate >= cfg.arraySize;
+    },
+    {
+      message: "Sample rate must be greater than or equal to the array size",
+      path: ["sampleRate"],
+    },
+  )
+  .refine(
+    (cfg) => {
+      if (cfg.arrayMode) return true;
+      return cfg.streamRate > 0;
+    },
+    {
+      message: "Stream rate must be greater than or equal to 1",
+      path: ["streamRate"],
+    },
+  )
   // Error if channel ahs been duplicated
   .superRefine((cfg, ctx) => {
     const channels = new Map<number, number>();
@@ -75,6 +102,10 @@ export const readConfigZ = z
         },
       });
     });
+  })
+  .transform((cfg) => {
+    if (!cfg.arrayMode) cfg.arraySize = 1;
+    return cfg;
   });
 
 export type ReadConfig = z.infer<typeof readConfigZ>;
@@ -91,6 +122,7 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
     arrayMode: false,
     arraySize: 1,
     channels: [],
+    dataSaving: true,
   },
 };
 

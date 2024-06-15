@@ -44,6 +44,8 @@ namespace opc {
             const synnax::Task &task
         );
 
+        std::string name() override { return task.name; }
+
         void exec(task::Command &cmd) override;
 
         void stop() override {

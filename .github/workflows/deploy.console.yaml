@@ -1,4 +1,4 @@
-name: Console Deploy
+name: Deploy - Console
 on:
   push:
     branches:
@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - rc
+      - main
   workflow_dispatch:
 permissions:
   contents: write
@@ -40,6 +41,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
             changed:
               - "console/**"
@@ -117,7 +119,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/rc'
         working-directory: ./console/src-tauri
         run: |
-          jq '.plugins.updater.endpoints = "https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"' tauri.conf.json > temp.json
+          jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
           rm tauri.conf.json
           mv temp.json tauri.conf.json
 
@@ -224,7 +226,7 @@ jobs:
             const ecd = new TextDecoder();
 
             const data = {
-              version: `v${version}`,
+              version: `v${pureVersion}`,
               notes: "Synnax Update",
               pub_date,
               platforms: {

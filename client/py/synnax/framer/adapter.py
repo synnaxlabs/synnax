@@ -65,11 +65,7 @@ class WriteFrameAdapter:
     __keys: list[ChannelKey] | None
     __err_on_extra_chans: bool
 
-    def __init__(
-            self,
-            retriever: ChannelRetriever,
-            err_on_extra_chans: bool = True
-    ):
+    def __init__(self, retriever: ChannelRetriever, err_on_extra_chans: bool = True):
         self.retriever = retriever
         self.__adapter = None
         self.__keys = None
@@ -153,7 +149,9 @@ class WriteFrameAdapter:
             series = list()
             for col in cols:
                 try:
-                    channels.append(self.__adapter[col] if isinstance(col, ChannelName) else col)
+                    channels.append(
+                        self.__adapter[col] if isinstance(col, ChannelName) else col
+                    )
                     series.append(Series(channels_or_data[col]))
                 except KeyError as e:
                     if self.__err_on_extra_chans:

@@ -35,7 +35,7 @@ TEST(FramerTests, testWriteBasic) {
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{time.key, data.key},
         now,
-        std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
+        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"},
     });
     ASSERT_FALSE(wErr) << wErr.message();
@@ -60,7 +60,7 @@ TEST(FramerTests, testWriteBasic) {
     );
 
 
-    ASSERT_TRUE(writer.write(std::move(frame)));
+    ASSERT_TRUE(writer.write(frame));
     auto [end, ok] = writer.commit();
     ASSERT_TRUE(ok);
     ASSERT_EQ(end.value, (now + (synnax::SECOND * 8 + 1)).value);
@@ -81,7 +81,7 @@ TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
     auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{time.key, 1000},
         now,
-        std::vector<synnax::Authority>{synnax::ABSOLUTE},
+        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"},
     });
     ASSERT_TRUE(w_err) << w_err.message();
@@ -100,7 +100,7 @@ TEST(FramerTests, testWriteToUnspecifiedChannel) {
     auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{time.key},
         synnax::TimeStamp::now(),
-        std::vector<synnax::Authority>{synnax::ABSOLUTE},
+        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"},
     });
     ASSERT_FALSE(w_err) << w_err.message();
@@ -135,7 +135,7 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
     auto [w1, w_err] = client.telem.openWriter(synnax::WriterConfig{
         .channels = std::vector{time.key, data.key},
         .start = synnax::TimeStamp::now(),
-        .authorities = std::vector{synnax::ABSOLUTE, synnax::ABSOLUTE},
+        .authorities = std::vector{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
         .subject = synnax::ControlSubject{"test_writer_1"},
         .err_on_unauthorized = true
     });
@@ -143,7 +143,7 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
     auto [w2, w2_err] = client.telem.openWriter(synnax::WriterConfig{
         .channels = std::vector{time.key, data.key},
         .start = synnax::TimeStamp::now(),
-        .authorities = std::vector{synnax::ABSOLUTE, synnax::ABSOLUTE},
+        .authorities = std::vector{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
         .subject = synnax::ControlSubject{"test_writer_2"},
         .err_on_unauthorized = true
     });

@@ -1,4 +1,4 @@
-name: Synnax Deploy
+name: Deploy - Synnax
 on:
   push:
     branches:
@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - rc
+      - main
   workflow_dispatch:
 permissions:
   contents: write
@@ -35,6 +36,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
             changed:
               - 'synnax/**'
@@ -241,6 +243,9 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
             docker push ghcr.io/synnaxlabs/synnax:latest
+          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:rc
+            docker push ghcr.io/synnaxlabs/synnax:rc
           fi
 
       - name: Push to Docker Hub
@@ -251,4 +256,7 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:latest
             docker push synnaxlabs/synnax:latest
+          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:rc
+            docker push synnaxlabs/synnax:rc
           fi

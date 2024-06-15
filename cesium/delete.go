@@ -46,7 +46,7 @@ var DefaultGCConfig = GCConfig{
 	GCThreshold:   0.2,
 }
 
-func channelDirName(ch ChannelKey) string {
+func keyToDirName(ch ChannelKey) string {
 	return strconv.Itoa(int(ch))
 }
 
@@ -62,7 +62,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	// directory, which may take a longer time.
 	// Rename the file to have a random suffix in case the channel is repeatedly created
 	// and deleted.
-	oldName := channelDirName(ch)
+	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 	if err := (func() error {
 		db.mu.Lock()
@@ -123,7 +123,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 		// Rename the files first, so we can avoid hogging the mutex while deleting
 		// the directory, which may take a longer time.
-		oldName := channelDirName(ch)
+		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
@@ -140,7 +140,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 			return
 		}
 
-		oldName := channelDirName(ch)
+		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
