@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"fmt"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -37,9 +36,6 @@ const (
 	WriterError
 	// WriterSetAuthority represents a call to Writer.SetAuthority.
 	WriterSetAuthority
-	// WriterSetMode sets the operating WriterMode for the Writer. See the WriterMode
-	// documentation for more.
-	WriterSetMode
 )
 
 // WriterRequest is a request containing an arrow.Record to write to the DB.
@@ -126,8 +122,8 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
-	if req.Command < WriterWrite || req.Command > WriterSetMode {
-		panic(fmt.Sprintf("invalid command %v", req.Command))
+	if req.Command < WriterWrite || req.Command > WriterSetAuthority {
+		return
 	}
 	if req.Command == WriterError {
 		w.seqNum++
@@ -138,12 +134,6 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 	if req.Command == WriterSetAuthority {
 		w.seqNum++
 		w.setAuthority(ctx, req.Config)
-		w.sendRes(req, true, nil, 0)
-		return
-	}
-	if req.Command == WriterSetMode {
-		w.seqNum++
-		w.setMode(req.Config)
 		w.sendRes(req, true, nil, 0)
 		return
 	}
@@ -214,16 +204,6 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 			w.err = err
 		}
 	}
-}
-
-func (w *streamWriter) setMode(cfg WriterConfig) {
-	persist := cfg.Mode < WriterStreamOnly
-	for _, idx := range w.internal {
-		for _, chW := range idx.internal {
-			chW.SetPersist(persist)
-		}
-	}
-	w.Mode = cfg.Mode
 }
 
 func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {

@@ -32,7 +32,7 @@ public:
     /// trigger a breaker (temporary backoff), and then retry the read operation. Any
     /// other error type will be considered a permanent error and the pipeline will
     /// exit.
-    virtual std::pair<Frame, freighter::Error> read() = 0;
+    virtual std::pair<Frame, freighter::Error> read(breaker::Breaker& breaker) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that caused
     /// it to shut down or occurred during commanded shutdown.

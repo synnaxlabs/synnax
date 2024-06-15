@@ -65,13 +65,11 @@ void customLogger(
         case UA_LOGLEVEL_TRACE:
         case UA_LOGLEVEL_DEBUG:
         case UA_LOGLEVEL_INFO:
+        case UA_LOGLEVEL_WARNING:
             VLOG(1) << prefix << buffer;
             break;
-        case UA_LOGLEVEL_WARNING:
-            LOG(WARNING) << prefix << buffer;
-            break;
         case UA_LOGLEVEL_ERROR:
-            LOG(ERROR) << prefix << buffer;
+            LOG(WARNING) << prefix << buffer;
             break;
         case UA_LOGLEVEL_FATAL:
             LOG(FATAL) << prefix << buffer;
@@ -115,7 +113,6 @@ UA_ByteString convertStringToUAByteString(const std::string &certString) {
 
 // Function to extract URI from client certificate using mbedtls
 std::string extractApplicationUriFromCert(const std::string &certPath) {
-    std::cout << "extracting application URI" << std::endl;
     mbedtls_x509_crt crt;
     mbedtls_x509_crt_init(&crt);
 
@@ -156,7 +153,6 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
     // Clean up
     UA_ByteString_clear(&certData);
     mbedtls_x509_crt_free(&crt);
-    std::cout << "extracting application URI" << std::endl;
     return applicationUri;
 }
 
@@ -299,10 +295,10 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
 
     const auto status_name = UA_StatusCode_name(status);
-    LOG(ERROR) << "[opc.scanner] Failed to connect: " << std::string(status_name);
+    LOG(WARNING) << "[opc.scanner] failed to connect: " << std::string(status_name);
     return {
         std::move(client),
         freighter::Error(freighter::TYPE_UNREACHABLE,
-                         "Failed to connect: " + std::string(status_name))
+                         "failed to connect: " + std::string(status_name))
     };
 }

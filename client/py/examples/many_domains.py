@@ -39,6 +39,4 @@ with client.open_iterator(tr, [data_ch.key]) as it:
     i = 0
     for frame in it:
         print(len(frame.get(data_ch.key)))
-        i+=1
-
-
+        i += 1

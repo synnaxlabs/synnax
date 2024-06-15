@@ -140,6 +140,7 @@ type HardwareRetrieveTaskRequest struct {
 	Rack         rack.Key
 	Keys         []task.Key `json:"keys" msgpack:"keys"`
 	Names        []string   `json:"names" msgpack:"names"`
+	Types        []string   `json:"types" msgpack:"types"`
 	IncludeState bool       `json:"include_state" msgpack:"include_state"`
 	Search       string     `json:"search" msgpack:"search"`
 	Limit        int        `json:"limit" msgpack:"limit"`
@@ -155,6 +156,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 		hasSearch = len(req.Search) > 0
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
+		hasTypes  = len(req.Types) > 0
 		hasLimit  = req.Limit > 0
 		hasOffset = req.Offset > 0
 	)
@@ -164,6 +166,9 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	}
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
+	}
+	if hasTypes {
+		q = q.WhereTypes(req.Types...)
 	}
 	if hasSearch {
 		q = q.Search(req.Search)
@@ -200,7 +205,7 @@ func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTa
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Task.NewWriter(tx)
 		for _, k := range req.Keys {
-			if err := w.Delete(ctx, k); err != nil {
+			if err := w.Delete(ctx, k, false); err != nil {
 				return err
 			}
 		}
