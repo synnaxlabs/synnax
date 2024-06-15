@@ -316,7 +316,7 @@ ni::StateSource::StateSource(std::uint64_t state_rate, synnax::ChannelKey &drive
     }
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::StateSource::read() {
+std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(breaker::Breaker& breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     waiting_reader.wait_for(lock, state_period);
     return std::make_pair(this->getDriveState(), freighter::NIL);

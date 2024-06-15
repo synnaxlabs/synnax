@@ -98,7 +98,7 @@ namespace ni {
 
         virtual void getIndexKeys();
 
-        virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
+        virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker& breaker) = 0;
 
         virtual void parseChannels(config::Parser &parser) = 0;
 
@@ -144,7 +144,7 @@ namespace ni {
                 const synnax::Task task
         ) : Source(task_handle, ctx, task) {}
 
-        std::pair<synnax::Frame, freighter::Error> read() override;
+        std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker& breaker) override;
 
         void acquireData() override;
 
@@ -152,8 +152,7 @@ namespace ni {
 
         int createChannels() override;
 
-        std::shared_ptr<ni::Analog>
-        parseChannel(config::Parser &parser, std::string channel_type, std::string channel_name);
+        std::shared_ptr<ni::Analog> parseChannel(config::Parser &parser, std::string channel_type, std::string channel_name);
 
         void parseChannels(config::Parser &parser) override;
 
@@ -175,7 +174,7 @@ namespace ni {
                 const synnax::Task task
         ) : Source(task_handle, ctx, task) {}
 
-        std::pair<synnax::Frame, freighter::Error> read() override;
+        std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker& breaker) override;
 
         void acquireData() override;
 
@@ -197,7 +196,7 @@ namespace ni {
         explicit StateSource(std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key,
                              std::vector<synnax::ChannelKey> &drive_state_channel_keys);
 
-        std::pair<synnax::Frame, freighter::Error> read();
+        std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker& breaker);
 
         freighter::Error start();
 

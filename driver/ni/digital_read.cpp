@@ -108,7 +108,7 @@ void ni::DigitalReadSource::acquireData() {
 
 
 // TODO: code dedup with analogreadsource read
-std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read() {
+std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(breaker::Breaker& breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
     // sleep per stream rate
     std::this_thread::sleep_for(

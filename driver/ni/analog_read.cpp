@@ -35,17 +35,18 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
                     // analog channel names are formatted: <device_name>/ai<port>
                     config.name = (this->reader_config.device_name + "/ai" +
                                    std::to_string(channel_builder.required<std::uint64_t>("port")));
+
                     config.channel_key = channel_builder.required<uint32_t>("channel");
                     config.channel_type = channel_builder.required<std::string>("channel_type");
 
                     // TODO: check scale parser in the function below
-                    config.ni_channel = this->parseChannel(channel_builder, config.channel_type);
+                    config.ni_channel = this->parseChannel(channel_builder, config.channel_type, config.name);
 
                     this->reader_config.channels.push_back(config);
                 });
 }
 
-ni::Analog ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string channel_type) {
+std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string channel_type,std::string channel_name) {
     // if (channel_type == "ai_accel") {
     //     return Accel(parser, this->task_handle);
     // }
@@ -131,7 +132,7 @@ ni::Analog ni::AnalogReadSource::parseChannel(config::Parser &parser, std::strin
     //     return VelocityIEPE(parser, this->task_handle);
     // }
     if (channel_type == "ai_voltage") {
-        return Voltage(parser, this->task_handle);
+        return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
     }
     // if (channel_type == "ai_voltage_rms") {
     //     return VoltageRMS(parser, this->task_handle);
@@ -196,7 +197,7 @@ void ni::AnalogReadSource::acquireData() {
     }
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read() {
+std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(breaker::Breaker& breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
     // sleep per stream rate
     std::this_thread::sleep_for(
@@ -246,8 +247,8 @@ int ni::AnalogReadSource::createChannels() {
         this->numChannels++;
         if (channel.channel_type == "index") continue;
         this->numAIChannels++;
-        this->checkNIError(channel.ni_channel.createNIScale());
-        this->checkNIError(channel.ni_channel.createNIChannel());
+        this->checkNIError(channel.ni_channel->createNIScale());
+        this->checkNIError(channel.ni_channel->createNIChannel());
         if (!this->ok()) {
             LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.name;
             return -1;
