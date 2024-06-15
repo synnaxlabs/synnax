@@ -144,8 +144,10 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
 def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     assert cli.reader is not None
     data_types = {
-        key: dt for key, dt in read_data_types(ctx, cli).items() if dt ==
-                                                                    DataType.UNKNOWN}
+        key: dt
+        for key, dt in read_data_types(ctx, cli).items()
+        if dt == DataType.UNKNOWN
+    }
     if len(data_types) > 0:
         ctx.console.info("The following channels have non-numeric data types")
         channel_name_table(ctx, [ch for ch in data_types.keys()])

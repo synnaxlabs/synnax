@@ -87,7 +87,7 @@ try:
                 name=f"{dual_press_start.__str__()[11:16]} Dual Press Sequence",
                 time_range=sy.TimeRange(dual_press_start, dual_press_end),
                 # a nice red
-                color="#D81E5B"
+                color="#D81E5B",
             )
 
             press_tank_start = sy.TimeStamp.now()
@@ -117,7 +117,7 @@ try:
                 name=f"{press_tank_start.__str__()[11:16]} Press Tank Pressurization",
                 time_range=sy.TimeRange(press_tank_start, press_tank_end),
                 # a nice blue
-                color="#1E90FF"
+                color="#1E90FF",
             )
 
             start = sy.TimeStamp.now()
@@ -144,11 +144,13 @@ try:
             )
         except KeyboardInterrupt:
             print("Test interrupted. Safeing System")
-            auto.set({
-                TPC_CMD: 1,
-                PRESS_ISO_CMD: 0,
-                VENT_CMD: 0,
-                MPV_CMD: 1,
-            })
+            auto.set(
+                {
+                    TPC_CMD: 1,
+                    PRESS_ISO_CMD: 0,
+                    VENT_CMD: 0,
+                    MPV_CMD: 1,
+                }
+            )
 finally:
     time.sleep(100)

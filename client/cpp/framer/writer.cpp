@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+
 #include "client/cpp/framer/framer.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
 
 const std::string WRITE_ENDPOINT = "/frame/write";
 

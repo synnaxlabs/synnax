@@ -243,8 +243,9 @@ func (c Channel) Free() bool { return c.Leaseholder == core.Free }
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
 		Key:         c.Key().StorageKey(),
-		DataType:    c.DataType,
+		Name:        c.Name,
 		IsIndex:     c.IsIndex,
+		DataType:    c.DataType,
 		Rate:        c.Rate,
 		Index:       ts.ChannelKey(c.Index()),
 		Virtual:     c.Virtual,

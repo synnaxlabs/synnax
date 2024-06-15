@@ -363,76 +363,57 @@ auto [cmd_idx, tErr2] = client->channels.create( // index channel for cmd
         synnax::TIMESTAMP,
         0,
         true
-);
-ASSERT_FALSE(tErr2)
-<< tErr2.
+    );
+    ASSERT_FALSE(tErr2) << tErr2.message();
+    auto [ack, aErr] = client->channels.create( // ack channel
+            "do_state",
+            synnax::UINT8,
+            ack_idx.key,
+            false
+    );
+    ASSERT_FALSE(aErr) << aErr.message();
+    auto [cmd, cErr] = client->channels.create( // cmd channel
+            "do_cmd",
+            synnax::UINT8,
+            cmd_idx.key,
+            false
+    );
+    ASSERT_FALSE(cErr) << cErr.message();
 
-message();
+    // create reader config json
+    auto config = json{
+            {"device_name", "Dev1"},
+            {"stream_rate", 1}
+    };
 
-auto [ack, aErr] = client->channels.create( // ack channel
-        "do_state",
-        synnax::UINT8,
-        ack_idx.key,
-        false
-);
-ASSERT_FALSE(aErr)
-<< aErr.
+    add_index_channel_JSON(config, "do1_idx", cmd_idx.key);
+    add_DO_channel_JSON(config, "do_cmd", cmd.key, ack.key, 0, 0);
+    add_drive_state_index_channel_JSON(config, "do_state_idx", ack_idx.key);
 
-message();
+    // create synnax task
+    auto task = synnax::Task(
+            "my_task",
+            "niWriter",
+            to_string(config)
+    );
 
-auto [cmd, cErr] = client->channels.create( // cmd channel
-        "do_cmd",
-        synnax::UINT8,
-        cmd_idx.key,
-        false
-);
-ASSERT_FALSE(cErr)
-<< cErr.
+        // print config
+        std::cout << "D9igital Writer Task Config: " << config.dump(4) << std::endl;
 
-message();
+    auto mockCtx = std::make_shared<task::MockContext>(client);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-// create reader config json
-auto config = json{
-        {"device_name", "Dev1"},
-        {"stream_rate", 1}
-};
+    // create a writer to write to cmd channel (for test use only)
+    auto cmdWriterConfig = synnax::WriterConfig{
+                .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
+                .start = TimeStamp::now(),
+                .mode = synnax::StreamOnly};
 
-add_index_channel_JSON(config,
-"do1_idx", cmd_idx.key);
-add_DO_channel_JSON(config,
-"do_cmd", cmd.key, ack.key, 0, 0);
-add_drive_state_index_channel_JSON(config,
-"do_state_idx", ack_idx.key);
+    auto [cmdWriter, wErr] = client->telem.openWriter(cmdWriterConfig);
+    ASSERT_FALSE(wErr) << wErr.message();
 
-// create synnax task
-auto task = synnax::Task(
-        "my_task",
-        "niWriter",
-        to_string(config)
-);
-
-// print config
-std::cout << "D9igital Writer Task Config: " << config.dump(4) <<
-std::endl;
-
-auto mockCtx = std::make_shared<task::MockContext>(client);
-std::this_thread::sleep_for(std::chrono::milliseconds(10)
-);
-
-// create a writer to write to cmd channel (for test use only)
-auto cmdWriterConfig = synnax::WriterConfig{
-        .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
-        .start = TimeStamp::now(),
-        .mode = synnax::WriterStreamOnly};
-
-auto [cmdWriter, wErr] = client->telem.openWriter(cmdWriterConfig);
-ASSERT_FALSE(wErr)
-<< wErr.
-
-message();
-
-// create a streamer to stream do_state channel (for in test use only)
-auto doStateStreamerConfig = synnax::StreamerConfig{
+    // create a streamer to stream do_state channel (for in test use only)
+    auto doStateStreamerConfig = synnax::StreamerConfig{
         .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
         .start = TimeStamp::now(),
 };

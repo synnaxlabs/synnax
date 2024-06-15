@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <string>
 #include <random>
+#include <string>
 #include <include/gtest/gtest.h>
+
 #include "client/cpp/synnax.h"
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/testutil/testutil.h"
@@ -139,7 +140,7 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
     auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve("my_definitely_not_found");
     ASSERT_TRUE(err) << err.message();
-    ASSERT_EQ(err.type, synnax::NOT_FOUND);
+    ASSERT_EQ(err, synnax::NOT_FOUND);
 }
 
 /// @brief it should retrieve many channels by their key.

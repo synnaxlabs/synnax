@@ -68,7 +68,7 @@ interface UseField {
  */
 export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   path,
-  optional,
+  optional: propsOptional = false,
   onChange,
 }: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
   const ctx = useContext();
@@ -79,7 +79,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   useLayoutEffect(() => {
     setState(get<I>({ path, optional }));
     return bind({ path, onChange: setState, listenToChildren: false });
-  }, [path, bind, setState]);
+  }, [path, bind, setState, optional]);
 
   const handleChange = useCallback(
     (value: O) => {
@@ -248,7 +248,7 @@ export const useFieldArray = <V extends unknown = unknown>({
 
   const push = useCallback(
     (value: V | V[]) => {
-      const copy = shallowCopy(get<V[]>({ path }).value);
+      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
       copy.push(...toArray(value));
       set({ path, value: copy });
     },
@@ -453,7 +453,7 @@ export const use = <Z extends z.ZodTypeAny>({
         const keys = Array.from(status.keys());
         status.clear();
         keys.forEach((p) => {
-          const fs = get({ path: p });
+          const fs = get({ path: p, optional: true });
           if (fs == null) return;
           listeners.get(p)?.forEach((l) => l(fs));
         });
@@ -488,8 +488,8 @@ export const use = <Z extends z.ZodTypeAny>({
       status.forEach((_, subPath) => {
         if (!issueKeys.has(subPath)) {
           status.delete(subPath);
-          const fs = get({ path: subPath });
-          listeners.get(subPath)?.forEach((l) => l(fs));
+          const fs = get({ path: subPath, optional: true });
+          if (fs != null) listeners.get(subPath)?.forEach((l) => l(fs));
         }
       });
       return success;
@@ -527,15 +527,15 @@ export const use = <Z extends z.ZodTypeAny>({
     } catch {
       validateAsync();
     }
-    listeners.forEach((lis, lisPath) => {
-      if (!deep.pathsMatch(lisPath, path)) return;
-      const fs = get({ path: lisPath, optional: true });
-      if (fs != null) lis.forEach((l) => l(fs));
+    listeners.get(path)?.forEach((l) => {
+      const fs = get({ path, optional: true });
+      if (fs != null) l(fs);
     });
     parentListeners.forEach((lis, lisPath) => {
-      if (!deep.pathsMatch(path, lisPath) && !deep.pathsMatch(lisPath, path)) return;
-      const fs = get({ path: lisPath, optional: true });
-      if (fs != null) lis.forEach((l) => l(fs));
+      if (deep.pathsMatch(path, lisPath)) {
+        const v = get({ path: lisPath, optional: true });
+        if (v != null) lis.forEach((l) => l(v));
+      }
     });
     onChangeRef.current?.(ref.current.state);
   }, []);
@@ -557,7 +557,7 @@ export const use = <Z extends z.ZodTypeAny>({
     const { listeners } = ref.current;
     ref.current.state = values;
     listeners.forEach((lis, p) => {
-      const v = get({ path: p });
+      const v = get({ path: p, optional: true });
       if (v == null) return;
       lis.forEach((l) => l(v));
     });

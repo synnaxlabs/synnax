@@ -129,7 +129,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
                 const newPositions = Diagram.alignNodes(layouts, "x");
                 dispatch(
                   setNodePositions({
-                    layoutKey,
+                    key: layoutKey,
                     positions: Object.fromEntries(
                       newPositions.map((n) => [n.key, box.topLeft(n.box)]),
                     ),
@@ -145,7 +145,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
                 const newPositions = Diagram.alignNodes(layouts, "y");
                 dispatch(
                   setNodePositions({
-                    layoutKey,
+                    key: layoutKey,
                     positions: Object.fromEntries(
                       newPositions.map((n) => [n.key, box.topLeft(n.box)]),
                     ),

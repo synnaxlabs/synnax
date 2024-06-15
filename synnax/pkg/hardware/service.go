@@ -69,12 +69,13 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	}
 
 	stateSvc, err := state.OpenTracker(ctx, state.TrackerConfig{
-		DB:           cfg.DB,
-		Rack:         rackSvc,
-		Task:         taskSvc,
-		Signals:      cfg.Signals,
-		HostProvider: cfg.HostProvider,
-		Channels:     cfg.Channel,
+		Instrumentation: cfg.Instrumentation,
+		DB:              cfg.DB,
+		Rack:            rackSvc,
+		Task:            taskSvc,
+		Signals:         cfg.Signals,
+		HostProvider:    cfg.HostProvider,
+		Channels:        cfg.Channel,
 	})
 	if err != nil {
 		return nil, err
