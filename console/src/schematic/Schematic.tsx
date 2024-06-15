@@ -148,7 +148,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const prevName = usePrevious(name);
   useEffect(() => {
-    console.log("DISPATCH");
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
 
