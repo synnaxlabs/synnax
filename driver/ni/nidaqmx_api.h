@@ -81,7 +81,512 @@ namespace ni {
             float64 maxVal, 
             int32 units,
             const char customScaleName[]
-        );
+            );
+
+        virtual int32 CreateAIVoltageRMSChan( 
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig, float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            const char customScaleName[]
+            );
+
+        virtual int32 CreateAIVoltageChanWithExcit(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig, 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 bridgeConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            bool32 useExcitForScaling, 
+            const char customScaleName[]
+            );
+
+        virtual int32 CreateAIAccel4WireDCVoltageChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig, 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            float64 sensitivity, 
+            int32 sensitivityUnits, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            bool32 useExcitForScaling, 
+            const char customScaleName[]
+            );
+            
+        virtual int32 CreateAIAccelChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig,
+             float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            float64 sensitivity, 
+            int32 sensitivityUnits, int32 currentExcitSource, float64 currentExcitVal, const char customScaleName[]
+            );
+
+        virtual int32 CreateAIAccelChargeChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig, 
+            float64 minVal, 
+            float64 maxVal, int32 units, 
+            float64 sensitivity, int32 sensitivityUnits, const char customScaleName[]
+            );
+
+        virtual int32 CreateAIBridgeChan(
+                TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, int32 units, 
+            int32 bridgeConfig, 
+            int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance, const char customScaleName[]);
+
+        virtual int32 CreateAIChargeChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig, 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            const char customScaleName[]
+            );
+
+        virtual int32 CreateAICurrentChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig,
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 shuntResistorLoc, 
+            float64 extShuntResistorVal, 
+            const char customScaleName[]
+            );
+
+        virtual int32 CreateAICurrentRMSChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig, 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 shuntResistorLoc, 
+            float64 extShuntResistorVal, 
+            const char customScaleName[]
+            );
+
+        virtual int32 CreateAIForceBridgePolynomialChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, float64 maxVal, 
+            int32 units, 
+            int32 bridgeConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance, 
+            const float64 forwardCoeffs[], 
+            uInt32 numForwardCoeffs,
+             const float64 reverseCoeffs[], 
+            uInt32 numReverseCoeffs, 
+            int32 electricalUnits, 
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+       
+        virtual int32 CreateAIForceBridgeTableChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, int32 bridgeConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance, 
+            const float64 electricalVals[], 
+            uInt32 numElectricalVals, 
+            int32 electricalUnits, 
+            const float64 physicalVals[], 
+            uInt32 numPhysicalVals, 
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+        
+        virtual int32 CreateAIForceBridgeTwoPointLinChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 bridgeConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance, 
+            float64 firstElectricalVal, 
+            float64 secondElectricalVal, 
+            int32 electricalUnits, 
+            float64 firstPhysicalVal, 
+            float64 secondPhysicalVal, 
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+       
+        virtual int32 CreateAIForceIEPEChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig, 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            float64 sensitivity, 
+            int32 sensitivityUnits, 
+            int32 currentExcitSource, 
+            float64 currentExcitVal, 
+            const char customScaleName[]
+            );
+        
+        virtual int32 CreateAIFreqVoltageChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            float64 thresholdLevel, 
+            float64 hysteresis, 
+            const char customScaleName[]
+            );
+     
+        virtual int32 CreateAIMicrophoneChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[],
+            int32 terminalConfig, 
+            int32 units, 
+            float64 micSensitivity, 
+            float64 maxSndPressLevel, 
+            int32 currentExcitSource, 
+            float64 currentExcitVal, 
+            const char customScaleName[]
+            );
+
+        virtual int32 CreateAIPosEddyCurrProxProbeChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            float64 sensitivity, 
+            int32 sensitivityUnits, 
+            const char customScaleName[]
+            );
+    
+        virtual int32 CreateAIPosLVDTChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, int32 units, 
+            float64 sensitivity, 
+            int32 sensitivityUnits, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 voltageExcitFreq, 
+            int32 acExcitWireMode, 
+            const char customScaleName[]
+            );
+     
+        virtual int32 CreateAIPosRVDTChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[],
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            float64 sensitivity, 
+            int32 sensitivityUnits, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 voltageExcitFreq,
+             int32 acExcitWireMode, 
+             const char customScaleName[]
+             );
+     
+        virtual int32 CreateAIPowerChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 voltageSetpoint,
+            float64 currentSetpoint, bool32 outputEnable
+            );
+      
+        virtual int32 CreateAIPressureBridgePolynomialChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal,
+            float64 maxVal, 
+            int32 units, 
+            int32 bridgeConfig,
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance,
+            const float64 forwardCoeffs[], 
+            uInt32 numForwardCoeffs, 
+            const float64 reverseCoeffs[], 
+            uInt32 numReverseCoeffs, 
+            int32 electricalUnits, 
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+    
+        virtual int32 CreateAIPressureBridgeTableChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 bridgeConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance, 
+            const float64 electricalVals[], 
+            uInt32 numElectricalVals, 
+            int32 electricalUnits,
+            const float64 physicalVals[],
+            uInt32 numPhysicalVals, 
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+      
+        virtual int32 CreateAIPressureBridgeTwoPointLinChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 bridgeConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance,
+            float64 firstElectricalVal, 
+            float64 secondElectricalVal, 
+            int32 electricalUnits, 
+            float64 firstPhysicalVal, 
+            float64 secondPhysicalVal,
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+        
+        virtual int32 CreateAIRTDChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal,
+            int32 units, 
+            int32 rtdType, 
+            int32 resistanceConfig, 
+            int32 currentExcitSource, float64 currentExcitVal, float64 r0);
+       
+        virtual int32 CreateAIResistanceChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[],
+            float64 minVal,
+            float64 maxVal, 
+            int32 units, 
+            int32 resistanceConfig, 
+            int32 currentExcitSource, 
+            float64 currentExcitVal, 
+            const char customScaleName[]
+            );
+       
+        virtual int32 CreateAIRosetteStrainGageChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[],
+            float64 minVal, 
+            float64 maxVal, 
+            int32 rosetteType, 
+            float64 gageOrientation, 
+            const int32 rosetteMeasTypes[], 
+            uInt32 numRosetteMeasTypes,
+            int32 strainConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 gageFactor, 
+            float64 nominalGageResistance, 
+            float64 poissonRatio, 
+            float64 leadWireResistance
+            );
+     
+        virtual int32 CreateAIStrainGageChan(
+                TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[],
+            float64 minVal,
+            float64 maxVal, 
+            int32 units, 
+            int32 strainConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 gageFactor, 
+            float64 initialBridgeVoltage, 
+            float64 nominalGageResistance, 
+            float64 poissonRatio, 
+            float64 leadWireResistance, 
+            const char customScaleName[]
+            );
+    
+        virtual int32 CreateAITempBuiltInSensorChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[],
+            int32 units
+            );
+    
+        virtual int32 CreateAIThrmcplChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 thermocoupleType, 
+            int32 cjcSource, 
+            float64 cjcVal,
+            const char cjcChannel[]
+            );
+   
+        virtual int32 CreateAIThrmstrChanIex(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 resistanceConfig, 
+            int32 currentExcitSource, 
+            float64 currentExcitVal, 
+            float64 a, 
+            float64 b, 
+            float64 c
+            );
+        
+        virtual int32 CreateAIThrmstrChanVex(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 resistanceConfig,
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 a, 
+            float64 b, 
+            float64 c, 
+            float64 r1
+            );
+        
+        virtual int32 CreateAITorqueBridgePolynomialChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 bridgeConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance, 
+            const float64 forwardCoeffs[], 
+            uInt32 numForwardCoeffs, 
+            const float64 reverseCoeffs[], 
+            uInt32 numReverseCoeffs, 
+            int32 electricalUnits, 
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+    
+        virtual int32 CreateAITorqueBridgeTableChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal,
+            int32 units,
+            int32 bridgeConfig,
+            int32 voltageExcitSource,
+            float64 voltageExcitVal,
+            float64 nominalBridgeResistance, 
+            const float64 electricalVals[], 
+            uInt32 numElectricalVals, 
+            int32 electricalUnits, 
+            const float64 physicalVals[], 
+            uInt32 numPhysicalVals, 
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+     
+        virtual int32 CreateAITorqueBridgeTwoPointLinChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            int32 bridgeConfig, 
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance, 
+            float64 firstElectricalVal, 
+            float64 secondElectricalVal, 
+            int32 electricalUnits, 
+            float64 firstPhysicalVal, 
+            float64 secondPhysicalVal, 
+            int32 physicalUnits, 
+            const char customScaleName[]
+            );
+       
+        virtual int32 CreateAIVelocityIEPEChan(
+            TaskHandle task, 
+            const char physicalChannel[], 
+            const char nameToAssignToChannel[], 
+            int32 terminalConfig, 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units, 
+            float64 sensitivity, 
+            int32 sensitivityUnits,
+            int32 currentExcitSource,  
+            float64 currentExcitVal,  
+            const char customScaleName[]
+            );
 
     };
 }
