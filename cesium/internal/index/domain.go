@@ -39,12 +39,6 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 
 	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
 		err = NewErrDiscontinuousTR(tr)
-		if !continuous {
-			err = errors.Wrap(
-				err,
-				"cannot distance even in discontinuous mode: "+
-					"time range entirely does not exist in DB")
-		}
 		return
 	}
 

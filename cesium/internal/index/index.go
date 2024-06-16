@@ -20,7 +20,7 @@ import (
 var ErrDiscontinuous = errors.New("discontinuous")
 
 func NewErrDiscontinuousTR(tr telem.TimeRange) error {
-	return errors.Wrapf(ErrDiscontinuous, "the index has discontinuities across the time range %s", tr)
+	return errors.Wrapf(ErrDiscontinuous, "the time range %s does not exist in the index", tr)
 }
 
 func NewErrDiscontinuousStamp(offset int64, domainLen int64) error {
