@@ -38,6 +38,8 @@
 #include "ai_channels.h"
 
 namespace ni {
+    /// @brief configuration for a synnax channel which reads data from an NI channel
+    // TODO: split this config between sink channels and source channels?
     typedef struct ChannelConfig {
         uint32_t channel_key;
         std::string name;
@@ -45,15 +47,20 @@ namespace ni {
         std::shared_ptr<ni::Analog> ni_channel;
     } ChannelConfig;
 
+    /// @brief configuration for a NI Source
     typedef struct ReaderConfig {
+        /// @brief for retrieving ni device metadata 
         std::string device_key;
+        /// @brief channels source reads from
         std::vector<ChannelConfig> channels;
         std::uint64_t sample_rate = 0;
         std::uint64_t stream_rate = 0;
         std::string device_name;
         std::string task_name;
-        std::string timing_source; // for sample clock
+        /// @brief timing setup for NI hardware
+        std::string timing_source; 
         std::uint64_t period = 0;
+        /// @brief synnax task key
         synnax::ChannelKey task_key;
         std::set<uint32_t> index_keys;
     } ReaderConfig;
@@ -67,6 +74,9 @@ namespace ni {
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    NiSource                                   //
     ///////////////////////////////////////////////////////////////////////////////////
+    
+    /// @brief an abstract class for an object reading channels (digital or analog) from a National Instruments DAQ
+    /// reads in data from DAQ following a conccurent producer-consumer model
     class Source : public pipeline::Source {
     public:
         explicit Source(TaskHandle task_handle,
@@ -80,6 +90,7 @@ namespace ni {
 
         void clearTask();
 
+        /// @brief wrapper around all National Instruments API calls to check and log for vendor errors
         int checkNIError(int32 error);
 
         void logError(std::string err_msg);
@@ -92,21 +103,25 @@ namespace ni {
 
         virtual freighter::Error stop();
 
+        /// @brief implements pipeline::source::stoppedWithError 
         virtual void stoppedWithErr(const freighter::Error &err) override;
 
         virtual bool ok();
 
         virtual void getIndexKeys();
 
+
+        /// @brief function which grabs data from data_queue and returns synnax frames
         virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker& breaker) = 0;
 
         virtual void parseChannels(config::Parser &parser) = 0;
 
         virtual int configureTiming() = 0;
 
-        virtual void acquireData() = 0;
-
         virtual int createChannels() = 0;
+
+        /// @brief function run in sample_thread to acquire data and load data_queue
+        virtual void acquireData() = 0;
 
         typedef struct DataPacket {
             void *data; // actual data
@@ -136,6 +151,8 @@ namespace ni {
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    AnalogReadSource                           //
     ///////////////////////////////////////////////////////////////////////////////////
+    /// @brief object which implements ni::Source abstract class to specifically read data from
+    /// analog channels of National Instruments DAQs
     class AnalogReadSource : public Source {
     public:
         explicit AnalogReadSource(
@@ -158,7 +175,6 @@ namespace ni {
 
         int createChannel(ChannelConfig &channel);
 
-        // NI related resources
         uint64_t numAIChannels = 0;
     };
 
@@ -166,6 +182,8 @@ namespace ni {
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    DigitalReadSource                           //
     ///////////////////////////////////////////////////////////////////////////////////
+    /// @brief object which implements ni::Source abstract class to specifically read data from
+    /// digital channels of National Instruments DAQs
     class DigitalReadSource : public Source {
     public:
         explicit DigitalReadSource(
@@ -220,23 +238,30 @@ namespace ni {
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    DigitalWriteSink                           //
     ///////////////////////////////////////////////////////////////////////////////////
+    /// @brief for an NI Sink which which reads commands from a synnax channel, writes commands
+    /// out to a National Instruments DAQ output channel, and then maintains a state of said
+    /// output channel on another synnax channel
     typedef struct WriterConfig {
+        /// @brief digital output channels
         std::vector<ChannelConfig> channels;
+        /// @brief how frequenctly to update the state of a digital output 
+        /// (in other words, how often to write to the corresponding synnax channel)
         std::uint64_t state_rate = 0;
         std::string device_name;
         std::string device_key;
         std::string task_name;
         synnax::ChannelKey task_key;
+        /// @brief channels where digital output states are written to
+        std::vector<synnax::ChannelKey> drive_state_channel_keys; // TODO: renmove drive from name
+        /// @brief channels to get 
+        std::vector<synnax::ChannelKey> drive_cmd_channel_keys; // TODO: renmove drive from name
 
-
-        std::vector<synnax::ChannelKey> drive_state_channel_keys;
-        std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
-
-        synnax::ChannelKey drive_state_index_key;
+        synnax::ChannelKey drive_state_index_key;               // TODO: renmove drive from name
         std::queue<synnax::ChannelKey> modified_state_keys;
         std::queue<std::uint8_t> modified_state_values;
     } WriterConfig;
 
+    /// @brief object which writes digital output to National Instruments DAQs
     class DigitalWriteSink : public pipeline::Sink {
     public:
         explicit DigitalWriteSink(TaskHandle task_handle,
@@ -261,13 +286,17 @@ namespace ni {
 
         ~DigitalWriteSink();
 
-
+        /// @brief source object which writes digital output states back to synanx
         std::shared_ptr<ni::StateSource> writer_state_source;
     private:
+
+        /// @brief parses frame containing values to write out to digital channels and converts
+        /// to format used to write to NI digital channels
         freighter::Error formatData(synnax::Frame frame);
 
         void parseConfig(config::Parser &parser);
 
+        /// @brief wrapper around all National Instruments API calls to check and log for vendor errors
         int checkNIError(int32 error);
 
         uint8_t *writeBuffer;
@@ -275,9 +304,7 @@ namespace ni {
         int numSamplesPerChannel = 0;
         std::int64_t numChannels = 0;
         TaskHandle task_handle = 0;
-
         json err_info;
-
         bool ok_state = true;
         std::shared_ptr<task::Context> ctx;
         WriterConfig writer_config;
@@ -288,6 +315,8 @@ namespace ni {
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    Scanner                                    //
     ///////////////////////////////////////////////////////////////////////////////////
+
+    /// @brief object used to detect NI hardware and provide device metadata to synnax server
     class Scanner {
     public:
         explicit Scanner() = default;
@@ -323,10 +352,11 @@ namespace ni {
     //                                    TASK INTERFACES                                      //
     //                                                                                         //
     /////////////////////////////////////////////////////////////////////////////////////////////
-
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    ScannerTask                                //
     ///////////////////////////////////////////////////////////////////////////////////
+    /// @brief scanner task which starts up on driver startup and periodically searches for connected
+    /// and simulated NI devices, and returns relevant metadata for device
     class ScannerTask final : public task::Task {
     public:
         explicit ScannerTask(const std::shared_ptr<task::Context> &ctx,
