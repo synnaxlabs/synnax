@@ -418,7 +418,7 @@ var _ = Describe("Writer Behavior", func() {
 							By("Closing the writer")
 							Expect(w.Close()).To(Succeed())
 						})
-						FIt("Should work with the write method", func() {
+						It("Should work with the write method", func() {
 							start := 10 * telem.SecondTS
 
 							for i := 0; i < 100; i++ {
