@@ -185,7 +185,6 @@ namespace ni {
         PolynomialScale polynomial;
         TableScale table;
 
-        // Destructor
         Scale() {}
 
         ~Scale() {}
@@ -201,7 +200,6 @@ namespace ni {
 
         ScaleConfig() = default;
 
-        // Constructor
         ScaleConfig(config::Parser &parser, std::string &name)
                 : name(name),
                   type(parser.required<std::string>("type")),
@@ -221,6 +219,7 @@ namespace ni {
             } else if (type == "table") {
                 scale.table = TableScale(parser);
             }
+            assert(parser.ok());
         }
 
         // copy constructor
@@ -239,6 +238,7 @@ namespace ni {
             } else if (type == "table") {
                 scale.table = TableScale(parser);
             }
+            assert(parser.ok());
         }
 
         // copy assignment operator
@@ -259,6 +259,7 @@ namespace ni {
             } else if (type == "table") {
                 scale.table = TableScale(parser);
             }
+            assert(parser.ok());
             return *this;
         }
 
