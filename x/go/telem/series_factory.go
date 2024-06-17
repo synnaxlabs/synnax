@@ -63,9 +63,9 @@ func Unmarshal[T types.Numeric](series Series) []T {
 func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	switch dt {
 	case Float64T:
-		return func(b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
+		panic("marshal tool does not implement support for float64 (yet)!")
 	case Float32T:
-		return func(b []byte, v T) { ByteOrder.PutUint32(b, uint32(v)) }
+		panic("marshal tool does not implement support for float32 (yet)!")
 	case Int64T:
 		return func(b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
 	case Int32T:
@@ -91,9 +91,9 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) T {
 	switch dt {
 	case Float64T:
-		return func(b []byte) T { return T(ByteOrder.Uint64(b)) }
+		panic("unmarshal tool does not implement support for float64 (yet)!")
 	case Float32T:
-		return func(b []byte) T { return T(ByteOrder.Uint32(b)) }
+		panic("unmarshal tool does not implement support for float32 (yet)!")
 	case Int64T:
 		return func(b []byte) T { return T(ByteOrder.Uint64(b)) }
 	case Int32T:

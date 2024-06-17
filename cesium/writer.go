@@ -27,9 +27,9 @@ type Writer struct {
 	closed            bool
 }
 
-const unexpectedSteamClosure = "[cesium] - unexpected early closure of response stream"
+const unexpectedSteamClosure = "unexpected early closure of response stream"
 
-var WriterClosedError = core.EntityClosed("cesium.writer")
+var errWriterClosed = core.EntityClosed("cesium.writer")
 
 func wrapStreamWriter(internal StreamWriter) *Writer {
 	sCtx, _ := signal.Isolated()
@@ -78,7 +78,7 @@ func (w *Writer) Commit() (telem.TimeStamp, bool) {
 
 func (w *Writer) Error() error {
 	if w.closed {
-		return WriterClosedError
+		return errWriterClosed
 	}
 	w.requests.Inlet() <- WriterRequest{Command: WriterError}
 	for res := range w.responses.Outlet() {
@@ -89,25 +89,6 @@ func (w *Writer) Error() error {
 	}
 	w.logger.DPanic(unexpectedSteamClosure)
 	return errors.New(unexpectedSteamClosure)
-}
-
-func (w *Writer) SetMode(mode WriterMode) bool {
-	if w.closed || w.hasAccumulatedErr {
-		return false
-	}
-	select {
-	case <-w.responses.Outlet():
-		w.hasAccumulatedErr = true
-		return false
-	case w.requests.Inlet() <- WriterRequest{Command: WriterSetMode, Config: WriterConfig{Mode: mode}}:
-	}
-	for res := range w.responses.Outlet() {
-		if res.Command == WriterSetMode {
-			return res.Ack
-		}
-	}
-	w.logger.DPanic(unexpectedSteamClosure)
-	return false
 }
 
 func (w *Writer) Close() (err error) {

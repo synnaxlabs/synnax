@@ -7,35 +7,49 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
-import { QueryError, type Synnax } from "@synnaxlabs/client";
-import { type UnknownRecord } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { QueryError } from "@synnaxlabs/client";
+import { Status, Synnax, useDebouncedCallback } from "@synnaxlabs/pluto";
+import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { useEffect, useReducer, useRef } from "react";
+import { useStore } from "react-redux";
 
-import { type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
+import { RootState } from "@/store";
 import { selectActiveKey } from "@/workspace/selectors";
-import { setActive, type StoreState } from "@/workspace/slice";
+import { setActive } from "@/workspace/slice";
 
-export const useLayoutSyncer = (): Syncer<Layout.StoreState & StoreState, any> => {
-  return useCallback(async (client, _, store) => {
-    if (client == null) return;
-    void syncLayout(store, client);
-  }, []);
-};
-
-export const syncLayout = async (
-  store: Store<Layout.StoreState & StoreState>,
-  client: Synnax,
-): Promise<void> => {
-  const s = store.getState();
-  const key = selectActiveKey(s);
-  if (key == null) return;
-  const layoutSlice = Layout.selectSliceState(s);
-  try {
-    await client.workspaces.setLayout(key, layoutSlice as unknown as UnknownRecord);
-  } catch (e) {
-    if (e instanceof QueryError) store.dispatch(setActive(null));
-    throw e;
-  }
+export const useSyncLayout = async (): Promise<void> => {
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+  const prevSync = useRef<unknown>();
+  const sync = useDebouncedCallback(
+    (s: RootState): void => {
+      const key = selectActiveKey(s);
+      if (key == null || client == null) return;
+      const layoutSlice = Layout.selectSliceState(s);
+      if (deep.equal(prevSync.current, layoutSlice)) return;
+      client.workspaces
+        .setLayout(key, layoutSlice as unknown as UnknownRecord)
+        .catch((e) => {
+          if (e instanceof QueryError) {
+            addStatus({
+              key: "layout-sync",
+              variant: "error",
+              message: "Layout not found in cluster. Clearing.",
+            });
+            store.dispatch(setActive(null));
+            return;
+          }
+          addStatus({
+            key: "layout-sync",
+            variant: "error",
+            message: "Failed to sync layout: " + e.message,
+          });
+        });
+    },
+    250,
+    [client],
+  );
+  useEffect(() => store.subscribe(() => sync(store.getState())), [client]);
 };

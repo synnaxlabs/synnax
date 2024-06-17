@@ -194,3 +194,91 @@ var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "synnax/pkg/distribution/transport/grpc/channel/v1/channel.proto",
 }
+
+const (
+	ChannelRenameService_Exec_FullMethodName = "/channel.v1.ChannelRenameService/Exec"
+)
+
+// ChannelRenameServiceClient is the client API for ChannelRenameService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ChannelRenameServiceClient interface {
+	Exec(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type channelRenameServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewChannelRenameServiceClient(cc grpc.ClientConnInterface) ChannelRenameServiceClient {
+	return &channelRenameServiceClient{cc}
+}
+
+func (c *channelRenameServiceClient) Exec(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChannelRenameService_Exec_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ChannelRenameServiceServer is the server API for ChannelRenameService service.
+// All implementations should embed UnimplementedChannelRenameServiceServer
+// for forward compatibility
+type ChannelRenameServiceServer interface {
+	Exec(context.Context, *RenameRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedChannelRenameServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedChannelRenameServiceServer struct {
+}
+
+func (UnimplementedChannelRenameServiceServer) Exec(context.Context, *RenameRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
+}
+
+// UnsafeChannelRenameServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ChannelRenameServiceServer will
+// result in compilation errors.
+type UnsafeChannelRenameServiceServer interface {
+	mustEmbedUnimplementedChannelRenameServiceServer()
+}
+
+func RegisterChannelRenameServiceServer(s grpc.ServiceRegistrar, srv ChannelRenameServiceServer) {
+	s.RegisterService(&ChannelRenameService_ServiceDesc, srv)
+}
+
+func _ChannelRenameService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChannelRenameServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChannelRenameService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChannelRenameServiceServer).Exec(ctx, req.(*RenameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ChannelRenameService_ServiceDesc is the grpc.ServiceDesc for ChannelRenameService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ChannelRenameService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "channel.v1.ChannelRenameService",
+	HandlerType: (*ChannelRenameServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _ChannelRenameService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "synnax/pkg/distribution/transport/grpc/channel/v1/channel.proto",
+}

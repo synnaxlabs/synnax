@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Caret,
   componentRenderProp,
   Dropdown,
   Input,
@@ -21,9 +22,10 @@ import {
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { type MouseEventHandler,type ReactElement, useCallback } from "react";
+import { type MouseEventHandler, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { createWindowLayout } from "@/workspace/Create";
@@ -71,7 +73,13 @@ export const Selector = (): ReactElement => {
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
-        endIcon={<Icon.Caret.Down key="down" />}
+        endIcon={
+          <Caret.Animated
+            enabledLoc="bottom"
+            disabledLoc="left"
+            enabled={dProps.visible}
+          />
+        }
         variant="text"
         onClick={() => dProps.toggle()}
         size="medium"
@@ -82,49 +90,51 @@ export const Selector = (): ReactElement => {
         {active?.name ?? "No Workspace"}
       </Button.Button>
       <Align.Pack direction="y" style={{ width: 500, height: 200 }}>
-        <List.List>
-          <List.Selector
-            value={active?.key ?? null}
-            onChange={handleChange}
-            allowMultiple={false}
-            allowNone={true}
-          >
-            <List.Search searcher={client?.workspaces}>
-              {(p) => (
-                <Input.Text
-                  size="large"
-                  placeholder={
-                    <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
-                      Search Workspaces
-                    </Text.WithIcon>
-                  }
-                  {...p}
-                >
-                  <Button.Button
-                    startIcon={<Icon.Close />}
-                    variant="outlined"
-                    onClick={() => handleChange(null)}
-                    iconSpacing="small"
-                    tooltip="Switch to no workspace"
+        <Cluster.NoneConnectedBoundary>
+          <List.List>
+            <List.Selector
+              value={active?.key ?? null}
+              onChange={handleChange}
+              allowMultiple={false}
+              allowNone={true}
+            >
+              <List.Search searcher={client?.workspaces}>
+                {(p) => (
+                  <Input.Text
+                    size="large"
+                    placeholder={
+                      <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
+                        Search Workspaces
+                      </Text.WithIcon>
+                    }
+                    {...p}
                   >
-                    Clear
-                  </Button.Button>
-                  <Button.Button
-                    startIcon={<Icon.Add />}
-                    variant="outlined"
-                    onClick={() => place(createWindowLayout())}
-                    iconSpacing="small"
-                    tooltip="Create a new workspace"
-                    tooltipLocation={{ y: "bottom" }}
-                  >
-                    New
-                  </Button.Button>
-                </Input.Text>
-              )}
-            </List.Search>
-            <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
-          </List.Selector>
-        </List.List>
+                    <Button.Button
+                      startIcon={<Icon.Close />}
+                      variant="outlined"
+                      onClick={() => handleChange(null)}
+                      iconSpacing="small"
+                      tooltip="Switch to no workspace"
+                    >
+                      Clear
+                    </Button.Button>
+                    <Button.Button
+                      startIcon={<Icon.Add />}
+                      variant="outlined"
+                      onClick={() => place(createWindowLayout())}
+                      iconSpacing="small"
+                      tooltip="Create a new workspace"
+                      tooltipLocation={{ y: "bottom" }}
+                    >
+                      New
+                    </Button.Button>
+                  </Input.Text>
+                )}
+              </List.Search>
+              <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
+            </List.Selector>
+          </List.List>
+        </Cluster.NoneConnectedBoundary>
       </Align.Pack>
     </Dropdown.Dialog>
   );

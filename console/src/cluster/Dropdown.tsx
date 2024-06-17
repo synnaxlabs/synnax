@@ -27,8 +27,10 @@ import { connectWindowLayout } from "@/cluster/Connect";
 import { type Cluster } from "@/cluster/core";
 import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selectors";
 import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/slice";
+import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -49,7 +51,7 @@ export const List = (): ReactElement => {
 
   const contextMenu = useCallback(
     ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
-      if (key == null) return null;
+      if (key == null) return <Layout.DefaultContextMenu />;
       const handleSelect = (menuKey: string): void => {
         if (key == null) return;
         switch (menuKey) {
@@ -59,6 +61,9 @@ export const List = (): ReactElement => {
             return handleConnect(key);
           case "disconnect":
             return handleConnect(null);
+          case "link":
+            void navigator.clipboard.writeText(`synnax://cluster/${key}`);
+            return;
         }
       };
 
@@ -82,6 +87,8 @@ export const List = (): ReactElement => {
               Connect
             </PMenu.Item>
           )}
+          {key !== null && <Link.CopyMenuItem />}
+          <Menu.HardReloadItem />
         </PMenu.Menu>
       );
     },

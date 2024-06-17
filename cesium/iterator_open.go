@@ -13,10 +13,14 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
+	if db.closed.Load() {
+		return nil, errDBClosed
+	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	internal, err := db.newStreamIterator(cfg)
 	if err != nil {
 		// return early to prevent panic in wrapStreamIterator
@@ -26,23 +30,29 @@ func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 }
 
 func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
+	if db.closed.Load() {
+		return nil, errDBClosed
+	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	return db.newStreamIterator(cfg)
 }
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 	internal := make([]*unary.Iterator, len(cfg.Channels))
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	for i, key := range cfg.Channels {
 		uDB, ok := db.unaryDBs[key]
 		if !ok {
-			_, vOk := db.virtualDBs[key]
-			if vOk {
-				return nil, errors.Wrapf(validate.Error, "cannot open iterator on virtual channel %d", key)
+			vdb, vok := db.virtualDBs[key]
+			if vok {
+				return nil, errors.Newf(
+					"cannot open iterator on virtual channel %v",
+					vdb.Channel,
+				)
 			}
-			return nil, errors.Wrapf(core.ChannelNotFound, "channel %d", key)
+			return nil, core.NewErrChannelNotFound(key)
 		}
-		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
+		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 	}
 
 	return &streamIterator{internal: internal}, nil

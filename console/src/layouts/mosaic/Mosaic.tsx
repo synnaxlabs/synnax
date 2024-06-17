@@ -23,7 +23,6 @@ import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
-import { useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
@@ -40,7 +39,6 @@ import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 import { Vis } from "@/vis";
-import { Workspace } from "@/workspace";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
@@ -58,9 +56,7 @@ export const Mosaic = memo((): ReactElement => {
   const client = Synnax.use();
   const store = useStore();
   const placer = usePlacer();
-
-  const syncer = Workspace.useLayoutSyncer();
-  const dispatch = useSyncerDispatch(syncer, 1000);
+  const dispatch = useDispatch();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {

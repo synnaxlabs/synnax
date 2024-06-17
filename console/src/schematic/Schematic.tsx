@@ -20,13 +20,14 @@ import {
   Text,
   Theming,
   useAsyncEffect,
+  usePrevious,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
 import { box, type UnknownRecord } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
@@ -59,33 +60,31 @@ import {
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
-  layoutKey?: string;
+  key?: string;
 }
 
 const syncer: Syncer<
   Layout.StoreState & StoreState & Workspace.StoreState,
   SyncPayload
-> = async (client, { layoutKey }, store) => {
-  if (layoutKey == null) return;
+> = async (client, { key }, store) => {
+  if (key == null) return;
   const s = store.getState();
   const ws = Workspace.selectActiveKey(s);
   if (ws == null) return;
-  const data = select(s, layoutKey);
+  const data = select(s, key);
   if (data.snapshot) return;
-  const la = Layout.selectRequired(s, layoutKey);
+  const la = Layout.selectRequired(s, key);
   const setData = {
     ...data,
     key: undefined,
     snapshot: undefined,
   } as unknown as UnknownRecord;
-  if (!data.remoteCreated) {
-    await client.workspaces.schematic.create(ws, {
-      key: layoutKey,
-      name: la.name,
-      data: setData,
-    });
-    store.dispatch(setRemoteCreated({ layoutKey }));
-  } else await client.workspaces.schematic.setData(layoutKey, setData);
+  if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+  await client.workspaces.schematic.create(ws, {
+    key: key,
+    name: la.name,
+    data: setData,
+  });
 };
 
 export const HAUL_TYPE = "schematic-element";
@@ -147,44 +146,49 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const theme = Theming.use();
   const viewportRef = useSyncedRef(schematic.viewport);
 
+  const prevName = usePrevious(name);
+  useEffect(() => {
+    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
+  }, [name, prevName, layoutKey]);
+
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => {
-      dispatch(setEdges({ layoutKey, edges }));
+      dispatch(setEdges({ key: layoutKey, edges }));
     },
     [dispatch, layoutKey],
   );
 
   const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
     (nodes) => {
-      dispatch(setNodes({ layoutKey, nodes }));
+      dispatch(setNodes({ key: layoutKey, nodes }));
     },
     [dispatch, layoutKey],
   );
 
   const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
     (vp) => {
-      dispatch(setViewport({ layoutKey, viewport: vp }));
+      dispatch(setViewport({ key: layoutKey, viewport: vp }));
     },
     [layoutKey],
   );
 
   const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
     (cbk) => {
-      dispatch(setEditable({ layoutKey, editable: cbk }));
+      dispatch(setEditable({ key: layoutKey, editable: cbk }));
     },
     [layoutKey],
   );
 
   const handleSetFitViewOnResize = useCallback(
     (v: boolean) => {
-      dispatch(setFitViewOnResize({ layoutKey, fitViewOnResize: v }));
+      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v }));
     },
     [layoutKey, dispatch],
   );
 
   const handleControlStatusChange = useCallback(
     (control: Control.Status) => {
-      dispatch(setControlStatus({ layoutKey, control }));
+      dispatch(setControlStatus({ key: layoutKey, control }));
     },
     [layoutKey],
   );
@@ -193,7 +197,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     (v: boolean) => {
       dispatch(
         toggleControl({
-          layoutKey,
+          key: layoutKey,
           status: v ? "acquired" : "released",
         }),
       );
@@ -213,7 +217,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
-      if (ref.current == null) return valid;
+      if (ref.current == null || event == null) return valid;
       const region = box.construct(ref.current);
       valid.forEach(({ key, data }) => {
         const spec = Core.SYMBOLS[key as Core.Variant];
@@ -225,8 +229,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         );
         dispatch(
           addElement({
-            layoutKey,
-            key: nanoid(),
+            key: layoutKey,
+            elKey: nanoid(),
             node: {
               position: pos,
               zIndex: spec.zIndex,
@@ -267,7 +271,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         const copy = triggers.some((t) => t.includes("C"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
-        else dispatch(pasteSelection({ pos, layoutKey }));
+        else dispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [dispatch, layoutKey, viewportRef],
     ),

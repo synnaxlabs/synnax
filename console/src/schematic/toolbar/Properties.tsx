@@ -10,7 +10,15 @@
 import "@/schematic/toolbar/Properties.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Diagram, Form,Input, Schematic, Status } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Diagram,
+  Form,
+  Input,
+  Schematic,
+  Status,
+} from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { box, deep, location, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -91,7 +99,11 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       .filter((el) => el !== null) as Diagram.NodeLayout[];
 
     return (
-      <Align.Space className={CSS.B("schematic-properties-pad")} align="start" direction="x">
+      <Align.Space
+        className={CSS.B("schematic-properties-pad")}
+        align="start"
+        direction="x"
+      >
         <Input.Item label="Selection Colors" align="start">
           <Align.Space direction="y">
             {Object.entries(groups).map(([hex, elements]) => {
@@ -117,7 +129,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
                 const newPositions = Diagram.alignNodes(layouts, "x");
                 dispatch(
                   setNodePositions({
-                    layoutKey,
+                    key: layoutKey,
                     positions: Object.fromEntries(
                       newPositions.map((n) => [n.key, box.topLeft(n.box)]),
                     ),
@@ -133,7 +145,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
                 const newPositions = Diagram.alignNodes(layouts, "y");
                 dispatch(
                   setNodePositions({
-                    layoutKey,
+                    key: layoutKey,
                     positions: Object.fromEntries(
                       newPositions.map((n) => [n.key, box.topLeft(n.box)]),
                     ),
@@ -194,7 +206,11 @@ interface EdgePropertiesProps {
 const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement => {
   if (edge.type !== "edge") return <></>;
   return (
-    <Align.Space className={CSS.B("schematic-properties-pad")} size="small" align="start">
+    <Align.Space
+      className={CSS.B("schematic-properties-pad")}
+      size="small"
+      align="start"
+    >
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={edge.edge.color ?? Color.ZERO}

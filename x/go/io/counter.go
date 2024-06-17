@@ -11,7 +11,7 @@ package io
 
 import (
 	"encoding/binary"
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errors"
 	"io"
 	"sync"
 )

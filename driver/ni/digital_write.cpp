@@ -172,7 +172,7 @@ freighter::Error ni::DigitalWriteSink::start(){
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[NI Writer] successfully started writer for task " << this->writer_config.task_name;
 
@@ -186,7 +186,7 @@ freighter::Error ni::DigitalWriteSink::stop(){
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(task_handle))){
         LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->writer_config.task_name;
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[NI Writer] successfully stopped writer for task " << this->writer_config.task_name;
     return freighter::NIL;
@@ -207,7 +207,7 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame){
                                                                    &samplesWritten,          // samples written
                                                                    NULL))){
         LOG(ERROR) << "[NI Writer] failed while writing digital data for task " << this->writer_config.task_name;
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data");
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR, "Error reading digital data");
     }
     this->writer_state_source->updateState(this->writer_config.modified_state_keys, this->writer_config.modified_state_values);
 

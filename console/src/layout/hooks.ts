@@ -13,7 +13,6 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   type AsyncDestructor,
   type Nav,
-  OS,
   Theming,
   useAsyncEffect,
   useDebouncedCallback,
@@ -22,11 +21,10 @@ import {
 import { compare } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
-import { useSyncerDispatch } from "@/hooks/dispatchers";
 import { State } from "@/layout/layout";
-import { select, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
+import { useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
   type NavdrawerLocation,
   place,
@@ -36,8 +34,6 @@ import {
   setNavdrawerVisible,
   toggleActiveTheme,
 } from "@/layout/slice";
-import { type RootState } from "@/store";
-import { Workspace } from "@/workspace";
 
 export interface CreatorProps {
   windowKey: string;
@@ -67,25 +63,14 @@ export type Remover = (...keys: string[]) => void;
  * when possible, but feel free to use the second method for more dynamic layout creation.
  */
 export const usePlacer = (): Placer => {
-  const syncer = Workspace.useLayoutSyncer();
-  const dispatch = useSyncerDispatch(syncer);
-  const os = OS.use();
+  const dispatch = useDispatch();
   const windowKey = useSelectWindowKey();
   if (windowKey == null) throw new Error("windowKey is null");
   return useCallback(
     (base) => {
       const layout = typeof base === "function" ? base({ dispatch, windowKey }) : base;
-      const { key, location, window, name: title } = layout;
+      const { key } = layout;
       dispatch(place({ ...layout, windowKey }));
-      if (location === "window")
-        dispatch(
-          Drift.createWindow({
-            ...{ ...window, navTop: undefined, decorations: os !== "Windows" },
-            url: "/",
-            key,
-            title,
-          }),
-        );
       return { windowKey, key };
     },
     [dispatch, windowKey],
@@ -101,27 +86,14 @@ export const usePlacer = (): Placer => {
  * the layout is in a window, the window will also be closed.
  */
 export const useRemover = (...baseKeys: string[]): Remover => {
-  const syncer = Workspace.useLayoutSyncer();
-  const syncDispatch = useSyncerDispatch(syncer);
-  const store = useStore<RootState>();
+  const dispatch = useDispatch();
   const memoKeys = useMemoCompare(
     () => baseKeys,
     ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
     [baseKeys],
   );
   return useCallback(
-    (...keys) => {
-      keys = [...baseKeys, ...keys];
-      const s = store.getState();
-      keys.forEach((keys) => {
-        const l = select(s, keys);
-        // Even if the layout is not present, close the window for good measure.
-        if (l == null || l.location === "window") {
-          store.dispatch(Drift.closeWindow({ key: keys }));
-        }
-      });
-      syncDispatch(remove({ keys }));
-    },
+    (...keys) => dispatch(remove({ keys: [...keys, ...memoKeys] })),
     [memoKeys],
   );
 };

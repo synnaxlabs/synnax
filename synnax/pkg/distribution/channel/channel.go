@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -201,6 +202,13 @@ type Channel struct {
 	Internal bool `json:"internal" msgpack:"internal"`
 }
 
+func (c Channel) String() string {
+	if c.Name != "" {
+		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key())
+	}
+	return fmt.Sprintf("<%d>", c.Key())
+}
+
 // Key returns the key for the Channel.
 func (c Channel) Key() Key { return NewKey(c.Leaseholder, c.LocalKey) }
 
@@ -235,8 +243,9 @@ func (c Channel) Free() bool { return c.Leaseholder == core.Free }
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
 		Key:         c.Key().StorageKey(),
-		DataType:    c.DataType,
+		Name:        c.Name,
 		IsIndex:     c.IsIndex,
+		DataType:    c.DataType,
 		Rate:        c.Rate,
 		Index:       ts.ChannelKey(c.Index()),
 		Virtual:     c.Virtual,

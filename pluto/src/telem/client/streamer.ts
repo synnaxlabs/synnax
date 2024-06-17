@@ -35,6 +35,7 @@ export class Streamer {
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
   private streamerRunLoop: Promise<void> | null = null;
   private streamer: framer.Streamer | null = null;
+  private closed = false;
 
   constructor(props: StreamerProps) {
     this.props = {
@@ -84,6 +85,7 @@ export class Streamer {
   }
 
   private async updateStreamer(): Promise<void> {
+    if (this.closed) return;
     const {
       instrumentation: { L },
       core,
@@ -148,7 +150,7 @@ export class Streamer {
         });
       }
     } catch (e) {
-      L.error("streamer run loop failed", { error: e });
+      L.error("streamer run loop failed", { error: e }, true);
       throw e;
     }
   }
@@ -156,5 +158,6 @@ export class Streamer {
   async close(): Promise<void> {
     this.streamer?.close();
     if (this.streamerRunLoop != null) await this.streamerRunLoop;
+    this.closed = true;
   }
 }

@@ -20,7 +20,7 @@ import {
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  Layout.RemovePayload | Layout.SetSlicePayload,
+  Layout.RemovePayload | Layout.SetWorkspacePayload,
   RemovePayload
 > = ({ action, dispatch, getState }) => {
   const state = getState();
@@ -32,7 +32,7 @@ export const deleteEffect: MiddlewareEffect<
   const toRemove = Object.keys(schematicSLice.schematics).filter(
     (p) => keys.includes(p) || layoutSlice.layouts[p] == null,
   );
-  if (toRemove.length > 0) dispatch(remove({ layoutKeys: toRemove }));
+  if (toRemove.length > 0) dispatch(remove({ keys: toRemove }));
 };
 
 export const themeChangeEffect: MiddlewareEffect<

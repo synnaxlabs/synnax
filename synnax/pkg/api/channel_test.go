@@ -11,6 +11,7 @@ package api_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -98,6 +99,143 @@ var _ = Describe("ChannelReader", Ordered, func() {
 			Expect(res.Channels).To(HaveLen(1))
 			for _, ch := range res.Channels {
 				Expect(ch.Name).To(Equal("test"))
+			}
+		})
+	})
+	Describe("Delete", func() {
+		var createdChannels []api.Channel
+		BeforeEach(func() {
+			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
+				Channels: []api.Channel{{
+					Name:        "test_channel_1",
+					Leaseholder: 1,
+					DataType:    telem.Float64T,
+					Rate:        25 * telem.Hz,
+				}, {
+					Name:        "test_channel_2",
+					Leaseholder: 1,
+					DataType:    telem.Float64T,
+					Rate:        25 * telem.Hz,
+				}, {
+					Name:        "test_channel_3",
+					Leaseholder: 1,
+					DataType:    telem.Float64T,
+					Rate:        25 * telem.Hz,
+				},
+				}})
+			Expect(err).To(BeNil())
+			Expect(res.Channels).To(HaveLen(3))
+			createdChannels = res.Channels
+		})
+		It("Should delete a channel by its key", func() {
+			null, err := svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+				Keys: channel.Keys{createdChannels[0].Key},
+			})
+			Expect(err).To(BeNil())
+			Expect(null.Type()).To(BeNil())
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Keys: channel.Keys{createdChannels[0].Key},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(res.Channels).To(HaveLen(0))
+		})
+		It("Should delete a channel by its name", func() {
+			null, err := svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+				Names: []string{createdChannels[1].Name},
+			})
+			Expect(err).To(BeNil())
+			Expect(null.Type()).To(BeNil())
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Names: []string{createdChannels[1].Name},
+			})
+			Expect(err).To(BeNil())
+			Expect(res.Channels).To(HaveLen(0))
+		})
+		It("Should delete a channel that doesn't exist by key with an error", func() {
+			null, err := svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+				Keys: channel.Keys{createdChannels[0].Key},
+			})
+			Expect(err).To(BeNil())
+			Expect(null.Type()).To(BeNil())
+			null, err = svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+				Keys: channel.Keys{createdChannels[0].Key},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(null.Type()).To(BeNil())
+		})
+		It("Should delete a channel that doesn't exist by name without error", func() {
+			for range 2 {
+				null, err := svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+					Names: []string{"test"},
+				})
+				Expect(err).To(BeNil())
+				Expect(null.Type()).To(BeNil())
+			}
+		})
+		It("Should delete multiple channels by a list of keys and names", func() {
+			null, err := svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+				Keys:  channel.Keys{createdChannels[0].Key},
+				Names: []string{createdChannels[1].Name},
+			})
+			Expect(err).To(BeNil())
+			Expect(null.Type()).To(BeNil())
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Keys: channel.Keys{createdChannels[0].Key},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(res.Channels).To(HaveLen(0))
+			res, err = svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Names: []string{createdChannels[1].Name},
+			})
+			Expect(err).To(BeNil())
+			Expect(res.Channels).To(HaveLen(0))
+		})
+		It("Should give an error when trying to delete an internal channel", func() {
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Names: []string{
+					"sy_ontology_resource_set",
+					"sy_ontology_resource_delete",
+					"sy_ontology_relationship_set",
+					"sy_ontology_relationship_delete",
+				},
+			})
+			Expect(err).To(BeNil())
+			Expect(res.Channels).To(HaveLen(4))
+			for _, ch := range res.Channels {
+				Expect(ch.Internal).To(BeTrue())
+			}
+
+			null, err := svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+				Keys: channel.Keys{res.Channels[0].Key},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(null.Type()).To(BeNil())
+
+			null, err = svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+				Names: []string{res.Channels[1].Name},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(null.Type()).To(BeNil())
+
+			null, err = svc.Delete(context.TODO(), api.ChannelDeleteRequest{
+				Keys:  channel.Keys{res.Channels[2].Key},
+				Names: []string{res.Channels[3].Name},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(null.Type()).To(BeNil())
+
+			res, err = svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Keys: channel.Keys{
+					res.Channels[0].Key,
+					res.Channels[1].Key,
+					res.Channels[2].Key,
+					res.Channels[3].Key,
+				},
+			})
+			Expect(err).To(BeNil())
+			Expect(res.Channels).To(HaveLen(4))
+			for _, ch := range res.Channels {
+				Expect(ch.Internal).To(BeTrue())
 			}
 		})
 	})

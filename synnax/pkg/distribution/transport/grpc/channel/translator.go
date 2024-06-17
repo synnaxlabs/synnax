@@ -21,14 +21,15 @@ import (
 type (
 	createMessageTranslator struct{}
 	deleteRequestTranslator struct{}
+	renameMessageTranslator struct{}
 )
 
 var (
 	_ fgrpc.Translator[channel.CreateMessage, *channelv1.CreateMessage] = (*createMessageTranslator)(nil)
 	_ fgrpc.Translator[channel.DeleteRequest, *channelv1.DeleteRequest] = (*deleteRequestTranslator)(nil)
+	_ fgrpc.Translator[channel.RenameRequest, *channelv1.RenameRequest] = (*renameMessageTranslator)(nil)
 )
 
-// Forward implements the fgrpc.Translator interface.
 func (c createMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
@@ -48,7 +49,6 @@ func (c createMessageTranslator) Forward(
 	return tr, nil
 }
 
-// Backward implements the fgrpc.Translator interface.
 func (c createMessageTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.CreateMessage,
@@ -68,18 +68,36 @@ func (c createMessageTranslator) Backward(
 	return tr, nil
 }
 
-// Forward
 func (d deleteRequestTranslator) Forward(
 	_ context.Context,
 	msg channel.DeleteRequest,
 ) (*channelv1.DeleteRequest, error) {
-	return &channelv1.DeleteRequest{Keys: channel.Keys(msg.Keys).Uint32()}, nil
+	return &channelv1.DeleteRequest{Keys: msg.Keys.Uint32()}, nil
 }
 
-// Backward
 func (d deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.DeleteRequest,
 ) (channel.DeleteRequest, error) {
 	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys)}, nil
+}
+
+func (r renameMessageTranslator) Forward(
+	_ context.Context,
+	msg channel.RenameRequest,
+) (*channelv1.RenameRequest, error) {
+	return &channelv1.RenameRequest{
+		Names: msg.Names,
+		Keys:  msg.Keys.Uint32(),
+	}, nil
+}
+
+func (r renameMessageTranslator) Backward(
+	_ context.Context,
+	msg *channelv1.RenameRequest,
+) (channel.RenameRequest, error) {
+	return channel.RenameRequest{
+		Names: msg.Names,
+		Keys:  channel.KeysFromUint32(msg.Keys),
+	}, nil
 }

@@ -15,15 +15,15 @@
 #include "task.h"
 
 task::Manager::Manager(
-    Rack rack,
+    const Rack& rack,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
-    breaker::Config breaker
+    const breaker::Config& breaker
 ) : rack_key(rack.key),
     internal(rack),
     ctx(std::make_shared<task::SynnaxContext>(client)),
     factory(std::move(factory)),
-    breaker(std::move(breaker)) {
+    breaker(breaker) {
 }
 
 const std::string TASK_SET_CHANNEL = "sy_task_set";
@@ -31,8 +31,11 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
-    LOG(INFO) << "[task.manager] starting up";
-    if (const auto err = startGuarded(); err) {
+    if(breaker.running()) return freighter::NIL;
+    VLOG(1) << "[driver] starting up";
+    const auto err = startGuarded();
+    breaker.start();
+    if (err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
         done = true;
         return err;
@@ -63,7 +66,7 @@ freighter::Error task::Manager::startGuarded() {
     task_cmd_channel = task_cmd;
 
     // Retrieve all of the tasks that are already configured and start them.
-    LOG(INFO) << "[task.manager] pulling and configuring existing tasks from Synnax";
+    VLOG(1) << "[driver] pulling and configuring existing tasks from Synnax";
     auto [tasks, tasks_err] = rack.tasks.list();
     if (tasks_err) return tasks_err;
     for (const auto &task: tasks) {
@@ -72,7 +75,7 @@ freighter::Error task::Manager::startGuarded() {
             this->tasks[task.key] = std::move(driver_task);
     }
 
-    LOG(INFO) << "[task.manager] configuring initial tasks from factory";
+    VLOG(1) << "[driver] configuring initial tasks from factory";
     auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);
     for (auto &[sy_task, task]: initial_tasks)
         this->tasks[sy_task.key] = std::move(task);
@@ -85,16 +88,23 @@ void task::Manager::run(std::atomic<bool> &done) {
     const auto err = runGuarded();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run(done);
     done = true;
+    done.notify_all();
     run_err = err;
+    VLOG(1) << "[driver] run thread exiting";
 }
 
 freighter::Error task::Manager::stop() {
+    if(!breaker.running()) return freighter::NIL;
     if (!run_thread.joinable()) return freighter::NIL;
-    LOG(INFO) << "[task.manager] shutting down";
     streamer->closeSend();
+    breaker.stop();
     run_thread.join();
-    for (auto &[key, task]: tasks) task->stop();
-    LOG(INFO) << "[task.manager] shut down";
+    for (auto &[key, task]: tasks) {
+        LOG(INFO) << "[driver] stopping task " << task->name();
+        task->stop();
+        LOG(INFO) << "[driver] task " << task->name() << " stopped";
+    }
+    tasks.clear();
     return run_err;
 }
 
@@ -108,13 +118,12 @@ freighter::Error task::Manager::runGuarded() {
     if (open_err) return open_err;
     streamer = std::make_unique<Streamer>(std::move(s));
 
-    LOG(INFO) << "[task.manager] operational";
+    LOG(INFO) << "[driver] operational";
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
     breaker.reset();
 
-    while (true) {
+    while (breaker.running()) {
         auto [frame, read_err] = streamer->read();
-        LOG(INFO) << "[task.manager] received frame";
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = (*frame.channels)[i];
@@ -128,11 +137,12 @@ freighter::Error task::Manager::runGuarded() {
 }
 
 void task::Manager::processTaskSet(const Series &series) {
-    auto keys = series.uint64();
+    auto keys = series.values<std::uint64_t>();
     for (auto key: keys) {
         // If a module exists with this key, stop and remove it.
         auto task_iter = tasks.find(key);
         if (task_iter != tasks.end()) {
+            VLOG(1) << "[driver] stopping task " << key;
             task_iter->second->stop();
             tasks.erase(task_iter);
         }
@@ -141,27 +151,26 @@ void task::Manager::processTaskSet(const Series &series) {
             std::cerr << err.message() << std::endl;
             continue;
         }
-        LOG(INFO) << "[task.manager] configuring task " << sy_task.name << " with key: " << key << ".";
+        LOG(INFO) << "[driver] configuring task " << sy_task.name << " with key: " << key << ".";
         auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
         if (ok && driver_task != nullptr) tasks[key] = std::move(driver_task);
-        else LOG(ERROR) << "[task.manager] failed to configure task: " << sy_task.name;
+        else LOG(ERROR) << "[driver] failed to configure task: " << sy_task.name;
     }
 }
 
 void task::Manager::processTaskCmd(const Series &series) {
-    const auto commands = series.string();
-    LOG(INFO) <<  "[task.manager] " << commands.size() << " commands received";
+    const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
         auto parser = config::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
-            LOG(WARNING) << "[task.manager] failed to parse command: " << parser.error_json().dump();
+            LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().dump();
             continue;
         }
-        LOG(INFO) << "[task.manager] processing command " << cmd.type << " for task " << cmd.task;
+        LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.task;
         auto it = tasks.find(cmd.task);
         if (it == tasks.end()) {
-            LOG(WARNING) << "[task.manager] could not find task to execute command: " << cmd.task;
+            LOG(WARNING) << "[driver] could not find task to execute command: " << cmd.task;
             continue;
         }
         it->second->exec(cmd);
@@ -170,7 +179,7 @@ void task::Manager::processTaskCmd(const Series &series) {
 
 
 void task::Manager::processTaskDelete(const Series &series) {
-    const auto keys = series.uint64();
+    const auto keys = series.values<std::uint64_t>();
     for (auto key: keys) {
         const auto it = tasks.find(key);
         if (it != tasks.end()) {

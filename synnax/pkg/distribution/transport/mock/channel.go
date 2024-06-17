@@ -19,6 +19,7 @@ import (
 type ChannelNetwork struct {
 	CreateNet *fmock.Network[channel.CreateMessage, channel.CreateMessage]
 	DeleteNet *fmock.Network[channel.DeleteRequest, types.Nil]
+	RenameNet *fmock.Network[channel.RenameRequest, types.Nil]
 }
 
 func (c *ChannelNetwork) New(add address.Address) channel.Transport {
@@ -27,6 +28,8 @@ func (c *ChannelNetwork) New(add address.Address) channel.Transport {
 		createServer: c.CreateNet.UnaryServer(add),
 		deleteClient: c.DeleteNet.UnaryClient(),
 		deleteServer: c.DeleteNet.UnaryServer(add),
+		renameClient: c.RenameNet.UnaryClient(),
+		renameServer: c.RenameNet.UnaryServer(add),
 	}
 }
 
@@ -34,6 +37,7 @@ func NewChannelNetwork() *ChannelNetwork {
 	return &ChannelNetwork{
 		CreateNet: fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage](),
 		DeleteNet: fmock.NewNetwork[channel.DeleteRequest, types.Nil](),
+		RenameNet: fmock.NewNetwork[channel.RenameRequest, types.Nil](),
 	}
 }
 
@@ -42,6 +46,8 @@ type ChannelTransport struct {
 	createServer channel.CreateTransportServer
 	deleteClient channel.DeleteTransportClient
 	deleteServer channel.DeleteTransportServer
+	renameClient channel.RenameTransportClient
+	renameServer channel.RenameTransportServer
 }
 
 var _ channel.Transport = (*ChannelTransport)(nil)
@@ -53,3 +59,7 @@ func (c ChannelTransport) CreateServer() channel.CreateTransportServer { return 
 func (c ChannelTransport) DeleteClient() channel.DeleteTransportClient { return c.deleteClient }
 
 func (c ChannelTransport) DeleteServer() channel.DeleteTransportServer { return c.deleteServer }
+
+func (c ChannelTransport) RenameClient() channel.RenameTransportClient { return c.renameClient }
+
+func (c ChannelTransport) RenameServer() channel.RenameTransportServer { return c.renameServer }

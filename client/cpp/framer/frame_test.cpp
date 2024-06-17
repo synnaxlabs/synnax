@@ -19,14 +19,14 @@ TEST(FramerTests, testConstruction) {
 
 /// @brief it should construct a frame from a proto.
 TEST(FramerTests, toProto) {
-    auto f = synnax::Frame(2);
+    const auto f = synnax::Frame(2);
     f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
-    auto p = new api::v1::Frame();
+    const auto p = new api::v1::Frame();
     f.toProto(p);
     ASSERT_EQ(p->keys_size(), 1);
     ASSERT_EQ(p->series_size(), 1);
-    auto f2 = synnax::Frame(*p);
+    const auto f2 = synnax::Frame(*p);
     ASSERT_EQ(f2.size(), 1);
     ASSERT_EQ(f2.channels->at(0), 65537);
-    ASSERT_EQ(f2.series->at(0).float32()[0], 1);
+    ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
 }

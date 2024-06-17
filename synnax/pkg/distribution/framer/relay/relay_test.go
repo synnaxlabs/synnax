@@ -66,6 +66,10 @@ var _ = Describe("Relay", func() {
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 				}))
+				defer func() {
+					defer GinkgoRecover()
+					Expect(writer.Close()).To(Succeed())
+				}()
 				writeF := core.Frame{
 					Keys: s.keys,
 					Series: []telem.Series{

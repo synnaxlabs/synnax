@@ -38,6 +38,7 @@ INPUT_PRECISION_ARG_SHORT = "-ip"
 OUTPUT_PRECISION_ARG = "--output-precision"
 OUTPUT_PRECISION_ARG_SHORT = "-op"
 
+
 @click.command()
 @click.argument(
     "input_path",
@@ -184,7 +185,7 @@ def pure_tsconvert(
                 chunk[output_channel] = converted
                 writer.write(chunk)
                 tp = chunk.size / (datetime.now() - t0).total_seconds()
-                progress.update(task, advance=chunk.size, tp=tp)
+                progress.update(task, advance=chunk.size, tp=int(tp))
     finally:
         reader.close()
         writer.close()
