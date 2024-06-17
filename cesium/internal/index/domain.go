@@ -82,8 +82,8 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 				return
 			}
 			approx = Between(
-				startToFirstEnd.Lower+(iter.Len()/8)+gap,
-				startToFirstEnd.Upper+(iter.Len()/8)+gap,
+				startToFirstEnd.Lower+gap,
+				startToFirstEnd.Upper+gap,
 			)
 			return
 		}
@@ -105,7 +105,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 			)
 			return
 		}
-		gap += iter.Len()
+		gap += iter.Len() / 8
 	}
 }
 

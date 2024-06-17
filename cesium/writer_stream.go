@@ -250,8 +250,8 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	maxTS := telem.TimeStampMin
-	for _, idx := range w.internal {
-		ts, err := idx.Commit(ctx)
+	for _, idxW := range w.internal {
+		ts, err := idxW.Commit(ctx)
 		if err != nil {
 			return maxTS, err
 		}
@@ -287,7 +287,6 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(u.Transfers) > 0 {
-		// Do a best effort wr
 		_ = w.updateDBControl(ctx, u)
 	}
 
@@ -415,12 +414,13 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 
 		if lengthOfFrame == -1 {
 			s := fr.Series[i]
-			if s.DataType.Density() == 0 {
+			// Data type of first series must be known since we use it to calculate the
+			// length of series in the frame
+			if s.DataType.Density() == telem.DensityUnknown {
 				return errors.Wrapf(
 					validate.Error,
 					"invalid data type for channel %d, expected %s, got %s",
-					k, telem.TimeStampT, s.DataType,
-				)
+					k, uWriter.Channel.DataType, s.DataType)
 			}
 			lengthOfFrame = s.Len()
 		}
@@ -462,16 +462,17 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 	return nil
 }
 
-func (w *idxWriter) updateHighWater(col telem.Series) error {
-	if col.DataType != telem.TimeStampT && col.DataType != telem.Int64T {
+func (w *idxWriter) updateHighWater(s telem.Series) error {
+	if s.DataType != telem.TimeStampT && s.DataType != telem.Int64T {
 		return errors.Wrapf(
 			validate.Error,
 			"invalid data type for channel %d, expected %s, got %s",
-			w.idx.key, telem.TimeStampT,
-			col.DataType,
+			w.idx.key,
+			telem.TimeStampT,
+			s.DataType,
 		)
 	}
-	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](col, col.Len()-1)
+	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, s.Len()-1)
 	return nil
 }
 
