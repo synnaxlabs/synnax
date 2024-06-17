@@ -101,7 +101,6 @@ int32 ni::NiDAQmxInterface::CreateTask(const char sessionName[], TaskHandle *tas
     return 0;
 }
 
-//
 int32 ni::NiDAQmxInterface::CreateAIVoltageChan(
             TaskHandle task, 
             const char physicalChannel[],
