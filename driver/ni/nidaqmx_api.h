@@ -16,14 +16,11 @@ namespace ni {
     public:
 
 
-        static int32
-        CreateDIChan(TaskHandle task, const char lines[], const char nameToAssignToLines[], int32 lineGrouping);
+        static int32 CreateDIChan(TaskHandle task, const char lines[], const char nameToAssignToLines[], int32 lineGrouping);
 
-        static int32
-        CreateDOChan(TaskHandle task, const char lines[], const char nameToAssignToLines[], int32 lineGrouping);
+        static int32 CreateDOChan(TaskHandle task, const char lines[], const char nameToAssignToLines[], int32 lineGrouping);
 
-        static int32
-        CfgSampClkTiming(TaskHandle task, const char source[], float64 rate, int32 activeEdge, int32 sampleMode,
+        static int32 CfgSampClkTiming(TaskHandle task, const char source[], float64 rate, int32 activeEdge, int32 sampleMode,
                          uInt64 sampsPerChan);
 
         static int32 StartTask(TaskHandle task);
@@ -32,16 +29,13 @@ namespace ni {
 
         static int32 ClearTask(TaskHandle task);
 
-        static int32
-        ReadAnalogF64(TaskHandle task, int32 numSampsPerChan, float64 timeout, int32 fillMode, float64 readArray[],
+        static int32 ReadAnalogF64(TaskHandle task, int32 numSampsPerChan, float64 timeout, int32 fillMode, float64 readArray[],
                       uInt32 arraySizeInSamps, int32 *sampsPerChanRead, bool32 *reserved);
 
-        static int32
-        ReadDigitalLines(TaskHandle task, int32 numSampsPerChan, float64 timeout, int32 fillMode, uInt8 readArray[],
+        static int32 ReadDigitalLines(TaskHandle task, int32 numSampsPerChan, float64 timeout, int32 fillMode, uInt8 readArray[],
                          uInt32 arraySizeInBytes, int32 *sampsPerChanRead, int32 *numBytesPerSamp, bool32 *reserved);
 
-        static int32
-        WriteDigitalLines(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout, int32 dataLayout,
+        static int32 WriteDigitalLines(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout, int32 dataLayout,
                           const uInt8 writeArray[], int32 *sampsPerChanWritten, bool32 *reserved);
 
         static int32 GetExtendedErrorInfo(char errorString[], uInt32 bufferSize);
@@ -62,8 +56,7 @@ namespace ni {
                                       const float64 scaledVals[], uInt32 numScaledValsIn, int32 preScaledUnits,
                                       const char scaledUnits[]);
 
-        static int32
-        CalculateReversePolyCoeff(const float64 forwardCoeffs[], uInt32 numForwardCoeffsIn, float64 minValX,
+        static int32 CalculateReversePolyCoeff(const float64 forwardCoeffs[], uInt32 numForwardCoeffsIn, float64 minValX,
                                   float64 maxValX, int32 numPointsToCompute, int32 reversePolyOrder,
                                   float64 reverseCoeffs[]);
 
@@ -147,7 +140,7 @@ namespace ni {
             );
 
         virtual int32 CreateAIBridgeChan(
-                TaskHandle task, 
+            TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
             float64 minVal, 
@@ -155,7 +148,7 @@ namespace ni {
             int32 bridgeConfig, 
             int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance, const char customScaleName[]);
 
-        virtual int32 CreateAIChargeChan(
+        static int32 CreateAIChargeChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -166,7 +159,7 @@ namespace ni {
             const char customScaleName[]
             );
 
-        virtual int32 CreateAICurrentChan(
+        static int32 CreateAICurrentChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -179,7 +172,7 @@ namespace ni {
             const char customScaleName[]
             );
 
-        virtual int32 CreateAICurrentRMSChan(
+        static int32 CreateAICurrentRMSChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -192,7 +185,7 @@ namespace ni {
             const char customScaleName[]
             );
 
-        virtual int32 CreateAIForceBridgePolynomialChan(
+        static int32 CreateAIForceBridgePolynomialChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -211,7 +204,7 @@ namespace ni {
             const char customScaleName[]
             );
        
-        virtual int32 CreateAIForceBridgeTableChan(
+        static int32 CreateAIForceBridgeTableChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -230,7 +223,7 @@ namespace ni {
             const char customScaleName[]
             );
         
-        virtual int32 CreateAIForceBridgeTwoPointLinChan(
+        static int32 CreateAIForceBridgeTwoPointLinChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -250,7 +243,7 @@ namespace ni {
             const char customScaleName[]
             );
        
-        virtual int32 CreateAIForceIEPEChan(
+        static int32 CreateAIForceIEPEChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -265,7 +258,7 @@ namespace ni {
             const char customScaleName[]
             );
         
-        virtual int32 CreateAIFreqVoltageChan(
+        static int32 CreateAIFreqVoltageChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -277,7 +270,7 @@ namespace ni {
             const char customScaleName[]
             );
      
-        virtual int32 CreateAIMicrophoneChan(
+        static int32 CreateAIMicrophoneChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[],
@@ -290,7 +283,7 @@ namespace ni {
             const char customScaleName[]
             );
 
-        virtual int32 CreateAIPosEddyCurrProxProbeChan(
+        static int32 CreateAIPosEddyCurrProxProbeChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -302,7 +295,7 @@ namespace ni {
             const char customScaleName[]
             );
     
-        virtual int32 CreateAIPosLVDTChan(
+        static int32 CreateAIPosLVDTChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -317,7 +310,7 @@ namespace ni {
             const char customScaleName[]
             );
      
-        virtual int32 CreateAIPosRVDTChan(
+        static int32 CreateAIPosRVDTChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[],
@@ -333,7 +326,7 @@ namespace ni {
              const char customScaleName[]
              );
      
-        virtual int32 CreateAIPowerChan(
+        static int32 CreateAIPowerChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -341,7 +334,7 @@ namespace ni {
             float64 currentSetpoint, bool32 outputEnable
             );
       
-        virtual int32 CreateAIPressureBridgePolynomialChan(
+        static int32 CreateAIPressureBridgePolynomialChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -361,7 +354,7 @@ namespace ni {
             const char customScaleName[]
             );
     
-        virtual int32 CreateAIPressureBridgeTableChan(
+        static int32 CreateAIPressureBridgeTableChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -381,7 +374,7 @@ namespace ni {
             const char customScaleName[]
             );
       
-        virtual int32 CreateAIPressureBridgeTwoPointLinChan(
+        static int32 CreateAIPressureBridgeTwoPointLinChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -401,7 +394,7 @@ namespace ni {
             const char customScaleName[]
             );
         
-        virtual int32 CreateAIRTDChan(
+        static int32 CreateAIRTDChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -412,7 +405,7 @@ namespace ni {
             int32 resistanceConfig, 
             int32 currentExcitSource, float64 currentExcitVal, float64 r0);
        
-        virtual int32 CreateAIResistanceChan(
+        static int32 CreateAIResistanceChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[],
@@ -425,7 +418,7 @@ namespace ni {
             const char customScaleName[]
             );
        
-        virtual int32 CreateAIRosetteStrainGageChan(
+        static int32 CreateAIRosetteStrainGageChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[],
@@ -444,7 +437,7 @@ namespace ni {
             float64 leadWireResistance
             );
      
-        virtual int32 CreateAIStrainGageChan(
+        static int32 CreateAIStrainGageChan(
                 TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[],
@@ -462,14 +455,14 @@ namespace ni {
             const char customScaleName[]
             );
     
-        virtual int32 CreateAITempBuiltInSensorChan(
+        static int32 CreateAITempBuiltInSensorChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[],
             int32 units
             );
     
-        virtual int32 CreateAIThrmcplChan(
+        static int32 CreateAIThrmcplChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -482,7 +475,7 @@ namespace ni {
             const char cjcChannel[]
             );
    
-        virtual int32 CreateAIThrmstrChanIex(
+        static int32 CreateAIThrmstrChanIex(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -497,7 +490,7 @@ namespace ni {
             float64 c
             );
         
-        virtual int32 CreateAIThrmstrChanVex(
+        static int32 CreateAIThrmstrChanVex(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -513,7 +506,7 @@ namespace ni {
             float64 r1
             );
         
-        virtual int32 CreateAITorqueBridgePolynomialChan(
+        static int32 CreateAITorqueBridgePolynomialChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -533,7 +526,7 @@ namespace ni {
             const char customScaleName[]
             );
     
-        virtual int32 CreateAITorqueBridgeTableChan(
+        static int32 CreateAITorqueBridgeTableChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -553,7 +546,7 @@ namespace ni {
             const char customScaleName[]
             );
      
-        virtual int32 CreateAITorqueBridgeTwoPointLinChan(
+        static int32 CreateAITorqueBridgeTwoPointLinChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -573,7 +566,7 @@ namespace ni {
             const char customScaleName[]
             );
        
-        virtual int32 CreateAIVelocityIEPEChan(
+        static int32 CreateAIVelocityIEPEChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
