@@ -10,27 +10,66 @@
 #include "daqmx.h"
 #include "nidaqmx_api.h"
 
-int32 ni::NiDAQmxInterface::CreateAIVoltageChan(TaskHandle task, const char physicalChannel[],
-                                                const char nameToAssignToChannel[], int32 terminalConfig,
-                                                float64 minVal, float64 maxVal, int32 units,
-                                                const char customScaleName[]) {
-    return DAQmxCreateAIVoltageChan(task, physicalChannel, nameToAssignToChannel, terminalConfig, minVal, maxVal, units,
-                                    customScaleName);
+int32 ni::NiDAQmxInterface::CreateAIVoltageChan(
+        TaskHandle task, 
+        const char physicalChannel[],
+        const char nameToAssignToChannel[], 
+        int32 terminalConfig,
+        float64 minVal, 
+        float64 maxVal, 
+        int32 units,
+        const char  customScaleName[]) {
+    return DAQmxCreateAIVoltageChan(
+            task, 
+            physicalChannel, 
+            nameToAssignToChannel, 
+            terminalConfig, 
+            minVal,
+            maxVal, 
+            units,                  
+            customScaleName
+        );
 }
 
-int32 ni::NiDAQmxInterface::CreateDIChan(TaskHandle task, const char lines[], const char nameToAssignToLines[],
-                                         int32 lineGrouping) {
-    return DAQmxCreateDIChan(task, lines, nameToAssignToLines, lineGrouping);
+int32 ni::NiDAQmxInterface::CreateDIChan(
+        TaskHandle task, 
+        const char lines[], 
+        const char nameToAssignToLines[],                       
+        int32 lineGrouping) {
+
+    return DAQmxCreateDIChan(
+            task, 
+            lines, 
+            nameToAssignToLines, 
+            lineGrouping
+        );
 }
 
 int32 ni::NiDAQmxInterface::CreateDOChan(TaskHandle task, const char lines[], const char nameToAssignToLines[],
                                          int32 lineGrouping) {
-    return DAQmxCreateDOChan(task, lines, nameToAssignToLines, lineGrouping);
+    return DAQmxCreateDOChan(
+            task, 
+            lines, 
+            nameToAssignToLines, 
+            lineGrouping
+        );
 }
 
-int32 ni::NiDAQmxInterface::CfgSampClkTiming(TaskHandle task, const char source[], float64 rate, int32 activeEdge,
-                                             int32 sampleMode, uInt64 sampsPerChan) {
-    return DAQmxCfgSampClkTiming(task, source, rate, activeEdge, sampleMode, sampsPerChan);
+int32 ni::NiDAQmxInterface::CfgSampClkTiming(
+                TaskHandle task, 
+                const char source[], 
+                float64 rate,
+                int32 activeEdge,                
+                int32 sampleMode, 
+                uInt64 sampsPerChan) {
+    return DAQmxCfgSampClkTiming(
+            task, 
+            source, 
+            rate, 
+            activeEdge, 
+            sampleMode, 
+            sampsPerChan
+        );
 }
 
 int32 ni::NiDAQmxInterface::StartTask(TaskHandle task) {
@@ -45,68 +84,173 @@ int32 ni::NiDAQmxInterface::ClearTask(TaskHandle task) {
     return DAQmxClearTask(task);
 }
 
-int32 ni::NiDAQmxInterface::ReadAnalogF64(TaskHandle task, int32 numSampsPerChan, float64 timeout, int32 fillMode,
-                                          float64 readArray[], uInt32 arraySizeInSamps, int32 *sampsPerChanRead,
-                                          bool32 *reserved) {
-    return DAQmxReadAnalogF64(task, numSampsPerChan, timeout, fillMode, readArray, arraySizeInSamps, sampsPerChanRead,
-                              reserved);
+int32 ni::NiDAQmxInterface::ReadAnalogF64(
+        TaskHandle task, 
+        int32 numSampsPerChan, 
+        float64 timeout, 
+        int32 fillMode,
+        float64 readArray[], 
+        uInt32 arraySizeInSamps, 
+        int32 *sampsPerChanRead,
+        bool32 *reserved) {
+    return DAQmxReadAnalogF64(
+                task, 
+                numSampsPerChan, 
+                timeout, 
+                fillMode, 
+                readArray, 
+                arraySizeInSamps, 
+                sampsPerChanRead,
+                reserved);
 }
 
-int32 ni::NiDAQmxInterface::ReadDigitalLines(TaskHandle task, int32 numSampsPerChan, float64 timeout, int32 fillMode,
-                                             uInt8 readArray[], uInt32 arraySizeInBytes, int32 *sampsPerChanRead,
-                                             int32 *numBytesPerSamp, bool32 *reserved) {
-    return DAQmxReadDigitalLines(task, numSampsPerChan, timeout, fillMode, readArray, arraySizeInBytes,
-                                 sampsPerChanRead, numBytesPerSamp, reserved);
+int32 ni::NiDAQmxInterface::ReadDigitalLines(
+        TaskHandle task, 
+        int32 numSampsPerChan, 
+        float64 timeout, 
+        int32 fillMode,
+        uInt8 readArray[], 
+        uInt32 arraySizeInBytes, 
+        int32 *sampsPerChanRead,
+        int32 *numBytesPerSamp, 
+        bool32 *reserved) {
+    return DAQmxReadDigitalLines(
+                task, 
+                numSampsPerChan, 
+                timeout, 
+                fillMode, 
+                readArray, 
+                arraySizeInBytes,
+                sampsPerChanRead, 
+                numBytesPerSamp, 
+                reserved);
 }
 
-int32 ni::NiDAQmxInterface::WriteDigitalLines(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout,
-                                              int32 dataLayout, const uInt8 writeArray[], int32 *sampsPerChanWritten,
-                                              bool32 *reserved) {
-    return DAQmxWriteDigitalLines(task, numSampsPerChan, autoStart, timeout, dataLayout, writeArray,
-                                  sampsPerChanWritten, reserved);
+int32 ni::NiDAQmxInterface::WriteDigitalLines(
+        TaskHandle task, 
+        int32 numSampsPerChan, 
+        bool32 autoStart, 
+        float64 timeout,
+        int32 dataLayout, 
+        const uInt8 writeArray[], 
+        int32 *sampsPerChanWritten,
+        bool32 *reserved) {
+    return DAQmxWriteDigitalLines(
+                task, 
+                numSampsPerChan, 
+                autoStart, 
+                timeout, 
+                dataLayout, 
+                writeArray,
+                sampsPerChanWritten, 
+                reserved);
 }
 
-int32 ni::NiDAQmxInterface::GetExtendedErrorInfo(char errorString[], uInt32 bufferSize) {
-    return DAQmxGetExtendedErrorInfo(errorString, bufferSize);
+int32 ni::NiDAQmxInterface::GetExtendedErrorInfo(
+    char errorString[], 
+    uInt32 bufferSize) {
+    return DAQmxGetExtendedErrorInfo(
+                errorString, 
+                bufferSize);
 }
 
 
-int32 ni::NiDAQmxInterface::CreateLinScale(const char name[], float64 slope, float64 yIntercept, int32 preScaledUnits,
-                                           const char scaledUnits[]) {
-    return DAQmxCreateLinScale(name, slope, yIntercept, preScaledUnits, scaledUnits);
+int32 ni::NiDAQmxInterface::CreateLinScale(
+    const char name[], 
+    float64 slope, 
+    float64 yIntercept, 
+    int32 preScaledUnits,
+    const char scaledUnits[]) {
+    return DAQmxCreateLinScale( 
+                name, 
+                slope,
+                yIntercept, 
+                preScaledUnits, 
+                scaledUnits);
 }
 
 int32
-ni::NiDAQmxInterface::CreateMapScale(const char name[], float64 prescaledMin, float64 prescaledMax, float64 scaledMin,
-                                     float64 scaledMax, int32 preScaledUnits, const char scaledUnits[]) {
-    return DAQmxCreateMapScale(name, prescaledMin, prescaledMax, scaledMin, scaledMax, preScaledUnits, scaledUnits);
+ni::NiDAQmxInterface::CreateMapScale(
+    const char name[], 
+    float64 prescaledMin, 
+    float64 prescaledMax, 
+    float64 scaledMin,
+    float64 scaledMax, 
+    int32 preScaledUnits, 
+    const char scaledUnits[]) {
+    return DAQmxCreateMapScale(
+                name, 
+                prescaledMin, 
+                prescaledMax, 
+                scaledMin, 
+                scaledMax, 
+                preScaledUnits, 
+                scaledUnits);
 }
 
 int32
-ni::NiDAQmxInterface::CreatePolynomialScale(const char name[], const float64 forwardCoeffs[], uInt32 numForwardCoeffsIn,
-                                            const float64 reverseCoeffs[], uInt32 numReverseCoeffsIn,
-                                            int32 preScaledUnits, const char scaledUnits[]) {
-    return DAQmxCreatePolynomialScale(name, forwardCoeffs, numForwardCoeffsIn, reverseCoeffs, numReverseCoeffsIn,
-                                      preScaledUnits, scaledUnits);
+ni::NiDAQmxInterface::CreatePolynomialScale(
+    const char name[], 
+    const float64 forwardCoeffs[],
+    uInt32 numForwardCoeffsIn,
+    const float64 reverseCoeffs[], 
+    uInt32 numReverseCoeffsIn,
+    int32 preScaledUnits, 
+    const char scaledUnits[]) {
+        
+    return DAQmxCreatePolynomialScale(
+        name, 
+        forwardCoeffs, 
+        numForwardCoeffsIn, 
+        reverseCoeffs, 
+        numReverseCoeffsIn,
+        preScaledUnits, 
+        scaledUnits);
 }
 
 int32
-ni::NiDAQmxInterface::CreateTableScale(const char name[], const float64 prescaledVals[], uInt32 numPrescaledValsIn,
-                                       const float64 scaledVals[], uInt32 numScaledValsIn, int32 preScaledUnits,
-                                       const char scaledUnits[]) {
-    return DAQmxCreateTableScale(name, prescaledVals, numPrescaledValsIn, scaledVals, numScaledValsIn, preScaledUnits,
-                                 scaledUnits);
+ni::NiDAQmxInterface::CreateTableScale(
+    const char name[], 
+    const float64 prescaledVals[], 
+    uInt32 numPrescaledValsIn,
+    const float64 scaledVals[], 
+    uInt32 numScaledValsIn, 
+    int32 preScaledUnits,
+    const char scaledUnits[]) {
+    return DAQmxCreateTableScale(
+                name, 
+                prescaledVals, 
+                numPrescaledValsIn, 
+                scaledVals, 
+                numScaledValsIn, 
+                preScaledUnits,  
+                scaledUnits);
+        }
+
+int32 ni::NiDAQmxInterface::CalculateReversePolyCoeff(
+        const float64 forwardCoeffs[],
+        uInt32 numForwardCoeffsIn,
+        float64 minValX, 
+        float64 maxValX, 
+        int32 numPointsToCompute,
+        int32 reversePolyOrder, 
+        float64 reverseCoeffs[]) {
+    return DAQmxCalculateReversePolyCoeff(
+        forwardCoeffs, 
+        numForwardCoeffsIn, 
+        minValX, 
+        maxValX, 
+        numPointsToCompute,
+        reversePolyOrder, 
+        reverseCoeffs);
 }
 
-int32 ni::NiDAQmxInterface::CalculateReversePolyCoeff(const float64 forwardCoeffs[], uInt32 numForwardCoeffsIn,
-                                                      float64 minValX, float64 maxValX, int32 numPointsToCompute,
-                                                      int32 reversePolyOrder, float64 reverseCoeffs[]) {
-    return DAQmxCalculateReversePolyCoeff(forwardCoeffs, numForwardCoeffsIn, minValX, maxValX, numPointsToCompute,
-                                          reversePolyOrder, reverseCoeffs);
-}
-
-int32 ni::NiDAQmxInterface::CreateTask(const char sessionName[], TaskHandle *task) {
-    return DAQmxCreateTask(sessionName, task);
+int32 ni::NiDAQmxInterface::CreateTask(
+    const char sessionName[], 
+    TaskHandle *task) {
+    return DAQmxCreateTask(
+        sessionName, 
+        task);
 }
 
 int32 ni::NiDAQmxInterface::CreateAIVoltageChan(
