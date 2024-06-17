@@ -418,6 +418,47 @@ var _ = Describe("Writer Behavior", func() {
 							By("Closing the writer")
 							Expect(w.Close()).To(Succeed())
 						})
+						It("Should work with the write method", func() {
+							start := 10 * telem.SecondTS
+
+							for i := 0; i < 100; i++ {
+								stamps := make([]telem.TimeStamp, 100)
+								data := make([]int64, 100)
+								for j := telem.TimeStamp(0); j < 100; j++ {
+									stamps[j] = start + j*10*telem.MicrosecondTS
+									data[j] = 1
+								}
+								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+									Channels:         []cesium.ChannelKey{index1},
+									Start:            start,
+									Mode:             cesium.WriterPersistOnly,
+									EnableAutoCommit: config.True(),
+								}))
+								Expect(w.Write(cesium.NewFrame([]cesium.ChannelKey{index1},
+									[]telem.Series{
+										telem.NewSeries(stamps),
+									},
+								))).To(BeTrue())
+								Expect(w.Close()).To(Succeed())
+
+								w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+									Channels:         []cesium.ChannelKey{basic1},
+									Start:            start,
+									Mode:             cesium.WriterPersistOnly,
+									EnableAutoCommit: config.True(),
+								}))
+								Expect(w.Write(cesium.NewFrame([]cesium.ChannelKey{basic1},
+									[]telem.Series{
+										telem.NewSeries(data),
+									},
+								))).To(BeTrue())
+								Expect(w.Close()).To(Succeed())
+								start += 2 * telem.MillisecondTS
+							}
+
+							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
+							Expect(f.Series).To(HaveLen(100))
+						})
 
 						Describe("Auto-Persist", func() {
 							It("Should auto persist on every commit when set to always auto persist", func() {
