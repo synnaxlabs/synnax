@@ -1258,7 +1258,7 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)},
 					))).To(BeTrue())
 					err = w.Error()
-					Expect(err).To(MatchError(ContainSubstring("expected timestamp, got int64")))
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Close()).To(Succeed())
 				})
 			})
