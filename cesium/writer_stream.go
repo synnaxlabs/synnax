@@ -412,14 +412,17 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 			continue
 		}
 
-		if fr.Series[i].DataType != uWriter.Channel.DataType {
-			return errors.Wrapf(
-				validate.Error,
-				"invalid data type for channel %d, expected %s, got %s",
-				k, uWriter.Channel.DataType, fr.Series[i].DataType)
-		}
 		if lengthOfFrame == -1 {
-			lengthOfFrame = fr.Series[i].Len()
+			s := fr.Series[i]
+			// Data type of first series must be known since we use it to calculate the
+			// length of series in the frame
+			if s.DataType.Density() == telem.DensityUnknown {
+				return errors.Wrapf(
+					validate.Error,
+					"invalid data type for channel %d, expected %s, got %s",
+					k, uWriter.Channel.DataType, s.DataType)
+			}
+			lengthOfFrame = s.Len()
 		}
 
 		if uWriter.timesWritten == w.numWriteCalls {
