@@ -231,7 +231,4 @@ namespace ni {
     //                                      Velocity                                 //
     ///////////////////////////////////////////////////////////////////////////////////
     // DAQmxCreateAIVelocityIEPEChan
-
-
-
 }

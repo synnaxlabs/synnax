@@ -37,7 +37,7 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
                                    std::to_string(channel_builder.required<std::uint64_t>("port")));
 
                     config.channel_key = channel_builder.required<uint32_t>("channel");
-                    config.channel_type = channel_builder.required<std::string>("channel_type");
+                    config.channel_type = channel_builder.required<std::string>("type");
 
                     // TODO: check scale parser in the function below
                     config.ni_channel = this->parseChannel(channel_builder, config.channel_type, config.name);

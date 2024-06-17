@@ -323,7 +323,7 @@ namespace ni {
 
         explicit Scanner(const std::shared_ptr<task::Context> &ctx,
                          const synnax::Task &task);
-
+                         
         ~Scanner();
 
         void scan();

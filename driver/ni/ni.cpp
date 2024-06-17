@@ -46,8 +46,6 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-
-
 void ni::Source::getIndexKeys() {
     LOG(INFO) << "[NI Reader] acquiring index channels for task " << this->reader_config.task_name;
     std::set < std::uint32_t > index_keys;
