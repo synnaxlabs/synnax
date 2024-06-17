@@ -463,7 +463,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 }
 
 func (w *idxWriter) updateHighWater(s telem.Series) error {
-	if s.DataType != telem.TimeStampT {
+	if s.DataType != telem.TimeStampT || s.DataType != telem.Int64T {
 		return errors.Wrapf(
 			validate.Error,
 			"invalid data type for channel %d, expected %s, got %s",
