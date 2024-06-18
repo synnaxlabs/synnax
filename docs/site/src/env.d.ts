@@ -1,4 +1,3 @@
-/// <reference path="../.astro/types.d.ts" />
 // Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
