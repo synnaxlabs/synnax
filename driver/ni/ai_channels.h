@@ -316,6 +316,13 @@ namespace ni {
             int32_t cjcSource;
             double cjcVal;
             char cjcChannel[];
+            
+            explicit Thermocouple(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      thermocoupleType(parser.required<int32_t>("thermocouple_type")),
+                      cjcSource(parser.required<int32_t>("cjc_source")),
+                      cjcVal(parser.required<double>("cjc_val")),
+                      cjcChannel(parser.required<std::string>("cjc_channel")) {}
     }
     class Thermistor : public Analog{
         public:
@@ -332,6 +339,14 @@ namespace ni {
             double a;
             double b;
             double c;
+
+            explicit ThermistorVex(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      resistanceConfig(parser),
+                      excitationConfig(parser),
+                      a(parser.required<double>("a")),
+                      b(parser.required<double>("b")),
+                      c(parser.required<double>("c")) {}
     }
 
 
@@ -345,18 +360,34 @@ namespace ni {
             int32_t sensitivityUnits;
             ExcitationConfig excitationConfig;
 
+            explicit Acceleration(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      sensitivity(parser.required<double>("sensitivity")),
+                      sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
+                      excitationConfig(parser) {}
+
     };
     /// @brief acceleration channel with 4 wire DC voltage
     class Acceleration4WireDCVoltage : public Analog {
         public:
             double sensitivity;
             int32_t sensitivityUnits;
+
+        explicit Acceleration4WireDCVoltage(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task, name),
+                  sensitivity(parser.required<double>("sensitivity")),
+                  sensitivityUnits(parser.required<int32_t>("sensitivity_units")) {}
     };
     /// @brief acceleration channel with charge
     class AccelerationCharge : public Analog {
         public:
             double sensitivity;
             int32_t sensitivityUnits;
+
+            explicit AccelerationCharge(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      sensitivity(parser.required<double>("sensitivity")),
+                      sensitivityUnits(parser.required<int32_t>("sensitivity_units")) {}
 
     };
 
@@ -372,39 +403,60 @@ namespace ni {
             double minValForScaling;
             double maxValForScaling;
             double units;
-            double minValForExcitation;
-            double maxValForExcitation;
-            double excitationVal;
-            int32_t excitationSource;
-            bool32 useExcitForScaling;
+            ExcitationConfig excitationConfig;
+
+            explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      minValForScaling(parser.required<double>("min_val_for_scaling")),
+                      maxValForScaling(parser.required<double>("max_val_for_scaling")),
+                      units(parser.required<double>("units")),
+                      excitationConfig(parser) {}
     };
     class ForceBridgeTable : public Analog {
         public:
             double minValForScaling;
             double maxValForScaling;
             double units;
-            double minValForExcitation;
-            double maxValForExcitation;
-            double excitationVal;
-            int32_t excitationSource;
-            bool32 useExcitForScaling;
+            ExcitationConfig excitationConfig;
+
+            explicit ForceBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      minValForScaling(parser.required<double>("min_val_for_scaling")),
+                      maxValForScaling(parser.required<double>("max_val_for_scaling")),
+                      units(parser.required<double>("units")),
+                      excitationConfig(parser) {}
     };
     class ForceBridgeTwoPointLin : public Analog {
         public:
             BridgeConfig bridgeConfig;
             TwoPointLinConfig twoPointLinConfig;
+
+            explicit ForceBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      twoPointLinConfig(parser) {}
     };
 
     class ForceBridgePolynomial: public Analog{
         public:
             BridgeConfig bridgeConfig;
             PolynomialConfig polynomialConfig;
+
+            explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      polynomialConfig(parser) {}
     };
 
     class PressureBridgeTable: public Analog{
         public: 
             BridgeConfig bridgeConfig;
             TableConfig tableConfig;
+
+            explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      tableConfig(parser) {}
     }
 
 
@@ -413,29 +465,51 @@ namespace ni {
         public:
             BridgeConfig bridgeConfig;
             TwoPointLinConfig twoPointLinConfig;
+
+            explicit PressureBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      twoPointLinConfig(parser) {}
     } 
 
     class TorqueBridge Polynomial: public Analog{
         public:
             BridgeConfig bridgeConfig;
             PolynomialConfig polynomialConfig;
+
+            explicit TorqueBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      polynomialConfig(parser) {}
     }
 
     class TorqueBridgeTable: public Analog{
         public:
             BridgeConfig bridgeConfig;
             TableConfig tableConfig;
+
+            explicit TorqueBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      tableConfig(parser) {}
     }
 
     class TorqueBridgeTwoPointLin: public Analog{
         public:
             BridgeConfig bridgeConfig;
             TwoPointLinConfig twoPointLinConfig;
+
+            explicit TorqueBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      twoPointLinConfig(parser) {}
     }
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Charge                                   //
     ///////////////////////////////////////////////////////////////////////////////////
     class Charge : public Analog {
+        explicit Charge(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task, name) {}
 
     }
 
@@ -447,10 +521,16 @@ namespace ni {
             int32_t shuntResistorLoc;
             double extShuntResistorval;
 
+            explicit Current(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      shuntResistorLoc(parser.required<int32_t>("shunt_resistor_loc")),
+                      extShuntResistorval(parser.required<double>("ext_shunt_resistor_val")) {}
+
     }
 
     class CurrentRMS : public Current{
-
+        explicit CurrentRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Current(parser, task, name) {}
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -461,24 +541,45 @@ namespace ni {
             BridgeConfig bridgeConfig;
             PolynomialConfig polynomialConfig;
 
+            explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      polynomialConfig(parser) {}
+
 
     }
     class ForceBridgeTable : public Analog{
         public:
             BridgeConfig bridgeConfig;
             TableConfig tableConfig;
+
+            explicit ForceBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      tableConfig(parser) {}
     }
 
     class ForceBridgeTwoPointLin : public Analog{
         public:
             BridgeConfig bridgeConfig;
             TwoPointLinConfig twoPointLinConfig;
+
+            explicit ForceBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      twoPointLinConfig(parser) {}
     }
     class ForceIEPE : public Analog{
         public:
             int32_t sensitivityUnits;
             double sensitivity;
             ExcitationConfig excitationConfig;
+
+            explicit ForceIEPE(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
+                      sensitivity(parser.required<double>("sensitivity")),
+                      excitationConfig(parser) {}
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -488,6 +589,11 @@ namespace ni {
         public:
             double thresholdLevel;
             double hysteresis;
+
+            explicit FrequencyVoltage(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      thresholdLevel(parser.required<double>("threshold_level")),
+                      hysteresis(parser.required<double>("hysteresis")) {}
     }
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Microphone                               //
@@ -497,6 +603,12 @@ namespace ni {
             double micSensitivity;
             double maxSndPressLevel;
             excitConfig excitationConfig;
+
+            explicit Microphone(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      micSensitivity(parser.required<double>("mic_sensitivity")),
+                      maxSndPressLevel(parser.required<double>("max_snd_press_level")),
+                      excitationConfig(parser) {} 
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -506,16 +618,31 @@ namespace ni {
         public:
             BridgeConfig bridgeConfig;
             PolynomialConfig polynomialConfig;
+
+            explicit PressureBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      polynomialConfig(parser) {}
     }
     class PressureBridgeTable : public Analog{
         public:
             BridgeConfig bridgeConfig;
             TableConfig tableConfig;
+
+            explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      tableConfig(parser) {}
     }
     class PressureBridgeTwoPointLin : public Analog{
         public:
             BridgeConfig bridgeConfig;
             TwoPointLinConfig twoPointLinConfig;
+
+            explicit PressureBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      twoPointLinConfig(parser) {}
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -525,6 +652,11 @@ namespace ni {
         public:
             int32_t resistanceConfig;
             ExcitationConfig excitationConfig;
+
+            explicit Resistance(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      resistanceConfig(parser),
+                      excitationConfig(parser) {}
 
     } 
 
@@ -542,24 +674,60 @@ namespace ni {
             double nominalGageResistance;
             double poissonRatio;
             double leadWireResistance;
+
+            explicit RosetteStrainGage(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      rosetteType(parser.required<int32_t>("rosette_type")),
+                      gageOrientation(parser.required<double>("gage_orientation")),
+                      rosseteMeasType(parser.required<int32_t>("rosette_meas_type")),
+                      strainConfig(parser.required<int32_t>("strain_config")),
+                      excitationConfig(parser),
+                      gageFactor(parser.required<double>("gage_factor")),
+                      nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
+                      poissonRatio(parser.required<double>("poisson_ratio")),
+                      leadWireResistance(parser.required<double>("lead_wire_resistance")) {}
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                      RTD                                      //
+    //                              Strain Gage                                      //
+    ///////////////////////////////////////////////////////////////////////////////////
+    class Strain Gage : public Analog{
+        public:
+            int32_t strainConfig;
+            ExcitationConfig excitationConfig;
+            double gageFactor;
+            double initialBridgeVoltage;
+            double nominalGageResistance;
+            double poissonRatio;
+            double leadWireResistance;
+
+            explicit StrainGage(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      strainConfig(parser.required<int32_t>("strain_config")),
+                      excitationConfig(parser),
+                      gageFactor(parser.required<double>("gage_factor")),
+                      initialBridgeVoltage(parser.required<double>("initial_bridge_voltage")),
+                      nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
+                      poissonRatio(parser.required<double>("poisson_ratio")),
+                      leadWireResistance(parser.required<double>("lead_wire_resistance")) {}
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                       RTD                                     //
     ///////////////////////////////////////////////////////////////////////////////////
     class RTD : public Analog{
-        public:
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////
-    //                                      Strain Gage                              //
-    ///////////////////////////////////////////////////////////////////////////////////
-    class StrainGage : public Analog{
         public:
             int32_t rtdType;
             int32_t resitanceConfig;
             ExcitationConfig excitationConfig;
             double r0;
+
+            explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      rtdType(parser.required<int32_t>("rtd_type")),
+                      resistanceConfig(parser.required<int32_t>("resistance_config")),
+                      excitationConfig(parser),
+                      r0(parser.required<double>("r0")) {}
     }
 
    
@@ -571,6 +739,11 @@ namespace ni {
         public:
             BridgeConfig bridgeConfig;
             PolynomialConfig polynomialConfig;
+
+            explicit TorqueBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      polynomialConfig(parser) {}
     }
 
 
@@ -581,7 +754,12 @@ namespace ni {
     }
     class TorqueBridgeTwoPointLin : public Analog{
         public:
-
+            BridgeConfig bridgeConfig;
+            TwoPointLinConfig twoPointLinConfig;
+            explicit TorqueBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      bridgeConfig(parser),
+                      twoPointLinConfig(parser) {}
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -592,6 +770,12 @@ namespace ni {
             int32_t sensitivityUnits;
             double sensitivity;
             ExcitationConfig excitationConfig;
+
+            explicit VelocityIEPE(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
+                      sensitivity(parser.required<double>("sensitivity")),
+                      excitationConfig(parser) {}
     }
 
 } // namespace ni
