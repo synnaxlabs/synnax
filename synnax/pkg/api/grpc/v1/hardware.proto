@@ -73,6 +73,7 @@ message Task {
     string name = 2;
     string type = 3;
     string config = 4;
+    bool internal = 5;
 }
 
 message HardwareCreateTaskRequest {
@@ -86,6 +87,8 @@ message HardwareCreateTaskResponse {
 message HardwareRetrieveTaskRequest {
     uint32 rack = 1;
     repeated uint64 keys = 2;
+    repeated string names = 3;
+    repeated string types = 4;
 }
 
 message HardwareRetrieveTaskResponse {

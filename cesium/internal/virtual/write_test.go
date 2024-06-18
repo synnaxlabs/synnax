@@ -7,6 +7,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -20,6 +21,7 @@ var _ = Describe("Write", func() {
 				DataType: telem.TimeStampT,
 				Virtual:  true,
 			},
+			FS: xfs.NewMem(),
 		}))
 	})
 	AfterEach(func() {
@@ -37,7 +39,7 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				w2, t, err := db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:             10 * telem.SecondTS,
-					Authority:         control.Absolute,
+					Authority:         control.Absolute - 1,
 					Subject:           control.Subject{Key: "bar"},
 					ErrOnUnauthorized: config.True(),
 				})

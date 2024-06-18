@@ -9,11 +9,8 @@
 
 #pragma once
 
-/// std
-// #include <cstdint>
 #include <string>
 
-/// api protos
 #include "x/go/control/x/go/control/control.pb.h"
 
 namespace synnax {

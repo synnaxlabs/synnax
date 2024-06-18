@@ -38,6 +38,7 @@ INPUT_PRECISION_ARG_SHORT = "-ip"
 OUTPUT_PRECISION_ARG = "--output-precision"
 OUTPUT_PRECISION_ARG_SHORT = "-op"
 
+
 @click.command()
 @click.argument(
     "input_path",

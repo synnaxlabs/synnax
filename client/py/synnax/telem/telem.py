@@ -478,6 +478,7 @@ TimeStamp.MAX = TimeStamp(2**63 - 1)
 
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
+
 def convert_time_units(data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits):
     """Converts the data from one time unit to another.
 

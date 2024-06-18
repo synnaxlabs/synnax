@@ -129,6 +129,8 @@ type Writer struct {
 	// closed stores whether the writer is closed. Operations like Write and Commit do not
 	// succeed on closed writers.
 	closed bool
+	// virtualAlignment tracks the alignment of the writer when persist is off.
+	virtualAlignment uint32
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -139,11 +141,13 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if err != nil {
 		return nil, transfer, err
 	}
-	w = &Writer{WriterConfig: cfg,
+	w = &Writer{
+		WriterConfig:     cfg,
 		Channel:          db.Channel,
 		idx:              db.index(),
 		decrementCounter: func() { db.entityCount.add(-1) },
 		wrapError:        db.wrapError,
+		virtualAlignment: 0,
 	}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
@@ -206,22 +210,22 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if err = w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	// ok signifies whether w is allowed to write.
 	dw, err := w.control.Authorize()
 	if err != nil {
-		return 0, err
+		return 0, w.wrapError(err)
 	}
-	a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
 	if *w.Persist {
+		a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
+	} else {
+		a = telem.NewAlignmentPair(math.MaxUint32, w.virtualAlignment)
+		w.virtualAlignment += uint32(series.Len())
 	}
 	return a, w.wrapError(err)
 }
-
-func (w *Writer) SetPersist(persist bool) { w.Persist = config.Bool(persist) }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 	return w.control.SetAuthority(a)

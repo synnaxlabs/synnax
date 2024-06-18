@@ -120,7 +120,7 @@ class Client:
             mode=mode,
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
-            auto_index_persist_interval=auto_index_persist_interval
+            auto_index_persist_interval=auto_index_persist_interval,
         )
 
     def open_iterator(
@@ -241,11 +241,7 @@ class Client:
         await s.open()
         return s
 
-    def delete(
-        self,
-        channels: ChannelParams,
-        tr: TimeRange
-    ) -> None:
+    def delete(self, channels: ChannelParams, tr: TimeRange) -> None:
         """
         delete deletes data in the specified channels in the specified time range.
         Note that the time range is start-inclusive and end-exclusive.

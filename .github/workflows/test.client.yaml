@@ -3,9 +3,11 @@ on:
   pull_request:
     branches:
       - rc
+      - main
   push:
     branches:
       - rc
+      - main
   workflow_dispatch:
 permissions:
   contents: write
@@ -25,7 +27,7 @@ jobs:
         with:
           filters: |
             changed:
-                - "client/py/**"
+                - "client/**"
                 - "freighter/py/**"
                 - "synnax/**"
                 - "cesium/**"
@@ -194,3 +196,37 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 9090:9090
+
+  test-cpp:
+    needs: [setup, build-server]
+    if: needs.setup.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Test
+        run: bazel test //client/...
+    services:
+      synnax:
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
+

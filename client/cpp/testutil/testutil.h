@@ -9,10 +9,9 @@
 
 #pragma once
 
-/// std
 #include <random>
 #include <string>
-//// internal
+
 #include "client/cpp/synnax.h"
 
 
