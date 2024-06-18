@@ -34,7 +34,6 @@ export const linkHandler: Link.Handler = async ({
         },
       }),
     );
-    // dispatch(setNavDrawerVisicble())
     dispatch(Layout.setNavDrawerVisible({ windowKey, key: "range" }));
   } catch (e) {
     addStatus({
