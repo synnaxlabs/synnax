@@ -15,7 +15,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 import { describe, expect, it, vi } from "vitest";
 
 import {
