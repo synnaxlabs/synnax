@@ -77,12 +77,66 @@ Here's a reference for each of the fields you'll need to fill:
         <tr>
             <td>Security Mode</td>
             <td>The security mode to use when connecting to the server. This should match the security mode configured on the server.</td>
-            {/* TODO: Instead explain differences between None, Sign, and SignAndEncrypt */}
+            <Table>
+                <thead>
+                    <tr>
+                        <th>Security mode</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>None</td>
+                        <td>No Security is applied/.</td>
+                    </tr>
+                    <tr>
+                        <td>Sign</td>
+                        <td>Messages are signed but not encrypted. Requires authentication but does not guarantee confidentiality.</td>
+                    </tr>
+                    <tr>
+                        <td>SignAndEncrpyt</td>
+                        <td>Messages are signed and encrypted, ensuring authenticity and confidentiality</td>
+                    </tr>
+                </tbody>
+            </Table>
         </tr>
         <tr>
             <td>Security Policy</td>
             <td>The security policy to use when connecting to the server. This should match the security policy configured on the server.</td>
-            {/* TODO: Details on different security policies and what client certificate, client private key, and server certificate are*/}
+            <Table>
+                <thead>
+                    <tr>
+                        <th>Security policy</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>None</td>
+                        <td>No Security is applied/.</td>
+                    </tr>
+                    <tr>
+                        <td>Basic128Rsa15</td>
+                        <td>Basic 128-bit encryption using RSA-15.</td>
+                    </tr>
+                    <tr>
+                        <td>Basic256</td>
+                        <td>Basic 256-bit encryption.</td>
+                    </tr>
+                    <tr>
+                        <td>Basic256Sha256</td>
+                        <td>Basic 256-bit encryption with SHA-256.</td>
+                    </tr>
+                    <tr>
+                        <td> Aes128Sha256RsaOaep</td>
+                        <td>128-bit AES encryption with SHA-256 and RSA OAEP.</td>
+                    </tr>
+                    <tr>
+                        <td>Aes256Sha256RsaPss</td>
+                        <td>256-bit AES encryption with SHA-256 and RSA PSS.</td>
+                    </tr>
+                </tbody>
+            </Table>
         </tr>
     </tbody>
 </Table>
@@ -155,13 +209,14 @@ created in the database.
 <Video client:only="react" id="device-drivers/opcua/configure/remove-channels"
 />
 
-{/* TODO: explain what the NS and I mean underneath the channel names. */}
+The namespace and the numeric identifier of the OPCUA node associated with the Synnax
+channel is displayed below the name labeled as `NS` and `I` respectively. 
 
 ### <StepText level="h3" step={3.3}>Edit Channel Properties</StepText>
 
 To edit the properties of a channel, simply select it and it's properties will
 appear in the bottom panel. Feel free to adjust the name, data type, and
-corresponding node as needed. 
+corresponding node as needed.  
 
 <Video client:only="react" id="device-drivers/opcua/configure/channel-props" />
 
@@ -169,6 +224,7 @@ corresponding node as needed.
 Some data types will not have the sufficient precision to store the data from
 your node. If you're ok with the loss of precision, Synnax will automatically
 convert the data to the new type when it reads from the OPC UA server. </Note>
+
 
 
 ### <StepText level="h3" step={3.4}>Correctly Configure Indexes</StepText>
