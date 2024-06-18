@@ -10,27 +10,6 @@
 #include "daqmx.h"
 #include "nidaqmx_api.h"
 
-int32 ni::NiDAQmxInterface::CreateAIVoltageChan(
-        TaskHandle task, 
-        const char physicalChannel[],
-        const char nameToAssignToChannel[], 
-        int32 terminalConfig,
-        float64 minVal, 
-        float64 maxVal, 
-        int32 units,
-        const char  customScaleName[]) {
-    return DAQmxCreateAIVoltageChan(
-            task, 
-            physicalChannel, 
-            nameToAssignToChannel, 
-            terminalConfig, 
-            minVal,
-            maxVal, 
-            units,                  
-            customScaleName
-        );
-}
-
 int32 ni::NiDAQmxInterface::CreateDIChan(
         TaskHandle task, 
         const char lines[], 
@@ -266,7 +245,8 @@ int32 ni::NiDAQmxInterface::CreateAIVoltageChan(
                 task, 
                 physicalChannel, 
                 nameToAssignToChannel, 
-                terminalConfig, minVal, 
+                terminalConfig, 
+                minVal, 
                 maxVal, 
                 units, 
                 customScaleName
@@ -385,8 +365,11 @@ int32 ni::NiDAQmxInterface::CreateAIAccelChargeChan(
             const char nameToAssignToChannel[], 
             int32 terminalConfig, 
             float64 minVal, 
-            float64 maxVal, int32 units, 
-            float64 sensitivity, int32 sensitivityUnits, const char customScaleName[]){
+            float64 maxVal, 
+            int32 units, 
+            float64 sensitivity, 
+            int32 sensitivityUnits, 
+            const char customScaleName[]){
     return DAQmxCreateAIAccelChargeChan(
                 task, 
                 physicalChannel, 
@@ -408,7 +391,10 @@ int32 ni::NiDAQmxInterface::CreateAIBridgeChan(
             float64 minVal, 
             float64 maxVal, int32 units, 
             int32 bridgeConfig, 
-            int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance, const char customScaleName[]);
+            int32 voltageExcitSource, 
+            float64 voltageExcitVal, 
+            float64 nominalBridgeResistance, 
+            const char customScaleName[]);
 
 int32 ni::NiDAQmxInterface::CreateAIChargeChan(
             TaskHandle task, 
@@ -606,7 +592,7 @@ int32 ni::NiDAQmxInterface::CreateAIForceIEPEChan(
             int32 units, 
             float64 sensitivity, 
             int32 sensitivityUnits, 
-            int32 ni::NiDAQmxInterface::CurrentExcitSource, 
+            int32 currentExcitSource, 
             float64 currentExcitVal, 
             const char customScaleName[]){
     return DAQmxCreateAIForceIEPEChan(
@@ -656,7 +642,7 @@ int32 ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
             int32 units, 
             float64 micSensitivity, 
             float64 maxSndPressLevel, 
-            int32 ni::NiDAQmxInterface::CurrentExcitSource, 
+            int32 currentExcitSource, 
             float64 currentExcitVal, 
             const char customScaleName[]
           ){
@@ -900,7 +886,9 @@ int32 ni::NiDAQmxInterface::CreateAIRTDChan(
             int32 units, 
             int32 rtdType, 
             int32 resistanceConfig, 
-            int32 ni::NiDAQmxInterface::CurrentExcitSource, float64 currentExcitVal, float64 r0){
+            int32 currentExcitSource, 
+            float64 currentExcitVal, 
+            float64 r0){
     return DAQmxCreateAIRTDChan(
                 task, 
                 physicalChannel, 
@@ -924,7 +912,7 @@ int32 ni::NiDAQmxInterface::CreateAIResistanceChan(
             float64 maxVal, 
             int32 units, 
             int32 resistanceConfig, 
-            int32 ni::NiDAQmxInterface::CurrentExcitSource, 
+            int32 currentExcitSource, 
             float64 currentExcitVal, 
             const char customScaleName[]){
     return DAQmxCreateAIResistanceChan(
@@ -1034,7 +1022,7 @@ int32 ni::NiDAQmxInterface::CreateAIThrmcplChan(
             float64 maxVal, 
             int32 units, 
             int32 thermocoupleType, 
-            int32 ni::NiDAQmxInterface::CjcSource, 
+            int32 cjcSource, 
             float64 cjcVal,
             const char cjcChannel[]){
     return DAQmxCreateAIThrmcplChan(
@@ -1059,7 +1047,7 @@ int32 ni::NiDAQmxInterface::CreateAIThrmstrChanIex(
             float64 maxVal, 
             int32 units, 
             int32 resistanceConfig, 
-            int32 ni::NiDAQmxInterface::CurrentExcitSource, 
+            int32 currentExcitSource, 
             float64 currentExcitVal, 
             float64 a, 
             float64 b, 

@@ -43,6 +43,7 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
                     config.ni_channel = this->parseChannel(channel_builder, config.channel_type, config.name);
 
                     this->reader_config.channels.push_back(config);
+
                 });
 }
 

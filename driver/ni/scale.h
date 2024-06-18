@@ -122,10 +122,8 @@ namespace ni {
         }
 
         ~PolynomialScale() {
-            if (forward_coeffs != nullptr && reverse_coeffs != nullptr) {
-                delete[] forward_coeffs;
-                delete[] reverse_coeffs;
-            }
+            if(forward_coeffs != nullptr) delete[] forward_coeffs;
+            if(reverse_coeffs != nullptr) delete[] reverse_coeffs;
         }
 
     } PolynomialScale;
@@ -169,10 +167,8 @@ namespace ni {
         }
 
         ~TableScale() {
-            if (prescaled != nullptr && scaled != nullptr) {
-                delete[] prescaled;
-                delete[] scaled;
-            }
+            if(prescaled != nullptr) delete[] prescaled;
+            if(scaled != nullptr) delete[] scaled;
         }
     } TableScale;
 
