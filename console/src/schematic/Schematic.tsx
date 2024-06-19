@@ -280,7 +280,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const handleDoubleClick = useCallback(() => {
     if (!schematic.editable) return;
     dispatch(
-      Layout.setNavdrawerVisible({
+      Layout.setNavDrawerVisible({
         windowKey,
         key: "visualization",
         value: true,
