@@ -75,8 +75,8 @@ namespace ni {
                     ni::NiDAQmxInterface::CalculateReversePolyCoeff(
                             forwardCoeffs,
                             numForwardCoeffs,
-                            -100, //FIXME
-                            100, //FIXME
+                            -100, //FIXME dont hard code
+                            100, //FIXME dont hard code
                             numReverseCoeffs,
                             -1,
                             reverseCoeffs
@@ -172,8 +172,13 @@ namespace ni {
         return DAQmx_Val_Cfg_Default;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                     ANALOG                                    //
+    ///////////////////////////////////////////////////////////////////////////////////
+    
     /// @brief an object that represents and is responsible for the configuration of 
     /// a single analog channel on National Instruments hardware.
+    /// base class for all special analog channel types.
     class Analog {
     public:
         Analog() = default;
@@ -275,6 +280,7 @@ namespace ni {
             }
         }
     };
+    
     /// @brief RMS voltage Channel
     class VoltageRMS : public Voltage {
         public: 
@@ -540,39 +546,13 @@ namespace ni {
     class Bridge : public Analog {
         public:
             BridgeConfig bridgeConfig;
-    };
-    class ForceBridgePolynomial : public Analog {
-        public:
-            double minValForScaling;
-            double maxValForScaling;
-            double units;
-            ExcitationConfig excitationConfig;
-
-            explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      minValForScaling(parser.required<double>("min_val_for_scaling")),
-                      maxValForScaling(parser.required<double>("max_val_for_scaling")),
-                      units(parser.required<double>("units")),
-                      excitationConfig(parser) {}
-    };
-    class ForceBridgeTable : public Analog {
-        public:
-            double minValForScaling; // TODO: remove?
-            double maxValForScaling; // TODO: remove?
-            double units;
-            ExcitationConfig excitationConfig;
-            TableConfig tableConfig;
-
-            explicit ForceBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      minValForScaling(parser.required<double>("min_val_for_scaling")),
-                      maxValForScaling(parser.required<double>("max_val_for_scaling")),
-                      units(parser.required<double>("units")),
-                      excitationConfig(parser) {}
-
-            int32 createNIChannel() override {
+        
+            explicit Bridge(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name){}
+            
+            int32 createNIChannel() override{
                 if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAIForceBridgeTableChan(
+                    return ni::NiDAQmxInterface::CreateAIBridgeChan(
                             this->task_handle,
                             this->name.c_str(),
                             "",
@@ -583,264 +563,12 @@ namespace ni {
                             this->bridgeConfig.voltageExcitSource,
                             this->bridgeConfig.voltageExcitVal,
                             this->bridgeConfig.nominalBridgeResistance,
-                            this->tableConfig.electricalVals,
-                            this->tableConfig.numElectricalVals,
-                            this->tableConfig.electricalUnits,
-                            this->tableConfig.physicalVals,
-                            this->tableConfig.numPhysicalVals,
-                            this->tableConfig.physicalUnits,
                             NULL
                     );
                 }
             }
     };
-    class ForceBridgeTwoPointLin : public Analog {
-        public:
-            BridgeConfig bridgeConfig;
-            TwoPointLinConfig twoPointLinConfig;
-
-            explicit ForceBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      bridgeConfig(parser),
-                      twoPointLinConfig(parser) {}
-            
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAIForceBridgeTwoPointLinChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->bridgeConfig.niBridgeConfig,
-                            this->bridgeConfig.voltageExcitSource,
-                            this->bridgeConfig.voltageExcitVal,
-                            this->bridgeConfig.nominalBridgeResistance,
-                            this->twoPointLinConfig.firstElectricalVal,
-                            this->twoPointLinConfig.secondElectricalVal,
-                            this->twoPointLinConfig.electricalUnits,
-                            this->twoPointLinConfig.firstPhysicalVal,
-                            this->twoPointLinConfig.secondPhysicalVal,
-                            this->twoPointLinConfig.physicalUnits,
-                            NULL
-                    );
-                
-                }
-            }
-    };
-
-    class ForceBridgePolynomial: public Analog{
-        public:
-            BridgeConfig bridgeConfig;
-            PolynomialConfig polynomialConfig;
-
-            explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      bridgeConfig(parser),
-                      polynomialConfig(parser) {}
-            
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->bridgeConfig.niBridgeConfig,
-                            this->bridgeConfig.voltageExcitSource,
-                            this->bridgeConfig.voltageExcitVal,
-                            this->bridgeConfig.nominalBridgeResistance,
-                            this->polynomialConfig.forwardCoeffs,
-                            this->polynomialConfig.numForwardCoeffs,
-                            this->polynomialConfig.reverseCoeffs,
-                            this->polynomialConfig.numReverseCoeffs,
-                            this->polynomialConfig.electricalUnits,
-                            this->polynomialConfig.physicalUnits,
-                            NULL
-                    );
-                }
-            }
-    };
-
-    class PressureBridgeTable: public Analog{
-        public: 
-            BridgeConfig bridgeConfig;
-            TableConfig tableConfig;
-
-            explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      bridgeConfig(parser),
-                      tableConfig(parser) {}
-            
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->bridgeConfig.niBridgeConfig,
-                            this->bridgeConfig.voltageExcitSource,
-                            this->bridgeConfig.voltageExcitVal,
-                            this->bridgeConfig.nominalBridgeResistance,
-                            this->tableConfig.electricalVals,
-                            this->tableConfig.numElectricalVals,
-                            this->tableConfig.electricalUnits,
-                            this->tableConfig.physicalVals,
-                            this->tableConfig.numPhysicalVals,
-                            this->tableConfig.physicalUnits,
-                            NULL
-                    );
-                }
-            }
-    }
-
-
-
-    class PressureBridgeTwoPointLin: public Analog{
-        public:
-            BridgeConfig bridgeConfig;
-            TwoPointLinConfig twoPointLinConfig;
-
-            explicit PressureBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      bridgeConfig(parser),
-                      twoPointLinConfig(parser) {}
-
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->bridgeConfig.niBridgeConfig,
-                            this->bridgeConfig.voltageExcitSource,
-                            this->bridgeConfig.voltageExcitVal,
-                            this->bridgeConfig.nominalBridgeResistance,
-                            this->twoPointLinConfig.firstElectricalVal,
-                            this->twoPointLinConfig.secondElectricalVal,
-                            this->twoPointLinConfig.electricalUnits,
-                            this->twoPointLinConfig.firstPhysicalVal,
-                            this->twoPointLinConfig.secondPhysicalVal,
-                            this->twoPointLinConfig.physicalUnits,
-                            NULL
-                    );
-                }
-            }
-            
-    } 
-
-    class TorqueBridge Polynomial: public Analog{
-        public:
-            BridgeConfig bridgeConfig;
-            PolynomialConfig polynomialConfig;
-
-            explicit TorqueBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      bridgeConfig(parser),
-                      polynomialConfig(parser) {}
-            
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAITorqueBridgePolynomialChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->bridgeConfig.niBridgeConfig,
-                            this->bridgeConfig.voltageExcitSource,
-                            this->bridgeConfig.voltageExcitVal,
-                            this->bridgeConfig.nominalBridgeResistance,
-                            this->polynomialConfig.forwardCoeffs,
-                            this->polynomialConfig.numForwardCoeffs,
-                            this->polynomialConfig.reverseCoeffs,
-                            this->polynomialConfig.numReverseCoeffs,
-                            this->polynomialConfig.electricalUnits,
-                            this->polynomialConfig.physicalUnits,
-                            NULL
-                    );
-                }
-            }
-    }
-
-    class TorqueBridgeTable: public Analog{
-        public:
-            BridgeConfig bridgeConfig;
-            TableConfig tableConfig;
-
-            explicit TorqueBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      bridgeConfig(parser),
-                      tableConfig(parser) {}
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAITorqueBridgeTableChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->bridgeConfig.niBridgeConfig,
-                            this->bridgeConfig.voltageExcitSource,
-                            this->bridgeConfig.voltageExcitVal,
-                            this->bridgeConfig.nominalBridgeResistance,
-                            this->tableConfig.electricalVals,
-                            this->tableConfig.numElectricalVals,
-                            this->tableConfig.electricalUnits,
-                            this->tableConfig.physicalVals,
-                            this->tableConfig.numPhysicalVals,
-                            this->tableConfig.physicalUnits,
-                            NULL
-                    );
-                }
-            }
-    }
-
-    class TorqueBridgeTwoPointLin: public Analog{
-        public:
-            BridgeConfig bridgeConfig;
-            TwoPointLinConfig twoPointLinConfig;
-
-            explicit TorqueBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      bridgeConfig(parser),
-                      twoPointLinConfig(parser) {}
-
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAITorqueBridgeTwoPointLinChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->bridgeConfig.niBridgeConfig,
-                            this->bridgeConfig.voltageExcitSource,
-                            this->bridgeConfig.voltageExcitVal,
-                            this->bridgeConfig.nominalBridgeResistance,
-                            this->twoPointLinConfig.firstElectricalVal,
-                            this->twoPointLinConfig.secondElectricalVal,
-                            this->twoPointLinConfig.electricalUnits,
-                            this->twoPointLinConfig.firstPhysicalVal,
-                            this->twoPointLinConfig.secondPhysicalVal,
-                            this->twoPointLinConfig.physicalUnits,
-                            NULL
-                    );
-                }
-            }
-    }
+    
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Charge                                   //
     ///////////////////////////////////////////////////////////////////////////////////
@@ -1492,7 +1220,7 @@ namespace ni {
                       sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
                       sensitivity(parser.required<double>("sensitivity")),
                       excitationConfig(parser) {}
-                      
+
             int32 createNIChannel() override {
                 if(this->scale_config.type == "none"){
                     return ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
