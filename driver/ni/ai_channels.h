@@ -275,38 +275,65 @@ namespace ni {
             }
         }
     };
-    
     /// @brief RMS voltage Channel
-    // class VoltageRMS : public Analog {
-    //     public:
-    //         explicit VoltageRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
-    //                 : Analog(parser, task_handle, name) {}
+    class VoltageRMS : public Voltage {
+        public: 
+            explicit Voltage(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Voltage(parser, task_handle, name){}
 
-    //         ~VoltageRMS() = default;
+            ~VoltageRMS() = default;
 
-    //         int32 createNIChannel() override {
-    //             LOG(INFO) << "Creating Voltage RMS Channel";
-    //             return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
-    //                     this->task_handle, 
-    //                     this->name.c_str(),
-    //                     "",
-    //                     this->terminal_config,
-    //                     this->min_val,
-    //                     this->max_val,
-    //                     DAQmx_Val_Volts,
-    //                     NULL
-    //             );
-    //         }
-            
-    // };
+            int32 createNIChannel() override {
+                LOG(INFO) << "Creating Voltage RMS Channel";
+                return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
+                        this->task_handle, 
+                        this->name.c_str(),
+                        "",
+                        this->terminal_config,
+                        this->min_val,
+                        this->max_val,
+                        DAQmx_Val_Volts,
+                        NULL
+            );
+        }
+    };
 
     /// @brief voltage Channel with excitation reference
-    class VoltageWithExcit : public Analog {
+    class VoltageWithExcit : public Voltage {
         public:
             int32_t bridgeConfig = 0;
             int32_t excitationSource = 0;
             double excitationVal = 0;
             bool32 useExcitForScaling = 0;
+
+            explicit VoltageWithExcit(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Voltage(parser, task_handle, name),
+                  bridgeConfig(parser.required<int32_t>("bridge_config")),
+                  excitationSource(parser.required<int32_t>("excitation_source")),
+                  excitationVal(parser.required<double>("excitation_val")),
+                  useExcitForScaling(parser.required<bool32>("use_excit_for_scaling")) {}
+
+            ~VoltageWithExcit() = default;
+
+            int32 createNIChannel() override {
+                LOG(INFO) << "Creating Voltage Channel with Excitation Reference";
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIVoltageChanWithExcit(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->terminal_config,
+                            this->min_val,
+                            this->max_val,
+                            DAQmx_Val_Volts,
+                            this->bridgeConfig,
+                            this->excitationSource,
+                            this->excitationVal,
+                            this->useExcitForScaling,
+                            NULL
+                    );
+                }
+            }
     };
 
 
@@ -328,7 +355,6 @@ namespace ni {
                       thermocoupleType(parser.required<int32_t>("thermocouple_type")),
                       cjcSource(parser.required<int32_t>("cjc_source")),
                       cjcVal(parser.required<double>("cjc_val")){
-                        // this->units =
                       }
                       //cjcChannel(parser.required<std::string>("cjc_channel")) {} FIXME: this property should be take form console
 
@@ -338,19 +364,19 @@ namespace ni {
             int32 createNIChannel() override {
                 LOG(INFO) << "Creating Thermocouple Channel";
 
-                // if(this->scale_config.type == "none"){
-                //     return ni::NiDAQmxInterface::CreateAIThrmcplChan(
-                //         this->task_handle,
-                //         this->name.c_str(),
-                //         "",
-                //         this->min_val,
-                //         this->max_val,
-                //         this->thermocoupleType,
-                //         this->cjcSource,
-                //         this->cjcVal,
-                //         ""
-                //     );
-                // }
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIThrmcplChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->min_val,
+                        this->max_val,
+                        this->thermocoupleType,
+                        this->cjcSource,
+                        this->cjcVal,
+                        ""
+                    );
+                }
             }
 
 
@@ -362,6 +388,33 @@ namespace ni {
             double a;
             double b;
             double c;
+
+            explicit Thermistor(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task, name),
+                      resistanceConfig(parser.required<int32_t>("resistanceConfig")),
+                      excitationConfig(parser),
+                      a(parser.required<double>("a")),
+                      b(parser.required<double>("b")),
+                      c(parser.required<double>("c")) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIThrmsstrChanIex(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->resistanceConfig,
+                            this->excitationConfig.voltageExcitSource, // current excitation source FIXME
+                            this->excitationConfig.voltageExcitVal,    // current excitation val FIXME
+                            this->a,
+                            this->b,
+                            this->c
+                    );
+                }
+            }
     };
     class ThermistorVex : public Analog{
         public:
@@ -370,6 +423,7 @@ namespace ni {
             double a;
             double b;
             double c;
+            double r1;
 
             explicit ThermistorVex(config::Parser &parser, TaskHandle task_handle, std::string name)
                     : Analog(parser, task_handle, name),
@@ -377,10 +431,31 @@ namespace ni {
                       excitationConfig(parser),
                       a(parser.required<double>("a")),
                       b(parser.required<double>("b")),
-                      c(parser.required<double>("c")) {}
+                      c(parser.required<double>("c")),
+                      r1(parser.required<double>("r1")) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIThrmstrChanVex(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->resistanceConfig,
+                            this->excitationConfig.voltageExcitSource, // current excitation source FIXME
+                            this->excitationConfig.voltageExcitVal,    // current excitation val FIXME
+                            this->a,
+                            this->b,
+                            this->c,
+                            this->r1
+                    );
+                }
+            }
     };
 
-/*
+
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    Acceleration                               //
@@ -397,6 +472,24 @@ namespace ni {
                       sensitivity(parser.required<double>("sensitivity")),
                       sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
                       excitationConfig(parser) {}
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIAccelChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->sensitivity,
+                            this->sensitivityUnits,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            NULL
+                    );
+                }
+            }
 
     };
     /// @brief acceleration channel with 4 wire DC voltage
@@ -420,7 +513,25 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       sensitivity(parser.required<double>("sensitivity")),
                       sensitivityUnits(parser.required<int32_t>("sensitivity_units")) {}
-
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIAccelChargeChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->terminal_config,
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->sensitivity,
+                            this->sensitivityUnits,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            NULL
+                    );
+                }
+            }
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -446,10 +557,11 @@ namespace ni {
     };
     class ForceBridgeTable : public Analog {
         public:
-            double minValForScaling;
-            double maxValForScaling;
+            double minValForScaling; // TODO: remove?
+            double maxValForScaling; // TODO: remove?
             double units;
             ExcitationConfig excitationConfig;
+            TableConfig tableConfig;
 
             explicit ForceBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
                     : Analog(parser, task_handle, name),
@@ -457,6 +569,30 @@ namespace ni {
                       maxValForScaling(parser.required<double>("max_val_for_scaling")),
                       units(parser.required<double>("units")),
                       excitationConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIForceBridgeTableChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->tableConfig.electricalVals,
+                            this->tableConfig.numElectricalVals,
+                            this->tableConfig.electricalUnits,
+                            this->tableConfig.physicalVals,
+                            this->tableConfig.numPhysicalVals,
+                            this->tableConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     };
     class ForceBridgeTwoPointLin : public Analog {
         public:
@@ -467,6 +603,31 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       twoPointLinConfig(parser) {}
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIForceBridgeTwoPointLinChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->twoPointLinConfig.firstElectricalVal,
+                            this->twoPointLinConfig.secondElectricalVal,
+                            this->twoPointLinConfig.electricalUnits,
+                            this->twoPointLinConfig.firstPhysicalVal,
+                            this->twoPointLinConfig.secondPhysicalVal,
+                            this->twoPointLinConfig.physicalUnits,
+                            NULL
+                    );
+                
+                }
+            }
     };
 
     class ForceBridgePolynomial: public Analog{
@@ -478,6 +639,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       polynomialConfig(parser) {}
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->polynomialConfig.forwardCoeffs,
+                            this->polynomialConfig.numForwardCoeffs,
+                            this->polynomialConfig.reverseCoeffs,
+                            this->polynomialConfig.numReverseCoeffs,
+                            this->polynomialConfig.electricalUnits,
+                            this->polynomialConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     };
 
     class PressureBridgeTable: public Analog{
@@ -489,6 +674,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       tableConfig(parser) {}
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->tableConfig.electricalVals,
+                            this->tableConfig.numElectricalVals,
+                            this->tableConfig.electricalUnits,
+                            this->tableConfig.physicalVals,
+                            this->tableConfig.numPhysicalVals,
+                            this->tableConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
 
 
@@ -502,6 +711,31 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       twoPointLinConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->twoPointLinConfig.firstElectricalVal,
+                            this->twoPointLinConfig.secondElectricalVal,
+                            this->twoPointLinConfig.electricalUnits,
+                            this->twoPointLinConfig.firstPhysicalVal,
+                            this->twoPointLinConfig.secondPhysicalVal,
+                            this->twoPointLinConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
+            
     } 
 
     class TorqueBridge Polynomial: public Analog{
@@ -513,6 +747,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       polynomialConfig(parser) {}
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAITorqueBridgePolynomialChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->polynomialConfig.forwardCoeffs,
+                            this->polynomialConfig.numForwardCoeffs,
+                            this->polynomialConfig.reverseCoeffs,
+                            this->polynomialConfig.numReverseCoeffs,
+                            this->polynomialConfig.electricalUnits,
+                            this->polynomialConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
 
     class TorqueBridgeTable: public Analog{
@@ -524,6 +782,29 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       tableConfig(parser) {}
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAITorqueBridgeTableChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->tableConfig.electricalVals,
+                            this->tableConfig.numElectricalVals,
+                            this->tableConfig.electricalUnits,
+                            this->tableConfig.physicalVals,
+                            this->tableConfig.numPhysicalVals,
+                            this->tableConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
 
     class TorqueBridgeTwoPointLin: public Analog{
@@ -535,6 +816,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       twoPointLinConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAITorqueBridgeTwoPointLinChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->twoPointLinConfig.firstElectricalVal,
+                            this->twoPointLinConfig.secondElectricalVal,
+                            this->twoPointLinConfig.electricalUnits,
+                            this->twoPointLinConfig.firstPhysicalVal,
+                            this->twoPointLinConfig.secondPhysicalVal,
+                            this->twoPointLinConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Charge                                   //
@@ -542,6 +847,23 @@ namespace ni {
     class Charge : public Analog {
         explicit Charge(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name) {}
+
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAIChargeChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->terminal_config,
+                        this->min_val,
+                        this->max_val,
+                        this->units,
+                        this->excitationConfig.voltageExcitSource,
+                        this->excitationConfig.voltageExcitVal,
+                        NULL
+                );
+            }
+        }
 
     }
 
@@ -557,12 +879,49 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       shuntResistorLoc(parser.required<int32_t>("shunt_resistor_loc")),
                       extShuntResistorval(parser.required<double>("ext_shunt_resistor_val")) {}
-
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAICurrentChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->terminal_config,
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->shuntResistorLoc,
+                            this->extShuntResistorval,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            NULL
+                    );
+                }
+            }
     }
 
     class CurrentRMS : public Current{
         explicit CurrentRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Current(parser, task_handle, name) {}
+        
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->terminal_config,
+                        this->min_val,
+                        this->max_val,
+                        this->units,
+                        this->shuntResistorLoc,
+                        this->extShuntResistorval,
+                        this->excitationConfig.voltageExcitSource,
+                        this->excitationConfig.voltageExcitVal,
+                        NULL
+                );
+            }
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -577,7 +936,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       polynomialConfig(parser) {}
-
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->polynomialConfig.forwardCoeffs,
+                            this->polynomialConfig.numForwardCoeffs,
+                            this->polynomialConfig.reverseCoeffs,
+                            this->polynomialConfig.numReverseCoeffs,
+                            this->polynomialConfig.electricalUnits,
+                            this->polynomialConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
 
     }
     class ForceBridgeTable : public Analog{
@@ -589,6 +971,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       tableConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIForceBridgeTableChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->tableConfig.electricalVals,
+                            this->tableConfig.numElectricalVals,
+                            this->tableConfig.electricalUnits,
+                            this->tableConfig.physicalVals,
+                            this->tableConfig.numPhysicalVals,
+                            this->tableConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
 
     class ForceBridgeTwoPointLin : public Analog{
@@ -600,6 +1006,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       twoPointLinConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIForceBridgeTwoPointLinChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->twoPointLinConfig.firstElectricalVal,
+                            this->twoPointLinConfig.secondElectricalVal,
+                            this->twoPointLinConfig.electricalUnits,
+                            this->twoPointLinConfig.firstPhysicalVal,
+                            this->twoPointLinConfig.secondPhysicalVal,
+                            this->twoPointLinConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
     class ForceIEPE : public Analog{
         public:
@@ -612,6 +1042,24 @@ namespace ni {
                       sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
                       sensitivity(parser.required<double>("sensitivity")),
                       excitationConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIForceIEPEChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->sensitivity,
+                            this->sensitivityUnits,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            NULL
+                    );
+                }
+            }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -626,6 +1074,22 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       thresholdLevel(parser.required<double>("threshold_level")),
                       hysteresis(parser.required<double>("hysteresis")) {}
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->terminal_config,
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->thresholdLevel,
+                            this->hysteresis,
+                            NULL
+                    );
+                }
+            }
     }
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Microphone                               //
@@ -641,6 +1105,25 @@ namespace ni {
                       micSensitivity(parser.required<double>("mic_sensitivity")),
                       maxSndPressLevel(parser.required<double>("max_snd_press_level")),
                       excitationConfig(parser) {} 
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIMicrophoneChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->terminal_config,
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->micSensitivity,
+                            this->maxSndPressLevel,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            NULL
+                    );
+                }
+            }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -655,6 +1138,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       polynomialConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->polynomialConfig.forwardCoeffs,
+                            this->polynomialConfig.numForwardCoeffs,
+                            this->polynomialConfig.reverseCoeffs,
+                            this->polynomialConfig.numReverseCoeffs,
+                            this->polynomialConfig.electricalUnits,
+                            this->polynomialConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
     class PressureBridgeTable : public Analog{
         public:
@@ -665,6 +1172,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       tableConfig(parser) {}
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->tableConfig.electricalVals,
+                            this->tableConfig.numElectricalVals,
+                            this->tableConfig.electricalUnits,
+                            this->tableConfig.physicalVals,
+                            this->tableConfig.numPhysicalVals,
+                            this->tableConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
     class PressureBridgeTwoPointLin : public Analog{
         public:
@@ -675,6 +1206,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       twoPointLinConfig(parser) {}
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->twoPointLinConfig.firstElectricalVal,
+                            this->twoPointLinConfig.secondElectricalVal,
+                            this->twoPointLinConfig.electricalUnits,
+                            this->twoPointLinConfig.firstPhysicalVal,
+                            this->twoPointLinConfig.secondPhysicalVal,
+                            this->twoPointLinConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -689,6 +1244,23 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       resistanceConfig(parser),
                       excitationConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIResistanceChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->resistanceConfig,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            NULL
+                    );
+                }
+            }
 
     } 
 
@@ -718,6 +1290,30 @@ namespace ni {
                       nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
                       poissonRatio(parser.required<double>("poisson_ratio")),
                       leadWireResistance(parser.required<double>("lead_wire_resistance")) {}
+                
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIRosetteStrainGageChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->rosetteType,
+                            this->gageOrientation,
+                            this->rosseteMeasType,
+                            this->strainConfig,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            this->gageFactor,
+                            this->nominalGageResistance,
+                            this->poissonRatio,
+                            this->leadWireResistance,
+                            NULL
+                    );
+                }
+            }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -742,6 +1338,28 @@ namespace ni {
                       nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
                       poissonRatio(parser.required<double>("poisson_ratio")),
                       leadWireResistance(parser.required<double>("lead_wire_resistance")) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIStrainGageChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->strainConfig,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            this->gageFactor,
+                            this->initialBridgeVoltage,
+                            this->nominalGageResistance,
+                            this->poissonRatio,
+                            this->leadWireResistance,
+                            NULL
+                    );
+                }
+            }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -761,6 +1379,24 @@ namespace ni {
                       excitationConfig(parser),
                       r0(parser.required<double>("r0")) {}
     }
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIRTDChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->rtdType,
+                            this->resistanceConfig,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            this->r0,
+                            NULL
+                    );
+                }
+            }
 
    
 
@@ -776,6 +1412,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       polynomialConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAITorqueBridgePolynomialChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->polynomialConfig.forwardCoeffs,
+                            this->polynomialConfig.numForwardCoeffs,
+                            this->polynomialConfig.reverseCoeffs,
+                            this->polynomialConfig.numReverseCoeffs,
+                            this->polynomialConfig.electricalUnits,
+                            this->polynomialConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
 
 
@@ -792,6 +1452,30 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       bridgeConfig(parser),
                       twoPointLinConfig(parser) {}
+
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAITorqueBridgeTwoPointLinChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->bridgeConfig.niBridgeConfig,
+                            this->bridgeConfig.voltageExcitSource,
+                            this->bridgeConfig.voltageExcitVal,
+                            this->bridgeConfig.nominalBridgeResistance,
+                            this->twoPointLinConfig.firstElectricalVal,
+                            this->twoPointLinConfig.secondElectricalVal,
+                            this->twoPointLinConfig.electricalUnits,
+                            this->twoPointLinConfig.firstPhysicalVal,
+                            this->twoPointLinConfig.secondPhysicalVal,
+                            this->twoPointLinConfig.physicalUnits,
+                            NULL
+                    );
+                }
+            }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -808,6 +1492,24 @@ namespace ni {
                       sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
                       sensitivity(parser.required<double>("sensitivity")),
                       excitationConfig(parser) {}
+                      
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->sensitivity,
+                            this->sensitivityUnits,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            NULL
+                    );
+                }
+            }
     }
-*/
+
 } // namespace ni
