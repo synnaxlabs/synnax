@@ -164,6 +164,14 @@ namespace ni {
         
     } BridgeConfig;
 
+    static inline int32_t getTerminalConfig(std::string terminal_config) {
+        if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
+        if (terminal_config == "Diff") return DAQmx_Val_Diff;
+        if (terminal_config == "NRSE") return DAQmx_Val_NRSE;
+        if (terminal_config == "RSE") return DAQmx_Val_RSE;
+        return DAQmx_Val_Cfg_Default;
+    }
+
     /// @brief an object that represents and is responsible for the configuration of 
     /// a single analog channel on National Instruments hardware.
     class Analog {
@@ -177,13 +185,7 @@ namespace ni {
             return 0;
         }
 
-        static int32_t getTerminalConfig(std::string terminal_config) {
-            if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
-            if (terminal_config == "Diff") return DAQmx_Val_Diff;
-            if (terminal_config == "NRSE") return DAQmx_Val_NRSE;
-            if (terminal_config == "RSE") return DAQmx_Val_RSE;
-            return DAQmx_Val_Cfg_Default;
-        }
+       
 
         static ScaleConfig getScaleConfig(config::Parser &parser) {
             // TODO check if custom scale and channel exist
@@ -201,7 +203,6 @@ namespace ni {
                 : task_handle(task_handle),
                   min_val(parser.required<float_t>("min_val")),
                   max_val(parser.required<float_t>("max_val")),
-                  terminal_config(getTerminalConfig(parser.required<std::string>("terminal_config"))),
                   units(DAQmx_Val_Volts),
                   sy_key(parser.required<uint32_t>("channel")),
                   name(name),
@@ -221,7 +222,6 @@ namespace ni {
         std::string scale_name = "";
         double min_val = 0;
         double max_val = 0;
-        int32_t terminal_config = 0;
         int32_t units = DAQmx_Val_Volts;
         uint32_t sy_key = 0;
         std::string name = "";
@@ -236,9 +236,13 @@ namespace ni {
     /// @brief voltage channel.
     class Voltage : public Analog {
     public:
+        int32_t terminal_config = 0;
 
         explicit Voltage(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name) {}
+                : Analog(parser, task_handle, name), 
+                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))){
+
+                  }
 
         ~Voltage() = default;
 
@@ -273,28 +277,28 @@ namespace ni {
     };
     
     /// @brief RMS voltage Channel
-    class VoltageRMS : public Analog {
-        public:
-            explicit VoltageRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name) {}
+    // class VoltageRMS : public Analog {
+    //     public:
+    //         explicit VoltageRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
+    //                 : Analog(parser, task_handle, name) {}
 
-            ~VoltageRMS() = default;
+    //         ~VoltageRMS() = default;
 
-            int32 createNIChannel() override {
-                LOG(INFO) << "Creating Voltage RMS Channel";
-                return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
-                        this->task_handle, 
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->min_val,
-                        this->max_val,
-                        DAQmx_Val_Volts,
-                        NULL
-                );
-            }
+    //         int32 createNIChannel() override {
+    //             LOG(INFO) << "Creating Voltage RMS Channel";
+    //             return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
+    //                     this->task_handle, 
+    //                     this->name.c_str(),
+    //                     "",
+    //                     this->terminal_config,
+    //                     this->min_val,
+    //                     this->max_val,
+    //                     DAQmx_Val_Volts,
+    //                     NULL
+    //             );
+    //         }
             
-    };
+    // };
 
     /// @brief voltage Channel with excitation reference
     class VoltageWithExcit : public Analog {
@@ -323,8 +327,33 @@ namespace ni {
                     : Analog(parser, task_handle, name),
                       thermocoupleType(parser.required<int32_t>("thermocouple_type")),
                       cjcSource(parser.required<int32_t>("cjc_source")),
-                      cjcVal(parser.required<double>("cjc_val")),
-                      cjcChannel(parser.required<std::string>("cjc_channel")) {}
+                      cjcVal(parser.required<double>("cjc_val")){
+                        // this->units =
+                      }
+                      //cjcChannel(parser.required<std::string>("cjc_channel")) {} FIXME: this property should be take form console
+
+
+            ///	DAQmxErrChk (DAQmxCreateAIThrmcplChan(taskHandle,"","",0.0,100.0,DAQmx_Val_DegC,DAQmx_Val_J_Type_TC,DAQmx_Val_BuiltIn,25.0,""));
+
+            int32 createNIChannel() override {
+                LOG(INFO) << "Creating Thermocouple Channel";
+
+                // if(this->scale_config.type == "none"){
+                //     return ni::NiDAQmxInterface::CreateAIThrmcplChan(
+                //         this->task_handle,
+                //         this->name.c_str(),
+                //         "",
+                //         this->min_val,
+                //         this->max_val,
+                //         this->thermocoupleType,
+                //         this->cjcSource,
+                //         this->cjcVal,
+                //         ""
+                //     );
+                // }
+            }
+
+
     };
     class Thermistor : public Analog{
         public:
