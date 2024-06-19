@@ -76,67 +76,24 @@ Here's a reference for each of the fields you'll need to fill:
         </tr>
         <tr>
             <td>Security Mode</td>
-            <td>The security mode to use when connecting to the server. This should match the security mode configured on the server.</td>
-            <Table>
-                <thead>
-                    <tr>
-                        <th>Security mode</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>None</td>
-                        <td>No Security is applied.</td>
-                    </tr>
-                    <tr>
-                        <td>Sign</td>
-                        <td>Messages are signed but not encrypted. Requires authentication but does not guarantee confidentiality.</td>
-                    </tr>
-                    <tr>
-                        <td>SignAndEncrpyt</td>
-                        <td>Messages are signed and encrypted, ensuring authenticity and confidentiality</td>
-                    </tr>
-                </tbody>
-            </Table>
+            <td>
+                The security mode to use when connecting to the server. This should match the security mode configured on the server:
+                - **None**: No security is applied.
+                - **Sign**: Messages are signed but not encrypted. Requires authentication but does not guarantee confidentiality.
+                - **SignAndEncrypt**: Messages are signed and encrypted, ensuring authenticity and confidentiality.
+            </td>
         </tr>
         <tr>
             <td>Security Policy</td>
-            <td>The security policy to use when connecting to the server. This should match the security policy configured on the server.</td>
-            <Table>
-                <thead>
-                    <tr>
-                        <th>Security policy</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>None</td>
-                        <td>No Security is applied.</td>
-                    </tr>
-                    <tr>
-                        <td>Basic128Rsa15</td>
-                        <td>Basic 128-bit encryption using RSA-15.</td>
-                    </tr>
-                    <tr>
-                        <td>Basic256</td>
-                        <td>Basic 256-bit encryption.</td>
-                    </tr>
-                    <tr>
-                        <td>Basic256Sha256</td>
-                        <td>Basic 256-bit encryption with SHA-256.</td>
-                    </tr>
-                    <tr>
-                        <td> Aes128Sha256RsaOaep</td>
-                        <td>128-bit AES encryption with SHA-256 and RSA OAEP.</td>
-                    </tr>
-                    <tr>
-                        <td>Aes256Sha256RsaPss</td>
-                        <td>256-bit AES encryption with SHA-256 and RSA PSS.</td>
-                    </tr>
-                </tbody>
-            </Table>
+            <td>
+                The security policy to use when connecting to the server. This should match the security policy configured on the server:
+                - **None**: No security is applied.
+                - **Basic128Rsa15**: Basic 128-bit encryption using RSA-15.
+                - **Basic256**: Basic 256-bit encryption.
+                - **Basic256Sha256**: Basic 256-bit encryption with SHA-256.
+                - **Aes128Sha256RsaOaep**: 128-bit AES encryption with SHA-256 and RSA OAEP.
+                - **Aes256Sha256RsaPss**: 256-bit AES encryption with SHA-256 and RSA PSS.
+            </td>
         </tr>
     </tbody>
 </Table>
