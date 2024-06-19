@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { nanoid } from "nanoid/non-secure";
+import { nanoid } from "nanoid";
 import { describe, expect, it } from "vitest";
 
 import { task } from "@/hardware/task";
