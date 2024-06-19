@@ -8,13 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
-import logging
 import datetime
 import math
-import time
 
 from asyncua import Server, ua
-from asyncua.common.methods import uamethod
 
 
 async def main():
@@ -43,11 +40,11 @@ async def main():
         datetime.datetime.utcnow() + datetime.timedelta(milliseconds=8),
     ], ua.VariantType.DateTime)
 
-    mytimearray.set_writable()
+    await mytimearray.set_writable()
 
     RATE = 500
     ARRAY_SIZE = 5
-    mytimearray.write_array_dimensions([ARRAY_SIZE])
+    await mytimearray.write_array_dimensions([ARRAY_SIZE])
 
     for i in range(100):
         # add 30 float variables t OPC
