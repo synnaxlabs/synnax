@@ -86,6 +86,9 @@ namespace ni {
                   max_x(parser.required<double>("max_x")),
                   num_points(parser.optional<int>("num_reverse_coeffs", 0)),
                   poly_order(parser.required<int>("poly_order")) {
+            
+            forward_coeffs = new double[num_coeffs];
+            reverse_coeffs = new double[num_coeffs];
 
             if (!parser.ok()) {
                 LOG(ERROR) << "[ni.analog] failed to parse custom polynomial scale configuration";

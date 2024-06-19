@@ -250,7 +250,7 @@ int32 ni::NiDAQmxInterface::CreateAIVoltageChan(
                 maxVal, 
                 units, 
                 customScaleName
-            å);
+            );
 }
 
 int32 ni::NiDAQmxInterface::CreateAIVoltageRMSChan( 
@@ -338,11 +338,14 @@ int32 ni::NiDAQmxInterface::CreateAIAccelChan(
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
             int32 terminalConfig,
-             float64 minVal, 
+            float64 minVal, 
             float64 maxVal, 
             int32 units, 
             float64 sensitivity, 
-            int32 sensitivityUnits, int32 ni::NiDAQmxInterface::CurrentExcitSource, float64 currentExcitVal, const char customScaleName[]){
+            int32 sensitivityUnits, 
+            int32 currentExcitSource, 
+            float64 currentExcitVal, 
+            const char customScaleName[]){
     return DAQmxCreateAIAccelChan(
                 task, 
                 physicalChannel, 
@@ -353,7 +356,7 @@ int32 ni::NiDAQmxInterface::CreateAIAccelChan(
                 units, 
                 sensitivity, 
                 sensitivityUnits, 
-                CurrentExcitSource, 
+                currentExcitSource, 
                 currentExcitVal, 
                 customScaleName
             );
@@ -385,7 +388,7 @@ int32 ni::NiDAQmxInterface::CreateAIAccelChargeChan(
 }
 
 int32 ni::NiDAQmxInterface::CreateAIBridgeChan(
-                TaskHandle task, 
+            TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
             float64 minVal, 
@@ -394,7 +397,21 @@ int32 ni::NiDAQmxInterface::CreateAIBridgeChan(
             int32 voltageExcitSource, 
             float64 voltageExcitVal, 
             float64 nominalBridgeResistance, 
-            const char customScaleName[]);
+            const char customScaleName[]){
+    return DAQmxCreateAIBridgeChan( 
+        task,
+        physicalChannel,
+        nameToAssignToChannel,
+        minVal,
+        maxVal,
+        units,
+        bridgeConfig,
+        voltageExcitSource,
+        voltageExcitVal,
+        nominalBridgeResistance,
+        customScaleName
+    ); 
+}
 
 int32 ni::NiDAQmxInterface::CreateAIChargeChan(
             TaskHandle task, 
@@ -605,7 +622,7 @@ int32 ni::NiDAQmxInterface::CreateAIForceIEPEChan(
                 units, 
                 sensitivity, 
                 sensitivityUnits, 
-                CurrentExcitSource, 
+                currentExcitSource, 
                 currentExcitVal, 
                 customScaleName
             );
@@ -654,7 +671,7 @@ int32 ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
                 units, 
                 micSensitivity, 
                 maxSndPressLevel, 
-                CurrentExcitSource, 
+                currentExcitSource, 
                 currentExcitVal, 
                 customScaleName
             );
@@ -744,21 +761,21 @@ int32 ni::NiDAQmxInterface::CreateAIPosRVDTChan(
             );
 }
      
-int32 ni::NiDAQmxInterface::CreateAIPowerChan(
-            TaskHandle task, 
-            const char physicalChannel[], 
-            const char nameToAssignToChannel[], 
-            float64 voltageSetpoint,
-            float64 currentSetpoint, bool32 outputEnable){
-    return DAQmxCreateAIPowerChan(
-                task, 
-                physicalChannel, 
-                nameToAssignToChannel, 
-                voltageSetpoint, 
-                currentSetpoint, 
-                outputEnable
-            );
-}
+// int32 ni::NiDAQmxInterface::CreateAIPowerChan(
+//             TaskHandle task, 
+//             const char physicalChannel[], 
+//             const char nameToAssignToChannel[], 
+//             float64 voltageSetpoint,
+//             float64 currentSetpoint, bool32 outputEnable){
+//     return DAQmxCreateAIPowerChan(
+//                 task, 
+//                 physicalChannel, 
+//                 nameToAssignToChannel, 
+//                 voltageSetpoint, 
+//                 currentSetpoint, 
+//                 outputEnable
+//             );
+// }
       
 int32 ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
             TaskHandle task, 
@@ -898,7 +915,7 @@ int32 ni::NiDAQmxInterface::CreateAIRTDChan(
                 units, 
                 rtdType, 
                 resistanceConfig, 
-                CurrentExcitSource, 
+                currentExcitSource, 
                 currentExcitVal, 
                 r0
             );
@@ -923,7 +940,7 @@ int32 ni::NiDAQmxInterface::CreateAIResistanceChan(
                 maxVal, 
                 units, 
                 resistanceConfig, 
-                CurrentExcitSource, 
+                currentExcitSource, 
                 currentExcitVal, 
                 customScaleName
             );
@@ -946,7 +963,7 @@ int32 ni::NiDAQmxInterface::CreateAIRosetteStrainGageChan(
             float64 nominalGageResistance, 
             float64 poissonRatio, 
             float64 leadWireResistance){
-    return DaqmxCreateAIRosetteStrainGageChan(
+    return DAQmxCreateAIRosetteStrainGageChan(
                 task, 
                 physicalChannel, 
                 nameToAssignToChannel, 
@@ -1033,7 +1050,7 @@ int32 ni::NiDAQmxInterface::CreateAIThrmcplChan(
                 maxVal, 
                 units, 
                 thermocoupleType, 
-                CjcSource, 
+                cjcSource, 
                 cjcVal, 
                 cjcChannel
             );
@@ -1060,7 +1077,7 @@ int32 ni::NiDAQmxInterface::CreateAIThrmstrChanIex(
                 maxVal, 
                 units, 
                 resistanceConfig, 
-                CurrentExcitSource, 
+                currentExcitSource, 
                 currentExcitVal, 
                 a, 
                 b, 
@@ -1118,7 +1135,7 @@ int32 ni::NiDAQmxInterface::CreateAITorqueBridgePolynomialChan(
             int32 physicalUnits, 
             const char customScaleName[]
           ){
-    return DAWmxCreateAITorqueBridgePolynomialChan(
+    return DAQmxCreateAITorqueBridgePolynomialChan(
                 task, 
                 physicalChannel, 
                 nameToAssignToChannel, 
@@ -1227,7 +1244,7 @@ int32 ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
             int32 units, 
             float64 sensitivity, 
             int32 sensitivityUnits,
-            int32 ni::NiDAQmxInterface::CurrentExcitSource,  
+            int32 currentExcitSource,  
             float64 currentExcitVal,  
             const char customScaleName[]){
     return DAQmxCreateAIVelocityIEPEChan(
@@ -1240,7 +1257,7 @@ int32 ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
                 units, 
                 sensitivity, 
                 sensitivityUnits, 
-                CurrentExcitSource, 
+                currentExcitSource, 
                 currentExcitVal, 
                 customScaleName
             );

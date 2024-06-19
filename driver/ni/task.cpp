@@ -158,12 +158,13 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(const std::shared_ptr<task
     };;
 
     ctx->setState({
-                          .task = task.key,
-                          .variant = "success",
-                          .details = {
-                                  {"running", false}
-                          }
+                    .task = task.key,
+                    .variant = "success",
+                    .details = {
+                            {"running", false}
+                    }
                   });
+                  
     LOG(INFO) << "[NI Task] successfully configured task " << task.name;
 
     return std::make_unique<ni::ReaderTask>(ctx,

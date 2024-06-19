@@ -76,7 +76,7 @@ namespace ni {
             const char customScaleName[]
             );
 
-        virtual int32 CreateAIVoltageRMSChan( 
+        static int32 CreateAIVoltageRMSChan( 
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -86,7 +86,7 @@ namespace ni {
             const char customScaleName[]
             );
 
-        virtual int32 CreateAIVoltageChanWithExcit(
+        static int32 CreateAIVoltageChanWithExcit(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -101,7 +101,7 @@ namespace ni {
             const char customScaleName[]
             );
 
-        virtual int32 CreateAIAccel4WireDCVoltageChan(
+        static int32 CreateAIAccel4WireDCVoltageChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -117,7 +117,7 @@ namespace ni {
             const char customScaleName[]
             );
             
-        virtual int32 CreateAIAccelChan(
+        static int32 CreateAIAccelChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -129,7 +129,7 @@ namespace ni {
             int32 sensitivityUnits, int32 currentExcitSource, float64 currentExcitVal, const char customScaleName[]
             );
 
-        virtual int32 CreateAIAccelChargeChan(
+        static int32 CreateAIAccelChargeChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 
@@ -139,7 +139,7 @@ namespace ni {
             float64 sensitivity, int32 sensitivityUnits, const char customScaleName[]
             );
 
-        virtual int32 CreateAIBridgeChan(
+        static int32 CreateAIBridgeChan(
             TaskHandle task, 
             const char physicalChannel[], 
             const char nameToAssignToChannel[], 

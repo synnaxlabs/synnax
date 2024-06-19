@@ -133,6 +133,8 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(config::Parser &p
     //     return VelocityIEPE(parser, this->task_handle);
     // }
     if (channel_type == "ai_voltage") {
+        LOG(INFO) << "Test1";
+        LOG(INFO) << "Channel name : " << channel_name;
         return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
     }
     // if (channel_type == "ai_voltage_rms") {
@@ -141,6 +143,7 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(config::Parser &p
     // if (channel_type == "ai_voltage_with_excit") {
     //     return VoltageWithExcit(parser, this->task_handle);
     // }
+    return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
 }
 
 
