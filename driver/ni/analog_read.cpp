@@ -62,9 +62,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(config::Parser &p
     // if (channel_type == "ai_charge") {
     //     return Charge(parser, this->task_handle);
     // }
-    // if (channel_type == "ai_current") {
-    //     return Current(parser, this->task_handle);
-    // }
+    if (channel_type == "ai_current") {
+        return std::make_shared<Current>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_current_rms") {
     //     return CurrentRMS(parser, this->task_handle);
     // }

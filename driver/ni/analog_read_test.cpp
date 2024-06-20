@@ -738,7 +738,6 @@ TEST(read_tests, one_analog_voltage_channel){
 ///////////////////////////////////////////////////////////////////
 
 ///@brief Thermocouple 
-/// test all the different modes of thermocouples
 TEST(read_tests, one_analog_thermocouple_channel){
     LOG(INFO) << "one_analog_thermocouple_channel: "<< std::endl;
 
@@ -969,6 +968,104 @@ TEST(read_tests, one_analog_thermocouple_channel){
 ///@brief charge
 
 ///@brief Current
+
+TEST(read_tests, one_analog_current_channel){
+    LOG(INFO) << "one_analog_current_channel: "<< std::endl;
+
+    // create synnax client
+    auto client_config = synnax::Config{
+            "localhost",
+            9090,
+            "synnax",
+            "seldon"};
+    auto client = std::make_shared<synnax::Synnax>(client_config);
+    
+    // create all the necessary channels in the synnax client
+    auto [time, tErr] = client->channels.create( // index channel for analog input channels
+            "idx",
+            synnax::TIMESTAMP,
+            0,
+            true
+    );
+    ASSERT_FALSE(tErr) << tErr.message();
+    auto [data, dErr] = client->channels.create( // analog input channel
+            "current",
+            synnax::FLOAT32,
+            time.key,
+            false
+    );
+    ASSERT_FALSE(dErr) << dErr.message();
+
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "PXI1Slot2"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_current"},
+        {"port", 0},
+        {"max_val", 0.0004},
+        {"min_val", 0},
+        {"units", "Amps"},
+        {"enabled", true},
+        {"channel",data.key},
+        {"key", "key"},
+        {"shunt_resistor_loc", "Default"},
+        {"ext_shunt_resistor_val", 249.0},
+        {"terminal_config", "Default"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    channel_config["custom_scale"] = scale_config;
+
+    config["channels"] = json::array();
+    config["channels"].push_back(channel_config);
+  
+    // create synnax task
+    auto task = synnax::Task(
+            "my_task",          // task name
+            "ni_analog_read",   // task type
+            to_string(config)   // task config
+    );
+
+    auto mockCtx = std::make_shared<task::MockContext>(client);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    // Now construct NI reader
+    TaskHandle taskHandle;  
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+
+    auto reader = ni::AnalogReadSource( taskHandle, 
+                                        mockCtx, 
+                                        task); // analog reader
+
+
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+
+    if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+    reader.start();
+    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+    auto [frame, err] = reader.read(b);
+    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+
+     //iterate through each series and print the data
+    uint32_t ai_count = 0;
+    for(int i = 0; i < frame.series->size(); i++){
+        std::cout << "\nSeries " << i << ":    " << frame.series->at(i) << "\n";
+    }
+
+    std::cout << std::endl;
+    reader.stop();
+}
 
 ///@brief force brdige polynomial
 

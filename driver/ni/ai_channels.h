@@ -277,6 +277,7 @@ namespace ni {
         }
     };
 
+
 /*
     /// @brief RMS voltage Channel
     class VoltageRMS : public Voltage {
@@ -339,6 +340,73 @@ namespace ni {
             }
     };
 
+*/ 
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                      Current                                  //
+    ///////////////////////////////////////////////////////////////////////////////////
+    class Current : public Analog{
+        public:
+            int32_t shuntResistorLoc;
+            double extShuntResistorval;
+            int32 terminal_config = 0;
+
+            static int32_t getShuntResistorLocation(std::string loc){
+                // TODO: cant find any other options in daqmx.h?
+                return DAQmx_Val_Default;
+            }
+
+            explicit Current(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task_handle, name),
+                      terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))),
+                      shuntResistorLoc(getShuntResistorLocation(parser.required<std::string>("shunt_resistor_loc"))),
+                      extShuntResistorval(parser.required<double>("ext_shunt_resistor_val")) {
+                        std::string u = parser.optional<std::string>("units", "Amps");
+                        this->units = ni::UNITS_MAP.at(u); 
+                      }
+            
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAICurrentChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->terminal_config,
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->shuntResistorLoc,
+                            this->extShuntResistorval,
+                            NULL
+                    );
+                }
+            }
+    };
+
+    // class CurrentRMS : public Current{
+    //     explicit CurrentRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
+    //             : Current(parser, task_handle, name) {}
+        
+    //     int32 createNIChannel() override {
+    //         if(this->scale_config.type == "none"){
+    //             return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
+    //                     this->task_handle,
+    //                     this->name.c_str(),
+    //                     "",
+    //                     this->terminal_config,
+    //                     this->min_val,
+    //                     this->max_val,
+    //                     this->units,
+    //                     this->shuntResistorLoc,
+    //                     this->extShuntResistorval,
+    //                     this->excitationConfig.voltageExcitSource,
+    //                     this->excitationConfig.voltageExcitVal,
+    //                     NULL
+    //             );
+    //         }
+    //     }
+    // };
+
+/*
     ///////////////////////////////////////////////////////////////////////////////////
     //                                       RTD                                     //
     ///////////////////////////////////////////////////////////////////////////////////
@@ -673,62 +741,7 @@ namespace ni {
 
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////
-    //                                      Current                                  //
-    ///////////////////////////////////////////////////////////////////////////////////
-    class Current : public Analog{
-        public:
-            int32_t shuntResistorLoc;
-            double extShuntResistorval;
 
-            explicit Current(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      shuntResistorLoc(parser.required<int32_t>("shunt_resistor_loc")),
-                      extShuntResistorval(parser.required<double>("ext_shunt_resistor_val")) {}
-            
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAICurrentChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->terminal_config,
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->shuntResistorLoc,
-                            this->extShuntResistorval,
-                            this->excitationConfig.voltageExcitSource,
-                            this->excitationConfig.voltageExcitVal,
-                            NULL
-                    );
-                }
-            }
-    }
-
-    class CurrentRMS : public Current{
-        explicit CurrentRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Current(parser, task_handle, name) {}
-        
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->shuntResistorLoc,
-                        this->extShuntResistorval,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
-                        NULL
-                );
-            }
-        }
-    }
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Force                                    //
