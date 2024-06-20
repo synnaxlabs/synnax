@@ -21,7 +21,7 @@ import { useDispatch } from "react-redux";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { ErrorOverlay } from "@/error/Overlay";
+import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -109,15 +109,17 @@ const MainUnderContext = (): ReactElement => {
 };
 
 const Main = (): ReactElement => (
-  <Provider store={store}>
-    <ErrorOverlay>
-      <Layout.RendererProvider value={layoutRenderers}>
-        <Ontology.ServicesProvider services={SERVICES}>
-          <MainUnderContext />
-        </Ontology.ServicesProvider>
-      </Layout.RendererProvider>
-    </ErrorOverlay>
-  </Provider>
+  <ErrorOverlayWithoutStore>
+    <Provider store={store}>
+      <ErrorOverlayWithStore>
+        <Layout.RendererProvider value={layoutRenderers}>
+          <Ontology.ServicesProvider services={SERVICES}>
+            <MainUnderContext />
+          </Ontology.ServicesProvider>
+        </Layout.RendererProvider>
+      </ErrorOverlayWithStore>
+    </Provider>
+  </ErrorOverlayWithoutStore>
 );
 
 const rootEl = document.getElementById("root") as HTMLElement;

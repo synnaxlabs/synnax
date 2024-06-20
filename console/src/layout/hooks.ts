@@ -26,12 +26,12 @@ import { useDispatch } from "react-redux";
 import { State } from "@/layout/layout";
 import { useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
-  type NavdrawerLocation,
+  type NavDrawerLocation,
   place,
   remove,
-  resizeNavdrawer,
+  resizeNavDrawer,
   setActiveTheme,
-  setNavdrawerVisible,
+  setNavDrawerVisible,
   toggleActiveTheme,
 } from "@/layout/slice";
 
@@ -176,7 +176,7 @@ export interface UseNavDrawerReturn {
 }
 
 export const useNavDrawer = (
-  location: NavdrawerLocation,
+  location: NavDrawerLocation,
   items: NavDrawerItem[],
 ): UseNavDrawerReturn => {
   const windowKey = useSelectWindowKey() as string;
@@ -184,7 +184,7 @@ export const useNavDrawer = (
   const dispatch = useDispatch();
   const onResize = useDebouncedCallback(
     (size) => {
-      dispatch(resizeNavdrawer({ windowKey, location, size }));
+      dispatch(resizeNavDrawer({ windowKey, location, size }));
     },
     100,
     [dispatch, windowKey],
@@ -208,7 +208,7 @@ export const useNavDrawer = (
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) => dispatch(setNavdrawerVisible({ windowKey, key })),
+    onSelect: (key: string) => dispatch(setNavDrawerVisible({ windowKey, key })),
     onResize,
   };
 };

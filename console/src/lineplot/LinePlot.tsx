@@ -264,7 +264,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const handleDoubleClick = useCallback(
     () =>
       dispatch(
-        Layout.setNavdrawerVisible({ windowKey, key: "visualization", value: true }),
+        Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
       ),
     [windowKey, dispatch],
   );

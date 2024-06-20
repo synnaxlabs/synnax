@@ -30,10 +30,10 @@ import (
 type WriterMode uint8
 
 // Persist returns true if the current mode should persist data.
-func (w WriterMode) Persist() bool { return w != WriterStreamOnly }
+func (mode WriterMode) Persist() bool { return mode != WriterStreamOnly }
 
 // Stream returns true if the current mode should stream data.
-func (w WriterMode) Stream() bool { return w != WriterPersistOnly }
+func (mode WriterMode) Stream() bool { return mode != WriterPersistOnly }
 
 const (
 	WriterPersistStream = iota + 1
@@ -217,8 +217,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				return nil, err
 			}
 		} else {
-			var w *unary.Writer
-			w, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
+			var unaryW *unary.Writer
+			unaryW, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
 				Subject:                  cfg.ControlSubject,
 				Start:                    cfg.Start,
 				Authority:                auth,
@@ -251,7 +251,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 					domainWriters[u.Channel.Index] = idxW
 				}
 
-				idxW.internal[key] = &unaryWriterState{Writer: *w}
+				idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
 			} else {
 				// Hot path optimization: in the common case we only write to a rate based
 				// index or an indexed channel, not both. In either case we can avoid a
@@ -266,7 +266,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 					rateWriters[u.Channel.Rate] = idxW
 				}
 
-				idxW.internal[key] = &unaryWriterState{Writer: *w}
+				idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
 			}
 			if transfer.Occurred() {
 				controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)

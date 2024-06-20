@@ -98,6 +98,7 @@ export const Window = (): ReactElement | null => {
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
+
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Align.Space
