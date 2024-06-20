@@ -609,7 +609,6 @@ TEST(read_tests, one_analog_channel){
 //     reader.stop();
 // }
 
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                             Channnel Tests                                                   //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -701,6 +700,7 @@ TEST(read_tests, one_analog_voltage_channel){
 ///@brief voltage with excitation
 
 ///@brief Thermocouple 
+/// test all the different modes of thermocouples
 TEST(read_tests, one_analog_thermocouple_channel){
     LOG(INFO) << "one_analog_thermocouple_channel: "<< std::endl;
 
@@ -795,6 +795,104 @@ TEST(read_tests, one_analog_thermocouple_channel){
     reader.stop();
 }
 
+///@brief RTD
+TEST(read_tests, one_analog_thermocouple_channel){
+    LOG(INFO) << "one_analog_thermocouple_channel: "<< std::endl;
+
+    // create synnax client
+    auto client_config = synnax::Config{
+            "localhost",
+            9090,
+            "synnax",
+            "seldon"};
+    auto client = std::make_shared<synnax::Synnax>(client_config);
+    
+    // create all the necessary channels in the synnax client
+    auto [time, tErr] = client->channels.create( // index channel for analog input channels
+            "idx",
+            synnax::TIMESTAMP,
+            0,
+            true
+    );
+    ASSERT_FALSE(tErr) << tErr.message();
+    auto [data, dErr] = client->channels.create( // analog input channel
+            "thermocouple",
+            synnax::FLOAT32,
+            time.key,
+            false
+    );
+    ASSERT_FALSE(dErr) << dErr.message();
+
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 100}, 
+            {"stream_rate", 20}, 
+            {"device_location", "Dev1"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"}
+        {"enabled", true},
+        {"channel",data.key},
+        {"key", "key"}, 
+        //////////////////////////////////////////////////////
+        {"type", "rtd"},
+        {"max_val", 100.0},
+        {"min_val", 0.0},
+        {"units", "C"},
+        {"rtd_type", "PT375"},
+        {"resistance_config", "4Wire"},
+        {"r0", 100.0}
+        {"voltage_excit_source","External"}
+        {"voltage_excit_val",0.00015}
+        {"custom_scale", {"type","none"}} 
+    };
+
+    config[channels] = json::array();
+    config[channels].push_back(channel_config);
+  
+    // create synnax task
+    auto task = synnax::Task(
+            "my_task",          // task name
+            "ni_analog_read",   // task type
+            to_string(config)   // task config
+    );
+
+    auto mockCtx = std::make_shared<task::MockContext>(client);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    // Now construct NI reader
+    TaskHandle taskHandle;  
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+
+    auto reader = ni::AnalogReadSource( taskHandle, 
+                                        mockCtx, 
+                                        task); // analog reader
+
+
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+//     b.start();
+
+    if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+    reader.start();
+    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+    auto [frame, err] = reader.read(b);
+    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+
+     //iterate through each series and print the data
+    uint32_t ai_count = 0;
+    for(int i = 0; i < frame.series->size(); i++){
+        std::cout << "\n\n Series " << i << ": \n";
+        std::cout << frame.series->at(i);
+    }
+
+    std::cout << std::endl;
+    reader.stop();
+}
+
 
 ///@brief Temperature Built in sensor
 
@@ -840,27 +938,19 @@ TEST(read_tests, one_analog_thermocouple_channel){
 
 ///@brief frequency
 
-
 ///@brief Microphone
 
 ///@brief pressure
 
-
 ///@brief pressure bridge table
-
 
 ///@brief pressure bridge linear
 
-
 ///@brief resistance
-
 
 ///@brief rosette strain gauge
 
 ///@brief strain gauge
-
-
-///@brief RTD
 
 
 ///@brief TorqueBr

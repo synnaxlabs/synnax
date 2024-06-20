@@ -280,7 +280,7 @@ namespace ni {
             }
         }
     };
-    
+
     /// @brief RMS voltage Channel
     class VoltageRMS : public Voltage {
         public: 
@@ -342,13 +342,48 @@ namespace ni {
             }
     };
 
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                       RTD                                     //
+    ///////////////////////////////////////////////////////////////////////////////////
+    class RTD : public Analog{
+        public:
+            int32_t rtdType;
+            int32_t resitanceConfig;
+            ExcitationConfig excitationConfig;
+            double r0;
+
+            explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task_handle, name),
+                      rtdType(parser.required<int32_t>("rtd_type")),
+                      resistanceConfig(parser.required<int32_t>("resistance_config")),
+                      excitationConfig(parser),
+                      r0(parser.required<double>("r0")) {}
+    }
+            int32 createNIChannel() override {
+                if(this->scale_config.type == "none"){
+                    return ni::NiDAQmxInterface::CreateAIRTDChan(
+                            this->task_handle,
+                            this->name.c_str(),
+                            "",
+                            this->min_val,
+                            this->max_val,
+                            this->units,
+                            this->rtdType,
+                            this->resistanceConfig,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            this->r0,
+                            NULL
+                    );
+                }
+            }
+
+   
+
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Temperature                              //
     ///////////////////////////////////////////////////////////////////////////////////
-    class TemperatureBuiltInSensor : public Analog{
-        public:
-    };
     class Thermocouple : public Analog{
         public:
             int32_t thermocoupleType;
@@ -387,6 +422,27 @@ namespace ni {
 
 
     };
+    
+    class TemperatureBuiltInSensor : public Analog{
+        public:
+            explicit TemperatureBuiltInSensor(config::Parser &parser, TaskHandle task_handle, std::string name){
+                this->task_handle = task_handle;
+                this->physical_channel = parser.required<std::string>("physical_channel");
+                this->name = name;
+                this->units = parser.required<int32_t>("units");
+            }
+
+            int32 createNIChannel() override {
+                LOG(INFO) << "Creating Temperature Built In Sensor Channel";
+                return ni::NiDAQmxInterface::CreateAITempBuiltInSensorChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->units,
+                );
+            }
+    };
+
     class Thermistor : public Analog{
         public:
             int32_t resistanceConfig;
@@ -1090,44 +1146,7 @@ namespace ni {
             }
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////
-    //                                       RTD                                     //
-    ///////////////////////////////////////////////////////////////////////////////////
-    class RTD : public Analog{
-        public:
-            int32_t rtdType;
-            int32_t resitanceConfig;
-            ExcitationConfig excitationConfig;
-            double r0;
-
-            explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      rtdType(parser.required<int32_t>("rtd_type")),
-                      resistanceConfig(parser.required<int32_t>("resistance_config")),
-                      excitationConfig(parser),
-                      r0(parser.required<double>("r0")) {}
-    }
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAIRTDChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->rtdType,
-                            this->resistanceConfig,
-                            this->excitationConfig.voltageExcitSource,
-                            this->excitationConfig.voltageExcitVal,
-                            this->r0,
-                            NULL
-                    );
-                }
-            }
-
-   
-
+    
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Torque                                   //
     ///////////////////////////////////////////////////////////////////////////////////
@@ -1239,5 +1258,4 @@ namespace ni {
                 }
             }
     }
-
 } // namespace ni
