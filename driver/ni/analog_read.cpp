@@ -111,9 +111,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(config::Parser &p
     // if (channel_type == "ai_temp_built_in_sensor") {
     //     return TempBuiltInSensor(parser, this->task_handle);
     // }
-    // if (channel_type == "ai_thrmcpl") {
-    //     return Thrmcpl(parser, this->task_handle);
-    // }
+    if (channel_type == "ai_thrmcpl") {
+        return std::make_shared<Thermocouple>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_thrmstr_iex") {
     //     return ThrmstrIex(parser, this->task_handle);
     // }

@@ -10,6 +10,9 @@
 #include "driver/ni/scale.h"
 #include <map>
 
+
+// TODO, map C F and K to the diff temp units
+// TODO, make  tc map
 const std::map<std::string, int32_t> ni::UNITS_MAP = {
         {"Volts",                  DAQmx_Val_Volts},
         {"Amps",                   DAQmx_Val_Amps},

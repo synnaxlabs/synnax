@@ -281,6 +281,7 @@ namespace ni {
         }
     };
 
+/*
     /// @brief RMS voltage Channel
     class VoltageRMS : public Voltage {
         public: 
@@ -380,7 +381,7 @@ namespace ni {
 
    
 
-
+*/
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Temperature                              //
     ///////////////////////////////////////////////////////////////////////////////////
@@ -393,9 +394,11 @@ namespace ni {
             
             explicit Thermocouple(config::Parser &parser, TaskHandle task_handle, std::string name)
                     : Analog(parser, task_handle, name),
-                      thermocoupleType(parser.required<int32_t>("thermocouple_type")),
-                      cjcSource(parser.required<int32_t>("cjc_source")),
+                    //   thermocoupleType(parser.required<std::string>("thermocouple_type")),
+                    //   cjcSource(parser.required<std::string>("cjc_source")),
                       cjcVal(parser.required<double>("cjc_val")){
+                        std::string u = parser.optional<std::string>("units", "DegC");
+                        this->units = ni::UNITS_MAP.at(u); // TODO: make this optional and default to C?
                       }
                       //cjcChannel(parser.required<std::string>("cjc_channel")) {} FIXME: this property should be take form console
 
@@ -412,8 +415,9 @@ namespace ni {
                         "",
                         this->min_val,
                         this->max_val,
-                        this->thermocoupleType,
-                        this->cjcSource,
+                        this->units,
+                        DAQmx_Val_J_Type_TC,//this->thermocoupleType,
+                        DAQmx_Val_BuiltIn,// this->cjcSource,
                         this->cjcVal,
                         ""
                     );
@@ -423,6 +427,7 @@ namespace ni {
 
     };
     
+    /*
     class TemperatureBuiltInSensor : public Analog{
         public:
             explicit TemperatureBuiltInSensor(config::Parser &parser, TaskHandle task_handle, std::string name){
@@ -1258,4 +1263,7 @@ namespace ni {
                 }
             }
     }
+
+*/
 } // namespace ni
+
