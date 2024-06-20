@@ -14,8 +14,8 @@ import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import { type State } from "@/layout/layout";
 import {
-  type NavdrawerEntryState,
-  type NavdrawerLocation,
+  type NavDrawerEntryState,
+  type NavDrawerLocation,
   SLICE_NAME,
   type SliceState,
   type StoreState,
@@ -148,8 +148,8 @@ export const useSelectMany = (keys?: string[]): State[] =>
 
 export const selectNavDrawer = (
   state: StoreState & Drift.StoreState,
-  loc: NavdrawerLocation,
-): NavdrawerEntryState | null => {
+  loc: NavDrawerLocation,
+): NavDrawerEntryState | null => {
   const winKey = selectWindowKey(state) as string;
   const navState = selectSliceState(state).nav[winKey];
   if (navState == null) return null;
@@ -157,8 +157,8 @@ export const selectNavDrawer = (
 };
 
 export const useSelectNavDrawer = (
-  loc: NavdrawerLocation,
-): NavdrawerEntryState | null =>
+  loc: NavDrawerLocation,
+): NavDrawerEntryState | null =>
   useMemoSelect(
     (state: StoreState & Drift.StoreState) => selectNavDrawer(state, loc),
     [loc],

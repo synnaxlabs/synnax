@@ -7,34 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
+import { create as createLinePlot, ZERO_CHANNELS_STATE } from "@/lineplot/slice";
 import { Link } from "@/link";
-import { setActive } from "@/range/slice";
 
 export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  dispatch,
   placer,
   addStatus,
-  windowKey,
 }): Promise<boolean> => {
-  if (resource != "range") return false;
+  if (resource != "channel") return false;
   try {
-    const range = await client.ranges.retrieve(resourceKey);
-    dispatch(setActive(range.key));
+    const channel = await client.channels.retrieve(resourceKey);
     placer(
-      LinePlot.create({
-        name: `Plot for ${range.name}`,
-        ranges: {
-          x1: [range.key],
-          x2: [],
+      createLinePlot({
+        channels: {
+          ...ZERO_CHANNELS_STATE,
+          y1: [channel.key],
         },
       }),
     );
-    dispatch(Layout.setNavDrawerVisible({ windowKey, key: "range" }));
   } catch (e) {
     addStatus({
       variant: "error",
