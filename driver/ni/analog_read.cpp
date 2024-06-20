@@ -24,12 +24,11 @@ using json = nlohmann::json;
 
 
 void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
-    LOG(INFO) << "[NI Reader] Parsing Channels for task " << this->reader_config.task_name;
     // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
 
-                    LOG(INFO) << channel_builder.get_json().dump(4);
+                    // LOG(INFO) << channel_builder.get_json().dump(4);
 
                     ni::ChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
@@ -133,8 +132,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(config::Parser &p
     //     return VelocityIEPE(parser, this->task_handle);
     // }
     if (channel_type == "ai_voltage") {
-        LOG(INFO) << "Test1";
-        LOG(INFO) << "Channel name : " << channel_name;
         return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
     }
     // if (channel_type == "ai_voltage_rms") {
@@ -176,7 +173,6 @@ int ni::AnalogReadSource::configureTiming() {
     // make a make a call to read 10 samples at 100hz
     this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
     this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
-    LOG(INFO) << "[NI Reader] Configured timing for task " << this->reader_config.task_name;
     return 0;
 }
 

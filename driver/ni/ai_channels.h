@@ -213,14 +213,12 @@ namespace ni {
                   name(name),
                   type(parser.required<std::string>("type")),
                   scale_config(getScaleConfig(parser)) {
-            LOG(INFO) << "Analog Channel constructor ";
             // check name of channel
             if (this->scale_config.type != "none") {
                 LOG(INFO) << "Scale type: " << this->scale_config.type;
                 this->scale_name = this->scale_config.name;
                 this->units = DAQmx_Val_FromCustomScale;
             }
-            LOG(INFO) << "Analog Channel constructor end";
         }
 
         TaskHandle task_handle = 0;
@@ -252,8 +250,6 @@ namespace ni {
         ~Voltage() = default;
 
         int32 createNIChannel() override {
-            LOG(INFO) << "Creating Voltage Channel";
-
             if (this->scale_config.type == "none") {
                 return ni::NiDAQmxInterface::CreateAIVoltageChan(
                         this->task_handle, 
@@ -391,11 +387,34 @@ namespace ni {
             int32_t cjcSource;
             double cjcVal;
             std::string cjcChannel;
+
+            static int32_t getType(std::string type){
+                if(type == "J") return DAQmx_Val_J_Type_TC;
+                if(type == "K") return DAQmx_Val_K_Type_TC;
+                if(type == "N") return DAQmx_Val_N_Type_TC;
+                if(type == "R") return DAQmx_Val_R_Type_TC;
+                if(type == "S") return DAQmx_Val_S_Type_TC;
+                if(type == "T") return DAQmx_Val_T_Type_TC;                  
+                if(type == "B") return DAQmx_Val_B_Type_TC;
+                if(type == "E") return DAQmx_Val_E_Type_TC;
+
+                LOG(ERROR) << "Invalid TC Type";
+                return DAQmx_Val_J_Type_TC;
+            }
+
+            static int32_t getCJCSource(std::string source){
+                if(source == "BuiltIn") return DAQmx_Val_BuiltIn;
+                if(source == "ConstVal") return DAQmx_Val_ConstVal;
+                if(source == "Chan") return DAQmx_Val_Chan;
+                LOG(ERROR) << "Invalid cjc type";
+                return DAQmx_Val_BuiltIn;
+            }
+
             
             explicit Thermocouple(config::Parser &parser, TaskHandle task_handle, std::string name)
                     : Analog(parser, task_handle, name),
-                    //   thermocoupleType(parser.required<std::string>("thermocouple_type")),
-                    //   cjcSource(parser.required<std::string>("cjc_source")),
+                      thermocoupleType(getType(parser.required<std::string>("thermocouple_type"))),
+                      cjcSource(getCJCSource(parser.required<std::string>("cjc_source"))),
                       cjcVal(parser.required<double>("cjc_val")){
                         std::string u = parser.optional<std::string>("units", "DegC");
                         this->units = ni::UNITS_MAP.at(u); // TODO: make this optional and default to C?
@@ -406,8 +425,6 @@ namespace ni {
             ///	DAQmxErrChk (DAQmxCreateAIThrmcplChan(taskHandle,"","",0.0,100.0,DAQmx_Val_DegC,DAQmx_Val_J_Type_TC,DAQmx_Val_BuiltIn,25.0,""));
 
             int32 createNIChannel() override {
-                LOG(INFO) << "Creating Thermocouple Channel";
-
                 if(this->scale_config.type == "none"){
                     return ni::NiDAQmxInterface::CreateAIThrmcplChan(
                         this->task_handle,
@@ -416,8 +433,8 @@ namespace ni {
                         this->min_val,
                         this->max_val,
                         this->units,
-                        DAQmx_Val_J_Type_TC,//this->thermocoupleType,
-                        DAQmx_Val_BuiltIn,// this->cjcSource,
+                        this->thermocoupleType,
+                        this->cjcSource,
                         this->cjcVal,
                         ""
                     );

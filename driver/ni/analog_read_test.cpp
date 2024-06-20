@@ -24,8 +24,15 @@
 using json = nlohmann::json;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                          Basic Tests                                                         //
+//                                                                                                              //
+//                                                   Basic Tests                                                //                  //
+//                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////
+//                      ANALOG BASIC                             //
+///////////////////////////////////////////////////////////////////
+
 // TEST(read_tests, one_analog_channel){
 //     LOG(INFO) << "test_read_one_analog_channel: "<< std::endl;
 
@@ -227,9 +234,16 @@ using json = nlohmann::json;
 //     reader.stop();
 // }
 
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// //                                             Scaling Tests                                                   //
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                              //
+//                                                   Scaling Tests                                              //                  //
+//                                                                                                              //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////
+//                          LINEAR                               //
+///////////////////////////////////////////////////////////////////
+
 // TEST(read_tests, analog_linear_scaling){
 //     LOG(INFO) << "analog_linear_scaling: "<< std::endl;
 
@@ -322,6 +336,10 @@ using json = nlohmann::json;
 //     std::cout << std::endl;
 //     reader.stop();
 // }
+
+///////////////////////////////////////////////////////////////////
+//                          MAP                                  //
+///////////////////////////////////////////////////////////////////
 
 // TEST(read_tests, analog_map_scaling){
 //     LOG(INFO) << "analog_map_scaling: "<< std::endl;
@@ -419,6 +437,10 @@ using json = nlohmann::json;
 // }
 
 
+///////////////////////////////////////////////////////////////////
+//                          TABLE                                //
+///////////////////////////////////////////////////////////////////
+
 // TEST(read_tests, analog_table_scaling){
 //     LOG(INFO) << "analog_table_scaling: "<< std::endl;
 
@@ -512,6 +534,11 @@ using json = nlohmann::json;
 //     std::cout << std::endl;
 //     reader.stop();
 // }
+
+
+///////////////////////////////////////////////////////////////////
+//                          POLYNOMIAL                           //
+///////////////////////////////////////////////////////////////////
 
 // TEST(read_tests, analog_polynomial_scaling){
 //     LOG(INFO) << "analog_table_scaling: "<< std::endl;
@@ -610,8 +637,14 @@ using json = nlohmann::json;
 // }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                             Channnel Tests                                                   //
+//                                                                                                              //
+//                                                   Channnel Tests                                             //                  //
+//                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////
+//                          Voltage                              //
+///////////////////////////////////////////////////////////////////
 /// @brief Voltage
 TEST(read_tests, one_analog_voltage_channel){
     LOG(INFO) << "test_read_one_analog_channel: "<< std::endl;
@@ -687,8 +720,7 @@ TEST(read_tests, one_analog_voltage_channel){
      //iterate through each series and print the data
     uint32_t ai_count = 0;
     for(int i = 0; i < frame.series->size(); i++){
-        std::cout << "\n\n Series " << i << ": \n";
-        std::cout << frame.series->at(i);
+        std::cout << "\nSeries " << i << ":    " << frame.series->at(i) << "\n";
     }
 
     std::cout << std::endl;
@@ -698,6 +730,12 @@ TEST(read_tests, one_analog_voltage_channel){
 ///@brief RMS Voltage 
 
 ///@brief voltage with excitation
+
+
+
+///////////////////////////////////////////////////////////////////
+//                         Temperature                           //
+///////////////////////////////////////////////////////////////////
 
 ///@brief Thermocouple 
 /// test all the different modes of thermocouples
@@ -742,14 +780,14 @@ TEST(read_tests, one_analog_thermocouple_channel){
         {"name", "test_ni_channel"},
         {"type", "ai_thrmcpl"},
         {"port", 0},
-        {"max_val", 10.0},
-        {"min_val", 1.0},
-        {"units", "DegC"},
+        {"max_val", 500},
+        {"min_val", 65},
+        {"units", "K"},
         {"enabled", true},
         {"channel",data.key},
         {"key", "key"},
         {"thermocouple_type", "J"},
-        {"cjc_source", "builtin"}, //TODO fix these parts
+        {"cjc_source", "BuiltIn"},
         {"cjc_val", 25.0}
     };
 
@@ -782,7 +820,6 @@ TEST(read_tests, one_analog_thermocouple_channel){
 
 
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
-//     b.start();
 
     if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start();
@@ -793,8 +830,7 @@ TEST(read_tests, one_analog_thermocouple_channel){
      //iterate through each series and print the data
     uint32_t ai_count = 0;
     for(int i = 0; i < frame.series->size(); i++){
-        std::cout << "\n\n Series " << i << ": \n";
-        std::cout << frame.series->at(i);
+        std::cout << "\nSeries " << i << ":    " << frame.series->at(i) << "\n";
     }
 
     std::cout << std::endl;
@@ -962,9 +998,10 @@ TEST(read_tests, one_analog_thermocouple_channel){
 ///@brief TorqueBr
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                             Error Handling                                                   //
+//                                                                                                              //
+//                                              Error Handling                                                  //                  
+//                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // TODO:
 // driver errors 
     // - invalid channel

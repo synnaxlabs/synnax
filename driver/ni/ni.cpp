@@ -10,16 +10,16 @@
 #include "driver/ni/scale.h"
 #include <map>
 
-
-// TODO, map C F and K to the diff temp units
-// TODO, make  tc map
 const std::map<std::string, int32_t> ni::UNITS_MAP = {
         {"Volts",                  DAQmx_Val_Volts},
         {"Amps",                   DAQmx_Val_Amps},
         {"DegF",                   DAQmx_Val_DegF},
+        {"F",                      DAQmx_Val_DegF},
         {"DegC",                   DAQmx_Val_DegC},
+        {"C",                      DAQmx_Val_DegC},
         {"DegR",                   DAQmx_Val_DegR},
         {"Kelvins",                DAQmx_Val_Kelvins},
+        {"K",                      DAQmx_Val_Kelvins},
         {"Strain",                 DAQmx_Val_Strain},
         {"Ohms",                   DAQmx_Val_Ohms},
         {"Hz",                     DAQmx_Val_Hz},
@@ -50,7 +50,6 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::Source::getIndexKeys() {
-    LOG(INFO) << "[NI Reader] acquiring index channels for task " << this->reader_config.task_name;
     std::set < std::uint32_t > index_keys;
     //iterate through channels in reader config
     for (auto &channel: this->reader_config.channels) {
@@ -64,7 +63,6 @@ void ni::Source::getIndexKeys() {
         }
     }
 
-    LOG(INFO) << "[NI Reader] acquiring index channels for task 2 " << this->reader_config.task_name;
 
     // now iterate through the set and add all the index channels as configs
     for (auto it = index_keys.begin(); it != index_keys.end(); ++it) {
@@ -160,14 +158,12 @@ int ni::Source::init() {
         return -1;
     }
 
-    LOG(INFO) << "[NI Reader] configuring timing for NI hardware for task " << this->reader_config.task_name;
     if (this->configureTiming())
         this->logError(
                 "[NI Reader] Failed while configuring timing for NI hardware for task " +
                 this->reader_config.task_name);
 
 
-    LOG(INFO) << "[NI Reader] successfully configured NI hardware for task " << this->reader_config.task_name;
     return 0;
 }
 
@@ -191,12 +187,10 @@ freighter::Error ni::Source::start() {
                                   {"running", true}
                           }
                   });
-    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
     return freighter::NIL;
 }
 
 freighter::Error ni::Source::stop() {
-    LOG(INFO) << "[NI Reader] stopping reader for task " << this->reader_config.task_name;
     if (!this->running.exchange(false)) {
         return freighter::NIL;
     }
