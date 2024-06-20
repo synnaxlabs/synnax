@@ -48,6 +48,15 @@ interface StateVersionValue {
 
 const KEEP_HISTORY = 4;
 
+export const hardClearAndReload = () => {
+  const appWindow = getCurrent();
+  if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
+  const db = new TauriKV();
+  db.clear().finally(() => {
+    window.location.reload();
+  });
+};
+
 export const open = async <S extends RequiredState>({
   exclude = [],
   migrator,
