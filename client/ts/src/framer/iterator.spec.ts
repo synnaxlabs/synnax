@@ -13,7 +13,7 @@ import { describe, expect,test } from "vitest";
 import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
-import {AUTO_SPAN} from "@/framer/iterator";
+import { AUTO_SPAN } from "@/framer/iterator";
 
 const client = newClient();
 
