@@ -178,11 +178,12 @@ func (t frameIteratorRequestTranslator) Forward(
 	msg api.FrameIteratorRequest,
 ) (*gapi.FrameIteratorRequest, error) {
 	return &gapi.FrameIteratorRequest{
-		Command: int32(msg.Command),
-		Span:    int64(msg.Span),
-		Range:   telem.TranslateTimeRangeForward(msg.Bounds),
-		Keys:    translateChannelKeysForward(msg.Keys),
-		Stamp:   int64(msg.Stamp),
+		Command:   int32(msg.Command),
+		Span:      int64(msg.Span),
+		Range:     telem.TranslateTimeRangeForward(msg.Bounds),
+		Keys:      translateChannelKeysForward(msg.Keys),
+		Stamp:     int64(msg.Stamp),
+		ChunkSize: msg.ChunkSize,
 	}, nil
 }
 
@@ -191,11 +192,12 @@ func (t frameIteratorRequestTranslator) Backward(
 	msg *gapi.FrameIteratorRequest,
 ) (api.FrameIteratorRequest, error) {
 	return api.FrameIteratorRequest{
-		Command: iterator.Command(msg.Command),
-		Span:    telem.TimeSpan(msg.Span),
-		Bounds:  telem.TranslateTimeRangeBackward(msg.Range),
-		Keys:    translateChannelKeysBackward(msg.Keys),
-		Stamp:   telem.TimeStamp(msg.Stamp),
+		Command:   iterator.Command(msg.Command),
+		Span:      telem.TimeSpan(msg.Span),
+		Bounds:    telem.TranslateTimeRangeBackward(msg.Range),
+		Keys:      translateChannelKeysBackward(msg.Keys),
+		Stamp:     telem.TimeStamp(msg.Stamp),
+		ChunkSize: msg.ChunkSize,
 	}, nil
 }
 

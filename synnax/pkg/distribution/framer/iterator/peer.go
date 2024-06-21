@@ -21,6 +21,7 @@ import (
 func (s *Service) openManyPeers(
 	ctx context.Context,
 	bounds telem.TimeRange,
+	chunkSize int64,
 	targets map[core.NodeKey][]channel.Key,
 ) (*freightfluence.MultiSender[Request], []*freightfluence.Receiver[Response], error) {
 	var (
@@ -32,7 +33,7 @@ func (s *Service) openManyPeers(
 		if err != nil {
 			return sender, receivers, err
 		}
-		client, err := s.openPeerClient(ctx, target, Config{Keys: keys, Bounds: bounds})
+		client, err := s.openPeerClient(ctx, target, Config{Keys: keys, Bounds: bounds, ChunkSize: chunkSize})
 		if err != nil {
 			return sender, receivers, err
 		}
@@ -47,5 +48,5 @@ func (s *Service) openPeerClient(ctx context.Context, target address.Address, cf
 	if err != nil {
 		return nil, err
 	}
-	return client, client.Send(Request{Keys: cfg.Keys, Bounds: cfg.Bounds})
+	return client, client.Send(Request{Keys: cfg.Keys, ChunkSize: cfg.ChunkSize, Bounds: cfg.Bounds})
 }
