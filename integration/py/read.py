@@ -8,12 +8,13 @@ import numpy as np
 import synnax as sy
 
 
-# length of channels must = num _writers
+# length of channels must = num_iterators
 class TestConfig(NamedTuple):
     num_iterators: int
-    auto_span: int
-    samples_per_domain: int
-    channels: List[IndexWriterGroup]
+    chunk_size: int
+    span_size: sy.TimeSpan
+    bounds: sy.TimeRange
+    channels: List[List[str]]
 
 
 client = sy.Synnax(
@@ -26,76 +27,49 @@ client = sy.Synnax(
 
 
 def read_test(tc: TestConfig):
-    iterators = [None] * tc.num_writers
+    iterators = [None] * tc.num_iterators
 
-    for i in range(tc.num_writers):
-        writers[i] = client.open_writer(
-            start=sy.TimeStamp.now(),
-            channels=tc.channels[i].together(),
-            name=f"writer{i}",
-            mode=sy.WriterMode.PERSIST_STREAM,
-            enable_auto_commit=False,
-        )
+    for i in range(tc.num_iterators):
+        iterators[i] = client.open_iterator(tc.bounds, tc.channels)
+        iterators[i].seek_first(tc.bounds.start)
 
     try:
-        ts_hwm = sy.TimeStamp.now()
-        for _ in range(tc.domains):
-            timestamps = np.linspace(
-                ts_hwm,
-                ts_hwm + sy.TimeSpan.SECOND,
-                tc.samples_per_domain,
-                dtype="int64",
-            )
-            data = np.sin(domain.timestamps)
-            for i, writer in enumerate(tc.num_writers):
-                data_dict = {}
-                for index_channel in tc.channels[i].index_channels:
-                    data_dict[index_channel] = timestamps
-                for data_channel in tc.channels[i].data_channels:
-                    data_dict[data_channel] = data
-
-                writer.write(data_dict)
-                assert writer.commit()
-
-            ts_hwm += sy.TimeSpan.SECOND + 1
-
+        for i in iterators:
+            while i.next(tc.span_size):
+                continue
     finally:
-        for writer in range(writers):
-            writer.close()
+        for iterator in range(iterators):
+            iterator.close()
 
 
 def main():
     argv = sys.argv
-    num_writers = int(argv[1])
-    domains = int(argv[2])
-    samples_per_domain = int(argv[3])
-    number_of_channel_groups = int(argv[4])
-    argv_counter = 5
-    channel_groups = []
+    num_iterators = int(argv[1])
+    chunk_size = int(argv[2])
+    span_size = int(argv[3])
+    bounds_start = int(argv[4])
+    bounds_end = int(argv[5])
+    number_of_channel_groups = int(argv[6])
+    argv_counter = 7
+    channels = []
     for _ in range(number_of_channel_groups):
-        number_of_index = int(argv[argv_counter])
-        index_channels = []
+        number_of_channels_in_group = int(argv[argv_counter])
         argv_counter += 1
-        number_of_data = int(argv[argv_counter])
-        data_channels = []
-        argv_counter += 1
-        for i in range(argv_counter, argv_counter + number_of_index):
-            index_channels.append(argv[i])
-        argv_counter += number_of_index
-        for i in range(argv_counter, argv_counter + number_of_data):
-            data_channels.append(argv[i])
-        argv_counter += number_of_data
-        channel_groups.append(
-            IndexWriterGroup(index_channels=index_channels, data_channels=data_channels)
-        )
+        channel_group = []
+        for _ in range(number_of_channels_in_group):
+            channel_group.append(argv[argv_counter])
+            argv_counter += 1
+        channels.append(channel_group)
+
     tc = TestConfig(
-        num_writers=num_writers,
-        domains=domains,
-        samples_per_domain=samples_per_domain,
-        channels=channel_groups,
+        num_iterators=num_iterators,
+        chunk_size=chunk_size,
+        span_size=sy.TimeSpan(span_size),
+        bounds=sy.TimeRange(sy.TimeStamp(bounds_start), sy.TimeStamp(bounds_end)),
+        channels=channels,
     )
 
-    write_test(tc)
+    read_test(tc)
 
 
 if __name__ == "__main__":

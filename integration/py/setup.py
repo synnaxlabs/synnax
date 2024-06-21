@@ -12,6 +12,7 @@ class SetUpConfig(NamedTuple):
     num_index: int
     num_data: int
 
+
 client = sy.Synnax(
     host="localhost",
     port=9090,
@@ -34,19 +35,17 @@ def create_channels(tc: SetUpConfig) -> List[sy.channel.ChannelKey]:
 
     num_data_channels_per_index = tc.num_data // tc.num_index
     for ind in range(tc.num_index):
-        for k in range(
-            tc.num_index + ind * num_data_channels_per_index,
-            tc.num_index + (ind + 1) * num_data_channels_per_index,
-        ):
+        for k in range(num_data_channels_per_index,):
             ch = client.channels.create(
                 name=f"{ind}-{k}",
                 index=channels[ind],
-                data_type=sy.DataType.UINT8 if ind % 2 == 0 else sy.DataType.FLOAT32,
+                data_type=sy.DataType.FLOAT32,
                 retrieve_if_name_exists=True,
             )
             channels.append(ch.key)
 
     return channels
+
 
 if __name__=="__main__":
     if len(sys.argv) != 3:

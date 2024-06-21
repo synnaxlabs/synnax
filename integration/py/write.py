@@ -21,6 +21,7 @@ class TestConfig(NamedTuple):
     num_writers: int
     domains: int
     samples_per_domain: int
+    time_range: sy.TimeRange
     channels: List[IndexWriterGroup]
 
 
@@ -35,10 +36,12 @@ client = sy.Synnax(
 
 def write_test(tc: TestConfig):
     writers = [None] * tc.num_writers
+    time_span_per_domain = tc.time_range.span / tc.domains
+    counter = 0
 
     for i in range(tc.num_writers):
         writers[i] = client.open_writer(
-            start=sy.TimeStamp.now(),
+            start=tc.time_range.start,
             channels=tc.channels[i].together(),
             name=f"writer{i}",
             mode=sy.WriterMode.PERSIST_STREAM,
@@ -46,15 +49,15 @@ def write_test(tc: TestConfig):
         )
 
     try:
-        ts_hwm = sy.TimeStamp.now()
+        ts_hwm = tc.time_range.start
         for _ in range(tc.domains):
             timestamps = np.linspace(
                 ts_hwm,
-                ts_hwm + sy.TimeSpan.SECOND,
+                ts_hwm + time_span_per_domain,
                 tc.samples_per_domain,
                 dtype="int64",
-            )
-            data = np.sin(timestamps) * 100
+                )
+            data = np.sin(0.0000000001 * timestamps)
             for i, writer in enumerate(writers):
                 data_dict = {}
                 for index_channel in tc.channels[i].index_channels:
@@ -64,12 +67,14 @@ def write_test(tc: TestConfig):
 
                 writer.write(data_dict)
                 assert writer.commit()
+            counter += tc.samples_per_domain
 
-            ts_hwm += sy.TimeSpan.SECOND + 1
+            ts_hwm += time_span_per_domain + 1
 
     finally:
         for writer in writers:
             writer.close()
+        print(f"wrote {counter} samples")
 
 
 def main():
@@ -77,8 +82,10 @@ def main():
     num_writers = int(argv[1])
     domains = int(argv[2])
     samples_per_domain = int(argv[3])
-    number_of_channel_groups = int(argv[4])
-    argv_counter = 5
+    time_range_start = int(argv[4])
+    time_range_end = int(argv[5])
+    number_of_channel_groups = int(argv[6])
+    argv_counter = 7
     channel_groups = []
     for _ in range(number_of_channel_groups):
         number_of_index = int(argv[argv_counter])
@@ -100,6 +107,7 @@ def main():
         num_writers=num_writers,
         domains=domains,
         samples_per_domain=samples_per_domain,
+        time_range=sy.TimeRange(sy.TimeStamp(time_range_start), sy.TimeStamp(time_range_end)),
         channels=channel_groups,
     )
 

@@ -10,8 +10,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-type WriteParams struct {
-	numWriters       int
+type ReadParams struct {
+	numIterators     int
 	domains          int
 	samplesPerDomain int
 	timeRange        telem.TimeRange
