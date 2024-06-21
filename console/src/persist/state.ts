@@ -48,6 +48,15 @@ interface StateVersionValue {
 
 const KEEP_HISTORY = 4;
 
+export const hardClearAndReload = () => {
+  const appWindow = getCurrent();
+  if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
+  const db = new TauriKV();
+  db.clear().finally(() => {
+    window.location.reload();
+  });
+};
+
 export const open = async <S extends RequiredState>({
   exclude = [],
   migrator,
@@ -56,11 +65,6 @@ export const open = async <S extends RequiredState>({
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
-  let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
-  if (state != null && migrator != null) {
-    state = migrator(state);
-    await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
-  }
 
   const revert = async (): Promise<void> => {
     if (appWindow.label !== MAIN_WINDOW) return;
@@ -90,6 +94,18 @@ export const open = async <S extends RequiredState>({
     db.set(DB_VERSION_KEY, { version }).catch(console.error);
     db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
   }, 500);
+
+  let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
+  if (state != null && migrator != null) {
+    try {
+      state = migrator(state);
+    } catch (e) {
+      console.error("unable to apply migrations. continuing with undefined state.");
+      console.error(e);
+      state = undefined;
+    }
+    await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
+  }
 
   return [
     state,

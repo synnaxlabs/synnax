@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired,type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { binary, type observe } from "@synnaxlabs/x";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { type CrudeTimeSpan,TimeSpan } from "@synnaxlabs/x/telem";
+import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 import { z } from "zod";
 
 import { framer } from "@/framer";

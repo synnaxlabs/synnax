@@ -101,11 +101,12 @@ func (iteratorRequestTranslator) Backward(
 	req *framerv1.IteratorRequest,
 ) (iterator.Request, error) {
 	return iterator.Request{
-		Command: iterator.Command(req.Command),
-		Span:    telem.TimeSpan(req.Span),
-		Bounds:  telem.TranslateTimeRangeBackward(req.Bounds),
-		Stamp:   telem.TimeStamp(req.Stamp),
-		Keys:    channel.KeysFromUint32(req.Keys),
+		Command:   iterator.Command(req.Command),
+		Span:      telem.TimeSpan(req.Span),
+		Bounds:    telem.TranslateTimeRangeBackward(req.Bounds),
+		Stamp:     telem.TimeStamp(req.Stamp),
+		Keys:      channel.KeysFromUint32(req.Keys),
+		ChunkSize: req.ChunkSize,
 	}, nil
 }
 
@@ -115,11 +116,12 @@ func (iteratorRequestTranslator) Forward(
 	req iterator.Request,
 ) (*framerv1.IteratorRequest, error) {
 	return &framerv1.IteratorRequest{
-		Command: int32(req.Command),
-		Span:    int64(req.Span),
-		Bounds:  telem.TranslateTimeRangeForward(req.Bounds),
-		Stamp:   int64(req.Stamp),
-		Keys:    req.Keys.Uint32(),
+		Command:   int32(req.Command),
+		Span:      int64(req.Span),
+		Bounds:    telem.TranslateTimeRangeForward(req.Bounds),
+		Stamp:     int64(req.Stamp),
+		Keys:      req.Keys.Uint32(),
+		ChunkSize: req.ChunkSize,
 	}, nil
 }
 

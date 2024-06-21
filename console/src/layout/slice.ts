@@ -52,15 +52,15 @@ export interface PartialNavState {
   drawers: Partial<NavDrawerState>;
 }
 
-export type NavdrawerLocation = "right" | "left" | "bottom";
+export type NavDrawerLocation = "right" | "left" | "bottom";
 
 export interface NavDrawerState {
-  left: NavdrawerEntryState;
-  right: NavdrawerEntryState;
-  bottom: NavdrawerEntryState;
+  left: NavDrawerEntryState;
+  right: NavDrawerEntryState;
+  bottom: NavDrawerEntryState;
 }
 
-export interface NavdrawerEntryState {
+export interface NavDrawerEntryState {
   activeItem: string | null;
   menuItems: string[];
   size?: number;
@@ -185,15 +185,15 @@ interface RenamePayload {
   name: string;
 }
 
-interface ResizeNavdrawerPayload {
+interface ResizeNavDrawerPayload {
   windowKey: string;
-  location: NavdrawerLocation;
+  location: NavDrawerLocation;
   size: number;
 }
 interface SetHaulingPayload extends Haul.DraggingState {}
 
-export interface SetNavDrawerPayload extends NavdrawerEntryState {
-  location: NavdrawerLocation;
+export interface SetNavDrawerPayload extends NavDrawerEntryState {
+  location: NavDrawerLocation;
   windowKey: string;
 }
 
@@ -202,10 +202,10 @@ export interface SetWorkspacePayload {
   slice: SliceState;
 }
 
-interface SetNavdrawerVisiblePayload {
+interface SetNavDrawerVisiblePayload {
   windowKey: string;
   key?: string;
-  location?: NavdrawerLocation;
+  location?: NavDrawerLocation;
   value?: boolean;
 }
 
@@ -370,24 +370,24 @@ export const { actions, reducer } = createSlice({
       const next = keys[(index + 1) % keys.length];
       state.activeTheme = next;
     },
-    setNavdrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
+    setNavDrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
       const { windowKey, location, ...rest } = payload;
       if (!(windowKey in state.nav)) state.nav[windowKey] = { drawers: {} };
       state.nav[windowKey].drawers[location] = rest;
     },
-    resizeNavdrawer: (
+    resizeNavDrawer: (
       state,
-      { payload: { windowKey, location, size } }: PayloadAction<ResizeNavdrawerPayload>,
+      { payload: { windowKey, location, size } }: PayloadAction<ResizeNavDrawerPayload>,
     ) => {
       const navState = state.nav[windowKey];
       if (navState?.drawers[location] == null) return;
-      (navState.drawers[location] as NavdrawerEntryState).size = size;
+      (navState.drawers[location] as NavDrawerEntryState).size = size;
     },
-    setNavdrawerVisible: (
+    setNavDrawerVisible: (
       state,
       {
         payload: { windowKey, key, location, value },
-      }: PayloadAction<SetNavdrawerVisiblePayload>,
+      }: PayloadAction<SetNavDrawerVisiblePayload>,
     ) => {
       let navState = state.nav[windowKey];
       if (navState == null) {
@@ -413,7 +413,7 @@ export const { actions, reducer } = createSlice({
         else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
         else drawer.activeItem = null;
       } else {
-        throw new Error("setNavdrawerVisible requires either a key or location");
+        throw new Error("setNavDrawerVisible requires either a key or location");
       }
     },
     maybeCreateGetStartedTab: (state) => {
@@ -484,9 +484,9 @@ export const {
   selectMosaicTab,
   resizeMosaicTab,
   rename,
-  setNavdrawer,
-  resizeNavdrawer,
-  setNavdrawerVisible,
+  setNavDrawer,
+  resizeNavDrawer,
+  setNavDrawerVisible,
   maybeCreateGetStartedTab,
   setHauled,
   setWorkspace,

@@ -47,6 +47,8 @@ type Request struct {
 	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
 	// Keys should only be set when opening the Iterator.
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// ChunkSize should only be set when opening the Iterator.
+	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
 }
 
 //go:generate stringer -type=ResponseVariant

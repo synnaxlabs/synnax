@@ -32,6 +32,7 @@ message FrameIteratorRequest {
     telem.PBTimeRange range = 3;
     int64 stamp = 4;
     repeated uint32 keys = 5;
+    int64 chunk_size = 6;
 }
 
 message FrameIteratorResponse {
