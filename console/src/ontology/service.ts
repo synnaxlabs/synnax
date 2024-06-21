@@ -28,7 +28,7 @@ export interface HandleSelectProps extends BaseProps {
   selection: ontology.Resource[];
 }
 
-export type HandleSelect = (props: HandleSelectProps) => void;
+export type HandleSelect = (props: HandleSelectProps) => void | Promise<void>;
 
 export interface HandleMosaicDropProps {
   client: Synnax;
@@ -39,7 +39,7 @@ export interface HandleMosaicDropProps {
   id: ontology.ID;
 }
 
-export type HandleMosaicDrop = (props: HandleMosaicDropProps) => void;
+export type HandleMosaicDrop = (props: HandleMosaicDropProps) => void | Promise<void>;
 
 export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection"> {
   selection: {
@@ -72,11 +72,17 @@ export interface HandleTreeRenameProps extends BaseProps {
   };
 }
 
-export type HandleTreeRename = (props: HandleTreeRenameProps) => void;
+export type HandleTreeRename = {
+  eager?: (props: HandleTreeRenameProps) => void;
+  execute: (props: HandleTreeRenameProps) => Promise<void>;
+  rollback?: (props: HandleTreeRenameProps, prevName: string) => void;
+};
 
 export interface NodeAdapterProps extends BaseProps {
   node: Tree.FlattenedNode;
 }
+
+export type AllowRename = (res: ontology.Resource) => boolean;
 
 export interface Service {
   type: ontology.ResourceType;
@@ -85,9 +91,9 @@ export interface Service {
   onSelect: HandleSelect;
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
-  allowRename: (res: ontology.Resource) => boolean;
+  allowRename: AllowRename;
   Item?: Tree.Item;
-  onRename?: (ctx: HandleTreeRenameProps) => void;
+  onRename?: HandleTreeRename;
   onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;
 }

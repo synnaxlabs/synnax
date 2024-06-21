@@ -98,6 +98,17 @@ I can successfully:
 - [ ] Delete a range in the resources view.
 - [ ] Delete multiple ranges in the resources view.
 
+### Channels
+
+I can successfully:
+
+- [ ] Create a new channel from the search bar.
+- [ ] Rename a channel in the resources view.
+- [ ] Delete a channel in the resources view.
+- [ ] Delete multiple channels in the resources view.
+- [ ] Set the alias for a channel under a range.
+- [ ] Clear the alias for a channel uner a range.
+
 ### Line Plots
 
 I can successfully:

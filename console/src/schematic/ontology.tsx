@@ -13,6 +13,7 @@ import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
+import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
@@ -31,8 +32,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const keys = ids.map((id) => id.key);
   const activeRange = Range.select(store.getState());
 
-  const handleDelete = (): void => {
-    void (async () => {
+  const onSelect = useAsyncActionMenu("schematic.menu", {
+    delete: async () => {
       await client.workspaces.schematic.delete(keys);
       removeLayout(...keys);
       const next = Tree.removeNode({
@@ -40,11 +41,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
         keys: ids.map((id) => id.toString()),
       });
       state.setNodes([...next]);
-    })();
-  };
-
-  const handleCopy = (): void => {
-    void (async () => {
+    },
+    copy: async () => {
       if (parent == null) return;
       const schematics = await Promise.all(
         resources.map(
@@ -68,11 +66,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       });
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
-    })();
-  };
-
-  const handleRangeSnapshot = (): void => {
-    void (async () => {
+    },
+    rangeSnapshot: async () => {
       if (activeRange == null || parent == null) return;
       const schematics = await Promise.all(
         resources.map(
@@ -93,28 +88,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
         rangeID,
         ...otgsIDs,
       );
-    })();
-  };
-
-  const handleRename = (): void => Tree.startRenaming(resources[0].key);
-
-  const clusterKey = Cluster.useSelectActiveKey();
-  const handleCopyUrl = (): void => {
-    const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`;
-    void navigator.clipboard.writeText(url);
-  };
-
-  const f: Record<string, () => void> = {
-    delete: handleDelete,
-    rename: handleRename,
-    copy: handleCopy,
-    rangeSnapshot: handleRangeSnapshot,
-    link: handleCopyUrl,
-  };
-
-  const onSelect = (key: string): void => f[key]?.();
+    },
+    rename: () => Tree.startRenaming(resources[0].key),
+    link: async () => {
+      const url = `synnax://cluster/${Cluster.useSelectActiveKey()}/schematic/${resources[0].id.key}`;
+      await navigator.clipboard.writeText(url);
+    },
+  });
   const isSingle = resources.length === 1;
-
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Ontology.RenameMenuItem />
@@ -131,27 +112,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   );
 };
 
-const handleRename: Ontology.HandleTreeRename = ({
-  client,
-  id,
-  name,
-  store,
-  state: { nodes, setNodes, resources, setResources },
-}) => {
-  void client.workspaces.schematic.rename(id.key, name);
-  store.dispatch(Layout.rename({ key: id.key, name }));
-  const next = Tree.updateNode({
-    tree: nodes,
-    key: id.toString(),
-    updater: (node) => ({ ...node, name }),
-  });
-  setResources([
-    ...resources.map((res) => ({
-      ...res,
-      name: res.id.toString() === id.toString() ? name : res.name,
-    })),
-  ]);
-  setNodes([...next]);
+const handleRename: Ontology.HandleTreeRename = {
+  eager: ({ id, name, store }) => store.dispatch(Layout.rename({ key: id.key, name })),
+  execute: async ({ client, id, name }) =>
+    await client.workspaces.schematic.rename(id.key, name),
+  rollback: ({ id, name, store }) =>
+    store.dispatch(Layout.rename({ key: id.key, name })),
 };
 
 const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout }) => {

@@ -11,10 +11,12 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  useCallback,
   useContext,
+  useMemo,
 } from "react";
 
-import { type Input } from "@/input";
+import { Divider as CoreDivider } from "@/divider";
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
@@ -31,9 +33,11 @@ export const MenuContext = createContext<MenuContextValue>({
 });
 
 export interface MenuProps
-  extends Partial<Input.Control<string>>,
-    PropsWithChildren,
-    Pick<MenuContextValue, "level" | "iconSpacing"> {}
+  extends PropsWithChildren,
+    Pick<MenuContextValue, "level" | "iconSpacing"> {
+  value?: string;
+  onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
+}
 
 export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
 
@@ -52,14 +56,25 @@ export const Menu = ({
   onChange,
   level,
   iconSpacing,
-  value = "",
+  value: selected = "",
 }: MenuProps): ReactElement => {
-  const handleClick: MenuProps["onChange"] = (key) => onChange?.(key);
-  return (
-    <MenuContext.Provider
-      value={{ onClick: handleClick, selected: value, level, iconSpacing }}
-    >
-      {children}
-    </MenuContext.Provider>
+  const onClick = useCallback(
+    (key: string) => {
+      if (typeof onChange === "function") onChange(key);
+      else if (onChange && key in onChange) onChange[key](key);
+    },
+    [onChange],
   );
+  const ctxValue = useMemo(
+    () => ({
+      onClick,
+      selected,
+      level,
+      iconSpacing,
+    }),
+    [selected, onClick, level, iconSpacing],
+  );
+  return <MenuContext.Provider value={ctxValue}>{children}</MenuContext.Provider>;
 };
+
+export const Divider = (): ReactElement => <CoreDivider.Divider direction="x" padded />;
