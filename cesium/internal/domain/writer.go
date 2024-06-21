@@ -152,7 +152,10 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		return nil, err
 	}
 	if db.idx.overlap(cfg.Domain()) {
-		return nil, NewErrWriteConflict(db.idx.timeRange(), cfg.Domain())
+		return nil, errors.Wrap(
+			NewErrWriteConflict(cfg.Domain(), db.idx.timeRange()),
+			"cannot open writer because there is already data in the writer's time range",
+		)
 	}
 	key, size, internal, err := db.files.acquireWriter(ctx)
 	if err != nil {
