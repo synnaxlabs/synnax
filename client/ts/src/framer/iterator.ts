@@ -50,6 +50,7 @@ const reqZ = z.object({
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
   keys: z.number().array().optional(),
+  chunkSize: z.number().optional(),
 });
 
 type Request = z.infer<typeof reqZ>;
@@ -97,6 +98,7 @@ export class Iterator {
     channels: Params,
     retriever: Retriever,
     client: StreamClient,
+    chunkSize?: number,
   ): Promise<Iterator> {
     const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
@@ -105,6 +107,7 @@ export class Iterator {
       command: Command.Open,
       keys: adapter.keys,
       bounds: new TimeRange(tr),
+      chunkSize: chunkSize || 5e5,
     });
     return iter;
   }

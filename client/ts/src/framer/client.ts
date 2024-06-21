@@ -42,11 +42,12 @@ export class Client {
    * Opens a new iterator over the given channels within the provided time range.
    *
    * @param tr - A time range to iterate over.
-   * @param keys - A list of channel keys to iterate over.
+   * @param channels - A list of channels (by name or key) to iterate over.
+   * @param chunkSize - Number of samples in each iteration under AutoSpan.
    * @returns a new {@link TypedIterator}.
    */
-  async openIterator(tr: CrudeTimeRange, channels: Params): Promise<Iterator> {
-    return await Iterator._open(tr, channels, this.retriever, this.streamClient);
+  async openIterator(tr: CrudeTimeRange, channels: Params, chunkSize?: number): Promise<Iterator> {
+    return await Iterator._open(tr, channels, this.retriever, this.streamClient, chunkSize);
   }
 
   /**
