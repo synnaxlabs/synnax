@@ -103,7 +103,7 @@ const useSyncLayout = (): Syncer<
       let message = "Failed to save schematic";
       if (key != null) {
         const data = Layout.select(store.getState(), key);
-        message = `Failed to save schematic ${data?.name}`;
+        if (data?.name != null) message += ` ${data.name}`;
       }
       addStatus({
         key: nanoid(),

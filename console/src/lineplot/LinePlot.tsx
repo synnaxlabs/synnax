@@ -110,13 +110,19 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         data: data as unknown as UnknownRecord,
       });
     },
-    onError: (e) =>
+    onError: (e, { store, action: { key } }) => {
+      let message = "Failed to save line plot";
+      if (key != null) {
+        const data = Layout.select(store.getState(), key);
+        if (data?.name != null) message += ` ${data.name}`;
+      }
       addStatus({
         key: layoutKey,
         variant: "error",
-        message: "Failed to save line plot",
+        message,
         description: e.message,
-      }),
+      });
+    },
   });
 
   const syncDispatch = useSyncerDispatch<
