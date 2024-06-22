@@ -673,19 +673,37 @@ class Acceleration : public Analog {
 
 };
 
-/*
 
 /// @brief acceleration channel with 4 wire DC voltage
-class Acceleration4WireDCVoltage : public Analog {
-    public:
-        double sensitivity;
-        int32_t sensitivityUnits;
+class Acceleration4WireDCVoltage : public Acceleration {
+public:
 
     explicit Acceleration4WireDCVoltage(config::Parser &parser, TaskHandle task_handle, std::string name)
-            : Analog(parser, task_handle, name),
-              sensitivity(parser.required<double>("sensitivity")),
-              sensitivityUnits(parser.required<int32_t>("sensitivity_units")) {}
+            : Acceleration(parser, task_handle, name) {}
+
+    int32 createNIChannel() override {
+        if(this->scale_config.type == "none"){
+            return ni::NiDAQmxInterface::CreateAIAccel4WireDCVoltageChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->sensitivity,
+                    this->sensitivityUnits,
+                    this->excitationConfig.voltageExcitSource,
+                    this->excitationConfig.voltageExcitVal,
+                    this->excitationConfig.useExcitForScaling,
+                    NULL
+            );
+        }
+    
+    }
 };
+
+/*
 /// @brief acceleration channel with charge
 class AccelerationCharge : public Analog {
     public:

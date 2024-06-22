@@ -1142,6 +1142,39 @@ TEST(read_tests, one_acceleration_channel){
 }
 
 ///@brief Acceleration 4 wire dc voltage
+TEST(read_tests, one_acceleration_4_wire_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev9"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_accel"},
+        {"port", 0},
+        {"max_val", 100.0},
+        {"min_val", -100.0},
+        {"units", "AccelUnit_g"},
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"voltage_excit_source","Internal"},
+        {"voltage_excit_val", 0.0},
+        {"sensitivity", 50},
+        {"sensitivity_units", "mVoltsPerG"},
+        {"use_excit_for_scaling", false}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    analog_channel_helper(config, scale_config, channel_config);
+}
 
 ///@brief Acceleration Charge
 
