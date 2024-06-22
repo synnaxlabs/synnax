@@ -52,9 +52,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_accel_4_wire_dc_voltage") {
         return std::make_shared<Acceleration4WireDCVoltage>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_accel_charge") {
-    //     return std::make_shared<AccelerationCharge>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_accel_charge") {
+        return std::make_shared<AccelerationCharge>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_bridge") {
     //     return std::make_shared<Bridge>(parser, this->task_handle, channel_name);
     // }
@@ -94,9 +94,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     // if (channel_type == "ai_pressure_bridge_two_point_lin") {
     //     return std::make_shared<PressureBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     // }
-    // if (channel_type == "ai_resistance") {
-    //     return std::make_shared<Resistance>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_resistance") {
+        return std::make_shared<Resistance>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_rosette_strain_gage") {
     //     return std::make_shared<RosetteStrainGage>(parser, this->task_handle, channel_name);
     // }

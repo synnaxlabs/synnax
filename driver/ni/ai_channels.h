@@ -37,6 +37,14 @@ static inline int32_t get_bridge_config(std::string s){
     return DAQmx_Val_FullBridge;
 }
 
+static inline int32_t getResistanceConfig(std::string s){
+    if(s == "2Wire") return DAQmx_Val_2Wire;
+    if(s == "3Wire") return DAQmx_Val_3Wire;
+    if(s == "4Wire") return DAQmx_Val_4Wire;
+    return DAQmx_Val_2Wire;
+}
+
+// TODO: make one for current excitation for correct parsing
 typedef struct ExcitationConfig {
     int32_t voltageExcitSource;
     double voltageExcitVal;
@@ -431,14 +439,7 @@ public:
                 if(type == "PT3928") return DAQmx_Val_Pt3928;
                 if(type == "Custom") return DAQmx_Val_Custom;
                 return DAQmx_Val_Pt3750;
-            }
-
-            static int32_t getResistanceConfig(std::string s){
-                if(s == "2Wire") return DAQmx_Val_2Wire;
-                if(s == "3Wire") return DAQmx_Val_3Wire;
-                if(s == "4Wire") return DAQmx_Val_4Wire;
-                return DAQmx_Val_2Wire;
-            }
+            } 
 
             explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
                     : Analog(parser, task_handle, name),
@@ -703,17 +704,23 @@ public:
     }
 };
 
-/*
 /// @brief acceleration channel with charge
 class AccelerationCharge : public Analog {
     public:
         double sensitivity;
         int32_t sensitivityUnits;
+        int32 terminal_config = 0;
 
         explicit AccelerationCharge(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  sensitivity(parser.required<double>("sensitivity")),
-                  sensitivityUnits(parser.required<int32_t>("sensitivity_units")) {}
+                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))), 
+                  sensitivity(parser.required<double>("sensitivity")) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+
+                    std::string su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
+                    this->sensitivityUnits = ni::UNITS_MAP.at(su);
+                  }
 
         int32 createNIChannel() override {
             if(this->scale_config.type == "none"){
@@ -727,14 +734,46 @@ class AccelerationCharge : public Analog {
                         this->units,
                         this->sensitivity,
                         this->sensitivityUnits,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
                         NULL
                 );
             }
         }
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Resistance                               //
+///////////////////////////////////////////////////////////////////////////////////
+class Resistance : public Analog{
+    public:
+    int32_t resistanceConfig;
+    ExcitationConfig excitationConfig;
+
+    explicit Resistance(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Analog(parser, task_handle, name),
+                resistanceConfig(getResistanceConfig(parser.required<std::string>("resistance_config"))),
+                excitationConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                }
+
+    int32 createNIChannel() override {
+        if(this->scale_config.type == "none"){
+            return ni::NiDAQmxInterface::CreateAIResistanceChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->resistanceConfig,
+                    this->excitationConfig.voltageExcitSource,
+                    this->excitationConfig.voltageExcitVal,
+                    NULL
+            );
+        }
+    }
+};
+/*
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Bridge                                   //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1100,37 +1139,7 @@ class PressureBridgeTwoPointLin : public Analog{
         }
 }
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Resistance                               //
-///////////////////////////////////////////////////////////////////////////////////
-class Resistance : public Analog{
-    public:
-        int32_t resistanceConfig;
-        ExcitationConfig excitationConfig;
 
-        explicit Resistance(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  resistanceConfig(parser),
-                  excitationConfig(parser) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIResistanceChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->resistanceConfig,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
-                        NULL
-                );
-            }
-        }
-
-}
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Rosette Strain Gage                      //

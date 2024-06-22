@@ -1142,12 +1142,13 @@ TEST(read_tests, one_acceleration_channel){
 }
 
 ///@brief Acceleration 4 wire dc voltage
+// TODO: find devices which support this channel
 TEST(read_tests, one_acceleration_4_wire_channel){
     // Create NI readerconfig json
     auto config = json{
         {"sample_rate", 100}, 
         {"stream_rate", 20}, 
-        {"device_location", "Dev9"},
+        {"device_location", "Dev10"},
         {"type", "ni_analog_read"},
         {"test", true},    
         {"device", ""}
@@ -1155,7 +1156,7 @@ TEST(read_tests, one_acceleration_4_wire_channel){
    
     auto channel_config = json{
         {"name", "test_ni_channel"},
-        {"type", "ai_accel"},
+        {"type", "ai_accel_4_wire_dc_voltage"},
         {"port", 0},
         {"max_val", 100.0},
         {"min_val", -100.0},
@@ -1173,10 +1174,45 @@ TEST(read_tests, one_acceleration_4_wire_channel){
     auto scale_config = json{
         {"type","none"}
     };
-    analog_channel_helper(config, scale_config, channel_config);
+    // analog_channel_helper(config, scale_config, channel_config);
 }
 
 ///@brief Acceleration Charge
+// TODO: find devices which support this channel
+TEST(read_tests, one_acceleration_charge_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev11"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_accel_charge"},
+        {"port", 0},
+        {"max_val", 100.0},
+        {"min_val", -100.0},
+        {"units", "AccelUnit_g"},
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"voltage_excit_source","Internal"},
+        {"voltage_excit_val", 0.0},
+        {"sensitivity", 50},
+        {"sensitivity_units", "mVoltsPerG"},
+        {"use_excit_for_scaling", false}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    // analog_channel_helper(config, scale_config, channel_config);
+}
+
 
 ///@brief Force Bridge Polynomial
 
@@ -1356,6 +1392,37 @@ TEST(read_tests, one_current_RMS_channel){
 ///@brief pressure bridge linear
 
 ///@brief resistance
+TEST(read_tests, one_resistance_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_resistance"},
+        {"port", 0},
+        {"max_val", 10000},
+        {"min_val", 0},
+        {"units", "Ohms"},
+        {"enabled", true},
+        {"key", "key"},
+        {"voltage_excit_source","Internal"},
+        {"voltage_excit_val", 0.0005},
+        {"resistance_config", "2Wire"},
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
+}
 
 ///@brief rosette strain gauge
 
