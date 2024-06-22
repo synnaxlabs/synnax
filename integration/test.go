@@ -53,11 +53,7 @@ func runStep(step TestStep) error {
 				sem.Release(1)
 				fmt.Printf("----finished node %d\n", i)
 			}()
-			err := runNode(node)
-			if err != nil {
-				fmt.Printf("error in node %d: %s", i, err.Error())
-			}
-			return err
+			return runNode(node)
 		})
 	}
 
