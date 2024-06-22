@@ -21,6 +21,22 @@
 #include "nlohmann/json.hpp"
 
 namespace ni {
+
+static inline int32_t getTerminalConfig(std::string terminal_config) {
+    if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
+    if (terminal_config == "Diff") return DAQmx_Val_Diff;
+    if (terminal_config == "NRSE") return DAQmx_Val_NRSE;
+    if (terminal_config == "RSE") return DAQmx_Val_RSE;
+    return DAQmx_Val_Cfg_Default;
+}
+
+static inline int32_t get_bridge_config(std::string s){
+    if(s == "FullBridge") return DAQmx_Val_FullBridge;
+    if(s == "HalfBridge") return DAQmx_Val_HalfBridge;
+    if(s == "QuarterBridge") return DAQmx_Val_QuarterBridge;
+    return DAQmx_Val_FullBridge;
+}
+
 typedef struct ExcitationConfig {
     int32_t voltageExcitSource;
     double voltageExcitVal;
@@ -157,21 +173,13 @@ typedef struct BridgeConfig {
     BridgeConfig() = default;
 
     BridgeConfig(config::Parser &parser)
-        : niBridgeConfig(parser.required<int32_t>("bridge_config")),
+        : niBridgeConfig(get_bridge_config(parser.required<std::string>("bridge_config"))),
           voltageExcitSource(parser.required<int32_t>("voltage_excit_source")),
           voltageExcitVal(parser.required<double>("voltage_excit_val")),
           nominalBridgeResistance(
               parser.required<double>("nominal_bridge_resistance")) {
     }
 } BridgeConfig;
-
-static inline int32_t getTerminalConfig(std::string terminal_config) {
-    if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
-    if (terminal_config == "Diff") return DAQmx_Val_Diff;
-    if (terminal_config == "NRSE") return DAQmx_Val_NRSE;
-    if (terminal_config == "RSE") return DAQmx_Val_RSE;
-    return DAQmx_Val_Cfg_Default;
-}
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                     ANALOG                                    //
@@ -278,44 +286,40 @@ public:
 };
 
 
-/*
-    /// @brief RMS voltage Channel
-    class VoltageRMS : public Voltage {
-        public:
-            explicit Voltage(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Voltage(parser, task_handle, name){}
 
-            ~VoltageRMS() = default;
+/// @brief RMS voltage Channel
+class VoltageRMS : public Voltage {
+    public:
+        explicit VoltageRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Voltage(parser, task_handle, name){}
 
-            int32 createNIChannel() override {
-                LOG(INFO) << "Creating Voltage RMS Channel";
-                return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->min_val,
-                        this->max_val,
-                        DAQmx_Val_Volts,
-                        NULL
+        ~VoltageRMS() = default;
+
+        int32 createNIChannel() override {
+            // TODO: check if scale exists
+            return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    DAQmx_Val_Volts,
+                    NULL
             );
-        }
-    };
+    }
+};
 
     /// @brief voltage Channel with excitation reference
     class VoltageWithExcit : public Voltage {
         public:
             int32_t bridgeConfig = 0;
-            int32_t excitationSource = 0;
-            double excitationVal = 0;
-            bool32 useExcitForScaling = 0;
+            ExcitationConfig excitationConfig;
 
             explicit VoltageWithExcit(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Voltage(parser, task_handle, name),
-                  bridgeConfig(parser.required<int32_t>("bridge_config")),
-                  excitationSource(parser.required<int32_t>("excitation_source")),
-                  excitationVal(parser.required<double>("excitation_val")),
-                  useExcitForScaling(parser.required<bool32>("use_excit_for_scaling")) {}
+                  bridgeConfig(get_bridge_config(parser.required<std::string>("bridge_config"))),
+                  excitationConfig(parser){}
 
             ~VoltageWithExcit() = default;
 
@@ -331,16 +335,16 @@ public:
                             this->max_val,
                             DAQmx_Val_Volts,
                             this->bridgeConfig,
-                            this->excitationSource,
-                            this->excitationVal,
-                            this->useExcitForScaling,
+                            this->excitationConfig.voltageExcitSource,
+                            this->excitationConfig.voltageExcitVal,
+                            this->excitationConfig.minValForExcitation,
                             NULL
                     );
                 }
             }
     };
 
-*/
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Current                                  //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -385,29 +389,28 @@ public:
     }
 };
 
-// class CurrentRMS : public Current{
-//     explicit CurrentRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
-//             : Current(parser, task_handle, name) {}
+class CurrentRMS : public Current{
+public:
+    explicit CurrentRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Current(parser, task_handle, name) {}
 
-//     int32 createNIChannel() override {
-//         if(this->scale_config.type == "none"){
-//             return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
-//                     this->task_handle,
-//                     this->name.c_str(),
-//                     "",
-//                     this->terminal_config,
-//                     this->min_val,
-//                     this->max_val,
-//                     this->units,
-//                     this->shuntResistorLoc,
-//                     this->extShuntResistorval,
-//                     this->excitationConfig.voltageExcitSource,
-//                     this->excitationConfig.voltageExcitVal,
-//                     NULL
-//             );
-//         }
-//     }
-// };
+    int32 createNIChannel() override {
+        if(this->scale_config.type == "none"){
+            return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->shuntResistorLoc,
+                    this->extShuntResistorval,
+                    NULL
+            );
+        }
+    }
+};
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                       RTD                                     //

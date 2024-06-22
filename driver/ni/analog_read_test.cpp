@@ -791,8 +791,71 @@ TEST(read_tests, one_analog_voltage_channel){
 }
 
 ///@brief RMS Voltage 
+// TODO: find a device which actually supports this channel
+TEST(read_tests, one_voltage_RMS_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev9"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_voltage_rms"},
+        {"port", 0},
+        {"max_val", 10},
+        {"min_val", 0},
+        {"units", "Amps"},
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    // analog_channel_helper(config, scale_config, channel_config);
+}
+
 
 ///@brief voltage with excitation
+TEST(read_tests, one_voltage_with_excitation_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev3"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_voltage_rms"},
+        {"port", 0},
+        {"max_val", -0.025},
+        {"min_val", 0.025},
+        {"units", "Amps"}, // FIXME
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"},
+        {"bridge_config", "FullBridge"},
+        {"voltage_excit_source", "Internal"},
+        {"voltage_excit_val", 2.5},
+        {"use_excit_for_scaling", true}
+
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    // analog_channel_helper(config, scale_config, channel_config);
+}
 
 
 
@@ -1000,10 +1063,7 @@ TEST(read_tests, one_analog_RTD_channel){
 }
 
 
-
 TEST(read_tests, one_analog_RTD_channel2){
-
-
     // Create NI readerconfig json
     auto config = json{
             {"sample_rate", 5}, 
@@ -1069,6 +1129,12 @@ TEST(read_tests, one_analog_RTD_channel2){
 
 ///@brief charge
 
+
+
+
+///////////////////////////////////////////////////////////////////
+//                         Current                               //
+///////////////////////////////////////////////////////////////////
 ///@brief Current
 TEST(read_tests, one_analog_current_channel){
 
@@ -1166,6 +1232,41 @@ TEST(read_tests, one_analog_current_channel){
     std::cout << std::endl;
     reader.stop();
 }
+
+///@brief Current RMS
+// TODO: find device which supports current RMS
+TEST(read_tests, one_current_RMS_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev8"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_current_rms"},
+        {"port", 0},
+        {"max_val", 0.0004},
+        {"min_val", 0},
+        {"units", "Amps"},
+        {"enabled", true},
+        {"key", "key"},
+        {"shunt_resistor_loc", "Default"},
+        {"ext_shunt_resistor_val", 249.0},
+        {"terminal_config", "Default"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    // analog_channel_helper(config, scale_config, channel_config);
+}
+
 
 ///@brief force brdige polynomial
 

@@ -64,9 +64,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_current") {
         return std::make_shared<Current>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_current_rms") {
-    //     return std::make_shared<CurrentRMS>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_current_rms") {
+        return std::make_shared<CurrentRMS>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_force_bridge_polynomial") {
     //     return std::make_shared<ForceBridgePolynomial>(parser, this->task_handle, channel_name);
     // }
@@ -133,12 +133,12 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_voltage") {
         return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_voltage_rms") {
-    //     return std::make_shared<VoltageRMS>(parser, this->task_handle, channel_name);
-    // }
-    // if (channel_type == "ai_voltage_with_excit") {
-    //     return std::make_shared<VoltageWithExcit>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_voltage_rms") {
+        return std::make_shared<VoltageRMS>(parser, this->task_handle, channel_name);
+    }
+    if (channel_type == "ai_voltage_with_excit") {
+        return std::make_shared<VoltageWithExcit>(parser, this->task_handle, channel_name);
+    }
     return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
 }
 
