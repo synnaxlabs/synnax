@@ -23,8 +23,9 @@ interface NotificationsProps {
   adapters?: NotificationAdapter[];
 }
 
-interface SugaredNotification extends Status.NotificationSpec {
+export interface SugaredNotification extends Status.NotificationSpec {
   actions?: ReactElement | Button.ButtonProps[];
+  content?: ReactElement;
 }
 
 export type NotificationAdapter = (
@@ -58,7 +59,9 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
             status={entry}
             silence={silence}
             actions={entry.actions}
-          />
+          >
+            {entry.content}
+          </Status.Notification>
         )}
       </List.Core>
     </List.List>

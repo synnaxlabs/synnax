@@ -68,7 +68,7 @@ interface UseField {
  */
 export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   path,
-  optional: propsOptional = false,
+  optional = false,
   onChange,
 }: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
   const ctx = useContext();

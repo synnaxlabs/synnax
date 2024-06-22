@@ -9,14 +9,17 @@ import { Divider } from "@synnaxlabs/pluto";
 
 The National Instruments (NI) device driver allows Synnax to directly connect to your NI 
 hardware, including CompactDAQ, CompactRIO, and PXI systems. This page will walk you
-throught some of the important pre-requisites necessary to get started with the NI driver.
+through some of the important pre-requisites necessary to get started with the NI driver.
 
 <Divider.Divider direction="x" />
 
 ## Installation
 
-The NI driver comes pre-installed with a Synnax Cluster, and does not require any additional
-installation steps. 
+The NI driver comes pre-installed with every Synnax Deployment. To use the driver, you
+must have the [National Instruments DAQmx](https://www.ni.com/en/support/documentation/supplemental/06/getting-started-with-ni-daqmx--main-page.html)
+libraries installed on your machine. **Without these libraries, the NI driver will not work.**
+
+Instructions on installing the DAQmx libraries can be found on the [National Instruments website](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710)
 
 <Divider.Divider direction="x" />
 

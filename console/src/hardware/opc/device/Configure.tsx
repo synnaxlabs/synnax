@@ -188,8 +188,10 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         client == null ||
         rackKey == null ||
         deviceProperties == null
-      )
+      ) {
+        console.log("ExiT");
         return;
+      }
       setProgress("Creating channels...");
       const groups = methods.get<GroupConfig[]>({ path: "groups" }).value;
       const mapped = new Map<string, number>();
