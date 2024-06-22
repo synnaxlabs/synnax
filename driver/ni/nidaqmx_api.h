@@ -142,7 +142,9 @@ public:
         float64 maxVal,
         int32 units,
         float64 sensitivity,
-        int32 sensitivityUnits, int32 currentExcitSource, float64 currentExcitVal,
+        int32 sensitivityUnits, 
+        int32 currentExcitSource, 
+        float64 currentExcitVal,
         const char customScaleName[]
     );
 
@@ -152,8 +154,11 @@ public:
         const char nameToAssignToChannel[],
         int32 terminalConfig,
         float64 minVal,
-        float64 maxVal, int32 units,
-        float64 sensitivity, int32 sensitivityUnits, const char customScaleName[]
+        float64 maxVal, 
+        int32 units,
+        float64 sensitivity, 
+        int32 sensitivityUnits, 
+        const char customScaleName[]
     );
 
     static int32 CreateAIBridgeChan(
@@ -163,8 +168,11 @@ public:
         float64 minVal,
         float64 maxVal, int32 units,
         int32 bridgeConfig,
-        int32 voltageExcitSource, float64 voltageExcitVal,
-        float64 nominalBridgeResistance, const char customScaleName[]);
+        int32 voltageExcitSource, 
+        float64 voltageExcitVal,
+        float64 nominalBridgeResistance, 
+        const char customScaleName[]
+    );
 
     static int32 CreateAIChargeChan(
         TaskHandle task,

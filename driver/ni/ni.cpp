@@ -10,6 +10,7 @@
 #include "driver/ni/scale.h"
 #include <map>
 
+// TODO: add DAQmx_Val_AccelUnit_g? (how is it different from g)
 const std::map<std::string, int32_t> ni::UNITS_MAP = {
     {"Volts",                  DAQmx_Val_Volts},
     {"Amps",                   DAQmx_Val_Amps},
@@ -43,7 +44,9 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
     {"InchPounds",             DAQmx_Val_InchPounds},
     {"FootPounds",             DAQmx_Val_FootPounds},
     {"Strain",                 DAQmx_Val_Strain},
-    {"FromTEDS",               DAQmx_Val_FromTEDS}
+    {"FromTEDS",               DAQmx_Val_FromTEDS},
+    {"mVoltsPerG",             DAQmx_Val_mVoltsPerG}, // TODO: verify this is an option in the console
+    {"AccelUnit_g",            DAQmx_Val_AccelUnit_g}  // TODO: verify this is an option in the console for sensitivity units
 };
 
 ///////////////////////////////////////////////////////////////////////////////////

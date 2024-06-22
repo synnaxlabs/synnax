@@ -46,20 +46,20 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     config::Parser &parser, std::string channel_type, std::string channel_name) {
-    // if (channel_type == "ai_accel") {
-    //     return std::make_shared<Accel(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_accel") {
+        return std::make_shared<Acceleration>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_accel_4_wire_dc_voltage") {
-    //     return std::make_shared<Accel4WireDCVoltage(parser, this->task_handle, channel_name);
+    //     return std::make_shared<Acceleration4WireDCVoltage>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_accel_charge") {
-    //     return std::make_shared<AccelCharge(parser, this->task_handle, channel_name);
+    //     return std::make_shared<AccelerationCharge>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_bridge") {
-    //     return std::make_shared<Bridge(parser, this->task_handle, channel_name);
+    //     return std::make_shared<Bridge>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_charge") {
-    //     return std::make_shared<Charge(parser, this->task_handle, channel_name);
+    //     return std::make_shared<Charge>(parser, this->task_handle, channel_name);
     // }
     if (channel_type == "ai_current") {
         return std::make_shared<Current>(parser, this->task_handle, channel_name);

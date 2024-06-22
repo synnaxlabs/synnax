@@ -627,7 +627,7 @@ class ThermistorVex : public Analog{
             }
         }
 };
-
+*/
 
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -639,12 +639,18 @@ class Acceleration : public Analog {
         double sensitivity;
         int32_t sensitivityUnits;
         ExcitationConfig excitationConfig;
-
+        int32 terminal_config = 0;
         explicit Acceleration(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
+                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))),
                   sensitivity(parser.required<double>("sensitivity")),
-                  sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
-                  excitationConfig(parser) {}
+                  excitationConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+
+                    std::string su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
+                    this->sensitivityUnits = ni::UNITS_MAP.at(su);
+                  }
 
         int32 createNIChannel() override {
             if(this->scale_config.type == "none"){
@@ -652,6 +658,7 @@ class Acceleration : public Analog {
                         this->task_handle,
                         this->name.c_str(),
                         "",
+                        this->terminal_config,
                         this->min_val,
                         this->max_val,
                         this->units,
@@ -665,6 +672,9 @@ class Acceleration : public Analog {
         }
 
 };
+
+/*
+
 /// @brief acceleration channel with 4 wire DC voltage
 class Acceleration4WireDCVoltage : public Analog {
     public:
