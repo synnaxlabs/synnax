@@ -98,6 +98,7 @@ export const open = async <S extends RequiredState>({
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
   if (state != null && migrator != null) {
     try {
+      console.log("applying migrations");
       state = migrator(state);
     } catch (e) {
       console.error("unable to apply migrations. continuing with undefined state.");

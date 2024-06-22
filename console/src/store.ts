@@ -71,17 +71,19 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   visible: false,
 };
 
-export const migrateState = (prev: RootState): RootState => ({
-  ...prev,
-  layout: Layout.migrateSlice(prev.layout),
-  schematic: Schematic.migrateSlice(prev.schematic),
-  line: LinePlot.migrateSlice(prev.line),
-  version: Version.migrateSlice(prev.version),
-  workspace: Workspace.migrateSlice(prev.workspace),
-  range: Range.migrateSlice(prev.range),
-  docs: Docs.migrateSlice(prev.docs),
-  cluster: Cluster.migrateSlice(prev.cluster),
-});
+export const migrateState = (prev: RootState): RootState => {
+  return {
+    ...prev,
+    layout: Layout.migrateSlice(prev.layout),
+    schematic: Schematic.migrateSlice(prev.schematic),
+    line: LinePlot.migrateSlice(prev.line),
+    version: Version.migrateSlice(prev.version),
+    workspace: Workspace.migrateSlice(prev.workspace),
+    range: Range.migrateSlice(prev.range),
+    docs: Docs.migrateSlice(prev.docs),
+    cluster: Cluster.migrateSlice(prev.cluster),
+  };
+};
 
 const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await Persist.open<RootState>({

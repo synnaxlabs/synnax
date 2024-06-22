@@ -29,7 +29,7 @@ import {
   unique,
   type UnknownRecord,
 } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components/menu";
@@ -59,6 +59,7 @@ import {
   type LineState,
   setAxis,
   setControlState,
+  setLegend,
   setLine,
   setRanges,
   setRemoteCreated,
@@ -250,6 +251,24 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [syncDispatch, layoutKey],
   );
 
+  const [legendPosition, setLegendPosition] = useState(vis.legend.position);
+
+  const storeLegendPosition = useDebouncedCallback(
+    (position) => {
+      syncDispatch(setLegend({ key: layoutKey, legend: { position } }));
+    },
+    100,
+    [syncDispatch, layoutKey],
+  );
+
+  const handleLegendPositionChange = useCallback(
+    (position) => {
+      setLegendPosition(position);
+      storeLegendPosition(position);
+    },
+    [storeLegendPosition],
+  );
+
   const { enableTooltip, clickMode, hold } = useSelectControlState();
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
@@ -370,6 +389,8 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           onAxisChange={handleAxisChange}
           onViewportChange={handleViewportChange}
           initialViewport={initialViewport}
+          onLegendPositionChange={handleLegendPositionChange}
+          legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
