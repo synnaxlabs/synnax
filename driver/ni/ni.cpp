@@ -35,7 +35,7 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
         {"KilogramForce",          DAQmx_Val_KilogramForce},
         {"PoundsPerSquareInch",    DAQmx_Val_PoundsPerSquareInch},
         {"Bar",                    DAQmx_Val_Bar},
-        {"Pascals", DAQmx_Val_Pascals},
+        {"Pascals",                DAQmx_Val_Pascals},
         {"VoltsPerVolt",           DAQmx_Val_VoltsPerVolt},
         {"mVoltsPerVolt",          DAQmx_Val_mVoltsPerVolt},
         {"NewtonMeters",           DAQmx_Val_NewtonMeters},

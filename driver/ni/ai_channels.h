@@ -23,6 +23,13 @@
 
 namespace ni {
 
+     static inline int32_t getExcitationSrc(std::string s){
+        if(s == "Internal") return DAQmx_Val_Internal;
+        if(s == "External") return DAQmx_Val_External;
+        if(s == "None") return DAQmx_Val_None;
+        return DAQmx_Val_None;
+     }
+
     typedef struct ExcitationConfig{
         int32_t voltageExcitSource;
         double voltageExcitVal;    
@@ -33,7 +40,7 @@ namespace ni {
         ExcitationConfig() = default;
 
         ExcitationConfig(config::Parser &parser)
-            :   voltageExcitSource(parser.required<int32_t>("voltage_excit_source")),
+            :   voltageExcitSource(getExcitationSrc(parser.required<std::string>("voltage_excit_source"))),
                 voltageExcitVal(parser.required<double>("voltage_excit_val")),
                 minValForExcitation(parser.optional<double>("min_val_for_excitation", 0)),
                 maxValForExcitation(parser.optional<double>("max_val_for_excitation", 0)),
@@ -406,46 +413,61 @@ namespace ni {
     //     }
     // };
 
-/*
     ///////////////////////////////////////////////////////////////////////////////////
     //                                       RTD                                     //
     ///////////////////////////////////////////////////////////////////////////////////
     class RTD : public Analog{
         public:
             int32_t rtdType;
-            int32_t resitanceConfig;
+            int32_t resistanceConfig;
             ExcitationConfig excitationConfig;
             double r0;
 
-            explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      rtdType(parser.required<int32_t>("rtd_type")),
-                      resistanceConfig(parser.required<int32_t>("resistance_config")),
-                      excitationConfig(parser),
-                      r0(parser.required<double>("r0")) {}
-    }
-            int32 createNIChannel() override {
-                if(this->scale_config.type == "none"){
-                    return ni::NiDAQmxInterface::CreateAIRTDChan(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->min_val,
-                            this->max_val,
-                            this->units,
-                            this->rtdType,
-                            this->resistanceConfig,
-                            this->excitationConfig.voltageExcitSource,
-                            this->excitationConfig.voltageExcitVal,
-                            this->r0,
-                            NULL
-                    );
-                }
+            static int32_t getRTDType(std::string type){
+                if(type == "Pt3750") return DAQmx_Val_Pt3750;
+                if(type == "PT3851") return DAQmx_Val_Pt3851;
+                if(type == "PT3911") return DAQmx_Val_Pt3911;
+                if(type == "PT3916") return DAQmx_Val_Pt3916;
+                if(type == "PT3920") return DAQmx_Val_Pt3920;
+                if(type == "PT3928") return DAQmx_Val_Pt3928;
+                if(type == "Custom") return DAQmx_Val_Custom;
+                return DAQmx_Val_Pt3750;
             }
 
-   
+            static int32_t getResistanceConfig(std::string s){
+                if(s == "2Wire") return DAQmx_Val_2Wire;
+                if(s == "3Wire") return DAQmx_Val_3Wire;
+                if(s == "4Wire") return DAQmx_Val_4Wire;
+                return DAQmx_Val_2Wire;
+            }
 
-*/
+            explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
+                    : Analog(parser, task_handle, name),
+                      rtdType(getRTDType(parser.required<std::string>("rtd_type"))),
+                      resistanceConfig(getResistanceConfig(parser.required<std::string>("resistance_config"))),
+                      excitationConfig(parser),
+                      r0(parser.required<double>("r0")) {
+                        std::string u = parser.optional<std::string>("units", "Amps");
+                        this->units = ni::UNITS_MAP.at(u); 
+                      }
+    
+            int32 createNIChannel() override {
+                return ni::NiDAQmxInterface::CreateAIRTDChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->min_val,
+                        this->max_val,
+                        this->units,
+                        this->rtdType,
+                        this->resistanceConfig,
+                        this->excitationConfig.voltageExcitSource, //TODO change name to current
+                        this->excitationConfig.voltageExcitVal, //TODO change name to current
+                        this->r0
+                );
+            }
+    };
+
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Temperature                              //
     ///////////////////////////////////////////////////////////////////////////////////

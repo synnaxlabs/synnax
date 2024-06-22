@@ -48,97 +48,97 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string channel_type,std::string channel_name) {
     // if (channel_type == "ai_accel") {
-    //     return Accel(parser, this->task_handle);
+    //     return std::make_shared<Accel(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_accel_4_wire_dc_voltage") {
-    //     return Accel4WireDCVoltage(parser, this->task_handle);
+    //     return std::make_shared<Accel4WireDCVoltage(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_accel_charge") {
-    //     return AccelCharge(parser, this->task_handle);
+    //     return std::make_shared<AccelCharge(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_bridge") {
-    //     return Bridge(parser, this->task_handle);
+    //     return std::make_shared<Bridge(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_charge") {
-    //     return Charge(parser, this->task_handle);
+    //     return std::make_shared<Charge(parser, this->task_handle, channel_name);
     // }
     if (channel_type == "ai_current") {
         return std::make_shared<Current>(parser, this->task_handle, channel_name);
     }
     // if (channel_type == "ai_current_rms") {
-    //     return CurrentRMS(parser, this->task_handle);
+    //     return std::make_shared<CurrentRMS>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_force_bridge_polynomial") {
-    //     return ForceBridgePolynomial(parser, this->task_handle);
+    //     return std::make_shared<ForceBridgePolynomial>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_force_bridge_table") {
-    //     return ForceBridgeTable(parser, this->task_handle);
+    //     return std::make_shared<ForceBridgeTable>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_force_bridge_two_point_lin") {
-    //     return ForceBridgeTwoPointLin(parser, this->task_handle);
+    //     return std::make_shared<ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_force_iepe") {
-    //     return ForceIEPE(parser, this->task_handle);
+    //     return std::make_shared<ForceIEPE>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_freq_voltage") {
-    //     return FreqVoltage(parser, this->task_handle);
+    //     return std::make_shared<FreqVoltage>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_microphone") {
-    //     return Microphone(parser, this->task_handle);
+    //     return std::make_shared<Microphone>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_pressure_bridge_polynomial") {
-    //     return PressureBridgePolynomial(parser, this->task_handle);
+    //     return std::make_shared<PressureBridgePolynomial>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_pressure_bridge_table") {
-    //     return PressureBridgeTable(parser, this->task_handle);
+    //     return std::make_shared<PressureBridgeTable>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_pressure_bridge_two_point_lin") {
-    //     return PressureBridgeTwoPointLin(parser, this->task_handle);
+    //     return std::make_shared<PressureBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_resistance") {
-    //     return Resistance(parser, this->task_handle);
+    //     return std::make_shared<Resistance>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_rosette_strain_gage") {
-    //     return RosetteStrainGage(parser, this->task_handle);
+    //     return std::make_shared<RosetteStrainGage>(parser, this->task_handle, channel_name);
     // }
-    // if (channel_type == "ai_rtd") {
-    //     return RTD(parser, this->task_handle);
-    // }
+    if (channel_type == "ai_rtd") {
+        return std::make_shared<RTD>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_strain_gage") {
-    //     return StrainGage(parser, this->task_handle);
+    //     return std::make_shared<StrainGage>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_temp_built_in_sensor") {
-    //     return TempBuiltInSensor(parser, this->task_handle);
+    //     return std::make_shared<TempBuiltInSensor>(parser, this->task_handle, channel_name);
     // }
     if (channel_type == "ai_thrmcpl") {
         return std::make_shared<Thermocouple>(parser, this->task_handle, channel_name);
     }
     // if (channel_type == "ai_thrmstr_iex") {
-    //     return ThrmstrIex(parser, this->task_handle);
+    //     return std::make_shared<ThrmstrIex>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_thrmstr_vex") {
-    //     return ThrmstrVex(parser, this->task_handle);
+    //     return std::make_shared<ThrmstrVex>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_torque_bridge_polynomial") {
-    //     return TorqueBridgePolynomial(parser, this->task_handle);
+    //     return std::make_shared<TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_torque_bridge_table") {
-    //     return TorqueBridgeTable(parser, this->task_handle);
+    //     return std::make_shared<TorqueBridgeTable>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_torque_bridge_two_point_lin") {
-    //     return TorqueBridgeTwoPointLin(parser, this->task_handle);
+    //     return std::make_shared<TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_velocity_iepe") {
-    //     return VelocityIEPE(parser, this->task_handle);
+    //     return std::make_shared<VelocityIEPE>(parser, this->task_handle, channel_name);
     // }
     if (channel_type == "ai_voltage") {
         return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
     }
     // if (channel_type == "ai_voltage_rms") {
-    //     return VoltageRMS(parser, this->task_handle);
+    //     return std::make_shared<VoltageRMS>(parser, this->task_handle, channel_name);
     // }
     // if (channel_type == "ai_voltage_with_excit") {
-    //     return VoltageWithExcit(parser, this->task_handle);
+    //     return std::make_shared<VoltageWithExcit>(parser, this->task_handle, channel_name);
     // }
     return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
 }
