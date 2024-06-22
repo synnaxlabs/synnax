@@ -1098,7 +1098,32 @@ TEST(read_tests, one_analog_RTD_channel2){
     analog_channel_helper(config, scale_config, channel_config);
 }
 ///@brief Temperature Built in sensor
+TEST(read_tests, one_analog_temp_built_in_sensor_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev1"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_temp_built_in_sensor"},
+        {"port", 0},
+        {"units", "C"},
+        {"enabled", true},
+        {"key", "key"},
+    };
 
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
+}
 ///@brief ThermistorIEX
 
 ///@brief ThermistorVEX

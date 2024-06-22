@@ -536,27 +536,33 @@ public:
     }
 };
 
-/*
 class TemperatureBuiltInSensor : public Analog{
     public:
         explicit TemperatureBuiltInSensor(config::Parser &parser, TaskHandle task_handle, std::string name){
             this->task_handle = task_handle;
-            this->physical_channel = parser.required<std::string>("physical_channel");
-            this->name = name;
-            this->units = parser.required<int32_t>("units");
+            
+            std::string u = parser.optional<std::string>("units", "Volts");
+            this->units = ni::UNITS_MAP.at(u);
+
+            size_t pos = name.find("/");
+
+
+
+            this->name =  name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
         }
 
         int32 createNIChannel() override {
-            LOG(INFO) << "Creating Temperature Built In Sensor Channel";
+                       LOG(INFO) << "Creating Temperature Built In Sensor Channel";
             return ni::NiDAQmxInterface::CreateAITempBuiltInSensorChan(
                     this->task_handle,
                     this->name.c_str(),
                     "",
-                    this->units,
+                    this->units
             );
         }
 };
 
+/*
 class Thermistor : public Analog{
     public:
         int32_t resistanceConfig;
