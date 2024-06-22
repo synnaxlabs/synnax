@@ -2,6 +2,7 @@ import sys
 from typing import NamedTuple, List
 
 import synnax as sy
+from timing import time_read
 
 
 # length of channels must = num_iterators
@@ -10,6 +11,9 @@ class TestConfig(NamedTuple):
     chunk_size: int
     bounds: sy.TimeRange
     channels: List[List[str]]
+
+    def num_channels(self):
+        return sum([len(ch) for ch in self.channels])
 
 
 client = sy.Synnax(
@@ -21,20 +25,26 @@ client = sy.Synnax(
 )
 
 
-def read_test(tc: TestConfig):
-    iterators = [None] * tc.num_iterators
+@time_read("timing.log")
+def read_test(tc: TestConfig) -> int:
+    iterators: List[sy.Iterator] = []
+    samples_read = 0
 
     for i in range(tc.num_iterators):
-        iterators[i] = client.open_iterator(tc.bounds, tc.channels[i], tc.chunk_size)
-        iterators[i].seek_first(tc.bounds.start)
+        iterators.append(client.open_iterator(tc.bounds, tc.channels[i], tc.chunk_size))
 
     try:
         for i in iterators:
+            i.seek_first()
             while i.next(sy.AUTO_SPAN):
+                samples_read += sum(
+                    [s.data_type.density.sample_count(s.size) for s in i.value.series]
+                )
                 continue
     finally:
-        for iterator in range(iterators):
+        for iterator in iterators:
             iterator.close()
+        return samples_read
 
 
 def main():

@@ -2,10 +2,9 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
 	"strconv"
-
-	// "strconv"
 
 	"github.com/synnaxlabs/x/errors"
 )
@@ -17,6 +16,11 @@ type SetUpParam struct {
 }
 
 func runSetUp(param SetUpParam) error {
+	if param == (SetUpParam{}) {
+		fmt.Printf("--cannot find setup configuration, skipping\n")
+	}
+
+	fmt.Printf("--setting up\n")
 	switch param.Client {
 	case "py":
 		return setUpPython(param)

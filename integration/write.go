@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/synnaxlabs/x/telem"
 	"os/exec"
 	"strconv"
@@ -62,7 +61,6 @@ func writePython(p NodeParams) error {
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 
-	fmt.Println(cmd.String())
 	err := cmd.Run()
 	if err != nil {
 		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())

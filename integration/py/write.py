@@ -1,11 +1,9 @@
-import multiprocessing
-import random
-import time
 import sys
 from typing import NamedTuple, List
 
 import numpy as np
 import synnax as sy
+from timing import time_write
 
 
 class IndexWriterGroup(NamedTuple):
@@ -15,6 +13,9 @@ class IndexWriterGroup(NamedTuple):
     def together(self) -> List[str]:
         return self.index_channels + self.data_channels
 
+    def __len__(self) -> int:
+        return len(self.index_channels) + len(self.data_channels)
+
 
 # length of channels must = num _writers
 class TestConfig(NamedTuple):
@@ -23,6 +24,9 @@ class TestConfig(NamedTuple):
     samples_per_domain: int
     time_range: sy.TimeRange
     channels: List[IndexWriterGroup]
+
+    def num_channels(self) -> int:
+        return sum([len(channelGroup) for channelGroup in self.channels])
 
 
 client = sy.Synnax(
@@ -34,10 +38,10 @@ client = sy.Synnax(
 )
 
 
+@time_write("timing.log")
 def write_test(tc: TestConfig):
     writers = [None] * tc.num_writers
     time_span_per_domain = tc.time_range.span / tc.domains
-    counter = 0
 
     for i in range(tc.num_writers):
         writers[i] = client.open_writer(
@@ -67,14 +71,12 @@ def write_test(tc: TestConfig):
 
                 writer.write(data_dict)
                 assert writer.commit()
-            counter += tc.samples_per_domain
 
             ts_hwm += time_span_per_domain + 1
 
     finally:
         for writer in writers:
             writer.close()
-        print(f"wrote {counter} samples")
 
 
 def main():

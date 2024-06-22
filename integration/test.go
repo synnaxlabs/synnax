@@ -12,6 +12,10 @@ import (
 func runNode(node TestNode) error {
 	switch node.Op {
 	case Read:
+		switch node.Client {
+		case "py":
+			return readPython(node.Params)
+		}
 		break
 	case Write:
 		switch node.Client {
@@ -36,11 +40,12 @@ func runNode(node TestNode) error {
 	return nil
 }
 
-func runStep(step TestStep) error {
+func runStep(i int, step TestStep) error {
 	var (
 		sem     = semaphore.NewWeighted(int64(len(step)))
 		sCtx, _ = signal.Isolated()
 	)
+	fmt.Printf("--step %d\n", i)
 	for i, node := range step {
 		fmt.Printf("----node %d: %v with %s\n", i, node.Op, node.Client)
 		if ok := sem.TryAcquire(1); !ok {
@@ -53,16 +58,21 @@ func runStep(step TestStep) error {
 				sem.Release(1)
 				fmt.Printf("----finished node %d\n", i)
 			}()
-			return runNode(node)
+			err := runNode(node)
+			if err != nil {
+				fmt.Printf("----error in node %d: %s\n", i, err.Error())
+			}
+
+			return err
 		})
 	}
 
 	return sCtx.Wait()
 }
 
-func readTestConfig() TestSequence {
+func readTestConfig(fileName string) TestSequence {
 	fs := xfs.Default
-	f, err := fs.Open("test.json", os.O_RDONLY)
+	f, err := fs.Open(fileName, os.O_RDONLY)
 	if err != nil {
 		panic(err)
 	}
@@ -82,17 +92,30 @@ func readTestConfig() TestSequence {
 	return seq
 }
 
-func runTest() {
-	test := readTestConfig()
+func runTest(testConfigFile string) {
+	test := readTestConfig(testConfigFile)
 
-	fmt.Printf("--setting up\n")
+	endCommand := startCluster(test.Cluster)
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("PANIC RECOVERED FOR CLEANUP\n")
+		}
+		if err := runCleanUp(test.Cleanup); err != nil {
+			panic(err)
+		}
+
+		if err := endCommand(); err != nil {
+			panic(err)
+		}
+	}()
+
 	if err := runSetUp(test.Setup); err != nil {
 		panic(err)
 	}
 
 	for i, step := range test.Body {
-		fmt.Printf("--step %d\n", i)
-		if err := runStep(step); err != nil {
+		if err := runStep(i, step); err != nil {
 			panic(err)
 		}
 	}

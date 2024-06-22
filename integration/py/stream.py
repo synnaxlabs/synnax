@@ -1,8 +1,8 @@
 import sys
 from typing import NamedTuple, List
 
-import numpy as np
 import synnax as sy
+from timing import time_stream
 
 
 # Each python process opens one streamer
@@ -21,13 +21,16 @@ client = sy.Synnax(
 )
 
 
-def stream_test(tc: TestConfig):
+@time_stream("timing.log")
+def stream_test(tc: TestConfig) -> int:
     counter = 0
+    samples_streamed = 0
     with client.open_streamer(tc.channels, tc.start_time_stamp) as s:
-        s.read()
-        counter += 1
-        if counter >= tc.close_after_frames:
-            return
+        for f in s:
+            counter += 1
+            if counter >= tc.close_after_frames:
+                samples_streamed += sum([len(s) for s in f.series])
+                return samples_streamed
 
 
 def main():

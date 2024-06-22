@@ -22,7 +22,7 @@ client = sy.Synnax(
 )
 
 
-def create_channels(tc: SetUpConfig) -> List[sy.channel.ChannelKey]:
+def create_channels(tc: SetUpConfig):
     channels = []
     for i in range(tc.num_index):
         index = client.channels.create(
@@ -44,12 +44,9 @@ def create_channels(tc: SetUpConfig) -> List[sy.channel.ChannelKey]:
             )
             channels.append(ch.key)
 
-    return channels
 
-
-if __name__=="__main__":
+if __name__ == "__main__":
     if len(sys.argv) != 3:
         exit(-1)
-    print(sys.argv)
     tc = SetUpConfig(int(sys.argv[1]), int(sys.argv[2]))
     create_channels(tc)

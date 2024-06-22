@@ -1,8 +1,8 @@
 import sys
 from typing import NamedTuple, List
 
-import numpy as np
 import synnax as sy
+from timing import time_delete
 
 
 class IndexWriterGroup(NamedTuple):
@@ -28,6 +28,7 @@ client = sy.Synnax(
 )
 
 
+@time_delete("timing.log")
 def delete_test(tc: TestConfig):
     client.delete(tc.channels, tc.time_range)
 

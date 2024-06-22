@@ -10,24 +10,24 @@ import (
 )
 
 type ReadParams struct {
-	numIterators  int
-	chunkSize     int
-	bounds        telem.TimeRange
-	channelGroups [][]string
+	NumIterators  int             `json:"num_iterators"`
+	ChunkSize     int             `json:"chunk_size"`
+	Bounds        telem.TimeRange `json:"bounds"`
+	ChannelGroups [][]string      `json:"channel_groups"`
 }
 
 func (p ReadParams) Serialize() []string {
 	args := make([]string, 0)
 	args = append(
 		args,
-		strconv.Itoa(p.numIterators),
-		strconv.Itoa(p.chunkSize),
-		strconv.FormatInt(int64(p.bounds.Start), 10),
-		strconv.FormatInt(int64(p.bounds.End), 10),
-		strconv.Itoa(len(p.channelGroups)),
+		strconv.Itoa(p.NumIterators),
+		strconv.Itoa(p.ChunkSize),
+		strconv.FormatInt(int64(p.Bounds.Start), 10),
+		strconv.FormatInt(int64(p.Bounds.End), 10),
+		strconv.Itoa(len(p.ChannelGroups)),
 	)
 
-	for _, g := range p.channelGroups {
+	for _, g := range p.ChannelGroups {
 		args = append(args, strconv.Itoa(len(g)))
 		args = append(args, g...)
 	}

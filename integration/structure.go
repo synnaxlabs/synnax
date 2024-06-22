@@ -76,8 +76,10 @@ func (tn *TestNode) UnmarshalJSON(data []byte) error {
 type TestStep = []TestNode
 
 type TestSequence struct {
-	Setup SetUpParam `json:"setup"`
-	Body  []TestStep `json:"body"`
+	Cluster ClusterParam `json:"cluster"`
+	Setup   SetUpParam   `json:"setup"`
+	Body    []TestStep   `json:"body"`
+	Cleanup CleanUpParam `json:"cleanup"`
 }
 
 func UnmarshalJSON(b []byte) (seq TestSequence, err error) {

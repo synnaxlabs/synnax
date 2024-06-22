@@ -51,7 +51,17 @@
             "end": 100000000000
           }
         }
+      },{
+      "op": "stream",
+      "client": "py",
+      "params": {
+        "channels": [
+          "0-0",
+          "1-0"
+        ],
+        "close_after_frames": 100
       }
+    }
     ],
     [
       {
@@ -66,6 +76,16 @@
             "0-0",
             "1-0"
           ]
+        }
+      },
+      {
+        "op": "stream",
+        "client": "py",
+        "params": {
+          "channels": [
+            "0-0"
+          ],
+          "close_after_frames": 50
         }
       },
       {
@@ -98,7 +118,27 @@
             "end": 170000000000
           }
         }
+      },
+      {
+        "op": "read",
+        "client": "py",
+        "params": {
+          "num_iterators": 2,
+          "channel_groups": [
+            ["0", "1-0"],
+            ["1", "0-0"]
+          ],
+          "chunk_size": 500000,
+          "bounds": {
+            "start": 25000000000,
+            "end": 50000000000
+          }
+        }
       }
     ]
-  ]
+  ],
+  "cleanup": {
+    "delete_all_channels": true,
+    "client": "py"
+  }
 }
