@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/synnaxlabs/x/telem"
 	"os/exec"
 	"strconv"
@@ -10,37 +9,41 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+type ChannelGroup struct {
+	IndexChannels []string `json:"index_channels"`
+	DataChannels  []string `json:"data_channels"`
+}
+
 type WriteParams struct {
-	numWriters       int
-	domains          int
-	samplesPerDomain int
-	timeRange        telem.TimeRange
-	channelGroups    []ChannelGroup
+	NumWriters       int             `json:"num_writers"`
+	Domains          int             `json:"domains"`
+	SamplesPerDomain int             `json:"samples_per_domain"`
+	TimeRange        telem.TimeRange `json:"time_range"`
+	ChannelGroups    []ChannelGroup  `json:"channel_groups"`
 }
 
 func (p WriteParams) Serialize() []string {
 	args := make([]string, 0)
 	args = append(
 		args,
-		strconv.Itoa(p.numWriters),
-		strconv.Itoa(p.domains),
-		strconv.Itoa(p.samplesPerDomain),
-		strconv.FormatInt(int64(p.timeRange.Start), 10),
-		strconv.FormatInt(int64(p.timeRange.End), 10),
-		strconv.Itoa(len(p.channelGroups)),
+		strconv.Itoa(p.NumWriters),
+		strconv.Itoa(p.Domains),
+		strconv.Itoa(p.SamplesPerDomain),
+		strconv.FormatInt(int64(p.TimeRange.Start), 10),
+		strconv.FormatInt(int64(p.TimeRange.End), 10),
+		strconv.Itoa(len(p.ChannelGroups)),
 	)
 
-	for _, g := range p.channelGroups {
+	for _, g := range p.ChannelGroups {
 		args = append(
 			args,
-			strconv.Itoa(len(g.indexChannels)),
-			strconv.Itoa(len(g.dataChannels)),
+			strconv.Itoa(len(g.IndexChannels)),
+			strconv.Itoa(len(g.DataChannels)),
 		)
-		args = append(args, g.indexChannels...)
-		args = append(args, g.dataChannels...)
+		args = append(args, g.IndexChannels...)
+		args = append(args, g.DataChannels...)
 	}
 
-	fmt.Println(args)
 	return args
 }
 

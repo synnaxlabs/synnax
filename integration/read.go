@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/synnaxlabs/x/telem"
 	"os/exec"
 	"strconv"
@@ -11,47 +10,39 @@ import (
 )
 
 type ReadParams struct {
-	numIterators     int
-	domains          int
-	samplesPerDomain int
-	timeRange        telem.TimeRange
-	channelGroups    []ChannelGroup
+	numIterators  int
+	chunkSize     int
+	bounds        telem.TimeRange
+	channelGroups [][]string
 }
 
-func (p WriteParams) Serialize() []string {
+func (p ReadParams) Serialize() []string {
 	args := make([]string, 0)
 	args = append(
 		args,
-		strconv.Itoa(p.numWriters),
-		strconv.Itoa(p.domains),
-		strconv.Itoa(p.samplesPerDomain),
-		strconv.FormatInt(int64(p.timeRange.Start), 10),
-		strconv.FormatInt(int64(p.timeRange.End), 10),
+		strconv.Itoa(p.numIterators),
+		strconv.Itoa(p.chunkSize),
+		strconv.FormatInt(int64(p.bounds.Start), 10),
+		strconv.FormatInt(int64(p.bounds.End), 10),
 		strconv.Itoa(len(p.channelGroups)),
 	)
 
 	for _, g := range p.channelGroups {
-		args = append(
-			args,
-			strconv.Itoa(len(g.indexChannels)),
-			strconv.Itoa(len(g.dataChannels)),
-		)
-		args = append(args, g.indexChannels...)
-		args = append(args, g.dataChannels...)
+		args = append(args, strconv.Itoa(len(g)))
+		args = append(args, g...)
 	}
 
-	fmt.Println(args)
 	return args
 }
 
 var _ NodeParams = &WriteParams{}
 
-func writePython(p NodeParams) error {
+func readPython(p NodeParams) error {
 	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
 		return err
 	}
 
-	args := append([]string{"run", "python", "write.py"}, p.Serialize()...)
+	args := append([]string{"run", "python", "read.py"}, p.Serialize()...)
 	cmd := exec.Command("poetry", args...)
 	cmd.Dir = "./py"
 	var stderr, stdout bytes.Buffer

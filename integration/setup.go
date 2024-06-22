@@ -11,18 +11,28 @@ import (
 )
 
 type SetUpParam struct {
-	indexChannels int
-	datachannels  int
-	client        string
+	IndexChannels int    `json:"index_channels"`
+	DataChannels  int    `json:"data_channels"`
+	Client        string `json:"client"`
 }
 
-func setUp(param SetUpParam) error {
+func runSetUp(param SetUpParam) error {
+	switch param.Client {
+	case "py":
+		return setUpPython(param)
+	default:
+		panic("unrecognized client in setup")
+	}
+	return nil
+}
+
+func setUpPython(param SetUpParam) error {
 	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
 		return err
 	}
 	cmd := exec.Command("poetry", "run", "python", "setup.py",
-		strconv.Itoa(param.indexChannels),
-		strconv.Itoa(param.datachannels),
+		strconv.Itoa(param.IndexChannels),
+		strconv.Itoa(param.DataChannels),
 	)
 
 	cmd.Dir = "./py"

@@ -1,0 +1,128 @@
+{
+  "setup": {
+    "index_channels": 2,
+    "data_channels": 2,
+    "client": "py"
+  },
+  "body": [
+    [
+      {
+        "op": "write",
+        "client": "py",
+        "params": {
+          "channelGroups": [
+            {
+              "indexChannels": [
+                "0"
+              ],
+              "dataChannels": [
+                "0-0"
+              ]
+            }
+          ],
+          "numWriters": 1,
+          "domains": 100,
+          "samplesPerDomain": 1000000,
+          "timeRange": [
+            0,
+            100000000000
+          ]
+        }
+      },
+      {
+        "op": "write",
+        "client": "py",
+        "params": {
+          "channelGroups": [
+            {
+              "indexChannels": [
+                "1"
+              ],
+              "dataChannels": [
+                "1-0"
+              ]
+            }
+          ],
+          "numWriters": 1,
+          "domains": 100,
+          "samplesPerDomain": 1000,
+          "timeRange": [
+            0,
+            100000000000
+          ]
+        }
+      },
+      {
+        "op": "stream",
+        "client": "py",
+        "params": {
+          "channels": [
+            "1-0",
+            "0-0"
+          ],
+          "closeAfterFrames": 100
+        }
+      }
+    ],
+    [
+      {
+        "op": "delete",
+        "client": "py",
+        "params": {
+          "tr": [
+            50000000000,
+            75000000000
+          ],
+          "channels": [
+            "0-0",
+            "1-0"
+          ]
+        }
+      },
+      {
+        "op": "write",
+        "client": "py",
+        "params": {
+          "channelGroups": [
+            {
+              "indexChannels": [
+                "0"
+              ],
+              "dataChannels": [
+                "0-0"
+              ]
+            },
+            {
+              "indexChannels": [
+                "1"
+              ],
+              "dataChannels": [
+                "1-0"
+              ]
+            }
+          ],
+          "numWriters": 2,
+          "domains": 50,
+          "samplesPerDomain": 1000,
+          "timeRange": [
+            120000000000,
+            170000000000
+          ]
+        }
+      },
+      {
+        "op": "stream",
+        "client": "py",
+        "params": {
+          "channels": [
+            "1-0",
+            "0-0",
+            "1",
+            "0"
+          ],
+          "closeAfterFrames": 1
+        }
+      }
+    ]
+  ]
+}

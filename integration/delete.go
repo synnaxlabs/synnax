@@ -9,20 +9,20 @@ import (
 )
 
 type DeleteParams struct {
-	tr       telem.TimeRange
-	channels []string
+	TimeRange telem.TimeRange `json:"time_range"`
+	Channels  []string        `json:"channels"`
 }
 
 func (p DeleteParams) Serialize() []string {
 	args := make([]string, 0)
 	args = append(
 		args,
-		strconv.FormatInt(int64(p.tr.Start), 10),
-		strconv.FormatInt(int64(p.tr.End), 10),
-		strconv.Itoa(len(p.channels)),
+		strconv.FormatInt(int64(p.TimeRange.Start), 10),
+		strconv.FormatInt(int64(p.TimeRange.End), 10),
+		strconv.Itoa(len(p.Channels)),
 	)
 
-	for _, g := range p.channels {
+	for _, g := range p.Channels {
 		args = append(args, g)
 	}
 
