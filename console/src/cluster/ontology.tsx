@@ -21,5 +21,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   onSelect: () => {},
   haulItems: () => [],
   allowRename: () => false,
-  onRename: () => {},
+  onRename: undefined,
 };

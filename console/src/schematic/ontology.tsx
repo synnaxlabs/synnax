@@ -99,14 +99,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Ontology.RenameMenuItem />
+      <PMenu.Divider />
+      <Menu.DeleteItem />
+      <PMenu.Divider />
       {resources.every((r) => r.data?.snapshot === false) && (
         <Range.SnapshotMenuItem range={activeRange} />
       )}
       <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
         Copy
       </PMenu.Item>
-      <Menu.DeleteItem />
+      <PMenu.Divider />
       {isSingle && <Link.CopyMenuItem />}
+      <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

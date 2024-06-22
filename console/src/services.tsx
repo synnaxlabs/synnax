@@ -31,7 +31,7 @@ export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
   onSelect: () => {},
   haulItems: () => [],
   allowRename: () => false,
-  onRename: () => {},
+  onRename: undefined,
 };
 
 export const SERVICES: Ontology.Services = {

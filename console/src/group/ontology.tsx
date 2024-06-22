@@ -35,8 +35,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const singleResource = resources.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      {singleResource && <Ontology.RenameMenuItem />}
-      <PMenu.Divider />
+      {singleResource && (
+        <>
+          <Ontology.RenameMenuItem />
+          <PMenu.Divider />
+        </>
+      )}
+
       <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
         New Group
       </PMenu.Item>
