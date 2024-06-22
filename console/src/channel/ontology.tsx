@@ -153,12 +153,17 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
       const rng = await client.ranges.retrieve(activeRange.key);
       await rng.setAlias(Number(resources[0].id.key), value);
     },
-    onError: (e: Error, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (
+      e: Error,
+      { selection: { resources }, addStatus, state: { setNodes } },
+      prevNodes,
+    ) => {
       if (prevNodes != null) setNodes(prevNodes);
+      const first = resources[0];
       addStatus({
         key: nanoid(),
         variant: "error",
-        message: "Failed to set alias.",
+        message: `Failed to set alias for ${first.name}`,
         description: e.message,
       });
     },
@@ -172,12 +177,17 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       if (!renamed) return;
       await client.channels.rename(Number(resources[0].id.key), value);
     },
-    onError: (e: Error, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (
+      e: Error,
+      { selection: { resources }, addStatus, state: { setNodes } },
+      prevNodes,
+    ) => {
       if (prevNodes != null) setNodes(prevNodes);
+      const first = resources[0];
       addStatus({
         key: nanoid(),
         variant: "error",
-        message: "Failed to rename channel.",
+        message: `Failed to rename ${first.name}`,
         description: e.message,
       });
     },
@@ -192,12 +202,17 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
       const rng = await client.ranges.retrieve(activeRange.key);
       await rng.deleteAlias(...resources.map((r) => Number(r.id.key)));
     },
-    onError: (e: Error, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (
+      e: Error,
+      { selection: { resources }, addStatus, state: { setNodes } },
+      prevNodes,
+    ) => {
       if (prevNodes != null) setNodes(prevNodes);
+      const first = resources[0];
       addStatus({
         key: nanoid(),
         variant: "error",
-        message: "Failed to delete alias.",
+        message: `Failed to remove alias on ${first.name}`,
         description: e.message,
       });
     },
@@ -232,7 +247,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             </PMenu.Item>
           )}
           <PMenu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
-            Clear Alias Under {activeRange.name}
+            Remove Alias Under {activeRange.name}
           </PMenu.Item>
           <PMenu.Divider />
         </>
