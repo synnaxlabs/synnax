@@ -51,9 +51,9 @@ typedef freighter::StreamClient<
 /// @brief A frame is a collection of series mapped to their corresponding channel keys.
 struct Frame {
     /// @brief the channels in the frame.
-    std::unique_ptr<std::vector<ChannelKey>> channels;
+    std::unique_ptr<std::vector<ChannelKey> > channels;
     /// @brief the series in the frame.
-    std::unique_ptr<std::vector<synnax::Series>> series;
+    std::unique_ptr<std::vector<synnax::Series> > series;
 
     Frame() = default;
 
@@ -347,6 +347,7 @@ public:
     /// is true, the streamer must be closed after use to avoid leaking resources.
     [[nodiscard]] std::pair<Streamer, freighter::Error>
     openStreamer(const StreamerConfig &config) const;
+
 private:
     std::unique_ptr<StreamerClient> streamer_client;
     std::unique_ptr<WriterClient> writer_client;

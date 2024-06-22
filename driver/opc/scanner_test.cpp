@@ -15,10 +15,10 @@
 using json = nlohmann::json;
 
 const synnax::Config test_client_config = {
-        "localhost",
-        9090,
-        "synnax",
-        "seldon"
+    "localhost",
+    9090,
+    "synnax",
+    "seldon"
 };
 
 synnax::Synnax new_test_client() {
@@ -27,10 +27,10 @@ synnax::Synnax new_test_client() {
 
 TEST(OPCUAScnannerTest, testScannerCmdParseOnlyEdnpoint) {
     json cmd = {
-            {"endpoint", "opc.tcp://localhost:4840"},
+        {"endpoint", "opc.tcp://localhost:4840"},
     };
     json err = {
-            {"errors", std::vector<json>()}
+        {"errors", std::vector<json>()}
     };
     bool ok = true;
     auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
@@ -42,12 +42,12 @@ TEST(OPCUAScnannerTest, testScannerCmdParseOnlyEdnpoint) {
 
 TEST(OPCUAScannerTest, testScannerCmdParseEndpointUsernamePassword) {
     json cmd = {
-            {"endpoint", "opc.tcp://localhost:4840"},
-            {"username", "user"},
-            {"password", "password"}
+        {"endpoint", "opc.tcp://localhost:4840"},
+        {"username", "user"},
+        {"password", "password"}
     };
     json err = {
-            {"errors", std::vector<json>()}
+        {"errors", std::vector<json>()}
     };
     bool ok = true;
     auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
@@ -59,11 +59,11 @@ TEST(OPCUAScannerTest, testScannerCmdParseEndpointUsernamePassword) {
 
 TEST(OPCUAScannerTest, testScannerCmdParseNoEndpoint) {
     json cmd = {
-            {"username", "user"},
-            {"password", "password"}
+        {"username", "user"},
+        {"password", "password"}
     };
     json err = {
-            {"errors", std::vector<json>()}
+        {"errors", std::vector<json>()}
     };
     bool ok = true;
     auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);

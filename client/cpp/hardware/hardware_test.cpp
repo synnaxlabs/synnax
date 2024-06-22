@@ -169,4 +169,3 @@ TEST(HardwareTests, testRetrieveDevice) {
     ASSERT_EQ(d2.name, "test_device");
     ASSERT_EQ(d2.key, d.key);
 }
-

@@ -39,8 +39,9 @@ class SynnaxStreamerFactory final : public StreamerFactory {
     std::shared_ptr<synnax::Synnax> client;
 
 public:
-    explicit SynnaxStreamerFactory(std::shared_ptr<synnax::Synnax> client): client(
-        std::move(client)) {
+    explicit SynnaxStreamerFactory(
+        std::shared_ptr<synnax::Synnax> client
+    ): client(std::move(client)) {
     }
 
     std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(

@@ -28,24 +28,30 @@ TEST(TestDriverConfig, parseEmptyConfig) {
 /// @brief it shopuld correctly parse the values from a valid configuration.
 TEST(TestDriverConfig, testValidConfig) {
     json config = {
-        {"connection", {
-            {"host", "demo.synnaxlabs.com"},
-            {"port", 80},
-            {"username", "admin"},
-            {"password", "admin"},
-            {"ca_cert_file", "ca.pem"},
-            {"client_cert_file", "client.pem"},
-            {"client_key_file", "client.key"}
-        }},
-        {"retry", {
-            {"base_interval", 2},
-            {"max_retries", 100},
-            {"scale", 1.5}
-        }},
-        {"rack", {
-            {"key", 1},
-            {"name", "rack_1"}
-        }},
+        {
+            "connection", {
+                {"host", "demo.synnaxlabs.com"},
+                {"port", 80},
+                {"username", "admin"},
+                {"password", "admin"},
+                {"ca_cert_file", "ca.pem"},
+                {"client_cert_file", "client.pem"},
+                {"client_key_file", "client.key"}
+            }
+        },
+        {
+            "retry", {
+                {"base_interval", 2},
+                {"max_retries", 100},
+                {"scale", 1.5}
+            }
+        },
+        {
+            "rack", {
+                {"key", 1},
+                {"name", "rack_1"}
+            }
+        },
         {"integrations", {"opc"}}
     };
     auto [cfg, err] = driver::parseConfig(config);

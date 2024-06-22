@@ -16,27 +16,27 @@
 #include "driver/pipeline/acquisition.h"
 
 namespace opc {
-    struct ReaderChannelConfig {
-        /// @brief the node id.
-        std::string node_id;
-        UA_NodeId node;
-        /// @brief the corresponding channel key to write the variable for the node from.
-        ChannelKey channel;
-        /// @brief the channel fetched from the Synnax server. This does not need to
-        /// be provided via the JSON configuration.
-        Channel ch;
-        bool enabled;
+struct ReaderChannelConfig {
+    /// @brief the node id.
+    std::string node_id;
+    UA_NodeId node;
+    /// @brief the corresponding channel key to write the variable for the node from.
+    ChannelKey channel;
+    /// @brief the channel fetched from the Synnax server. This does not need to
+    /// be provided via the JSON configuration.
+    Channel ch;
+    bool enabled;
 
-        ReaderChannelConfig() = default;
+    ReaderChannelConfig() = default;
 
-        explicit ReaderChannelConfig(
-                config::Parser &parser
-        ) : node_id(parser.required<std::string>("node_id")),
-            node(parseNodeId("node_id", parser)),
-            channel(parser.required<ChannelKey>("channel")),
-            enabled(parser.optional<bool>("enabled", true)) {
-        }
-    };
+    explicit ReaderChannelConfig(
+        config::Parser &parser
+    ) : node_id(parser.required<std::string>("node_id")),
+        node(parseNodeId("node_id", parser)),
+        channel(parser.required<ChannelKey>("channel")),
+        enabled(parser.optional<bool>("enabled", true)) {
+    }
+};
 
 struct ReaderConfig {
     /// @brief the device representing the OPC UA server to read from.
@@ -50,19 +50,19 @@ struct ReaderConfig {
     /// @brief whether to enable data saving for this task.
     bool data_saving;
 
-        /// @brief the list of channels to read from the server.
-        std::vector<ReaderChannelConfig> channels;
+    /// @brief the list of channels to read from the server.
+    std::vector<ReaderChannelConfig> channels;
 
-        ReaderConfig() = default;
+    ReaderConfig() = default;
 
-        explicit ReaderConfig(config::Parser &parser);
+    explicit ReaderConfig(config::Parser &parser);
 
-        [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
-            auto keys = std::vector<ChannelKey>(channels.size());
-            for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
-            return keys;
-        }
-    };
+    [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
+        auto keys = std::vector<ChannelKey>(channels.size());
+        for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
+        return keys;
+    }
+};
 
 /// @brief a task that reads values from an OPC UA server.
 class Reader final : public task::Task {
@@ -93,15 +93,15 @@ public:
         const synnax::Task &task
     );
 
-        void exec(task::Command &cmd) override;
+    void exec(task::Command &cmd) override;
 
-        void stop() override;
+    void stop() override;
 
-    private:
-        std::shared_ptr<task::Context> ctx;
-        synnax::Task task;
-        ReaderConfig cfg;
-        breaker::Breaker breaker;
-        pipeline::Acquisition pipe;
-    };
+private:
+    std::shared_ptr<task::Context> ctx;
+    synnax::Task task;
+    ReaderConfig cfg;
+    breaker::Breaker breaker;
+    pipeline::Acquisition pipe;
+};
 }

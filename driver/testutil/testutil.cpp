@@ -14,13 +14,11 @@
 #include "driver/testutil/testutil.h"
 
 
-synnax::Synnax new_test_client()
-{
+synnax::Synnax new_test_client() {
     return synnax::Synnax(test_client_config);
 }
 
-std::mt19937 random_generator(std::string suite_name)
-{
+std::mt19937 random_generator(std::string suite_name) {
     std::random_device rd;
     auto rand_seed = rd();
     std::cout << "Random seed for " << suite_name << " - " << rand_seed << std::endl;
@@ -30,9 +28,11 @@ std::mt19937 random_generator(std::string suite_name)
 }
 
 
-json add_index_channel_JSON(json &config,
-                            std::string name,
-                            int key){
+json add_index_channel_JSON(
+    json &config,
+    std::string name,
+    int key
+) {
     json channel;
     channel["name"] = name;
     channel["cmd_key"] = 0;
@@ -44,21 +44,21 @@ json add_index_channel_JSON(json &config,
 
     // now add json to the channels vector
     // check if the channels array exists
-    if(config.find("channels") == config.end()){
+    if (config.find("channels") == config.end()) {
         config["channels"] = json::array();
     }
     config["channels"].push_back(channel);
-    return  channel;
+    return channel;
 }
 
 
-
-json add_DI_channel_JSON(json &config,
-                         std::string name,
-                         int key,
-                         int port,
-                         int line){
-
+json add_DI_channel_JSON(
+    json &config,
+    std::string name,
+    int key,
+    int port,
+    int line
+) {
     // first construct the json object for the channel
     json channel;
     channel["name"] = name;
@@ -69,21 +69,23 @@ json add_DI_channel_JSON(json &config,
 
     // now add json to the channels vector
     // check if the channels array exists
-    if(config.find("channels") == config.end()){
+    if (config.find("channels") == config.end()) {
         config["channels"] = json::array();
     }
     config["channels"].push_back(channel);
-    return  channel;
+    return channel;
 }
 
-json add_AI_channel_JSON(json &config,
-                         std::string name,
-                         int key,
-                         int port,
-                         std::float_t min_val,
-                         std::float_t max_val, 
-                         std::string terminal_config,
-                         json scale_config ){
+json add_AI_channel_JSON(
+    json &config,
+    std::string name,
+    int key,
+    int port,
+    std::float_t min_val,
+    std::float_t max_val,
+    std::string terminal_config,
+    json scale_config
+) {
     // first construct the json object for the channel
     json channel;
     channel["name"] = name;
@@ -100,22 +102,22 @@ json add_AI_channel_JSON(json &config,
 
     // now add json to the channels vector
     // check if the channels array exists
-    if(config.find("channels") == config.end()){
+    if (config.find("channels") == config.end()) {
         config["channels"] = json::array();
     }
     config["channels"].push_back(channel);
-    return  channel;
-                            
+    return channel;
 }
 
-                         
-json add_DO_channel_JSON(json &config,
-                         std::string name,
-                         int drive_cmd_key,
-                         int drive_state_key,
-                         int port,
-                         int line){
 
+json add_DO_channel_JSON(
+    json &config,
+    std::string name,
+    int drive_cmd_key,
+    int drive_state_key,
+    int port,
+    int line
+) {
     // first construct the json object for the channel
     json channel;
     channel["name"] = name;
@@ -127,16 +129,18 @@ json add_DO_channel_JSON(json &config,
 
     // now add json to the channels vector
     // check if the channels array exists
-    if(config.find("channels") == config.end()){
+    if (config.find("channels") == config.end()) {
         config["channels"] = json::array();
     }
     config["channels"].push_back(channel);
-    return  channel;
+    return channel;
 }
 
-json add_drive_state_index_channel_JSON(json &config,
-                               std::string name,
-                               int key){
+json add_drive_state_index_channel_JSON(
+    json &config,
+    std::string name,
+    int key
+) {
     json channel;
     channel["name"] = name;
     channel["channel_key"] = key;
@@ -146,9 +150,9 @@ json add_drive_state_index_channel_JSON(json &config,
 
     // now add json to the channels vector
     // check if the channels array exists
-    if(config.find("channels") == config.end()){
+    if (config.find("channels") == config.end()) {
         config["channels"] = json::array();
     }
     config["channels"].push_back(channel);
-    return  channel;
+    return channel;
 }

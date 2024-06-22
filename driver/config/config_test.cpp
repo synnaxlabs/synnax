@@ -1,4 +1,3 @@
-
 // Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -22,8 +21,8 @@ TEST(testConfig, testParserHappyPath) {
     MyConfig v;
 
     const json j = {
-            {"name", "test"},
-            {"dog",  1.0}
+        {"name", "test"},
+        {"dog", 1.0}
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -57,8 +56,8 @@ TEST(testConfig, testParserFieldHasInvalidType) {
     };
     MyConfig v;
     json j = {
-            {"name", "test"},
-            {"dog",  "1.0"}
+        {"name", "test"},
+        {"dog", "1.0"}
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -81,10 +80,12 @@ TEST(testConfig, testParserFieldChildHappyPath) {
     };
 
     json j = {
-            {"child", {
-                    {"name", "test"},
-                    {"dog", 1.0}
-            }}
+        {
+            "child", {
+                {"name", "test"},
+                {"dog", 1.0}
+            }
+        }
     };
     MyConfig v;
     config::Parser parser(j);
@@ -130,10 +131,12 @@ TEST(testConfig, testParserChildFieldInvalidType) {
     };
 
     json j = {
-            {"child", {
-                    {"name", "test"},
-                    {"dog", "1.0"}
-            }}
+        {
+            "child", {
+                {"name", "test"},
+                {"dog", "1.0"}
+            }
+        }
     };
     MyConfig v;
     config::Parser parser(j);
@@ -158,16 +161,18 @@ TEST(testConfig, testIterHappyPath) {
     };
 
     const json j = {
-            {"children", {
-                    {
-                            {"name", "test1"},
-                            {"dog", 1.0}
-                    },
-                    {
-                            {"name", "test2"},
-                            {"dog", 2.0}
-                    }
-            }}
+        {
+            "children", {
+                {
+                    {"name", "test1"},
+                    {"dog", 1.0}
+                },
+                {
+                    {"name", "test2"},
+                    {"dog", 2.0}
+                }
+            }
+        }
     };
 
     MyConfig v;
@@ -221,11 +226,12 @@ TEST(testConfig, testIterFieldIsNotArray) {
     };
 
     const json j = {
-            {"children", {
-                    {"name", "test1"},
-                    {"dog", 1.0}
+        {
+            "children", {
+                {"name", "test1"},
+                {"dog", 1.0}
             }
-            }
+        }
     };
     MyConfig v;
     const config::Parser parser(j);
@@ -253,16 +259,18 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     };
 
     const json j = {
-            {"children", {
-                    {
-                            {"name", "test1"},
-                            {"dog", "1.0"}
-                    },
-                    {
-                            {"name", "test2"},
-                            {"dog", 2.0}
-                    }
-            }}
+        {
+            "children", {
+                {
+                    {"name", "test1"},
+                    {"dog", "1.0"}
+                },
+                {
+                    {"name", "test2"},
+                    {"dog", 2.0}
+                }
+            }
+        }
     };
 
     MyConfig v;
