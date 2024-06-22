@@ -87,6 +87,30 @@
     }
 }
 
+/** |||| SUGGESTION |||| */
+
+.pluto-btn--suggestion {
+    background: none;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l5);
+    border-style: dashed;
+    filter: opacity(0.85);
+
+    &:hover:not(.pluto--disabled) {
+        background: var(--pluto-gray-l2);
+        border-color: var(--pluto-gray-l5-90);
+    }
+
+    &:active:not(.pluto--disabled) {
+        background: var(--pluto-gray-l3);
+        border-color: var(--pluto-gray-l6);
+    }
+
+    &.pluto--disabled {
+        color: var(--pluto-gray-l5);
+    }
+}
+
 /* |||| ICON |||| */
 
 .pluto-btn-icon {
