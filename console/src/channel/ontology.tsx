@@ -124,12 +124,19 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     mutationFn: async ({ client, selection: { resources } }) =>
       await client.channels.delete(resources.map(({ id }) => Number(id.key))),
-    onError: (e: Error, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (
+      e: Error,
+      { selection: { resources }, addStatus, state: { setNodes } },
+      prevNodes,
+    ) => {
       if (prevNodes != null) setNodes(prevNodes);
+      let message = "Failed to delete channels";
+      if (resources.length === 1)
+        message = `Failed to delete channel ${resources[0].name}`;
       addStatus({
         key: nanoid(),
         variant: "error",
-        message: "Failed to delete channels.",
+        message,
         description: e.message,
       });
     },
