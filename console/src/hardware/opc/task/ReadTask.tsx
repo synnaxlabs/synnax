@@ -253,7 +253,10 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
               </Header.Header>
               <Align.Space direction="y" className={CSS.B("channel-form-content")} grow>
                 {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+                  <ChannelForm
+                    deviceProperties={device?.properties}
+                    selectedChannelIndex={selectedChannelIndex}
+                  />
                 )}
               </Align.Space>
             </Align.Space>
@@ -456,18 +459,44 @@ export const ChannelListItem = ({
 
 interface ChannelFormProps {
   selectedChannelIndex: number;
+  deviceProperties?: Device.Properties;
 }
 
-const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
+const ChannelForm = ({
+  selectedChannelIndex,
+  deviceProperties,
+}: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
   const dev = Form.useField<string>({ path: "config.device" }).value;
+  const channelPath = `${prefix}.channel`;
+  const ctx = Form.useContext();
+  const [channelSelected, setChannelSelected] = useState(
+    ctx.get({ path: channelPath }).value !== 0,
+  );
   return (
     <>
-      <Form.Field<number> path={`${prefix}.channel`} label="Synnax Channel" hideIfNull>
-        {(p) => <Channel.SelectSingle allowNone={false} {...p} />}
-      </Form.Field>
-      <Form.Field<string> path={`${prefix}.nodeId`} label="OPC Node" hideIfNull>
+      <Form.Field<string>
+        path={`${prefix}.nodeId`}
+        label="OPC Node"
+        onChange={(v, ctx) => {
+          if (deviceProperties == null) return;
+          if (channelSelected) return;
+          const defaultChan = deviceProperties.channels.find(
+            (c) => c.nodeId === v,
+          )?.synnaxChannel;
+          if (defaultChan != null) ctx.set({ path: channelPath, value: defaultChan });
+        }}
+        hideIfNull
+      >
         {(p) => <SelectNodeRemote allowNone={false} device={dev} {...p} />}
+      </Form.Field>
+      <Form.Field<number>
+        path={channelPath}
+        onChange={(v) => setChannelSelected(v !== 0)}
+        label="Synnax Channel"
+        hideIfNull
+      >
+        {(p) => <Channel.SelectSingle allowNone={false} {...p} />}
       </Form.Field>
     </>
   );
