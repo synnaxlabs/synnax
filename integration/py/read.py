@@ -37,14 +37,13 @@ def read_test(tc: TestConfig) -> int:
         for i in iterators:
             i.seek_first()
             while i.next(sy.AUTO_SPAN):
-                samples_read += sum(
-                    [s.data_type.density.sample_count(s.size) for s in i.value.series]
-                )
+                samples_read += sum([len(s) for s in i.value.series])
                 continue
     finally:
         for iterator in iterators:
             iterator.close()
-        return samples_read
+
+    return samples_read
 
 
 def main():

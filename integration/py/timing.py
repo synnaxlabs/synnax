@@ -73,7 +73,7 @@ def time_delete(file_name):
 Time taken: {time}
 Configuration:
     Number of channels: {len(params.channels)}
-    Time Range: {len(params.time_range)}
+    Time Range: {params.time_range}
                 '''
             with open(file_name, "a") as f:
                 f.write(s)
