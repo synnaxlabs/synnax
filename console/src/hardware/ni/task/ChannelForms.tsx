@@ -35,6 +35,7 @@ import {
   SCALE_SCHEMAS,
   ScaleType,
   ShuntResistorLoc,
+  TemperatureUnits,
   TorqueUnits,
   Units,
   ZERO_AI_CHANNELS,
@@ -376,7 +377,10 @@ const PressureUnitsField = Form.buildButtonSelectField({
   },
 });
 
-const TemperatureUnitsField = Form.buildButtonSelectField<string, NamedKey<string>>({
+const TemperatureUnitsField = Form.buildButtonSelectField<
+  TemperatureUnits,
+  NamedKey<TemperatureUnits>
+>({
   fieldKey: "units",
   fieldProps: {
     label: "Temperature Units",
@@ -386,7 +390,7 @@ const TemperatureUnitsField = Form.buildButtonSelectField<string, NamedKey<strin
     columns: NAMED_KEY_COLS,
     data: [
       {
-        key: "DegG",
+        key: "DegC",
         name: "Celsius",
       },
       {
@@ -447,10 +451,12 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
       const next = deep.copy(ZERO_AI_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<AIChan>({ path: parentPath }).value;
+      let schema = AI_CHANNEL_SCHEMAS[value];
+      if ("sourceType" in schema) schema = schema.sourceType() as z.ZodObject<AIChan>;
       set({
         path: parentPath,
         value: {
-          ...deep.overrideValidItems(next, prevParent, AI_CHANNEL_SCHEMAS[value]),
+          ...deep.overrideValidItems(next, prevParent, schema),
           type: next.type,
         },
       });
@@ -1696,6 +1702,8 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       fieldKey: "cjcSource",
       fieldProps: { label: "CJC Source" },
       inputProps: {
+        columns: NAMED_KEY_COLS,
+        entryRenderKey: "name",
         data: [
           { key: "BuiltIn", name: "Built In" },
           { key: "ConstVal", name: "Constant Value" },
@@ -1703,6 +1711,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         ],
       },
     });
+    const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, true);
     return (
       <>
         <ChannelField path={prefix} />
@@ -1714,7 +1723,12 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         </Align.Space>
         <Align.Space direction="x" grow>
           <CJCSourceField path={prefix} grow />
-          <Form.NumericField path={`${prefix}.cjcVal`} label="CJC Value" grow />
+          {cjcSource === "ConstVal" && (
+            <Form.NumericField path={`${prefix}.cjcVal`} label="CJC Value" grow />
+          )}
+          {cjcSource === "Chan" && (
+            <Form.NumericField path={`${prefix}.cjcPort`} label="CJC Port" grow />
+          )}
         </Align.Space>
       </>
     );

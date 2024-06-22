@@ -20,7 +20,6 @@
 #include "freighter/cpp/freighter.h"
 
 
-
 namespace breaker {
 /// @brief struct for configuring a breaker.
 struct Config {
@@ -85,7 +84,6 @@ public:
                                             std::make_unique<
                                                 std::condition_variable>()) {
         std::cout << "move constructor called" << std::endl;
-
     }
 
     // copy assignment
@@ -126,11 +124,14 @@ public:
         }
         retries++;
         if (retries > config.max_retries) {
-            LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
+            LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of "
+                    << config.max_retries << ". Exiting." << "Error: " << message <<
+                    ".";
             reset();
             return false;
         }
-        LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.max_retries
+        LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
+                max_retries
                 << " times. " << "Retrying in " << interval / SECOND << " seconds. " <<
                 "Error: " << message << "."; {
             std::unique_lock lock(shutdown_mutex);

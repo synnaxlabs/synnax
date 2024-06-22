@@ -13,6 +13,7 @@ import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
@@ -70,8 +71,9 @@ export const LayoutMain = (): ReactElement => {
 };
 
 export const HANDLERS: Link.Handler[] = [
-  Schematic.linkHandler,
-  Range.linkHandler,
-  Workspace.linkHandler,
+  Channel.linkHandler,
   LinePlot.linkHandler,
+  Range.linkHandler,
+  Schematic.linkHandler,
+  Workspace.linkHandler,
 ];

@@ -1020,14 +1020,14 @@ var _ = Describe("Delete", func() {
 					Expect(db.WriteArray(ctx, data, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13))).To(Succeed())
 
 					err := db.DeleteTimeRange(ctx, []cesium.ChannelKey{index}, (8 * telem.SecondTS).Range(11*telem.SecondTS))
-					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it from timerange %v", channels[0], channels[1], (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
+					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
 				})
 				It("Should not allow deletion of an index channel when there is a data channel with a writer open before the timerange", func() {
 					Expect(db.WriteArray(ctx, index, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{data}, Start: 9 * telem.SecondTS}))
 
 					err := db.DeleteTimeRange(ctx, []cesium.ChannelKey{index}, (8 * telem.SecondTS).Range(10*telem.SecondTS))
-					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it from timerange %v", channels[0], channels[1], (8 * telem.SecondTS).Range(10*telem.SecondTS)))))
+					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(10*telem.SecondTS)))))
 
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{index}, (8 * telem.SecondTS).Range(9*telem.SecondTS))).To(Succeed())
 					Expect(w.Close()).To(Succeed())

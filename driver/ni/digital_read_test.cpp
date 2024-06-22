@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Synnax on 1/29/2024.
-//v
 #include <include/gtest/gtest.h>
 #include "glog/logging.h"
 
@@ -20,13 +17,10 @@
 #include "driver/testutil/testutil.h"
 #include <map>
 
+TEST(read_tests, one_digital_channel) {
+        LOG(INFO) << "test_read_one_digital_channel: "; //<< std::endl;
 
-TEST(read_tests, one_digital_channel
-){
-LOG(INFO)
-<< "test_read_one_digital_channel: "; //<< std::endl;
-
-// Create NI readerconfig
+        // Create NI readerconfig
 auto config = json{
         {"sample_rate", 100}, // dont actually need these here
         {"stream_rate", 20}, // same as above
@@ -40,7 +34,8 @@ auto client_config = synnax::Config{
         "localhost",
         9090,
         "synnax",
-        "seldon"};
+        "seldon"
+};
 auto client = std::make_shared<synnax::Synnax>(client_config);
 
 // create all the necessary channels in the synnax client
@@ -50,10 +45,7 @@ auto [time, tErr] = client->channels.create( // index channel for analog input c
         0,
         true
 );
-ASSERT_FALSE(tErr)
-<< tErr.
-
-message();
+ASSERT_FALSE(tErr) << tErr.message();
 
 auto [data, dErr] = client->channels.create( // analog input channel
         "d1",
@@ -62,8 +54,7 @@ auto [data, dErr] = client->channels.create( // analog input channel
         false
 );
 
-add_DI_channel_JSON(config,
-"d1", data.key, 0, 0);
+add_DI_channel_JSON(config, "d1", data.key, 0, 0);
 
 
 // Synnax infrustructure
@@ -75,15 +66,13 @@ auto task = synnax::Task(
 
 auto mockCtx = std::make_shared<task::MockContext>(client);
 
-std::this_thread::sleep_for(std::chrono::milliseconds(300)
-);
+std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
 // Now construct NI reader
 TaskHandle taskHandle;
 ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
-auto reader = ni::DigitalReadSource(taskHandle,
-                                    mockCtx,
-                                    task);
+auto reader = ni::DigitalReadSource(taskHandle,                                    mockCtx,                                    task);
 
 if(reader.
 

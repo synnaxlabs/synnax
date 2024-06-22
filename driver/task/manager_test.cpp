@@ -21,61 +21,44 @@ public:
     bool configured = false;
 
     std::pair<std::unique_ptr<task::Task>, bool> configureTask(
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task
-    ) override {
-        return {nullptr, false};
-    }
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) override { return {nullptr, false}; }
 };
 
-TEST(TaskManagerTests, testModuleNominalConfiguration
-) {
-auto client = new_test_client();
-auto [rack, err] = client->hardware.createRack("test_rack");
-ASSERT_FALSE(err)
-<< err.
+TEST(TaskManagerTests, testModuleNominalConfiguration) {
+    auto client = new_test_client();
+    auto [rack, err] = client->hardware.createRack("test_rack");
+    ASSERT_FALSE(err) << err.message();
 
-message();
-
-auto breaker = breaker::Breaker(breaker::Config{
+    auto breaker = breaker::Breaker(breaker::Config{
         "test_breaker",
         synnax::TimeSpan(1),
         1,
         1
-});
-std::unique_ptr<MockTaskFactory> factory = std::make_unique<MockTaskFactory>();
-auto task_manager = task::Manager(
+    });
+    std::unique_ptr<MockTaskFactory> factory = std::make_unique<MockTaskFactory>();
+    auto task_manager = task::Manager(
         rack.key,
         client,
         std::move(factory),
         breaker
-);
-std::atomic done = false;
-err = task_manager.start(done);
-ASSERT_FALSE(err)
-<< err.
+    );
+    std::atomic done = false;
+    err = task_manager.start(done);
+    ASSERT_FALSE(err) << err.message();
 
-message();
-
-auto task_err = synnax::Task(
+    auto task_err = synnax::Task(
         rack.key,
         "test_module",
         "",
         ""
-);
-auto t_err = rack.tasks.create(task_err);
-ASSERT_FALSE(t_err)
-<< t_err.
+    );
+    auto t_err = rack.tasks.create(task_err);
+    ASSERT_FALSE(t_err) << t_err.message();
 
-message();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-std::this_thread::sleep_for(std::chrono::milliseconds(100)
-);
-
-err = task_manager.stop();
-ASSERT_FALSE(err)
-<< err.
-
-message();
-
+    err = task_manager.stop();
+    ASSERT_FALSE(err) << err.message();
 }

@@ -16,7 +16,6 @@
 #include "driver/breaker/breaker.h"
 
 namespace pipeline {
-
 /// @brief an object that writes data to an acuqisition computer or other resource.
 class Sink {
 public:
@@ -122,6 +121,7 @@ public:
     /// @brief stops the control pipeline, blocking until the control thread has exited.
     /// If the pipeline has already stopped, this method will return immediately.
     void stop();
+
 private:
     std::unique_ptr<std::thread> thread;
     std::shared_ptr<StreamerFactory> factory;

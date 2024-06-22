@@ -96,6 +96,7 @@ public:
         last = hs_clock::now();
         return {synnax::TimeSpan(elapsed), true};
     }
+
 private:
     [[nodiscard]] bool highRate() const { return interval < HIGH_RES_THRESHOLD; }
     [[nodiscard]] bool mediumRate() const { return interval < MEDIUM_RES_THRESHOLD; }

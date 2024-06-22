@@ -977,17 +977,38 @@ export const ZERO_AI_TEMP_BUILTIN_CHAN: AITempBuiltInChan = {
 };
 
 // 22 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithrmcplchan.html
-const aiThermocoupleChanZ = baseAIChanZ.extend({
-  key: z.string(),
-  type: z.literal("ai_thermocouple"),
-  minVal: z.number(),
-  maxVal: z.number(),
-  units: temperatureUnitsZ,
-  thermocoupleType: z.enum(["J", "K", "N", "R", "S", "T", "B", "E"]),
-  cjcSource: z.enum(["BuiltIn", "ConstVal"]),
-  cjcVal: z.number(),
-  cjcPort: z.number(),
-});
+const aiThermocoupleChanZ = baseAIChanZ
+  .extend({
+    key: z.string(),
+    type: z.literal("ai_thermocouple"),
+    minVal: z.number(),
+    maxVal: z.number(),
+    units: temperatureUnitsZ,
+    thermocoupleType: z.enum(["J", "K", "N", "R", "S", "T", "B", "E"]),
+    cjcSource: z.enum(["BuiltIn", "ConstVal", "Chan"]),
+    cjcVal: z.number(),
+    cjcPort: z.number(),
+  })
+  .refine(
+    (v) => {
+      if (v.cjcSource === "ConstVal") return v.cjcVal !== undefined;
+      return true;
+    },
+    {
+      path: ["cjcVal"],
+      message: "CJC Value must be defined when CJC Source is ConstVal",
+    },
+  )
+  .refine(
+    (v) => {
+      if (v.cjcSource === "Chan") return v.cjcPort !== undefined;
+      return true;
+    },
+    {
+      path: ["cjcPort"],
+      message: "CJC Port must be defined when CJC Source is ConstVal",
+    },
+  );
 
 export type AIThermocoupleChan = z.infer<typeof aiThermocoupleChanZ>;
 

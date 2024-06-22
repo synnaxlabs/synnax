@@ -82,8 +82,6 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	// check for versioning
-
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,
 		Instrumentation: cfg.Instrumentation,
@@ -110,6 +108,9 @@ func Open(configs ...Config) (*DB, error) {
 	return db, err
 }
 
+// CheckMigration compares the version stored in channel to the current version of the
+// data engine format. If there is a migration to be performed, data is migrated and
+// persisted to the new version.
 func (db *DB) CheckMigration(ecd binary.EncoderDecoder) error {
 	if db.Channel.Version != version.Current {
 		err := version.Migrate(db.FS, db.Channel.Version, version.Current)

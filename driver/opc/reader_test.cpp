@@ -23,58 +23,58 @@ TEST(opcReaderTest, testReaderConfigurationFromJSON) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [idx, idx_err] = client->channels.create(
-            "index1",
-            TIMESTAMP,
-            0,
-            true
+        "index1",
+        TIMESTAMP,
+        0,
+        true
     );
     ASSERT_FALSE(idx_err) << idx_err.message();
 
     auto [ch1, ch1_err] = client->channels.create(
-            "node1",
-            INT32,
-            idx.key,
-            false
+        "node1",
+        INT32,
+        idx.key,
+        false
     );
     ASSERT_FALSE(ch1_err) << ch1_err.message();
 
     auto [ch2, ch2_err] = client->channels.create(
-            "node2",
-            INT32,
-            idx.key,
-            false
+        "node2",
+        INT32,
+        idx.key,
+        false
     );
     ASSERT_FALSE(ch2_err) << ch2_err.message();
 
     auto j = json{
-            {
-                    "connection", json{
-                    {"endpoint", "opc.tcp://0.0.0.0:4840"},
+        {
+            "connection", json{
+                {"endpoint", "opc.tcp://0.0.0.0:4840"},
             }
-            },
-            {       "rate",       22.5},
-            {
-                    "channels",   std::vector<json>{
-                    {{"ns", 1}, {"node", "node1"}, {"key", ch1.key}},
-                    {{"ns", 1}, {"node", "node2"}, {"key", ch2.key}}
+        },
+        {"rate", 22.5},
+        {
+            "channels", std::vector<json>{
+                {{"ns", 1}, {"node", "node1"}, {"key", ch1.key}},
+                {{"ns", 1}, {"node", "node2"}, {"key", ch2.key}}
             }
-            }
+        }
     };
 
     auto t = synnax::Task(
-            "my_task",
-            "opcRead",
-            to_string(j)
+        "my_task",
+        "opcRead",
+        to_string(j)
     );
 
 
     auto mockCtx = std::make_shared<task::MockContext>(client);
 
     auto mock = MockServerConfig{
-            {
-                    {1, "node1"},
-                    {1, "node2"}
-            }
+        {
+            {1, "node1"},
+            {1, "node2"}
+        }
     };
 
     auto server = MockServer(mock);

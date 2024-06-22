@@ -12,8 +12,8 @@
 #include "nlohmann/json.hpp"
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
 ) {
     LOG(INFO) << "[NI Factory ] Configuring task: " << task.key << std::endl;
     if (task.type == "ni_scanner") // TODO change to ni_scan_task
@@ -31,8 +31,8 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
 // creates initial task (scanner)
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
 ni::Factory::configureInitialTasks(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Rack &rack
 ) {
     std::cout << "Configuring initial tasks" << std::endl;
     // generate task list
@@ -49,7 +49,7 @@ ni::Factory::configureInitialTasks(
     for (const auto &t: existing) {
         if (t.type == "ni_scanner") {
             LOG(INFO) << "[ni] found existing scanner task with key: " << t.key <<
-                      " skipping creation." << std::endl;
+                    " skipping creation." << std::endl;
             hasScanner = true;
         }
     }
@@ -57,10 +57,10 @@ ni::Factory::configureInitialTasks(
     if (!hasScanner) {
         std::cout << "Creating niScanner task" << std::endl;
         auto sy_task = synnax::Task(
-                rack.key,
-                "ni scanner",
-                "ni_scanner",
-                ""
+            rack.key,
+            "ni scanner",
+            "ni_scanner",
+            ""
         );
         auto err = rack.tasks.create(sy_task);
         LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;
@@ -73,7 +73,10 @@ ni::Factory::configureInitialTasks(
             LOG(ERROR) << "[ni] Failed to configure scanner task: " << err;
             return tasks;
         }
-        tasks.emplace_back(std::pair<synnax::Task, std::unique_ptr<task::Task> >({sy_task, std::move(task)}));
+        tasks.emplace_back(
+            std::pair<synnax::Task, std::unique_ptr<task::Task> >({
+                sy_task, std::move(task)
+            }));
     }
     return tasks;
 }
