@@ -44,6 +44,13 @@ static inline int32_t getResistanceConfig(std::string s){
     return DAQmx_Val_2Wire;
 }
 
+static inline int32_t getExcitationSrc(std::string s){
+        if(s == "Internal") return DAQmx_Val_Internal;
+        if(s == "External") return DAQmx_Val_External;
+        if(s == "None") return DAQmx_Val_None;
+        return DAQmx_Val_None;
+}
+
 // TODO: make one for current excitation for correct parsing
 typedef struct ExcitationConfig {
     int32_t voltageExcitSource;
@@ -52,12 +59,7 @@ typedef struct ExcitationConfig {
     double maxValForExcitation; //optional
     bool32 useExcitForScaling; //optional
 
-    static inline int32_t getExcitationSrc(std::string s){
-        if(s == "Internal") return DAQmx_Val_Internal;
-        if(s == "External") return DAQmx_Val_External;
-        if(s == "None") return DAQmx_Val_None;
-        return DAQmx_Val_None;
-    }
+    
     
     ExcitationConfig(config::Parser &parser)
         : voltageExcitSource(getExcitationSrc(parser.required<std::string>("voltage_excit_source"))),
@@ -67,6 +69,22 @@ typedef struct ExcitationConfig {
           useExcitForScaling(parser.optional<bool32>("use_excit_for_scaling", 0)) {
     }
 } ExcitationConfig;
+
+typedef struct BridgeConfig {
+    int32_t niBridgeConfig;
+    int32_t voltageExcitSource;
+    double voltageExcitVal;
+    double nominalBridgeResistance;
+
+    BridgeConfig() = default;
+
+    BridgeConfig(config::Parser &parser)
+        : niBridgeConfig(get_bridge_config(parser.required<std::string>("bridge_config"))),
+          voltageExcitSource(getExcitationSrc(parser.required<std::string>("voltage_excit_source"))),
+          voltageExcitVal(parser.required<double>("voltage_excit_val")),
+          nominalBridgeResistance(parser.required<double>("nominal_bridge_resistance")) {
+    }
+} BridgeConfig;
 
 typedef struct PolynomialConfig {
     float64 *forwardCoeffs;
@@ -172,22 +190,6 @@ typedef struct TwoPointLinConfig {
     }
 } TwoPointLinConfig;
 
-typedef struct BridgeConfig {
-    int32_t niBridgeConfig;
-    int32_t voltageExcitSource;
-    double voltageExcitVal;
-    double nominalBridgeResistance;
-
-    BridgeConfig() = default;
-
-    BridgeConfig(config::Parser &parser)
-        : niBridgeConfig(get_bridge_config(parser.required<std::string>("bridge_config"))),
-          voltageExcitSource(parser.required<int32_t>("voltage_excit_source")),
-          voltageExcitVal(parser.required<double>("voltage_excit_val")),
-          nominalBridgeResistance(
-              parser.required<double>("nominal_bridge_resistance")) {
-    }
-} BridgeConfig;
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                     ANALOG                                    //
@@ -773,7 +775,7 @@ class Resistance : public Analog{
         }
     }
 };
-/*
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Bridge                                   //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -782,7 +784,11 @@ class Bridge : public Analog {
         BridgeConfig bridgeConfig;
 
         explicit Bridge(config::Parser &parser, TaskHandle task_handle, std::string name)
-            : Analog(parser, task_handle, name){}
+            : Analog(parser, task_handle, name),
+              bridgeConfig(parser) {
+                std::string u = parser.optional<std::string>("units", "Volts");
+                this->units = ni::UNITS_MAP.at(u);
+            }
 
         int32 createNIChannel() override{
             if(this->scale_config.type == "none"){
@@ -803,6 +809,7 @@ class Bridge : public Analog {
         }
 };
 
+/*
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Charge                                   //
 ///////////////////////////////////////////////////////////////////////////////////

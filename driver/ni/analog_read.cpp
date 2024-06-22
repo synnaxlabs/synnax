@@ -55,9 +55,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_accel_charge") {
         return std::make_shared<AccelerationCharge>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_bridge") {
-    //     return std::make_shared<Bridge>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_bridge") {
+        return std::make_shared<Bridge>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_charge") {
     //     return std::make_shared<Charge>(parser, this->task_handle, channel_name);
     // }
