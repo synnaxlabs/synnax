@@ -145,9 +145,14 @@ typedef struct TableConfig {
 
     TableConfig(config::Parser &parser)
         : numElectricalVals(parser.required<uint32_t>("num_electrical_vals")),
-          numPhysicalVals(parser.required<uint32_t>("num_physical_vals")),
-          electricalUnits(parser.required<int32_t>("electrical_units")),
-          physicalUnits(parser.required<int32_t>("physical_units")) {
+          numPhysicalVals(parser.required<uint32_t>("num_physical_vals")){
+        
+        auto eu = parser.required<std::string>("electrical_units");
+        auto pu = parser.required<std::string>("physical_units");
+
+        electricalUnits = ni::UNITS_MAP.at(eu);
+        physicalUnits = ni::UNITS_MAP.at(pu);
+
         if (!parser.ok()) return; // TODO: handle error
 
         json j = parser.get_json();
@@ -1080,6 +1085,44 @@ class PressureBridgeTwoPointLin : public Analog{
         }
 };
 
+class PressureBridgeTable : public Analog{
+    public:
+        BridgeConfig bridgeConfig;
+        TableConfig tableConfig;
+
+        explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name),
+                  bridgeConfig(parser),
+                  tableConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                  }
+
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->min_val,
+                        this->max_val,
+                        this->units,
+                        this->bridgeConfig.niBridgeConfig,
+                        this->bridgeConfig.voltageExcitSource,
+                        this->bridgeConfig.voltageExcitVal,
+                        this->bridgeConfig.nominalBridgeResistance,
+                        this->tableConfig.electricalVals,
+                        this->tableConfig.numElectricalVals,
+                        this->tableConfig.electricalUnits,
+                        this->tableConfig.physicalVals,
+                        this->tableConfig.numPhysicalVals,
+                        this->tableConfig.physicalUnits,
+                        NULL
+                );
+            }
+        }
+};
+
 /*
 class PressureBridgePolynomial : public Analog{
     public:
@@ -1115,40 +1158,7 @@ class PressureBridgePolynomial : public Analog{
             }
         }
 }
-class PressureBridgeTable : public Analog{
-    public:
-        BridgeConfig bridgeConfig;
-        TableConfig tableConfig;
 
-        explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  tableConfig(parser) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->tableConfig.electricalVals,
-                        this->tableConfig.numElectricalVals,
-                        this->tableConfig.electricalUnits,
-                        this->tableConfig.physicalVals,
-                        this->tableConfig.numPhysicalVals,
-                        this->tableConfig.physicalUnits,
-                        NULL
-                );
-            }
-        }
-}
 
 
 ///////////////////////////////////////////////////////////////////////////////////
