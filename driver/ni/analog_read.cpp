@@ -118,15 +118,15 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_thrmstr_vex") {
          return std::make_shared<ThermistorVex>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_torque_bridge_polynomial") {
-    //     return std::make_shared<TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
-    // }
-    // if (channel_type == "ai_torque_bridge_table") {
-    //     return std::make_shared<TorqueBridgeTable>(parser, this->task_handle, channel_name);
-    // }
-    // if (channel_type == "ai_torque_bridge_two_point_lin") {
-    //     return std::make_shared<TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_torque_bridge_polynomial") {
+        return std::make_shared<TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
+    }
+    if (channel_type == "ai_torque_bridge_table") {
+        return std::make_shared<TorqueBridgeTable>(parser, this->task_handle, channel_name);
+    }
+    if (channel_type == "ai_torque_bridge_two_point_lin") {
+        return std::make_shared<TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+    }
     if (channel_type == "ai_velocity_iepe") {
         return std::make_shared<VelocityIEPE>(parser, this->task_handle, channel_name);
     }
