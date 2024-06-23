@@ -297,12 +297,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     );
   }, [windowKey, dispatch, schematic.editable]);
 
-  const [legendPosition, setLegendPosition] = useState<Legend.RichPosition>(
+  const [legendPosition, setLegendPosition] = useState<Legend.StickyXY>(
     schematic.legend.position,
   );
 
   const storeLegendPosition = useCallback(
-    (position: Legend.RichPosition) => {
+    (position: Legend.StickyXY) => {
       dispatch(
         setLegend({
           key: layoutKey,
@@ -314,7 +314,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   );
 
   const handleLegendPositionChange = useCallback(
-    (position: Legend.RichPosition) => {
+    (position: Legend.StickyXY) => {
       setLegendPosition(position);
       storeLegendPosition(position);
     },

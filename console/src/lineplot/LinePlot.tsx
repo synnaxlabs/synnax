@@ -20,6 +20,7 @@ import {
   usePrevious,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { Legend } from "@synnaxlabs/pluto";
 import {
   box,
   getEntries,
@@ -254,15 +255,14 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [legendPosition, setLegendPosition] = useState(vis.legend.position);
 
   const storeLegendPosition = useDebouncedCallback(
-    (position) => {
-      syncDispatch(setLegend({ key: layoutKey, legend: { position } }));
-    },
+    (position: Legend.StickyXY) =>
+      syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
     100,
     [syncDispatch, layoutKey],
   );
 
   const handleLegendPositionChange = useCallback(
-    (position) => {
+    (position: Legend.StickyXY) => {
       setLegendPosition(position);
       storeLegendPosition(position);
     },

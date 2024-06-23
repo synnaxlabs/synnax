@@ -51,7 +51,7 @@ interface CopyBuffer {
 
 export interface LegendState {
   visible: boolean;
-  position: Legend.RichPosition;
+  position: Legend.StickyXY;
 }
 
 const ZERO_LEGEND_STATE: LegendState = {
@@ -232,7 +232,7 @@ const migrateState = migrate.migrator<State, State>(STATE_MIGRATIONS);
 
 const SLICE_MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = (v) => {
+export const migrateSlice = (v: SliceState) => {
   const mig = migrate.migrator<SliceState, SliceState>(SLICE_MIGRATIONS)(v);
   mig.schematics = Object.fromEntries(
     Object.entries(mig.schematics).map(([key, value]) => [key, migrateState(value)]),
@@ -315,7 +315,7 @@ export const { actions, reducer } = createSlice({
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      const schematic = { ...ZERO_STATE, ...migrateSlice(payload) };
+      const schematic = { ...ZERO_STATE, ...migrateState(payload) };
       if (schematic.snapshot) {
         schematic.editable = false;
         clearSelections(schematic);

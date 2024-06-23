@@ -50,10 +50,10 @@ const ZERO_TITLE_STATE: TitleState = {
 
 export interface LegendState {
   visible: boolean;
-  position: Legend.RichPosition;
+  position: Legend.StickyXY;
 }
 
-const ZERO_LEGEND_STATE = {
+const ZERO_LEGEND_STATE: LegendState = {
   visible: true,
   position: { x: 50, y: 50, units: { x: "px", y: "px" } },
 };
