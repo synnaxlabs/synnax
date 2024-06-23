@@ -1165,73 +1165,47 @@ public:
     }
 };
 
-/*
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Charge                                   //
-///////////////////////////////////////////////////////////////////////////////////
-class Charge : public Analog {
-    explicit Charge(config::Parser &parser, TaskHandle task_handle, std::string name)
-            : Analog(parser, task_handle, name) {}
-
-    int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
-            return ni::NiDAQmxInterface::CreateAIChargeChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->terminal_config,
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->excitationConfig.voltageExcitSource,
-                    this->excitationConfig.voltageExcitVal,
-                    NULL
-            );
-        }
-    }
-
-}
-
-
-
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Force                                    //
 ///////////////////////////////////////////////////////////////////////////////////
 class ForceBridgePolynomial : public Analog{
-    public:
-        BridgeConfig bridgeConfig;
-        PolynomialConfig polynomialConfig;
+public:
+    BridgeConfig bridgeConfig;
+    PolynomialConfig polynomialConfig;
 
-        explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  polynomialConfig(parser) {}
+    explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Analog(parser, task_handle, name),
+                bridgeConfig(parser),
+                polynomialConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                }
 
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->polynomialConfig.forwardCoeffs,
-                        this->polynomialConfig.numForwardCoeffs,
-                        this->polynomialConfig.reverseCoeffs,
-                        this->polynomialConfig.numReverseCoeffs,
-                        this->polynomialConfig.electricalUnits,
-                        this->polynomialConfig.physicalUnits,
-                        NULL
-                );
-            }
+    int32 createNIChannel() override {
+        if(this->scale_config.type == "none"){
+            return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridgeConfig.niBridgeConfig,
+                    this->bridgeConfig.voltageExcitSource,
+                    this->bridgeConfig.voltageExcitVal,
+                    this->bridgeConfig.nominalBridgeResistance,
+                    this->polynomialConfig.forwardCoeffs,
+                    this->polynomialConfig.numForwardCoeffs,
+                    this->polynomialConfig.reverseCoeffs,
+                    this->polynomialConfig.numReverseCoeffs,
+                    this->polynomialConfig.electricalUnits,
+                    this->polynomialConfig.physicalUnits,
+                    NULL
+            );
         }
+    }
+};
 
-}
 class ForceBridgeTable : public Analog{
     public:
         BridgeConfig bridgeConfig;
@@ -1240,7 +1214,10 @@ class ForceBridgeTable : public Analog{
         explicit ForceBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
                   bridgeConfig(parser),
-                  tableConfig(parser) {}
+                  tableConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                  }
 
         int32 createNIChannel() override {
             if(this->scale_config.type == "none"){
@@ -1265,7 +1242,7 @@ class ForceBridgeTable : public Analog{
                 );
             }
         }
-}
+};
 
 class ForceBridgeTwoPointLin : public Analog{
     public:
@@ -1275,7 +1252,10 @@ class ForceBridgeTwoPointLin : public Analog{
         explicit ForceBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
                   bridgeConfig(parser),
-                  twoPointLinConfig(parser) {}
+                  twoPointLinConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                  }
 
         int32 createNIChannel() override {
             if(this->scale_config.type == "none"){
@@ -1300,7 +1280,10 @@ class ForceBridgeTwoPointLin : public Analog{
                 );
             }
         }
-}
+};
+
+
+/*
 class ForceIEPE : public Analog{
     public:
         int32_t sensitivityUnits;
@@ -1330,7 +1313,38 @@ class ForceIEPE : public Analog{
                 );
             }
         }
-}
+};
+
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Charge                                   //
+///////////////////////////////////////////////////////////////////////////////////
+class Charge : public Analog {
+    explicit Charge(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Analog(parser, task_handle, name) {}
+
+    int32 createNIChannel() override {
+        if(this->scale_config.type == "none"){
+            return ni::NiDAQmxInterface::CreateAIChargeChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->excitationConfig.voltageExcitSource,
+                    this->excitationConfig.voltageExcitVal,
+                    NULL
+            );
+        }
+    }
+
+};
+
+
+
+
 
 
 
@@ -1375,14 +1389,14 @@ class TorqueBridgePolynomial : public Analog{
                 );
             }
         }
-}
+};
 
 
 class TorqueBridgeTable : public Analog{
     public:
         BridgeConfig bridgeConfig;
         TableConfig tableConfig;
-}
+};
 class TorqueBridgeTwoPointLin : public Analog{
     public:
         BridgeConfig bridgeConfig;
@@ -1415,7 +1429,7 @@ class TorqueBridgeTwoPointLin : public Analog{
                 );
             }
         }
-}
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Velocity                                 //
@@ -1449,7 +1463,7 @@ class VelocityIEPE : public Analog{
                 );
             }
         }
-}
+};
 
 */
 } // namespace ni

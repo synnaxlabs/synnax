@@ -791,6 +791,127 @@ TEST(read_tests, one_analog_voltage_channel){
 }
 
 ///////////////////////////////////////////////////////////////////
+//                          Force                                //
+///////////////////////////////////////////////////////////////////
+///@brief Force Bridge Polynomial
+TEST(read_tests, one_force_polynomial_bridge_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_force_bridge_polynomial"},
+        {"port", 0},
+        {"max_val", 1},
+        {"min_val", 0},
+        {"units", "Newtons"},
+        {"enabled", true},
+        {"key", "key"},
+        {"bridge_config", "HalfBridge"},
+        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_val", 2.5}, // same as below
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"electrical_units", "VoltsPerVolt"},
+        {"physical_units", "Newtons"},
+        {"forward_coeffs", {1, 3, 2}},
+        {"num_forward_coeffs", 3},
+        {"num_reverse_coeffs", 3}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    analog_channel_helper(config, scale_config, channel_config);
+}
+
+///@brief Force Bridge Table
+TEST(read_tests, one_force_table_bridge_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_force_bridge_table"},
+        {"port", 0},
+        {"max_val", 1},
+        {"min_val", 0},
+        {"units", "Newtons"},
+        {"enabled", true},
+        {"key", "key"},
+        {"bridge_config", "HalfBridge"},
+        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_val", 2.5}, // same as below
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"electrical_units", "VoltsPerVolt"},
+        {"physical_units", "Newtons"},
+        {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
+        {"physical_vals", {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}},
+        {"num_physical_vals", 11},
+        {"num_electrical_vals", 11}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    analog_channel_helper(config, scale_config, channel_config);
+}
+
+
+///@brief Force Bridge Linear
+TEST(read_tests, one_force_linear_bridge_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_force_bridge_two_point_lin"},
+        {"port", 0},
+        {"max_val", 1},
+        {"min_val", 0},
+        {"units", "Newtons"},
+        {"enabled", true},
+        {"key", "key"},
+        {"bridge_config", "HalfBridge"},
+        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_val", 2.5}, // same as below
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"first_electrical_val", 0.0},
+        {"second_electrical_val", 1.0},
+        {"electrical_units", "VoltsPerVolt"},
+        {"first_physical_val", 0.0},
+        {"second_physical_val", 10.0},
+        {"physical_units", "Newtons"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    analog_channel_helper(config, scale_config, channel_config);
+}
+
+
+///////////////////////////////////////////////////////////////////
 //                          Pressure                             //
 ///////////////////////////////////////////////////////////////////
 
@@ -1217,13 +1338,6 @@ TEST(read_tests, one_acceleration_channel){
     analog_channel_helper(config, scale_config, channel_config);
 }
 
-
-
-///@brief Force Bridge Polynomial
-
-///@brief Force Bridge Table
-
-///@brief Force Bridge Linear
 
 
 

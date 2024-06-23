@@ -67,15 +67,15 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_current_rms") {
         return std::make_shared<CurrentRMS>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_force_bridge_polynomial") {
-    //     return std::make_shared<ForceBridgePolynomial>(parser, this->task_handle, channel_name);
-    // }
-    // if (channel_type == "ai_force_bridge_table") {
-    //     return std::make_shared<ForceBridgeTable>(parser, this->task_handle, channel_name);
-    // }
-    // if (channel_type == "ai_force_bridge_two_point_lin") {
-    //     return std::make_shared<ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_force_bridge_polynomial") {
+        return std::make_shared<ForceBridgePolynomial>(parser, this->task_handle, channel_name);
+    }
+    if (channel_type == "ai_force_bridge_table") {
+        return std::make_shared<ForceBridgeTable>(parser, this->task_handle, channel_name);
+    }
+    if (channel_type == "ai_force_bridge_two_point_lin") {
+        return std::make_shared<ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_force_iepe") {
     //     return std::make_shared<ForceIEPE>(parser, this->task_handle, channel_name);
     // }
