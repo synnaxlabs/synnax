@@ -24,10 +24,10 @@ guide for more information.
 
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
 can be used for both control and data acquisition purposes. In the context of the NI
-Driver, a read task defines a background process that reads data from the analog inputs 
-on a particular DAQ card.
+Driver, an analog read task defines a background process that reads data from the 
+analog inputs on a particular DAQ card.
 
-An Analog Read Task can be started, stopped, and re-configured at any time. We 
+An analog read task can be started, stopped, and re-configured at any time. We 
 permanently store the configuration of the task in Synnax, so it's easy to set up 
 multiple tasks for different purposes.
 
@@ -35,17 +35,17 @@ multiple tasks for different purposes.
 
 ## Important Rules for Analog Read Tasks
 
-There are a few important rules to keep in mind when creating an Analog Read Task.
+There are a few important rules to keep in mind when creating an analog read task.
 
-### Sample  Rates 
+### Sample Rates 
 
-All channels in an analog read task are sampled at the same rate. If you'd like to sample
+All channels in the task are sampled at the same rate. If you'd like to sample
 different channels at different rates, create a separate task to do so.
 
 ### One Running Task Per Channel
 
 Synnax can only accept live data from a channel from one source at a time. If you have 
-a task running that reads from a `pressure` channel, you cannot create another task that
+a task running that reads from a `pressure` channel, you cannot start another task that
 reads from the same channel.
 
 ### One Running Task per Index Channel
@@ -66,9 +66,9 @@ start the task, as the `time` channel is already in use.
 
 ## Open the Task Configuration Dialog
 
-To configure a read task, open the Synnax Console and click on the Quick Search & Command
-Palette at the top. You can also open this palette with `Ctrl+Shift+P` on Windows/Linux
-and `Cmd+Shift+P` on macOS.
+To configure an analog read task, open the Synnax Console and click on the 
+Quick Search & Command Palette at the top. You can also open this palette with 
+`Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type
 "NI". You'll see an option called "Create a New Analog Read Task". Select this
@@ -85,7 +85,7 @@ INSERT VIDEO HERE
 The first step is to select the NI device you'd like to read data from. Use the dropdown
 menu in the top left corner to do so.
 
-### <StepText level="h3" step={2}>Add Channel to the Task</StepText>
+### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
 Next, you'll need to add channels to read data from. Click on the "+" button in the
 channels section. Then, click on the new channel in the list to configure it.
@@ -113,7 +113,7 @@ stream data for real-time visualization. Historical data will not be available f
 ### <StepText level="h3" step={6}>Configure and Start the Task</StepText>
 
 Once you'd added all of the channels you need and have configured sampling rates, hit
-the "Configure Button". If there are no errors, Synnax will acknowledge the configured 
+the "Configure" button. If there are no errors, Synnax will acknowledge the configured 
 task and enable the "Play" button in the dialog. Click this button to start the task.
 
 <Divider.Divider direction="x" />
