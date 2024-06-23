@@ -795,6 +795,43 @@ TEST(read_tests, one_analog_voltage_channel){
 ///////////////////////////////////////////////////////////////////
 
 ///@brief pressure bridge polynomial
+TEST(read_tests, one_pressure_polynomial_bridge_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_pressure_bridge_polynomial"},
+        {"port", 0},
+        {"max_val", 1},
+        {"min_val", 0},
+        {"units", "Pascals"},
+        {"enabled", true},
+        {"key", "key"},
+        {"bridge_config", "HalfBridge"},
+        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_val", 2.5}, // same as below
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"electrical_units", "VoltsPerVolt"},
+        {"physical_units", "Pascals"},
+        {"forward_coeffs", {1, 3, 2}},
+        {"num_forward_coeffs", 3},
+        {"num_reverse_coeffs", 3}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
+}
 
 ///@brief pressure bridge table
 TEST(read_tests, one_pressure_table_bridge_channel){

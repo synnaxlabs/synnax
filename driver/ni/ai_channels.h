@@ -98,9 +98,13 @@ typedef struct PolynomialConfig {
 
     PolynomialConfig(config::Parser &parser)
         : numForwardCoeffs(parser.required<uint32_t>("num_forward_coeffs")),
-          numReverseCoeffs(parser.required<uint32_t>("num_reverse_coeffs")),
-          electricalUnits(parser.required<int32_t>("electrical_units")),
-          physicalUnits(parser.required<int32_t>("physical_units")) {
+          numReverseCoeffs(parser.required<uint32_t>("num_reverse_coeffs")){
+            
+            auto eu = parser.required<std::string>("electrical_units");
+            auto pu = parser.required<std::string>("physical_units");
+            electricalUnits = ni::UNITS_MAP.at(eu);
+            physicalUnits = ni::UNITS_MAP.at(pu);
+
         if (!parser.ok()) return; // TODO: handle error
 
         json j = parser.get_json();
@@ -119,8 +123,8 @@ typedef struct PolynomialConfig {
         ni::NiDAQmxInterface::CalculateReversePolyCoeff(
             forwardCoeffs,
             numForwardCoeffs,
-            -100, //FIXME dont hard code
-            100, //FIXME dont hard code
+            -1000, //FIXME dont hard code
+            1000, //FIXME dont hard code
             numReverseCoeffs,
             -1,
             reverseCoeffs
@@ -1123,44 +1127,45 @@ class PressureBridgeTable : public Analog{
         }
 };
 
-/*
 class PressureBridgePolynomial : public Analog{
-    public:
-        BridgeConfig bridgeConfig;
-        PolynomialConfig polynomialConfig;
+public:
+    BridgeConfig bridgeConfig;
+    PolynomialConfig polynomialConfig;
 
-        explicit PressureBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  polynomialConfig(parser) {}
+    explicit PressureBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Analog(parser, task_handle, name),
+                bridgeConfig(parser),
+                polynomialConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                }
 
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->polynomialConfig.forwardCoeffs,
-                        this->polynomialConfig.numForwardCoeffs,
-                        this->polynomialConfig.reverseCoeffs,
-                        this->polynomialConfig.numReverseCoeffs,
-                        this->polynomialConfig.electricalUnits,
-                        this->polynomialConfig.physicalUnits,
-                        NULL
-                );
-            }
+    int32 createNIChannel() override {
+        if(this->scale_config.type == "none"){
+            return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridgeConfig.niBridgeConfig,
+                    this->bridgeConfig.voltageExcitSource,
+                    this->bridgeConfig.voltageExcitVal,
+                    this->bridgeConfig.nominalBridgeResistance,
+                    this->polynomialConfig.forwardCoeffs,
+                    this->polynomialConfig.numForwardCoeffs,
+                    this->polynomialConfig.reverseCoeffs,
+                    this->polynomialConfig.numReverseCoeffs,
+                    this->polynomialConfig.electricalUnits,
+                    this->polynomialConfig.physicalUnits,
+                    NULL
+            );
         }
-}
+    }
+};
 
-
-
+/*
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Charge                                   //
 ///////////////////////////////////////////////////////////////////////////////////

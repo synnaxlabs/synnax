@@ -85,9 +85,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_microphone") {
         return std::make_shared<Microphone>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_pressure_bridge_polynomial") {
-    //     return std::make_shared<PressureBridgePolynomial>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_pressure_bridge_polynomial") {
+        return std::make_shared<PressureBridgePolynomial>(parser, this->task_handle, channel_name);
+    }
     if (channel_type == "ai_pressure_bridge_table") {
         return std::make_shared<PressureBridgeTable>(parser, this->task_handle, channel_name);
     }
