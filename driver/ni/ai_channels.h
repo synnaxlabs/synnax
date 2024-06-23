@@ -1450,13 +1450,15 @@ public:
     int32 terminal_config = 0;
 
     explicit ForceIEPE(config::Parser &parser, TaskHandle task_handle, std::string name)
-            : Analog(parser, task_handle, name),
-                sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
+            :   Analog(parser, task_handle, name),
                 sensitivity(parser.required<double>("sensitivity")),
                 excitationConfig(parser),
                 terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
+
+                    auto su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
+                    this->sensitivityUnits = ni::UNITS_MAP.at(su);
 
                 }
 

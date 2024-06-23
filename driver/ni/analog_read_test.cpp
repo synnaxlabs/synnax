@@ -1094,7 +1094,7 @@ TEST(read_tests, one_force_iepe_channel){
         {"voltage_excit_source","Internal"},
         {"voltage_excit_val", 0.0},
         {"sensitivity", 50},
-        {"sensitivity_units", "MillivoltsPerMillimeterPerSecond"}
+        {"sensitivity_units", "mVoltsPerNewton"}
     };
 
     auto scale_config = json{

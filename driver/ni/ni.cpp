@@ -35,6 +35,8 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
     {"InchesPerSecond",                     DAQmx_Val_InchesPerSecond}, // TODO: make sure option is in console
     {"MillivoltsPerMillimeterPerSecond",    DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MilliVoltsPerInchPerSecond",          DAQmx_Val_MilliVoltsPerInchPerSecond},
+    {"mVoltsPerNewton",                     DAQmx_Val_mVoltsPerNewton},
+    {"mVoltsPerPound",                      DAQmx_Val_mVoltsPerPound},
     {"Newtons",                             DAQmx_Val_Newtons},
     {"Pounds",                              DAQmx_Val_Pounds},
     {"KilogramForce",                       DAQmx_Val_KilogramForce},
