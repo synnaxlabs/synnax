@@ -1000,6 +1000,42 @@ class Microphone : public Analog{
         }
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Frequency                                //
+///////////////////////////////////////////////////////////////////////////////////
+class FrequencyVoltage : public Analog{
+public:
+    double thresholdLevel;
+    double hysteresis;
+
+    explicit FrequencyVoltage(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Analog(parser, task_handle, name),
+                thresholdLevel(parser.required<double>("threshold_level")),
+                hysteresis(parser.required<double>("hysteresis")) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+
+                    // get the device name by reading up to delimitn / 
+                    size_t pos = name.find("/");
+                    this->name = name.substr(0, pos) + "/ctr" + std::to_string(parser.required<std::uint64_t>("port"));
+                }
+    int32 createNIChannel() override {
+        if(this->scale_config.type == "none"){
+            return ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->thresholdLevel,
+                    this->hysteresis,
+                    NULL
+            );
+        }
+    }
+};
+
 /*
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Charge                                   //
@@ -1167,35 +1203,7 @@ class ForceIEPE : public Analog{
         }
 }
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Frequency                                //
-///////////////////////////////////////////////////////////////////////////////////
-class FrequencyVoltage : public Analog{
-    public:
-        double thresholdLevel;
-        double hysteresis;
 
-        explicit FrequencyVoltage(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  thresholdLevel(parser.required<double>("threshold_level")),
-                  hysteresis(parser.required<double>("hysteresis")) {}
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->thresholdLevel,
-                        this->hysteresis,
-                        NULL
-                );
-            }
-        }
-}
 
 
 ///////////////////////////////////////////////////////////////////////////////////

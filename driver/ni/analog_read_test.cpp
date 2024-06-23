@@ -1266,7 +1266,7 @@ TEST(read_tests, one_current_RMS_channel){
 
 ///@brief force IEPE
 
-///@brief frequency
+
 
 ///@brief Microphone
 TEST(read_tests, one_microphone_channel){
@@ -1675,6 +1675,40 @@ TEST(read_tests, one_rosette_strain_gage){
         {"rosette_meas_type", "PrincipalStrain1"},
         {"gage_orientation", 0.0}
     };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
+}
+
+
+///@brief frequency
+TEST(read_tests, one_frequency_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_freq_voltage"},
+        {"port", 0},
+        {"units", "Hz"},
+        {"enabled", true},
+        {"key", "key"},
+        {"min_val", 1.0},
+        {"max_val", 10000.0},
+        {"threshold_level", 0.0},
+        {"hysteresis", 0.2}
+    };
+
 
     auto scale_config = json{
         {"type","none"}

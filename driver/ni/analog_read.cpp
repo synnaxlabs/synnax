@@ -79,9 +79,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     // if (channel_type == "ai_force_iepe") {
     //     return std::make_shared<ForceIEPE>(parser, this->task_handle, channel_name);
     // }
-    // if (channel_type == "ai_freq_voltage") {
-    //     return std::make_shared<FreqVoltage>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_freq_voltage") {
+        return std::make_shared<FrequencyVoltage>(parser, this->task_handle, channel_name);
+    }
     if (channel_type == "ai_microphone") {
         return std::make_shared<Microphone>(parser, this->task_handle, channel_name);
     }
