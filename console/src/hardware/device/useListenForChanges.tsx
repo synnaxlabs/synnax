@@ -47,7 +47,7 @@ export const useListenForChanges = (): void => {
   }, [client, addStatus]);
 };
 
-const MAKE_ICONS = {
+const MAKE_ICONS: Record<string, ReactElement> = {
   NI: <Icon.Logo.NI />,
   opcua: <Icon.Logo.OPC />,
 };
@@ -60,8 +60,7 @@ export const notificationAdapter: NotificationAdapter = (status) => {
     ...status,
     actions: [<ConfigureButton deviceKey={deviceKey} key="configure" />],
   };
-  console.log(status?.data.make);
-  const icon = MAKE_ICONS[status?.data?.make] ?? <Icon.Device />;
+  const icon = MAKE_ICONS[status?.data?.make as string] ?? <Icon.Device />;
   sugared.content = (
     <Text.WithIcon level="p" startIcon={icon}>
       {status.message}

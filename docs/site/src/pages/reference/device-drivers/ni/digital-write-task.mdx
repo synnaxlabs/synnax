@@ -1,0 +1,46 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "NI | Digital Write Task"
+heading: "NI Digital Write Task"
+description: "Learn how to create a digital write task for NI hardware."
+---
+import { Divider } from "@synnaxlabs/pluto";
+import { StepText } from "@/components/StepText";
+
+The Digital Write Task is used for sending commands to the digital outputs of your NI 
+cards. In this guide, we'll walk you through the steps to create a Digital Write Task in Synnax.
+
+<Divider.Divider direction="x" />
+
+## Prerequisites
+
+Before configuring the task, you'll need to have connected and configured an NI device
+and created the relevant channels in Synnax. Check out the [Configure Device](/reference/device-drivers/ni/configure-device)
+guide for more information.
+
+<Divider.Divider direction="x" />
+
+## A Short Primer on Tasks
+
+Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
+can be used for both control and data acquisition purposes. In the context of the NI
+Driver, a read task defines a background process that reads data from the analog inputs 
+on a particular DAQ card.
+
+An Analog Read Task can be started, stopped, and re-configured at any time. We 
+permanently store the configuration of the task in Synnax, so it's easy to set up 
+multiple tasks for different purposes.
+
+<Divider.Divider direction="x" />
+
+## How Commands Work in Synnax
+
+Commands in Synnax require two types of channels: a command channel and state channel.
+Command channels are where you send commands to your hardware. To set a digital output 
+to high, you would send a `1` to the command channel. To set it to low, you would send a `0`.
+
+State channels represent the current state of the digital output. When you send a command,
+the corresponding digital write task will process the command and update the value in
+the state channel.
+
+<Divider.Divider direction="x" />
