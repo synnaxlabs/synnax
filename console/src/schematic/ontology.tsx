@@ -10,6 +10,7 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
@@ -20,29 +21,43 @@ import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { create, type State } from "@/schematic/slice";
 
-const TreeContextMenu: Ontology.TreeContextMenu = ({
-  client,
-  removeLayout,
-  store,
-  services,
-  selection: { resources, parent },
-  state,
-}) => {
-  const ids = resources.map((res) => new ontology.ID(res.key));
-  const keys = ids.map((id) => id.key);
-  const activeRange = Range.select(store.getState());
-
-  const onSelect = useAsyncActionMenu("schematic.menu", {
-    delete: async () => {
-      await client.workspaces.schematic.delete(keys);
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
+      const ids = selection.resources.map((res) => new ontology.ID(res.key));
+      const keys = ids.map((id) => id.key);
       removeLayout(...keys);
+      const prevNodes = Tree.deepCopy(nodes);
       const next = Tree.removeNode({
-        tree: state.nodes,
+        tree: nodes,
         keys: ids.map((id) => id.toString()),
       });
-      state.setNodes([...next]);
+      setNodes([...next]);
+      return prevNodes;
     },
-    copy: async () => {
+    mutationFn: async ({ client, selection }) => {
+      const ids = selection.resources.map((res) => new ontology.ID(res.key));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await client.workspaces.schematic.delete(ids.map((id) => id.key));
+    },
+    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      addStatus({
+        variant: "error",
+        message: "Failed to delete schematic",
+        description: err.message,
+      });
+    },
+  }).mutate;
+
+const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    mutationFn: async ({
+      client,
+      selection: { resources, parent },
+      state,
+      services,
+    }) => {
       if (parent == null) return;
       const schematics = await Promise.all(
         resources.map(
@@ -67,7 +82,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
     },
-    rangeSnapshot: async () => {
+  }).mutate;
+
+const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    mutationFn: async ({ client, selection: { resources, parent }, store }) => {
+      const activeRange = Range.selectActiveKey(store.getState());
       if (activeRange == null || parent == null) return;
       const schematics = await Promise.all(
         resources.map(
@@ -82,17 +102,33 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       const otgsIDs = schematics.map(
         ({ key }) => new ontology.ID({ type: "schematic", key }),
       );
-      const rangeID = new ontology.ID({ type: "range", key: activeRange.key });
+      const rangeID = new ontology.ID({ type: "range", key: activeRange });
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
         rangeID,
         ...otgsIDs,
       );
     },
+  }).mutate;
+
+const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
+  const {
+    store,
+    selection: { resources },
+  } = props;
+  const activeRange = Range.select(store.getState());
+  const activeKey = Cluster.useSelectActiveKey();
+  const del = useDelete();
+  const copy = useCopy();
+  const snapshot = useRangeSnapshot();
+  const onSelect = useAsyncActionMenu("schematic.menu", {
+    delete: () => del(props),
+    copy: () => copy(props),
+    rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    link: async () => {
-      const url = `synnax://cluster/${Cluster.useSelectActiveKey()}/schematic/${resources[0].id.key}`;
-      await navigator.clipboard.writeText(url);
+    link: () => {
+      const url = `synnax://cluster/${activeKey}/schematic/${resources[0].id.key}`;
+      void navigator.clipboard.writeText(url);
     },
   });
   const isSingle = resources.length === 1;

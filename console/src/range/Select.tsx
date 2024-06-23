@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align,Button, Select, Status } from "@synnaxlabs/pluto";
+import { Align, Button, Select, Status } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { listColumns } from "@/range/accordionEntry";
 import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
+import { listColumns } from "@/range/Toolbar";
 
 export interface SelectMultipleRangesProps
   extends Select.MultipleProps<string, Range> {}

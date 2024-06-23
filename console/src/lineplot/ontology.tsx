@@ -51,12 +51,13 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { resources } = props.selection;
   const del = useDelete();
+  const activeKey = Cluster.useSelectActiveKey();
   const onSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    link: async () => {
-      const toCopy = `synnax://cluster/${Cluster.useSelectActiveKey()}/lineplot/${resources[0].id.key}`;
-      await navigator.clipboard.writeText(toCopy);
+    link: () => {
+      const toCopy = `synnax://cluster/${activeKey}/lineplot/${resources[0].id.key}`;
+      navigator.clipboard.writeText(toCopy);
     },
   };
   const isSingle = resources.length === 1;
