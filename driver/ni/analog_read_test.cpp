@@ -1269,6 +1269,38 @@ TEST(read_tests, one_current_RMS_channel){
 ///@brief frequency
 
 ///@brief Microphone
+TEST(read_tests, one_microphone_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev9"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_microphone"},
+        {"port", 0},
+        {"units", "Pascals"},
+        {"enabled", true},
+        {"key", "key"},
+        {"voltage_excit_source","Internal"},
+        {"voltage_excit_val", 0.0},
+        {"terminal_config", "PseudoDiff"},
+        {"mic_sensitivity", 50},
+        {"max_snd_press_level",120}
+    };
+
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
+}
 
 ///@brief pressure
 
@@ -1309,9 +1341,9 @@ TEST(read_tests, one_resistance_channel){
     analog_channel_helper(config, scale_config, channel_config);
 }
 
-///@brief rosette strain gauge
 
-///@brief strain gauge
+
+///@brief strain gage
 TEST(read_tests, one_strain_gage){
     // Create NI readerconfig json
     auto config = json{
@@ -1353,7 +1385,6 @@ TEST(read_tests, one_strain_gage){
 
 
 ///@brief Bridge Channel
-
 TEST(read_tests, one_bridge_channel){
     // Create NI readerconfig json
     auto config = json{
@@ -1609,4 +1640,47 @@ TEST(read_tests, one_acceleration_charge_channel){
     };
     // analog_channel_helper(config, scale_config, channel_config);
 }
+
+///@brief rosette strain gage
+//TODO: needs 3 channels to work
+TEST(read_tests, one_rosette_strain_gage){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_rosette_strain_gage"},
+        {"port", 0},
+        {"max_val", 0.005},
+        {"min_val", -0.005},
+        {"units", "Strain"},
+        {"enabled", true},
+        {"key", "key"},
+        {"voltage_excit_source", "Internal"},
+        {"strain_config", "FullBridgeI"},
+        {"voltage_excit_val", 2.5},
+        {"initial_bridge_voltage", 0.0},
+        {"nominal_gage_resistance", 120},
+        {"poisson_ratio", 0.3},
+        {"gage_factor", 2.0},
+        {"lead_wire_resistance", 0.0},
+        {"rosette_type", "RectangularRosette"},
+        {"rosette_meas_type", "PrincipalStrain1"},
+        {"gage_orientation", 0.0}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
+}
+
 */

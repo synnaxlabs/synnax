@@ -225,8 +225,8 @@ public:
 
     explicit Analog(config::Parser &parser, TaskHandle task_handle, std::string name)
         : task_handle(task_handle),
-          min_val(parser.required<float_t>("min_val")),
-          max_val(parser.required<float_t>("max_val")),
+          min_val(parser.optional<float_t>("min_val",0)),
+          max_val(parser.optional<float_t>("max_val",0)),
           units(DAQmx_Val_Volts),
           sy_key(parser.required<uint32_t>("channel")),
           name(name),
@@ -835,7 +835,7 @@ public:
     double poissonRatio;
     double leadWireResistance;
 
-    static int32_t get_strain_config(std::string s){
+    static inline int32_t get_strain_config(std::string s){
         if(s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
         if(s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
         if(s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
@@ -880,6 +880,124 @@ public:
             );
         }
     }
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Rosette Strain Gage                      //
+///////////////////////////////////////////////////////////////////////////////////
+class RosetteStrainGage : public Analog{
+public:
+    int32_t rosetteType;
+    double gageOrientation;
+    int32 rosseteMeasType;
+    int32 strainConfig;
+    ExcitationConfig excitationConfig;
+    double gageFactor;
+    double nominalGageResistance;
+    double poissonRatio;
+    double leadWireResistance;
+
+    static inline int32_t get_strain_config(std::string s){
+        if(s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
+        if(s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
+        if(s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
+        if(s == "HalfBridgeI") return DAQmx_Val_HalfBridgeI;
+        if(s == "HalfBridgeII") return DAQmx_Val_HalfBridgeII;
+        if(s == "QuarterBridgeI") return DAQmx_Val_QuarterBridgeI;
+        if(s == "QuarterBridgeII") return DAQmx_Val_QuarterBridgeII;
+        return DAQmx_Val_FullBridgeI;
+    }
+    static inline int32_t get_rosette_type(std::string s){
+        if(s == "RectangularRosette") return DAQmx_Val_RectangularRosette;
+        if(s == "DeltaRosette") return DAQmx_Val_DeltaRosette;
+        if(s == "TeeRosette") return DAQmx_Val_TeeRosette;
+        return DAQmx_Val_RectangularRosette;
+    }
+
+
+    static inline int32_t get_rosette_meas_type(std::string s){
+        if(s == "PrincipalStrain1") return DAQmx_Val_PrincipalStrain1;
+        if(s == "PrincipalStrain2") return DAQmx_Val_PrincipalStrain2;
+        if(s == "PrincipalStrainAngle") return DAQmx_Val_PrincipalStrainAngle;
+        if(s == "CartesianStrainX") return DAQmx_Val_CartesianStrainX;
+        if(s == "CartesianStrainY") return DAQmx_Val_CartesianStrainY;
+        if(s == "CartesianShearStrainXY") return DAQmx_Val_CartesianShearStrainXY;
+        if(s == "MaxShearStrain") return DAQmx_Val_MaxShearStrain;
+        if(s == "MaxShearStrainAngle") return DAQmx_Val_MaxShearStrainAngle;
+        return DAQmx_Val_PrincipalStrain1;
+    }
+
+    explicit RosetteStrainGage(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Analog(parser, task_handle, name),
+                rosetteType(get_rosette_type(parser.required<std::string>("rosette_type"))),
+                gageOrientation(parser.required<double>("gage_orientation")),
+                rosseteMeasType(get_rosette_meas_type(parser.required<std::string>("rosette_meas_type"))),
+                strainConfig(get_strain_config(parser.required<std::string>("strain_config"))),
+                excitationConfig(parser),
+                gageFactor(parser.required<double>("gage_factor")),
+                nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
+                poissonRatio(parser.required<double>("poisson_ratio")),
+                leadWireResistance(parser.required<double>("lead_wire_resistance")) {
+                }
+
+    int32 createNIChannel() override {
+        return ni::NiDAQmxInterface::CreateAIRosetteStrainGageChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->min_val,
+                this->max_val,
+                this->rosetteType,
+                this->gageOrientation,
+                &this->rosseteMeasType,
+                1, // bynRosseteMeasTypes // TODO: what is this for
+                this->strainConfig,
+                this->excitationConfig.voltageExcitSource,
+                this->excitationConfig.voltageExcitVal,
+                this->gageFactor,
+                this->nominalGageResistance,
+                this->poissonRatio,
+                this->leadWireResistance
+        );
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Microphone                               //
+///////////////////////////////////////////////////////////////////////////////////
+class Microphone : public Analog{
+    public:
+        double micSensitivity;
+        double maxSndPressLevel;
+        ExcitationConfig excitationConfig;
+        int32 terminal_config = 0;
+
+        explicit Microphone(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name),
+                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))),  
+                  micSensitivity(parser.required<double>("mic_sensitivity")),
+                  maxSndPressLevel(parser.required<double>("max_snd_press_level")),
+                  excitationConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                  }
+
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAIMicrophoneChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->terminal_config,
+                        this->units,
+                        this->micSensitivity,
+                        this->maxSndPressLevel,
+                        this->excitationConfig.voltageExcitSource,
+                        this->excitationConfig.voltageExcitVal,
+                        NULL
+                );
+            }
+        }
 };
 
 /*
@@ -1078,40 +1196,7 @@ class FrequencyVoltage : public Analog{
             }
         }
 }
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Microphone                               //
-///////////////////////////////////////////////////////////////////////////////////
-class Microphone : public Analog{
-    public:
-        double micSensitivity;
-        double maxSndPressLevel;
-        excitConfig excitationConfig;
 
-        explicit Microphone(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  micSensitivity(parser.required<double>("mic_sensitivity")),
-                  maxSndPressLevel(parser.required<double>("max_snd_press_level")),
-                  excitationConfig(parser) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIMicrophoneChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->micSensitivity,
-                        this->maxSndPressLevel,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
-                        NULL
-                );
-            }
-        }
-}
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Pressure                                 //
@@ -1218,61 +1303,6 @@ class PressureBridgeTwoPointLin : public Analog{
             }
         }
 }
-
-
-
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Rosette Strain Gage                      //
-///////////////////////////////////////////////////////////////////////////////////
-class RosetteStrainGage : public Analog{
-    public:
-        int32_t rosetteType;
-        double gageOrientation;
-        int32_t rosseteMeasType;
-        int32 strainConfig;
-        ExcitationConfig excitationConfig;
-        double gageFactor;
-        double nominalGageResistance;
-        double poissonRatio;
-        double leadWireResistance;
-
-        explicit RosetteStrainGage(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  rosetteType(parser.required<int32_t>("rosette_type")),
-                  gageOrientation(parser.required<double>("gage_orientation")),
-                  rosseteMeasType(parser.required<int32_t>("rosette_meas_type")),
-                  strainConfig(parser.required<int32_t>("strain_config")),
-                  excitationConfig(parser),
-                  gageFactor(parser.required<double>("gage_factor")),
-                  nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
-                  poissonRatio(parser.required<double>("poisson_ratio")),
-                  leadWireResistance(parser.required<double>("lead_wire_resistance")) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIRosetteStrainGageChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->rosetteType,
-                        this->gageOrientation,
-                        this->rosseteMeasType,
-                        this->strainConfig,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
-                        this->gageFactor,
-                        this->nominalGageResistance,
-                        this->poissonRatio,
-                        this->leadWireResistance,
-                        NULL
-                );
-            }
-        }
-}
-
 
 
 

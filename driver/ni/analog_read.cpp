@@ -82,9 +82,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     // if (channel_type == "ai_freq_voltage") {
     //     return std::make_shared<FreqVoltage>(parser, this->task_handle, channel_name);
     // }
-    // if (channel_type == "ai_microphone") {
-    //     return std::make_shared<Microphone>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_microphone") {
+        return std::make_shared<Microphone>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_pressure_bridge_polynomial") {
     //     return std::make_shared<PressureBridgePolynomial>(parser, this->task_handle, channel_name);
     // }
@@ -97,9 +97,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_resistance") {
         return std::make_shared<Resistance>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_rosette_strain_gage") {
-    //     return std::make_shared<RosetteStrainGage>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_rosette_strain_gage") {
+        return std::make_shared<RosetteStrainGage>(parser, this->task_handle, channel_name);
+    }
     if (channel_type == "ai_rtd") {
         return std::make_shared<RTD>(parser, this->task_handle, channel_name);
     }
