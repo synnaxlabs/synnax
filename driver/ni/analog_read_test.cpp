@@ -1312,7 +1312,42 @@ TEST(read_tests, one_resistance_channel){
 ///@brief rosette strain gauge
 
 ///@brief strain gauge
+TEST(read_tests, one_strain_gage){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_strain_gage"},
+        {"port", 0},
+        {"max_val", 0.005},
+        {"min_val", -0.005},
+        {"units", "Strain"},
+        {"enabled", true},
+        {"key", "key"},
+        {"voltage_excit_source", "Internal"},
+        {"strain_config", "FullBridgeI"},
+        {"voltage_excit_val", 2.5},
+        {"initial_bridge_voltage", 0.0},
+        {"nominal_gage_resistance", 120},
+        {"poisson_ratio", 0.3},
+        {"gage_factor", 2.0},
+        {"lead_wire_resistance", 0.0}
+    };
 
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
+}
 
 ///@brief TorqueBridge
 

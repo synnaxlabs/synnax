@@ -822,6 +822,66 @@ class Bridge : public Analog {
         }
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                              Strain Gage                                      //
+///////////////////////////////////////////////////////////////////////////////////
+class StrainGage : public Analog{
+public:
+    int32_t strainConfig;
+    ExcitationConfig excitationConfig;
+    double gageFactor;
+    double initialBridgeVoltage;
+    double nominalGageResistance;
+    double poissonRatio;
+    double leadWireResistance;
+
+    static int32_t get_strain_config(std::string s){
+        if(s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
+        if(s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
+        if(s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
+        if(s == "HalfBridgeI") return DAQmx_Val_HalfBridgeI;
+        if(s == "HalfBridgeII") return DAQmx_Val_HalfBridgeII;
+        if(s == "QuarterBridgeI") return DAQmx_Val_QuarterBridgeI;
+        if(s == "QuarterBridgeII") return DAQmx_Val_QuarterBridgeII;
+        return DAQmx_Val_FullBridgeI;
+    }
+
+    explicit StrainGage(config::Parser &parser, TaskHandle task_handle, std::string name)
+            : Analog(parser, task_handle, name),
+                strainConfig(get_strain_config(parser.required<std::string>("strain_config"))),
+                excitationConfig(parser),
+                gageFactor(parser.required<double>("gage_factor")),
+                initialBridgeVoltage(parser.required<double>("initial_bridge_voltage")),
+                nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
+                poissonRatio(parser.required<double>("poisson_ratio")),
+                leadWireResistance(parser.required<double>("lead_wire_resistance")) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                }
+
+    int32 createNIChannel() override {
+        if(this->scale_config.type == "none"){
+            return ni::NiDAQmxInterface::CreateAIStrainGageChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->strainConfig,
+                    this->excitationConfig.voltageExcitSource,
+                    this->excitationConfig.voltageExcitVal,
+                    this->gageFactor,
+                    this->initialBridgeVoltage,
+                    this->nominalGageResistance,
+                    this->poissonRatio,
+                    this->leadWireResistance,
+                    NULL
+            );
+        }
+    }
+};
+
 /*
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Charge                                   //
@@ -1213,51 +1273,7 @@ class RosetteStrainGage : public Analog{
         }
 }
 
-///////////////////////////////////////////////////////////////////////////////////
-//                              Strain Gage                                      //
-///////////////////////////////////////////////////////////////////////////////////
-class Strain Gage : public Analog{
-    public:
-        int32_t strainConfig;
-        ExcitationConfig excitationConfig;
-        double gageFactor;
-        double initialBridgeVoltage;
-        double nominalGageResistance;
-        double poissonRatio;
-        double leadWireResistance;
 
-        explicit StrainGage(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  strainConfig(parser.required<int32_t>("strain_config")),
-                  excitationConfig(parser),
-                  gageFactor(parser.required<double>("gage_factor")),
-                  initialBridgeVoltage(parser.required<double>("initial_bridge_voltage")),
-                  nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
-                  poissonRatio(parser.required<double>("poisson_ratio")),
-                  leadWireResistance(parser.required<double>("lead_wire_resistance")) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIStrainGageChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->strainConfig,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
-                        this->gageFactor,
-                        this->initialBridgeVoltage,
-                        this->nominalGageResistance,
-                        this->poissonRatio,
-                        this->leadWireResistance,
-                        NULL
-                );
-            }
-        }
-}
 
 
 ///////////////////////////////////////////////////////////////////////////////////
