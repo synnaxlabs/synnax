@@ -32,38 +32,9 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
-import type { Range, StaticRange } from "@/range/range";
+import type { StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
-
-export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
-  {
-    key: "start",
-    name: "Start",
-    width: 100,
-    stringer: (r) => {
-      if (r.variant === "dynamic") return `${new TimeSpan(r.span).toString()} ago`;
-      return new TimeStamp(r.timeRange.start).fString("dateTime", "local");
-    },
-  },
-  {
-    key: "end",
-    name: "End",
-    stringer: (r) => {
-      if (r.variant === "dynamic") return "Now";
-      const startTS = new TimeStamp(r.timeRange.start);
-      const endTS = new TimeStamp(r.timeRange.end);
-      return endTS.fString(
-        endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime",
-        "local",
-      );
-    },
-  },
-];
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
