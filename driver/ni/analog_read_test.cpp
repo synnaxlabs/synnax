@@ -790,79 +790,13 @@ TEST(read_tests, one_analog_voltage_channel){
     reader.stop();
 }
 
-///@brief RMS Voltage 
-// TODO: find a device which actually supports this channel
-TEST(read_tests, one_voltage_RMS_channel){
-    // Create NI readerconfig json
-    auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
-        {"device_location", "Dev9"},
-        {"type", "ni_analog_read"},
-        {"test", true},    
-        {"device", ""}
-    };
-   
-    auto channel_config = json{
-        {"name", "test_ni_channel"},
-        {"type", "ai_voltage_rms"},
-        {"port", 0},
-        {"max_val", 10},
-        {"min_val", 0},
-        {"units", "Amps"},
-        {"enabled", true},
-        {"key", "key"},
-        {"terminal_config", "Default"}
-    };
 
-    auto scale_config = json{
-        {"type","none"}
-    };
-    // analog_channel_helper(config, scale_config, channel_config);
-}
-
-
-///@brief voltage with excitation
-TEST(read_tests, one_voltage_with_excitation_channel){
-    // Create NI readerconfig json
-    auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
-        {"device_location", "Dev3"},
-        {"type", "ni_analog_read"},
-        {"test", true},    
-        {"device", ""}
-    };
-   
-    auto channel_config = json{
-        {"name", "test_ni_channel"},
-        {"type", "ai_voltage_rms"},
-        {"port", 0},
-        {"max_val", -0.025},
-        {"min_val", 0.025},
-        {"units", "Amps"}, // FIXME
-        {"enabled", true},
-        {"key", "key"},
-        {"terminal_config", "Default"},
-        {"bridge_config", "FullBridge"},
-        {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5},
-        {"use_excit_for_scaling", true}
-
-    };
-
-    auto scale_config = json{
-        {"type","none"}
-    };
-    // analog_channel_helper(config, scale_config, channel_config);
-}
 
 
 
 ///////////////////////////////////////////////////////////////////
 //                         Temperature                           //
 ///////////////////////////////////////////////////////////////////
-
 ///@brief Thermocouple 
 TEST(read_tests, one_analog_thermocouple_channel){
     // create synnax client
@@ -961,7 +895,6 @@ TEST(read_tests, one_analog_thermocouple_channel){
 }
 
 // ///@brief RTD
-
 TEST(read_tests, one_analog_RTD_channel){
 
     // create synnax client
@@ -1097,6 +1030,7 @@ TEST(read_tests, one_analog_RTD_channel2){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief Temperature Built in sensor
 TEST(read_tests, one_analog_temp_built_in_sensor_channel){
     // Create NI readerconfig json
@@ -1124,14 +1058,11 @@ TEST(read_tests, one_analog_temp_built_in_sensor_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief ThermistorIEX
 
-///@brief ThermistorVEX
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Acceleration                               //
 ///////////////////////////////////////////////////////////////////////////////////
-
 ///@brief Acceleration
 TEST(read_tests, one_acceleration_channel){
     // Create NI readerconfig json
@@ -1166,77 +1097,6 @@ TEST(read_tests, one_acceleration_channel){
     analog_channel_helper(config, scale_config, channel_config);
 }
 
-///@brief Acceleration 4 wire dc voltage
-// TODO: find devices which support this channel
-TEST(read_tests, one_acceleration_4_wire_channel){
-    // Create NI readerconfig json
-    auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
-        {"device_location", "Dev10"},
-        {"type", "ni_analog_read"},
-        {"test", true},    
-        {"device", ""}
-    };
-   
-    auto channel_config = json{
-        {"name", "test_ni_channel"},
-        {"type", "ai_accel_4_wire_dc_voltage"},
-        {"port", 0},
-        {"max_val", 100.0},
-        {"min_val", -100.0},
-        {"units", "AccelUnit_g"},
-        {"enabled", true},
-        {"key", "key"},
-        {"terminal_config", "Default"}, // TODO try pseudo differential
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val", 0.0},
-        {"sensitivity", 50},
-        {"sensitivity_units", "mVoltsPerG"},
-        {"use_excit_for_scaling", false}
-    };
-
-    auto scale_config = json{
-        {"type","none"}
-    };
-    // analog_channel_helper(config, scale_config, channel_config);
-}
-
-///@brief Acceleration Charge
-// TODO: find devices which support this channel
-TEST(read_tests, one_acceleration_charge_channel){
-    // Create NI readerconfig json
-    auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
-        {"device_location", "Dev11"},
-        {"type", "ni_analog_read"},
-        {"test", true},    
-        {"device", ""}
-    };
-   
-    auto channel_config = json{
-        {"name", "test_ni_channel"},
-        {"type", "ai_accel_charge"},
-        {"port", 0},
-        {"max_val", 100.0},
-        {"min_val", -100.0},
-        {"units", "AccelUnit_g"},
-        {"enabled", true},
-        {"key", "key"},
-        {"terminal_config", "Default"}, // TODO try pseudo differential
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val", 0.0},
-        {"sensitivity", 50},
-        {"sensitivity_units", "mVoltsPerG"},
-        {"use_excit_for_scaling", false}
-    };
-
-    auto scale_config = json{
-        {"type","none"}
-    };
-    // analog_channel_helper(config, scale_config, channel_config);
-}
 
 
 ///@brief Force Bridge Polynomial
@@ -1492,6 +1352,9 @@ TEST(read_tests, one_bridge_channel){
     analog_channel_helper(config, scale_config, channel_config);
 }
 
+
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
 //                                              Error Handling                                                  //                  
@@ -1523,3 +1386,192 @@ TEST(read_tests, one_bridge_channel){
 // read function failed state
 // write function failed
 // trying to configure a channel for a dev ice that doesnn't have that  channel
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                              //
+//                                         Channel types without dedicated hardware found                       //                  
+//                                                                                                              //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+///@brief RMS Voltage 
+// TODO: find a device which actually supports this channel
+TEST(read_tests, one_voltage_RMS_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev9"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_voltage_rms"},
+        {"port", 0},
+        {"max_val", 10},
+        {"min_val", 0},
+        {"units", "Amps"},
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    // analog_channel_helper(config, scale_config, channel_config);
+}
+
+///@brief voltage with excitation
+/// TODO: cant find a device which supports this channel
+TEST(read_tests, one_voltage_with_excitation_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev3"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_voltage_rms"},
+        {"port", 0},
+        {"max_val", -0.025},
+        {"min_val", 0.025},
+        {"units", "Amps"}, // FIXME
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"},
+        {"bridge_config", "FullBridge"},
+        {"voltage_excit_source", "Internal"},
+        {"voltage_excit_val", 2.5},
+        {"use_excit_for_scaling", true}
+
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    // analog_channel_helper(config, scale_config, channel_config);
+}
+
+
+///@brief ThermistorIEX
+/// TODO: cant find a device that supports it specifically
+TEST(read_tests, one_analog_thermistor_IEX_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_thrmstr_iex"},
+        {"port", 0},
+        {"units", "C"},
+        {"enabled", true},
+        {"key", "key"},
+        {"min_val", -5900.0},
+        {"max_val", 10.0},
+        {"resistance_config", "4Wire"},
+        {"voltage_excit_source","External"},
+        {"voltage_excit_val",0.0009},
+        {"a", 0.003354016},
+        {"b", 0.000256985},
+        {"c", 0.000002620131}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
+}
+
+///@brief ThermistorVEX
+
+///@brief Acceleration 4 wire dc voltage
+// TODO: find devices which support this channel
+TEST(read_tests, one_acceleration_4_wire_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev10"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_accel_4_wire_dc_voltage"},
+        {"port", 0},
+        {"max_val", 100.0},
+        {"min_val", -100.0},
+        {"units", "AccelUnit_g"},
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"voltage_excit_source","Internal"},
+        {"voltage_excit_val", 0.0},
+        {"sensitivity", 50},
+        {"sensitivity_units", "mVoltsPerG"},
+        {"use_excit_for_scaling", false}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    // analog_channel_helper(config, scale_config, channel_config);
+}
+
+///@brief Acceleration Charge
+// TODO: find devices which support this channel
+TEST(read_tests, one_acceleration_charge_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev11"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_accel_charge"},
+        {"port", 0},
+        {"max_val", 100.0},
+        {"min_val", -100.0},
+        {"units", "AccelUnit_g"},
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"voltage_excit_source","Internal"},
+        {"voltage_excit_val", 0.0},
+        {"sensitivity", 50},
+        {"sensitivity_units", "mVoltsPerG"},
+        {"use_excit_for_scaling", false}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    // analog_channel_helper(config, scale_config, channel_config);
+}
+*/

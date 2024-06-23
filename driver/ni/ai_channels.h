@@ -547,7 +547,6 @@ class TemperatureBuiltInSensor : public Analog{
             size_t pos = name.find("/");
 
 
-
             this->name =  name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
         }
 
@@ -562,8 +561,8 @@ class TemperatureBuiltInSensor : public Analog{
         }
 };
 
-/*
-class Thermistor : public Analog{
+
+class ThermistorIEX : public Analog{
     public:
         int32_t resistanceConfig;
         ExcitationConfig excitationConfig;
@@ -571,17 +570,20 @@ class Thermistor : public Analog{
         double b;
         double c;
 
-        explicit Thermistor(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task, name),
-                  resistanceConfig(parser.required<int32_t>("resistanceConfig")),
+        explicit ThermistorIEX(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name),
+                  resistanceConfig(getResistanceConfig(parser.required<std::string>("resistance_config"))),
                   excitationConfig(parser),
                   a(parser.required<double>("a")),
                   b(parser.required<double>("b")),
-                  c(parser.required<double>("c")) {}
+                  c(parser.required<double>("c")) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                  }
 
         int32 createNIChannel() override {
             if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIThrmsstrChanIex(
+                return ni::NiDAQmxInterface::CreateAIThrmstrChanIex(
                         this->task_handle,
                         this->name.c_str(),
                         "",
@@ -598,6 +600,8 @@ class Thermistor : public Analog{
             }
         }
 };
+
+
 class ThermistorVex : public Analog{
     public:
         int32_t resistanceConfig;
@@ -609,12 +613,15 @@ class ThermistorVex : public Analog{
 
         explicit ThermistorVex(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  resistanceConfig(parser.required<int32_t>("resistanceConfig")),
+                  resistanceConfig(getResistanceConfig(parser.required<std::string>("resistance_config"))),
                   excitationConfig(parser),
                   a(parser.required<double>("a")),
                   b(parser.required<double>("b")),
                   c(parser.required<double>("c")),
-                  r1(parser.required<double>("r1")) {}
+                  r1(parser.required<double>("r1")) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                  }
 
         int32 createNIChannel() override {
             if(this->scale_config.type == "none"){
@@ -636,7 +643,7 @@ class ThermistorVex : public Analog{
             }
         }
 };
-*/
+
 
 
 ///////////////////////////////////////////////////////////////////////////////////

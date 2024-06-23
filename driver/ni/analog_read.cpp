@@ -112,12 +112,12 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_thrmcpl") {
         return std::make_shared<Thermocouple>(parser, this->task_handle, channel_name);
     }
-    // if (channel_type == "ai_thrmstr_iex") {
-    //     return std::make_shared<ThrmstrIex>(parser, this->task_handle, channel_name);
-    // }
-    // if (channel_type == "ai_thrmstr_vex") {
-    //     return std::make_shared<ThrmstrVex>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_thrmstr_iex") {
+        return std::make_shared<ThermistorIEX>(parser, this->task_handle, channel_name);
+    }
+    if (channel_type == "ai_thrmstr_vex") {
+         return std::make_shared<ThermistorVex>(parser, this->task_handle, channel_name);
+    }
     // if (channel_type == "ai_torque_bridge_polynomial") {
     //     return std::make_shared<TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
     // }
