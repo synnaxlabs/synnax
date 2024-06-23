@@ -7,7 +7,8 @@ description: "Learn how to connect and configure National Instruments modules."
 
 import { StepText } from "@/components/StepText";
 import { Divider } from "@synnaxlabs/pluto";
-import Table from "@/components/Table.astro"
+import Table from "@/components/Table.astro";
+import Note from "@/components/Note.astro";
 
 The first step to start acquiring data and sending commands to your 
 National Instruments (NI) hardware is to connect and configure your module.
@@ -20,10 +21,10 @@ Before you can start using your NI hardware with Synnax, you will need to
 ensure that you have the following:
 
 1. A Synnax [deployment](/reference/cluster/quick-start) running on your
-network. This deployment must be running on a computer that your NI hardware is connected
-to, and must be running on a Windows machine.
+network. This deployment must be running on a Windows machine that your NI hardware is connected
+to.
 2. The NI [DAQmx](https://www.ni.com/en/support/documentation/supplemental/06/getting-started-with-ni-daqmx--main-page.html)
-drivers installed on the machine running the Synnax deployment. Instructions on installing
+drivers installed on the machine running the Synnax deployment. Installation instructions
 can be found [here](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710).
 3. The [Synnax Console](/reference/console/get-started) installed on your local
 machine.
@@ -97,7 +98,7 @@ here's an overview of each property if you'd like to change them:
 The next step in the workflow is to map ports and lines on your device to channels 
 within Synnax. We've automatically defined a reasonable mapping for your device. In
 most cases, you won't need to change this. If you do, here's an overview of the
-process.
+process for doing so.
 
 ### A Note on Channel Naming Conventions
 
