@@ -1069,6 +1069,40 @@ TEST(read_tests, one_force_linear_bridge_channel){
     analog_channel_helper(config, scale_config, channel_config);
 }
 
+///@brief force IEPE
+TEST(read_tests, one_force_iepe_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev9"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_force_iepe"},
+        {"port", 0},
+        {"max_val", 0.1},
+        {"min_val", -0.1},
+        {"units", "Newtons"},
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"voltage_excit_source","Internal"},
+        {"voltage_excit_val", 0.0},
+        {"sensitivity", 50},
+        {"sensitivity_units", "MillivoltsPerMillimeterPerSecond"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    analog_channel_helper(config, scale_config, channel_config);
+}
+
 
 ///////////////////////////////////////////////////////////////////
 //                          Pressure                             //
@@ -1640,16 +1674,6 @@ TEST(read_tests, one_current_RMS_channel){
 
     // analog_channel_helper(config, scale_config, channel_config);
 }
-
-
-///@brief force brdige polynomial
-
-///@brief force bridge table
-
-///@brief force bridge linear
-
-///@brief force IEPE
-
 
 
 ///@brief Microphone
