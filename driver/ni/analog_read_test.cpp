@@ -791,6 +791,43 @@ TEST(read_tests, one_analog_voltage_channel){
 }
 
 ///////////////////////////////////////////////////////////////////
+//                          Velocity                             //
+///////////////////////////////////////////////////////////////////
+///@brief velocity
+TEST(read_tests, one_velocity_channel){
+    // Create NI readerconfig json
+    auto config = json{
+        {"sample_rate", 100}, 
+        {"stream_rate", 20}, 
+        {"device_location", "Dev9"},
+        {"type", "ni_analog_read"},
+        {"test", true},    
+        {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_velocity_iepe"},
+        {"port", 0},
+        {"max_val", 0.1},
+        {"min_val", -0.1},
+        {"units", "MetersPerSecond"},
+        {"enabled", true},
+        {"key", "key"},
+        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"voltage_excit_source","Internal"},
+        {"voltage_excit_val", 0.0},
+        {"sensitivity", 50},
+        {"sensitivity_units", "MillivoltsPerMillimeterPerSecond"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+    analog_channel_helper(config, scale_config, channel_config);
+}
+
+///////////////////////////////////////////////////////////////////
 //                          Force                                //
 ///////////////////////////////////////////////////////////////////
 ///@brief Force Bridge Polynomial

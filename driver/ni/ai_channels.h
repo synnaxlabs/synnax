@@ -1283,6 +1283,48 @@ class ForceBridgeTwoPointLin : public Analog{
 };
 
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Velocity                                 //
+///////////////////////////////////////////////////////////////////////////////////
+class VelocityIEPE : public Analog{
+    public:
+        int32_t sensitivityUnits;
+        double sensitivity;
+        ExcitationConfig excitationConfig;
+        int32_t terminal_config = 0;
+
+        explicit VelocityIEPE(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name),
+                  sensitivity(parser.required<double>("sensitivity")),
+                  excitationConfig(parser),
+                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+
+                    auto su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
+                    this->sensitivityUnits = ni::UNITS_MAP.at(su);
+                  }
+
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->terminal_config,
+                        this->min_val,
+                        this->max_val,
+                        this->units,
+                        this->sensitivity,
+                        this->sensitivityUnits,
+                        this->excitationConfig.voltageExcitSource,
+                        this->excitationConfig.voltageExcitVal,
+                        NULL
+                );
+            }
+        }
+};
+
 /*
 class ForceIEPE : public Analog{
     public:
@@ -1431,39 +1473,7 @@ class TorqueBridgeTwoPointLin : public Analog{
         }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Velocity                                 //
-///////////////////////////////////////////////////////////////////////////////////
-class VelocityIEPE : public Analog{
-    public:
-        int32_t sensitivityUnits;
-        double sensitivity;
-        ExcitationConfig excitationConfig;
 
-        explicit VelocityIEPE(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  sensitivityUnits(parser.required<int32_t>("sensitivity_units")),
-                  sensitivity(parser.required<double>("sensitivity")),
-                  excitationConfig(parser) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->sensitivity,
-                        this->sensitivityUnits,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
-                        NULL
-                );
-            }
-        }
-};
 
 */
 } // namespace ni

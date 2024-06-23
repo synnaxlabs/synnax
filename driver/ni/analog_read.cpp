@@ -127,9 +127,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     // if (channel_type == "ai_torque_bridge_two_point_lin") {
     //     return std::make_shared<TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     // }
-    // if (channel_type == "ai_velocity_iepe") {
-    //     return std::make_shared<VelocityIEPE>(parser, this->task_handle, channel_name);
-    // }
+    if (channel_type == "ai_velocity_iepe") {
+        return std::make_shared<VelocityIEPE>(parser, this->task_handle, channel_name);
+    }
     if (channel_type == "ai_voltage") {
         return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
     }
