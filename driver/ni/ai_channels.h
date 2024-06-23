@@ -183,10 +183,12 @@ typedef struct TwoPointLinConfig {
     TwoPointLinConfig(config::Parser &parser)
         : firstElectricalVal(parser.required<double>("first_electrical_val")),
           secondElectricalVal(parser.required<double>("second_electrical_val")),
-          electricalUnits(parser.required<int32_t>("electrical_units")),
           firstPhysicalVal(parser.required<double>("first_physical_val")),
-          secondPhysicalVal(parser.required<double>("second_physical_val")),
-          physicalUnits(parser.required<int32_t>("physical_units")) {
+          secondPhysicalVal(parser.required<double>("second_physical_val")){
+            auto eu = parser.required<std::string>("electrical_units");
+            auto pu = parser.required<std::string>("physical_units");
+            electricalUnits = ni::UNITS_MAP.at(eu);
+            physicalUnits = ni::UNITS_MAP.at(pu);
     }
 } TwoPointLinConfig;
 
@@ -1036,7 +1038,119 @@ public:
     }
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Pressure                                 //
+///////////////////////////////////////////////////////////////////////////////////
+
+class PressureBridgeTwoPointLin : public Analog{
+    public:
+        BridgeConfig bridgeConfig;
+        TwoPointLinConfig twoPointLinConfig;
+
+        explicit PressureBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name),
+                  bridgeConfig(parser),
+                  twoPointLinConfig(parser) {
+                    std::string u = parser.optional<std::string>("units", "Volts");
+                    this->units = ni::UNITS_MAP.at(u);
+                  }
+
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->min_val,
+                        this->max_val,
+                        this->units,
+                        this->bridgeConfig.niBridgeConfig,
+                        this->bridgeConfig.voltageExcitSource,
+                        this->bridgeConfig.voltageExcitVal,
+                        this->bridgeConfig.nominalBridgeResistance,
+                        this->twoPointLinConfig.firstElectricalVal,
+                        this->twoPointLinConfig.secondElectricalVal,
+                        this->twoPointLinConfig.electricalUnits,
+                        this->twoPointLinConfig.firstPhysicalVal,
+                        this->twoPointLinConfig.secondPhysicalVal,
+                        this->twoPointLinConfig.physicalUnits,
+                        NULL
+                );
+            }
+        }
+};
+
 /*
+class PressureBridgePolynomial : public Analog{
+    public:
+        BridgeConfig bridgeConfig;
+        PolynomialConfig polynomialConfig;
+
+        explicit PressureBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name),
+                  bridgeConfig(parser),
+                  polynomialConfig(parser) {}
+
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->min_val,
+                        this->max_val,
+                        this->units,
+                        this->bridgeConfig.niBridgeConfig,
+                        this->bridgeConfig.voltageExcitSource,
+                        this->bridgeConfig.voltageExcitVal,
+                        this->bridgeConfig.nominalBridgeResistance,
+                        this->polynomialConfig.forwardCoeffs,
+                        this->polynomialConfig.numForwardCoeffs,
+                        this->polynomialConfig.reverseCoeffs,
+                        this->polynomialConfig.numReverseCoeffs,
+                        this->polynomialConfig.electricalUnits,
+                        this->polynomialConfig.physicalUnits,
+                        NULL
+                );
+            }
+        }
+}
+class PressureBridgeTable : public Analog{
+    public:
+        BridgeConfig bridgeConfig;
+        TableConfig tableConfig;
+
+        explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name),
+                  bridgeConfig(parser),
+                  tableConfig(parser) {}
+
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
+                        this->task_handle,
+                        this->name.c_str(),
+                        "",
+                        this->min_val,
+                        this->max_val,
+                        this->units,
+                        this->bridgeConfig.niBridgeConfig,
+                        this->bridgeConfig.voltageExcitSource,
+                        this->bridgeConfig.voltageExcitVal,
+                        this->bridgeConfig.nominalBridgeResistance,
+                        this->tableConfig.electricalVals,
+                        this->tableConfig.numElectricalVals,
+                        this->tableConfig.electricalUnits,
+                        this->tableConfig.physicalVals,
+                        this->tableConfig.numPhysicalVals,
+                        this->tableConfig.physicalUnits,
+                        NULL
+                );
+            }
+        }
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Charge                                   //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1206,111 +1320,7 @@ class ForceIEPE : public Analog{
 
 
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Pressure                                 //
-///////////////////////////////////////////////////////////////////////////////////
-class PressureBridgePolynomial : public Analog{
-    public:
-        BridgeConfig bridgeConfig;
-        PolynomialConfig polynomialConfig;
 
-        explicit PressureBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  polynomialConfig(parser) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->polynomialConfig.forwardCoeffs,
-                        this->polynomialConfig.numForwardCoeffs,
-                        this->polynomialConfig.reverseCoeffs,
-                        this->polynomialConfig.numReverseCoeffs,
-                        this->polynomialConfig.electricalUnits,
-                        this->polynomialConfig.physicalUnits,
-                        NULL
-                );
-            }
-        }
-}
-class PressureBridgeTable : public Analog{
-    public:
-        BridgeConfig bridgeConfig;
-        TableConfig tableConfig;
-
-        explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  tableConfig(parser) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->tableConfig.electricalVals,
-                        this->tableConfig.numElectricalVals,
-                        this->tableConfig.electricalUnits,
-                        this->tableConfig.physicalVals,
-                        this->tableConfig.numPhysicalVals,
-                        this->tableConfig.physicalUnits,
-                        NULL
-                );
-            }
-        }
-}
-class PressureBridgeTwoPointLin : public Analog{
-    public:
-        BridgeConfig bridgeConfig;
-        TwoPointLinConfig twoPointLinConfig;
-
-        explicit PressureBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  twoPointLinConfig(parser) {}
-
-        int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->twoPointLinConfig.firstElectricalVal,
-                        this->twoPointLinConfig.secondElectricalVal,
-                        this->twoPointLinConfig.electricalUnits,
-                        this->twoPointLinConfig.firstPhysicalVal,
-                        this->twoPointLinConfig.secondPhysicalVal,
-                        this->twoPointLinConfig.physicalUnits,
-                        NULL
-                );
-            }
-        }
-}
 
 
 

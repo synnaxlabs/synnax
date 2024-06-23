@@ -662,13 +662,13 @@ void analog_channel_helper(json config, json scale_config, json channel_config){
             false
     );
     ASSERT_FALSE(dErr) << dErr.message();
-
+    
     channel_config["channel"] = data.key;
+    
     channel_config["custom_scale"] = scale_config;
 
     config["channels"] = json::array();
     config["channels"].push_back(channel_config);
-  
     // create synnax task
     auto task = synnax::Task(
             "my_task",          // task name
@@ -788,6 +788,54 @@ TEST(read_tests, one_analog_voltage_channel){
 
     std::cout << std::endl;
     reader.stop();
+}
+
+///////////////////////////////////////////////////////////////////
+//                          Pressure                             //
+///////////////////////////////////////////////////////////////////
+
+///@brief pressure bridge polynomial
+
+///@brief pressure bridge table
+
+///@brief pressure bridge linear
+TEST(read_tests, one_pressure_linear_bridge_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev3"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_bridge"},
+        {"port", 0},
+        {"max_val", 0.5},
+        {"min_val", -0.5},
+        {"units", "VoltsPerVolt"},
+        {"enabled", true},
+        {"key", "key"},
+        {"bridge_config", "HalfBridge"},
+        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_val", 2.5}, // same as below
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"first_electrical_val", 0.0},
+        {"second_eletrical_val", 1.0},
+        {"electrical_units", "Volts"},
+        {"first_physical_val", 0.0},
+        {"second_physical_val", 10.0},
+        {"physical_units", "Pascals"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    analog_channel_helper(config, scale_config, channel_config);
 }
 
 
@@ -1105,11 +1153,7 @@ TEST(read_tests, one_acceleration_channel){
 
 ///@brief Force Bridge Linear
 
-///@brief pressre bridge polynomial
 
-///@brief pressure bridge table
-
-///@brief pressure bridge linear
 
 ///@brief torque bridge polynomial
 
