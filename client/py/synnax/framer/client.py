@@ -127,7 +127,7 @@ class Client:
         self,
         tr: TimeRange,
         params: ChannelParams,
-        chunk_size: int = 5e5,
+        chunk_size: int = 1e5,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
