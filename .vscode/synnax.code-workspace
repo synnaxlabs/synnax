@@ -243,7 +243,8 @@
       "Synnax",
       "tauri",
       "Tauri",
-      "telem"
+      "telem",
+      "zodutil"
     ],
     "cSpell.enableFiletypes": [
       "mdx"

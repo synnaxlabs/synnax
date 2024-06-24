@@ -71,18 +71,16 @@ interface UseField {
  */
 export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   path,
-  optional: propsOptional = false,
+  optional = false,
   onChange,
-  defaultValue,
 }: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
   const ctx = useContext();
   const { get, bind, set } = ctx;
-  const optional = defaultValue != null || (propsOptional ?? false);
 
-  const [state, setState] = useState<FieldState<I> | null>(get<I>({ path, optional }));
+  const [state, setState] = useState<FieldState<I> | null>(get<I>(path, { optional }));
 
   useLayoutEffect(() => {
-    setState(get<I>({ path, optional }));
+    setState(get<I>(path, { optional }));
     return bind({ path, onChange: setState, listenToChildren: false });
   }, [path, bind, setState, optional]);
 
@@ -95,7 +93,6 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   );
 
   if (state == null) {
-    if (defaultValue != null) set({ path, value: defaultValue });
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
   }
@@ -136,7 +133,7 @@ export const useFieldState = <I extends Input.Value, O extends Input.Value = I>(
     setChangeTrigger((prev) => prev + 1);
     return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
   }, [path, bind]);
-  return get<O>({ path, optional }) ?? null;
+  return get<O>(path, { optional }) ?? null;
 };
 
 export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
@@ -150,7 +147,7 @@ export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>
     setChangeTrigger((prev) => prev + 1);
     return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
   }, [path, bind]);
-  return get<O>({ path, optional })?.value ?? null;
+  return get<O>(path, { optional })?.value ?? null;
 }) as UseFieldValue;
 
 export const useFieldValid = (path: string): boolean =>
@@ -205,9 +202,9 @@ export const useChildFieldValues = (<V extends unknown = unknown>({
   optional = false,
 }: UseChildFieldValuesProps): V | null => {
   const { bind, get } = useContext();
-  const [state, setState] = useState<FieldState<V> | null>(get<V>({ path, optional }));
+  const [state, setState] = useState<FieldState<V> | null>(get<V>(path, { optional }));
   useLayoutEffect(() => {
-    setState(get<V>({ path, optional }));
+    setState(get<V>(path, { optional }));
     return bind<V>({
       path,
       onChange: (fs) => setState({ ...fs, value: shallowCopy(fs.value) }),
@@ -235,10 +232,10 @@ export const useFieldArray = <V extends unknown = unknown>({
   updateOnChildren = false,
 }: UseFieldArrayProps): UseFieldArrayReturn<V> => {
   const { bind, get, set } = useContext();
-  const [state, setState] = useState<V[]>(get<V[]>({ path, optional: false }).value);
+  const [state, setState] = useState<V[]>(get<V[]>(path).value);
 
   useLayoutEffect(() => {
-    setState(get<V[]>({ path, optional: false }).value);
+    setState(get<V[]>(path).value);
     return bind<V[]>({
       path,
       onChange: (fs) => setState(shallowCopy<V[]>(fs.value)),
@@ -248,7 +245,7 @@ export const useFieldArray = <V extends unknown = unknown>({
 
   const push = useCallback(
     (value: V | V[]) => {
-      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
+      const copy = shallowCopy(get<V[]>(path).value);
       copy.push(...toArray(value));
       set({ path, value: copy });
     },
@@ -257,7 +254,7 @@ export const useFieldArray = <V extends unknown = unknown>({
 
   const remove = useCallback(
     (index: number | number[]) => {
-      const val = get<V[]>({ path, optional: false }).value;
+      const val = get<V[]>(path).value;
       const indices = new Set(toArray(index));
       set({ path, value: val.filter((_, i) => !indices.has(i)) });
     },
@@ -266,7 +263,7 @@ export const useFieldArray = <V extends unknown = unknown>({
 
   const keepOnly = useCallback(
     (index: number | number[]) => {
-      const val = get<V[]>({ path, optional: false }).value;
+      const val = get<V[]>(path).value;
       const indices = new Set(toArray(index));
       set({ path, value: val.filter((_, i) => indices.has(i)) });
     },
@@ -429,21 +426,22 @@ export interface FieldState<V = unknown> {
   required: boolean;
 }
 
-interface RequiredGetProps {
-  path: string;
-  optional?: boolean;
+interface GetOptions<O extends boolean | undefined = boolean | undefined> {
+  optional?: O;
 }
 
-interface OptionalGetProps {
-  path: string;
-  optional: true;
+interface OptionalGetOptions {
+  optional?: true;
 }
 
-type GetProps = RequiredGetProps | OptionalGetProps;
+type GetProps = GetOptions | OptionalGetOptions;
 
 interface GetFunc {
-  <V extends Input.Value>(props: RequiredGetProps): FieldState<V>;
-  <V extends Input.Value>(props: OptionalGetProps): FieldState<V> | null;
+  <V extends Input.Value>(path: string, opts: GetOptions<true>): FieldState<V> | null;
+  <V extends Input.Value>(
+    path: string,
+    opts?: GetOptions<boolean | undefined>,
+  ): FieldState<V>;
 }
 
 interface SetProps {
@@ -555,9 +553,12 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 
   const get: GetFunc = useCallback(
-    <V extends any = unknown>({ path, optional }: GetProps): FieldState<V> | null => {
+    <V extends any = unknown>(
+      path: string,
+      { optional }: GetProps = { optional: false },
+    ): FieldState<V> | null => {
       const { state, status, touched } = ref.current;
-      const value = deep.get(state, path, optional);
+      const value = deep.get(state, path, { optional });
       if (value == null) return null;
       const fs = {
         value: value as V,
@@ -567,7 +568,7 @@ export const use = <Z extends z.ZodTypeAny>({
       };
       if (schemaRef.current == null) return fs;
       const schema = schemaRef.current;
-      const zField = zodutil.getFieldSchema(schema, path, true);
+      const zField = zodutil.getFieldSchema(schema, path, { optional: true });
       if (zField == null) return fs;
       fs.required = !zField.isOptional();
       return fs;
@@ -585,7 +586,7 @@ export const use = <Z extends z.ZodTypeAny>({
         const keys = Array.from(status.keys());
         status.clear();
         keys.forEach((p) => {
-          const fs = get({ path: p, optional: true });
+          const fs = get(p, { optional: true });
           if (fs == null) return;
           listeners.get(p)?.forEach((l) => l(fs));
         });
@@ -604,7 +605,7 @@ export const use = <Z extends z.ZodTypeAny>({
           message: issue.message,
         });
         touched.add(issuePath);
-        let fs = get({ path: issuePath, optional: true });
+        let fs = get(issuePath, { optional: true });
         // If we can't find the field value, this means the user never set it, so instead
         // we just to a best effort construction of the field state. This means that if
         // the user has a field rendered for this path, the error will be displayed.
@@ -620,7 +621,7 @@ export const use = <Z extends z.ZodTypeAny>({
       status.forEach((_, subPath) => {
         if (!issueKeys.has(subPath)) {
           status.delete(subPath);
-          const fs = get({ path: subPath, optional: true });
+          const fs = get(subPath, { optional: true });
           if (fs != null) listeners.get(subPath)?.forEach((l) => l(fs));
         }
       });
@@ -660,12 +661,12 @@ export const use = <Z extends z.ZodTypeAny>({
       validateAsync();
     }
     listeners.get(path)?.forEach((l) => {
-      const fs = get({ path, optional: true });
+      const fs = get(path, { optional: true });
       if (fs != null) l(fs);
     });
     parentListeners.forEach((lis, lisPath) => {
       if (deep.pathsMatch(path, lisPath)) {
-        const v = get({ path: lisPath, optional: true });
+        const v = get(lisPath, { optional: true });
         if (v != null) lis.forEach((l) => l(v));
       }
     });
@@ -682,7 +683,7 @@ export const use = <Z extends z.ZodTypeAny>({
     const { listeners } = ref.current;
     ref.current.state = values;
     listeners.forEach((lis, p) => {
-      const v = get({ path: p, optional: true });
+      const v = get(p, { optional: true });
       if (v == null) return;
       lis.forEach((l) => l(v));
     });
