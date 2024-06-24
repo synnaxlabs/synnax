@@ -87,15 +87,14 @@ static inline const std::map<std::string, int32_t>    UNITS_MAP = {
     {"AccelUnit_g",                         DAQmx_Val_AccelUnit_g}  // TODO: verify this is an option in the console for sensitivity units
 };
 
-
-typedef struct ChannelConfig {
+struct ChannelConfig {
     uint32_t channel_key;
     std::string name;
     std::string channel_type;
     std::shared_ptr<ni::Analog> ni_channel;
-} ChannelConfig;
+};
 
-typedef struct ReaderConfig {
+struct ReaderConfig {
     std::string device_key;
     std::vector<ChannelConfig> channels;
     std::uint64_t sample_rate = 0;
@@ -106,7 +105,7 @@ typedef struct ReaderConfig {
     std::uint64_t period = 0;
     synnax::ChannelKey task_key;
     std::set<uint32_t> index_keys;
-} ReaderConfig;
+};
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                         //
@@ -159,12 +158,12 @@ public:
 
     virtual int createChannels() = 0;
 
-    typedef struct DataPacket {
+    struct DataPacket {
         void *data; // actual data
         uint64_t t0; // initial timestamp
         uint64_t tf; // final timestamp
         int32 samplesReadPerChannel;
-    } DataPacket;
+    };
 
     TSQueue<DataPacket> data_queue;
 
@@ -277,7 +276,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalWriteSink                           //
 ///////////////////////////////////////////////////////////////////////////////////
-typedef struct WriterConfig {
+struct WriterConfig {
     std::vector<ChannelConfig> channels;
     std::uint64_t state_rate = 0;
     std::string device_name;
@@ -292,7 +291,7 @@ typedef struct WriterConfig {
     synnax::ChannelKey drive_state_index_key;
     std::queue<synnax::ChannelKey> modified_state_keys;
     std::queue<std::uint8_t> modified_state_values;
-} WriterConfig;
+};
 
 class DigitalWriteSink : public pipeline::Sink {
 public:

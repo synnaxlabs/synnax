@@ -31,7 +31,7 @@ extern const std::map<std::string, int32_t> UNITS_MAP;
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    LinearScale                                //
 ///////////////////////////////////////////////////////////////////////////////////
-typedef struct LinearScale {
+struct LinearScale {
     float64 slope;
     float64 offset;
 
@@ -44,12 +44,12 @@ typedef struct LinearScale {
         if (!parser.ok()) LOG(ERROR) <<
                           "[ni.analog] failed to parse custom linear configuration";
     }
-} LinearScale;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    MapScale                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-typedef struct MapScale {
+struct MapScale {
     float64 prescaled_min;
     float64 prescaled_max;
     float64 scaled_min;
@@ -65,12 +65,12 @@ typedef struct MapScale {
         if (!parser.ok()) LOG(ERROR) <<
                           "[ni.analog] failed to parse custom map configuration";
     }
-} MapScale;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                  PolynomialScale                              //
 ///////////////////////////////////////////////////////////////////////////////////
-typedef struct PolynomialScale {
+struct PolynomialScale {
     std::vector<double> forward_coeffs;
     std::vector<double> reverse_coeffs;
     uint32_t num_coeffs;
@@ -121,12 +121,12 @@ typedef struct PolynomialScale {
         ); // FIXME: reversePoly order should be user inputted?
     }
     
-} PolynomialScale;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    TableScale                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-typedef struct TableScale {
+struct TableScale {
     std::vector<double> prescaled;
     std::vector<double> scaled;
     uint32_t num_points;
@@ -141,6 +141,7 @@ typedef struct TableScale {
         }
 
         json j = parser.get_json();
+
         if (!j.contains("pre_scaled_vals") || !j.contains("scaled_vals")) {
             LOG(ERROR) << "[ni.analog] failed to parse custom table configuration: missing pre_scaled_vals or scaled_vals";
             return; 
@@ -148,17 +149,18 @@ typedef struct TableScale {
 
         prescaled.resize(num_points);
         scaled.resize(num_points);
+        
         for (int i = 0; i < num_points; i++) {
             prescaled[i] = j["pre_scaled_vals"][i];
             scaled[i] = j["scaled_vals"][i];
         }
     }
-} TableScale;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ScaleConfig                                //
 //////////////////////////////////////////////////////////////////////////////////
-typedef union Scale {
+union Scale {
     LinearScale linear;
     MapScale map;
     PolynomialScale polynomial;
@@ -170,9 +172,9 @@ typedef union Scale {
 
     ~Scale() {
     }
-} Scale;
+};
 
-typedef struct ScaleConfig {
+struct ScaleConfig {
     std::string name;
     std::string type;
     std::string prescaled_units;
@@ -194,15 +196,11 @@ typedef struct ScaleConfig {
                     << name;
             return;
         }
-        if (type == "linear") {
-            scale.linear = LinearScale(parser);
-        } else if (type == "map") {
-            scale.map = MapScale(parser);
-        } else if (type == "polynomial") {
-            scale.polynomial = PolynomialScale(parser);
-        } else if (type == "table") {
-            scale.table = TableScale(parser);
-        }
+        if (type == "linear") scale.linear = LinearScale(parser);
+        else if (type == "map") scale.map = MapScale(parser);
+        else if (type == "polynomial") scale.polynomial = PolynomialScale(parser);
+        else if (type == "table") scale.table = TableScale(parser);
+        
     }
 
     // copy constructor
@@ -212,15 +210,11 @@ typedef struct ScaleConfig {
           prescaled_units(other.prescaled_units),
           scaled_units(other.scaled_units),
           parser(other.parser) {
-        if (type == "linear") {
-            scale.linear = LinearScale(parser);
-        } else if (type == "map") {
-            scale.map = MapScale(parser);
-        } else if (type == "polynomial") {
-            scale.polynomial = PolynomialScale(parser);
-        } else if (type == "table") {
-            scale.table = TableScale(parser);
-        }
+            
+        if (type == "linear")  scale.linear = LinearScale(parser);
+        else if (type == "map") scale.map = MapScale(parser);
+        else if (type == "polynomial") scale.polynomial = PolynomialScale(parser);
+        else if (type == "table") scale.table = TableScale(parser);
     }
 
     // copy assignment operator
@@ -232,15 +226,12 @@ typedef struct ScaleConfig {
         prescaled_units = other.prescaled_units;
         scaled_units = other.scaled_units;
         parser = other.parser;
-        if (type == "linear") {
-            scale.linear = LinearScale(parser);
-        } else if (type == "map") {
-            scale.map = MapScale(parser);
-        } else if (type == "polynomial") {
-            scale.polynomial = PolynomialScale(parser);
-        } else if (type == "table") {
-            scale.table = TableScale(parser);
-        }
+
+        if (type == "linear")  scale.linear = LinearScale(parser);
+        else if (type == "map") scale.map = MapScale(parser);
+        else if (type == "polynomial") scale.polynomial = PolynomialScale(parser);
+        else if (type == "table") scale.table = TableScale(parser);
+
         return *this;
     }
 
@@ -250,7 +241,7 @@ typedef struct ScaleConfig {
     // create NI Scale
     int32 createNIScale() {
         LOG(INFO) << "Creating NI Scale ";
-        if (type == "linear") {
+        if (type == "linear") 
             return ni::NiDAQmxInterface::CreateLinScale(
                 name.c_str(),
                 scale.linear.slope,
@@ -258,7 +249,7 @@ typedef struct ScaleConfig {
                 ni::UNITS_MAP.at(prescaled_units),
                 scaled_units.c_str()
             );
-        } else if (type == "map") {
+        else if (type == "map") 
             return ni::NiDAQmxInterface::CreateMapScale(
                 name.c_str(),
                 scale.map.prescaled_min,
@@ -268,9 +259,7 @@ typedef struct ScaleConfig {
                 ni::UNITS_MAP.at(prescaled_units),
                 scaled_units.c_str()
             );
-        } else if (type == "polynomial") {
-            LOG(INFO) << "size of forward coeffs: " << scale.polynomial.forward_coeffs.size();
-            LOG(INFO) << "size of reverse coeffs: " << scale.polynomial.reverse_coeffs.size();
+        else if (type == "polynomial")
             return ni::NiDAQmxInterface::CreatePolynomialScale(
                 name.c_str(),
                 scale.polynomial.forward_coeffs.data(),
@@ -280,9 +269,7 @@ typedef struct ScaleConfig {
                 ni::UNITS_MAP.at(prescaled_units),
                 scaled_units.c_str()
             );
-        } else if (type == "table") {
-            LOG(INFO) << "size of prescaled: " << scale.table.prescaled.size();
-            LOG(INFO) << "size of scaled: " << scale.table.scaled.size();
+        else if (type == "table") 
             return ni::NiDAQmxInterface::CreateTableScale(
                 name.c_str(),
                 scale.table.prescaled.data(),
@@ -292,10 +279,9 @@ typedef struct ScaleConfig {
                 ni::UNITS_MAP.at(prescaled_units),
                 scaled_units.c_str()
             );
-        }
         return 0;
     }
-} ScaleConfig;
+};
 };
 
 //TODO: do parser checks all over here

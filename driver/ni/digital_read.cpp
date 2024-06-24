@@ -39,8 +39,8 @@ void ni::DigitalReadSource::parseChannels(config::Parser &parser) {
                     config.channel_key = channel_builder.required<uint32_t>("channel");
                     this->reader_config.channels.push_back(config);
                 });
-    assert(parser.ok());
-}
+    if(!parser.ok()) LOG(ERROR) << "Failed to parse channels for task " << this->reader_config.task_name;
+ }
 
 int ni::DigitalReadSource::createChannels() {
     int err = 0;
@@ -50,9 +50,8 @@ int ni::DigitalReadSource::createChannels() {
             err = this->checkNIError(
                 ni::NiDAQmxInterface::CreateDIChan(task_handle, channel.name.c_str(),
                                                    "", DAQmx_Val_ChanPerLine));
-            LOG(INFO) << "Channel name: " << channel.name;
+            VLOG(1) << "Channel name: " << channel.name;
         }
-        LOG(INFO) << "Index channel added to task: " << channel.name;
         this->numChannels++;
         if (err < 0) {
             LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.
@@ -67,9 +66,10 @@ int ni::DigitalReadSource::createChannels() {
 int ni::DigitalReadSource::configureTiming() {
     if (this->reader_config.timing_source == "none") {
         // if timing is not enabled, implement timing in software
-        this->reader_config.period = (uint64_t) (
-            (1.0 / this->reader_config.sample_rate) *
-            1000000000); // convert to microseconds
+        auto period_s = 1.0 / this->reader_config.sample_rate;
+        auto period_ns = (uint64_t) (period_s * 1000000000);
+        this->reader_config.period = period_ns;
+
         this->numSamplesPerChannel = 1;
     } else {
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
@@ -100,19 +100,21 @@ void ni::DigitalReadSource::acquireData() {
         // sleep per sample rate
         std::this_thread::sleep_for(
             std::chrono::nanoseconds(this->reader_config.period));
-        if (this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(
-            this->task_handle, // task handle
-            this->numSamplesPerChannel, // numSampsPerChan
-            -1, // timeout
-            DAQmx_Val_GroupByChannel, // dataLayout
-            static_cast<uInt8 *>(data_packet.data), // readArray
-            this->bufferSize, // arraySizeInSamps
-            &data_packet.samplesReadPerChannel, // sampsPerChanRead
-            &numBytesPerSamp, // numBytesPerSamp
-            NULL))) {
-            LOG(ERROR) << "[NI Reader] failed while reading digital data for task " <<
-                    this->reader_config.task_name;
+
+        if (this->checkNIError(
+                ni::NiDAQmxInterface::ReadDigitalLines(
+                this->task_handle, // task handle
+                this->numSamplesPerChannel, // numSampsPerChan
+                -1, // timeout
+                DAQmx_Val_GroupByChannel, // dataLayout
+                static_cast<uInt8 *>(data_packet.data), // readArray
+                this->bufferSize, // arraySizeInSamps
+                &data_packet.samplesReadPerChannel, // sampsPerChanRead
+                &numBytesPerSamp, // numBytesPerSamp
+                NULL))) {
+                LOG(ERROR) << "[NI Reader] failed while reading digital data for task " << this->reader_config.task_name;
         }
+        
         data_packet.tf = (uint64_t) ((synnax::TimeStamp::now()).value);
         data_queue.enqueue(data_packet);
     }

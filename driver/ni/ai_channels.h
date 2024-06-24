@@ -55,7 +55,7 @@ static inline int32_t getExcitationSrc(std::string s){
 }
 
 // TODO: make one for current excitation for correct parsing
-typedef struct ExcitationConfig {
+struct ExcitationConfig {
     int32_t voltageExcitSource;
     double voltageExcitVal;
     double minValForExcitation; // optional
@@ -71,9 +71,9 @@ typedef struct ExcitationConfig {
           maxValForExcitation(parser.optional<double>("max_val_for_excitation", 0)),
           useExcitForScaling(parser.optional<bool32>("use_excit_for_scaling", 0)) {
     }
-} ExcitationConfig;
+};
 
-typedef struct BridgeConfig {
+struct BridgeConfig {
     int32_t niBridgeConfig;
     int32_t voltageExcitSource;
     double voltageExcitVal;
@@ -87,9 +87,9 @@ typedef struct BridgeConfig {
           voltageExcitVal(parser.required<double>("voltage_excit_val")),
           nominalBridgeResistance(parser.required<double>("nominal_bridge_resistance")) {
     }
-} BridgeConfig;
+};
 
-typedef struct PolynomialConfig {
+struct PolynomialConfig {
     float64 *forwardCoeffs;
     uint32_t numForwardCoeffs;
     float64 *reverseCoeffs;
@@ -138,9 +138,9 @@ typedef struct PolynomialConfig {
         if (forwardCoeffs != nullptr) delete[] forwardCoeffs;
         if (reverseCoeffs != nullptr) delete[] reverseCoeffs;
     }
-} PolynomialConfig;
+};
 
-typedef struct TableConfig {
+struct TableConfig {
     float64 *electricalVals;
     uint32_t numElectricalVals;
     float64 *physicalVals;
@@ -180,9 +180,9 @@ typedef struct TableConfig {
             }
         }
     }
-} TableConfig;
+};
 
-typedef struct TwoPointLinConfig {
+struct TwoPointLinConfig {
     double firstElectricalVal;
     double secondElectricalVal;
     int32_t electricalUnits;
@@ -202,7 +202,7 @@ typedef struct TwoPointLinConfig {
             electricalUnits = ni::UNITS_MAP.at(eu);
             physicalUnits = ni::UNITS_MAP.at(pu);
     }
-} TwoPointLinConfig;
+};
 
 
 ///////////////////////////////////////////////////////////////////////////////////

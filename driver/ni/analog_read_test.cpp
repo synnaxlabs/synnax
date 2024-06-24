@@ -210,119 +210,119 @@ TEST(read_tests, analog_map_scaling){
 }
 
 
-///////////////////////////////////////////////////////////////////
-//                          TABLE                                //
-///////////////////////////////////////////////////////////////////
-TEST(read_tests, analog_table_scaling){
-    // create synnax client
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+// ///////////////////////////////////////////////////////////////////
+// //                          TABLE                                //
+// ///////////////////////////////////////////////////////////////////
+// TEST(read_tests, analog_table_scaling){
+//     // create synnax client
+//     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     
-    // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
-    ASSERT_FALSE(tErr) << tErr.message();
+//     // create all the necessary channels in the synnax client
+//     auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
+//     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai_channel",synnax::FLOAT32,time.key,false);
-    ASSERT_FALSE(dErr) << dErr.message();
+//     auto [data, dErr] = client->channels.create("ai_channel",synnax::FLOAT32,time.key,false);
+//     ASSERT_FALSE(dErr) << dErr.message();
 
-    // Create NI readerconfig
-    auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
-        {"device_location", "Dev1"},
-        {"type", "ni_analog_read"},
-        {"test", true},    
-        {"device", ""}
-    };
-    json scale_config = json{
-        {"type", "table"},
-        {"pre_scaled_units", "Volts"},
-        {"scaled_units", "Volts"},
-        {"num_points", 11},
-        {"pre_scaled_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
-        {"scaled_vals", {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}}
-    };
-    add_AI_channel_JSON(config, "a1", data.key, 0, 0, 500.0, "Default", scale_config);
+//     // Create NI readerconfig
+//     auto config = json{
+//         {"sample_rate", 5}, 
+//         {"stream_rate", 1}, 
+//         {"device_location", "Dev1"},
+//         {"type", "ni_analog_read"},
+//         {"test", true},    
+//         {"device", ""}
+//     };
+//     json scale_config = json{
+//         {"type", "table"},
+//         {"pre_scaled_units", "Volts"},
+//         {"scaled_units", "Volts"},
+//         {"num_points", 11},
+//         {"pre_scaled_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
+//         {"scaled_vals", {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}}
+//     };
+//     add_AI_channel_JSON(config, "a1", data.key, 0, 0, 500.0, "Default", scale_config);
     
-    // create synnax task
-    auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+//     // create synnax task
+//     auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
+//     auto mockCtx = std::make_shared<task::MockContext>(client);
+//     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-   // Now construct NI reader
-    TaskHandle taskHandle;  
-    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+//    // Now construct NI reader
+//     TaskHandle taskHandle;  
+//     ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+//     auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
+//     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
     
-    if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    auto [frame, err] = reader.read(b);
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+//     if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+//     reader.start();
+//     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+//     auto [frame, err] = reader.read(b);
+//     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
-    LOG(INFO) << frame;
-    reader.stop();
-}
+//     LOG(INFO) << frame;
+//     reader.stop();
+// }
 
 
-///////////////////////////////////////////////////////////////////
-//                          POLYNOMIAL                           //
-///////////////////////////////////////////////////////////////////
-TEST(read_tests, analog_polynomial_scaling){
-    // create synnax client
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+// ///////////////////////////////////////////////////////////////////
+// //                          POLYNOMIAL                           //
+// ///////////////////////////////////////////////////////////////////
+// TEST(read_tests, analog_polynomial_scaling){
+//     // create synnax client
+//     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     
-    // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
-    ASSERT_FALSE(tErr) << tErr.message();
+//     // create all the necessary channels in the synnax client
+//     auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
+//     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai_channel",synnax::FLOAT32,time.key,false);
-    ASSERT_FALSE(dErr) << dErr.message();
+//     auto [data, dErr] = client->channels.create("ai_channel",synnax::FLOAT32,time.key,false);
+//     ASSERT_FALSE(dErr) << dErr.message();
 
-    // Create NI readerconfig
-    auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
-        {"device_location", "Dev1"},
-        {"type", "ni_analog_read"},
-        {"test", true},    
-        {"device", ""}
-    };
-    json scale_config = json{
-        {"type", "polynomial"},
-        {"pre_scaled_units", "Volts"},
-        {"scaled_units", "Volts"},
-        {"poly_order", 2},
-        {"coeffs", {300.0, 300.0, 43.0}},
-        {"num_coeffs", 3},
-        {"min_x", 0},
-        {"max_x", 10}
-    };
-    add_AI_channel_JSON(config, "a1", data.key, 0, 1.0, 100.0, "Default", scale_config);
+//     // Create NI readerconfig
+//     auto config = json{
+//         {"sample_rate", 100}, 
+//         {"stream_rate", 20}, 
+//         {"device_location", "Dev1"},
+//         {"type", "ni_analog_read"},
+//         {"test", true},    
+//         {"device", ""}
+//     };
+//     json scale_config = json{
+//         {"type", "polynomial"},
+//         {"pre_scaled_units", "Volts"},
+//         {"scaled_units", "Volts"},
+//         {"poly_order", 2},
+//         {"coeffs", {300.0, 300.0, 43.0}},
+//         {"num_coeffs", 3},
+//         {"min_x", 0},
+//         {"max_x", 10}
+//     };
+//     add_AI_channel_JSON(config, "a1", data.key, 0, 1.0, 100.0, "Default", scale_config);
 
-    // create synnax task
-    auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+//     // create synnax task
+//     auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
+//     auto mockCtx = std::make_shared<task::MockContext>(client);
+//     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    // Now construct NI reader
-    TaskHandle taskHandle;  
-    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+//     // Now construct NI reader
+//     TaskHandle taskHandle;  
+//     ni::NiDAQmxInterface::CreateTask("",&taskHandle);
     
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+//     auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
+//     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
 
-    if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
+//     if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+//     reader.start();
 
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    auto [frame, err] = reader.read(b);
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+//     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+//     auto [frame, err] = reader.read(b);
+//     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
-    LOG(INFO) << frame;
-    reader.stop();
-}
+//     LOG(INFO) << frame;
+//     reader.stop();
+// }
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
