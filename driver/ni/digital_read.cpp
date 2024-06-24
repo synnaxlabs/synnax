@@ -114,7 +114,6 @@ void ni::DigitalReadSource::acquireData() {
                 NULL))) {
                 LOG(ERROR) << "[NI Reader] failed while reading digital data for task " << this->reader_config.task_name;
         }
-
         data_packet.tf = (uint64_t) ((synnax::TimeStamp::now()).value);
         data_queue.enqueue(data_packet);
     }
@@ -141,12 +140,6 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
 
 
     uInt8 *data = static_cast<uInt8 *>(d.data);
-    // print out the data
-    for (int i = 0; i < this->numChannels; i++) {
-        for (int j = 0; j < this->numSamplesPerChannel; j++) {
-            LOG(INFO) << "Data: " << (uint8_t)(data[i * this->numSamplesPerChannel + j]);
-        }
-    }
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->numSamplesPerChannel);
 
