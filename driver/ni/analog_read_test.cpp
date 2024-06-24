@@ -404,7 +404,6 @@ TEST(read_tests, one_analog_voltage_channel){
     analog_channel_helper(config, scale_config, channel_config);
 
 }
-
 ///@brief Temperature Built in sensor : NI USB-6289
 TEST(read_tests, one_analog_temp_built_in_sensor_channel){
     // Create NI readerconfig json
@@ -429,7 +428,6 @@ TEST(read_tests, one_analog_temp_built_in_sensor_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///////////////////////////////////////////////////////////////////
 //                          Torque                               //
 ///////////////////////////////////////////////////////////////////
@@ -880,7 +878,6 @@ TEST(read_tests, one_analog_RTD_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Acceleration                               //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1064,8 +1061,6 @@ TEST(read_tests, one_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
 //                                              Error Handling                                                  //                  
@@ -1097,7 +1092,6 @@ TEST(read_tests, one_bridge_channel){
 // read function failed state
 // write function failed
 // trying to configure a channel for a dev ice that doesnn't have that  channel
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
 //                                         Channel types without dedicated hardware found                       //                  
@@ -1134,7 +1128,6 @@ TEST(read_tests, one_voltage_RMS_channel){
     };
     // analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief voltage with excitation
 /// TODO: cant find a device which supports this channel
 TEST(read_tests, one_voltage_with_excitation_channel){
@@ -1170,8 +1163,6 @@ TEST(read_tests, one_voltage_with_excitation_channel){
     };
     // analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 ///@brief ThermistorIEX
 /// TODO: cant find a device that supports it specifically
 TEST(read_tests, one_analog_thermistor_IEX_channel){
@@ -1208,9 +1199,7 @@ TEST(read_tests, one_analog_thermistor_IEX_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief ThermistorVEX
-
 ///@brief Acceleration 4 wire dc voltage
 // TODO: find devices which support this channel
 TEST(read_tests, one_acceleration_4_wire_channel){
@@ -1246,7 +1235,6 @@ TEST(read_tests, one_acceleration_4_wire_channel){
     };
     // analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief Acceleration Charge
 // TODO: find devices which support this channel
 TEST(read_tests, one_acceleration_charge_channel){
@@ -1282,7 +1270,6 @@ TEST(read_tests, one_acceleration_charge_channel){
     };
     // analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief rosette strain gage
 //TODO: needs 3 channels to work
 TEST(read_tests, one_rosette_strain_gage){
@@ -1324,8 +1311,6 @@ TEST(read_tests, one_rosette_strain_gage){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 ///@brief frequency
 TEST(read_tests, one_frequency_channel){
     // Create NI readerconfig json
@@ -1358,10 +1343,7 @@ TEST(read_tests, one_frequency_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 ///@brief charge
-
 ///@brief Current RMS
 // TODO: find device which supports current RMS
 TEST(read_tests, one_current_RMS_channel){
@@ -1395,5 +1377,4 @@ TEST(read_tests, one_current_RMS_channel){
 
     // analog_channel_helper(config, scale_config, channel_config);
 }
-
 */
