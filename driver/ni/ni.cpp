@@ -83,7 +83,7 @@ void ni::Source::parseConfig(config::Parser &parser) {
 }
 
 int ni::Source::init() {
-    LOG(INFO) << "[NI Reader] initializing reader for task " << this->reader_config.task_name;
+
     // Create parser
     auto config_parser = config::Parser(this->task.config);
     this->reader_config.task_name = this->task.name;

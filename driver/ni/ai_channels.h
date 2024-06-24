@@ -14,6 +14,7 @@
 #include "daqmx.h"
 #include "nidaqmx_api.h"
 #include "nisyscfg.h"
+#include "driver/ni/ni.h"
 
 #include "client/cpp/telem/telem.h"
 #include "driver/config/config.h"
@@ -23,50 +24,6 @@
 #include "nlohmann/json.hpp"
 
 namespace ni {
-
-static inline const std::map<std::string, int32_t>    UNITS_MAP = {
-    {"Volts",                               DAQmx_Val_Volts},
-    {"Amps",                                DAQmx_Val_Amps},
-    {"DegF",                                DAQmx_Val_DegF},
-    {"F",                                   DAQmx_Val_DegF},
-    {"DegC",                                DAQmx_Val_DegC},
-    {"C",                                   DAQmx_Val_DegC},
-    {"DegR",                                DAQmx_Val_DegR},
-    {"Kelvins",                             DAQmx_Val_Kelvins},
-    {"K",                                   DAQmx_Val_Kelvins},
-    {"Strain",                              DAQmx_Val_Strain},
-    {"Ohms",                                DAQmx_Val_Ohms},
-    {"Hz",                                  DAQmx_Val_Hz},
-    {"Seconds",                             DAQmx_Val_Seconds},
-    {"Meters",                              DAQmx_Val_Meters},
-    {"Inches",                              DAQmx_Val_Inches},
-    {"Degrees",                             DAQmx_Val_Degrees},
-    {"Radians",                             DAQmx_Val_Radians},
-    {"g",                                   DAQmx_Val_g},
-    {"MetersPerSecondSquared",              DAQmx_Val_MetersPerSecondSquared},
-    {"MetersPerSecond",                     DAQmx_Val_MetersPerSecond}, // TODO: make sure option is in console
-    {"InchesPerSecond",                     DAQmx_Val_InchesPerSecond}, // TODO: make sure option is in console
-    {"MillivoltsPerMillimeterPerSecond",    DAQmx_Val_MillivoltsPerMillimeterPerSecond},
-    {"MilliVoltsPerInchPerSecond",          DAQmx_Val_MilliVoltsPerInchPerSecond},
-    {"mVoltsPerNewton",                     DAQmx_Val_mVoltsPerNewton},
-    {"mVoltsPerPound",                      DAQmx_Val_mVoltsPerPound},
-    {"Newtons",                             DAQmx_Val_Newtons},
-    {"Pounds",                              DAQmx_Val_Pounds},
-    {"KilogramForce",                       DAQmx_Val_KilogramForce},
-    {"PoundsPerSquareInch",                 DAQmx_Val_PoundsPerSquareInch},
-    {"Bar",                                 DAQmx_Val_Bar},
-    {"Pascals",                             DAQmx_Val_Pascals},
-    {"VoltsPerVolt",                        DAQmx_Val_VoltsPerVolt},
-    {"mVoltsPerVolt",                       DAQmx_Val_mVoltsPerVolt},
-    {"NewtonMeters",                        DAQmx_Val_NewtonMeters},
-    {"InchOunces",                          DAQmx_Val_InchOunces},
-    {"InchPounds",                          DAQmx_Val_InchPounds},
-    {"FootPounds",                          DAQmx_Val_FootPounds},
-    {"Strain",                              DAQmx_Val_Strain},
-    {"FromTEDS",                            DAQmx_Val_FromTEDS},
-    {"mVoltsPerG",                          DAQmx_Val_mVoltsPerG}, // TODO: verify this is an option in the console
-    {"AccelUnit_g",                         DAQmx_Val_AccelUnit_g}  // TODO: verify this is an option in the console for sensitivity units
-};
 
 static inline int32_t getTerminalConfig(std::string terminal_config) {
     if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
@@ -266,17 +223,17 @@ public:
         return 0;
     }
 
-    static ScaleConfig getScaleConfig(config::Parser &parser) {
+    static std::unique_ptr<ScaleConfig> getScaleConfig(config::Parser &parser) {
         // TODO check if custom scale and channel exist
         std::string scale_name = std::to_string(parser.required<uint32_t>("channel")) +
                                  "_scale";
         auto scale_parser = parser.child("custom_scale");
-        return ScaleConfig(scale_parser, scale_name);
+        return std::make_unique<ScaleConfig>(scale_parser, scale_name);
     }
 
     int32 createNIScale() {
-        if (this->scale_config.type == "none") return 0;
-        return this->scale_config.createNIScale();
+        if (this->scale_config->type == "none") return 0;
+        return this->scale_config->createNIScale();
     }
 
     explicit Analog(config::Parser &parser, TaskHandle task_handle, std::string name)
@@ -289,9 +246,9 @@ public:
           type(parser.required<std::string>("type")),
           scale_config(getScaleConfig(parser)) {
         // check name of channel
-        if (this->scale_config.type != "none") {
-            LOG(INFO) << "Scale type: " << this->scale_config.type;
-            this->scale_name = this->scale_config.name;
+        if (this->scale_config->type != "none") {
+            LOG(INFO) << "Scale type: " << this->scale_config->type;
+            this->scale_name = this->scale_config->name;
             this->units = DAQmx_Val_FromCustomScale;
         }
     }
@@ -305,7 +262,7 @@ public:
     std::string name = "";
     std::string type = "";
 
-    ScaleConfig scale_config;
+    std::unique_ptr<ScaleConfig> scale_config;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -325,7 +282,7 @@ public:
     ~Voltage() = default;
 
     int32 createNIChannel() override {
-        if (this->scale_config.type == "none") {
+        if (this->scale_config->type == "none") {
             return ni::NiDAQmxInterface::CreateAIVoltageChan(
                 this->task_handle,
                 this->name.c_str(),
@@ -345,7 +302,7 @@ public:
                 this->min_val,
                 this->max_val,
                 DAQmx_Val_FromCustomScale,
-                this->scale_config.name.c_str()
+                this->scale_config->name.c_str()
             );
         }
     }
@@ -391,7 +348,7 @@ class VoltageRMS : public Voltage {
 
             int32 createNIChannel() override {
                 LOG(INFO) << "Creating Voltage Channel with Excitation Reference";
-                if(this->scale_config.type == "none"){
+                if(this->scale_config->type == "none"){
                     return ni::NiDAQmxInterface::CreateAIVoltageChanWithExcit(
                             this->task_handle,
                             this->name.c_str(),
@@ -438,7 +395,7 @@ public:
     }
 
     int32 createNIChannel() override {
-        if (this->scale_config.type == "none") {
+        if (this->scale_config->type == "none") {
             return ni::NiDAQmxInterface::CreateAICurrentChan(
                 this->task_handle,
                 this->name.c_str(),
@@ -461,7 +418,7 @@ public:
             : Current(parser, task_handle, name) {}
 
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -575,7 +532,7 @@ public:
     ///	DAQmxErrChk (DAQmxCreateAIThrmcplChan(taskHandle,"","",0.0,100.0,DAQmx_Val_DegC,DAQmx_Val_J_Type_TC,DAQmx_Val_BuiltIn,25.0,""));
 
     int32 createNIChannel() override {
-        if (this->scale_config.type == "none") {
+        if (this->scale_config->type == "none") {
             return ni::NiDAQmxInterface::CreateAIThrmcplChan(
                 this->task_handle,
                 this->name.c_str(),
@@ -601,7 +558,6 @@ class TemperatureBuiltInSensor : public Analog{
             this->units = ni::UNITS_MAP.at(u);
 
             size_t pos = name.find("/");
-
 
             this->name =  name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
         }
@@ -638,7 +594,7 @@ class ThermistorIEX : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIThrmstrChanIex(
                         this->task_handle,
                         this->name.c_str(),
@@ -680,7 +636,7 @@ class ThermistorVex : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIThrmstrChanVex(
                         this->task_handle,
                         this->name.c_str(),
@@ -725,7 +681,7 @@ class Acceleration : public Analog {
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIAccelChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -754,7 +710,7 @@ public:
             : Acceleration(parser, task_handle, name) {}
 
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAIAccel4WireDCVoltageChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -794,7 +750,7 @@ class AccelerationCharge : public Analog {
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIAccelChargeChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -828,7 +784,7 @@ class Resistance : public Analog{
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAIResistanceChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -860,7 +816,7 @@ class Bridge : public Analog {
             }
 
         int32 createNIChannel() override{
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIBridgeChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -916,7 +872,7 @@ public:
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAIStrainGageChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -1039,7 +995,7 @@ class Microphone : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIMicrophoneChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1076,7 +1032,7 @@ public:
                     this->name = name.substr(0, pos) + "/ctr" + std::to_string(parser.required<std::uint64_t>("port"));
                 }
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -1110,7 +1066,7 @@ class PressureBridgeTwoPointLin : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1148,7 +1104,7 @@ class PressureBridgeTable : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1186,7 +1142,7 @@ public:
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -1227,7 +1183,7 @@ public:
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -1265,7 +1221,7 @@ class ForceBridgeTable : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIForceBridgeTableChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1303,7 +1259,7 @@ class ForceBridgeTwoPointLin : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIForceBridgeTwoPointLinChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1351,7 +1307,7 @@ class VelocityIEPE : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1386,7 +1342,7 @@ class TorqueBridgeTwoPointLin : public Analog{
                 }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAITorqueBridgeTwoPointLinChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1424,7 +1380,7 @@ class TorqueBridgePolynomial : public Analog{
                 }
 
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAITorqueBridgePolynomialChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1462,7 +1418,7 @@ class TorqueBridgeTable : public Analog{
                     this->units = ni::UNITS_MAP.at(u);
                   }
         int32 createNIChannel() override {
-            if(this->scale_config.type == "none"){
+            if(this->scale_config->type == "none"){
                 return ni::NiDAQmxInterface::CreateAITorqueBridgeTableChan(
                         this->task_handle,
                         this->name.c_str(),
@@ -1508,7 +1464,7 @@ public:
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAIForceIEPEChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -1542,7 +1498,7 @@ public:
             }
 
     int32 createNIChannel() override {
-        if(this->scale_config.type == "none"){
+        if(this->scale_config->type == "none"){
             return ni::NiDAQmxInterface::CreateAIChargeChan(
                     this->task_handle,
                     this->name.c_str(),

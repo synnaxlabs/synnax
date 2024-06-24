@@ -184,7 +184,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
 
     //delete data array
     delete[] data;
-
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
@@ -196,6 +195,7 @@ int ni::AnalogReadSource::createChannels() {
         this->numAIChannels++;
         this->checkNIError(channel.ni_channel->createNIScale());
         this->checkNIError(channel.ni_channel->createNIChannel());
+        LOG(INFO) << "[NI Reader] created scale for " << channel.name;
         if (!this->ok()) {
             LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.
                     name;

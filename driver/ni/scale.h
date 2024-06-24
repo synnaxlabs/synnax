@@ -71,8 +71,8 @@ typedef struct MapScale {
 //                                  PolynomialScale                              //
 ///////////////////////////////////////////////////////////////////////////////////
 typedef struct PolynomialScale {
-    float64 *forward_coeffs;
-    float64 *reverse_coeffs;
+    std::vector<double> forward_coeffs;
+    std::vector<double> reverse_coeffs;
     uint32_t num_coeffs;
     float64 min_x;
     float64 max_x;
@@ -87,14 +87,12 @@ typedef struct PolynomialScale {
           max_x(parser.required<double>("max_x")),
           num_points(parser.optional<int>("num_reverse_coeffs", 0)),
           poly_order(parser.required<int>("poly_order")) {
-        forward_coeffs = new double[num_coeffs];
-        reverse_coeffs = new double[num_coeffs];
+            
+        forward_coeffs.resize(num_coeffs*2);
+        reverse_coeffs.resize(num_coeffs*2);
 
         if (!parser.ok()) {
-            LOG(ERROR) <<
-                    "[ni.analog] failed to parse custom polynomial scale configuration";
-            forward_coeffs = nullptr;
-            reverse_coeffs = nullptr;
+            LOG(ERROR) << "[ni.analog] failed to parse custom polynomial scale configuration";
             return;
         }
 
@@ -104,41 +102,33 @@ typedef struct PolynomialScale {
         json j = parser.get_json();
         // get forward coeffs (prescale -> scale conversions)
         if (!j.contains("coeffs")) {
-            return; // TODO: log error
+            LOG(ERROR) << "[ni.analog] failed to parse custom polynomial scale configuration: missing coeffs";
+            return; 
         }
-        std::vector<double> forward_coeffs_vec = j["coeffs"].get<std::vector<
-            double> >();
-        forward_coeffs = new double[num_coeffs];
-        // std::memcpy(forward_coeffs, other.forward_coeffs, num_coeffs * sizeof(double)); do this instead?
-        for (int i = 0; i < forward_coeffs_vec.size(); i++) {
-            forward_coeffs[i] = forward_coeffs_vec[i];
-        }
+
+        for (int i = 0; i < num_coeffs; i++) forward_coeffs[i] = j["coeffs"][i];
+        
         // get reverse coeffs (scale -> prescale conversions)
-        reverse_coeffs = new double[num_coeffs];
         // TODO: reverse coeffs might be smaller than forward_coeffs
         ni::NiDAQmxInterface::CalculateReversePolyCoeff(
-            forward_coeffs,
+            forward_coeffs.data(),
             num_coeffs,
             min_x,
             max_x,
             num_coeffs,
             -1,
-            reverse_coeffs
+            reverse_coeffs.data()
         ); // FIXME: reversePoly order should be user inputted?
     }
-
-    ~PolynomialScale() {
-        if (forward_coeffs != nullptr) delete[] forward_coeffs;
-        if (reverse_coeffs != nullptr) delete[] reverse_coeffs;
-    }
+    
 } PolynomialScale;
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    TableScale                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 typedef struct TableScale {
-    float64 *prescaled;
-    float64 *scaled;
+    std::vector<double> prescaled;
+    std::vector<double> scaled;
     uint32_t num_points;
 
     TableScale() = default;
@@ -147,34 +137,21 @@ typedef struct TableScale {
         : num_points(parser.required<int>("num_points")) {
         if (!parser.ok()) {
             LOG(ERROR) << "[ni.analog] failed to parse custom table configuration";
-            prescaled = nullptr;
-            scaled = nullptr;
             return;
         }
 
-        //get json from parser
         json j = parser.get_json();
         if (!j.contains("pre_scaled_vals") || !j.contains("scaled_vals")) {
-            LOG(ERROR)
-                    << "[ni.analog] failed to parse custom table configuration: missing pre_scaled_vals or scaled_vals";
-            return; // TODO: log error
+            LOG(ERROR) << "[ni.analog] failed to parse custom table configuration: missing pre_scaled_vals or scaled_vals";
+            return; 
         }
-        std::vector<double> prescaled_vec = j["pre_scaled_vals"].get<std::vector<
-            double> >();
-        std::vector<double> scaled_vec = j["scaled_vals"].get<std::vector<double> >();
 
-        prescaled = new double[num_points];
-        scaled = new double[num_points];
-
-        for (int i = 0; i < prescaled_vec.size(); i++) {
-            prescaled[i] = prescaled_vec[i];
-            scaled[i] = scaled_vec[i];
+        prescaled.resize(num_points);
+        scaled.resize(num_points);
+        for (int i = 0; i < num_points; i++) {
+            prescaled[i] = j["pre_scaled_vals"][i];
+            scaled[i] = j["scaled_vals"][i];
         }
-    }
-
-    ~TableScale() {
-        if (prescaled != nullptr) delete[] prescaled;
-        if (scaled != nullptr) delete[] scaled;
     }
 } TableScale;
 
@@ -272,6 +249,7 @@ typedef struct ScaleConfig {
 
     // create NI Scale
     int32 createNIScale() {
+        LOG(INFO) << "Creating NI Scale ";
         if (type == "linear") {
             return ni::NiDAQmxInterface::CreateLinScale(
                 name.c_str(),
@@ -291,35 +269,25 @@ typedef struct ScaleConfig {
                 scaled_units.c_str()
             );
         } else if (type == "polynomial") {
-            float64 forward_coeffs_in[1000];
-            float64 reverse_coeffs_in[1000];
-            for (int i = 0; i < scale.polynomial.num_coeffs; i++) {
-                forward_coeffs_in[i] = scale.polynomial.forward_coeffs[i];
-                reverse_coeffs_in[i] = scale.polynomial.reverse_coeffs[i];
-            }
+            LOG(INFO) << "size of forward coeffs: " << scale.polynomial.forward_coeffs.size();
+            LOG(INFO) << "size of reverse coeffs: " << scale.polynomial.reverse_coeffs.size();
             return ni::NiDAQmxInterface::CreatePolynomialScale(
                 name.c_str(),
-                forward_coeffs_in,
+                scale.polynomial.forward_coeffs.data(),
                 scale.polynomial.num_coeffs,
-                reverse_coeffs_in,
+                scale.polynomial.reverse_coeffs.data(),
                 scale.polynomial.num_coeffs,
                 ni::UNITS_MAP.at(prescaled_units),
                 scaled_units.c_str()
             );
         } else if (type == "table") {
-            float64 prescaled_in[10000];
-            float64 scaled_in[10000];
-
-            for (int i = 0; i < scale.table.num_points; i++) {
-                prescaled_in[i] = scale.table.prescaled[i];
-                scaled_in[i] = scale.table.scaled[i];
-            }
-
+            LOG(INFO) << "size of prescaled: " << scale.table.prescaled.size();
+            LOG(INFO) << "size of scaled: " << scale.table.scaled.size();
             return ni::NiDAQmxInterface::CreateTableScale(
                 name.c_str(),
-                prescaled_in,
+                scale.table.prescaled.data(),
                 scale.table.num_points,
-                scaled_in,
+                scale.table.scaled.data(),
                 scale.table.num_points,
                 ni::UNITS_MAP.at(prescaled_units),
                 scaled_units.c_str()
