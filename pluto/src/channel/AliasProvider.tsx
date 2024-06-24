@@ -80,6 +80,7 @@ export const AliasProvider = ({
   const handleAliasChange = useCallback(
     (changes: ranger.AliasChange[]) => {
       setAliases((aliases) => {
+        console.log("ALIAS CHANGES", changes);
         const newAliases = { ...aliases };
         changes.forEach(({ variant, key, value }) => {
           const channelKey = Number(key.split("---")[1]);

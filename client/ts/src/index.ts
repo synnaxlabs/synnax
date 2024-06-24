@@ -16,6 +16,8 @@ export { control } from "@/control";
 export {
   AuthError,
   ContiguityError,
+  MultipleFoundError,
+  NotFoundError,
   QueryError,
   RouteError,
   UnexpectedError,
