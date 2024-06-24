@@ -31,7 +31,7 @@ import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks/ref";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { type status } from "@/status/aether";
+import { status } from "@/status/aether";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 /** Props for the @see useField hook */
@@ -499,7 +499,7 @@ const NO_ERROR_STATUS = (path: string): status.CrudeSpec => ({
 
 interface UseRef<Z extends z.ZodTypeAny> {
   state: z.output<Z>;
-  status: Map<string, status.CrudeSpec>;
+  statuses: Map<string, status.CrudeSpec>;
   touched: Set<string>;
   listeners: Map<string, Set<Listener>>;
   parentListeners: Map<string, Set<Listener>>;
@@ -529,7 +529,7 @@ export const use = <Z extends z.ZodTypeAny>({
 }: UseProps<Z>): UseReturn<Z> => {
   const ref = useRef<UseRef<Z>>({
     state: values,
-    status: new Map(),
+    statuses: new Map(),
     touched: new Set(),
     listeners: new Map(),
     parentListeners: new Map(),
@@ -557,12 +557,12 @@ export const use = <Z extends z.ZodTypeAny>({
       path: string,
       { optional }: GetProps = { optional: false },
     ): FieldState<V> | null => {
-      const { state, status, touched } = ref.current;
+      const { state, statuses, touched } = ref.current;
       const value = deep.get(state, path, { optional });
       if (value == null) return null;
       const fs = {
         value: value as V,
-        status: status.get(path) ?? NO_ERROR_STATUS(path),
+        status: statuses.get(path) ?? NO_ERROR_STATUS(path),
         touched: touched.has(path),
         required: false,
       };
@@ -576,55 +576,80 @@ export const use = <Z extends z.ZodTypeAny>({
     [],
   ) as GetFunc;
 
+  const updateFieldState = useCallback((path: string) => {
+    const { listeners } = ref.current;
+    const fs = get(path, { optional: true });
+    if (fs == null) return;
+    listeners.get(path)?.forEach((l) => l(fs));
+  }, []);
+
+  const updateFieldValues = useCallback((path: string) => {
+    const { listeners, parentListeners } = ref.current;
+    listeners.get(path)?.forEach((l) => {
+      const fs = get(path, { optional: true });
+      if (fs != null) l(fs);
+    });
+    parentListeners.forEach((lis, lisPath) => {
+      if (deep.pathsMatch(path, lisPath)) {
+        const v = get(lisPath, { optional: true });
+        if (v != null) lis.forEach((l) => l(v));
+      }
+    });
+  }, []);
+
   const processValidationResult = useCallback(
     (
       result: z.SafeParseReturnType<z.input<Z>, z.output<Z>>,
-      path: string = "",
+      validationPath: string = "",
     ): boolean => {
-      const { status, listeners, touched } = ref.current;
+      const { statuses, listeners, touched } = ref.current;
+
+      // Parse was a complete success. No errors encountered.
       if (result.success) {
-        const keys = Array.from(status.keys());
-        status.clear();
-        keys.forEach((p) => {
-          const fs = get(p, { optional: true });
-          if (fs == null) return;
-          listeners.get(p)?.forEach((l) => l(fs));
-        });
+        /// Clear statuses for all fields and update relevant listeners.
+        statuses.clear();
+        statuses.forEach((_, path) => updateFieldState(path));
         return true;
       }
+
+      // The validation may still be a success if all errors are warnings.
       let success = true;
       const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
       result.error.issues.forEach((issue) => {
+        const { message } = issue;
         const issuePath = issue.path.join(".");
-        if (!deep.pathsMatch(issuePath, path)) return;
+
+        // If we're only validating a sub-path and it doesn't match a particular issue,
+        // skip it.
+        if (!deep.pathsMatch(issuePath, validationPath)) return;
+
         const variant = getVariant(issue);
         if (variant !== "warning") success = false;
-        status.set(issuePath, {
-          key: issuePath,
-          variant: getVariant(issue),
-          message: issue.message,
-        });
+
+        statuses.set(issuePath, { key: issuePath, variant, message });
         touched.add(issuePath);
+
         let fs = get(issuePath, { optional: true });
-        // If we can't find the field value, this means the user never set it, so instead
-        // we just to a best effort construction of the field state. This means that if
-        // the user has a field rendered for this path, the error will be displayed.
+        // If we can't find the field value, this means the user never set it, so
+        // instead we just to a best effort construction of the field state. This means
+        // that if the user has a field rendered for this path, the error will be displayed.
         if (fs == null)
           fs = {
             value: undefined,
-            status: status.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
+            status: statuses.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
             touched: false,
             required: false,
           };
         listeners.get(issuePath)?.forEach((l) => l(fs));
       });
-      status.forEach((_, subPath) => {
-        if (!issueKeys.has(subPath)) {
-          status.delete(subPath);
-          const fs = get(subPath, { optional: true });
-          if (fs != null) listeners.get(subPath)?.forEach((l) => l(fs));
-        }
+
+      // Clear any statuses that had previous validation errors, but no longer do.
+      statuses.forEach((_, subPath) => {
+        if (issueKeys.has(subPath)) return;
+        statuses.delete(subPath);
+        updateFieldState(subPath);
       });
+
       return success;
     },
     [],
@@ -651,32 +676,23 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 
   const set: SetFunc = useCallback(({ path, value }): void => {
-    const { state, touched, listeners, parentListeners } = ref.current;
+    const { state, touched } = ref.current;
     touched.add(path);
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
     try {
-      validate();
+      validate(path);
     } catch {
-      validateAsync();
+      validateAsync(path);
     }
-    listeners.get(path)?.forEach((l) => {
-      const fs = get(path, { optional: true });
-      if (fs != null) l(fs);
-    });
-    parentListeners.forEach((lis, lisPath) => {
-      if (deep.pathsMatch(path, lisPath)) {
-        const v = get(lisPath, { optional: true });
-        if (v != null) lis.forEach((l) => l(v));
-      }
-    });
+    updateFieldValues(path);
     onChangeRef.current?.(ref.current.state);
   }, []);
 
-  const has = useCallback((path: string): boolean => {
-    const { state } = ref.current;
-    return deep.has(state, path);
-  }, []);
+  const has = useCallback(
+    (path: string): boolean => deep.has(ref.current.state, path),
+    [],
+  );
 
   useEffect(() => {
     if (!sync) return;
