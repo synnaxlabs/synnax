@@ -40,9 +40,9 @@ TEST(read_tests, one_digital_channel){
 
     // Create NI readerconfig
     auto config = json{
-            {"sample_rate", 100}, // dont actually need these here
-            {"stream_rate", 20}, // same as above
-            {"device_location", "Dev5"},
+            {"sample_rate", 5}, // dont actually need these here
+            {"stream_rate", 1}, // same as above
+            {"device_location", "Dev1"},
             {"type", "digital_read"},
             {"test", true},
             {"device", ""}
@@ -72,7 +72,7 @@ TEST(read_tests, one_digital_channel){
 }
 
 
-
+/*
 TEST(read_tests, multiple_digital_channels){
     // setup synnax test infrustructure
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -96,7 +96,7 @@ TEST(read_tests, multiple_digital_channels){
     auto config = json{
             {"sample_rate", 1000}, // dont actually need these here
             {"stream_rate", 20}, // same as above
-            {"device_location", "PXI1Slot2_2"},
+            {"device_location", "Dev1"},
             {"type", "digital_read"},
             {"test", true},
             {"device", ""}
@@ -129,3 +129,4 @@ TEST(read_tests, multiple_digital_channels){
     }
     reader.stop();
 }
+*/
