@@ -1482,13 +1482,19 @@ public:
     }
 };
 
-/*
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Charge                                   //
 ///////////////////////////////////////////////////////////////////////////////////
 class Charge : public Analog {
+public:
+    int32 terminal_config = 0;
     explicit Charge(config::Parser &parser, TaskHandle task_handle, std::string name)
-            : Analog(parser, task_handle, name) {}
+            : Analog(parser, task_handle, name),
+              terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))){
+                std::string u = parser.optional<std::string>("units", "Coulombs");
+                this->units = ni::UNITS_MAP.at(u);
+            }
 
     int32 createNIChannel() override {
         if(this->scale_config.type == "none"){
@@ -1500,27 +1506,10 @@ class Charge : public Analog {
                     this->min_val,
                     this->max_val,
                     this->units,
-                    this->excitationConfig.voltageExcitSource,
-                    this->excitationConfig.voltageExcitVal,
                     NULL
             );
         }
     }
 
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-*/
 } // namespace ni

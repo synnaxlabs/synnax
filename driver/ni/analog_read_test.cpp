@@ -2123,4 +2123,7 @@ TEST(read_tests, one_frequency_channel){
     analog_channel_helper(config, scale_config, channel_config);
 }
 
+
+///@brief charge
+
 */
