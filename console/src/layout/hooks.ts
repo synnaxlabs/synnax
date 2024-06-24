@@ -21,7 +21,7 @@ import {
 import { compare } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { State } from "@/layout/layout";
 import { useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
@@ -34,6 +34,7 @@ import {
   setNavDrawerVisible,
   toggleActiveTheme,
 } from "@/layout/slice";
+import { RootStore } from "@/store";
 
 export interface CreatorProps {
   windowKey: string;
