@@ -7,16 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Synnax on 3/24/2024.
-//
-
-#include "driver/ni/ni.h"
-#include "nisyscfg_api.h"
-#include "nlohmann/json.hpp"
 #include <string>
 #include <algorithm>
 
+#include "driver/ni/ni.h"
+#include "driver/ni/nisyscfg_api.h"
+
+#include "nlohmann/json.hpp"
 
 ni::Scanner::Scanner(
     const std::shared_ptr<task::Context> &ctx,

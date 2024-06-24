@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Elham Islam on 5/14/24.
-//
-
-#include "driver/ni/ni.h"
-#include "nlohmann/json.hpp"
-#include "client/cpp/telem/telem.h"
 #include <utility>
 #include <chrono>
 #include <stdio.h>
 #include <cassert>
-#include "glog/logging.h"
 
+#include "client/cpp/telem/telem.h"
+#include "driver/ni/ni.h"
+
+#include "nlohmann/json.hpp"
+#include "glog/logging.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                             Helper Functions                                  //

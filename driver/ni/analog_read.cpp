@@ -19,7 +19,6 @@
 
 using json = nlohmann::json;
 
-
 void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
     // now parse the channels
     parser.iter("channels",

@@ -13,7 +13,6 @@
 #include <mutex>
 #include <condition_variable>
 
-
 template<typename T>
 class TSQueue {
 public:

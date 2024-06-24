@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 #pragma once
 
 #include <string>
@@ -15,12 +14,59 @@
 #include "daqmx.h"
 #include "nidaqmx_api.h"
 #include "nisyscfg.h"
+
 #include "client/cpp/telem/telem.h"
 #include "driver/config/config.h"
+#include "driver/ni/scale.h"
+
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
 namespace ni {
+
+static inline const std::map<std::string, int32_t>    UNITS_MAP = {
+    {"Volts",                               DAQmx_Val_Volts},
+    {"Amps",                                DAQmx_Val_Amps},
+    {"DegF",                                DAQmx_Val_DegF},
+    {"F",                                   DAQmx_Val_DegF},
+    {"DegC",                                DAQmx_Val_DegC},
+    {"C",                                   DAQmx_Val_DegC},
+    {"DegR",                                DAQmx_Val_DegR},
+    {"Kelvins",                             DAQmx_Val_Kelvins},
+    {"K",                                   DAQmx_Val_Kelvins},
+    {"Strain",                              DAQmx_Val_Strain},
+    {"Ohms",                                DAQmx_Val_Ohms},
+    {"Hz",                                  DAQmx_Val_Hz},
+    {"Seconds",                             DAQmx_Val_Seconds},
+    {"Meters",                              DAQmx_Val_Meters},
+    {"Inches",                              DAQmx_Val_Inches},
+    {"Degrees",                             DAQmx_Val_Degrees},
+    {"Radians",                             DAQmx_Val_Radians},
+    {"g",                                   DAQmx_Val_g},
+    {"MetersPerSecondSquared",              DAQmx_Val_MetersPerSecondSquared},
+    {"MetersPerSecond",                     DAQmx_Val_MetersPerSecond}, // TODO: make sure option is in console
+    {"InchesPerSecond",                     DAQmx_Val_InchesPerSecond}, // TODO: make sure option is in console
+    {"MillivoltsPerMillimeterPerSecond",    DAQmx_Val_MillivoltsPerMillimeterPerSecond},
+    {"MilliVoltsPerInchPerSecond",          DAQmx_Val_MilliVoltsPerInchPerSecond},
+    {"mVoltsPerNewton",                     DAQmx_Val_mVoltsPerNewton},
+    {"mVoltsPerPound",                      DAQmx_Val_mVoltsPerPound},
+    {"Newtons",                             DAQmx_Val_Newtons},
+    {"Pounds",                              DAQmx_Val_Pounds},
+    {"KilogramForce",                       DAQmx_Val_KilogramForce},
+    {"PoundsPerSquareInch",                 DAQmx_Val_PoundsPerSquareInch},
+    {"Bar",                                 DAQmx_Val_Bar},
+    {"Pascals",                             DAQmx_Val_Pascals},
+    {"VoltsPerVolt",                        DAQmx_Val_VoltsPerVolt},
+    {"mVoltsPerVolt",                       DAQmx_Val_mVoltsPerVolt},
+    {"NewtonMeters",                        DAQmx_Val_NewtonMeters},
+    {"InchOunces",                          DAQmx_Val_InchOunces},
+    {"InchPounds",                          DAQmx_Val_InchPounds},
+    {"FootPounds",                          DAQmx_Val_FootPounds},
+    {"Strain",                              DAQmx_Val_Strain},
+    {"FromTEDS",                            DAQmx_Val_FromTEDS},
+    {"mVoltsPerG",                          DAQmx_Val_mVoltsPerG}, // TODO: verify this is an option in the console
+    {"AccelUnit_g",                         DAQmx_Val_AccelUnit_g}  // TODO: verify this is an option in the console for sensitivity units
+};
 
 static inline int32_t getTerminalConfig(std::string terminal_config) {
     if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
@@ -219,7 +265,6 @@ public:
         LOG(INFO) << "Creating Analog Channel";
         return 0;
     }
-
 
     static ScaleConfig getScaleConfig(config::Parser &parser) {
         // TODO check if custom scale and channel exist

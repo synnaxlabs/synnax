@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <stdio.h>
+#include <map>
+
 #include <include/gtest/gtest.h>
 #include "glog/logging.h"
+#include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
 #include "driver/ni/ni.h"
-#include <stdio.h>
-#include "nlohmann/json.hpp"
 #include "driver/testutil/testutil.h"
-#include <map>
 
 TEST(read_tests, one_digital_channel) {
         LOG(INFO) << "test_read_one_digital_channel: "; //<< std::endl;

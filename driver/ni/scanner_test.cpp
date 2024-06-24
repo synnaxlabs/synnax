@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Synnax on 4/1/2024.
-//
+#include <stdio.h>
 
-#include <include/gtest/gtest.h>
+#include "driver/testutil/testutil.h"
 #include "driver/ni/ni.h"
 #include "client/cpp/synnax.h"
-#include <stdio.h>
+
 #include "nlohmann/json.hpp"
-#include "driver/testutil/testutil.h"
+#include <include/gtest/gtest.h>
 
 //TODO: add asserts to eliminate manual checking of terminal output
 

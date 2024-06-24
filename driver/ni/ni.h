@@ -18,26 +18,31 @@
 #include <atomic>
 #include <thread>
 #include <set>
+#include <condition_variable>
 
 #include "nidaqmx_api.h"
 #include "daqmx.h"
 #include "nisyscfg.h"
-#include "client/cpp/synnax.h"
-#include "driver/task/task.h"
-#include "driver/pipeline/acquisition.h"
-#include "driver/errors/errors.h"
-#include "driver/breaker/breaker.h"
-#include "driver/pipeline/control.h"
+
 #include "nlohmann/json.hpp"
-#include "driver/task/task.h"
-#include "driver/config/config.h"
+
+
+#include "client/cpp/synnax.h"
+
+#include "driver/ni/ai_channels.h"
 #include "driver/ni/error.h"
-#include <condition_variable>
-#include "ts_queue.h"
-#include "driver/ni/scale.h"
-#include "ai_channels.h"
+#include "driver/ni/ts_queue.h"
+
+#include "driver/pipeline/acquisition.h"
+#include "driver/pipeline/control.h"
+
+#include "driver/task/task.h"
+#include "driver/breaker/breaker.h"
+#include "driver/config/config.h"
+#include "driver/errors/errors.h"
 
 namespace ni {
+
 typedef struct ChannelConfig {
     uint32_t channel_key;
     std::string name;
@@ -455,4 +460,7 @@ public:
 
     ~Factory() = default;
 };
+
+
+
 }

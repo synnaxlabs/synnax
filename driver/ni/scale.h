@@ -15,13 +15,15 @@
 #include <cstdint>
 #include <map>
 
-#include "nidaqmx_api.h"
 #include "daqmx.h"
 #include "nisyscfg.h"
+
+#include "driver/ni/ni.h"
+#include "driver/ni/nidaqmx_api.h"
 #include "driver/config/config.h"
+
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
-#include "driver/ni/ni.h"
 
 namespace ni {
 extern const std::map<std::string, int32_t> UNITS_MAP;
