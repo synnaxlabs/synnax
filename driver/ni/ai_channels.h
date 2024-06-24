@@ -157,8 +157,6 @@ struct TableConfig {
         electrical_units = ni::UNITS_MAP.at(eu);
         physical_units = ni::UNITS_MAP.at(pu);
 
-        if (!parser.ok()) return; // TODO: handle error
-
         json j = parser.get_json();
 
         //get electrical vals
@@ -428,50 +426,50 @@ public:
     ///////////////////////////////////////////////////////////////////////////////////
     //                                       RTD                                     //
     ///////////////////////////////////////////////////////////////////////////////////
-    class RTD final : public Analog{
-        public:
-            int32_t rtdType;
-            int32_t resistance_config;
-            ExcitationConfig excitation_config;
-            double r0;
+class RTD final : public Analog{
+    public:
+        int32_t rtdType;
+        int32_t resistance_config;
+        ExcitationConfig excitation_config;
+        double r0;
 
-            static int32_t getRTDType(std::string type){
-                if(type == "Pt3750") return DAQmx_Val_Pt3750;
-                if(type == "PT3851") return DAQmx_Val_Pt3851;
-                if(type == "PT3911") return DAQmx_Val_Pt3911;
-                if(type == "PT3916") return DAQmx_Val_Pt3916;
-                if(type == "PT3920") return DAQmx_Val_Pt3920;
-                if(type == "PT3928") return DAQmx_Val_Pt3928;
-                if(type == "Custom") return DAQmx_Val_Custom;
-                return DAQmx_Val_Pt3750;
-            } 
+        static int32_t getRTDType(std::string type){
+            if(type == "Pt3750") return DAQmx_Val_Pt3750;
+            if(type == "PT3851") return DAQmx_Val_Pt3851;
+            if(type == "PT3911") return DAQmx_Val_Pt3911;
+            if(type == "PT3916") return DAQmx_Val_Pt3916;
+            if(type == "PT3920") return DAQmx_Val_Pt3920;
+            if(type == "PT3928") return DAQmx_Val_Pt3928;
+            if(type == "Custom") return DAQmx_Val_Custom;
+            return DAQmx_Val_Pt3750;
+        } 
 
-            explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
-                    : Analog(parser, task_handle, name),
-                      rtdType(getRTDType(parser.required<std::string>("rtd_type"))),
-                      resistance_config(get_resistance_config(parser.required<std::string>("resistance_config"))),
-                      excitation_config(parser),
-                      r0(parser.required<double>("r0")) {
-                        std::string u = parser.optional<std::string>("units", "Amps");
-                        this->units = ni::UNITS_MAP.at(u); 
-                      }
-    
-            int32 createNIChannel() override {
-                return ni::NiDAQmxInterface::CreateAIRTDChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->rtdType,
-                        this->resistance_config,
-                        this->excitation_config.voltage_excit_source, //TODO change name to current
-                        this->excitation_config.voltage_excit_val, //TODO change name to current
-                        this->r0
-                );
+        explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
+                : Analog(parser, task_handle, name),
+            rtdType(getRTDType(parser.required<std::string>("rtd_type"))),
+            resistance_config(get_resistance_config(parser.required<std::string>("resistance_config"))),
+            excitation_config(parser),
+            r0(parser.required<double>("r0")) {
+            std::string u = parser.optional<std::string>("units", "Amps");
+            this->units = ni::UNITS_MAP.at(u); 
             }
-    };
+
+        int32 createNIChannel() override {
+            return ni::NiDAQmxInterface::CreateAIRTDChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->rtdType,
+                    this->resistance_config,
+                    this->excitation_config.voltage_excit_source, //TODO change name to current
+                    this->excitation_config.voltage_excit_val, //TODO change name to current
+                    this->r0
+            );
+        }
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Temperature                              //

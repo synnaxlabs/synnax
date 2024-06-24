@@ -27,11 +27,10 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
 
                     ni::ChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
-                    config.name = (this->reader_config.device_name + "/ai" +
-                                   std::to_string(
-                                       channel_builder.required<std::uint64_t>(
-                                           "port")));
-
+                    std::string port = std::to_string(channel_builder.required<std::uint64_t>("port"));
+                    std::string name = this->reader_config.device_name;
+                    config.name = name + "/ai" + port;
+                    
                     config.channel_key = channel_builder.required<uint32_t>("channel");
                     config.channel_type = channel_builder.required<std::string>("type");
 
