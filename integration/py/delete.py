@@ -15,6 +15,7 @@ class IndexWriterGroup(NamedTuple):
 
 # length of channels must = num _writers
 class TestConfig(NamedTuple):
+    identifier: str
     channels: List[str]
     time_range: sy.TimeRange
 
@@ -33,22 +34,30 @@ def delete_test(tc: TestConfig):
     client.delete(tc.channels, tc.time_range)
 
 
-def main():
-    argv = sys.argv
-    time_range_start = int(argv[1])
-    time_range_end = int(argv[2])
-    num_channels = int(argv[3])
+def parse_input(argv: List[str]) -> TestConfig:
+    argv_counter = 1
+    identifier = argv[argv_counter]
+    argv_counter += 1
+    time_range_start = int(argv[argv_counter])
+    argv_counter += 1
+    time_range_end = int(argv[argv_counter])
+    argv_counter += 1
+    num_channels = int(argv[argv_counter])
+    argv_counter += 1
     channels = []
-    argv_counter = 4
     for _ in range(num_channels):
         channels.append(argv[argv_counter])
         argv_counter += 1
 
-    tc = TestConfig(
+    return TestConfig(
+        identifier=identifier,
         time_range=sy.TimeRange(sy.TimeStamp(time_range_start), sy.TimeStamp(time_range_end)),
         channels=channels,
     )
 
+
+def main():
+    tc = parse_input(sys.argv)
     delete_test(tc)
 
 

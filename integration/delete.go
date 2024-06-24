@@ -31,12 +31,12 @@ func (p DeleteParams) Serialize() []string {
 
 var _ NodeParams = &StreamParams{}
 
-func deletePython(p NodeParams) error {
+func deletePython(p NodeParams, identifier string) error {
 	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
 		return err
 	}
 
-	args := append([]string{"run", "python", "delete.py"}, p.Serialize()...)
+	args := append([]string{"run", "python", "delete.py", identifier}, p.Serialize()...)
 	cmd := exec.Command("poetry", args...)
 	cmd.Dir = "./py"
 	var stderr, stdout bytes.Buffer

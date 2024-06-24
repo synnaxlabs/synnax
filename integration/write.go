@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/telem"
 	"os/exec"
 	"strconv"
@@ -15,11 +16,14 @@ type ChannelGroup struct {
 }
 
 type WriteParams struct {
-	NumWriters       int             `json:"num_writers"`
-	Domains          int             `json:"domains"`
-	SamplesPerDomain int             `json:"samples_per_domain"`
-	TimeRange        telem.TimeRange `json:"time_range"`
-	ChannelGroups    []ChannelGroup  `json:"channel_groups"`
+	NumWriters           int             `json:"num_writers"`
+	Domains              int             `json:"domains"`
+	SamplesPerDomain     int             `json:"samples_per_domain"`
+	TimeRange            telem.TimeRange `json:"time_range"`
+	AutoCommit           bool            `json:"auto_commit"`
+	IndexPersistInterval telem.TimeSpan  `json:"index_persist_interval"`
+	WriterMode           writer.Mode     `json:"writer_mode"`
+	ChannelGroups        []ChannelGroup  `json:"channel_groups"`
 }
 
 func (p WriteParams) Serialize() []string {
@@ -31,6 +35,9 @@ func (p WriteParams) Serialize() []string {
 		strconv.Itoa(p.SamplesPerDomain),
 		strconv.FormatInt(int64(p.TimeRange.Start), 10),
 		strconv.FormatInt(int64(p.TimeRange.End), 10),
+		strconv.FormatBool(p.AutoCommit),
+		strconv.FormatInt(int64(p.IndexPersistInterval), 10),
+		strconv.Itoa(int(p.WriterMode)),
 		strconv.Itoa(len(p.ChannelGroups)),
 	)
 
@@ -49,12 +56,12 @@ func (p WriteParams) Serialize() []string {
 
 var _ NodeParams = &WriteParams{}
 
-func writePython(p NodeParams) error {
+func writePython(p NodeParams, identifier string) error {
 	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
 		return err
 	}
 
-	args := append([]string{"run", "python", "write.py"}, p.Serialize()...)
+	args := append([]string{"run", "python", "write.py", identifier}, p.Serialize()...)
 	cmd := exec.Command("poetry", args...)
 	cmd.Dir = "./py"
 	var stderr, stdout bytes.Buffer

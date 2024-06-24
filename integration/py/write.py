@@ -19,10 +19,14 @@ class IndexWriterGroup(NamedTuple):
 
 # length of channels must = num _writers
 class TestConfig(NamedTuple):
+    identifier: str
     num_writers: int
     domains: int
     samples_per_domain: int
     time_range: sy.TimeRange
+    auto_commit: bool
+    index_persist_interval: sy.TimeSpan
+    writer_mode: sy.WriterMode
     channels: List[IndexWriterGroup]
 
     def num_channels(self) -> int:
@@ -48,8 +52,9 @@ def write_test(tc: TestConfig):
             start=tc.time_range.start,
             channels=tc.channels[i].together(),
             name=f"writer{i}",
-            mode=sy.WriterMode.PERSIST_STREAM,
-            enable_auto_commit=False,
+            mode=tc.writer_mode,
+            enable_auto_commit=tc.auto_commit,
+            auto_index_persist_interval=tc.index_persist_interval,
         )
 
     try:
@@ -70,7 +75,9 @@ def write_test(tc: TestConfig):
                     data_dict[data_channel] = data
 
                 writer.write(data_dict)
-                assert writer.commit()
+
+                if not tc.auto_commit:
+                    assert writer.commit()
 
             ts_hwm += time_span_per_domain + 1
 
@@ -79,15 +86,28 @@ def write_test(tc: TestConfig):
             writer.close()
 
 
-def main():
-    argv = sys.argv
-    num_writers = int(argv[1])
-    domains = int(argv[2])
-    samples_per_domain = int(argv[3])
-    time_range_start = int(argv[4])
-    time_range_end = int(argv[5])
-    number_of_channel_groups = int(argv[6])
-    argv_counter = 7
+def parse_input(argv: List[str]) -> TestConfig:
+    argv_counter = 1
+    identifier = argv[argv_counter]
+    argv_counter += 1
+    num_writers = int(argv[argv_counter])
+    argv_counter += 1
+    domains = int(argv[argv_counter])
+    argv_counter += 1
+    samples_per_domain = int(argv[argv_counter])
+    argv_counter += 1
+    time_range_start = int(argv[argv_counter])
+    argv_counter += 1
+    time_range_end = int(argv[argv_counter])
+    argv_counter += 1
+    auto_commit = argv[argv_counter] == "true"
+    argv_counter += 1
+    index_persist_interval = sy.TimeSpan(int(argv[argv_counter]))
+    argv_counter += 1
+    writer_mode = sy.WriterMode(int(argv[argv_counter]))
+    argv_counter += 1
+    number_of_channel_groups = int(argv[argv_counter])
+    argv_counter += 1
     channel_groups = []
     for _ in range(number_of_channel_groups):
         number_of_index = int(argv[argv_counter])
@@ -105,14 +125,21 @@ def main():
         channel_groups.append(
             IndexWriterGroup(index_channels=index_channels, data_channels=data_channels)
         )
-    tc = TestConfig(
+    return TestConfig(
+        identifier=identifier,
         num_writers=num_writers,
         domains=domains,
         samples_per_domain=samples_per_domain,
         time_range=sy.TimeRange(sy.TimeStamp(time_range_start), sy.TimeStamp(time_range_end)),
         channels=channel_groups,
+        auto_commit=auto_commit,
+        index_persist_interval=index_persist_interval,
+        writer_mode=writer_mode,
     )
 
+
+def main():
+    tc = parse_input(sys.argv)
     write_test(tc)
 
 

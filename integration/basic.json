@@ -1,8 +1,4 @@
 {
-  "cluster": {
-    "mem-fs": true,
-    "insecure": true
-  },
   "setup": {
     "index_channels": 2,
     "data_channels": 2,
@@ -30,7 +26,8 @@
           "time_range": {
             "start": 0,
             "end": 100000000000
-          }
+          },
+          "writer_mode": 1
         }
       },
       {
@@ -53,7 +50,9 @@
           "time_range": {
             "start": 0,
             "end": 100000000000
-          }
+          },
+          "writer_mode": 1,
+          "auto_commit": true
         }
       },{
       "op": "stream",
@@ -72,7 +71,7 @@
         "op": "delete",
         "client": "py",
         "params": {
-          "tr": {
+          "time_range": {
             "start": 50000000000,
             "end": 75000000000
           },
@@ -115,12 +114,13 @@
             }
           ],
           "num_writers": 2,
-          "domains": 50,
-          "samples_per_domain": 1000,
+          "domains": 100,
+          "samples_per_domain": 1000000,
           "time_range": {
             "start": 120000000000,
-            "end": 170000000000
-          }
+            "end": 220000000000
+          },
+          "writer_mode": 3
         }
       },
       {
@@ -142,7 +142,7 @@
     ]
   ],
   "cleanup": {
-    "delete_all_channels": true,
+    "delete_all_channels": false,
     "client": "py"
   }
 }

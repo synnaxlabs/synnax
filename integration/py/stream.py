@@ -7,6 +7,7 @@ from timing import time_stream
 
 # Each python process opens one streamer
 class TestConfig(NamedTuple):
+    identifier: str
     start_time_stamp: sy.TimeStamp
     close_after_frames: int
     channels: List[str]
@@ -33,23 +34,31 @@ def stream_test(tc: TestConfig) -> int:
                 return samples_streamed
 
 
-def main():
-    argv = sys.argv
-    start_time_stamp = int(argv[1])
-    close_after_frames = int(argv[2])
-    number_of_channels = int(argv[3])
+def parse_input(argv: List[str]) -> TestConfig:
+    argv_counter = 1
+    identifier = argv[argv_counter]
+    argv_counter += 1
+    start_time_stamp = int(argv[argv_counter])
+    argv_counter += 1
+    close_after_frames = int(argv[argv_counter])
+    argv_counter += 1
+    number_of_channels = int(argv[argv_counter])
+    argv_counter += 1
     channels = []
-    argv_counter = 4
     for _ in range(number_of_channels):
         channels.append(argv[argv_counter])
         argv_counter += 1
 
-    tc = TestConfig(
+    return TestConfig(
+        identifier = identifier,
         start_time_stamp=sy.TimeStamp(start_time_stamp),
         close_after_frames=close_after_frames,
         channels=channels,
     )
 
+
+def main():
+    tc = parse_input(sys.argv)
     stream_test(tc)
 
 

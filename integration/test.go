@@ -9,30 +9,30 @@ import (
 	"os"
 )
 
-func runNode(node TestNode) error {
+func runNode(node TestNode, identifier string) error {
 	switch node.Op {
 	case Read:
 		switch node.Client {
 		case "py":
-			return readPython(node.Params)
+			return readPython(node.Params, identifier)
 		}
 		break
 	case Write:
 		switch node.Client {
 		case "py":
-			return writePython(node.Params)
+			return writePython(node.Params, identifier)
 		}
 		break
 	case Stream:
 		switch node.Client {
 		case "py":
-			return streamPython(node.Params)
+			return streamPython(node.Params, identifier)
 		}
 		break
 	case Delete:
 		switch node.Client {
 		case "py":
-			return deletePython(node.Params)
+			return deletePython(node.Params, identifier)
 		}
 		break
 	}
@@ -46,21 +46,21 @@ func runStep(i int, step TestStep) error {
 		sCtx, _ = signal.Isolated()
 	)
 	fmt.Printf("--step %d\n", i)
-	for i, node := range step {
-		fmt.Printf("----node %d: %v with %s\n", i, node.Op, node.Client)
+	for n, node := range step {
+		fmt.Printf("----node %d: %v with %s\n", n, node.Op, node.Client)
 		if ok := sem.TryAcquire(1); !ok {
 			panic("cannot acquire on semaphore")
 		}
 
-		i, node := i, node
+		n, node := n, node
 		sCtx.Go(func(ctx context.Context) error {
 			defer func() {
 				sem.Release(1)
-				fmt.Printf("----finished node %d\n", i)
+				fmt.Printf("----finished node %d\n", n)
 			}()
-			err := runNode(node)
+			err := runNode(node, fmt.Sprintf("%d-%d", i, n))
 			if err != nil {
-				fmt.Printf("----error in node %d: %s\n", i, err.Error())
+				fmt.Printf("----error in node %d: %s\n", n, err.Error())
 			}
 
 			return err

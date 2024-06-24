@@ -10,10 +10,10 @@ def time_write(file_name):
 
             time: sy.TimeSpan = start.span(end)
             params = args[0]
-            samples = params.samples_per_domain * params.domains
+            samples = params.num_channels() * params.samples_per_domain * params.domains
             samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
             s = f'''
--- Test Node Write --
+-- Python Write ({params.identifier}) --
 Samples written: {samples}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}
@@ -22,6 +22,9 @@ Configuration:
     Number of channels: {params.num_channels()}
     Number of domains: {params.domains:,.0f}
     Samples per domain: {params.samples_per_domain:,.0f}
+    Auto commit: {str(params.auto_commit)}
+    Index persist interval: {params.index_persist_interval}
+    Writer mode: {sy.WriterMode(params.writer_mode).name}
 
                 '''
             with open(file_name, "a") as f:
@@ -42,7 +45,7 @@ def time_read(file_name):
             params = args[0]
             samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
             s = f'''
--- Test Node Read --
+-- Python Read ({params.identifier})--
 Samples read: {samples}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}
@@ -69,7 +72,7 @@ def time_delete(file_name):
             time: sy.TimeSpan = start.span(end)
             params = args[0]
             s = f'''
--- Test Node Delete --
+-- Test Node Delete ({params.identifier})--
 Time taken: {time}
 Configuration:
     Number of channels: {len(params.channels)}
@@ -93,7 +96,7 @@ def time_stream(file_name):
             params = args[0]
             samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
             s = f'''
--- Test Node Stream --
+-- Test Node Stream ({params.identifier})--
 Samples streamed: {samples}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}

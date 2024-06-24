@@ -37,12 +37,12 @@ func (p ReadParams) Serialize() []string {
 
 var _ NodeParams = &WriteParams{}
 
-func readPython(p NodeParams) error {
+func readPython(p NodeParams, identifier string) error {
 	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
 		return err
 	}
 
-	args := append([]string{"run", "python", "read.py"}, p.Serialize()...)
+	args := append([]string{"run", "python", "read.py", identifier}, p.Serialize()...)
 	cmd := exec.Command("poetry", args...)
 	cmd.Dir = "./py"
 	var stderr, stdout bytes.Buffer
