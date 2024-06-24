@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect,it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
 import { UnknownRecord } from "@/record";
@@ -63,7 +63,8 @@ describe("path", () => {
       };
       it("should use the custom getter function", () => {
         expect(
-          deep.get(v, "a.value().c", false, {
+          deep.get(v, "a.value().c", {
+            optional: false,
             getter: (obj, key) => {
               if (key === "value()")
                 return (obj as { value: () => { c: number } }).value();
