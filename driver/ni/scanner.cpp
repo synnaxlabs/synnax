@@ -76,7 +76,8 @@ void ni::Scanner::scan() {
     );
     if (err != NISysCfg_OK) {
         this->ok_state = false;
-        return; // TODO: handle error more meaningfully
+        LOG(ERROR) << "[ni.scanner] failed to find hardware for task " << this->task.name;
+        return; 
     }
 
     // Now iterate through found devices and get requested properties
@@ -162,8 +163,7 @@ json ni::Scanner::getDeviceProperties(NISysCfgResourceHandle resource) {
 void ni::Scanner::createDevices() {
     for (auto &device: devices["devices"]) {
         // first  try to rereive the device and if found, do not create a new device, simply continue
-        auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(
-            device["key"]);
+        auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(device["key"]);
         if (err == freighter::NIL) {
             VLOG(1) << "[ni.scanner] device " << device["model"] << " and key "  << device["key"] << "at location: " << device["location"] << " found for task " << this->task.name;
             continue;
@@ -178,14 +178,10 @@ void ni::Scanner::createDevices() {
             device["model"].get<std::string>(), // model
             device.dump() // device properties
         );
-
-        if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
-            LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
-        }
-        vLOG(1) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
+        if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
+        VLOG(1) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
     }
 }
-
 
 bool ni::Scanner::ok() {
     return ok_state;

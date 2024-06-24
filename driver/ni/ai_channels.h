@@ -6,7 +6,6 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
 #pragma once
 
 #include <string>
@@ -25,7 +24,7 @@
 
 namespace ni {
 
-static inline int32_t getTerminalConfig(std::string terminal_config) {
+static inline int32_t get_terminal_config(std::string terminal_config) {
     if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
     if (terminal_config == "Diff") return DAQmx_Val_Diff;
     if (terminal_config == "NRSE") return DAQmx_Val_NRSE;
@@ -40,14 +39,14 @@ static inline int32_t get_bridge_config(std::string s){
     return DAQmx_Val_FullBridge;
 }
 
-static inline int32_t getResistanceConfig(std::string s){
+static inline int32_t get_resistance_config(std::string s){
     if(s == "2Wire") return DAQmx_Val_2Wire;
     if(s == "3Wire") return DAQmx_Val_3Wire;
     if(s == "4Wire") return DAQmx_Val_4Wire;
     return DAQmx_Val_2Wire;
 }
 
-static inline int32_t getExcitationSrc(std::string s){
+static inline int32_t get_excitation_src(std::string s){
         if(s == "Internal") return DAQmx_Val_Internal;
         if(s == "External") return DAQmx_Val_External;
         if(s == "None") return DAQmx_Val_None;
@@ -56,109 +55,107 @@ static inline int32_t getExcitationSrc(std::string s){
 
 // TODO: make one for current excitation for correct parsing
 struct ExcitationConfig {
-    int32_t voltageExcitSource;
-    double voltageExcitVal;
-    double minValForExcitation; // optional
-    double maxValForExcitation; //optional
-    bool32 useExcitForScaling; //optional
+    int32_t voltage_excit_source;
+    double voltage_excit_val;
+    double min_val_for_excitation; // optional
+    double max_val_for_excitation; //optional
+    bool32 use_excit_for_scaling; //optional
 
     
     
     ExcitationConfig(config::Parser &parser)
-        : voltageExcitSource(getExcitationSrc(parser.required<std::string>("voltage_excit_source"))),
-          voltageExcitVal(parser.required<double>("voltage_excit_val")),
-          minValForExcitation(parser.optional<double>("min_val_for_excitation", 0)),
-          maxValForExcitation(parser.optional<double>("max_val_for_excitation", 0)),
-          useExcitForScaling(parser.optional<bool32>("use_excit_for_scaling", 0)) {
+        : voltage_excit_source(get_excitation_src(parser.required<std::string>("voltage_excit_source"))),
+          voltage_excit_val(parser.required<double>("voltage_excit_val")),
+          min_val_for_excitation(parser.optional<double>("min_val_for_excitation", 0)),
+          max_val_for_excitation(parser.optional<double>("max_val_for_excitation", 0)),
+          use_excit_for_scaling(parser.optional<bool32>("use_excit_for_scaling", 0)) {
     }
 };
 
 struct BridgeConfig {
-    int32_t niBridgeConfig;
-    int32_t voltageExcitSource;
-    double voltageExcitVal;
-    double nominalBridgeResistance;
+    int32_t ni_bridge_config;
+    int32_t voltage_excit_source;
+    double voltage_excit_val;
+    double nominal_bridge_resistance;
 
     BridgeConfig() = default;
 
     BridgeConfig(config::Parser &parser)
-        : niBridgeConfig(get_bridge_config(parser.required<std::string>("bridge_config"))),
-          voltageExcitSource(getExcitationSrc(parser.required<std::string>("voltage_excit_source"))),
-          voltageExcitVal(parser.required<double>("voltage_excit_val")),
-          nominalBridgeResistance(parser.required<double>("nominal_bridge_resistance")) {
+        : ni_bridge_config(get_bridge_config(parser.required<std::string>("bridge_config"))),
+          voltage_excit_source(get_excitation_src(parser.required<std::string>("voltage_excit_source"))),
+          voltage_excit_val(parser.required<double>("voltage_excit_val")),
+          nominal_bridge_resistance(parser.required<double>("nominal_bridge_resistance")) {
     }
 };
 
 struct PolynomialConfig {
-    float64 *forwardCoeffs;
-    uint32_t numForwardCoeffs;
-    float64 *reverseCoeffs;
-    uint32_t numReverseCoeffs;
-    int32_t electricalUnits;
-    int32_t physicalUnits;
+    float64 *forward_coeffs;
+    uint32_t num_forward_coeffs;
+    float64 *reverse_coeffs;
+    uint32_t num_reverse_coeffs;
+    int32_t electrical_units;
+    int32_t physical_units;
 
     PolynomialConfig() = default;
 
     PolynomialConfig(config::Parser &parser)
-        : numForwardCoeffs(parser.required<uint32_t>("num_forward_coeffs")),
-          numReverseCoeffs(parser.required<uint32_t>("num_reverse_coeffs")){
+        : num_forward_coeffs(parser.required<uint32_t>("num_forward_coeffs")),
+          num_reverse_coeffs(parser.required<uint32_t>("num_reverse_coeffs")){
             
             auto eu = parser.required<std::string>("electrical_units");
             auto pu = parser.required<std::string>("physical_units");
-            electricalUnits = ni::UNITS_MAP.at(eu);
-            physicalUnits = ni::UNITS_MAP.at(pu);
+            electrical_units = ni::UNITS_MAP.at(eu);
+            physical_units = ni::UNITS_MAP.at(pu);
 
         if (!parser.ok()) return; // TODO: handle error
 
         json j = parser.get_json();
 
-        forwardCoeffs = new double[numForwardCoeffs];
-        reverseCoeffs = new double[numReverseCoeffs];
+        forward_coeffs = new double[num_forward_coeffs];
+        reverse_coeffs = new double[num_reverse_coeffs];
 
         //get forward coeffs (prescale -> scale)
         if (j.contains("forward_coeffs")) {
-            forwardCoeffs = new double[numForwardCoeffs];
-            for (uint32_t i = 0; i < numForwardCoeffs; i++) {
-                forwardCoeffs[i] = j["forward_coeffs"][i];
-            }
+            forward_coeffs = new double[num_forward_coeffs];
+            for (uint32_t i = 0; i < num_forward_coeffs; i++) forward_coeffs[i] = j["forward_coeffs"][i];
         }
 
         ni::NiDAQmxInterface::CalculateReversePolyCoeff(
-            forwardCoeffs,
-            numForwardCoeffs,
+            forward_coeffs,
+            num_forward_coeffs,
             -1000, //FIXME dont hard code
             1000, //FIXME dont hard code
-            numReverseCoeffs,
+            num_reverse_coeffs,
             -1,
-            reverseCoeffs
+            reverse_coeffs
         ); // FIXME: reversePoly order should be user inputted?
     }
 
     ~PolynomialConfig() {
-        if (forwardCoeffs != nullptr) delete[] forwardCoeffs;
-        if (reverseCoeffs != nullptr) delete[] reverseCoeffs;
+        if (forward_coeffs != nullptr) delete[] forward_coeffs;
+        if (reverse_coeffs != nullptr) delete[] reverse_coeffs;
     }
 };
 
 struct TableConfig {
-    float64 *electricalVals;
-    uint32_t numElectricalVals;
+    float64 *electrical_vals;
+    uint32_t num_eletrical_vals;
     float64 *physicalVals;
-    uint32_t numPhysicalVals;
-    int32_t electricalUnits;
-    int32_t physicalUnits;
+    uint32_t num_physical_vals;
+    int32_t electrical_units;
+    int32_t physical_units;
 
     TableConfig() = default;
 
     TableConfig(config::Parser &parser)
-        : numElectricalVals(parser.required<uint32_t>("num_electrical_vals")),
-          numPhysicalVals(parser.required<uint32_t>("num_physical_vals")){
+        : num_eletrical_vals(parser.required<uint32_t>("num_electrical_vals")),
+          num_physical_vals(parser.required<uint32_t>("num_physical_vals")){
         
         auto eu = parser.required<std::string>("electrical_units");
         auto pu = parser.required<std::string>("physical_units");
 
-        electricalUnits = ni::UNITS_MAP.at(eu);
-        physicalUnits = ni::UNITS_MAP.at(pu);
+        electrical_units = ni::UNITS_MAP.at(eu);
+        physical_units = ni::UNITS_MAP.at(pu);
 
         if (!parser.ok()) return; // TODO: handle error
 
@@ -166,41 +163,37 @@ struct TableConfig {
 
         //get electrical vals
         if (j.contains("electrical_vals")) {
-            electricalVals = new double[numElectricalVals];
-            for (uint32_t i = 0; i < numElectricalVals; i++) {
-                electricalVals[i] = j["electrical_vals"][i];
-            }
+            electrical_vals = new double[num_eletrical_vals];
+            for (uint32_t i = 0; i < num_eletrical_vals; i++) electrical_vals[i] = j["electrical_vals"][i];
         }
 
         //get physical vals
         if (j.contains("physical_vals")) {
-            physicalVals = new double[numPhysicalVals];
-            for (uint32_t i = 0; i < numPhysicalVals; i++) {
-                physicalVals[i] = j["physical_vals"][i];
-            }
+            physicalVals = new double[num_physical_vals];
+            for (uint32_t i = 0; i < num_physical_vals; i++) physicalVals[i] = j["physical_vals"][i];
         }
     }
 };
 
 struct TwoPointLinConfig {
-    double firstElectricalVal;
-    double secondElectricalVal;
-    int32_t electricalUnits;
-    double firstPhysicalVal;
-    double secondPhysicalVal;
-    int32_t physicalUnits;
+    double first_electrical_val;
+    double second_electrical_val;
+    int32_t electrical_units;
+    double first_physical_val;
+    double second_physical_val;
+    int32_t physical_units;
 
     TwoPointLinConfig() = default;
 
     TwoPointLinConfig(config::Parser &parser)
-        : firstElectricalVal(parser.required<double>("first_electrical_val")),
-          secondElectricalVal(parser.required<double>("second_electrical_val")),
-          firstPhysicalVal(parser.required<double>("first_physical_val")),
-          secondPhysicalVal(parser.required<double>("second_physical_val")){
+        : first_electrical_val(parser.required<double>("first_electrical_val")),
+          second_electrical_val(parser.required<double>("second_electrical_val")),
+          first_physical_val(parser.required<double>("first_physical_val")),
+          second_physical_val(parser.required<double>("second_physical_val")){
             auto eu = parser.required<std::string>("electrical_units");
             auto pu = parser.required<std::string>("physical_units");
-            electricalUnits = ni::UNITS_MAP.at(eu);
-            physicalUnits = ni::UNITS_MAP.at(pu);
+            electrical_units = ni::UNITS_MAP.at(eu);
+            physical_units = ni::UNITS_MAP.at(pu);
     }
 };
 
@@ -219,7 +212,6 @@ public:
     ~Analog() = default;
 
     virtual int32 createNIChannel() {
-        LOG(INFO) << "Creating Analog Channel";
         return 0;
     }
 
@@ -236,7 +228,7 @@ public:
         return this->scale_config->createNIScale();
     }
 
-    explicit Analog(config::Parser &parser, TaskHandle task_handle, std::string name)
+    explicit Analog(config::Parser &parser, TaskHandle task_handle, const std::string &name)
         : task_handle(task_handle),
           min_val(parser.optional<float_t>("min_val",0)),
           max_val(parser.optional<float_t>("max_val",0)),
@@ -247,7 +239,6 @@ public:
           scale_config(getScaleConfig(parser)) {
         // check name of channel
         if (this->scale_config->type != "none") {
-            LOG(INFO) << "Scale type: " << this->scale_config->type;
             this->scale_name = this->scale_config->name;
             this->units = DAQmx_Val_FromCustomScale;
         }
@@ -269,14 +260,14 @@ public:
 //                                      Voltage                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 /// @brief voltage channel.
-class Voltage : public Analog {
+class Voltage  : public Analog {
 public:
     int32_t terminal_config = 0;
 
     explicit Voltage(config::Parser &parser, TaskHandle task_handle, std::string name)
         : Analog(parser, task_handle, name),
           terminal_config(
-              ni::getTerminalConfig(parser.required<std::string>("terminal_config"))) {
+              ni::get_terminal_config(parser.required<std::string>("terminal_config"))) {
     }
 
     ~Voltage() = default;
@@ -311,7 +302,7 @@ public:
 
 
 /// @brief RMS voltage Channel
-class VoltageRMS : public Voltage {
+class VoltageRMS final : public Voltage {
     public:
         explicit VoltageRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Voltage(parser, task_handle, name){}
@@ -334,20 +325,19 @@ class VoltageRMS : public Voltage {
 };
 
     /// @brief voltage Channel with excitation reference
-    class VoltageWithExcit : public Voltage {
+    class VoltageWithExcit final : public Voltage {
         public:
-            int32_t bridgeConfig = 0;
-            ExcitationConfig excitationConfig;
+            int32_t bridge_config = 0;
+            ExcitationConfig excitation_config;
 
             explicit VoltageWithExcit(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Voltage(parser, task_handle, name),
-                  bridgeConfig(get_bridge_config(parser.required<std::string>("bridge_config"))),
-                  excitationConfig(parser){}
+                  bridge_config(get_bridge_config(parser.required<std::string>("bridge_config"))),
+                  excitation_config(parser){}
 
             ~VoltageWithExcit() = default;
 
             int32 createNIChannel() override {
-                LOG(INFO) << "Creating Voltage Channel with Excitation Reference";
                 if(this->scale_config->type == "none"){
                     return ni::NiDAQmxInterface::CreateAIVoltageChanWithExcit(
                             this->task_handle,
@@ -357,10 +347,10 @@ class VoltageRMS : public Voltage {
                             this->min_val,
                             this->max_val,
                             DAQmx_Val_Volts,
-                            this->bridgeConfig,
-                            this->excitationConfig.voltageExcitSource,
-                            this->excitationConfig.voltageExcitVal,
-                            this->excitationConfig.minValForExcitation,
+                            this->bridge_config,
+                            this->excitation_config.voltage_excit_source,
+                            this->excitation_config.voltage_excit_val,
+                            this->excitation_config.min_val_for_excitation,
                             NULL
                     );
                 }
@@ -371,10 +361,10 @@ class VoltageRMS : public Voltage {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Current                                  //
 ///////////////////////////////////////////////////////////////////////////////////
-class Current : public Analog {
+class Current  : public Analog {
 public:
-    int32_t shuntResistorLoc;
-    double extShuntResistorval;
+    int32_t shunt_resistor_loc;
+    double ext_shunt_resistor_val;
     int32 terminal_config = 0;
 
     static int32_t getShuntResistorLocation(std::string loc) {
@@ -385,11 +375,11 @@ public:
     explicit Current(config::Parser &parser, TaskHandle task_handle, std::string name)
         : Analog(parser, task_handle, name),
           terminal_config(
-              ni::getTerminalConfig(parser.required<std::string>("terminal_config"))),
-          shuntResistorLoc(
+              ni::get_terminal_config(parser.required<std::string>("terminal_config"))),
+          shunt_resistor_loc(
               getShuntResistorLocation(
                   parser.required<std::string>("shunt_resistor_loc"))),
-          extShuntResistorval(parser.required<double>("ext_shunt_resistor_val")) {
+          ext_shunt_resistor_val(parser.required<double>("ext_shunt_resistor_val")) {
         std::string u = parser.optional<std::string>("units", "Amps");
         this->units = ni::UNITS_MAP.at(u);
     }
@@ -404,15 +394,15 @@ public:
                 this->min_val,
                 this->max_val,
                 this->units,
-                this->shuntResistorLoc,
-                this->extShuntResistorval,
+                this->shunt_resistor_loc,
+                this->ext_shunt_resistor_val,
                 NULL
             );
         }
     }
 };
 
-class CurrentRMS : public Current{
+class CurrentRMS final : public Current{
 public:
     explicit CurrentRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Current(parser, task_handle, name) {}
@@ -427,8 +417,8 @@ public:
                     this->min_val,
                     this->max_val,
                     this->units,
-                    this->shuntResistorLoc,
-                    this->extShuntResistorval,
+                    this->shunt_resistor_loc,
+                    this->ext_shunt_resistor_val,
                     NULL
             );
         }
@@ -438,11 +428,11 @@ public:
     ///////////////////////////////////////////////////////////////////////////////////
     //                                       RTD                                     //
     ///////////////////////////////////////////////////////////////////////////////////
-    class RTD : public Analog{
+    class RTD final : public Analog{
         public:
             int32_t rtdType;
-            int32_t resistanceConfig;
-            ExcitationConfig excitationConfig;
+            int32_t resistance_config;
+            ExcitationConfig excitation_config;
             double r0;
 
             static int32_t getRTDType(std::string type){
@@ -459,8 +449,8 @@ public:
             explicit RTD(config::Parser &parser, TaskHandle task_handle, std::string name)
                     : Analog(parser, task_handle, name),
                       rtdType(getRTDType(parser.required<std::string>("rtd_type"))),
-                      resistanceConfig(getResistanceConfig(parser.required<std::string>("resistance_config"))),
-                      excitationConfig(parser),
+                      resistance_config(get_resistance_config(parser.required<std::string>("resistance_config"))),
+                      excitation_config(parser),
                       r0(parser.required<double>("r0")) {
                         std::string u = parser.optional<std::string>("units", "Amps");
                         this->units = ni::UNITS_MAP.at(u); 
@@ -475,9 +465,9 @@ public:
                         this->max_val,
                         this->units,
                         this->rtdType,
-                        this->resistanceConfig,
-                        this->excitationConfig.voltageExcitSource, //TODO change name to current
-                        this->excitationConfig.voltageExcitVal, //TODO change name to current
+                        this->resistance_config,
+                        this->excitation_config.voltage_excit_source, //TODO change name to current
+                        this->excitation_config.voltage_excit_val, //TODO change name to current
                         this->r0
                 );
             }
@@ -486,7 +476,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Temperature                              //
 ///////////////////////////////////////////////////////////////////////////////////
-class Thermocouple : public Analog {
+class Thermocouple final : public Analog {
 public:
     int32_t thermocoupleType;
     int32_t cjcSource;
@@ -522,9 +512,9 @@ public:
           thermocoupleType(getType(parser.required<std::string>("thermocouple_type"))),
           cjcSource(getCJCSource(parser.required<std::string>("cjc_source"))),
           cjcVal(parser.required<double>("cjc_val")) {
-        std::string u = parser.optional<std::string>("units", "DegC");
-        this->units = ni::UNITS_MAP.at(u); // TODO: make this optional and default to C?
-    }
+            std::string u = parser.optional<std::string>("units", "DegC");
+            this->units = ni::UNITS_MAP.at(u);    
+        }
 
     //cjcChannel(parser.required<std::string>("cjc_channel")) {} FIXME: this property should be take form console
 
@@ -549,7 +539,7 @@ public:
     }
 };
 
-class TemperatureBuiltInSensor : public Analog{
+class TemperatureBuiltInSensor final : public Analog{
     public:
         explicit TemperatureBuiltInSensor(config::Parser &parser, TaskHandle task_handle, std::string name){
             this->task_handle = task_handle;
@@ -563,7 +553,6 @@ class TemperatureBuiltInSensor : public Analog{
         }
 
         int32 createNIChannel() override {
-                       LOG(INFO) << "Creating Temperature Built In Sensor Channel";
             return ni::NiDAQmxInterface::CreateAITempBuiltInSensorChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -574,18 +563,18 @@ class TemperatureBuiltInSensor : public Analog{
 };
 
 
-class ThermistorIEX : public Analog{
+class ThermistorIEX final : public Analog{
     public:
-        int32_t resistanceConfig;
-        ExcitationConfig excitationConfig;
+        int32_t resistance_config;
+        ExcitationConfig excitation_config;
         double a;
         double b;
         double c;
 
         explicit ThermistorIEX(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  resistanceConfig(getResistanceConfig(parser.required<std::string>("resistance_config"))),
-                  excitationConfig(parser),
+                  resistance_config(get_resistance_config(parser.required<std::string>("resistance_config"))),
+                  excitation_config(parser),
                   a(parser.required<double>("a")),
                   b(parser.required<double>("b")),
                   c(parser.required<double>("c")) {
@@ -602,9 +591,9 @@ class ThermistorIEX : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->resistanceConfig,
-                        this->excitationConfig.voltageExcitSource, // current excitation source FIXME
-                        this->excitationConfig.voltageExcitVal,    // current excitation val FIXME
+                        this->resistance_config,
+                        this->excitation_config.voltage_excit_source, // current excitation source FIXME
+                        this->excitation_config.voltage_excit_val,    // current excitation val FIXME
                         this->a,
                         this->b,
                         this->c
@@ -614,10 +603,10 @@ class ThermistorIEX : public Analog{
 };
 
 
-class ThermistorVex : public Analog{
+class ThermistorVex final : public Analog{
     public:
-        int32_t resistanceConfig;
-        ExcitationConfig excitationConfig;
+        int32_t resistance_config;
+        ExcitationConfig excitation_config;
         double a;
         double b;
         double c;
@@ -625,8 +614,8 @@ class ThermistorVex : public Analog{
 
         explicit ThermistorVex(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  resistanceConfig(getResistanceConfig(parser.required<std::string>("resistance_config"))),
-                  excitationConfig(parser),
+                  resistance_config(get_resistance_config(parser.required<std::string>("resistance_config"))),
+                  excitation_config(parser),
                   a(parser.required<double>("a")),
                   b(parser.required<double>("b")),
                   c(parser.required<double>("c")),
@@ -644,9 +633,9 @@ class ThermistorVex : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->resistanceConfig,
-                        this->excitationConfig.voltageExcitSource, // current excitation source FIXME
-                        this->excitationConfig.voltageExcitVal,    // current excitation val FIXME
+                        this->resistance_config,
+                        this->excitation_config.voltage_excit_source, // current excitation source FIXME
+                        this->excitation_config.voltage_excit_val,    // current excitation val FIXME
                         this->a,
                         this->b,
                         this->c,
@@ -662,22 +651,22 @@ class ThermistorVex : public Analog{
 //                                    Acceleration                               //
 ///////////////////////////////////////////////////////////////////////////////////
 /// @brief acceleration channel
-class Acceleration : public Analog {
+class Acceleration  : public Analog {
     public:
         double sensitivity;
-        int32_t sensitivityUnits;
-        ExcitationConfig excitationConfig;
+        int32_t sensitivity_units;
+        ExcitationConfig excitation_config;
         int32 terminal_config = 0;
         explicit Acceleration(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))),
+                  terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))),
                   sensitivity(parser.required<double>("sensitivity")),
-                  excitationConfig(parser) {
+                  excitation_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
 
                     std::string su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
-                    this->sensitivityUnits = ni::UNITS_MAP.at(su);
+                    this->sensitivity_units = ni::UNITS_MAP.at(su);
                   }
 
         int32 createNIChannel() override {
@@ -691,9 +680,9 @@ class Acceleration : public Analog {
                         this->max_val,
                         this->units,
                         this->sensitivity,
-                        this->sensitivityUnits,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
+                        this->sensitivity_units,
+                        this->excitation_config.voltage_excit_source,
+                        this->excitation_config.voltage_excit_val,
                         NULL
                 );
             }
@@ -703,7 +692,7 @@ class Acceleration : public Analog {
 
 
 /// @brief acceleration channel with 4 wire DC voltage
-class Acceleration4WireDCVoltage : public Acceleration {
+class Acceleration4WireDCVoltage final : public Acceleration {
 public:
 
     explicit Acceleration4WireDCVoltage(config::Parser &parser, TaskHandle task_handle, std::string name)
@@ -720,10 +709,10 @@ public:
                     this->max_val,
                     this->units,
                     this->sensitivity,
-                    this->sensitivityUnits,
-                    this->excitationConfig.voltageExcitSource,
-                    this->excitationConfig.voltageExcitVal,
-                    this->excitationConfig.useExcitForScaling,
+                    this->sensitivity_units,
+                    this->excitation_config.voltage_excit_source,
+                    this->excitation_config.voltage_excit_val,
+                    this->excitation_config.use_excit_for_scaling,
                     NULL
             );
         }
@@ -732,21 +721,21 @@ public:
 };
 
 /// @brief acceleration channel with charge
-class AccelerationCharge : public Analog {
+class AccelerationCharge final : public Analog {
     public:
         double sensitivity;
-        int32_t sensitivityUnits;
+        int32_t sensitivity_units;
         int32 terminal_config = 0;
 
         explicit AccelerationCharge(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))), 
+                  terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))), 
                   sensitivity(parser.required<double>("sensitivity")) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
 
                     std::string su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
-                    this->sensitivityUnits = ni::UNITS_MAP.at(su);
+                    this->sensitivity_units = ni::UNITS_MAP.at(su);
                   }
 
         int32 createNIChannel() override {
@@ -760,7 +749,7 @@ class AccelerationCharge : public Analog {
                         this->max_val,
                         this->units,
                         this->sensitivity,
-                        this->sensitivityUnits,
+                        this->sensitivity_units,
                         NULL
                 );
             }
@@ -770,15 +759,15 @@ class AccelerationCharge : public Analog {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Resistance                               //
 ///////////////////////////////////////////////////////////////////////////////////
-class Resistance : public Analog{
+class Resistance final : public Analog{
     public:
-    int32_t resistanceConfig;
-    ExcitationConfig excitationConfig;
+    int32_t resistance_config;
+    ExcitationConfig excitation_config;
 
     explicit Resistance(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Analog(parser, task_handle, name),
-                resistanceConfig(getResistanceConfig(parser.required<std::string>("resistance_config"))),
-                excitationConfig(parser) {
+                resistance_config(get_resistance_config(parser.required<std::string>("resistance_config"))),
+                excitation_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                 }
@@ -792,9 +781,9 @@ class Resistance : public Analog{
                     this->min_val,
                     this->max_val,
                     this->units,
-                    this->resistanceConfig,
-                    this->excitationConfig.voltageExcitSource,
-                    this->excitationConfig.voltageExcitVal,
+                    this->resistance_config,
+                    this->excitation_config.voltage_excit_source,
+                    this->excitation_config.voltage_excit_val,
                     NULL
             );
         }
@@ -804,13 +793,13 @@ class Resistance : public Analog{
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Bridge                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-class Bridge : public Analog {
+class Bridge final : public Analog {
     public:
-        BridgeConfig bridgeConfig;
+        BridgeConfig bridge_config;
 
         explicit Bridge(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Analog(parser, task_handle, name),
-              bridgeConfig(parser) {
+              bridge_config(parser) {
                 std::string u = parser.optional<std::string>("units", "Volts");
                 this->units = ni::UNITS_MAP.at(u);
             }
@@ -824,10 +813,10 @@ class Bridge : public Analog {
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
+                        this->bridge_config.ni_bridge_config,
+                        this->bridge_config.voltage_excit_source,
+                        this->bridge_config.voltage_excit_val,
+                        this->bridge_config.nominal_bridge_resistance,
                         NULL
                 );
             }
@@ -837,15 +826,15 @@ class Bridge : public Analog {
 ///////////////////////////////////////////////////////////////////////////////////
 //                              Strain Gage                                      //
 ///////////////////////////////////////////////////////////////////////////////////
-class StrainGage : public Analog{
+class StrainGage final : public Analog{
 public:
-    int32_t strainConfig;
-    ExcitationConfig excitationConfig;
-    double gageFactor;
+    int32_t strain_config;
+    ExcitationConfig excitation_config;
+    double gage_factor;
     double initialBridgeVoltage;
-    double nominalGageResistance;
-    double poissonRatio;
-    double leadWireResistance;
+    double nominal_gage_resistance;
+    double poisson_ratio;
+    double lead_wire_resistance;
 
     static inline int32_t get_strain_config(std::string s){
         if(s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
@@ -860,13 +849,13 @@ public:
 
     explicit StrainGage(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Analog(parser, task_handle, name),
-                strainConfig(get_strain_config(parser.required<std::string>("strain_config"))),
-                excitationConfig(parser),
-                gageFactor(parser.required<double>("gage_factor")),
+                strain_config(get_strain_config(parser.required<std::string>("strain_config"))),
+                excitation_config(parser),
+                gage_factor(parser.required<double>("gage_factor")),
                 initialBridgeVoltage(parser.required<double>("initial_bridge_voltage")),
-                nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
-                poissonRatio(parser.required<double>("poisson_ratio")),
-                leadWireResistance(parser.required<double>("lead_wire_resistance")) {
+                nominal_gage_resistance(parser.required<double>("nominal_gage_resistance")),
+                poisson_ratio(parser.required<double>("poisson_ratio")),
+                lead_wire_resistance(parser.required<double>("lead_wire_resistance")) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                 }
@@ -880,14 +869,14 @@ public:
                     this->min_val,
                     this->max_val,
                     this->units,
-                    this->strainConfig,
-                    this->excitationConfig.voltageExcitSource,
-                    this->excitationConfig.voltageExcitVal,
-                    this->gageFactor,
+                    this->strain_config,
+                    this->excitation_config.voltage_excit_source,
+                    this->excitation_config.voltage_excit_val,
+                    this->gage_factor,
                     this->initialBridgeVoltage,
-                    this->nominalGageResistance,
-                    this->poissonRatio,
-                    this->leadWireResistance,
+                    this->nominal_gage_resistance,
+                    this->poisson_ratio,
+                    this->lead_wire_resistance,
                     NULL
             );
         }
@@ -897,17 +886,17 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Rosette Strain Gage                      //
 ///////////////////////////////////////////////////////////////////////////////////
-class RosetteStrainGage : public Analog{
+class RosetteStrainGage final : public Analog{
 public:
-    int32_t rosetteType;
-    double gageOrientation;
-    int32 rosseteMeasType;
-    int32 strainConfig;
-    ExcitationConfig excitationConfig;
-    double gageFactor;
-    double nominalGageResistance;
-    double poissonRatio;
-    double leadWireResistance;
+    int32_t rosette_type;
+    double gage_orientation;
+    int32 rosette_meas_type;
+    int32 strain_config;
+    ExcitationConfig excitation_config;
+    double gage_factor;
+    double nominal_gage_resistance;
+    double poisson_ratio;
+    double lead_wire_resistance;
 
     static inline int32_t get_strain_config(std::string s){
         if(s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
@@ -941,15 +930,15 @@ public:
 
     explicit RosetteStrainGage(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Analog(parser, task_handle, name),
-                rosetteType(get_rosette_type(parser.required<std::string>("rosette_type"))),
-                gageOrientation(parser.required<double>("gage_orientation")),
-                rosseteMeasType(get_rosette_meas_type(parser.required<std::string>("rosette_meas_type"))),
-                strainConfig(get_strain_config(parser.required<std::string>("strain_config"))),
-                excitationConfig(parser),
-                gageFactor(parser.required<double>("gage_factor")),
-                nominalGageResistance(parser.required<double>("nominal_gage_resistance")),
-                poissonRatio(parser.required<double>("poisson_ratio")),
-                leadWireResistance(parser.required<double>("lead_wire_resistance")) {
+                rosette_type(get_rosette_type(parser.required<std::string>("rosette_type"))),
+                gage_orientation(parser.required<double>("gage_orientation")),
+                rosette_meas_type(get_rosette_meas_type(parser.required<std::string>("rosette_meas_type"))),
+                strain_config(get_strain_config(parser.required<std::string>("strain_config"))),
+                excitation_config(parser),
+                gage_factor(parser.required<double>("gage_factor")),
+                nominal_gage_resistance(parser.required<double>("nominal_gage_resistance")),
+                poisson_ratio(parser.required<double>("poisson_ratio")),
+                lead_wire_resistance(parser.required<double>("lead_wire_resistance")) {
                 }
 
     int32 createNIChannel() override {
@@ -959,17 +948,17 @@ public:
                 "",
                 this->min_val,
                 this->max_val,
-                this->rosetteType,
-                this->gageOrientation,
-                &this->rosseteMeasType,
+                this->rosette_type,
+                this->gage_orientation,
+                &this->rosette_meas_type,
                 1, // bynRosseteMeasTypes // TODO: what is this for
-                this->strainConfig,
-                this->excitationConfig.voltageExcitSource,
-                this->excitationConfig.voltageExcitVal,
-                this->gageFactor,
-                this->nominalGageResistance,
-                this->poissonRatio,
-                this->leadWireResistance
+                this->strain_config,
+                this->excitation_config.voltage_excit_source,
+                this->excitation_config.voltage_excit_val,
+                this->gage_factor,
+                this->nominal_gage_resistance,
+                this->poisson_ratio,
+                this->lead_wire_resistance
         );
     }
 };
@@ -977,19 +966,19 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Microphone                               //
 ///////////////////////////////////////////////////////////////////////////////////
-class Microphone : public Analog{
+class Microphone final : public Analog{
     public:
-        double micSensitivity;
-        double maxSndPressLevel;
-        ExcitationConfig excitationConfig;
+        double mic_sensitivity;
+        double max_snd_press_level;
+        ExcitationConfig excitation_config;
         int32 terminal_config = 0;
 
         explicit Microphone(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))),  
-                  micSensitivity(parser.required<double>("mic_sensitivity")),
-                  maxSndPressLevel(parser.required<double>("max_snd_press_level")),
-                  excitationConfig(parser) {
+                  terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))),  
+                  mic_sensitivity(parser.required<double>("mic_sensitivity")),
+                  max_snd_press_level(parser.required<double>("max_snd_press_level")),
+                  excitation_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                   }
@@ -1002,10 +991,10 @@ class Microphone : public Analog{
                         "",
                         this->terminal_config,
                         this->units,
-                        this->micSensitivity,
-                        this->maxSndPressLevel,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
+                        this->mic_sensitivity,
+                        this->max_snd_press_level,
+                        this->excitation_config.voltage_excit_source,
+                        this->excitation_config.voltage_excit_val,
                         NULL
                 );
             }
@@ -1015,14 +1004,14 @@ class Microphone : public Analog{
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Frequency                                //
 ///////////////////////////////////////////////////////////////////////////////////
-class FrequencyVoltage : public Analog{
+class FrequencyVoltage final : public Analog{
 public:
-    double thresholdLevel;
+    double threshold_level;
     double hysteresis;
 
     explicit FrequencyVoltage(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Analog(parser, task_handle, name),
-                thresholdLevel(parser.required<double>("threshold_level")),
+                threshold_level(parser.required<double>("threshold_level")),
                 hysteresis(parser.required<double>("hysteresis")) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
@@ -1040,7 +1029,7 @@ public:
                     this->min_val,
                     this->max_val,
                     this->units,
-                    this->thresholdLevel,
+                    this->threshold_level,
                     this->hysteresis,
                     NULL
             );
@@ -1052,15 +1041,15 @@ public:
 //                                      Pressure                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 
-class PressureBridgeTwoPointLin : public Analog{
+class PressureBridgeTwoPointLin final : public Analog{
     public:
-        BridgeConfig bridgeConfig;
-        TwoPointLinConfig twoPointLinConfig;
+        BridgeConfig bridge_config;
+        TwoPointLinConfig two_point_lin_config;
 
         explicit PressureBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  twoPointLinConfig(parser) {
+                  bridge_config(parser),
+                  two_point_lin_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                   }
@@ -1074,31 +1063,31 @@ class PressureBridgeTwoPointLin : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->twoPointLinConfig.firstElectricalVal,
-                        this->twoPointLinConfig.secondElectricalVal,
-                        this->twoPointLinConfig.electricalUnits,
-                        this->twoPointLinConfig.firstPhysicalVal,
-                        this->twoPointLinConfig.secondPhysicalVal,
-                        this->twoPointLinConfig.physicalUnits,
+                        this->bridge_config.ni_bridge_config,
+                        this->bridge_config.voltage_excit_source,
+                        this->bridge_config.voltage_excit_val,
+                        this->bridge_config.nominal_bridge_resistance,
+                        this->two_point_lin_config.first_electrical_val,
+                        this->two_point_lin_config.second_electrical_val,
+                        this->two_point_lin_config.electrical_units,
+                        this->two_point_lin_config.first_physical_val,
+                        this->two_point_lin_config.second_physical_val,
+                        this->two_point_lin_config.physical_units,
                         NULL
                 );
             }
         }
 };
 
-class PressureBridgeTable : public Analog{
+class PressureBridgeTable final : public Analog{
     public:
-        BridgeConfig bridgeConfig;
-        TableConfig tableConfig;
+        BridgeConfig bridge_config;
+        TableConfig table_config;
 
         explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  tableConfig(parser) {
+                  bridge_config(parser),
+                  table_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                   }
@@ -1112,31 +1101,31 @@ class PressureBridgeTable : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->tableConfig.electricalVals,
-                        this->tableConfig.numElectricalVals,
-                        this->tableConfig.electricalUnits,
-                        this->tableConfig.physicalVals,
-                        this->tableConfig.numPhysicalVals,
-                        this->tableConfig.physicalUnits,
+                        this->bridge_config.ni_bridge_config,
+                        this->bridge_config.voltage_excit_source,
+                        this->bridge_config.voltage_excit_val,
+                        this->bridge_config.nominal_bridge_resistance,
+                        this->table_config.electrical_vals,
+                        this->table_config.num_eletrical_vals,
+                        this->table_config.electrical_units,
+                        this->table_config.physicalVals,
+                        this->table_config.num_physical_vals,
+                        this->table_config.physical_units,
                         NULL
                 );
             }
         }
 };
 
-class PressureBridgePolynomial : public Analog{
+class PressureBridgePolynomial final : public Analog{
 public:
-    BridgeConfig bridgeConfig;
-    PolynomialConfig polynomialConfig;
+    BridgeConfig bridge_config;
+    PolynomialConfig polynomial_config;
 
     explicit PressureBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Analog(parser, task_handle, name),
-                bridgeConfig(parser),
-                polynomialConfig(parser) {
+                bridge_config(parser),
+                polynomial_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                 }
@@ -1150,16 +1139,16 @@ public:
                     this->min_val,
                     this->max_val,
                     this->units,
-                    this->bridgeConfig.niBridgeConfig,
-                    this->bridgeConfig.voltageExcitSource,
-                    this->bridgeConfig.voltageExcitVal,
-                    this->bridgeConfig.nominalBridgeResistance,
-                    this->polynomialConfig.forwardCoeffs,
-                    this->polynomialConfig.numForwardCoeffs,
-                    this->polynomialConfig.reverseCoeffs,
-                    this->polynomialConfig.numReverseCoeffs,
-                    this->polynomialConfig.electricalUnits,
-                    this->polynomialConfig.physicalUnits,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->polynomial_config.forward_coeffs,
+                    this->polynomial_config.num_forward_coeffs,
+                    this->polynomial_config.reverse_coeffs,
+                    this->polynomial_config.num_reverse_coeffs,
+                    this->polynomial_config.electrical_units,
+                    this->polynomial_config.physical_units,
                     NULL
             );
         }
@@ -1169,15 +1158,15 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Force                                    //
 ///////////////////////////////////////////////////////////////////////////////////
-class ForceBridgePolynomial : public Analog{
+class ForceBridgePolynomial final : public Analog{
 public:
-    BridgeConfig bridgeConfig;
-    PolynomialConfig polynomialConfig;
+    BridgeConfig bridge_config;
+    PolynomialConfig polynomial_config;
 
     explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Analog(parser, task_handle, name),
-                bridgeConfig(parser),
-                polynomialConfig(parser) {
+                bridge_config(parser),
+                polynomial_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                 }
@@ -1191,31 +1180,31 @@ public:
                     this->min_val,
                     this->max_val,
                     this->units,
-                    this->bridgeConfig.niBridgeConfig,
-                    this->bridgeConfig.voltageExcitSource,
-                    this->bridgeConfig.voltageExcitVal,
-                    this->bridgeConfig.nominalBridgeResistance,
-                    this->polynomialConfig.forwardCoeffs,
-                    this->polynomialConfig.numForwardCoeffs,
-                    this->polynomialConfig.reverseCoeffs,
-                    this->polynomialConfig.numReverseCoeffs,
-                    this->polynomialConfig.electricalUnits,
-                    this->polynomialConfig.physicalUnits,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->polynomial_config.forward_coeffs,
+                    this->polynomial_config.num_forward_coeffs,
+                    this->polynomial_config.reverse_coeffs,
+                    this->polynomial_config.num_reverse_coeffs,
+                    this->polynomial_config.electrical_units,
+                    this->polynomial_config.physical_units,
                     NULL
             );
         }
     }
 };
 
-class ForceBridgeTable : public Analog{
+class ForceBridgeTable final : public Analog{
     public:
-        BridgeConfig bridgeConfig;
-        TableConfig tableConfig;
+        BridgeConfig bridge_config;
+        TableConfig table_config;
 
         explicit ForceBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  tableConfig(parser) {
+                  bridge_config(parser),
+                  table_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                   }
@@ -1229,31 +1218,31 @@ class ForceBridgeTable : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->tableConfig.electricalVals,
-                        this->tableConfig.numElectricalVals,
-                        this->tableConfig.electricalUnits,
-                        this->tableConfig.physicalVals,
-                        this->tableConfig.numPhysicalVals,
-                        this->tableConfig.physicalUnits,
+                        this->bridge_config.ni_bridge_config,
+                        this->bridge_config.voltage_excit_source,
+                        this->bridge_config.voltage_excit_val,
+                        this->bridge_config.nominal_bridge_resistance,
+                        this->table_config.electrical_vals,
+                        this->table_config.num_eletrical_vals,
+                        this->table_config.electrical_units,
+                        this->table_config.physicalVals,
+                        this->table_config.num_physical_vals,
+                        this->table_config.physical_units,
                         NULL
                 );
             }
         }
 };
 
-class ForceBridgeTwoPointLin : public Analog{
+class ForceBridgeTwoPointLin final : public Analog{
     public:
-        BridgeConfig bridgeConfig;
-        TwoPointLinConfig twoPointLinConfig;
+        BridgeConfig bridge_config;
+        TwoPointLinConfig two_point_lin_config;
 
         explicit ForceBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  twoPointLinConfig(parser) {
+                  bridge_config(parser),
+                  two_point_lin_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                   }
@@ -1267,16 +1256,16 @@ class ForceBridgeTwoPointLin : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->twoPointLinConfig.firstElectricalVal,
-                        this->twoPointLinConfig.secondElectricalVal,
-                        this->twoPointLinConfig.electricalUnits,
-                        this->twoPointLinConfig.firstPhysicalVal,
-                        this->twoPointLinConfig.secondPhysicalVal,
-                        this->twoPointLinConfig.physicalUnits,
+                        this->bridge_config.ni_bridge_config,
+                        this->bridge_config.voltage_excit_source,
+                        this->bridge_config.voltage_excit_val,
+                        this->bridge_config.nominal_bridge_resistance,
+                        this->two_point_lin_config.first_electrical_val,
+                        this->two_point_lin_config.second_electrical_val,
+                        this->two_point_lin_config.electrical_units,
+                        this->two_point_lin_config.first_physical_val,
+                        this->two_point_lin_config.second_physical_val,
+                        this->two_point_lin_config.physical_units,
                         NULL
                 );
             }
@@ -1287,23 +1276,23 @@ class ForceBridgeTwoPointLin : public Analog{
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Velocity                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-class VelocityIEPE : public Analog{
+class VelocityIEPE final : public Analog{
     public:
-        int32_t sensitivityUnits;
+        int32_t sensitivity_units;
         double sensitivity;
-        ExcitationConfig excitationConfig;
+        ExcitationConfig excitation_config;
         int32_t terminal_config = 0;
 
         explicit VelocityIEPE(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
                   sensitivity(parser.required<double>("sensitivity")),
-                  excitationConfig(parser),
-                  terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))) {
+                  excitation_config(parser),
+                  terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
 
                     auto su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
-                    this->sensitivityUnits = ni::UNITS_MAP.at(su);
+                    this->sensitivity_units = ni::UNITS_MAP.at(su);
                   }
 
         int32 createNIChannel() override {
@@ -1317,9 +1306,9 @@ class VelocityIEPE : public Analog{
                         this->max_val,
                         this->units,
                         this->sensitivity,
-                        this->sensitivityUnits,
-                        this->excitationConfig.voltageExcitSource,
-                        this->excitationConfig.voltageExcitVal,
+                        this->sensitivity_units,
+                        this->excitation_config.voltage_excit_source,
+                        this->excitation_config.voltage_excit_val,
                         NULL
                 );
             }
@@ -1329,14 +1318,14 @@ class VelocityIEPE : public Analog{
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Torque                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-class TorqueBridgeTwoPointLin : public Analog{
+class TorqueBridgeTwoPointLin final : public Analog{
     public:
-        BridgeConfig bridgeConfig;
-        TwoPointLinConfig twoPointLinConfig;
+        BridgeConfig bridge_config;
+        TwoPointLinConfig two_point_lin_config;
         explicit TorqueBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  twoPointLinConfig(parser) {
+                  bridge_config(parser),
+                  two_point_lin_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                 }
@@ -1350,31 +1339,31 @@ class TorqueBridgeTwoPointLin : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->twoPointLinConfig.firstElectricalVal,
-                        this->twoPointLinConfig.secondElectricalVal,
-                        this->twoPointLinConfig.electricalUnits,
-                        this->twoPointLinConfig.firstPhysicalVal,
-                        this->twoPointLinConfig.secondPhysicalVal,
-                        this->twoPointLinConfig.physicalUnits,
+                        this->bridge_config.ni_bridge_config,
+                        this->bridge_config.voltage_excit_source,
+                        this->bridge_config.voltage_excit_val,
+                        this->bridge_config.nominal_bridge_resistance,
+                        this->two_point_lin_config.first_electrical_val,
+                        this->two_point_lin_config.second_electrical_val,
+                        this->two_point_lin_config.electrical_units,
+                        this->two_point_lin_config.first_physical_val,
+                        this->two_point_lin_config.second_physical_val,
+                        this->two_point_lin_config.physical_units,
                         NULL
                 );
             }
         }
 };
 
-class TorqueBridgePolynomial : public Analog{
+class TorqueBridgePolynomial final : public Analog{
     public:
-        BridgeConfig bridgeConfig;
-        PolynomialConfig polynomialConfig;
+        BridgeConfig bridge_config;
+        PolynomialConfig polynomial_config;
 
         explicit TorqueBridgePolynomial(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  polynomialConfig(parser) {
+                  bridge_config(parser),
+                  polynomial_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                 }
@@ -1388,16 +1377,16 @@ class TorqueBridgePolynomial : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->polynomialConfig.forwardCoeffs,
-                        this->polynomialConfig.numForwardCoeffs,
-                        this->polynomialConfig.reverseCoeffs,
-                        this->polynomialConfig.numReverseCoeffs,
-                        this->polynomialConfig.electricalUnits,
-                        this->polynomialConfig.physicalUnits,
+                        this->bridge_config.ni_bridge_config,
+                        this->bridge_config.voltage_excit_source,
+                        this->bridge_config.voltage_excit_val,
+                        this->bridge_config.nominal_bridge_resistance,
+                        this->polynomial_config.forward_coeffs,
+                        this->polynomial_config.num_forward_coeffs,
+                        this->polynomial_config.reverse_coeffs,
+                        this->polynomial_config.num_reverse_coeffs,
+                        this->polynomial_config.electrical_units,
+                        this->polynomial_config.physical_units,
                         NULL
                 );
             }
@@ -1405,15 +1394,15 @@ class TorqueBridgePolynomial : public Analog{
 };
 
 
-class TorqueBridgeTable : public Analog{
+class TorqueBridgeTable final : public Analog{
     public:
-        BridgeConfig bridgeConfig;
-        TableConfig tableConfig;
+        BridgeConfig bridge_config;
+        TableConfig table_config;
 
         explicit TorqueBridgeTable(config::Parser &parser, TaskHandle task_handle, std::string name)
                 : Analog(parser, task_handle, name),
-                  bridgeConfig(parser),
-                  tableConfig(parser) {
+                  bridge_config(parser),
+                  table_config(parser) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
                   }
@@ -1426,16 +1415,16 @@ class TorqueBridgeTable : public Analog{
                         this->min_val,
                         this->max_val,
                         this->units,
-                        this->bridgeConfig.niBridgeConfig,
-                        this->bridgeConfig.voltageExcitSource,
-                        this->bridgeConfig.voltageExcitVal,
-                        this->bridgeConfig.nominalBridgeResistance,
-                        this->tableConfig.electricalVals,
-                        this->tableConfig.numElectricalVals,
-                        this->tableConfig.electricalUnits,
-                        this->tableConfig.physicalVals,
-                        this->tableConfig.numPhysicalVals,
-                        this->tableConfig.physicalUnits,
+                        this->bridge_config.ni_bridge_config,
+                        this->bridge_config.voltage_excit_source,
+                        this->bridge_config.voltage_excit_val,
+                        this->bridge_config.nominal_bridge_resistance,
+                        this->table_config.electrical_vals,
+                        this->table_config.num_eletrical_vals,
+                        this->table_config.electrical_units,
+                        this->table_config.physicalVals,
+                        this->table_config.num_physical_vals,
+                        this->table_config.physical_units,
                         NULL
                 );
             }
@@ -1443,23 +1432,23 @@ class TorqueBridgeTable : public Analog{
 };
 
 
-class ForceIEPE : public Analog{
+class ForceIEPE final : public Analog{
 public:
-    int32_t sensitivityUnits;
+    int32_t sensitivity_units;
     double sensitivity;
-    ExcitationConfig excitationConfig;
+    ExcitationConfig excitation_config;
     int32 terminal_config = 0;
 
     explicit ForceIEPE(config::Parser &parser, TaskHandle task_handle, std::string name)
             :   Analog(parser, task_handle, name),
                 sensitivity(parser.required<double>("sensitivity")),
-                excitationConfig(parser),
-                terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))) {
+                excitation_config(parser),
+                terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))) {
                     std::string u = parser.optional<std::string>("units", "Volts");
                     this->units = ni::UNITS_MAP.at(u);
 
                     auto su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
-                    this->sensitivityUnits = ni::UNITS_MAP.at(su);
+                    this->sensitivity_units = ni::UNITS_MAP.at(su);
 
                 }
 
@@ -1474,9 +1463,9 @@ public:
                     this->max_val,
                     this->units,
                     this->sensitivity,
-                    this->sensitivityUnits,
-                    this->excitationConfig.voltageExcitSource,
-                    this->excitationConfig.voltageExcitVal,
+                    this->sensitivity_units,
+                    this->excitation_config.voltage_excit_source,
+                    this->excitation_config.voltage_excit_val,
                     NULL
             );
         }
@@ -1487,12 +1476,12 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Charge                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-class Charge : public Analog {
+class Charge final : public Analog {
 public:
     int32 terminal_config = 0;
     explicit Charge(config::Parser &parser, TaskHandle task_handle, std::string name)
             : Analog(parser, task_handle, name),
-              terminal_config(ni::getTerminalConfig(parser.required<std::string>("terminal_config"))){
+              terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))){
                 std::string u = parser.optional<std::string>("units", "Coulombs");
                 this->units = ni::UNITS_MAP.at(u);
             }

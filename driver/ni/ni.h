@@ -147,8 +147,7 @@ public:
 
     virtual void getIndexKeys();
 
-    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) =
-    0;
+    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) = 0;
 
     virtual void parseChannels(config::Parser &parser) = 0;
 
@@ -182,12 +181,13 @@ public:
     std::thread sample_thread;
     synnax::Task task;
     uint32_t buffered_frames = 0;
+    
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    AnalogReadSource                           //
 ///////////////////////////////////////////////////////////////////////////////////
-class AnalogReadSource : public Source {
+class AnalogReadSource final : public Source {
 public:
     explicit AnalogReadSource(
         TaskHandle task_handle,
@@ -220,7 +220,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalReadSource                           //
 ///////////////////////////////////////////////////////////////////////////////////
-class DigitalReadSource : public Source {
+class DigitalReadSource final : public Source {
 public:
     explicit DigitalReadSource(
         TaskHandle task_handle,
@@ -244,7 +244,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
-class StateSource : public pipeline::Source {
+class StateSource final : public pipeline::Source {
 public:
     explicit StateSource() = default;
 
@@ -293,7 +293,7 @@ struct WriterConfig {
     std::queue<std::uint8_t> modified_state_values;
 };
 
-class DigitalWriteSink : public pipeline::Sink {
+class DigitalWriteSink final : public pipeline::Sink {
 public:
     explicit DigitalWriteSink(TaskHandle task_handle,
                               const std::shared_ptr<task::Context> &ctx,
@@ -345,7 +345,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Scanner                                    //
 ///////////////////////////////////////////////////////////////////////////////////
-class Scanner {
+class Scanner final {
 public:
     explicit Scanner() = default;
 
