@@ -18,8 +18,9 @@ import (
 
 func (s *Service) newGateway(cfg Config) (confluence.Segment[Request, Response], error) {
 	iter, err := s.TS.NewStreamIterator(ts.IteratorConfig{
-		Bounds:   cfg.Bounds,
-		Channels: cfg.Keys.Storage(),
+		Bounds:        cfg.Bounds,
+		Channels:      cfg.Keys.Storage(),
+		AutoChunkSize: cfg.ChunkSize,
 	})
 	if err != nil {
 		return nil, err

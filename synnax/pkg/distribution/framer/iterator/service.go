@@ -31,8 +31,9 @@ import (
 )
 
 type Config struct {
-	Keys   channel.Keys    `json:"keys" msgpack:"keys"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	Keys      channel.Keys    `json:"keys" msgpack:"keys"`
+	Bounds    telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	ChunkSize int64           `json:"chunk_size" msgpack:"chunk_size"`
 }
 
 type ServiceConfig struct {
@@ -120,7 +121,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needPeerRouting {
 		routeInletTo = peerSenderAddr
-		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, batch.Peers)
+		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, cfg.ChunkSize, batch.Peers)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +136,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needGatewayRouting {
 		routeInletTo = gatewayIterAddr
-		gatewayIter, err := s.newGateway(Config{Keys: batch.Gateway, Bounds: cfg.Bounds})
+		gatewayIter, err := s.newGateway(Config{Keys: batch.Gateway, Bounds: cfg.Bounds, ChunkSize: cfg.ChunkSize})
 		if err != nil {
 			return nil, err
 		}
