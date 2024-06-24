@@ -36,8 +36,37 @@ class TestChannelWriteRead:
         assert data.time_range.start == start
         assert len(d) == len(data)
         assert data.time_range.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1
-        assert all(data == d)
+        assert np.array_equal(data, d)
 
+
+@pytest.mark.framer
+@pytest.mark.iterator
+class TestIterator:
+    def test_basic_iterate(self, channel: sy.Channel, client: sy.Synnax):
+        d = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).astype(np.float64)
+        channel.write(0, d)
+        with client.open_iterator(sy.TimeRange.MAX, channel.key) as i:
+            for f in i:
+                assert np.array_equal(f.get(channel.key), d)
+
+    def test_auto_chunk(self, channel: sy.Channel, client: sy.Synnax):
+        d = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).astype(np.float64)
+        channel.write(0, d)
+        with client.open_iterator(sy.TimeRange.MAX, channel.key, chunk_size=4) as i:
+            assert i.seek_first()
+            i.next(sy.framer.AUTO_SPAN)
+            l = i.value.get(channel.key).to_numpy().tolist()
+            assert l == [0, 1, 2, 3]
+
+            i.next(sy.framer.AUTO_SPAN)
+            l = i.value.get(channel.key).to_numpy().tolist()
+            assert l == [4, 5, 6, 7]
+
+            i.next(sy.framer.AUTO_SPAN)
+            l = i.value.get(channel.key).to_numpy().tolist()
+            assert l == [8, 9]
+
+            assert not i.next(sy.framer.AUTO_SPAN)
 
 @pytest.mark.framer
 @pytest.mark.writer
