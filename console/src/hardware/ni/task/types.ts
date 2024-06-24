@@ -1595,7 +1595,7 @@ export const ANALOG_READ_TYPE = "ni_analog_read";
 export type AnalogReadType = typeof ANALOG_READ_TYPE;
 
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadTaskConfig = {
-  device: "Dev1",
+  device: "",
   sampleRate: 10,
   streamRate: 5,
   channels: [],

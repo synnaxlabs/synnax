@@ -36,6 +36,8 @@ export interface State {
    * this point.
    */
   name: string;
+  /** */
+  icon?: string;
   /**
    * Location defines the placement location of the layout. If the location is 'mosaic',
    * the layout will be placed in the central mosaic. If the location is 'window', the

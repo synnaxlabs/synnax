@@ -537,12 +537,14 @@ export const use = <Z extends z.ZodTypeAny>({
     } catch {
       validateAsync();
     }
-    listeners.get(path)?.forEach((l) => {
-      const fs = get({ path, optional: true });
-      if (fs != null) l(fs);
+    listeners.forEach((lis, lisPath) => {
+      if (deep.pathsMatch(lisPath, path)) {
+        const v = get({ path: lisPath, optional: true });
+        if (v != null) lis.forEach((l) => l(v));
+      }
     });
     parentListeners.forEach((lis, lisPath) => {
-      if (deep.pathsMatch(path, lisPath)) {
+      if (deep.pathsMatch(path, lisPath) || deep.pathsMatch(lisPath, path)) {
         const v = get({ path: lisPath, optional: true });
         if (v != null) lis.forEach((l) => l(v));
       }

@@ -17,7 +17,6 @@ import {
   Form,
   Header,
   Menu,
-  Nav,
   Status,
   Synnax,
   useAsyncEffect,
@@ -35,7 +34,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { EnrichedProperties } from "@/hardware/ni/device/types";
+import { Properties } from "@/hardware/ni/device/types";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -131,9 +130,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
 
-      const dev = await client.hardware.devices.retrieve<EnrichedProperties>(
-        config.device,
-      );
+      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
       dev.properties = enrich(dev.model, dev.properties);
 
       let modified = false;
@@ -177,7 +174,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: `${dev.name} AI ${c.port}`,
+            name: `${dev.properties.identifier}_ai_${c.port}`,
             dataType: "float32",
             index: dev.properties.analogInput.index,
           })),
@@ -391,9 +388,19 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             );
           };
           const handleDisable = () =>
-            set((v) => v.map((c, i) => ({ ...c, enabled: !indices.includes(i) })));
+            set((v) =>
+              v.map((c, i) => {
+                if (!indices.includes(i)) return c;
+                return { ...c, enabled: false };
+              }),
+            );
           const handleEnable = () =>
-            set((v) => v.map((c, i) => ({ ...c, enabled: indices.includes(i) })));
+            set((v) =>
+              v.map((c, i) => {
+                if (!indices.includes(i)) return c;
+                return { ...c, enabled: true };
+              }),
+            );
           const allowDisable = indices.some((i) => value[i].enabled);
           const allowEnable = indices.some((i) => !value[i].enabled);
           return (
@@ -412,6 +419,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
               <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
                 Duplicate
               </Menu.Item>
+              <Menu.Divider />
               {allowDisable && (
                 <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
                   Disable
@@ -497,31 +505,36 @@ const ChannelListItem = ({
           {AI_CHANNEL_TYPE_NAMES[childValues.type]}
         </Text.Text>
       </Align.Space>
-      <Button.Toggle
-        checkedVariant="outlined"
-        uncheckedVariant="outlined"
-        value={childValues.enabled}
-        size="small"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(v) => {
-          ctx.set({ path: `${path}.enabled`, value: v });
-        }}
-        tooltip={
-          <Text.Text level="small" style={{ maxWidth: 300 }}>
-            Data acquisition for this channel is{" "}
-            {childValues.enabled ? "enabled" : "disabled"}. Click to
-            {childValues.enabled ? " disable" : " enable"} it.
-          </Text.Text>
-        }
-      >
-        <Status.Text
-          variant={childValues.enabled ? "success" : "disabled"}
-          level="small"
-          align="center"
+      <Align.Space direction="x" size="small">
+        <Button.Icon size="small" variant="outlined">
+          <Icon.Visualize color="var(--pluto-gray-l7)" />
+        </Button.Icon>
+        <Button.Toggle
+          checkedVariant="outlined"
+          uncheckedVariant="outlined"
+          value={childValues.enabled}
+          size="small"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(v) => {
+            ctx.set({ path: `${path}.enabled`, value: v });
+          }}
+          tooltip={
+            <Text.Text level="small" style={{ maxWidth: 300 }}>
+              Data acquisition for this channel is{" "}
+              {childValues.enabled ? "enabled" : "disabled"}. Click to
+              {childValues.enabled ? " disable" : " enable"} it.
+            </Text.Text>
+          }
         >
-          {childValues.enabled ? "Enabled" : "Disabled"}
-        </Status.Text>
-      </Button.Toggle>
+          <Status.Text
+            variant={childValues.enabled ? "success" : "disabled"}
+            level="small"
+            align="center"
+          >
+            {childValues.enabled ? "Enabled" : "Disabled"}
+          </Status.Text>
+        </Button.Toggle>
+      </Align.Space>
     </List.ItemFrame>
   );
 };
