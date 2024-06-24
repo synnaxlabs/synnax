@@ -13,7 +13,6 @@ import { deep } from "@synnaxlabs/x/deep";
 import { zodutil } from "@synnaxlabs/x/zodutil";
 import {
   createContext,
-  FC,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
@@ -84,7 +83,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   const handleChange = useCallback(
     (value: O) => {
       onChange?.(value, { ...ctx, path });
-      set({ path, value });
+      set(path, value);
     },
     [path, set, onChange],
   );
@@ -250,8 +249,9 @@ export const useFieldArray = <V extends unknown = unknown>({
   const push = useCallback(
     (value: V | V[]) => {
       const copy = shallowCopy(get<V[]>(path).value);
+      console.log(copy);
       copy.push(...toArray(value));
-      set({ path, value: copy });
+      set(path, copy);
     },
     [path, get, set],
   );
@@ -260,7 +260,7 @@ export const useFieldArray = <V extends unknown = unknown>({
     (value: V | V[], start: number) => {
       const copy = shallowCopy(get<V[]>(path).value);
       copy.splice(start, 0, ...toArray(value));
-      set({ path, value: copy });
+      set(path, copy);
     },
     [path, get, set],
   );
@@ -269,7 +269,10 @@ export const useFieldArray = <V extends unknown = unknown>({
     (index: number | number[]) => {
       const val = get<V[]>(path).value;
       const indices = new Set(toArray(index));
-      set({ path, value: val.filter((_, i) => !indices.has(i)) });
+      set(
+        path,
+        val.filter((_, i) => !indices.has(i)),
+      );
     },
     [path, state, get],
   );
@@ -278,17 +281,17 @@ export const useFieldArray = <V extends unknown = unknown>({
     (index: number | number[]) => {
       const val = get<V[]>(path).value;
       const indices = new Set(toArray(index));
-      set({ path, value: val.filter((_, i) => indices.has(i)) });
+      set(
+        path,
+        val.filter((_, i) => indices.has(i)),
+      );
     },
     [path, fState, get],
   );
 
   const handleSet = useCallback(
     (setter: state.SetArg<V[]>) => {
-      set({
-        path,
-        value: state.executeSetter(setter, get<V[]>(path).value),
-      });
+      set(path, state.executeSetter(setter, get<V[]>(path).value));
     },
     [path, set],
   );
@@ -323,12 +326,7 @@ interface GetFunc {
   ): FieldState<V>;
 }
 
-interface SetProps {
-  path: string;
-  value: unknown;
-}
-
-type SetFunc = (props: SetProps) => void;
+type SetFunc = (path: string, value: unknown) => void;
 
 interface BindProps<V = unknown> {
   path: string;
@@ -466,12 +464,17 @@ export const use = <Z extends z.ZodTypeAny>({
 
   const updateFieldValues = useCallback((path: string) => {
     const { listeners, parentListeners } = ref.current;
-    listeners.get(path)?.forEach((l) => {
-      const fs = get(path, { optional: true });
-      if (fs != null) l(fs);
+    listeners.forEach((lis, lPath) => {
+      const equalOrParent = deep.pathsMatch(lPath, path);
+      if (equalOrParent) {
+        const fs = get(lPath, { optional: true });
+        if (fs != null) lis.forEach((l) => l(fs));
+      }
     });
     parentListeners.forEach((lis, lisPath) => {
-      if (deep.pathsMatch(path, lisPath)) {
+      const equalOrParent = deep.pathsMatch(path, lisPath);
+      const equalOrChild = deep.pathsMatch(lisPath, path);
+      if (equalOrChild || equalOrParent) {
         const v = get(lisPath, { optional: true });
         if (v != null) lis.forEach((l) => l(v));
       }
@@ -556,7 +559,7 @@ export const use = <Z extends z.ZodTypeAny>({
     [processValidationResult],
   );
 
-  const set: SetFunc = useCallback(({ path, value }): void => {
+  const set: SetFunc = useCallback((path, value): void => {
     const { state, touched } = ref.current;
     touched.add(path);
     if (path.length === 0) ref.current.state = value as z.output<Z>;
@@ -576,10 +579,8 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 
   const setStatus = useCallback((path: string, status: status.CrudeSpec): void => {
-    const { listeners } = ref.current;
-    ref.current.status.set(path, status);
-    const fs = get({ path });
-    listeners.get(path)?.forEach((l) => l(fs));
+    ref.current.statuses.set(path, status);
+    updateFieldState(path);
   }, []);
 
   useEffect(() => {

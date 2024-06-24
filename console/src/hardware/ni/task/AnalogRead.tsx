@@ -193,7 +193,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       config.channels.forEach((c) => {
         c.channel = dev.properties.analogInput.channels[c.port.toString()];
       });
-      methods.set({ path: "config", value: config });
+      methods.set("config", config);
       if (dev == null) return;
 
       const t = await rack.createTask<
@@ -516,7 +516,7 @@ const ChannelListItem = ({
           size="small"
           onClick={(e) => e.stopPropagation()}
           onChange={(v) => {
-            ctx.set({ path: `${path}.enabled`, value: v });
+            ctx.set(`${path}.enabled`, v);
           }}
           tooltip={
             <Text.Text level="small" style={{ maxWidth: 300 }}>

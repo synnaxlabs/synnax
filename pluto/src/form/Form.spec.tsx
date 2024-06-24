@@ -120,7 +120,7 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        result.current.set({ path: "name", value: "Jane Doe" });
+        result.current.set("name", "Jane Doe");
         const field = result.current.get("name");
         expect(field.value).toBe("Jane Doe");
       });
@@ -139,7 +139,7 @@ describe("Form", () => {
           listenToChildren: false,
           onChange,
         });
-        result.current.set({ path: "name", value: "Jane Doe" });
+        result.current.set("name", "Jane Doe");
         expect(onChange).toHaveBeenCalled();
       });
     });

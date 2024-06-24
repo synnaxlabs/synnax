@@ -113,8 +113,6 @@ const ConfigureInternal = ({
 
   const identifierRef = useRef<HTMLInputElement>(null);
 
-  const handleNext = () => {};
-
   const { isPending, mutate } = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
@@ -123,7 +121,7 @@ const ConfigureInternal = ({
         if (methods.validate("name")) {
           setStep("identifier");
           setRecommendedIds(
-            generateShortIdentifiers(methods.get<string>({ path: "name" }).value),
+            generateShortIdentifiers(methods.get<string>("name").value),
           );
           setTimeout(() => identifierRef.current?.focus(), 100);
         }
@@ -133,10 +131,10 @@ const ConfigureInternal = ({
         await client.hardware.devices.create({
           ...device,
           configured: true,
-          name: methods.get<string>({ path: "name" }).value,
+          name: methods.get<string>("name").value,
           properties: {
             ...er,
-            identifier: methods.get<string>({ path: "identifier" }).value,
+            identifier: methods.get<string>("identifier").value,
           },
         });
         onClose();
@@ -171,10 +169,9 @@ const ConfigureInternal = ({
           {step == "identifier" && (
             <>
               <Text.Text level="h4" shade={7}>
-                Next, we'll need a short identifier for{" "}
-                {methods.get({ path: "name" }).value}. We'll use this as a prefix for
-                all channels associated with this device. We've generated some
-                suggestions below.
+                Next, we'll need a short identifier for {methods.get("name").value}.
+                We'll use this as a prefix for all channels associated with this device.
+                We've generated some suggestions below.
               </Text.Text>
               <Align.Space direction="y" size="small">
                 <Form.TextField
