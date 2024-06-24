@@ -41,6 +41,8 @@ const formSchema = z.object({
   name: z.string().min(1, { message: "Workspace must have a name" }),
 });
 
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   const methods = Form.use({
     values: {
@@ -93,7 +95,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
-          <Triggers.Text shade={7} level="small" trigger={["Control", "Enter"]} />
+          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
             To Save
           </Text.Text>
@@ -105,7 +107,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             loading={isPending}
             disabled={isPending}
             onClick={() => mutate()}
-            triggers={[["Control", "Enter"]]}
+            triggers={[SAVE_TRIGGER]}
           >
             Save
           </Button.Button>

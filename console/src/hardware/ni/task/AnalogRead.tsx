@@ -9,7 +9,7 @@
 
 import "@/hardware/ni/task/AnalogRead.css";
 
-import { task } from "@synnaxlabs/client";
+import { QueryError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Button,
@@ -127,9 +127,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
     mutationKey: [client?.key, "configure"],
     onError: console.error,
     mutationFn: async () => {
-      console.log("HELLO");
       if (!(await methods.validateAsync()) || client == null) return;
-      console.log("B");
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
 
@@ -139,7 +137,17 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       dev.properties = enrich(dev.model, dev.properties);
 
       let modified = false;
-      if (primitiveIsZero(dev.properties.analogInput.index)) {
+      let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
+      if (!shouldCreateIndex) {
+        try {
+          await client.channels.retrieve(dev.properties.analogInput.index);
+        } catch (e) {
+          if (e instanceof QueryError) shouldCreateIndex = true;
+          else throw e;
+        }
+      }
+
+      if (shouldCreateIndex) {
         modified = true;
         const aiIndex = await client.channels.create({
           name: `${dev.name} Analog Input Time`,
@@ -153,13 +161,17 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       const toCreate: AIChan[] = [];
       for (const channel of config.channels) {
         // check if the channel is in properties
-        const existingChan =
-          dev.properties.analogInput.channels[channel.port.toString()];
-        console.log("EXISTING", existingChan);
-        if (primitiveIsZero(existingChan)) toCreate.push(channel);
+        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+        if (primitiveIsZero(exKey)) toCreate.push(channel);
+        else {
+          try {
+            await client.channels.retrieve(exKey.toString());
+          } catch (e) {
+            if (e instanceof QueryError) toCreate.push(channel);
+            else throw e;
+          }
+        }
       }
-
-      console.log(toCreate);
 
       if (toCreate.length > 0) {
         modified = true;
@@ -184,6 +196,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       config.channels.forEach((c) => {
         c.channel = dev.properties.analogInput.channels[c.port.toString()];
       });
+      methods.set({ path: "config", value: config });
       if (dev == null) return;
 
       const t = await rack.createTask<
@@ -268,12 +281,15 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
             </Align.Space>
           </Align.Space>
         </Form.Form>
-      </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          <Text.Text level="p">{JSON.stringify(taskState)}</Text.Text>
-        </Nav.Bar.Start>
-        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+        <Align.Space
+          direction="x"
+          style={{
+            borderRadius: "1rem",
+            border: "var(--pluto-border)",
+            padding: "2rem",
+          }}
+          justify="end"
+        >
           <Button.Icon
             loading={start.isPending}
             disabled={start.isPending || taskState == null}
@@ -289,8 +305,8 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
           >
             Configure
           </Button.Button>
-        </Nav.Bar.End>
-      </Nav.Bar>
+        </Align.Space>
+      </Align.Space>
     </Align.Space>
   );
 };

@@ -8,7 +8,7 @@
     width: 100%;
     height: 100%;
     z-index: 10;
-    background: var(--pluto-gray-l4-20);
+    background: var(--pluto-gray-l3-40);
 
     .pluto-modal__dialog {
         position: absolute;
