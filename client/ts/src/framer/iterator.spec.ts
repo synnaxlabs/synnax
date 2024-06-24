@@ -68,7 +68,7 @@ describe("Iterator", () => {
     const iter = await client.openIterator(
       TimeRange.MAX,
       [ch.key],
-      4,
+      {chunkSize: 4},
     );
 
     try {

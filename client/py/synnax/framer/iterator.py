@@ -80,7 +80,7 @@ class Iterator:
         tr: TimeRange,
         client: StreamClient,
         adapter: ReadFrameAdapter,
-        chunk_size: int = 5e5,
+        chunk_size: int = 1e5,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self.tr = tr
