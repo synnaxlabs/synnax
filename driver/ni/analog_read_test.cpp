@@ -209,7 +209,7 @@ TEST(read_tests, analog_map_scaling){
     reader.stop();
 }
 
-
+// TODO: when table support is added to console
 // ///////////////////////////////////////////////////////////////////
 // //                          TABLE                                //
 // ///////////////////////////////////////////////////////////////////
@@ -265,7 +265,7 @@ TEST(read_tests, analog_map_scaling){
 //     reader.stop();
 // }
 
-
+// TODO: when polynomial support is added to console
 // ///////////////////////////////////////////////////////////////////
 // //                          POLYNOMIAL                           //
 // ///////////////////////////////////////////////////////////////////
@@ -405,7 +405,7 @@ TEST(read_tests, one_analog_voltage_channel){
 
 }
 
-///@brief Temperature Built in sensor
+///@brief Temperature Built in sensor : NI USB-6289
 TEST(read_tests, one_analog_temp_built_in_sensor_channel){
     // Create NI readerconfig json
     auto config = json{
@@ -432,8 +432,8 @@ TEST(read_tests, one_analog_temp_built_in_sensor_channel){
 
 ///////////////////////////////////////////////////////////////////
 //                          Torque                               //
-///////////////////////////////////////////////////////////////////\
-///@brief torque bridge linear
+///////////////////////////////////////////////////////////////////
+///@brief torque bridge linear : NI USB-9219
 TEST(read_tests, one_torque_linear_bridge_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -468,7 +468,7 @@ TEST(read_tests, one_torque_linear_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief torque bridge table
+///@brief torque bridge table : NI USB-9219
 TEST(read_tests, one_torque_table_bridge_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -504,7 +504,7 @@ TEST(read_tests, one_torque_table_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief torque bridge polynomial
+///@brief torque bridge polynomial : NI USB-9219
 TEST(read_tests, one_torque_polynomial_bridge_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -541,7 +541,7 @@ TEST(read_tests, one_torque_polynomial_bridge_channel){
 ///////////////////////////////////////////////////////////////////
 //                          Velocity                             //
 ///////////////////////////////////////////////////////////////////
-///@brief velocity
+///@brief velocity : NI USB-9234
 TEST(read_tests, one_velocity_channel){
     auto config = json{
         {"sample_rate", 100}, 
@@ -574,7 +574,7 @@ TEST(read_tests, one_velocity_channel){
 ///////////////////////////////////////////////////////////////////
 //                          Force                                //
 ///////////////////////////////////////////////////////////////////
-///@brief Force Bridge Polynomial
+///@brief Force Bridge Polynomial : NI USB-9219
 TEST(read_tests, one_force_polynomial_bridge_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -608,7 +608,7 @@ TEST(read_tests, one_force_polynomial_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief Force Bridge Table
+///@brief Force Bridge Table : NI USB-9219
 TEST(read_tests, one_force_table_bridge_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -643,7 +643,7 @@ TEST(read_tests, one_force_table_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief Force Bridge Linear
+///@brief Force Bridge Linear : NI USB-9219
 TEST(read_tests, one_force_linear_bridge_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -678,7 +678,7 @@ TEST(read_tests, one_force_linear_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief force IEPE
+///@brief force IEPE : NI USB-9234
 TEST(read_tests, one_force_iepe_channel){
     auto config = json{
         {"sample_rate", 100}, 
@@ -711,7 +711,7 @@ TEST(read_tests, one_force_iepe_channel){
 ///////////////////////////////////////////////////////////////////
 //                          Pressure                             //
 ///////////////////////////////////////////////////////////////////
-///@brief pressure bridge polynomial
+///@brief pressure bridge polynomial : NI USB-9219
 TEST(read_tests, one_pressure_polynomial_bridge_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -745,7 +745,7 @@ TEST(read_tests, one_pressure_polynomial_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief pressure bridge table
+///@brief pressure bridge table : NI USB-9219
 TEST(read_tests, one_pressure_table_bridge_channel){
     // Create NI readerconfig json
     auto config = json{
@@ -781,7 +781,7 @@ TEST(read_tests, one_pressure_table_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief pressure bridge linear
+///@brief pressure bridge linear : NI USB-9219
 TEST(read_tests, one_pressure_linear_bridge_channel){
     // Create NI readerconfig json
     auto config = json{
@@ -820,7 +820,7 @@ TEST(read_tests, one_pressure_linear_bridge_channel){
 ///////////////////////////////////////////////////////////////////
 //                         Temperature                           //
 ///////////////////////////////////////////////////////////////////
-///@brief Thermocouple
+///@brief Thermocouple : NI USB-9211A
 TEST(read_tests, one_analog_thermocouple_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -848,7 +848,7 @@ TEST(read_tests, one_analog_thermocouple_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief RTD
+///@brief RTD : NI PXIe-4357
 TEST(read_tests, one_analog_RTD_channel){
     // Create NI readerconfig json
     auto config = json{
@@ -884,7 +884,7 @@ TEST(read_tests, one_analog_RTD_channel){
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Acceleration                               //
 ///////////////////////////////////////////////////////////////////////////////////
-///@brief Acceleration
+///@brief Acceleration : NI USB-9234
 TEST(read_tests, one_acceleration_channel){
     // Create NI readerconfig json
     auto config = json{
@@ -918,7 +918,7 @@ TEST(read_tests, one_acceleration_channel){
 ///////////////////////////////////////////////////////////////////
 //                         Current                               //
 ///////////////////////////////////////////////////////////////////
-///@brief Current
+///@brief Current : NI PXIe-4302
 TEST(read_tests, one_analog_current_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -946,7 +946,7 @@ TEST(read_tests, one_analog_current_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief Microphone
+///@brief Microphone : NI USB-9234
 TEST(read_tests, one_microphone_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -974,7 +974,7 @@ TEST(read_tests, one_microphone_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief resistance
+///@brief resistance : NI USB-9219
 TEST(read_tests, one_resistance_channel){
     auto config = json{
         {"sample_rate", 5}, 
@@ -1035,7 +1035,7 @@ TEST(read_tests, one_strain_gage){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-///@brief Bridge Channel
+///@brief Bridge Channel : NI USB-9219
 TEST(read_tests, one_bridge_channel){
     auto config = json{
         {"sample_rate", 5}, 
