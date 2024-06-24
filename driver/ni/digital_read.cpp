@@ -121,7 +121,7 @@ void ni::DigitalReadSource::acquireData() {
 }
 
 
-// TODO: code dedup with analogreadsource read
+
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
@@ -133,10 +133,12 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();
 
-    if (!valid)
+    if (!valid){
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
+                                  LOG(ERROR) << "Failed to read data from queue";
+                                  }
 
 
     uInt8 *data = static_cast<uInt8 *>(d.data);
@@ -151,7 +153,6 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
 
     // Construct and populate synnax frame
     uint64_t data_index = 0;
-    // TODO: put a comment explaining the function of data_index
     for (int i = 0; i < numChannels; i++) {
         if (this->reader_config.channels[i].channel_type == "index") {
             f.add(this->reader_config.channels[i].channel_key,
@@ -160,15 +161,15 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
         }
 
         std::vector<uint8_t> data_vec(d.samplesReadPerChannel);
-        for (int j = 0; j < d.samplesReadPerChannel; j++)
-            data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
+        for (int j = 0; j < d.samplesReadPerChannel; j++){
+            LOG(INFO) << "Data: " << data[data_index * d.samplesReadPerChannel + j];
+            data_vec[j] = data[data_index * d.samplesReadPerChannel + j];}
+
         f.add(this->reader_config.channels[i].channel_key,
               synnax::Series(data_vec, synnax::UINT8));
         data_index++;
     }
 
     delete[] data;
-
-    // return synnax frame
     return std::make_pair(std::move(f), freighter::NIL);
 }

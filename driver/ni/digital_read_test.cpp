@@ -6,112 +6,91 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
 //
 // Created by Synnax on 1/29/2024.
-//v
-#include <include/gtest/gtest.h>
-#include "glog/logging.h"
+
+#include <map>
+#include <stdio.h>
 
 #include "client/cpp/synnax.h"
 #include "driver/ni/ni.h"
-#include <stdio.h>
-#include "nlohmann/json.hpp"
 #include "driver/testutil/testutil.h"
-#include <map>
 
+#include <include/gtest/gtest.h>
+#include "glog/logging.h"
 
+#include "nlohmann/json.hpp"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                              //
+//                                                   Basic Tests                                                //                
+//                                                                                                              //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TEST(read_tests, one_digital_channel){
-    LOG(INFO) << "test_read_one_digital_channel: "; //<< std::endl;
+    // create synnax client
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    
+    // create all the necessary channels in the synnax client
+    auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
+    ASSERT_FALSE(tErr) << tErr.message();
+
+    auto [data, dErr] = client->channels.create("di_channel",synnax::FLOAT32,time.key,false);
+    ASSERT_FALSE(dErr) << dErr.message();
+
 
     // Create NI readerconfig
     auto config = json{
             {"sample_rate", 100}, // dont actually need these here
             {"stream_rate", 20}, // same as above
-            {"device_location", "PXI1Slot2_2"},
-            {"type", "digital_read"}
+            {"device_location", "Dev5"},
+            {"type", "digital_read"},
             {"test", true},
             {"device", ""}
     };
-    // create synnax client
-     auto client_config = synnax::Config{
-            "localhost",
-            9090,
-            "synnax",
-            "seldon"};
-    auto client = std::make_shared<synnax::Synnax>(client_config);
-    
-    // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create( // index channel for analog input channels
-            "idx",
-            synnax::TIMESTAMP,
-            0,
-            true
-    );
-    ASSERT_FALSE(tErr) << tErr.message();
-    auto [data, dErr] = client->channels.create( // analog input channel
-            "d1",
-            synnax::UINT8,
-            time.key,
-            false
-    );
-
     add_DI_channel_JSON(config, "d1", data.key, 0, 0);
-
-
-    // Synnax infrustructure
-    auto task = synnax::Task(
-        "my_task",          // task name
-        "ni_digital_read",  // task type
-        to_string(config)   // task config
-    );
-
+    
+    // create synnax task
+    auto task = synnax::Task("my_task", "ni_digital_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
-
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
     // Now construct NI reader
     TaskHandle taskHandle;  
     ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
-    auto reader = ni::DigitalReadSource(  taskHandle, 
-                                          mockCtx, 
-                                          task);
-
+    auto reader = ni::DigitalReadSource( taskHandle, mockCtx, task);
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+    
     if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start();
-
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    auto [frame, err] = reader.read();
+    auto [frame, err] = reader.read(b);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
-     //iterate through each series and print the data
-    for(int i = 0; i < frame.series->size(); i++){
-        std::cout << "\n\n Series " << i << ": \n";
-        // check series type before casting
-        if (frame.series->at(i).data_type == synnax::UINT8){
-            auto s =  frame.series->at(i).uint8();
-            for (int j = 0; j < s.size(); j++){
-                std::cout << (uint32_t)s[j] << ", ";
-                ASSERT_TRUE((s[j] == 1) || (s[j] == 0));
-            }
-        }
-        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
-            auto s =  frame.series->at(i).uint64();
-            for (int j = 0; j < s.size(); j++){
-                std::cout << s[j] << ", ";
-                ASSERT_TRUE((s[j] >= initial_timestamp) && (s[j] <= final_timestamp));
-            }
-        }
-    }
-
-    std::cout << std::endl;
-    reader.stop()
+    LOG(INFO) << frame << "\n";
+    reader.stop();
 }
 
 
 
 TEST(read_tests, multiple_digital_channels){
-    LOG(INFO) << "test_read_multiple_digital_channel: "; //<< std::endl;
+    // setup synnax test infrustructure
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    // create all the necessary channels in the synnax client
+    auto [time, tErr] = client->channels.create( "idx", synnax::TIMESTAMP, 0, true);
+    ASSERT_FALSE(tErr) << tErr.message();
+
+    auto [data, dErr] = client->channels.create( "di",synnax::FLOAT32,time.key,false);
+    ASSERT_FALSE(dErr) << dErr.message();
+
+    auto [data1, dErr2] = client->channels.create( "di2",synnax::FLOAT32,time.key,false);
+    ASSERT_FALSE(dErr2) << dErr.message();
+
+    auto [data2, dErr3] = client->channels.create( "di3",synnax::FLOAT32,time.key,false);
+    ASSERT_FALSE(dErr3) << dErr.message();
+
+    auto [data3, dErr4] = client->channels.create( "di4",synnax::FLOAT32,time.key,false);
+    ASSERT_FALSE(dErr4) << dErr.message();
 
     // Create NI readerconfig
     auto config = json{
@@ -123,101 +102,30 @@ TEST(read_tests, multiple_digital_channels){
             {"device", ""}
     };
 
-    // create synnax client
-    auto client_config = synnax::Config{
-            "localhost",
-            9090,
-            "synnax",
-            "seldon"};
-    auto client = std::make_shared<synnax::Synnax>(client_config);
+    add_DI_channel_JSON(config, "d1", data.key, 0, 0);
+    add_DI_channel_JSON(config, "d2", data1.key, 0, 1);
+    add_DI_channel_JSON(config, "d3", data2.key, 0, 2);
+    add_DI_channel_JSON(config, "d4", data3.key, 0, 3);
 
-    // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create( // index channel for analog input channels
-            "idx",
-            synnax::TIMESTAMP,
-            0,
-            true
-    );
-    ASSERT_FALSE(tErr) << tErr.message();
-    auto [data1, dErr1] = client->channels.create( // analog input channel
-            "d1",
-            synnax::UINT8,
-            time.key,
-            false
-    );
-    ASSERT_FALSE(dErr1) << tErr.message();
-    auto [data2, dErr2] = client->channels.create( // analog input channel
-            "d2",
-            synnax::UINT8,
-            time.key,
-            false
-    );
-    ASSERT_FALSE(dErr2) << tErr.message();
-    auto [data3, dErr3] = client->channels.create( // analog input channel
-            "d3",
-            synnax::UINT8,
-            time.key,
-            false
-    );
-    ASSERT_FALSE(dErr3) << tErr.message();
-    auto [data4, dErr4] = client->channels.create( // analog input channel
-            "d4",
-            synnax::UINT8,
-            time.key,
-            false
-    );
-    add_index_channel_JSON(config, "idx", 1);
-    add_DI_channel_JSON(config, "d1", data1.key, 0, 0);
-    add_DI_channel_JSON(config, "d2", data2.key, 0, 1);
-    add_DI_channel_JSON(config, "d3", data3.key, 0, 2);
-    add_DI_channel_JSON(config, "d4", data4.key, 0, 3);
-
-
-
-    auto task = synnax::Task(
-        "my_task",
-        "ni_digital_read",
-        to_string(config)
-    );
-
+    // create synnax task (name, type, config)
+    auto task = synnax::Task( "my_task", "ni_analog_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
-
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+
     // Now construct NI reader
     TaskHandle taskHandle;  
     ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+    auto reader = ni::DigitalReadSource(taskHandle, mockCtx, task);
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
 
-    auto reader = ni:DigitalReadSource( taskHandle, 
-                                        mockCtx, 
-                                        task);
     if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start();
-
     for(int i = 0; i < 15; i++ ) { // test for 50 read cycles
         std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-        auto [frame, err] = reader.read();
+        auto [frame, err] = reader.read(b);
         std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-
-        //iterate through each series and print the data
-        for(int i = 0; i < frame.series->size(); i++){
-            std::cout << "\n\n Series " << i << ": \n";
-            // check series type before casting
-            if (frame.series->at(i).data_type == synnax::UINT8){
-                auto s =  frame.series->at(i).uint8();
-                for (int j = 0; j < s.size(); j++){
-                    std::cout << (uint32_t)s[j] << ", ";
-                    ASSERT_TRUE((s[j] == 1) || (s[j] == 0));   
-                }
-            }
-            else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
-                auto s =  frame.series->at(i).uint64();
-                for (int j = 0; j < s.size(); j++){
-                    std::cout << s[j] << ", ";
-                    ASSERT_TRUE((s[j] >= initial_timestamp) && (s[j] <= final_timestamp));
-                }
-            }
-        }
-        std::cout << std::endl;
+        LOG(INFO) << frame << "\n";
     }
     reader.stop();
 }

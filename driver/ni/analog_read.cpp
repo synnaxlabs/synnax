@@ -22,24 +22,24 @@ using json = nlohmann::json;
 void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
     // now parse the channels
     parser.iter("channels",
-                [&](config::Parser &channel_builder) {
-                    // LOG(INFO) << channel_builder.get_json().dump(4);
+        [&](config::Parser &channel_builder) {
+            // LOG(INFO) << channel_builder.get_json().dump(4);
 
-                    ni::ChannelConfig config;
-                    // analog channel names are formatted: <device_name>/ai<port>
-                    std::string port = std::to_string(channel_builder.required<std::uint64_t>("port"));
-                    std::string name = this->reader_config.device_name;
-                    config.name = name + "/ai" + port;
-                    
-                    config.channel_key = channel_builder.required<uint32_t>("channel");
-                    config.channel_type = channel_builder.required<std::string>("type");
+            ni::ChannelConfig config;
+            // analog channel names are formatted: <device_name>/ai<port>
+            std::string port = std::to_string(channel_builder.required<std::uint64_t>("port"));
+            std::string name = this->reader_config.device_name;
+            config.name = name + "/ai" + port;
+            
+            config.channel_key = channel_builder.required<uint32_t>("channel");
+            config.channel_type = channel_builder.required<std::string>("type");
 
-                    // TODO: check scale parser in the function below
-                    config.ni_channel = this->parseChannel(
-                        channel_builder, config.channel_type, config.name);
+            // TODO: check scale parser in the function below
+            config.ni_channel = this->parseChannel(
+                channel_builder, config.channel_type, config.name);
 
-                    this->reader_config.channels.push_back(config);
-                });
+            this->reader_config.channels.push_back(config);
+        });
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
@@ -176,6 +176,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
         std::vector<float> data_vec(d.samplesReadPerChannel);
         for (int j = 0; j < d.samplesReadPerChannel; j++)
             data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
+            
         f.add(this->reader_config.channels[i].channel_key,
               synnax::Series(data_vec, synnax::FLOAT32));
         data_index++;
