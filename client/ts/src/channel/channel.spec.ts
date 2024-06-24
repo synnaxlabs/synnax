@@ -246,6 +246,12 @@ describe("Channel", () => {
           dataType: DataType.FLOAT32,
         },
       ]);
+      const initial = await client.channels.retrieve([
+        channels[0].key,
+        channels[1].key,
+      ]);
+      expect(initial[0].name).toEqual("test1");
+      expect(initial[1].name).toEqual("test2");
       await client.channels.rename(
         [channels[0].key, channels[1].key],
         ["test3", "test4"],
