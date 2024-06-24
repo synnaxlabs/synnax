@@ -53,7 +53,7 @@ class TDMSReader(TDMSMatcher):  # type: ignore
         chunk_size: int | None = None,
     ):
         self._path = path
-        self.chunk_size = chunk_size or int(5e5)
+        self.chunk_size = chunk_size or int(1e5)
 
         self._channels = None
         self._current_chunk = 0
