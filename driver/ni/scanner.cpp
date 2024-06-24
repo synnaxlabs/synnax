@@ -54,22 +54,18 @@ ni::Scanner::Scanner(
         NISysCfgFilterPropertyIsPresent,
         NISysCfgIsPresentTypePresent
     );
-    LOG(INFO) << "[ni.scanner] successfully configured scanner for task " << this->task.
-            name;
+    VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.name;
 }
 
 ni::Scanner::~Scanner() {
-    LOG(INFO) << "[ni.scanner] SCANNER DESTRUCTOR" << this->task.name;
     // TODO: Error Handling
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->resources_handle);
     ni::NiSysCfgInterface::CloseHandle(this->session);
-    LOG(INFO) << "[ni.scanner] successfully closed scanner for task " << this->task.
-            name;
+    VLOG(1) << "[ni.scanner] successfully closed scanner for task " << this->task.name;
 }
 
 void ni::Scanner::scan() {
-    // LOG(INFO) << "[ni.scanner] scanning for devices for task " << this->task.name;
     NISysCfgResourceHandle resource = NULL;
 
     // first find hardware
@@ -169,7 +165,7 @@ void ni::Scanner::createDevices() {
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(
             device["key"]);
         if (err == freighter::NIL) {
-            // LOG(INFO) << "[ni.scanner] device " << device["model"] << " and key "  << device["key"] << "at location: " << device["location"] << " found for task " << this->task.name;
+            VLOG(1) << "[ni.scanner] device " << device["model"] << " and key "  << device["key"] << "at location: " << device["location"] << " found for task " << this->task.name;
             continue;
         }
         auto new_device = synnax::Device(
@@ -184,9 +180,9 @@ void ni::Scanner::createDevices() {
         );
 
         if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
-            // LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
+            LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
         }
-        // LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
+        vLOG(1) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
     }
 }
 
