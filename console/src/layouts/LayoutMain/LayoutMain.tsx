@@ -48,6 +48,7 @@ export const LayoutMain = (): ReactElement => {
       {/* We need to place notifications here so they are in the proper stacking context */}
       <Notifications.Notifications />
       <NavTop />
+      <Layout.Modals />
       <Align.Space className="console-main-fixed--y" direction="x" empty>
         <NavLeft />
         <Align.Space

@@ -14,7 +14,7 @@ import { type location } from "@synnaxlabs/x";
 import type { ComponentType } from "react";
 
 /** The location options for placing a layout */
-export type PlacementLocation = "window" | "mosaic";
+export type PlacementLocation = "window" | "mosaic" | "modal";
 
 /**
  * Layout represents the properties of a layout currently rendered in the mosaic or in

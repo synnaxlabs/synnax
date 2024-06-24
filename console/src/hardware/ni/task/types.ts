@@ -188,7 +188,7 @@ export type ExcitationSource = z.infer<typeof excitSourceZ>;
 
 const baseAIChanZ = z.object({
   key: z.string(),
-  channel: z.number(),
+  channel: z.number().optional(),
   port: z.number(),
   enabled: z.boolean(),
 });

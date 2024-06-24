@@ -195,9 +195,8 @@ const GroupList = ({
                 remove(indices);
                 // find the first group whose key is not in keys
                 const newSelectedGroup = value.findIndex((g) => !keys.includes(g.key));
-                if (newSelectedGroup !== -1) {
+                if (newSelectedGroup >= 0)
                   onSelectGroup(value[newSelectedGroup].key, newSelectedGroup);
-                }
                 break;
               }
             }

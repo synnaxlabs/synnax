@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Form, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Align, Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -29,7 +29,7 @@ export const createWindowLayout = (
   type: CREATE_LAYOUT_TYPE,
   windowKey: CREATE_LAYOUT_TYPE,
   name,
-  location: "window",
+  location: "modal",
   window: {
     resizable: false,
     size: { height: 225, width: 625 },
@@ -38,7 +38,7 @@ export const createWindowLayout = (
 });
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Workspace must hav a name" }),
+  name: z.string().min(1, { message: "Workspace must have a name" }),
 });
 
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
@@ -92,6 +92,12 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+          <Triggers.Text shade={7} level="small" trigger={["Control", "Enter"]} />
+          <Text.Text shade={7} level="small">
+            To Save
+          </Text.Text>
+        </Nav.Bar.Start>
         <Nav.Bar.End style={{ padding: "1rem" }}>
           <Button.Button
             type="submit"
@@ -99,6 +105,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             loading={isPending}
             disabled={isPending}
             onClick={() => mutate()}
+            triggers={[["Control", "Enter"]]}
           >
             Save
           </Button.Button>

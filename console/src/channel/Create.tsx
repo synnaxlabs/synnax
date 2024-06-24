@@ -33,17 +33,16 @@ export const createLayout: Layout.State = {
   type: CREATE_LAYOUT_TYPE,
   windowKey: CREATE_LAYOUT_TYPE,
   name: "Create a Channel",
-  location: "window",
+  location: "modal",
   window: {
     resizable: false,
-    size: { height: 550, width: 700 },
+    size: { height: 375, width: 700 },
     navTop: true,
+    showTitle: true,
   },
 };
 
-export const Create: Layout.Renderer = ({
-  onClose,
-}: Layout.RendererProps): ReactElement => {
+export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     schema: channel.payload
@@ -101,8 +100,8 @@ export const Create: Layout.Renderer = ({
   const isIndex = Form.useFieldValue("isIndex", false, methods);
 
   return (
-    <Align.Space className={CSS.B("channel-edit-layout")} grow>
-      <Align.Space className="console-form" style={{ padding: "5rem 3rem" }} grow>
+    <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
+      <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
         <Form.Form {...methods}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
@@ -153,9 +152,8 @@ export const Create: Layout.Renderer = ({
           <Button.Button
             disabled={isPending}
             loading={isPending}
-            onClick={() => {
-              mutate(createMore);
-            }}
+            onClick={() => mutate(createMore)}
+            triggers={[["Control", "Enter"]]}
           >
             Create Channel
           </Button.Button>

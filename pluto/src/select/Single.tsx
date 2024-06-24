@@ -178,6 +178,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   allowNone = true,
   placeholder = "Select...",
   className,
+  disabled,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
   const { clear } = CoreList.useSelectionUtils();
@@ -233,9 +234,10 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
       style={{ flexGrow: 1 }}
       onClick={handleClick}
       placeholder={placeholder}
+      disabled={disabled}
       {...props}
     >
-      {allowNone && <ClearButton onClick={handleClear} />}
+      {allowNone && <ClearButton onClick={handleClear} disabled={disabled} />}
     </Input.Text>
   );
 };

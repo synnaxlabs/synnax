@@ -10,6 +10,7 @@
  */
 
 .console-opc-read-task {
+    height: 100%;
     .console-content {
         padding: 5rem;
 

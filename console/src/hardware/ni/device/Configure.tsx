@@ -94,6 +94,19 @@ const ConfigureInternal = ({
     schema: configurationZ,
   });
 
+  const applyDefaultGroups = () => {
+    const enriched = enrich(
+      methods.get<EnrichedProperties>({ path: "properties" }).value,
+    );
+    enriched.analogInput.index = 0;
+    enriched.analogInput.channels = {};
+    const groups = buildGroups(
+      enriched,
+      methods.get<string>({ path: "properties.identifier" }).value,
+    );
+    methods.set({ path: "groups", value: groups });
+  };
+
   const handleNext = useMutation({
     mutationKey: [step],
     mutationFn: async () => {
@@ -101,16 +114,7 @@ const ConfigureInternal = ({
         const ok = methods.validate("properties");
         if (!ok) return;
         const existingGroups = methods.get<GroupConfig[]>({ path: "groups" }).value;
-        if (existingGroups.length === 0) {
-          const enriched = enrich(
-            methods.get<EnrichedProperties>({ path: "properties" }).value,
-          );
-          const groups = buildGroups(
-            enriched,
-            methods.get<string>({ path: "properties.identifier" }).value,
-          );
-          methods.set({ path: "groups", value: groups });
-        }
+        if (existingGroups.length === 0) applyDefaultGroups();
         setStep("createChannels");
       } else if (step === "createChannels") {
         const ok = methods.validate("groups");
@@ -171,7 +175,8 @@ const ConfigureInternal = ({
 
   let content: ReactElement;
   if (step === "properties") content = <PropertiesForm />;
-  else if (step === "createChannels") content = <CreateChannels />;
+  else if (step === "createChannels")
+    content = <CreateChannels applyDefaultGroups={applyDefaultGroups} />;
   else if (step === "confirm")
     content = <Confirm confirm={confirm} progress={progress} />;
   else content = <h1>Unknown step: {step}</h1>;
@@ -214,6 +219,7 @@ export const createConfigureLayout =
       window: {
         navTop: true,
         size: { height: 900, width: 1200 },
+        minSize: { height: 600, width: 625 },
         resizable: true,
       },
       location,

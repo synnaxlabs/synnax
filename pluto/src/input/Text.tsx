@@ -54,6 +54,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       children,
       level,
       onBlur,
+      disabled,
       resetOnBlurIfEmpty = false,
       ...props
     },
@@ -72,6 +73,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         style={style}
         className={CSS(
           CSS.B("input"),
+          disabled && CSS.BM("input", "disabled"),
           level == null && CSS.size(size),
           CSS.BM("input", variant),
           CSS.sharp(sharp),
@@ -111,6 +113,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             }}
             onBlur={handleBlur}
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
+            disabled={disabled}
             {...props}
           />
         </div>

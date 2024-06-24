@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { configureAnalogReadLayout } from "@/hardware/ni/task/ConfigureAnalogRead";
+import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { configureDigitalReadLayout } from "@/hardware/ni/task/ConfigureDigitalRead";
 import { configureDigitalWriteLayout } from "@/hardware/ni/task/ConfigureDigitalWrite";
 import { Command } from "@/palette/Palette";

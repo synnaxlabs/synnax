@@ -24,7 +24,7 @@ const propertiesDigestZ = z.object({
   vendor: vendorZ,
   key: z.string(),
   location: z.string(),
-  model: z.string(),
+  enriched: z.boolean(),
 });
 
 export type PropertiesDigest = z.infer<typeof propertiesDigestZ>;
@@ -42,6 +42,8 @@ const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
     }),
   analogInput: z.object({
     portCount: z.number(),
+    index: z.number(),
+    channels: z.record(z.string(), z.number()),
   }),
   analogOutput: z.object({
     portCount: z.number(),

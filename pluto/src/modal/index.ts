@@ -7,14 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CreateModal, CREATE_LAYOUT_TYPE } from "@/channel/Create";
-import { Layout } from "@/layout";
-
-export * from "@/channel/Create";
-export * from "@/channel/link";
-export * from "@/channel/ontology";
-export * from "@/channel/palette";
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [CREATE_LAYOUT_TYPE]: CreateModal,
-};
+export * as Modal from "@/modal/Modal";

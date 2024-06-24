@@ -56,6 +56,13 @@ export const useSelect = (key: string): State | undefined =>
 export const useSelectRequired = (key: string): State =>
   useMemoSelect((state: StoreState) => selectRequired(state, key), [key]);
 
+export const selectModals = (state: StoreState): State[] =>
+  Object.values(state[SLICE_NAME].layouts).filter(
+    ({ location }) => location === "modal",
+  );
+
+export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
+
 /**
  * Selects the central layout mosaic from the store.
  *

@@ -13,5 +13,6 @@
     background: var(--pluto-gray-l2);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
-    padding: 0.25rem 1rem;
+    padding: 0.666rem;
+    display: inline-flex;
 }

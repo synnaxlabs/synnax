@@ -225,6 +225,7 @@ export interface UseFieldArrayProps {
 export interface UseFieldArrayReturn<V extends unknown> {
   value: V[];
   push: (value: V | V[]) => void;
+  add: (value: V | V[], start: number) => void;
   remove: (index: number | number[]) => void;
   keepOnly: (indices: number | number[]) => void;
   set: (values: state.SetArg<V[]>) => void;
@@ -250,6 +251,15 @@ export const useFieldArray = <V extends unknown = unknown>({
     (value: V | V[]) => {
       const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
       copy.push(...toArray(value));
+      set({ path, value: copy });
+    },
+    [path, get, set],
+  );
+
+  const add = useCallback(
+    (value: V | V[], start: number) => {
+      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
+      copy.splice(start, 0, ...toArray(value));
       set({ path, value: copy });
     },
     [path, get, set],
@@ -283,7 +293,7 @@ export const useFieldArray = <V extends unknown = unknown>({
     [path, set],
   );
 
-  return { value: fState, push, remove, keepOnly, set: handleSet };
+  return { value: fState, push, remove, keepOnly, set: handleSet, add };
 };
 
 export type Listener<V = unknown> = (state: FieldState<V>) => void;

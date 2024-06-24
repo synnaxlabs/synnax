@@ -9,13 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-physical-plan {
+.console-physical-plan.console-opcua {
     height: 100%;
 
     & .console-groups {
         width: 280px;
         max-width: 280px;
         height: 525px;
+        .pluto-menu-context__container {
+            overflow: hidden;
+        }
     }
 
     .console-list {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/ni/task/ConfigureAnalogRead.css";
+import "@/hardware/ni/task/AnalogRead.css";
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -29,7 +29,7 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-import { type ReactElement, useCallback, useRef,useState } from "react";
+import { type ReactElement, useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";

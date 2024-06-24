@@ -56,7 +56,7 @@ export const configureReadLayout: Layout.State = {
   key: READ_TYPE,
   type: READ_TYPE,
   windowKey: READ_TYPE,
-  location: "window",
+  location: "mosaic",
   window: {
     resizable: true,
     size: { width: 1200, height: 900 },

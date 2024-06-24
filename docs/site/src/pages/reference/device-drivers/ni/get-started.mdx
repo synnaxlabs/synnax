@@ -6,6 +6,7 @@ description: "Learn how to acquire data from and control National Instruments ha
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
+import Note from "@/components/Note.astro";
 
 The National Instruments (NI) device driver allows Synnax to directly connect to your NI 
 hardware, including CompactDAQ, CompactRIO, and PXI systems. This page will walk you
@@ -15,18 +16,29 @@ through some of the important pre-requisites necessary to get started with the N
 
 ## Installation
 
-The NI driver comes pre-installed with every Synnax Deployment. To use the driver, you
-must have the [National Instruments DAQmx](https://www.ni.com/en/support/documentation/supplemental/06/getting-started-with-ni-daqmx--main-page.html)
-libraries installed on your machine. **Without these libraries, the NI driver will not work.**
+The NI Driver comes pre-installed with every Synnax Deployment. 
 
-Instructions on installing the DAQmx libraries can be found on the [National Instruments website.](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710)
+### Installing DAQmx
+
+National Instruments' DAQmx drivers must be installed for Synnax to communicate with your
+hardware. Instructions for installing DAQmx can be found on the [National Instruments website.](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710)
+
+<Note variant="warning">
+Synnax will not be able to communicate with your hardware if DAQmx is not installed.
+</Note>
 
 <Divider.Divider direction="x" />
 
 ## OS Compatibility
 
-The NI driver is only compatible when running the Synnax Cluster on a Windows machine. 
+The NI driver is only compatible when running the Synnax Database on a Windows machine. 
 The driver will not be able to find your devices when running on Linux, macOS, or 
 within a Docker container (even if that container is running on Windows).
 
 <Divider.Divider direction="x" />
+
+## Next Steps
+
+Now that you've installed DAQmx on your host machine, you're ready to start integrating
+your devices. Check out the [Configure a Device](/reference/device-drivers/ni/configure-device) 
+page to learn how to do so.

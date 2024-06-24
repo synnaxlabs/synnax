@@ -40,7 +40,7 @@ export const createEditLayout = (name: string = "Create Range"): Layout.State =>
   type: EDIT_LAYOUT_TYPE,
   windowKey: EDIT_LAYOUT_TYPE,
   name,
-  location: "window",
+  location: "modal",
   window: {
     resizable: false,
     size: { height: 290, width: 700 },
@@ -185,19 +185,19 @@ const EditLayoutForm = ({
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
+          <Button.Button variant="outlined" onClick={() => mutate(false)}>
+            Save {!isRemoteEdit && "Locally"}
+          </Button.Button>
           {(isCreate || !isRemoteEdit) && (
             <Button.Button
               onClick={() => mutate(true)}
-              variant="outlined"
               disabled={client == null || isPending}
               loading={isPending}
+              triggers={[["Control", "Enter"]]}
             >
               Save to Synnax
             </Button.Button>
           )}
-          <Button.Button onClick={() => mutate(false)}>
-            Save {!isRemoteEdit && "Locally"}
-          </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
     </Align.Space>

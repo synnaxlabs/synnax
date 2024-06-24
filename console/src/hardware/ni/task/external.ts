@@ -10,7 +10,7 @@
 import {
   ConfigureAnalogRead,
   configureAnalogReadLayout,
-} from "@/hardware/ni/task/ConfigureAnalogRead";
+} from "@/hardware/ni/task/AnalogRead";
 import {
   ConfigureDigitalRead,
   configureDigitalReadLayout,
@@ -21,7 +21,7 @@ import {
 } from "@/hardware/ni/task/ConfigureDigitalWrite";
 import { Layout } from "@/layout";
 
-export * from "@/hardware/ni/task/ConfigureAnalogRead";
+export * from "@/hardware/ni/task/AnalogRead";
 export * from "@/hardware/ni/task/ConfigureDigitalRead";
 export * from "@/hardware/ni/task/ConfigureDigitalWrite";
 export * from "@/hardware/ni/task/types";

@@ -444,7 +444,7 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "NI Channel Type",
+    label: "Channel Type",
     onChange: (value, { get, set, path }) => {
       const prevType = get<AIChanType>({ path }).value;
       if (prevType === value) return;
@@ -808,7 +808,6 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
 export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
-      <ChannelField path={prefix} grow />
       <PortField path={prefix} grow />
       <Align.Space direction="x" grow>
         <TerminalConfigField path={prefix} grow />
@@ -850,7 +849,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ),
   ai_accel_4_wire_dc_voltage: ({ prefix }) => (
     <>
-      <ChannelField path={prefix} />
       <TerminalConfigField path={prefix} />
       <MinMaxValueFields path={prefix} />
       <SensitivityField
@@ -888,7 +886,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ),
   ai_accel_charge: ({ prefix }) => (
     <>
-      <ChannelField path={prefix} />
       <PortField path={prefix} />
       <TerminalConfigField path={prefix} />
       <MinMaxValueFields path={prefix} />
@@ -911,7 +908,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ),
   ai_bridge: ({ prefix }) => (
     <>
-      <ChannelField path={prefix} />
       <PortField path={prefix} />
       <MinMaxValueFields path={prefix} />
       <ElectricalUnitsField path={prefix} />
@@ -956,7 +952,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
@@ -968,7 +963,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_current: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
@@ -1968,10 +1962,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_voltage: ({ prefix }) => {
     return (
       <>
-        <Align.Space direction="x" grow>
-          <ChannelField path={prefix} grow />
-          <PortField path={prefix} style={{ width: 100 }} />
-        </Align.Space>
+        <PortField path={prefix} />
         <Divider.Divider direction="x" padded />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />

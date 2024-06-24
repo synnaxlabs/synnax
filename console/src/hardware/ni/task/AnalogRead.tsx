@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/ni/task/ConfigureAnalogRead.css";
+import "@/hardware/ni/task/AnalogRead.css";
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -27,13 +27,15 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { enrich } from "@/hardware/ni/device/enrich/enrich";
+import { EnrichedProperties } from "@/hardware/ni/device/types";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -59,7 +61,7 @@ export const configureAnalogReadLayout: Layout.State = {
   key: ANALOG_READ_TYPE,
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
-  location: "window",
+  location: "mosaic",
   window: {
     resizable: true,
     size: { width: 1200, height: 900 },
@@ -123,10 +125,67 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
+    onError: console.error,
     mutationFn: async () => {
+      console.log("HELLO");
       if (!(await methods.validateAsync()) || client == null) return;
+      console.log("B");
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
+
+      const dev = await client.hardware.devices.retrieve<EnrichedProperties>(
+        config.device,
+      );
+      dev.properties = enrich(dev.model, dev.properties);
+
+      let modified = false;
+      if (primitiveIsZero(dev.properties.analogInput.index)) {
+        modified = true;
+        const aiIndex = await client.channels.create({
+          name: `${dev.name} Analog Input Time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.analogInput.index = aiIndex.key;
+        dev.properties.analogInput.channels = {};
+      }
+
+      const toCreate: AIChan[] = [];
+      for (const channel of config.channels) {
+        // check if the channel is in properties
+        const existingChan =
+          dev.properties.analogInput.channels[channel.port.toString()];
+        console.log("EXISTING", existingChan);
+        if (primitiveIsZero(existingChan)) toCreate.push(channel);
+      }
+
+      console.log(toCreate);
+
+      if (toCreate.length > 0) {
+        modified = true;
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: `${dev.name} AI ${c.port}`,
+            dataType: "float32",
+            index: dev.properties.analogInput.index,
+          })),
+        );
+        channels.forEach((c, i) => {
+          dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key;
+        });
+      }
+
+      if (modified)
+        await client.hardware.devices.create({
+          ...dev,
+          properties: dev.properties,
+        });
+
+      config.channels.forEach((c) => {
+        c.channel = dev.properties.analogInput.channels[c.port.toString()];
+      });
+      if (dev == null) return;
+
       const t = await rack.createTask<
         AnalogReadConfig,
         AnalogReadStateDetails,
