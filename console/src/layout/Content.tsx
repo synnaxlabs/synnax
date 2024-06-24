@@ -9,7 +9,7 @@
 
 import { memo, type ReactElement } from "react";
 
-import { useLayoutRenderer } from "@/layout/context";
+import { useOptionalRenderer } from "@/layout/context";
 import { useRemover } from "@/layout/hooks";
 import { useSelect } from "@/layout/selectors";
 
@@ -27,13 +27,10 @@ export interface ContentProps {
  */
 export const Content = memo(({ layoutKey }: ContentProps): ReactElement | null => {
   const p = useSelect(layoutKey);
-  if (p == null) {
-    console.error(`layout ${layoutKey} not found`);
-    return null;
-  }
   const handleClose = useRemover(layoutKey);
-  const Renderer = useLayoutRenderer(p.type);
-  if (Renderer == null) throw new Error(`layout renderer ${p.type} not found`);
+  const type = p?.type ?? "";
+  const Renderer = useOptionalRenderer(type);
+  if (Renderer == null) throw new Error(`layout renderer ${type} not found`);
   return <Renderer key={layoutKey} layoutKey={layoutKey} onClose={handleClose} />;
 });
 Content.displayName = "LayoutContent";

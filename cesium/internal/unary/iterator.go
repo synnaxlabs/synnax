@@ -33,7 +33,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 
 var (
 	errIteratorClosed     = core.EntityClosed("unary.iterator")
-	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 5e5}
+	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 1e5}
 )
 
 type Iterator struct {

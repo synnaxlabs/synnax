@@ -14,13 +14,14 @@ import {
   Channel,
   Color,
   Menu as PMenu,
+  Status,
   Synnax,
   useAsyncEffect,
   useDebouncedCallback,
   usePrevious,
   Viewport,
+  Legend
 } from "@synnaxlabs/pluto";
-import { Legend } from "@synnaxlabs/pluto";
 import {
   box,
   getEntries,
@@ -31,10 +32,11 @@ import {
   type UnknownRecord,
 } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components/menu";
-import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
+import { UseSyncerArgs, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
   AxisKey,
@@ -81,24 +83,6 @@ interface SyncPayload {
   key?: string;
 }
 
-const syncer: Syncer<
-  Layout.StoreState & StoreState & Workspace.StoreState,
-  SyncPayload
-> = async (client, { key }, store) => {
-  if (key == null) return;
-  const s = store.getState();
-  const ws = Workspace.selectActiveKey(s);
-  if (ws == null) return;
-  const data = select(s, key);
-  const la = Layout.selectRequired(s, key);
-  if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-  await client.workspaces.linePlot.create(ws, {
-    key,
-    name: la.name,
-    data: data as unknown as UnknownRecord,
-  });
-};
-
 const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
@@ -106,15 +90,54 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+
+  const syncLayout = useMutation<
+    void,
+    Error,
+    UseSyncerArgs<Layout.StoreState & StoreState & Workspace.StoreState, SyncPayload>
+  >({
+    retry: 3,
+    mutationFn: async ({ client, action: { key }, store }) => {
+      if (key == null) return;
+      const s = store.getState();
+      const ws = Workspace.selectActiveKey(s);
+      if (ws == null) return;
+      const data = select(s, key);
+      const la = Layout.selectRequired(s, key);
+      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+      await client.workspaces.linePlot.create(ws, {
+        key,
+        name: la.name,
+        data: data as unknown as UnknownRecord,
+      });
+    },
+    onError: (e, { store, action: { key } }) => {
+      let message = "Failed to save line plot";
+      if (key != null) {
+        const data = Layout.select(store.getState(), key);
+        if (data?.name != null) message += ` ${data.name}`;
+      }
+      addStatus({
+        key: layoutKey,
+        variant: "error",
+        message,
+        description: e.message,
+      });
+    },
+  });
+
   const syncDispatch = useSyncerDispatch<
     Layout.StoreState & Workspace.StoreState & StoreState,
     SyncPayload
-  >(syncer, 500);
+  >(syncLayout.mutate, 500);
+
   const dispatch = useDispatch();
 
   const lines = buildLines(vis, ranges);
 
   const prevName = usePrevious(name);
+
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [syncDispatch, name, prevName]);

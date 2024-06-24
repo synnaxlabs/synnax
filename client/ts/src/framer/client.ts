@@ -20,7 +20,7 @@ import {
 import { type Key, type KeyOrName, KeysOrNames, type Params} from "@/channel/payload";
 import { analyzeChannelParams,type Retriever } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
-import { Iterator } from "@/framer/iterator";
+import {Iterator, IteratorConfig } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig,WriterMode } from "@/framer/writer";
 import { Deleter } from "@/framer/deleter";
@@ -42,11 +42,18 @@ export class Client {
    * Opens a new iterator over the given channels within the provided time range.
    *
    * @param tr - A time range to iterate over.
-   * @param keys - A list of channel keys to iterate over.
-   * @returns a new {@link TypedIterator}.
+   * @param channels - A list of channels (by name or key) to iterate over.
+   * @param opts - see {@link IteratorConfig}
+   * @returns a new {@link Iterator}.
    */
-  async openIterator(tr: CrudeTimeRange, channels: Params): Promise<Iterator> {
-    return await Iterator._open(tr, channels, this.retriever, this.streamClient);
+  async openIterator(tr: CrudeTimeRange, channels: Params, opts?: IteratorConfig): Promise<Iterator> {
+    return await Iterator._open(
+      tr,
+      channels,
+      this.retriever,
+      this.streamClient,
+      opts,
+    );
   }
 
   /**
@@ -54,7 +61,7 @@ export class Client {
    *
    * @param config - The configuration for the created writer, see documentation for
    * writerConfig for more detail.
-   * @returns a new {@link RecordWriter}.
+   * @returns a new {@link Writer}.
    */
   async openWriter(config: WriterConfig | Params): Promise<Writer> {
     if (Array.isArray(config) || typeof config !== "object")

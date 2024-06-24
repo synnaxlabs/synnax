@@ -17,6 +17,7 @@ import {
   Haul,
   Legend,
   Schematic as Core,
+  Status,
   Synnax,
   Text,
   Theming,
@@ -27,6 +28,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
 import { box, type UnknownRecord } from "@synnaxlabs/x";
+import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid/non-secure";
 import {
   type ReactElement,
@@ -38,7 +40,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
+import { Syncer, UseSyncerArgs, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
   select,
@@ -72,31 +74,55 @@ interface SyncPayload {
   key?: string;
 }
 
-const syncer: Syncer<
-  Layout.StoreState & StoreState & Workspace.StoreState,
-  SyncPayload
-> = async (client, { key }, store) => {
-  if (key == null) return;
-  const s = store.getState();
-  const ws = Workspace.selectActiveKey(s);
-  if (ws == null) return;
-  const data = select(s, key);
-  if (data.snapshot) return;
-  const la = Layout.selectRequired(s, key);
-  const setData = {
-    ...data,
-    key: undefined,
-    snapshot: undefined,
-  } as unknown as UnknownRecord;
-  if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-  await client.workspaces.schematic.create(ws, {
-    key: key,
-    name: la.name,
-    data: setData,
-  });
-};
-
 export const HAUL_TYPE = "schematic-element";
+
+const useSyncLayout = (): Syncer<
+  Layout.StoreState & Workspace.StoreState & StoreState,
+  SyncPayload
+> => {
+  const addStatus = Status.useAggregator();
+  return useMutation<
+    void,
+    Error,
+    UseSyncerArgs<Layout.StoreState & Workspace.StoreState & StoreState, SyncPayload>
+  >({
+    retry: 3,
+    mutationFn: async ({ client, action: { key }, store }) => {
+      if (key == null) return;
+      const s = store.getState();
+      const ws = Workspace.selectActiveKey(s);
+      if (ws == null) return;
+      const data = select(s, key);
+      if (data.snapshot) return;
+      const la = Layout.selectRequired(s, key);
+      const setData = {
+        ...data,
+        key: undefined,
+        snapshot: undefined,
+      } as unknown as UnknownRecord;
+      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+      await new Promise((r) => setTimeout(r, 1000));
+      await client.workspaces.schematic.create(ws, {
+        key: key,
+        name: la.name,
+        data: setData,
+      });
+    },
+    onError: (e, { store, action: { key } }) => {
+      let message = "Failed to save schematic";
+      if (key != null) {
+        const data = Layout.select(store.getState(), key);
+        if (data?.name != null) message += ` ${data.name}`;
+      }
+      addStatus({
+        key: nanoid(),
+        variant: "error",
+        message: message,
+        description: e.message,
+      });
+    },
+  }).mutate;
+};
 
 const SymbolRenderer = ({
   symbolKey,
@@ -105,6 +131,8 @@ const SymbolRenderer = ({
   layoutKey,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
   const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
+
+  const syncer = useSyncLayout();
   const dispatch = useSyncerDispatch<
     Layout.StoreState & Workspace.StoreState & StoreState,
     SyncPayload
@@ -147,6 +175,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const schematic = useSelect(layoutKey);
 
+  const syncer = useSyncLayout();
   const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
     // @ts-expect-error - typescript can't identify property keys set as constants.
     syncer,
