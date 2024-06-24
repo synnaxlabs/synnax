@@ -81,6 +81,8 @@ const ungroupSelection = async ({
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   if (selection.parent == null) return;
+
+  // Sort the groups by depth that way deeper nested groups are ungrouped first.
   selection.resources.sort((a, b) => {
     const a_depth = selection.nodes.find((n) => n.key === a.id.toString())?.depth ?? 0;
     const b_depth = selection.nodes.find((n) => n.key === b.id.toString())?.depth ?? 0;
