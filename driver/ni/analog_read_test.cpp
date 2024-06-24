@@ -22,14 +22,12 @@ using json = nlohmann::json;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
-//                                                   Basic Tests                                                //                  //
+//                                                   Basic Tests                                                //                
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 ///////////////////////////////////////////////////////////////////
 //                      ANALOG BASIC                             //
 ///////////////////////////////////////////////////////////////////
-
 // TEST(read_tests, one_analog_channel){
 
 //     // Create NI readerconfig
@@ -231,10 +229,9 @@ using json = nlohmann::json;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
-//                                                   Scaling Tests                                              //                  //
+//                                                   Scaling Tests                                              //                  
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 ///////////////////////////////////////////////////////////////////
 //                          LINEAR                               //
 ///////////////////////////////////////////////////////////////////
@@ -334,7 +331,6 @@ using json = nlohmann::json;
 ///////////////////////////////////////////////////////////////////
 //                          MAP                                  //
 ///////////////////////////////////////////////////////////////////
-
 // TEST(read_tests, analog_map_scaling){
 
 //     // Create NI readerconfig
@@ -433,7 +429,6 @@ using json = nlohmann::json;
 ///////////////////////////////////////////////////////////////////
 //                          TABLE                                //
 ///////////////////////////////////////////////////////////////////
-
 // TEST(read_tests, analog_table_scaling){
 
 //     // Create NI readerconfig
@@ -531,7 +526,6 @@ using json = nlohmann::json;
 ///////////////////////////////////////////////////////////////////
 //                          POLYNOMIAL                           //
 ///////////////////////////////////////////////////////////////////
-
 // TEST(read_tests, analog_polynomial_scaling){
 
 //     // Create NI readerconfig
@@ -632,11 +626,9 @@ using json = nlohmann::json;
 //                                                   Channnel Tests                                             //                  
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 ///////////////////////////////////////////////////////////////////
 //                          Helper                               //
 ///////////////////////////////////////////////////////////////////
-
 void analog_channel_helper(json config, json scale_config, json channel_config){
     LOG(INFO) << "Begin Test: "<< std::endl;
     
@@ -773,7 +765,6 @@ TEST(read_tests, one_analog_voltage_channel){
 
 
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
-//     b.start();
 
     if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start();
@@ -794,7 +785,6 @@ TEST(read_tests, one_analog_voltage_channel){
 ///////////////////////////////////////////////////////////////////
 //                          Torque                               //
 ///////////////////////////////////////////////////////////////////\
-
 ///@brief torque bridge linear
 TEST(read_tests, one_torque_linear_bridge_channel){
     // Create NI readerconfig json
@@ -827,13 +817,11 @@ TEST(read_tests, one_torque_linear_bridge_channel){
         {"second_physical_val", 10.0},
         {"physical_units", "NewtonMeters"}
     };
-
     auto scale_config = json{
         {"type","none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief torque bridge table
 TEST(read_tests, one_torque_table_bridge_channel){
     // Create NI readerconfig json
@@ -910,9 +898,6 @@ TEST(read_tests, one_torque_polynomial_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
-
 ///////////////////////////////////////////////////////////////////
 //                          Velocity                             //
 ///////////////////////////////////////////////////////////////////
@@ -949,7 +934,6 @@ TEST(read_tests, one_velocity_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///////////////////////////////////////////////////////////////////
 //                          Force                                //
 ///////////////////////////////////////////////////////////////////
@@ -990,7 +974,6 @@ TEST(read_tests, one_force_polynomial_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief Force Bridge Table
 TEST(read_tests, one_force_table_bridge_channel){
     // Create NI readerconfig json
@@ -1029,8 +1012,6 @@ TEST(read_tests, one_force_table_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 ///@brief Force Bridge Linear
 TEST(read_tests, one_force_linear_bridge_channel){
     // Create NI readerconfig json
@@ -1069,7 +1050,6 @@ TEST(read_tests, one_force_linear_bridge_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief force IEPE
 TEST(read_tests, one_force_iepe_channel){
     // Create NI readerconfig json
@@ -1103,12 +1083,9 @@ TEST(read_tests, one_force_iepe_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 ///////////////////////////////////////////////////////////////////
 //                          Pressure                             //
 ///////////////////////////////////////////////////////////////////
-
 ///@brief pressure bridge polynomial
 TEST(read_tests, one_pressure_polynomial_bridge_channel){
     // Create NI readerconfig json
@@ -1147,7 +1124,6 @@ TEST(read_tests, one_pressure_polynomial_bridge_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief pressure bridge table
 TEST(read_tests, one_pressure_table_bridge_channel){
     // Create NI readerconfig json
@@ -1187,7 +1163,6 @@ TEST(read_tests, one_pressure_table_bridge_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief pressure bridge linear
 TEST(read_tests, one_pressure_linear_bridge_channel){
     // Create NI readerconfig json
@@ -1227,8 +1202,6 @@ TEST(read_tests, one_pressure_linear_bridge_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 ///////////////////////////////////////////////////////////////////
 //                         Temperature                           //
 ///////////////////////////////////////////////////////////////////
@@ -1328,110 +1301,8 @@ TEST(read_tests, one_analog_thermocouple_channel){
     std::cout << std::endl;
     reader.stop();
 }
-
-// ///@brief RTD
+///@brief RTD
 TEST(read_tests, one_analog_RTD_channel){
-
-    // create synnax client
-    auto client_config = synnax::Config{
-            "localhost",
-            9090,
-            "synnax",
-            "seldon"};
-    auto client = std::make_shared<synnax::Synnax>(client_config);
-    
-    // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create( // index channel for analog input channels
-            "idx",
-            synnax::TIMESTAMP,
-            0,
-            true
-    );
-    ASSERT_FALSE(tErr) << tErr.message();
-    auto [data, dErr] = client->channels.create( // analog input channel
-            "RTD",
-            synnax::FLOAT32,
-            time.key,
-            false
-    );
-    ASSERT_FALSE(dErr) << dErr.message();
-
-    // Create NI readerconfig json
-    auto config = json{
-            {"sample_rate", 5}, 
-            {"stream_rate", 1}, 
-            {"device_location", "PXI1Slot3"},
-            {"type", "ni_analog_read"},
-            {"test", true},    
-            {"device", ""}
-    };
-   
-    auto channel_config = json{
-        {"name", "test_ni_channel"},
-        {"type", "ai_rtd"},
-        {"port", 0},
-        {"units", "C"},
-        {"enabled", true},
-        {"channel",data.key},
-        {"key", "key"},
-        {"max_val", 100.0},
-        {"min_val", 0.0},
-        {"units", "C"},
-        {"rtd_type", "PT375"},
-        {"resistance_config", "4Wire"},
-        {"r0", 100.0},
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val",0.0009}
-    };
-
-    auto scale_config = json{
-        {"type","none"}
-    };
-
-    channel_config["custom_scale"] = scale_config;
-
-    config["channels"] = json::array();
-    config["channels"].push_back(channel_config);
-  
-    // create synnax task
-    auto task = synnax::Task(
-            "my_task",          // task name
-            "ni_analog_read",   // task type
-            to_string(config)   // task config
-    );
-
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-    // Now construct NI reader
-    TaskHandle taskHandle;  
-    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
-
-    auto reader = ni::AnalogReadSource( taskHandle, 
-                                        mockCtx, 
-                                        task); // analog reader
-
-
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
-
-    if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    auto [frame, err] = reader.read(b);
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-
-     //iterate through each series and print the data
-    uint32_t ai_count = 0;
-    for(int i = 0; i < frame.series->size(); i++){
-        std::cout << "\nSeries " << i << ":    " << frame.series->at(i) << "\n";
-    }
-
-    std::cout << std::endl;
-    reader.stop();
-}
-
-
-TEST(read_tests, one_analog_RTD_channel2){
     // Create NI readerconfig json
     auto config = json{
             {"sample_rate", 5}, 
@@ -1465,7 +1336,6 @@ TEST(read_tests, one_analog_RTD_channel2){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
 ///@brief Temperature Built in sensor
 TEST(read_tests, one_analog_temp_built_in_sensor_channel){
     // Create NI readerconfig json
@@ -1493,8 +1363,6 @@ TEST(read_tests, one_analog_temp_built_in_sensor_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Acceleration                               //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1531,16 +1399,6 @@ TEST(read_tests, one_acceleration_channel){
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
-
-
-
-///@brief charge
-
-
-
-
 ///////////////////////////////////////////////////////////////////
 //                         Current                               //
 ///////////////////////////////////////////////////////////////////
@@ -1641,42 +1499,6 @@ TEST(read_tests, one_analog_current_channel){
     std::cout << std::endl;
     reader.stop();
 }
-
-///@brief Current RMS
-// TODO: find device which supports current RMS
-TEST(read_tests, one_current_RMS_channel){
-    // Create NI readerconfig json
-    auto config = json{
-            {"sample_rate", 5}, 
-            {"stream_rate", 1}, 
-            {"device_location", "Dev8"},
-            {"type", "ni_analog_read"},
-            {"test", true},    
-            {"device", ""}
-    };
-   
-    auto channel_config = json{
-        {"name", "test_ni_channel"},
-        {"type", "ai_current_rms"},
-        {"port", 0},
-        {"max_val", 0.0004},
-        {"min_val", 0},
-        {"units", "Amps"},
-        {"enabled", true},
-        {"key", "key"},
-        {"shunt_resistor_loc", "Default"},
-        {"ext_shunt_resistor_val", 249.0},
-        {"terminal_config", "Default"}
-    };
-
-    auto scale_config = json{
-        {"type","none"}
-    };
-
-    // analog_channel_helper(config, scale_config, channel_config);
-}
-
-
 ///@brief Microphone
 TEST(read_tests, one_microphone_channel){
     // Create NI readerconfig json
@@ -1710,13 +1532,6 @@ TEST(read_tests, one_microphone_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-///@brief pressure
-
-///@brief pressure bridge table
-
-///@brief pressure bridge linear
-
 ///@brief resistance
 TEST(read_tests, one_resistance_channel){
     // Create NI readerconfig json
@@ -1749,9 +1564,6 @@ TEST(read_tests, one_resistance_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
-
 ///@brief strain gage
 TEST(read_tests, one_strain_gage){
     // Create NI readerconfig json
@@ -1789,8 +1601,6 @@ TEST(read_tests, one_strain_gage){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
 ///@brief Bridge Channel
 TEST(read_tests, one_bridge_channel){
     // Create NI readerconfig json
@@ -1824,10 +1634,6 @@ TEST(read_tests, one_bridge_channel){
 
     analog_channel_helper(config, scale_config, channel_config);
 }
-
-
-
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
 //                                              Error Handling                                                  //                  
@@ -1859,9 +1665,6 @@ TEST(read_tests, one_bridge_channel){
 // read function failed state
 // write function failed
 // trying to configure a channel for a dev ice that doesnn't have that  channel
-
-
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
@@ -2126,5 +1929,39 @@ TEST(read_tests, one_frequency_channel){
 
 
 ///@brief charge
+
+///@brief Current RMS
+// TODO: find device which supports current RMS
+TEST(read_tests, one_current_RMS_channel){
+    // Create NI readerconfig json
+    auto config = json{
+            {"sample_rate", 5}, 
+            {"stream_rate", 1}, 
+            {"device_location", "Dev8"},
+            {"type", "ni_analog_read"},
+            {"test", true},    
+            {"device", ""}
+    };
+   
+    auto channel_config = json{
+        {"name", "test_ni_channel"},
+        {"type", "ai_current_rms"},
+        {"port", 0},
+        {"max_val", 0.0004},
+        {"min_val", 0},
+        {"units", "Amps"},
+        {"enabled", true},
+        {"key", "key"},
+        {"shunt_resistor_loc", "Default"},
+        {"ext_shunt_resistor_val", 249.0},
+        {"terminal_config", "Default"}
+    };
+
+    auto scale_config = json{
+        {"type","none"}
+    };
+
+    // analog_channel_helper(config, scale_config, channel_config);
+}
 
 */
