@@ -338,10 +338,20 @@ void analog_channel_helper(json config, json scale_config, json channel_config){
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
+    auto [time, tErr] = client->channels.create(
+        "idx",
+        synnax::TIMESTAMP,
+        0,
+        true);
+
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai_channel",synnax::FLOAT32,time.key,false);
+    auto [data, dErr] = client->channels.create(
+        "ai_channel",
+        synnax::FLOAT32,
+        time.key,
+        false);
+
     ASSERT_FALSE(dErr) << dErr.message();
     
 
@@ -351,7 +361,11 @@ void analog_channel_helper(json config, json scale_config, json channel_config){
     config["channels"].push_back(channel_config);
 
     // create synnax task
-    auto task = synnax::Task( "my_task", "ni_analog_read",to_string(config));
+    auto task = synnax::Task( 
+        "my_task",
+         "ni_analog_read",
+         to_string(config));
+
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
@@ -359,8 +373,17 @@ void analog_channel_helper(json config, json scale_config, json channel_config){
     TaskHandle taskHandle;  
     ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
-    auto reader = ni::AnalogReadSource( taskHandle, mockCtx, task); // analog reader
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+    auto reader = ni::AnalogReadSource( 
+        taskHandle, 
+        mockCtx, 
+        task); // analog reader
+
+    auto b = breaker::Breaker(
+        breaker::Config{
+            "my-breaker",
+             1*SECOND, 
+             1, 
+             1});
 
     if(reader.init() != 0) LOG(ERROR) << "Failed to initialize reader" << std::endl;
     reader.start();
@@ -559,8 +582,8 @@ TEST(read_tests, one_velocity_channel){
         {"enabled", true},
         {"key", "key"},
         {"terminal_config", "Default"}, // TODO try pseudo differential
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val", 0.0},
+        {"current_excit_source","Internal"},
+        {"current_excit_val", 0.0},
         {"sensitivity", 50},
         {"sensitivity_units", "MillivoltsPerMillimeterPerSecond"}
     };
@@ -696,8 +719,8 @@ TEST(read_tests, one_force_iepe_channel){
         {"enabled", true},
         {"key", "key"},
         {"terminal_config", "Default"}, // TODO try pseudo differential
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val", 0.0},
+        {"current_excit_source","Internal"},
+        {"current_excit_val", 0.0},
         {"sensitivity", 50},
         {"sensitivity_units", "mVoltsPerNewton"}
     };
@@ -870,8 +893,8 @@ TEST(read_tests, one_analog_RTD_channel){
         {"rtd_type", "PT375"},
         {"resistance_config", "4Wire"},
         {"r0", 100.0},
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val",0.0009}
+        {"current_excit_source","Internal"},
+        {"current_excit_val",0.0009}
     };
     auto scale_config = json{
         {"type","none"}
@@ -902,8 +925,8 @@ TEST(read_tests, one_acceleration_channel){
         {"enabled", true},
         {"key", "key"},
         {"terminal_config", "Default"}, // TODO try pseudo differential
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val", 0.0},
+        {"current_excit_source","Internal"},
+        {"current_excit_val", 0.0},
         {"sensitivity", 50},
         {"sensitivity_units", "mVoltsPerG"}
     };
@@ -960,8 +983,8 @@ TEST(read_tests, one_microphone_channel){
         {"units", "Pascals"},
         {"enabled", true},
         {"key", "key"},
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val", 0.0},
+        {"current_excit_source","Internal"},
+        {"current_excit_val", 0.0},
         {"terminal_config", "PseudoDiff"},
         {"mic_sensitivity", 50},
         {"max_snd_press_level",120}
@@ -990,8 +1013,8 @@ TEST(read_tests, one_resistance_channel){
         {"units", "Ohms"},
         {"enabled", true},
         {"key", "key"},
-        {"voltage_excit_source","Internal"},
-        {"voltage_excit_val", 0.0005},
+        {"current_excit_source","Internal"},
+        {"current_excit_val", 0.0005},
         {"resistance_config", "2Wire"},
     };
     auto scale_config = json{
@@ -1152,8 +1175,8 @@ TEST(read_tests, one_voltage_with_excitation_channel){
         {"key", "key"},
         {"terminal_config", "Default"},
         {"bridge_config", "FullBridge"},
-        {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5},
+        {"current_excit_source", "Internal"},
+        {"current_excit_val", 2.5},
         {"use_excit_for_scaling", true}
 
     };
@@ -1186,8 +1209,8 @@ TEST(read_tests, one_analog_thermistor_IEX_channel){
         {"min_val", -5900.0},
         {"max_val", 10.0},
         {"resistance_config", "4Wire"},
-        {"voltage_excit_source","External"},
-        {"voltage_excit_val",0.0009},
+        {"current_excit_source","External"},
+        {"current_excit_val",0.0009},
         {"a", 0.003354016},
         {"b", 0.000256985},
         {"c", 0.000002620131}

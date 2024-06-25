@@ -27,7 +27,7 @@ void ni::DigitalWriteSink::getIndexKeys() {
     auto [state_channel_info, err] = this->ctx->client->channels.
             retrieve(state_channel);
     if (err != freighter::NIL) {
-        LOG(ERROR) << "[NI Writer] failed to retrieve channel " << state_channel;
+        LOG(ERROR) << "[ni.writer] failed to retrieve channel " << state_channel;
         this->ok_state = false;
         return;
     } else {
@@ -55,7 +55,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     this->parseConfig(config_parser);
     if (!config_parser.ok()) {
         // Log error
-        LOG(ERROR) << "[NI Writer] failed to parse configuration for " << this->
+        LOG(ERROR) << "[ni.writer] failed to parse configuration for " << this->
                 writer_config.task_name;
         this->ctx->setState({
             .task = this->writer_config.task_key,
@@ -65,7 +65,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
         this->ok_state = false;
         return;
     }
-    LOG(INFO) << "[NI Writer] successfully parsed configuration for " << this->
+    LOG(INFO) << "[ni.writer] successfully parsed configuration for " << this->
             writer_config.task_name;
 
     // Create breaker
@@ -80,7 +80,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     // TODO: make sure you have all the channel info you could possible need
     // Now configure the actual NI hardware
     if (this->init()) {
-        LOG(ERROR) << "[NI Writer] Failed while configuring NI hardware for task " <<
+        LOG(ERROR) << "[ni.writer] Failed while configuring NI hardware for task " <<
                 this->writer_config.task_name;
         this->ok_state = false;
     }
@@ -109,7 +109,7 @@ void ni::DigitalWriteSink::parseConfig(config::Parser &parser) {
         this->writer_config.device_key);
 
     if (err != freighter::NIL) {
-        LOG(ERROR) << "[NI Writer] failed to retrieve device with key " << this->
+        LOG(ERROR) << "[ni.writer] failed to retrieve device with key " << this->
                 writer_config.device_key;
         this->ok_state = false;
         return;
@@ -119,32 +119,31 @@ void ni::DigitalWriteSink::parseConfig(config::Parser &parser) {
     // task key
     // device name
     parser.iter("channels",
-                [&](config::Parser &channel_builder) {
-                    ni::ChannelConfig config;
+        [&](config::Parser &channel_builder) {
 
-                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    config.name = (this->writer_config.device_name + "/port" +
-                                   std::to_string(
-                                       channel_builder.required<std::uint64_t>("port"))
-                                   + "/line" +
-                                   std::to_string(
-                                       channel_builder.required<std::uint64_t>(
-                                           "line")));
+            ni::ChannelConfig config;
+            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+            std::string port = "port" + std::to_string(
+                channel_builder.required<std::uint64_t>("port"));
+            std::string line = "line" + std::to_string(
+                channel_builder.required<std::uint64_t>("line"));
+                
+            config.name = (this->writer_config.device_name + "/" + port + "/" + line);
 
-                    config.channel_key = channel_builder.required<uint32_t>(
-                        "cmd_channel");
-                    this->writer_config.drive_cmd_channel_keys.push_back(
-                        config.channel_key);
+            config.channel_key = channel_builder.required<uint32_t>(
+                "cmd_channel");
+            this->writer_config.drive_cmd_channel_keys.push_back(
+                config.channel_key);
 
-                    uint32_t drive_state_key = channel_builder.required<uint32_t>(
-                        "state_channel");
-                    this->writer_config.drive_state_channel_keys.push_back(
-                        drive_state_key);
+            uint32_t drive_state_key = channel_builder.required<uint32_t>(
+                "state_channel");
+            this->writer_config.drive_state_channel_keys.push_back(
+                drive_state_key);
 
-                    // TODO: there could be more than 2 state
+            // TODO: there could be more than 2 state
 
-                    this->writer_config.channels.push_back(config);
-                });
+            this->writer_config.channels.push_back(config);
+        });
 
     assert(this->writer_config.drive_state_channel_keys.size() > 0);
     assert(this->writer_config.drive_cmd_channel_keys.size() > 0);
@@ -168,7 +167,7 @@ int ni::DigitalWriteSink::init() {
         this->numChannels++;
         // includes index channels TODO: how is this different form jsut channels.size()?
         if (err < 0) {
-            LOG(ERROR) << "[NI Writer] failed while configuring channel " << channel.
+            LOG(ERROR) << "[ni.writer] failed while configuring channel " << channel.
                     name;
             return -1;
         }
@@ -182,7 +181,7 @@ int ni::DigitalWriteSink::init() {
         writeBuffer[i] = 0;
     }
 
-    LOG(INFO) << "[NI Writer] successfully configured NI hardware for task " << this->
+    LOG(INFO) << "[ni.writer] successfully configured NI hardware for task " << this->
             writer_config.task_name;
     return 0;
 }
@@ -192,11 +191,11 @@ freighter::Error ni::DigitalWriteSink::start() {
         return freighter::NIL;
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
-        LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->
+        LOG(ERROR) << "[ni.writer] failed while starting writer for task " << this->
                 writer_config.task_name;
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
-    LOG(INFO) << "[NI Writer] successfully started writer for task " << this->
+    LOG(INFO) << "[ni.writer] successfully started writer for task " << this->
             writer_config.task_name;
     ctx->setState({
         .task = this->writer_config.task_key,
@@ -214,11 +213,11 @@ freighter::Error ni::DigitalWriteSink::stop() {
         return freighter::NIL;
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(task_handle))) {
-        LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->
+        LOG(ERROR) << "[ni.writer] failed while stopping writer for task " << this->
                 writer_config.task_name;
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
-    LOG(INFO) << "[NI Writer] successfully stopped writer for task " << this->
+    LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->
             writer_config.task_name;
     ctx->setState({
         .task = this->writer_config.task_key,
@@ -243,7 +242,7 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
         writeBuffer, // data
         &samplesWritten, // samples written
         NULL))) {
-        LOG(ERROR) << "[NI Writer] failed while writing digital data for task " << this
+        LOG(ERROR) << "[ni.writer] failed while writing digital data for task " << this
                 ->writer_config.task_name;
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error reading digital data");
@@ -309,11 +308,11 @@ bool ni::DigitalWriteSink::ok() {
 ni::DigitalWriteSink::~DigitalWriteSink() {
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(task_handle))) {
-        LOG(ERROR) << "[NI Writer] failed while clearing writer for task " << this->
+        LOG(ERROR) << "[ni.writer] failed while clearing writer for task " << this->
                 writer_config.task_name;
     }
     delete[] this->writeBuffer;
-    LOG(INFO) << "[NI Writer] successfully cleared writer for task " << this->
+    LOG(INFO) << "[ni.writer] successfully cleared writer for task " << this->
             writer_config.task_name;
 }
 

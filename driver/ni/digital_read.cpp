@@ -21,24 +21,24 @@
 using json = nlohmann::json;
 
 void ni::DigitalReadSource::parseChannels(config::Parser &parser) {
-    LOG(INFO) << "[NI Reader] Parsing Channels for task " << this->reader_config.
+    VLOG(1) << "[ni.reader] Parsing Channels for task " << this->reader_config.
             task_name;
     // now parse the channels
     parser.iter("channels",
-                [&](config::Parser &channel_builder
-        ) {
-                    ni::ChannelConfig config;
-                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    config.name = (this->reader_config.device_name + "/port" +
-                                   std::to_string(
-                                       channel_builder.required<std::uint64_t>("port"))
-                                   + "/line" +
-                                   std::to_string(
-                                       channel_builder.required<std::uint64_t>(
-                                           "line")));
-                    config.channel_key = channel_builder.required<uint32_t>("channel");
-                    this->reader_config.channels.push_back(config);
-                });
+            [&](config::Parser &channel_builder) {
+
+            ni::ChannelConfig config;
+            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+            std::string port = "port" + std::to_string(
+                channel_builder.required<std::uint64_t>("port"));
+            std::string line = "line" + std::to_string(
+                channel_builder.required<std::uint64_t>("line"));
+
+            config.name = (this->reader_config.device_name + "/" + port + "/" + line);
+
+            config.channel_key = channel_builder.required<uint32_t>("channel");
+            this->reader_config.channels.push_back(config);
+        });
     if(!parser.ok()) LOG(ERROR) << "Failed to parse channels for task " << this->reader_config.task_name;
  }
 
@@ -54,7 +54,7 @@ int ni::DigitalReadSource::createChannels() {
         }
         this->numChannels++;
         if (err < 0) {
-            LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.
+            LOG(ERROR) << "[ni.reader] failed while configuring channel " << channel.
                     name;
             this->ok_state = false;
             return -1;
@@ -74,7 +74,7 @@ int ni::DigitalReadSource::configureTiming() {
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
             this->reader_config.sample_rate.value))) {
-            LOG(ERROR) << "[NI Reader] failed while configuring timing for task " <<
+            LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
                     this->reader_config.task_name;
             this->ok_state = false;
             return -1;
@@ -109,14 +109,12 @@ void ni::DigitalReadSource::acquireData() {
                 &data_packet.samplesReadPerChannel, // sampsPerChanRead
                 &numBytesPerSamp, // numBytesPerSamp
                 NULL))) {
-                LOG(ERROR) << "[NI Reader] failed while reading digital data for task " << this->reader_config.task_name;
+                this->logError("failed while reading digital data for task " + this->reader_config.task_name);
         }
         data_packet.tf = (uint64_t) ((synnax::TimeStamp::now()).value);
         data_queue.enqueue(data_packet);
     }
 }
-
-
 
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
@@ -154,15 +152,13 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
         }
 
         std::vector<uint8_t> data_vec(d.samplesReadPerChannel);
-        for (int j = 0; j < d.samplesReadPerChannel; j++){
-            LOG(INFO) << "Data: " << data[data_index * d.samplesReadPerChannel + j];
-            data_vec[j] = data[data_index * d.samplesReadPerChannel + j];}
+        for (int j = 0; j < d.samplesReadPerChannel; j++)
+            data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
 
         f.add(this->reader_config.channels[i].channel_key,
               synnax::Series(data_vec, synnax::UINT8));
         data_index++;
     }
-
     delete[] data;
     return std::make_pair(std::move(f), freighter::NIL);
 }

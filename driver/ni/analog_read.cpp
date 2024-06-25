@@ -179,8 +179,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
               synnax::Series(data_vec, synnax::FLOAT32));
         data_index++;
     }
-
-    //delete data array
     delete[] data;
     return std::make_pair(std::move(f), freighter::NIL);
 }

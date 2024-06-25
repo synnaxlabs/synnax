@@ -245,7 +245,7 @@ public:
         :   task_handle(task_handle),
             min_val(parser.optional<float_t>("min_val",0)),
             max_val(parser.optional<float_t>("max_val",0)),
-            units(DAQmx_Val_Volts),
+            units(get_units(parser.optional<std::string>("units", "Volts"), parser)),
             sy_key(parser.required<uint32_t>("channel")),
             name(name),
             type(parser.required<std::string>("type")),
