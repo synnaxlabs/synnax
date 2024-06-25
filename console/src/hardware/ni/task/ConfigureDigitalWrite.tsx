@@ -9,7 +9,7 @@
 
 import "@/hardware/ni/task/AnalogRead.css";
 
-import { task } from "@synnaxlabs/client";
+import { QueryError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Button,
@@ -26,14 +26,14 @@ import {
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { NameField } from "@/hardware/ni/task/ChannelForms";
+import { Properties } from "@/hardware/ni/device/types";
 import {
   AnalogReadStateDetails,
   Chan,
@@ -55,12 +55,7 @@ export const configureDigitalWriteLayout: Layout.State = {
   key: DIGITAL_WRITE_TYPE,
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
-  location: "window",
-  window: {
-    resizable: false,
-    size: { width: 1200, height: 900 },
-    navTop: true,
-  },
+  location: "mosaic",
 };
 
 export const ConfigureDigitalWrite: Layout.Renderer = ({ layoutKey }) => {
@@ -117,10 +112,112 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
+    onError: console.log,
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
+
+      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
+      console.log(dev.properties);
+
+      let modified = false;
+      let shouldCreateStateIndex = primitiveIsZero(
+        dev.properties.digitalOutput.stateIndex,
+      );
+      if (!shouldCreateStateIndex) {
+        try {
+          await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
+        } catch (e) {
+          if (e instanceof QueryError) shouldCreateStateIndex = true;
+          else throw e;
+        }
+      }
+
+      if (shouldCreateStateIndex) {
+        modified = true;
+        const stateIndex = await client.channels.create({
+          name: `${dev.properties.identifier}_do_state_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.digitalOutput.stateIndex = stateIndex.key;
+        dev.properties.digitalOutput.channels = {};
+      }
+
+      const commandsToCreate: DOChan[] = [];
+      const statesToCreate: DOChan[] = [];
+      for (const channel of config.channels) {
+        const key = `${channel.port}l${channel.line}`;
+        const exPair = dev.properties.digitalOutput.channels[key];
+        console.log(exPair, key, dev.properties.digitalOutput.channels);
+        if (exPair == null) {
+          commandsToCreate.push(channel);
+          statesToCreate.push(channel);
+        } else {
+          try {
+            await client.channels.retrieve([exPair.state]);
+          } catch (e) {
+            if (e instanceof QueryError) statesToCreate.push(channel);
+            else throw e;
+          }
+          try {
+            await client.channels.retrieve([exPair.command]);
+          } catch (e) {
+            if (e instanceof QueryError) commandsToCreate.push(channel);
+            else throw e;
+          }
+        }
+      }
+
+      if (statesToCreate.length > 0) {
+        modified = true;
+        const states = await client.channels.create(
+          statesToCreate.map((c) => ({
+            name: `${dev.properties.identifier}_do_${c.port}_${c.line}_state`,
+            index: dev.properties.digitalOutput.stateIndex,
+            dataType: "boolean",
+          })),
+        );
+        states.forEach((s, i) => {
+          const key = `${statesToCreate[i].port}l${statesToCreate[i].line}`;
+          if (!(key in dev.properties.digitalOutput.channels)) {
+            dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
+          } else dev.properties.digitalOutput.channels[key].state = s.key;
+        });
+      }
+
+      if (commandsToCreate.length > 0) {
+        const commandIndexes = await client.channels.create(
+          commandsToCreate.map((c) => ({
+            name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd_time`,
+            dataType: "timestamp",
+            isIndex: true,
+          })),
+        );
+        const commands = await client.channels.create(
+          commandsToCreate.map((c, i) => ({
+            name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd`,
+            index: commandIndexes[i].key,
+            dataType: "boolean",
+          })),
+        );
+        commands.forEach((s, i) => {
+          const key = `${commandsToCreate[i].port}l${commandsToCreate[i].line}`;
+          if (!(key in dev.properties.digitalOutput.channels)) {
+            dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
+          } else dev.properties.digitalOutput.channels[key].command = s.key;
+        });
+      }
+
+      console.log(dev.properties);
+
+      if (modified)
+        await client.hardware.devices.create({
+          ...dev,
+          properties: dev.properties,
+        });
+
       const t = await rack.createTask<
         DigitalWriteConfig,
         DigitalWriteStateDetails,
@@ -236,12 +333,8 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
     <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-      <NameField fieldKey="cmdChannel" label="Command Channel" path={prefix} />
-      <NameField fieldKey="stateChannel" label="State Channel" path={prefix} />
-      <Align.Space direction="x" grow>
-        <Form.NumericField path={`${prefix}.port`} label="Port" grow />
-        <Form.NumericField path={`${prefix}.line`} label="Line" grow />
-      </Align.Space>
+      <Form.NumericField path={`${prefix}.port`} label="Port" grow />
+      <Form.NumericField path={`${prefix}.line`} label="Line" grow />
     </Align.Space>
   );
 };
@@ -389,7 +482,7 @@ const ChannelListItem = ({
         size="small"
         onClick={(e) => e.stopPropagation()}
         onChange={(v) => {
-          ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
+          ctx.set(`${path}.${props.index}.enabled`, v);
         }}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>

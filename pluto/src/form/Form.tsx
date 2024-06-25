@@ -75,7 +75,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 
   const [state, setState] = useState<FieldState<I> | null>(get<I>(path, { optional }));
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     setState(get<I>(path, { optional }));
     return bind({ path, onChange: setState, listenToChildren: false });
   }, [path, onChange, bind, get]);
@@ -464,7 +464,7 @@ export const use = <Z extends z.ZodTypeAny>({
   const updateFieldValues = useCallback((path: string) => {
     const { listeners, parentListeners } = ref.current;
     listeners.forEach((lis, lPath) => {
-      const equalOrParent = deep.pathsMatch(path, lPath);
+      const equalOrParent = deep.pathsMatch(lPath, path);
       if (equalOrParent) {
         const fs = get(lPath, { optional: true });
         if (fs != null) lis.forEach((l) => l(fs));
@@ -604,7 +604,7 @@ export const use = <Z extends z.ZodTypeAny>({
       has,
       setStatus,
     }),
-    [bind, set, get, validate],
+    [],
   );
 };
 

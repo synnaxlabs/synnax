@@ -19,6 +19,7 @@
         flex-grow: 1;
 
         .console-channel-form-container {
+            display: flex;
             height: 0px;
             border-radius: 1rem;
             overflow: hidden;
@@ -27,6 +28,7 @@
                 overflow: hidden;
                 max-width: 375px;
                 width: 100%;
+                height: 100%;
 
                 .pluto-menu-context__container {
                     overflow: hidden;

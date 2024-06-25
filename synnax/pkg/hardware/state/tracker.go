@@ -109,7 +109,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		}
 		r := &Rack{Key: r.Key, Tasks: make(map[task.Key]task.State, len(tasks))}
 		for _, t := range tasks {
-			r.Tasks[t.Key] = task.State{Task: t.Key, Variant: task.StatusStopped}
+			r.Tasks[t.Key] = task.State{Task: t.Key, Variant: task.StatusInfo}
 		}
 		t.mu.Racks[r.Key] = r
 	}
@@ -167,7 +167,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 					t.mu.Racks[rackKey] = rck
 				}
 				if _, tskOk := rck.Tasks[c.Key]; !tskOk {
-					rck.Tasks[c.Key] = task.State{Task: c.Key, Variant: task.StatusStopped}
+					rck.Tasks[c.Key] = task.State{Task: c.Key, Variant: task.StatusInfo}
 				}
 			}
 		}

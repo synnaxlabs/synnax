@@ -105,6 +105,7 @@ export const linScaleZ = z.object({
   slope: z.number(),
   yIntercept: z.number(),
   preScaledUnits: unitsZ,
+  scaledUnits: unitsZ,
 });
 
 export type LinScale = z.infer<typeof linScaleZ>;
@@ -114,6 +115,7 @@ export const ZERO_LIN_SCALE: LinScale = {
   slope: 0,
   yIntercept: 0,
   preScaledUnits: "Volts",
+  scaledUnits: "Volts",
 };
 
 export const mapScaleZ = z.object({
@@ -242,7 +244,7 @@ export const ZERO_AI_ACCEL_CHAN: AIAccelChan = {
   units: "g",
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   sensitivity: 0,
   sensitivityUnits: "mVoltsPerG",
@@ -272,7 +274,7 @@ export const ZERO_AI_ACCEL_4WIRE_DC_VOLTAGE_CHAN: AIAccel4WireDCVoltageChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   sensitivity: 0,
   sensitivityUnits: "mVoltsPerG",
@@ -299,7 +301,7 @@ export const ZERO_AI_ACCEL_CHARGE_CHAN: AIAccelChargeChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   sensitivity: 0,
   sensitivityUnits: "mVoltsPerG",
@@ -335,7 +337,7 @@ export const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   bridgeConfig: "FullBridge",
   voltageExcitSource: "None",
@@ -364,7 +366,7 @@ export const ZERO_AI_CHARGE_CHAN: AIChargeChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   units: "C",
   customScale: ZERO_NO_SCALE,
@@ -373,6 +375,10 @@ export const ZERO_AI_CHARGE_CHAN: AIChargeChan = {
 const currentUnitsZ = z.enum(["Amps"]);
 
 const shuntResistorLocZ = z.enum(["Default", "Internal", "External"]);
+
+const shuntResistorValZ = z.number().refine((val) => val > 0, {
+  message: "Value must be greater than 0",
+});
 
 export type ShuntResistorLoc = z.infer<typeof shuntResistorLocZ>;
 
@@ -384,7 +390,7 @@ const aiCurrentChanZ = baseAIChanZ.extend({
   maxVal: z.number(),
   units: currentUnitsZ,
   shuntResistorLoc: shuntResistorLocZ,
-  extShuntResistorVal: z.number(),
+  extShuntResistorVal: shuntResistorValZ,
   customScale: scaleZ,
 });
 
@@ -398,11 +404,11 @@ export const ZERO_AI_CURRENT_CHAN: AICurrentChan = {
   type: "ai_current",
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   units: "Amps",
   shuntResistorLoc: "Default",
-  extShuntResistorVal: 0,
+  extShuntResistorVal: 1,
   customScale: ZERO_NO_SCALE,
 };
 
@@ -414,7 +420,7 @@ const aiCurrentRMSChanZ = baseAIChanZ.extend({
   maxVal: z.number(),
   units: currentUnitsZ,
   shuntResistorLoc: shuntResistorLocZ,
-  extShuntResistorVal: z.number(),
+  extShuntResistorVal: shuntResistorValZ,
   customScale: scaleZ,
 });
 
@@ -428,7 +434,7 @@ export const ZERO_AI_CURRENT_RMS_CHAN: AICurrentRMSChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   units: "Amps",
   shuntResistorLoc: "Default",
@@ -464,7 +470,7 @@ export const ZERO_AI_FORCE_BRIDGE_POLYNOMIAL_CHAN: AIForceBridgePolynomialChan =
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   units: "Newtons",
   bridgeConfig: "FullBridge",
@@ -505,7 +511,7 @@ export const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "Newtons",
   bridgeConfig: "FullBridge",
   voltageExcitSource: "None",
@@ -548,7 +554,7 @@ export const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinCh
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   units: "Newtons",
   bridgeConfig: "FullBridge",
@@ -588,7 +594,7 @@ export const ZERO_AI_FORCE_IEPE_CHAN: AIForceEPEChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   units: "Newtons",
   sensitivity: 0,
@@ -619,7 +625,7 @@ export const ZERO_AI_FREQ_VOLTAGE_CHAN: AIFreqVoltageChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "Hz",
   thresholdLevel: 0,
   hysteresis: 0,
@@ -688,7 +694,7 @@ export const ZERO_AI_PRESSURE_BRIDGE_POLYNOMIAL_CHAN: AIPressureBridgePolynomial
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "psi",
   bridgeConfig: "FullBridge",
   voltageExcitSource: "None",
@@ -728,7 +734,7 @@ export const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "psi",
   bridgeConfig: "FullBridge",
   voltageExcitSource: "None",
@@ -774,7 +780,7 @@ export const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPoin
     port: 0,
     enabled: true,
     minVal: 0,
-    maxVal: 0,
+    maxVal: 1,
     terminalConfig: "Cfg_Default",
     units: "psi",
     bridgeConfig: "FullBridge",
@@ -816,7 +822,7 @@ export const ZERO_AI_RESISTANCE_CHAN: AIResistanceChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   units: "Ohms",
   resistanceConfig: "2Wire",
@@ -873,7 +879,7 @@ export const ZERO_AI_ROSETTE_STRAIN_GAGE_CHAN: AIRosetteStrainGageChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   rosetteType: "RectangularRosette",
   strainConfig: "FullBridgeI",
@@ -921,7 +927,7 @@ export const ZERO_AI_RTD_CHAN: AIRTDChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "DegC",
   rtdType: "Pt3750",
   resistanceConfig: "2Wire",
@@ -965,7 +971,7 @@ export const ZERO_AI_STRAIN_GAGE_CHAN: AIStrainGageChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   terminalConfig: "Cfg_Default",
   units: "strain",
   strainConfig: "full-bridge-I",
@@ -1041,7 +1047,7 @@ export const ZERO_AI_THERMOCOUPLE_CHAN: AIThermocoupleChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "DegC",
   thermocoupleType: "J",
   cjcSource: "BuiltIn",
@@ -1074,7 +1080,7 @@ export const ZERO_AI_THERMISTOR_CHAN_IEX: AIThermistorChanIex = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "DegC",
   resistanceConfig: "2Wire",
   currentExcitSource: "None",
@@ -1110,7 +1116,7 @@ export const ZERO_AI_THERMISTOR_CHAN_VEX: AIThermistorChanVex = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "DegC",
   resistanceConfig: "2Wire",
   voltageExcitSource: "None",
@@ -1154,7 +1160,7 @@ export const ZERO_AI_TORQUE_BRIDGE_POLYNOMIAL_CHAN: AITorqueBridgePolynomialChan
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "NewtonMeters",
   bridgeConfig: "FullBridge",
   voltageExcitSource: "None",
@@ -1195,7 +1201,7 @@ export const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "NewtonMeters",
   bridgeConfig: "FullBridge",
   voltageExcitSource: "None",
@@ -1240,7 +1246,7 @@ export const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLin
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "NewtonMeters",
   bridgeConfig: "FullBridge",
   voltageExcitSource: "None",
@@ -1284,7 +1290,7 @@ export const ZERO_AI_VELOCITY_EPE_CHAN: AIVelocityEPEChan = {
   enabled: true,
   terminalConfig: "Cfg_Default",
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "m/s",
   sensitivity: 0,
   sensitivityUnits: "mV/m/s",
@@ -1318,7 +1324,7 @@ export const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   port: 0,
   enabled: true,
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "Volts",
   customScale: ZERO_NO_SCALE,
 };
@@ -1345,7 +1351,7 @@ export const ZERO_AI_VOLTAGE_RMS_CHAN: AIVoltageRMSChan = {
   enabled: true,
   terminalConfig: "Cfg_Default",
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "V",
   customScale: ZERO_NO_SCALE,
 };
@@ -1375,7 +1381,7 @@ export const ZERO_AI_VOLTAGE_CHAN_WITH_EXCIT: AIVoltageChanWithExcit = {
   enabled: true,
   terminalConfig: "Cfg_Default",
   minVal: 0,
-  maxVal: 0,
+  maxVal: 1,
   units: "V",
   bridgeConfig: "full",
   voltageExcitSource: "None",
@@ -1599,11 +1605,11 @@ export const analogReadTaskConfigZ = z
   .superRefine((cfg, ctx) => {
     const channels = new Map<number, number>();
     cfg.channels.forEach(({ channel }) => {
-      if (channel === 0) return;
+      if (channel === 0 || channel == null) return;
       channels.set(channel, (channels.get(channel) ?? 0) + 1);
     });
     cfg.channels.forEach((cfg, i) => {
-      if (cfg.channel === 0) return;
+      if (cfg.channel === 0 || cfg.channel == null) return;
       if ((channels.get(cfg.channel) ?? 0) < 2) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -1614,13 +1620,23 @@ export const analogReadTaskConfigZ = z
   });
 
 export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
-export const analogReadTaskStateDetailsZ = z.object({
+
+export const baseAnalogReadStateDetailsZ = z.object({
   running: z.boolean(),
 });
-export type AnalogReadStateDetails = z.infer<typeof analogReadTaskStateDetailsZ>;
-export type AnalogReadTaskState = task.State<
-  z.infer<typeof analogReadTaskStateDetailsZ>
->;
+
+export const errorAnalogReadStateDetailZ = baseAnalogReadStateDetailsZ.extend({
+  path: z.string().optional(),
+  message: z.string(),
+});
+
+type BaseAnalogReadStateDetails = z.infer<typeof baseAnalogReadStateDetailsZ>;
+type ErrorAnalogReadStateDetails = z.infer<typeof errorAnalogReadStateDetailZ>;
+
+export type AnalogReadStateDetails =
+  | BaseAnalogReadStateDetails
+  | ErrorAnalogReadStateDetails;
+export type AnalogReadTaskState = task.State<AnalogReadStateDetails>;
 
 export const ANALOG_READ_TYPE = "ni_analog_read";
 export type AnalogReadType = typeof ANALOG_READ_TYPE;

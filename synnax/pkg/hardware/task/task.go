@@ -14,11 +14,12 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/types"
-	"strconv"
 )
 
 type Key types.StringParseableUint64
@@ -77,9 +78,10 @@ func (t Task) String() string {
 type Status string
 
 const (
-	StatusStopped Status = "stopped"
-	StatusRunning Status = "running"
-	StatusFailed  Status = "failed"
+	StatusInfo    Status = "info"
+	StatusSuccess Status = "success"
+	StatusError   Status = "error"
+	StatusWarning Status = "warning"
 )
 
 // Details is a custom type based on string
