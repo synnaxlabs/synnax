@@ -2,9 +2,10 @@ package main
 
 import (
 	"bytes"
-	"github.com/synnaxlabs/x/telem"
 	"os/exec"
 	"strconv"
+
+	"github.com/synnaxlabs/x/telem"
 
 	"github.com/synnaxlabs/x/errors"
 )
@@ -45,6 +46,22 @@ func readPython(p NodeParams, identifier string) error {
 	args := append([]string{"run", "python", "read.py", identifier}, p.Serialize()...)
 	cmd := exec.Command("poetry", args...)
 	cmd.Dir = "./py"
+	var stderr, stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	err := cmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
+	}
+
+	return nil
+}
+
+func readTS(p NodeParams, identifier string) error {
+	args := append([]string{"tsx", "read.ts", identifier}, p.Serialize()...)
+	cmd := exec.Command("npx", args...)
+	cmd.Dir = "./ts"
 	var stderr, stdout bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout

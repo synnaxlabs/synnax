@@ -42,7 +42,7 @@ client = sy.Synnax(
 )
 
 
-@time_write("timing.log")
+@time_write
 def write_test(tc: TestConfig):
     writers = [None] * tc.num_writers
     time_span_per_domain = tc.time_range.span / tc.domains

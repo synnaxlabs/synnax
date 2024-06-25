@@ -26,7 +26,7 @@ def create_channels(tc: SetUpConfig):
     channels = []
     for i in range(tc.num_index):
         index = client.channels.create(
-            name=str(i),
+            name="int" + str(i),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
             retrieve_if_name_exists=True,
@@ -37,7 +37,7 @@ def create_channels(tc: SetUpConfig):
     for ind in range(tc.num_index):
         for k in range(num_data_channels_per_index,):
             ch = client.channels.create(
-                name=f"{ind}-{k}",
+                name=f"int{ind}-{k}",
                 index=channels[ind],
                 data_type=sy.DataType.FLOAT32,
                 retrieve_if_name_exists=True,

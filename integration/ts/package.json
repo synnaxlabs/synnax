@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@synnaxlabs/client": "workspace:*",
-    "@synnaxlabs/x": "workspace:*"
+    "@synnaxlabs/x": "workspace:*",
+    "tsx": "^4.15.7"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
@@ -30,7 +31,7 @@
     "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.4.5",
     "vite": "5.2.11",
-    "vitest": "^1.5.0",
+    "vitest": "^1.5.0"
   },
   "peerDependencies": {
     "zod": "^3.23.8"

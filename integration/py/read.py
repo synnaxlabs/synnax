@@ -26,7 +26,7 @@ client = sy.Synnax(
 )
 
 
-@time_read("timing.log")
+@time_read
 def read_test(tc: TestConfig) -> int:
     iterators: List[sy.Iterator] = []
     samples_read = 0
@@ -39,7 +39,6 @@ def read_test(tc: TestConfig) -> int:
             i.seek_first()
             while i.next(sy.AUTO_SPAN):
                 samples_read += sum([len(s) for s in i.value.series])
-                continue
     finally:
         for iterator in iterators:
             iterator.close()

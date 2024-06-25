@@ -2,10 +2,11 @@ package main
 
 import (
 	"bytes"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/x/telem"
 	"os/exec"
 	"strconv"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/telem"
 
 	"github.com/synnaxlabs/x/errors"
 )

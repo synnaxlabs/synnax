@@ -22,7 +22,7 @@ client = sy.Synnax(
 )
 
 
-@time_stream("timing.log")
+@time_stream
 def stream_test(tc: TestConfig) -> int:
     counter = 0
     samples_streamed = 0

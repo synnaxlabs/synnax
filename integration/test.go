@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"golang.org/x/sync/semaphore"
-	"os"
 )
 
 func runNode(node TestNode, identifier string) error {
@@ -15,35 +17,43 @@ func runNode(node TestNode, identifier string) error {
 		switch node.Client {
 		case "py":
 			return readPython(node.Params, identifier)
+		case "ts":
+			return readTS(node.Params, identifier)
 		}
 		break
 	case Write:
 		switch node.Client {
 		case "py":
 			return writePython(node.Params, identifier)
+		case "ts":
+			return writeTS(node.Params, identifier)
 		}
 		break
 	case Stream:
 		switch node.Client {
 		case "py":
 			return streamPython(node.Params, identifier)
+		case "ts":
+			return streamTS(node.Params, identifier)
 		}
 		break
 	case Delete:
 		switch node.Client {
 		case "py":
 			return deletePython(node.Params, identifier)
+		case "ts":
+			return deleteTS(node.Params, identifier)
 		}
 		break
 	}
 
-	return nil
+	return errors.Newf("unknown operation or client %s on %s", node.Op, node.Client)
 }
 
 func runStep(i int, step TestStep) error {
 	var (
-		sem     = semaphore.NewWeighted(int64(len(step)))
-		sCtx, _ = signal.Isolated()
+		sem          = semaphore.NewWeighted(int64(len(step)))
+		sCtx, cancel = signal.Isolated()
 	)
 	fmt.Printf("--step %d\n", i)
 	for n, node := range step {
@@ -60,6 +70,7 @@ func runStep(i int, step TestStep) error {
 			}()
 			err := runNode(node, fmt.Sprintf("%d-%d", i, n))
 			if err != nil {
+				cancel()
 				fmt.Printf("----error in node %d: %s\n", n, err.Error())
 			}
 

@@ -24,7 +24,7 @@ async function createChannels(tc: SetUpConfig): Promise<void> {
 
     for (let i = 0; i < tc.numIndex; i++) {
         const index = await client.channels.create({
-            name: `ch${i}`,
+            name: `int${i}`,
             isIndex: true,
             dataType: DataType.TIMESTAMP,
         }, { retrieveIfNameExists: true });
@@ -35,7 +35,7 @@ async function createChannels(tc: SetUpConfig): Promise<void> {
     for (let ind = 0; ind < tc.numIndex; ind++) {
         for (let k = 0; k < numDataChannelsPerIndex; k++) {
             const ch = await client.channels.create({
-                name: `ch${ind}-${k}`,
+                name: `int${ind}-${k}`,
                 index: channels[ind],
                 dataType: DataType.FLOAT32,
             }, { retrieveIfNameExists: true });
@@ -50,8 +50,8 @@ async function main() {
         exit(-1);
     }
 
-    const numIndex = parseInt(argv[2], 10);
-    const numData = parseInt(argv[3], 10);
+    const numIndex = parseInt(argv[2]);
+    const numData = parseInt(argv[3]);
     const tc = new SetUpConfig(numIndex, numData);
     await createChannels(tc).catch(error => {
         console.error(error);

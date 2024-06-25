@@ -2,7 +2,7 @@
   "setup": {
     "index_channels": 2,
     "data_channels": 2,
-    "client": "py"
+    "client": "ts"
   },
   "body": [
     [
@@ -13,10 +13,10 @@
           "channel_groups": [
             {
               "index_channels": [
-                "0"
+                "int0"
               ],
               "data_channels": [
-                "0-0"
+                "int0-0"
               ]
             }
           ],
@@ -32,15 +32,15 @@
       },
       {
         "op": "write",
-        "client": "py",
+        "client": "ts",
         "params": {
           "channel_groups": [
             {
               "index_channels": [
-                "1"
+                "int1"
               ],
               "data_channels": [
-                "1-0"
+                "int1-0"
               ]
             }
           ],
@@ -54,17 +54,29 @@
           "writer_mode": 1,
           "auto_commit": true
         }
-      },{
-      "op": "stream",
-      "client": "py",
-      "params": {
-        "channels": [
-          "0-0",
-          "1-0"
-        ],
-        "close_after_frames": 100
+      },
+      {
+        "op": "stream",
+        "client": "py",
+        "params": {
+          "channels": [
+            "int0-0",
+            "int1-0"
+          ],
+          "close_after_frames": 100
+        }
+      },
+      {
+        "op": "stream",
+        "client": "ts",
+        "params": {
+          "channels": [
+            "int0-0",
+            "int1-0"
+          ],
+          "close_after_frames": 100
+        }
       }
-    }
     ],
     [
       {
@@ -76,8 +88,8 @@
             "end": 75000000000
           },
           "channels": [
-            "0-0",
-            "1-0"
+            "int0-0",
+            "int1-0"
           ]
         }
       },
@@ -86,7 +98,7 @@
         "client": "py",
         "params": {
           "channels": [
-            "0-0"
+            "int0-0"
           ],
           "close_after_frames": 50
         }
@@ -98,18 +110,18 @@
           "channel_groups": [
             {
               "index_channels": [
-                "0"
+                "int0"
               ],
               "data_channels": [
-                "0-0"
+                "int0-0"
               ]
             },
             {
               "index_channels": [
-                "1"
+                "int1"
               ],
               "data_channels": [
-                "1-0"
+                "int1-0"
               ]
             }
           ],
@@ -129,8 +141,30 @@
         "params": {
           "num_iterators": 2,
           "channel_groups": [
-            ["0", "1-0"],
-            ["1", "0-0"]
+            [
+              "int1-0"
+            ],
+            [
+              "int1",
+              "int0-0"
+            ]
+          ],
+          "chunk_size": 500000,
+          "bounds": {
+            "start": 25000000000,
+            "end": 50000000000
+          }
+        }
+      },
+      {
+        "op": "read",
+        "client": "ts",
+        "params": {
+          "num_iterators": 1,
+          "channel_groups": [
+            [
+              "int0"
+            ]
           ],
           "chunk_size": 500000,
           "bounds": {
