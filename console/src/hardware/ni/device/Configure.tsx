@@ -128,6 +128,7 @@ const ConfigureInternal = ({
       } else if (step === "identifier") {
         if (!methods.validate("identifier")) return;
         const er = enrich(device.model, {});
+        
         await client.hardware.devices.create({
           ...device,
           configured: true,

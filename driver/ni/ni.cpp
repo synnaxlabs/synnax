@@ -143,9 +143,8 @@ freighter::Error ni::Source::start() {
             " requires reconfigure");
         this->clearTask();
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
-    } else {
-        this->sample_thread = std::thread(&ni::Source::acquireData, this);
-    }
+    } 
+    this->sample_thread = std::thread(&ni::Source::acquireData, this);
     ctx->setState({
         .task = task.key,
         .variant = "success",
@@ -200,7 +199,7 @@ int ni::Source::checkNIError(int32 error) {
         this->err_info["running"] = false;
 
         this->ctx->setState({
-            .task = this->reader_config.task_key,
+            .task = this->task.key,
             .variant = "error",
             .details = err_info
         });

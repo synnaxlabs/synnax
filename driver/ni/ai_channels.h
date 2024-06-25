@@ -517,8 +517,6 @@ class TemperatureBuiltInSensor final : public Analog{
     public:
         explicit TemperatureBuiltInSensor(config::Parser &parser, TaskHandle task_handle, const std::string &name){
             this->task_handle = task_handle;
-            std::string u = parser.optional<std::string>("units", "Volts");
-            this->units = ni::UNITS_MAP.at(u);
             size_t pos = name.find("/");
             this->name =  name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
         }
@@ -619,8 +617,6 @@ class Acceleration  : public Analog {
                 terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))),
                 sensitivity(parser.required<double>("sensitivity")),
                 excitation_config(parser) {
-                std::string u = parser.optional<std::string>("units", "Volts");
-                this->units = ni::UNITS_MAP.at(u);
 
                 std::string su = parser.optional<std::string>("sensitivity_units", "mVoltsPerG");
                 this->sensitivity_units = ni::UNITS_MAP.at(su);
@@ -931,8 +927,6 @@ public:
         : Analog(parser, task_handle, name),
             threshold_level(parser.required<double>("threshold_level")),
             hysteresis(parser.required<double>("hysteresis")) {
-        std::string u = parser.optional<std::string>("units", "Volts");
-        this->units = ni::UNITS_MAP.at(u);
 
         // get the device name by reading up to delimitn / 
         size_t pos = name.find("/");

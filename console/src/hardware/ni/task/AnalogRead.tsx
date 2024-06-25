@@ -297,6 +297,12 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
           }}
           justify="end"
         >
+          <Align.Space direction="x">
+            <Text.Text level="p">
+
+            {JSON.stringify(taskState)}
+            </Text.Text>
+          </Align.Space>
           <Button.Icon
             loading={start.isPending}
             disabled={start.isPending || taskState == null}

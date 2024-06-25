@@ -83,6 +83,7 @@ static inline const std::map<std::string, int32_t>    UNITS_MAP = {
     {"FootPounds",                          DAQmx_Val_FootPounds},
     {"Strain",                              DAQmx_Val_Strain},
     {"FromTEDS",                            DAQmx_Val_FromTEDS},
+    {"VoltsPerG",                           DAQmx_Val_VoltsPerG}, // TODO: verify this is an option in the console
     {"mVoltsPerG",                          DAQmx_Val_mVoltsPerG}, // TODO: verify this is an option in the console
     {"AccelUnit_g",                         DAQmx_Val_AccelUnit_g}  // TODO: verify this is an option in the console for sensitivity units
 };

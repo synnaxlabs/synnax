@@ -255,7 +255,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 
     auto daq_writer = std::make_shared<ni::DigitalWriteSink>(task_handle, ctx, task);
     if (!daq_writer->ok()) {
-        LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
+        LOG(ERROR) << "[ni.writer] failed to construct reader for" << task.name;
         return nullptr;
     }
 
