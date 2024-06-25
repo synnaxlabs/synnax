@@ -19,11 +19,11 @@ import {
 
 import { type Key, type KeyOrName, KeysOrNames, type Params} from "@/channel/payload";
 import { analyzeChannelParams,type Retriever } from "@/channel/retriever";
+import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
-import {Iterator, IteratorConfig } from "@/framer/iterator";
+import { Iterator, IteratorConfig } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig,WriterMode } from "@/framer/writer";
-import { Deleter } from "@/framer/deleter";
 
 export class Client {
   private readonly streamClient: StreamClient;

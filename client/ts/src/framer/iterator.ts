@@ -51,7 +51,6 @@ const reqZ = z.object({
   stamp: TimeStamp.z.optional(),
   keys: z.number().array().optional(),
   chunkSize: z.number().optional(),
-  chunkSize: z.number().optional(),
 });
 
 type Request = z.infer<typeof reqZ>;
