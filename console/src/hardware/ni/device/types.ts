@@ -32,6 +32,11 @@ export const configurablePropertiesZ = z.object({
   identifier: z.string().min(2).max(12),
 });
 
+const commandStatePairZ = z.object({
+  command: z.number(),
+  state: z.number(),
+});
+
 const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
   identifier: z.string().min(2).max(12),
   analogInput: z.object({
@@ -53,6 +58,8 @@ const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
   digitalOutput: z.object({
     portCount: z.number(),
     lineCounts: z.number().array(),
+    stateIndex: z.number(),
+    channels: z.record(z.string(), commandStatePairZ),
   }),
 });
 

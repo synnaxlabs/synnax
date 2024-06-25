@@ -57,7 +57,12 @@ export const Core = <K extends Key, E extends Keyed<K>>({
       allowNone={allowNone}
       replaceOnSingle={replaceOnSingle}
     >
-      <Dropdown.Dialog visible={visible} className={CSS.B("select")} {...props}>
+      <Dropdown.Dialog
+        visible={visible}
+        className={CSS.B("select")}
+        keepMounted={false}
+        {...props}
+      >
         {children}
         <CoreList.Hover<K, E> disabled={!visible}>
           <CoreList.Column.Header

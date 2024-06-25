@@ -48,17 +48,6 @@ export interface FormProps {
   label?: string;
 }
 
-export const NameField = Form.buildTextField({
-  fieldKey: "name",
-  inputProps: {
-    variant: "natural",
-    level: "h3",
-  },
-  fieldProps: {
-    label: "Name",
-  },
-});
-
 interface NamedKey<K extends string = string> {
   key: K;
   name: string;
@@ -420,6 +409,8 @@ const TorqueUnitsField = Form.buildButtonSelectField<
   fieldKey: "units",
   fieldProps: { label: "Torque Units" },
   inputProps: {
+    columns: NAMED_KEY_COLS,
+    entryRenderKey: "name",
     data: [
       {
         key: "NewtonMeters",
@@ -488,10 +479,11 @@ const VoltageUnits = Form.buildButtonSelectField({
 
 export const UnitsField = Form.buildSelectSingleField<Units, NamedKey<Units>>({
   fieldKey: "preScaledUnits",
-  fieldProps: { label: "Pre-Scaled Units" },
+  fieldProps: { label: "Pre-Scaled Units", grow: true },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
+    allowNone: false,
     data: [
       {
         key: "Volts",
@@ -613,7 +605,14 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   linear: ({ prefix }) => {
     return (
       <>
-        <UnitsField fieldKey="preScaledUnits" label="Pre-Scaled Units" path={prefix} />
+        <Align.Space direction="x" grow>
+          <UnitsField
+            fieldKey="preScaledUnits"
+            label="Pre-Scaled Units"
+            path={prefix}
+          />
+          <UnitsField fieldKey="scaledUnits" label="Scaled Units" path={prefix} />
+        </Align.Space>
         <Align.Space direction="x" grow>
           <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
           <Form.NumericField
@@ -979,7 +978,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_current_rms: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
@@ -999,7 +997,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_force_bridge_polynomial: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <ForceUnitsField path={prefix} />
@@ -1032,7 +1029,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_force_bridge_table: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <ForceUnitsField path={prefix} />
@@ -1065,7 +1061,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_force_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <ForceUnitsField path={prefix} />
@@ -1146,7 +1141,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
@@ -1193,7 +1187,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <UnitsField path={prefix} />
@@ -1226,7 +1219,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <UnitsField path={prefix} />
@@ -1262,7 +1254,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_pressure_bridge_polynomial: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <PressureUnitsField path={prefix} />
@@ -1295,7 +1286,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_pressure_bridge_table: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <PressureUnitsField path={prefix} />
@@ -1328,7 +1318,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_pressure_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <PressureUnitsField path={prefix} />
@@ -1402,7 +1391,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
@@ -1486,7 +1474,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
@@ -1573,7 +1560,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
@@ -1612,7 +1598,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
@@ -1664,7 +1649,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_temp_builtin: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <TemperatureUnitsField path={prefix} />
       </>
@@ -1706,7 +1690,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, true);
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
@@ -1728,7 +1711,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_thermistor_iex: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
@@ -1759,7 +1741,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_thermistor_vex: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
@@ -1791,7 +1772,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_torque_bridge_polynomial: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <TorqueUnitsField path={prefix} />
@@ -1824,7 +1804,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_torque_bridge_table: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <TorqueUnitsField path={prefix} />
@@ -1857,7 +1836,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_torque_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <TorqueUnitsField path={prefix} />
@@ -1936,7 +1914,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
@@ -1972,7 +1949,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_voltage_rms: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
@@ -1984,7 +1960,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_voltage_with_excit: ({ prefix }) => {
     return (
       <>
-        <NameField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <VoltageUnits path={prefix} />

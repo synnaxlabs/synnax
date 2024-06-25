@@ -21,7 +21,6 @@ import {
   Synnax,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { Channel } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
@@ -30,6 +29,7 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
+import { useStore } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -53,8 +53,9 @@ import {
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
+import { RootState } from "@/store";
 
-import { ANALOG_INPUT_FORMS, NameField, SelectChannelTypeField } from "./ChannelForms";
+import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 
 export const configureAnalogReadLayout: Layout.State = {
   name: "Configure NI Analog Read Task",
@@ -114,11 +115,19 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
     stateObserverRef.current = await task.openStateObserver<AnalogReadStateDetails>();
-    stateObserverRef.current.onChange((s) => setTaskState(s));
+    stateObserverRef.current.onChange((s) => {
+      setTaskState(s);
+      if (s.details != null && "path" in s.details) {
+        methods.setStatus(`config.${s.details.path}`, {
+          variant: "error",
+          message: s.details.message,
+        });
+      }
+    });
     return async () => await stateObserverRef.current?.close().catch(console.error);
   }, [client?.key, task?.key, setTaskState]);
 
-  const configure = useMutation({
+  const configure = useMutation<void, Error, void, unknown>({
     mutationKey: [client?.key, "configure"],
     onError: console.error,
     mutationFn: async () => {
@@ -271,14 +280,17 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
               onSelect={useCallback(
                 (v, i) => {
                   setSelectedChannels(v);
+                  console.log(i);
                   setSelectedChannelIndex(i);
                 },
                 [setSelectedChannels, setSelectedChannelIndex],
               )}
             />
             <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h3">
-                <Header.Title weight={500}>Channel Details</Header.Title>
+              <Header.Header level="h4">
+                <Header.Title weight={500} wrap={false}>
+                  Details
+                </Header.Title>
               </Header.Header>
               <Align.Space className={CSS.B("details")}>
                 {selectedChannelIndex != null && (
@@ -295,29 +307,32 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
             border: "var(--pluto-border)",
             padding: "2rem",
           }}
-          justify="end"
+          justify="spaceBetween"
         >
           <Align.Space direction="x">
-            <Text.Text level="p">
-
-            {JSON.stringify(taskState)}
-            </Text.Text>
+            {taskState?.variant != null && (
+              <Status.Text variant={taskState?.variant as Status.Variant}>
+                {taskState?.details?.message}
+              </Status.Text>
+            )}
           </Align.Space>
-          <Button.Icon
-            loading={start.isPending}
-            disabled={start.isPending || taskState == null}
-            onClick={() => start.mutate()}
-            variant="outlined"
-          >
-            {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
-          </Button.Icon>
-          <Button.Button
-            loading={configure.isPending}
-            disabled={configure.isPending}
-            onClick={() => configure.mutate()}
-          >
-            Configure
-          </Button.Button>
+          <Align.Space direction="x">
+            <Button.Icon
+              loading={start.isPending}
+              disabled={start.isPending || taskState == null}
+              onClick={() => start.mutate()}
+              variant="outlined"
+            >
+              {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
+            </Button.Icon>
+            <Button.Button
+              loading={configure.isPending}
+              disabled={configure.isPending}
+              onClick={() => configure.mutate()}
+            >
+              Configure
+            </Button.Button>
+          </Align.Space>
         </Align.Space>
       </Align.Space>
     </Align.Space>
@@ -338,7 +353,6 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   return (
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-        <NameField path={prefix} />
         <SelectChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
         <TypeForm prefix={prefix} />
       </Align.Space>
@@ -365,16 +379,19 @@ const availablePortFinder = (channels: Chan[]): (() => number) => {
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
   const { value, push, remove, set } = Form.useFieldArray<Chan>({ path });
   const handleAdd = (): void => {
+    const key = nanoid();
     push({
       ...deep.copy(ZERO_AI_CHANNELS["ai_voltage"]),
       port: availablePortFinder(value)(),
-      key: nanoid(),
+      key,
     });
+    onSelect([key], value.length);
   };
   const menuProps = Menu.useContextMenu();
+
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h3">
+      <Header.Header level="h4">
         <Header.Title weight={500}>Channels</Header.Title>
         <Header.Actions>
           {[
@@ -457,14 +474,24 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
         }}
         {...menuProps}
       >
-        <List.List<string, Chan> data={value}>
+        <List.List<string, Chan>
+          data={value}
+          emptyContent={
+            <Align.Space direction="y" style={{ height: "100%" }}>
+              <Align.Center direction="y">
+                <Text.Text level="p">No channels in task.</Text.Text>
+                <Text.Link level="p" onClick={handleAdd}>
+                  Add a channel
+                </Text.Link>
+              </Align.Center>
+            </Align.Space>
+          }
+        >
           <List.Selector<string, Chan>
             value={selected}
             allowNone={false}
             allowMultiple={true}
             onChange={(keys, { clickedIndex }) => {
-              console.log(keys);
-
               clickedIndex != null && onSelect(keys, clickedIndex);
             }}
             replaceOnSingle
@@ -489,8 +516,6 @@ const ChannelListItem = ({
   const path = `${basePath}.${props.index}`;
   const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
   if (childValues == null) return <></>;
-  const channelName = Channel.useName(childValues?.channel ?? 0, "No Synnax Channel");
-  const channelValid = Form.useFieldValid(`${path}.channel`);
   const portValid = Form.useFieldValid(`${path}.port`);
   return (
     <List.ItemFrame
@@ -514,23 +539,15 @@ const ChannelListItem = ({
             {AI_CHANNEL_TYPE_NAMES[childValues.type]}
           </Text.Text>
         </Align.Space>
-        <Text.Text level="p" shade={6}></Text.Text>
       </Align.Space>
       <Align.Space direction="x" size="small">
-        <Align.Space direction="x" size="small" className={CSS.B("hover-actions")}>
-          <Button.Icon size="small" variant="outlined" tooltip="Plot Live Data">
-            <Icon.Visualize color="var(--pluto-gray-l7)" />
-          </Button.Icon>
-        </Align.Space>
         <Button.Toggle
           checkedVariant="outlined"
           uncheckedVariant="outlined"
           value={childValues.enabled}
           size="small"
           onClick={(e) => e.stopPropagation()}
-          onChange={(v) => {
-            ctx.set(`${path}.enabled`, v);
-          }}
+          onChange={(v) => ctx.set(`${path}.enabled`, v)}
           tooltip={
             <Text.Text level="small" style={{ maxWidth: 300 }}>
               Data acquisition for this channel is{" "}
