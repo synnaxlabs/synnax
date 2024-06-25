@@ -199,8 +199,7 @@ struct ScaleConfig {
         if (type == "linear") scale.linear = LinearScale(parser);
         else if (type == "map") scale.map = MapScale(parser);
         else if (type == "polynomial") scale.polynomial = PolynomialScale(parser);
-        else if (type == "table") scale.table = TableScale(parser);
-        
+        else if (type == "table") scale.table = TableScale(parser);        
     }
 
     // copy constructor

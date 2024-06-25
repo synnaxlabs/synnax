@@ -239,6 +239,8 @@ public:
         if (this->scale_config->type != "none") {
             this->scale_name = this->scale_config->name;
             this->units = DAQmx_Val_FromCustomScale;
+        } else{
+            this->scale_config->name = "";
         }
     }
 
@@ -271,29 +273,18 @@ public:
     ~Voltage() = default;
 
     int32 createNIChannel() override {
-        if (this->scale_config->type == "none") {
-            return ni::NiDAQmxInterface::CreateAIVoltageChan(
-                this->task_handle,
-                this->name.c_str(),
-                "", // name to assign channel
-                this->terminal_config,
-                this->min_val,
-                this->max_val,
-                DAQmx_Val_Volts,
-                NULL
-            );
-        } else {
-            return ni::NiDAQmxInterface::CreateAIVoltageChan(
-                this->task_handle,
-                this->name.c_str(),
-                "", // name to assign channel
-                this->terminal_config,
-                this->min_val,
-                this->max_val,
-                DAQmx_Val_FromCustomScale,
-                this->scale_config->name.c_str()
-            );
-        }
+        std::string s = "";
+        LOG(INFO) << "Scale name: " << this->scale_config->name;
+        return ni::NiDAQmxInterface::CreateAIVoltageChan(
+            this->task_handle,
+            this->name.c_str(),
+            "", // name to assign channel
+            this->terminal_config,
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -308,16 +299,15 @@ class VoltageRMS final : public Voltage {
         ~VoltageRMS() = default;
 
         int32 createNIChannel() override {
-            // TODO: check if scale exists
             return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->terminal_config,
-                    this->min_val,
-                    this->max_val,
-                    DAQmx_Val_Volts,
-                    NULL
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->terminal_config,
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->scale_config->name.c_str()
             );
     }
 };
@@ -336,22 +326,20 @@ class VoltageRMS final : public Voltage {
             ~VoltageWithExcit() = default;
 
             int32 createNIChannel() override {
-                if(this->scale_config->type == "none"){
-                    return ni::NiDAQmxInterface::CreateAIVoltageChanWithExcit(
-                            this->task_handle,
-                            this->name.c_str(),
-                            "",
-                            this->terminal_config,
-                            this->min_val,
-                            this->max_val,
-                            DAQmx_Val_Volts,
-                            this->bridge_config,
-                            this->excitation_config.voltage_excit_source,
-                            this->excitation_config.voltage_excit_val,
-                            this->excitation_config.min_val_for_excitation,
-                            NULL
-                    );
-                }
+                return ni::NiDAQmxInterface::CreateAIVoltageChanWithExcit(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config,
+                    this->excitation_config.voltage_excit_source,
+                    this->excitation_config.voltage_excit_val,
+                    this->excitation_config.min_val_for_excitation,
+                    this->scale_config->name.c_str()
+                ); 
             }
     };
 
@@ -383,20 +371,18 @@ public:
     }
 
     int32 createNIChannel() override {
-        if (this->scale_config->type == "none") {
-            return ni::NiDAQmxInterface::CreateAICurrentChan(
-                this->task_handle,
-                this->name.c_str(),
-                "",
-                this->terminal_config,
-                this->min_val,
-                this->max_val,
-                this->units,
-                this->shunt_resistor_loc,
-                this->ext_shunt_resistor_val,
-                NULL
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAICurrentChan(
+            this->task_handle,
+            this->name.c_str(),
+            "",
+            this->terminal_config,
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->shunt_resistor_loc,
+            this->ext_shunt_resistor_val,
+            this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -406,7 +392,7 @@ public:
             : Current(parser, task_handle, name) {}
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
+        if(this->scale_config->type == "none")
             return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
                     this->task_handle,
                     this->name.c_str(),
@@ -417,9 +403,8 @@ public:
                     this->units,
                     this->shunt_resistor_loc,
                     this->ext_shunt_resistor_val,
-                    NULL
+                    this->scale_config->name.c_str()
             );
-        }
     }
 };
 
@@ -520,20 +505,18 @@ public:
     ///	DAQmxErrChk (DAQmxCreateAIThrmcplChan(taskHandle,"","",0.0,100.0,DAQmx_Val_DegC,DAQmx_Val_J_Type_TC,DAQmx_Val_BuiltIn,25.0,""));
 
     int32 createNIChannel() override {
-        if (this->scale_config->type == "none") {
-            return ni::NiDAQmxInterface::CreateAIThrmcplChan(
-                this->task_handle,
-                this->name.c_str(),
-                "",
-                this->min_val,
-                this->max_val,
-                this->units,
-                this->thermocoupleType,
-                this->cjcSource,
-                this->cjcVal,
-                ""
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAIThrmcplChan(
+            this->task_handle,
+            this->name.c_str(),
+            "",
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->thermocoupleType,
+            this->cjcSource,
+            this->cjcVal,
+            ""
+        );
     }
 };
 
@@ -552,10 +535,10 @@ class TemperatureBuiltInSensor final : public Analog{
 
         int32 createNIChannel() override {
             return ni::NiDAQmxInterface::CreateAITempBuiltInSensorChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->units
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->units
             );
         }
 };
@@ -581,22 +564,20 @@ class ThermistorIEX final : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIThrmstrChanIex(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->resistance_config,
-                        this->excitation_config.voltage_excit_source, // current excitation source FIXME
-                        this->excitation_config.voltage_excit_val,    // current excitation val FIXME
-                        this->a,
-                        this->b,
-                        this->c
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIThrmstrChanIex(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->resistance_config,
+                this->excitation_config.voltage_excit_source, // current excitation source FIXME
+                this->excitation_config.voltage_excit_val,    // current excitation val FIXME
+                this->a,
+                this->b,
+                this->c
+            );
         }
 };
 
@@ -623,23 +604,22 @@ class ThermistorVex final : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIThrmstrChanVex(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->resistance_config,
-                        this->excitation_config.voltage_excit_source, // current excitation source FIXME
-                        this->excitation_config.voltage_excit_val,    // current excitation val FIXME
-                        this->a,
-                        this->b,
-                        this->c,
-                        this->r1
-                );
-            }
+            if(this->scale_config->type == "none")
+            return ni::NiDAQmxInterface::CreateAIThrmstrChanVex(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->resistance_config,
+                this->excitation_config.voltage_excit_source, // current excitation source FIXME
+                this->excitation_config.voltage_excit_val,    // current excitation val FIXME
+                this->a,
+                this->b,
+                this->c,
+                this->r1
+            );
         }
 };
 
@@ -668,22 +648,20 @@ class Acceleration  : public Analog {
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIAccelChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->sensitivity,
-                        this->sensitivity_units,
-                        this->excitation_config.voltage_excit_source,
-                        this->excitation_config.voltage_excit_val,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIAccelChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->sensitivity,
+                    this->sensitivity_units,
+                    this->excitation_config.voltage_excit_source,
+                    this->excitation_config.voltage_excit_val,
+                    this->scale_config->name.c_str()
+            );
         }
 
 };
@@ -697,24 +675,21 @@ public:
             : Acceleration(parser, task_handle, name) {}
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
-            return ni::NiDAQmxInterface::CreateAIAccel4WireDCVoltageChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->terminal_config,
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->sensitivity,
-                    this->sensitivity_units,
-                    this->excitation_config.voltage_excit_source,
-                    this->excitation_config.voltage_excit_val,
-                    this->excitation_config.use_excit_for_scaling,
-                    NULL
-            );
-        }
-    
+        return ni::NiDAQmxInterface::CreateAIAccel4WireDCVoltageChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->terminal_config,
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->sensitivity,
+                this->sensitivity_units,
+                this->excitation_config.voltage_excit_source,
+                this->excitation_config.voltage_excit_val,
+                this->excitation_config.use_excit_for_scaling,
+                this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -737,20 +712,18 @@ class AccelerationCharge final : public Analog {
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIAccelChargeChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->sensitivity,
-                        this->sensitivity_units,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIAccelChargeChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->sensitivity,
+                    this->sensitivity_units,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -771,20 +744,18 @@ class Resistance final : public Analog{
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
-            return ni::NiDAQmxInterface::CreateAIResistanceChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->resistance_config,
-                    this->excitation_config.voltage_excit_source,
-                    this->excitation_config.voltage_excit_val,
-                    NULL
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAIResistanceChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->resistance_config,
+                this->excitation_config.voltage_excit_source,
+                this->excitation_config.voltage_excit_val,
+                this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -803,21 +774,19 @@ class Bridge final : public Analog {
             }
 
         int32 createNIChannel() override{
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIBridgeChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridge_config.ni_bridge_config,
-                        this->bridge_config.voltage_excit_source,
-                        this->bridge_config.voltage_excit_val,
-                        this->bridge_config.nominal_bridge_resistance,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIBridgeChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -859,25 +828,23 @@ public:
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
-            return ni::NiDAQmxInterface::CreateAIStrainGageChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->strain_config,
-                    this->excitation_config.voltage_excit_source,
-                    this->excitation_config.voltage_excit_val,
-                    this->gage_factor,
-                    this->initialBridgeVoltage,
-                    this->nominal_gage_resistance,
-                    this->poisson_ratio,
-                    this->lead_wire_resistance,
-                    NULL
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAIStrainGageChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->strain_config,
+                this->excitation_config.voltage_excit_source,
+                this->excitation_config.voltage_excit_val,
+                this->gage_factor,
+                this->initialBridgeVoltage,
+                this->nominal_gage_resistance,
+                this->poisson_ratio,
+                this->lead_wire_resistance,
+                this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -982,20 +949,18 @@ class Microphone final : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIMicrophoneChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->units,
-                        this->mic_sensitivity,
-                        this->max_snd_press_level,
-                        this->excitation_config.voltage_excit_source,
-                        this->excitation_config.voltage_excit_val,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIMicrophoneChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->units,
+                    this->mic_sensitivity,
+                    this->max_snd_press_level,
+                    this->excitation_config.voltage_excit_source,
+                    this->excitation_config.voltage_excit_val,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1019,19 +984,17 @@ public:
                     this->name = name.substr(0, pos) + "/ctr" + std::to_string(parser.required<std::uint64_t>("port"));
                 }
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
-            return ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->threshold_level,
-                    this->hysteresis,
-                    NULL
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->threshold_level,
+                this->hysteresis,
+                this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -1053,27 +1016,25 @@ class PressureBridgeTwoPointLin final : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridge_config.ni_bridge_config,
-                        this->bridge_config.voltage_excit_source,
-                        this->bridge_config.voltage_excit_val,
-                        this->bridge_config.nominal_bridge_resistance,
-                        this->two_point_lin_config.first_electrical_val,
-                        this->two_point_lin_config.second_electrical_val,
-                        this->two_point_lin_config.electrical_units,
-                        this->two_point_lin_config.first_physical_val,
-                        this->two_point_lin_config.second_physical_val,
-                        this->two_point_lin_config.physical_units,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->two_point_lin_config.first_electrical_val,
+                    this->two_point_lin_config.second_electrical_val,
+                    this->two_point_lin_config.electrical_units,
+                    this->two_point_lin_config.first_physical_val,
+                    this->two_point_lin_config.second_physical_val,
+                    this->two_point_lin_config.physical_units,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1091,27 +1052,25 @@ class PressureBridgeTable final : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridge_config.ni_bridge_config,
-                        this->bridge_config.voltage_excit_source,
-                        this->bridge_config.voltage_excit_val,
-                        this->bridge_config.nominal_bridge_resistance,
-                        this->table_config.electrical_vals,
-                        this->table_config.num_eletrical_vals,
-                        this->table_config.electrical_units,
-                        this->table_config.physicalVals,
-                        this->table_config.num_physical_vals,
-                        this->table_config.physical_units,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->table_config.electrical_vals,
+                    this->table_config.num_eletrical_vals,
+                    this->table_config.electrical_units,
+                    this->table_config.physicalVals,
+                    this->table_config.num_physical_vals,
+                    this->table_config.physical_units,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1129,27 +1088,25 @@ public:
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
-            return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->bridge_config.ni_bridge_config,
-                    this->bridge_config.voltage_excit_source,
-                    this->bridge_config.voltage_excit_val,
-                    this->bridge_config.nominal_bridge_resistance,
-                    this->polynomial_config.forward_coeffs,
-                    this->polynomial_config.num_forward_coeffs,
-                    this->polynomial_config.reverse_coeffs,
-                    this->polynomial_config.num_reverse_coeffs,
-                    this->polynomial_config.electrical_units,
-                    this->polynomial_config.physical_units,
-                    NULL
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->bridge_config.ni_bridge_config,
+                this->bridge_config.voltage_excit_source,
+                this->bridge_config.voltage_excit_val,
+                this->bridge_config.nominal_bridge_resistance,
+                this->polynomial_config.forward_coeffs,
+                this->polynomial_config.num_forward_coeffs,
+                this->polynomial_config.reverse_coeffs,
+                this->polynomial_config.num_reverse_coeffs,
+                this->polynomial_config.electrical_units,
+                this->polynomial_config.physical_units,
+                this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -1170,27 +1127,25 @@ public:
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
-            return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->bridge_config.ni_bridge_config,
-                    this->bridge_config.voltage_excit_source,
-                    this->bridge_config.voltage_excit_val,
-                    this->bridge_config.nominal_bridge_resistance,
-                    this->polynomial_config.forward_coeffs,
-                    this->polynomial_config.num_forward_coeffs,
-                    this->polynomial_config.reverse_coeffs,
-                    this->polynomial_config.num_reverse_coeffs,
-                    this->polynomial_config.electrical_units,
-                    this->polynomial_config.physical_units,
-                    NULL
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->bridge_config.ni_bridge_config,
+                this->bridge_config.voltage_excit_source,
+                this->bridge_config.voltage_excit_val,
+                this->bridge_config.nominal_bridge_resistance,
+                this->polynomial_config.forward_coeffs,
+                this->polynomial_config.num_forward_coeffs,
+                this->polynomial_config.reverse_coeffs,
+                this->polynomial_config.num_reverse_coeffs,
+                this->polynomial_config.electrical_units,
+                this->polynomial_config.physical_units,
+                this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -1208,27 +1163,25 @@ class ForceBridgeTable final : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIForceBridgeTableChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridge_config.ni_bridge_config,
-                        this->bridge_config.voltage_excit_source,
-                        this->bridge_config.voltage_excit_val,
-                        this->bridge_config.nominal_bridge_resistance,
-                        this->table_config.electrical_vals,
-                        this->table_config.num_eletrical_vals,
-                        this->table_config.electrical_units,
-                        this->table_config.physicalVals,
-                        this->table_config.num_physical_vals,
-                        this->table_config.physical_units,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIForceBridgeTableChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->table_config.electrical_vals,
+                    this->table_config.num_eletrical_vals,
+                    this->table_config.electrical_units,
+                    this->table_config.physicalVals,
+                    this->table_config.num_physical_vals,
+                    this->table_config.physical_units,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1246,27 +1199,25 @@ class ForceBridgeTwoPointLin final : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIForceBridgeTwoPointLinChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridge_config.ni_bridge_config,
-                        this->bridge_config.voltage_excit_source,
-                        this->bridge_config.voltage_excit_val,
-                        this->bridge_config.nominal_bridge_resistance,
-                        this->two_point_lin_config.first_electrical_val,
-                        this->two_point_lin_config.second_electrical_val,
-                        this->two_point_lin_config.electrical_units,
-                        this->two_point_lin_config.first_physical_val,
-                        this->two_point_lin_config.second_physical_val,
-                        this->two_point_lin_config.physical_units,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIForceBridgeTwoPointLinChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->two_point_lin_config.first_electrical_val,
+                    this->two_point_lin_config.second_electrical_val,
+                    this->two_point_lin_config.electrical_units,
+                    this->two_point_lin_config.first_physical_val,
+                    this->two_point_lin_config.second_physical_val,
+                    this->two_point_lin_config.physical_units,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1294,22 +1245,20 @@ class VelocityIEPE final : public Analog{
                   }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->terminal_config,
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->sensitivity,
-                        this->sensitivity_units,
-                        this->excitation_config.voltage_excit_source,
-                        this->excitation_config.voltage_excit_val,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->sensitivity,
+                    this->sensitivity_units,
+                    this->excitation_config.voltage_excit_source,
+                    this->excitation_config.voltage_excit_val,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1329,27 +1278,25 @@ class TorqueBridgeTwoPointLin final : public Analog{
                 }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAITorqueBridgeTwoPointLinChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridge_config.ni_bridge_config,
-                        this->bridge_config.voltage_excit_source,
-                        this->bridge_config.voltage_excit_val,
-                        this->bridge_config.nominal_bridge_resistance,
-                        this->two_point_lin_config.first_electrical_val,
-                        this->two_point_lin_config.second_electrical_val,
-                        this->two_point_lin_config.electrical_units,
-                        this->two_point_lin_config.first_physical_val,
-                        this->two_point_lin_config.second_physical_val,
-                        this->two_point_lin_config.physical_units,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAITorqueBridgeTwoPointLinChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->two_point_lin_config.first_electrical_val,
+                    this->two_point_lin_config.second_electrical_val,
+                    this->two_point_lin_config.electrical_units,
+                    this->two_point_lin_config.first_physical_val,
+                    this->two_point_lin_config.second_physical_val,
+                    this->two_point_lin_config.physical_units,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1367,27 +1314,25 @@ class TorqueBridgePolynomial final : public Analog{
                 }
 
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAITorqueBridgePolynomialChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridge_config.ni_bridge_config,
-                        this->bridge_config.voltage_excit_source,
-                        this->bridge_config.voltage_excit_val,
-                        this->bridge_config.nominal_bridge_resistance,
-                        this->polynomial_config.forward_coeffs,
-                        this->polynomial_config.num_forward_coeffs,
-                        this->polynomial_config.reverse_coeffs,
-                        this->polynomial_config.num_reverse_coeffs,
-                        this->polynomial_config.electrical_units,
-                        this->polynomial_config.physical_units,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAITorqueBridgePolynomialChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->polynomial_config.forward_coeffs,
+                    this->polynomial_config.num_forward_coeffs,
+                    this->polynomial_config.reverse_coeffs,
+                    this->polynomial_config.num_reverse_coeffs,
+                    this->polynomial_config.electrical_units,
+                    this->polynomial_config.physical_units,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1405,27 +1350,25 @@ class TorqueBridgeTable final : public Analog{
                     this->units = ni::UNITS_MAP.at(u);
                   }
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none"){
-                return ni::NiDAQmxInterface::CreateAITorqueBridgeTableChan(
-                        this->task_handle,
-                        this->name.c_str(),
-                        "",
-                        this->min_val,
-                        this->max_val,
-                        this->units,
-                        this->bridge_config.ni_bridge_config,
-                        this->bridge_config.voltage_excit_source,
-                        this->bridge_config.voltage_excit_val,
-                        this->bridge_config.nominal_bridge_resistance,
-                        this->table_config.electrical_vals,
-                        this->table_config.num_eletrical_vals,
-                        this->table_config.electrical_units,
-                        this->table_config.physicalVals,
-                        this->table_config.num_physical_vals,
-                        this->table_config.physical_units,
-                        NULL
-                );
-            }
+            return ni::NiDAQmxInterface::CreateAITorqueBridgeTableChan(
+                    this->task_handle,
+                    this->name.c_str(),
+                    "",
+                    this->min_val,
+                    this->max_val,
+                    this->units,
+                    this->bridge_config.ni_bridge_config,
+                    this->bridge_config.voltage_excit_source,
+                    this->bridge_config.voltage_excit_val,
+                    this->bridge_config.nominal_bridge_resistance,
+                    this->table_config.electrical_vals,
+                    this->table_config.num_eletrical_vals,
+                    this->table_config.electrical_units,
+                    this->table_config.physicalVals,
+                    this->table_config.num_physical_vals,
+                    this->table_config.physical_units,
+                    this->scale_config->name.c_str()
+            );
         }
 };
 
@@ -1451,22 +1394,20 @@ public:
                 }
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
-            return ni::NiDAQmxInterface::CreateAIForceIEPEChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->terminal_config,
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->sensitivity,
-                    this->sensitivity_units,
-                    this->excitation_config.voltage_excit_source,
-                    this->excitation_config.voltage_excit_val,
-                    NULL
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAIForceIEPEChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->terminal_config,
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->sensitivity,
+                this->sensitivity_units,
+                this->excitation_config.voltage_excit_source,
+                this->excitation_config.voltage_excit_val,
+                this->scale_config->name.c_str()
+        );
     }
 };
 
@@ -1485,18 +1426,16 @@ public:
             }
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none"){
-            return ni::NiDAQmxInterface::CreateAIChargeChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->terminal_config,
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    NULL
-            );
-        }
+        return ni::NiDAQmxInterface::CreateAIChargeChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->terminal_config,
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->scale_config->name.c_str()
+        );
     }
 
 };
