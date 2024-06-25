@@ -54,7 +54,11 @@ import {
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
-import { ANALOG_INPUT_FORMS, NameField, SelectChannelTypeField } from "./ChannelForms";
+import {
+  ANALOG_INPUT_FORMS,
+  ChannelField,
+  SelectChannelTypeField,
+} from "./ChannelForms";
 
 export const configureAnalogReadLayout: Layout.State = {
   name: "Configure NI Analog Read Task",
@@ -125,73 +129,6 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
-
-      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
-      dev.properties = enrich(dev.model, dev.properties);
-
-      let modified = false;
-      let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
-      if (!shouldCreateIndex) {
-        try {
-          await client.channels.retrieve(dev.properties.analogInput.index);
-        } catch (e) {
-          if (e instanceof QueryError) shouldCreateIndex = true;
-          else throw e;
-        }
-      }
-
-      if (shouldCreateIndex) {
-        modified = true;
-        const aiIndex = await client.channels.create({
-          name: `${dev.properties.identifier}_ai_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.analogInput.index = aiIndex.key;
-        dev.properties.analogInput.channels = {};
-      }
-
-      const toCreate: AIChan[] = [];
-      for (const channel of config.channels) {
-        // check if the channel is in properties
-        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-        if (primitiveIsZero(exKey)) toCreate.push(channel);
-        else {
-          try {
-            await client.channels.retrieve(exKey.toString());
-          } catch (e) {
-            if (e instanceof QueryError) toCreate.push(channel);
-            else throw e;
-          }
-        }
-      }
-
-      if (toCreate.length > 0) {
-        modified = true;
-        const channels = await client.channels.create(
-          toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_ai_${c.port}`,
-            dataType: "float32",
-            index: dev.properties.analogInput.index,
-          })),
-        );
-        channels.forEach((c, i) => {
-          dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key;
-        });
-      }
-
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-
-      config.channels.forEach((c) => {
-        c.channel = dev.properties.analogInput.channels[c.port.toString()];
-      });
-      methods.set("config", config);
-      if (dev == null) return;
-
       const t = await rack.createTask<
         AnalogReadConfig,
         AnalogReadStateDetails,
@@ -216,15 +153,6 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
     },
   });
 
-  const placer = Layout.usePlacer();
-
-  const handleDeviceChange = async (v: string) => {
-    if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
-    if (configured) return;
-    placer(NI.Device.createConfigureLayout(v, {}));
-  };
-
   return (
     <Align.Space className={CSS.B("ni-analog-read-task")} direction="y" grow empty>
       <Align.Space className={CSS.B("content")} grow>
@@ -235,12 +163,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
             </Form.Field>
           </Align.Space>
           <Align.Space direction="x">
-            <Form.Field<string>
-              path="config.device"
-              label="Device"
-              grow
-              onChange={handleDeviceChange}
-            >
+            <Form.Field<string> path="config.device" label="Device" grow>
               {(p) => (
                 <Device.SelectSingle
                   allowNone={false}
@@ -332,7 +255,7 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   return (
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-        <NameField path={prefix} />
+        <ChannelField path={prefix} />
         <SelectChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
         <TypeForm prefix={prefix} />
       </Align.Space>
@@ -479,6 +402,8 @@ const ChannelListItem = ({
 }: List.ItemProps<string, Chan> & {
   path: string;
 }): ReactElement => {
+  const { entry } = props;
+  const hasLine = "line" in entry;
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
   const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
@@ -502,46 +427,50 @@ const ChannelListItem = ({
             style={{ width: "3rem" }}
             color={portValid ? undefined : "var(--pluto-error-z)"}
           >
-            {childValues.port}
+            {childValues.port} {hasLine && `/${entry.line}`}
           </Text.Text>
-          <Text.Text level="p" weight={500} shade={9}>
-            {AI_CHANNEL_TYPE_NAMES[childValues.type]}
-          </Text.Text>
-        </Align.Space>
-        <Text.Text level="p" shade={6}></Text.Text>
-      </Align.Space>
-      <Align.Space direction="x" size="small">
-        <Align.Space direction="x" size="small" className={CSS.B("hover-actions")}>
-          <Button.Icon size="small" variant="outlined" tooltip="Plot Live Data">
-            <Icon.Visualize color="var(--pluto-gray-l7)" />
-          </Button.Icon>
-        </Align.Space>
-        <Button.Toggle
-          checkedVariant="outlined"
-          uncheckedVariant="outlined"
-          value={childValues.enabled}
-          size="small"
-          onClick={(e) => e.stopPropagation()}
-          onChange={(v) => {
-            ctx.set(`${path}.enabled`, v);
-          }}
-          tooltip={
-            <Text.Text level="small" style={{ maxWidth: 300 }}>
-              Data acquisition for this channel is{" "}
-              {childValues.enabled ? "enabled" : "disabled"}. Click to
-              {childValues.enabled ? " disable" : " enable"} it.
-            </Text.Text>
-          }
-        >
-          <Status.Text
-            variant={childValues.enabled ? "success" : "disabled"}
-            level="small"
-            align="center"
+          <Text.Text
+            level="p"
+            weight={500}
+            shade={9}
+            color={(() => {
+              if (channelName === "No Synnax Channel") return "var(--pluto-warning-z)";
+              else if (channelValid) return undefined;
+              return "var(--pluto-error-z)";
+            })()}
           >
-            {childValues.enabled ? "Enabled" : "Disabled"}
-          </Status.Text>
-        </Button.Toggle>
+            {channelName}
+          </Text.Text>
+        </Align.Space>
+        <Text.Text level="p" shade={6}>
+          {AI_CHANNEL_TYPE_NAMES[childValues.type]}
+        </Text.Text>
       </Align.Space>
+      <Button.Toggle
+        checkedVariant="outlined"
+        uncheckedVariant="outlined"
+        value={childValues.enabled}
+        size="small"
+        onClick={(e) => e.stopPropagation()}
+        onChange={(v) => {
+          ctx.set({ path: `${path}.enabled`, value: v });
+        }}
+        tooltip={
+          <Text.Text level="small" style={{ maxWidth: 300 }}>
+            Data acquisition for this channel is{" "}
+            {childValues.enabled ? "enabled" : "disabled"}. Click to
+            {childValues.enabled ? " disable" : " enable"} it.
+          </Text.Text>
+        }
+      >
+        <Status.Text
+          variant={childValues.enabled ? "success" : "disabled"}
+          level="small"
+          align="center"
+        >
+          {childValues.enabled ? "Enabled" : "Disabled"}
+        </Status.Text>
+      </Button.Toggle>
     </List.ItemFrame>
   );
 };

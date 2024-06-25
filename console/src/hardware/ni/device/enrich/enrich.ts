@@ -10,10 +10,10 @@
 import { UnknownRecord } from "@synnaxlabs/x";
 
 import data from "@/hardware/ni/device/enrich/enriched.json";
-import { Properties, PropertiesDigest } from "@/hardware/ni/device/types";
+import { EnrichedProperties, PropertiesDigest } from "@/hardware/ni/device/types";
 
 type PickedEnrichedProperties = Pick<
-  Properties,
+  EnrichedProperties,
   | "analogInput"
   | "analogOutput"
   | "digitalInputOutput"
@@ -21,14 +21,12 @@ type PickedEnrichedProperties = Pick<
   | "digitalOutput"
 >;
 
-export const enrich = (model: string, info: PropertiesDigest): Properties => {
-  if (info.enriched === true) return info as Properties;
-  const enriched = (data as unknown as UnknownRecord)[model] as {
+export const enrich = (info: PropertiesDigest): EnrichedProperties => {
+  const enriched = (data as unknown as UnknownRecord)[info.model] as {
     estimatedPinout: PickedEnrichedProperties;
   };
   return {
     ...info,
     ...enriched.estimatedPinout,
-    enriched: true,
-  } as Properties;
+  } as EnrichedProperties;
 };

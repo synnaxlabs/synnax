@@ -484,13 +484,11 @@ export const ChannelListItem = memo(
       }
       startDrag(haulItems, ({ dropped }) => {
         const keys = dropped.map((d) => d.key);
-        const channels = methods.get<ChannelConfig[]>({
-          path: groupChannels,
-        }).value;
-        methods.set({
-          path: groupChannels,
-          value: channels.filter((c) => !keys.includes(c.key)),
-        });
+        const channels = methods.get<ChannelConfig[]>(groupChannels).value;
+        methods.set(
+          groupChannels,
+          channels.filter((c) => !keys.includes(c.key)),
+        );
       });
     }, [startDrag, props.entry.key, groupIndex, getSelected, methods.get, methods.set]);
 
@@ -535,7 +533,7 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement | nu
   const ctx = Form.useContext();
   if (!ctx.has(prefix)) return null;
 
-  const role = ctx.get<string>({ path: `${prefix}.role` }).value;
+  const role = ctx.get<string>(`${prefix}.role`).value;
 
   return (
     <>

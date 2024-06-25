@@ -33,7 +33,7 @@ import { type ReactElement, useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { NameField } from "@/hardware/ni/task/ChannelForms";
+import { ChannelField } from "@/hardware/ni/task/ChannelForms";
 import {
   AnalogReadStateDetails,
   Chan,
@@ -236,8 +236,8 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
     <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-      <NameField fieldKey="cmdChannel" label="Command Channel" path={prefix} />
-      <NameField fieldKey="stateChannel" label="State Channel" path={prefix} />
+      <ChannelField fieldKey="cmdChannel" label="Command Channel" path={prefix} />
+      <ChannelField fieldKey="stateChannel" label="State Channel" path={prefix} />
       <Align.Space direction="x" grow>
         <Form.NumericField path={`${prefix}.port`} label="Port" grow />
         <Form.NumericField path={`${prefix}.line`} label="Line" grow />
