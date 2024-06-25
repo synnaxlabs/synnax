@@ -97,8 +97,8 @@ struct ChannelConfig {
 struct ReaderConfig {
     std::string device_key;
     std::vector<ChannelConfig> channels;
-    std::uint64_t sample_rate = 0;
-    std::uint64_t stream_rate = 0;
+    synnax::Rate sample_rate = synnax::Rate(1);
+    synnax::Rate stream_rate = synnax::Rate(1);
     std::string device_name;
     std::string task_name;
     std::string timing_source; // for sample clock

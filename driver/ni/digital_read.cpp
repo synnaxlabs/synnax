@@ -66,25 +66,21 @@ int ni::DigitalReadSource::createChannels() {
 int ni::DigitalReadSource::configureTiming() {
     if (this->reader_config.timing_source == "none") {
         // if timing is not enabled, implement timing in software
-        auto period_s = 1.0 / this->reader_config.sample_rate;
-        auto period_ns = (uint64_t) (period_s * 1000000000);
-        this->reader_config.period = period_ns;
-
         this->numSamplesPerChannel = 1;
     } else {
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
             this->reader_config.timing_source.c_str(),
-            this->reader_config.sample_rate,
+            this->reader_config.sample_rate.value,
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
-            this->reader_config.sample_rate))) {
+            this->reader_config.sample_rate.value))) {
             LOG(ERROR) << "[NI Reader] failed while configuring timing for task " <<
                     this->reader_config.task_name;
             this->ok_state = false;
             return -1;
         }
         this->numSamplesPerChannel = std::floor(
-            this->reader_config.sample_rate / this->reader_config.stream_rate);
+            this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
     }
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
     return 0;
@@ -97,9 +93,10 @@ void ni::DigitalReadSource::acquireData() {
         DataPacket data_packet;
         data_packet.data = new uInt8[this->bufferSize];
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
+
         // sleep per sample rate
-        std::this_thread::sleep_for(
-            std::chrono::nanoseconds(this->reader_config.period));
+        auto samp_period = this->reader_config.stream_rate.period().chrono();
+        std::this_thread::sleep_for(samp_period);
 
         if (this->checkNIError(
                 ni::NiDAQmxInterface::ReadDigitalLines(
@@ -125,9 +122,8 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
     // sleep per stream rate
-    std::this_thread::sleep_for(
-        std::chrono::nanoseconds(
-            (uint64_t) ((1.0 / this->reader_config.stream_rate) * 1000000000)));
+    auto ns_period = this->reader_config.stream_rate.period().chrono();
+    std::this_thread::sleep_for(ns_period);
 
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();

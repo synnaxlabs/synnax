@@ -83,11 +83,11 @@ int ni::AnalogReadSource::configureTiming() {
     if (this->reader_config.timing_source == "none") {
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
             "",
-            this->reader_config.sample_rate,
+            this->reader_config.sample_rate.value,
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
-            this->reader_config.sample_rate))) {
-            LOG(ERROR) << "[NI Reader] failed while configuring timing for task " <<
+            this->reader_config.sample_rate.value))) {
+            LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
                     this->reader_config.task_name;
             this->ok_state = false;
             return -1;
@@ -95,11 +95,11 @@ int ni::AnalogReadSource::configureTiming() {
     } else {
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
             this->reader_config.timing_source.c_str(),
-            this->reader_config.sample_rate,
+            this->reader_config.sample_rate.value,
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
-            this->reader_config.sample_rate))) {
-            LOG(ERROR) << "[NI Reader] failed while configuring timing for task " <<
+            this->reader_config.sample_rate.value))) {
+            LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
                     this->reader_config.task_name;
             this->ok_state = false;
             return -1;
@@ -108,8 +108,7 @@ int ni::AnalogReadSource::configureTiming() {
     // we read data in chunks of numSamplesPerChannel such that we can send frames of data of size numSamplesPerChannel at the stream rate
     // e.g. if we have 4 channels and we want to stream at 100Hz at a 1000hz sample rate
     // make a make a call to read 10 samples at 100hz
-    this->numSamplesPerChannel = std::floor(
-        this->reader_config.sample_rate / this->reader_config.stream_rate);
+    this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
     this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
     return 0;
 }
@@ -141,10 +140,9 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
     // sleep per stream rate
-    std::this_thread::sleep_for(
-        std::chrono::nanoseconds(
-            (uint64_t) ((1.0 / this->reader_config.stream_rate) * 1000000000)));
-
+    auto ns_period = this->reader_config.stream_rate.period().chrono();
+    std::this_thread::sleep_for(ns_period);
+        
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();
 
@@ -195,9 +193,9 @@ int ni::AnalogReadSource::createChannels() {
         this->numAIChannels++;
         this->checkNIError(channel.ni_channel->createNIScale());
         this->checkNIError(channel.ni_channel->createNIChannel());
-        LOG(INFO) << "[NI Reader] created scale for " << channel.name;
+        LOG(INFO) << "[ni.reader] created scale for " << channel.name;
         if (!this->ok()) {
-            LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.
+            LOG(ERROR) << "[ni.reader] failed while configuring channel " << channel.
                     name;
             return -1;
         }

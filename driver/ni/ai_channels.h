@@ -398,19 +398,18 @@ public:
             : Current(parser, task_handle, name) {}
 
     int32 createNIChannel() override {
-        if(this->scale_config->type == "none")
-            return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
-                    this->task_handle,
-                    this->name.c_str(),
-                    "",
-                    this->terminal_config,
-                    this->min_val,
-                    this->max_val,
-                    this->units,
-                    this->shunt_resistor_loc,
-                    this->ext_shunt_resistor_val,
-                    this->scale_config->name.c_str()
-            );
+        return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
+                this->task_handle,
+                this->name.c_str(),
+                "",
+                this->terminal_config,
+                this->min_val,
+                this->max_val,
+                this->units,
+                this->shunt_resistor_loc,
+                this->ext_shunt_resistor_val,
+                this->scale_config->name.c_str()
+        );
     }
 };
 ///////////////////////////////////////////////////////////////////////////////////
@@ -585,8 +584,8 @@ class ThermistorVex final : public Analog{
                 c(parser.required<double>("c")),
                 r1(parser.required<double>("r1")){
         } 
+        
         int32 createNIChannel() override {
-            if(this->scale_config->type == "none")
             return ni::NiDAQmxInterface::CreateAIThrmstrChanVex(
                 this->task_handle,
                 this->name.c_str(),
@@ -614,6 +613,7 @@ class Acceleration  : public Analog {
         int32_t sensitivity_units;
         CurrentExcitationConfig excitation_config;
         int32 terminal_config = 0;
+
         explicit Acceleration(config::Parser &parser, TaskHandle task_handle, const std::string &name)
             : Analog(parser, task_handle, name),
                 terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))),
@@ -839,7 +839,6 @@ public:
         if(s == "TeeRosette") return DAQmx_Val_TeeRosette;
         return DAQmx_Val_RectangularRosette;
     }
-
 
     static inline int32_t get_rosette_meas_type(std::string s){
         if(s == "PrincipalStrain1") return DAQmx_Val_PrincipalStrain1;
@@ -1204,6 +1203,7 @@ class TorqueBridgeTwoPointLin final : public Analog{
 public:
     BridgeConfig bridge_config;
     TwoPointLinConfig two_point_lin_config;
+
     explicit TorqueBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle, const std::string &name)
         : Analog(parser, task_handle, name),
             bridge_config(parser),
@@ -1338,6 +1338,7 @@ public:
 class Charge final : public Analog {
 public:
     int32 terminal_config = 0;
+
     explicit Charge(config::Parser &parser, TaskHandle task_handle, const std::string &name)
         :   Analog(parser, task_handle, name),
             terminal_config(ni::get_terminal_config(parser.required<std::string>("terminal_config"))){

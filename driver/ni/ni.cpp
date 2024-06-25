@@ -57,8 +57,8 @@ ni::Source::Source(
 
 void ni::Source::parseConfig(config::Parser &parser) {
     // Get Acquisition Rate and Stream Rates
-    this->reader_config.sample_rate = parser.required<uint64_t>("sample_rate");
-    this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
+    this->reader_config.sample_rate.value = parser.required<uint64_t>("sample_rate");
+    this->reader_config.stream_rate.value = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.required<std::string>("device");
     this->reader_config.timing_source = "none";
     // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
