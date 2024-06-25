@@ -127,13 +127,13 @@ class Client:
         self,
         tr: TimeRange,
         params: ChannelParams,
-        chunk_size: int = 5e5,
+        chunk_size: int = 1e5,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
         :param params: A list of channel keys to iterator over.
         :param tr: A time range to iterate over.
-        :param chunk_size: The number of samples to read in a chunk with AutoSpan. Defaults to 500000
+        :param chunk_size: The number of samples to read in a chunk with AutoSpan. Defaults to 100000
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
