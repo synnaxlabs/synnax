@@ -51,21 +51,38 @@ static inline int32_t get_excitation_src(const std::string &s){
     return DAQmx_Val_None;
 }
 // TODO: make one for current excitation for correct parsing
-struct ExcitationConfig {
-    int32_t voltage_excit_source;
-    double voltage_excit_val;
+struct VoltageExcitationConfig {
+    int32_t excit_source;
+    double excit_val;
     double min_val_for_excitation; // optional
     double max_val_for_excitation; //optional
     bool32 use_excit_for_scaling; //optional
     
-    ExcitationConfig(config::Parser &parser)
-        :   voltage_excit_source(get_excitation_src(parser.required<std::string>("voltage_excit_source"))),
-            voltage_excit_val(parser.required<double>("voltage_excit_val")),
+    VoltageExcitationConfig(config::Parser &parser)
+        :   excit_source(get_excitation_src(parser.required<std::string>("voltage_excit_source"))),
+            excit_val(parser.required<double>("voltage_excit_val")),
             min_val_for_excitation(parser.optional<double>("min_val_for_excitation", 0)),
             max_val_for_excitation(parser.optional<double>("max_val_for_excitation", 0)),
             use_excit_for_scaling(parser.optional<bool32>("use_excit_for_scaling", 0)) {
     }
 };
+
+struct CurrentExcitationConfig{
+    int32_t excit_source;
+    double excit_val;
+    double min_val_for_excitation; // optional
+    double max_val_for_excitation; //optional
+    bool32 use_excit_for_scaling; //optional
+
+    CurrentExcitationConfig(config::Parser &parser)
+        :   excit_source(get_excitation_src(parser.required<std::string>("current_excit_source"))),
+            excit_val(parser.required<double>("current_excit_val")),
+            min_val_for_excitation(parser.optional<double>("min_val_for_excitation", 0)),
+            max_val_for_excitation(parser.optional<double>("max_val_for_excitation", 0)),
+            use_excit_for_scaling(parser.optional<bool32>("use_excit_for_scaling", 0)) {
+    }
+};
+
 
 struct BridgeConfig {
     int32_t ni_bridge_config;
@@ -309,7 +326,7 @@ class VoltageRMS final : public Voltage {
 class VoltageWithExcit final : public Voltage {
     public:
         int32_t bridge_config = 0;
-        ExcitationConfig excitation_config;
+        VoltageExcitationConfig excitation_config;
 
         explicit VoltageWithExcit(config::Parser &parser, TaskHandle task_handle, const std::string &name)
             :   Voltage(parser, task_handle, name),
@@ -328,8 +345,8 @@ class VoltageWithExcit final : public Voltage {
                 this->max_val,
                 this->units,
                 this->bridge_config,
-                this->excitation_config.voltage_excit_source,
-                this->excitation_config.voltage_excit_val,
+                this->excitation_config.excit_source,
+                this->excitation_config.excit_val,
                 this->excitation_config.min_val_for_excitation,
                 this->scale_config->name.c_str()
             ); 
@@ -403,7 +420,7 @@ class RTD final : public Analog{
     public:
         int32_t rtdType;
         int32_t resistance_config;
-        ExcitationConfig excitation_config;
+        CurrentExcitationConfig excitation_config;
         double r0;
 
         static int32_t getRTDType(std::string type){
@@ -435,8 +452,8 @@ class RTD final : public Analog{
                     this->units,
                     this->rtdType,
                     this->resistance_config,
-                    this->excitation_config.voltage_excit_source, //TODO change name to current
-                    this->excitation_config.voltage_excit_val, //TODO change name to current
+                    this->excitation_config.excit_source, //TODO change name to current
+                    this->excitation_config.excit_val, //TODO change name to current
                     this->r0
             );
         }
@@ -519,7 +536,7 @@ class TemperatureBuiltInSensor final : public Analog{
 class ThermistorIEX final : public Analog{
     public:
         int32_t resistance_config;
-        ExcitationConfig excitation_config;
+        CurrentExcitationConfig excitation_config;
         double a;
         double b;
         double c;
@@ -542,8 +559,8 @@ class ThermistorIEX final : public Analog{
                 this->max_val,
                 this->units,
                 this->resistance_config,
-                this->excitation_config.voltage_excit_source, // current excitation source FIXME
-                this->excitation_config.voltage_excit_val,    // current excitation val FIXME
+                this->excitation_config.excit_source, // current excitation source FIXME
+                this->excitation_config.excit_val,    // current excitation val FIXME
                 this->a,
                 this->b,
                 this->c
@@ -553,7 +570,7 @@ class ThermistorIEX final : public Analog{
 class ThermistorVex final : public Analog{
     public:
         int32_t resistance_config;
-        ExcitationConfig excitation_config;
+        VoltageExcitationConfig excitation_config;
         double a;
         double b;
         double c;
@@ -578,8 +595,8 @@ class ThermistorVex final : public Analog{
                 this->max_val,
                 this->units,
                 this->resistance_config,
-                this->excitation_config.voltage_excit_source, // current excitation source FIXME
-                this->excitation_config.voltage_excit_val,    // current excitation val FIXME
+                this->excitation_config.excit_source, // current excitation source FIXME
+                this->excitation_config.excit_val,    // current excitation val FIXME
                 this->a,
                 this->b,
                 this->c,
@@ -595,7 +612,7 @@ class Acceleration  : public Analog {
     public:
         double sensitivity;
         int32_t sensitivity_units;
-        ExcitationConfig excitation_config;
+        CurrentExcitationConfig excitation_config;
         int32 terminal_config = 0;
         explicit Acceleration(config::Parser &parser, TaskHandle task_handle, const std::string &name)
             : Analog(parser, task_handle, name),
@@ -620,8 +637,8 @@ class Acceleration  : public Analog {
                     this->units,
                     this->sensitivity,
                     this->sensitivity_units,
-                    this->excitation_config.voltage_excit_source,
-                    this->excitation_config.voltage_excit_val,
+                    this->excitation_config.excit_source,
+                    this->excitation_config.excit_val,
                     this->scale_config->name.c_str()
             );
         }
@@ -644,8 +661,8 @@ public:
                 this->units,
                 this->sensitivity,
                 this->sensitivity_units,
-                this->excitation_config.voltage_excit_source,
-                this->excitation_config.voltage_excit_val,
+                this->excitation_config.excit_source,
+                this->excitation_config.excit_val,
                 this->excitation_config.use_excit_for_scaling,
                 this->scale_config->name.c_str()
         );
@@ -685,7 +702,7 @@ class AccelerationCharge final : public Analog {
 class Resistance final : public Analog{
     public:
     int32_t resistance_config;
-    ExcitationConfig excitation_config;
+    CurrentExcitationConfig excitation_config;
 
     explicit Resistance(config::Parser &parser, TaskHandle task_handle, const std::string &name)
         : Analog(parser, task_handle, name),
@@ -702,8 +719,8 @@ class Resistance final : public Analog{
                 this->max_val,
                 this->units,
                 this->resistance_config,
-                this->excitation_config.voltage_excit_source,
-                this->excitation_config.voltage_excit_val,
+                this->excitation_config.excit_source,
+                this->excitation_config.excit_val,
                 this->scale_config->name.c_str()
         );
     }
@@ -742,7 +759,7 @@ class Bridge final : public Analog {
 class StrainGage final : public Analog{
 public:
     int32_t strain_config;
-    ExcitationConfig excitation_config;
+    VoltageExcitationConfig excitation_config;
     double gage_factor;
     double initialBridgeVoltage;
     double nominal_gage_resistance;
@@ -780,8 +797,8 @@ public:
                 this->max_val,
                 this->units,
                 this->strain_config,
-                this->excitation_config.voltage_excit_source,
-                this->excitation_config.voltage_excit_val,
+                this->excitation_config.excit_source,
+                this->excitation_config.excit_val,
                 this->gage_factor,
                 this->initialBridgeVoltage,
                 this->nominal_gage_resistance,
@@ -800,7 +817,7 @@ public:
     double gage_orientation;
     int32 rosette_meas_type;
     int32 strain_config;
-    ExcitationConfig excitation_config;
+    VoltageExcitationConfig excitation_config;
     double gage_factor;
     double nominal_gage_resistance;
     double poisson_ratio;
@@ -861,8 +878,8 @@ public:
                 &this->rosette_meas_type,
                 1, // bynRosseteMeasTypes // TODO: what is this for
                 this->strain_config,
-                this->excitation_config.voltage_excit_source,
-                this->excitation_config.voltage_excit_val,
+                this->excitation_config.excit_source,
+                this->excitation_config.excit_val,
                 this->gage_factor,
                 this->nominal_gage_resistance,
                 this->poisson_ratio,
@@ -877,7 +894,7 @@ class Microphone final : public Analog{
 public:
     double mic_sensitivity;
     double max_snd_press_level;
-    ExcitationConfig excitation_config;
+    CurrentExcitationConfig excitation_config;
     int32 terminal_config = 0;
 
     explicit Microphone(config::Parser &parser, TaskHandle task_handle, const std::string &name)
@@ -897,8 +914,8 @@ public:
                 this->units,
                 this->mic_sensitivity,
                 this->max_snd_press_level,
-                this->excitation_config.voltage_excit_source,
-                this->excitation_config.voltage_excit_val,
+                this->excitation_config.excit_source,
+                this->excitation_config.excit_val,
                 this->scale_config->name.c_str()
         );
     }
@@ -1152,7 +1169,7 @@ class VelocityIEPE final : public Analog{
 public:
     int32_t sensitivity_units;
     double sensitivity;
-    ExcitationConfig excitation_config;
+    CurrentExcitationConfig excitation_config;
     int32_t terminal_config = 0;
 
     explicit VelocityIEPE(config::Parser &parser, TaskHandle task_handle, const std::string &name)
@@ -1174,8 +1191,8 @@ public:
                 this->units,
                 this->sensitivity,
                 this->sensitivity_units,
-                this->excitation_config.voltage_excit_source,
-                this->excitation_config.voltage_excit_val,
+                this->excitation_config.excit_source,
+                this->excitation_config.excit_val,
                 this->scale_config->name.c_str()
         );
     }
@@ -1287,7 +1304,7 @@ class ForceIEPE final : public Analog{
 public:
     int32_t sensitivity_units;
     double sensitivity;
-    ExcitationConfig excitation_config;
+    CurrentExcitationConfig excitation_config;
     int32 terminal_config = 0;
 
     explicit ForceIEPE(config::Parser &parser, TaskHandle task_handle, const std::string &name)
@@ -1309,8 +1326,8 @@ public:
                 this->units,
                 this->sensitivity,
                 this->sensitivity_units,
-                this->excitation_config.voltage_excit_source,
-                this->excitation_config.voltage_excit_val,
+                this->excitation_config.excit_source,
+                this->excitation_config.excit_val,
                 this->scale_config->name.c_str()
         );
     }

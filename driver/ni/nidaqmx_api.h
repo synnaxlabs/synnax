@@ -430,7 +430,9 @@ public:
         int32 units,
         int32 rtdType,
         int32 resistanceConfig,
-        int32 currentExcitSource, float64 currentExcitVal, float64 r0);
+        int32 currentExcitSource, 
+        float64 currentExcitVal, 
+        float64 r0);
 
     static int32 CreateAIResistanceChan(
         TaskHandle task,
