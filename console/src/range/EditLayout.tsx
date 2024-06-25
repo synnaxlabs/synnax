@@ -11,7 +11,7 @@ import "@/range/EditLayout.css";
 
 import { TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Form, Nav, Synnax, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useRef } from "react";
@@ -35,12 +35,15 @@ const formSchema = z.object({
 
 export const EDIT_LAYOUT_TYPE = "editRange";
 
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+
 export const createEditLayout = (name: string = "Create Range"): Layout.State => ({
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
   windowKey: EDIT_LAYOUT_TYPE,
   name,
-  location: "window",
+  icon: "Range",
+  location: "modal",
   window: {
     resizable: false,
     size: { height: 290, width: 700 },
@@ -184,20 +187,26 @@ const EditLayoutForm = ({
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
+          <Text.Text shade={7} level="small">
+            To Save
+          </Text.Text>
+        </Nav.Bar.Start>
         <Nav.Bar.End style={{ padding: "1rem" }}>
+          <Button.Button variant="outlined" onClick={() => mutate(false)}>
+            Save {!isRemoteEdit && "Locally"}
+          </Button.Button>
           {(isCreate || !isRemoteEdit) && (
             <Button.Button
               onClick={() => mutate(true)}
-              variant="outlined"
               disabled={client == null || isPending}
               loading={isPending}
+              triggers={[SAVE_TRIGGER]}
             >
               Save to Synnax
             </Button.Button>
           )}
-          <Button.Button onClick={() => mutate(false)}>
-            Save {!isRemoteEdit && "Locally"}
-          </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
     </Align.Space>

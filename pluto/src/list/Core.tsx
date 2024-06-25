@@ -59,7 +59,6 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   className,
   ...props
 }: VirtualCoreProps<K, E>): ReactElement => {
-  if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
   const { hasMore, onFetchMore } = useInfiniteContext();
   const { hover: hoverValue, setHover } = useHoverContext();
   const {
@@ -94,6 +93,8 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   if (items.at(-1)?.index === data.length - 1 && hasMore) {
     onFetchMore?.();
   }
+
+  if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
 
   const empty = data.length === 0;
 

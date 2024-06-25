@@ -11,12 +11,12 @@ import { nanoid } from "nanoid/non-secure";
 
 import {
   type ChannelConfig,
-  type EnrichedProperties,
+  type Properties,
   type GroupConfig,
 } from "@/hardware/ni/device/types";
 
 const buildAnalogInputGroups = (
-  info: EnrichedProperties,
+  info: Properties,
   identifier: string,
 ): GroupConfig[] => {
   const prefix = `${identifier.toLowerCase()}_ai_`;
@@ -56,7 +56,7 @@ const buildAnalogInputGroups = (
 };
 
 const buildAnalogOutputGroups = (
-  info: EnrichedProperties,
+  info: Properties,
   identifier: string,
 ): GroupConfig[] => {
   const identifierLower = identifier.toLowerCase();
@@ -132,7 +132,7 @@ const buildAnalogOutputGroups = (
 };
 
 const buildDigitalInputOutputGroups = (
-  info: EnrichedProperties,
+  info: Properties,
   identifier: string,
 ): GroupConfig[] => {
   const commandGroups: GroupConfig[] = [];
@@ -202,7 +202,7 @@ const buildDigitalInputOutputGroups = (
 };
 
 const buildDigitalInputGroups = (
-  info: EnrichedProperties,
+  info: Properties,
   identifier: string,
 ): GroupConfig[] => {
   const prefix = `${identifier.toLowerCase()}_di_`;
@@ -244,7 +244,7 @@ const buildDigitalInputGroups = (
 };
 
 const buildDigitalOutputGroups = (
-  info: EnrichedProperties,
+  info: Properties,
   identifier: string,
 ): GroupConfig[] => {
   const commandGroups: GroupConfig[] = [];
@@ -313,7 +313,7 @@ const buildDigitalOutputGroups = (
 };
 
 export const buildPhysicalDevicePlan = (
-  input: EnrichedProperties,
+  input: Properties,
   identifier: string,
 ): GroupConfig[] => {
   const groups: GroupConfig[] = [];

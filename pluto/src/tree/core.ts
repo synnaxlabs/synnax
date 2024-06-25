@@ -256,3 +256,6 @@ export const findNodeParent = ({ tree, key }: FindNodeParentProps): Node | null 
   }
   return null;
 };
+
+export const deepCopy = (nodes: Node[]): Node[] =>
+  nodes.map((node) => ({ ...node, children: deepCopy(node.children ?? []) }));

@@ -41,16 +41,17 @@ export const Text = <L extends Core.Level>({
   className,
   style,
   trigger,
+  children,
   ...props
 }: TextProps<L>): ReactElement => {
   return (
-    <Align.Space className={className} style={style} direction="x">
+    <>
       {trigger.map((t) => (
         // @ts-expect-error - issues with generic element types
         <Core.Keyboard<L> key={t} {...props}>
           {getCustomText(t)}
         </Core.Keyboard>
       ))}
-    </Align.Space>
+    </>
   );
 };

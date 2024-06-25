@@ -68,7 +68,7 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        const field = result.current.get({ path: "name" });
+        const field = result.current.get("name");
         expect(field.value).toBe("John Doe");
         expect(field.status.variant).toEqual("success");
       });
@@ -79,7 +79,7 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        const field = result.current.get({ path: "nested.ssn" });
+        const field = result.current.get("nested.ssn");
         expect(field.value).toBe("123-45-6789");
       });
       it("should throw an error if optional is false and the field is null", () => {
@@ -89,7 +89,7 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        expect(() => result.current.get({ path: "ssn", optional: false })).toThrow();
+        expect(() => result.current.get("ssn")).toThrow();
       });
       it("should return null if optional is true and the field is null", () => {
         const { result } = renderHook(() =>
@@ -98,7 +98,7 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        const field = result.current.get({ path: "ssn", optional: true });
+        const field = result.current.get("ssn", { optional: true });
         expect(field).toBeNull();
       });
       it("should return true if a field is required in the schema", () => {
@@ -108,7 +108,7 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        const field = result.current.get({ path: "age" });
+        const field = result.current.get("age");
         expect(field.required).toBe(true);
       });
     });
@@ -120,8 +120,8 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        result.current.set({ path: "name", value: "Jane Doe" });
-        const field = result.current.get({ path: "name" });
+        result.current.set("name", "Jane Doe");
+        const field = result.current.get("name");
         expect(field.value).toBe("Jane Doe");
       });
     });
@@ -139,7 +139,7 @@ describe("Form", () => {
           listenToChildren: false,
           onChange,
         });
-        result.current.set({ path: "name", value: "Jane Doe" });
+        result.current.set("name", "Jane Doe");
         expect(onChange).toHaveBeenCalled();
       });
     });
@@ -152,7 +152,7 @@ describe("Form", () => {
           }),
         );
         expect(result.current.validate()).toBe(false);
-        expect(result.current.get({ path: "age" }).status.variant).toEqual("error");
+        expect(result.current.get("age").status.variant).toEqual("error");
       });
       it("should call a bound listener if a validation error occurs", () => {
         const { result } = renderHook(() =>

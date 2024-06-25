@@ -10,7 +10,7 @@
 import "@/hardware/ni/device/CreateChannels.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { CSS as PCSS, Form, Haul, Select } from "@synnaxlabs/pluto";
+import { Button, CSS as PCSS, Form, Haul, Menu, Select } from "@synnaxlabs/pluto";
 import { Note } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
@@ -31,7 +31,7 @@ interface MostRecentSelectedState {
 
 interface SelectedGroupState {
   index: number;
-  key: string;
+  keys: string[];
 }
 
 const channelRoleDocumentation: Record<string, ReactElement> = {
@@ -69,7 +69,13 @@ const groupRoleDocumentation: Record<string, ReactElement> = {
   ),
 };
 
-export const CreateChannels = (): ReactElement => {
+export interface CreateChannelsProps {
+  applyDefaultGroups: () => void;
+}
+
+export const CreateChannels = ({
+  applyDefaultGroups,
+}: CreateChannelsProps): ReactElement => {
   const model = Form.useField<string>({ path: "properties.model" }).value;
   const [mostRecentSelected, setMostRecentSelected] =
     useState<MostRecentSelectedState | null>(null);
@@ -79,9 +85,14 @@ export const CreateChannels = (): ReactElement => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
   const handleGroupSelect = useCallback(
-    (key: string, index: number): void => {
-      setSelectedGroup({ index, key });
-      setMostRecentSelected({ key, type: "group", index });
+    (keys: string[], index: number): void => {
+      if (keys.length > 0) {
+        setMostRecentSelected({ key: keys[0], type: "group", index });
+        setSelectedGroup({ index, keys });
+      } else {
+        setMostRecentSelected(null);
+        setSelectedGroup(undefined);
+      }
     },
     [setMostRecentSelected, setSelectedGroup],
   );
@@ -99,59 +110,81 @@ export const CreateChannels = (): ReactElement => {
   );
 
   const clearSelection = useCallback((): void => {
+    setSelectedGroup(undefined);
     setMostRecentSelected(null);
     setSelectedChannels([]);
   }, [setMostRecentSelected, setSelectedChannels]);
 
   return (
-    <Align.Space direction="x" grow className={CSS.B("physical-plan")} size={10}>
-      <Align.Space direction="y" className={CSS.B("description")}>
-        <Text.Text level="h2" weight={600}>
-          Here are the channels we'll create for your {model} device
-        </Text.Text>
-        <Align.Space className="description" direction="y" size="small">
-          <Text.Text level="p">
-            These channels will store data from the inputs and send commands to the
-            outputs of your device. We'll just focus on creating them for now, and you
-            can define parameters like calibration and sampling rate later.
+    <Align.Space
+      direction="x"
+      grow
+      className={CSS(CSS.B("physical-plan"), CSS.B("ni"))}
+      empty
+    >
+      <Align.Space
+        direction="y"
+        className={CSS.B("description")}
+        justify="spaceBetween"
+      >
+        <Align.Space direction="y">
+          <Text.Text level="h2" weight={600}>
+            Here are the channels we'll create for your {model} device
           </Text.Text>
-          <Text.Text level="p">
-            They are separated into indepedent sampling groups. We've automatically
-            identified the channel groupings we think would work well for your device.
-          </Text.Text>
-          <Text.Text level="p">
-            <b>All channels in a group must be sampled together</b>. What does this
-            mean? Let's say you have two analog input channels (ai_1 and ai_2) that are
-            part of the same group. It's not possible to sample ai_1 at 1 kHz in one
-            acquisition task and ai_2 at 10 Hz in another. If you need to sample them at
-            different rates, split them into separate groups.
-          </Text.Text>
-          <Text.Text level="p">
-            Click on a group to see what its purpose is, and split any groups that need
-            to have indepedendent sampling rates.{" "}
-          </Text.Text>
-          <Text.Text level="p">
-            Don't worry, you can reconfigure the channels for the device later if you
-            need to.
-          </Text.Text>
-          <Text.Text level="p"></Text.Text>
+          <Align.Space className="description" direction="y" size="small">
+            <Text.Text level="p">
+              These channels will store data from the inputs and send commands to the
+              outputs of your device. We'll just focus on creating them for now, and you
+              can define parameters like calibration and sampling rate later.
+            </Text.Text>
+            <Text.Text level="p">
+              They are separated into indepedent sampling groups. We've automatically
+              identified the channel groupings we think would work well for your device.
+            </Text.Text>
+            <Text.Text level="p">
+              <b>All channels in a group must be sampled together</b>. What does this
+              mean? Let's say you have two analog input channels (ai_1 and ai_2) that
+              are part of the same group. It's not possible to sample ai_1 at 1 kHz in
+              one acquisition task and ai_2 at 10 Hz in another. If you need to sample
+              them at different rates, split them into separate groups.
+            </Text.Text>
+            <Text.Text level="p">
+              Click on a group to see what its purpose is, and split any groups that
+              need to have indepedendent sampling rates.{" "}
+            </Text.Text>
+            <Text.Text level="p">
+              Don't worry, you can reconfigure the channels for the device later if you
+              need to.
+            </Text.Text>
+          </Align.Space>
+        </Align.Space>
+        <Align.Space direction="x" size="small">
+          <Button.Button onClick={applyDefaultGroups} variant="outlined">
+            Reset to Default Groups
+          </Button.Button>
         </Align.Space>
       </Align.Space>
       <Align.Space direction="y" bordered className={CSS.B("form")} grow empty>
-        <Align.Space direction="x" empty className={PCSS(PCSS.bordered("bottom"))}>
+        <Align.Space direction="x" empty className={PCSS(PCSS.bordered("bottom"))} grow>
           <GroupList
-            selectedGroup={selectedGroup?.key}
+            selectedGroups={selectedGroup?.keys ?? []}
+            selectedGroupIndex={selectedGroup?.index}
             onSelectGroup={handleGroupSelect}
             clearSelection={clearSelection}
           />
-          {selectedGroup != null && (
-            <ChannelList
-              key={selectedGroup.key}
-              selectedGroupIndex={selectedGroup.index}
-              selectedChannels={selectedChannels}
-              onSelectChannels={handleChannelSelect}
-            />
-          )}
+          <Align.Space className={CSS.B("channels")} grow empty>
+            <Header.Header level="h3">
+              <Header.Title weight={500}>Channels</Header.Title>
+            </Header.Header>
+            {selectedGroup != null && (
+              <ChannelList
+                key={selectedGroup.index}
+                selectedGroupIndex={selectedGroup.index}
+                selectedChannels={selectedChannels}
+                onSelectChannels={handleChannelSelect}
+              />
+            )}
+          </Align.Space>
         </Align.Space>
         <Align.Space className={CSS.B("details")} grow empty>
           {mostRecentSelected != null && (
@@ -164,19 +197,24 @@ export const CreateChannels = (): ReactElement => {
 };
 
 interface GroupListProps {
-  selectedGroup: string | undefined;
-  onSelectGroup: (key: string, index: number) => void;
+  selectedGroups: string[];
+  selectedGroupIndex?: number;
+  onSelectGroup: (keys: string[], index: number) => void;
   clearSelection: () => void;
 }
 
 const GroupList = ({
-  selectedGroup,
+  selectedGroups,
   onSelectGroup,
   clearSelection,
+  selectedGroupIndex,
 }: GroupListProps): ReactElement => {
-  const { push, value } = Form.useFieldArray<GroupConfig>({ path: "groups" });
+  const { value, remove, add } = Form.useFieldArray<GroupConfig>({
+    path: "groups",
+  });
+  const menuProps = Menu.useContextMenu();
   return (
-    <Align.Space className={CSS.B("groups")} grow empty>
+    <Align.Space className={CSS(CSS.B("groups"))} grow empty>
       <Header.Header level="h3">
         <Header.Title weight={500}>Sampling Groups</Header.Title>
         <Header.Actions>
@@ -184,15 +222,18 @@ const GroupList = ({
             {
               onClick: () => {
                 const key = nanoid();
-                onSelectGroup(key, value.length);
-                push({
-                  key,
-                  name: "New Group",
-                  channels: [],
-                  channelPrefix: "",
-                  channelSuffix: "",
-                  role: "unknown",
-                });
+                onSelectGroup([key], value.length);
+                add(
+                  {
+                    key,
+                    name: "New Group",
+                    channels: [],
+                    channelPrefix: "",
+                    channelSuffix: "",
+                    role: "unknown",
+                  },
+                  (selectedGroupIndex ?? 0) + 1,
+                );
               },
               children: <Icon.Add />,
               size: "large",
@@ -200,19 +241,46 @@ const GroupList = ({
           ]}
         </Header.Actions>
       </Header.Header>
-      <List.List<string, GroupConfig> data={value}>
-        <List.Selector<string, GroupConfig>
-          value={selectedGroup as string}
-          allowMultiple={false}
-          onChange={(key: string, { clickedIndex }: { clickedIndex: number | null }) =>
-            clickedIndex != null && onSelectGroup(key, clickedIndex)
-          }
-        >
-          <List.Core<string, GroupConfig> grow>
-            {(props) => <GroupListItem clearSelection={clearSelection} {...props} />}
-          </List.Core>
-        </List.Selector>
-      </List.List>
+      <Menu.ContextMenu
+        menu={({ keys }) => {
+          const handleSelect = (key: string) => {
+            switch (key) {
+              case "remove": {
+                const indices = keys.map((k) => value.findIndex((v) => v.key === k));
+                remove(indices);
+                const newSelectedGroup = value.findIndex((v) => !keys.includes(v.key));
+                if (newSelectedGroup >= 0)
+                  onSelectGroup([value[newSelectedGroup].key], newSelectedGroup);
+                else clearSelection();
+              }
+            }
+          };
+          return (
+            <Menu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                Remove
+              </Menu.Item>
+            </Menu.Menu>
+          );
+        }}
+        {...menuProps}
+      >
+        <List.List<string, GroupConfig> data={value}>
+          <List.Selector<string, GroupConfig>
+            value={selectedGroups as string[]}
+            allowMultiple
+            replaceOnSingle
+            onChange={(
+              keys: string[],
+              { clickedIndex }: { clickedIndex: number | null },
+            ) => clickedIndex != null && onSelectGroup(keys, clickedIndex)}
+          >
+            <List.Core<string, GroupConfig> grow>
+              {(props) => <GroupListItem clearSelection={clearSelection} {...props} />}
+            </List.Core>
+          </List.Selector>
+        </List.List>
+      </Menu.ContextMenu>
     </Align.Space>
   );
 };
@@ -226,7 +294,7 @@ const GroupListItem = ({
 }: GroupListItemProps): ReactElement => {
   const {
     index,
-    entry: { name, channels },
+    entry: { channels },
     hovered,
     selected,
   } = props;
@@ -242,18 +310,21 @@ const GroupListItem = ({
     onDrop: ({ items }) => {
       props.onSelect?.(props.entry.key);
       const path = `groups.${index}.channels`;
-      const v = ctx.get<ChannelConfig[]>({ path });
-      ctx.set({
+      const v = ctx.get<ChannelConfig[]>(path);
+      ctx.set(
         path,
-        value: v.value
+        v.value
           .concat(items.map((i) => ({ ...(i.data as ChannelConfig) })))
           .sort((a, b) => a.port - b.port),
-      });
+      );
       setDraggingOver(false);
       return items;
     },
     onDragOver: () => setDraggingOver(true),
   });
+
+  const name = Form.useFieldValue<string>(`groups.${index}.name`, true);
+  const channelsAreValid = Form.useFieldValid(`groups.${index}.channels`);
 
   return (
     <List.ItemFrame
@@ -265,7 +336,11 @@ const GroupListItem = ({
       justify="spaceBetween"
     >
       <Align.Space direction="y" size="small">
-        <Text.Text level="p" weight={500}>
+        <Text.Text
+          level="p"
+          weight={500}
+          color={!channelsAreValid && "var(--pluto-error-z)"}
+        >
           {name}
         </Text.Text>
         <Align.Space direction="x" size="small">
@@ -346,30 +421,20 @@ const ChannelList = ({
   });
 
   return (
-    <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h3">
-        <Header.Title weight={500}>Channels</Header.Title>
-      </Header.Header>
-      <List.List<string, ChannelConfig> data={channels.value}>
-        <List.Selector<string, ChannelConfig>
-          value={selectedChannels}
-          allowNone={false}
-          onChange={onSelectChannels}
-          replaceOnSingle
-        >
-          <List.Column.Header<string, ChannelConfig>
-            columns={CHANNEL_LIST_COLUMNS}
-            hide
-          >
-            <List.Core<string, ChannelConfig> grow>
-              {(props) => (
-                <ChannelListItem {...props} groupIndex={selectedGroupIndex} />
-              )}
-            </List.Core>
-          </List.Column.Header>
-        </List.Selector>
-      </List.List>
-    </Align.Space>
+    <List.List<string, ChannelConfig> data={channels.value}>
+      <List.Selector<string, ChannelConfig>
+        value={selectedChannels}
+        allowNone={false}
+        onChange={onSelectChannels}
+        replaceOnSingle
+      >
+        <List.Column.Header<string, ChannelConfig> columns={CHANNEL_LIST_COLUMNS} hide>
+          <List.Core<string, ChannelConfig> grow>
+            {(props) => <ChannelListItem {...props} groupIndex={selectedGroupIndex} />}
+          </List.Core>
+        </List.Column.Header>
+      </List.Selector>
+    </List.List>
   );
 };
 
@@ -390,7 +455,7 @@ export const ChannelListItem = memo(
 
     const methods = Form.useContext();
     const [validPort, setValidPort] = useState<boolean>(
-      methods.get({ path: prefix, optional: true })?.status.variant !== "error",
+      methods.get(prefix, { optional: true })?.status.variant !== "error",
     );
     Form.useFieldListener({
       path: `groups.${groupIndex}.channels.${props.index}.port`,
@@ -409,7 +474,7 @@ export const ChannelListItem = memo(
       ];
       if (selected.includes(props.entry.key)) {
         const channels = methods
-          .get<ChannelConfig[]>({ path: groupChannels })
+          .get<ChannelConfig[]>(groupChannels)
           .value.filter((c) => selected.includes(c.key));
         haulItems = channels.map((c) => ({
           key: c.key,
@@ -455,7 +520,8 @@ export interface DetailsProps {
 
 const Details = ({ selected, groupIndex }: DetailsProps): ReactElement | null => {
   if (groupIndex == null) return null;
-  if (selected.type === "group") return <GroupForm index={selected.index} />;
+  if (selected.type === "group")
+    return <GroupForm key={selected.index} index={selected.index} />;
   return <ChannelForm index={selected.index} groupIndex={groupIndex} />;
 };
 
@@ -505,9 +571,7 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement | nu
       >
         {(p) => <Input.Numeric {...p} />}
       </Form.Field>
-      <Text.Text level="p" shade={7}>
-        <Note.Note variant="info">{channelRoleDocumentation[role]}</Note.Note>
-      </Text.Text>
+      <Note.Note variant="info">{channelRoleDocumentation[role]}</Note.Note>
     </>
   );
 };
@@ -521,7 +585,12 @@ const GroupForm = ({ index }: GroupFormProps): ReactElement => {
   const role = Form.useField<string>({ path: `${prefix}.role` }).value;
   return (
     <>
-      <Form.Field<string> path={`${prefix}.name`} label="Name" showLabel={false}>
+      <Form.Field<string>
+        path={`${prefix}.name`}
+        label="Name"
+        showLabel={false}
+        hideIfNull
+      >
         {(p) => (
           <Input.Text
             variant="natural"
@@ -532,14 +601,7 @@ const GroupForm = ({ index }: GroupFormProps): ReactElement => {
           />
         )}
       </Form.Field>
-      {/* <Form.Field<string> path={`${prefix}.role`} label="Role" showLabel={false}>
-        {(p) => (
-          <Select.Role {...p} location="top" allowNone={false} hideColumnHeader />
-        )}
-      </Form.Field> */}
-      <Text.Text level="p" shade={7}>
-        {groupRoleDocumentation[role]}
-      </Text.Text>
+      <Note.Note variant="info">{groupRoleDocumentation[role]}</Note.Note>
     </>
   );
 };

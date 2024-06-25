@@ -109,6 +109,7 @@ import {
   TbArrowLeft,
   TbArrowRight,
   TbArrowUp,
+  TbLivePhoto,
   TbPlugConnected,
   TbPlugConnectedX,
   TbSubtask,
@@ -314,6 +315,7 @@ export const Icon: IconType = {
   Link: wrapIcon(MdLink),
   Attachment: wrapIcon(GrAttachment),
   Drag: wrapIcon(GrDrag),
+  Dynamic: wrapIcon(TbLivePhoto),
   Enable: wrapIcon(MdOutlineMotionPhotosOn),
   Disable: wrapIcon(MdOutlineMotionPhotosOff),
 };
@@ -430,4 +432,5 @@ export interface IconType {
   Attachment: IconFC;
   Disable: IconFC;
   Enable: IconFC;
+  Dynamic: IconFC;
 }

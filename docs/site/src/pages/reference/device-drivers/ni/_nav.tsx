@@ -23,5 +23,25 @@ export const niNav: PageNavNode = {
       href: "/reference/device-drivers/ni/supported-devices",
       name: "Supported Devices",
     },
+    {
+      key: "/reference/device-drivers/ni/configure-device",
+      href: "/reference/device-drivers/ni/configure-device",
+      name: "Configure a Device",
+    },
+    {
+      key: "/reference/device-drivers/ni/analog-read-task",
+      href: "/reference/device-drivers/ni/analog-read-task",
+      name: "Analog Read Task",
+    },
+    {
+      key: "/reference/device-drivers/ni/digital-write-task",
+      href: "/reference/device-drivers/ni/digital-write-task",
+      name: "Digital Write Task",
+    },
+    {
+      key: "/reference/device-drivers/ni/digital-read-task",
+      href: "/reference/device-drivers/ni/digital-read-task",
+      name: "Digital Read Task",
+    },
   ],
 };

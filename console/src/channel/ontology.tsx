@@ -11,16 +11,18 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
+  Divider,
   type Haul,
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
+import { UnknownRecord } from "@synnaxlabs/x";
+import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -98,122 +100,163 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
     {
       type: Schematic.HAUL_TYPE,
       key: "value",
-      data: schematicSymbolProps,
+      data: schematicSymbolProps as UnknownRecord,
     },
   ];
 };
 
-const allowRename = (): boolean => true;
-
-const handleSetAlias = async ({
-  id,
-  name,
-  client,
-  store,
-}: Ontology.HandleTreeRenameProps): Promise<void> => {
-  const activeRange = Range.select(store.getState());
-  if (activeRange == null) return;
-  const rng = await client.ranges.retrieve(activeRange.key);
-  await rng.setAlias(Number(id.key), name);
+const allowRename: Ontology.AllowRename = (res) => {
+  if (res.data?.internal === true) return false;
+  return true;
 };
 
-const handleRename: Ontology.HandleTreeRename = ({ client, name, id, addStatus }) => {
-  void (async () => {
-    try {
-      const channelKey = Number(id.key);
-      await client.channels.rename(channelKey, name);
-    } catch (e) {
+export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: ({ state: { nodes, setNodes }, selection: { resources } }) => {
+      const prevNodes = Tree.deepCopy(nodes);
+      setNodes([
+        ...Tree.removeNode({
+          tree: nodes,
+          keys: resources.map(({ id }) => id.toString()),
+        }),
+      ]);
+      return prevNodes;
+    },
+    mutationFn: async ({ client, selection: { resources } }) =>
+      await client.channels.delete(resources.map(({ id }) => Number(id.key))),
+    onError: (
+      e: Error,
+      { selection: { resources }, addStatus, state: { setNodes } },
+      prevNodes,
+    ) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      let message = "Failed to delete channels";
+      if (resources.length === 1)
+        message = `Failed to delete channel ${resources[0].name}`;
       addStatus({
+        key: nanoid(),
         variant: "error",
-        key: `renameChannelError-${id.key}`,
-        message: (e as Error).message,
+        message,
+        description: e.message,
       });
-    }
-  })();
-};
+    },
+  }).mutate;
 
-const handleDeleteAlias = async ({
-  selection: { resources },
-  client,
-  store,
-}: Ontology.TreeContextMenuProps): Promise<void> => {
-  const activeRange = Range.select(store.getState());
-  if (activeRange == null) return;
-  const rng = await client.ranges.retrieve(activeRange.key);
-  await rng.deleteAlias(...resources.map((r) => Number(r.id.key)));
-};
+export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
+    mutationFn: async ({ client, store, selection: { resources, nodes } }) => {
+      const [value, renamed] = await Tree.asyncRename(nodes[0].key);
+      if (!renamed) return;
+      const activeRange = Range.select(store.getState());
+      if (activeRange == null) return;
+      const rng = await client.ranges.retrieve(activeRange.key);
+      await rng.setAlias(Number(resources[0].id.key), value);
+    },
+    onError: (
+      e: Error,
+      { selection: { resources }, addStatus, state: { setNodes } },
+      prevNodes,
+    ) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      const first = resources[0];
+      addStatus({
+        key: nanoid(),
+        variant: "error",
+        message: `Failed to set alias for ${first.name}`,
+        description: e.message,
+      });
+    },
+  }).mutate;
+
+export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
+    mutationFn: async ({ client, selection: { resources, nodes } }) => {
+      const [value, renamed] = await Tree.asyncRename(nodes[0].key);
+      if (!renamed) return;
+      await client.channels.rename(Number(resources[0].id.key), value);
+    },
+    onError: (
+      e: Error,
+      { selection: { resources }, addStatus, state: { setNodes } },
+      prevNodes,
+    ) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      const first = resources[0];
+      addStatus({
+        key: nanoid(),
+        variant: "error",
+        message: `Failed to rename ${first.name}`,
+        description: e.message,
+      });
+    },
+  }).mutate;
+
+export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
+    mutationFn: async ({ client, store, selection: { resources } }) => {
+      const activeRange = Range.select(store.getState());
+      if (activeRange == null) return;
+      const rng = await client.ranges.retrieve(activeRange.key);
+      await rng.deleteAlias(...resources.map((r) => Number(r.id.key)));
+    },
+    onError: (
+      e: Error,
+      { selection: { resources }, addStatus, state: { setNodes } },
+      prevNodes,
+    ) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      const first = resources[0];
+      addStatus({
+        key: nanoid(),
+        variant: "error",
+        message: `Failed to remove alias on ${first.name}`,
+        description: e.message,
+      });
+    },
+  }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus } = props;
+  const { store, selection } = props;
   const activeRange = Range.select(store.getState());
-  const { nodes, resources } = selection;
-  const clusterKey = Cluster.useSelectActiveKey();
-
-  const handleSelect = (itemKey: string): void => {
-    switch (itemKey) {
-      case "alias":
-        Tree.startRenaming(nodes[0].key, (name) =>
-          handleSetAlias({ ...props, name, id: resources[0].id }),
-        );
-        break;
-      case "rename":
-        Tree.startRenaming(nodes[0].key, (name) => {
-          handleRename({ ...props, name, id: resources[0].id });
-        });
-        break;
-      case "deleteAlias":
-        handleDeleteAlias(props).catch((e: Error) => {
-          addStatus({
-            variant: "error",
-            key: "deleteAliasError",
-            message: e.message,
-          });
-        });
-        break;
-      case "delete":
-        client.channels
-          .delete(resources.map(({ id }) => Number(id.key)))
-          .catch((e: Error) => {
-            addStatus({
-              variant: "error",
-              key: nanoid(),
-              message: e.message,
-            });
-          });
-        break;
-      case "group":
-        void Group.fromSelection(props);
-        break;
-      case "link": {
-        const toCopy = `synnax://cluster/${clusterKey}/channel/${resources[0].id.key}`;
-        void navigator.clipboard.writeText(toCopy);
-        return;
-      }
-    }
+  const groupFromSelection = Group.useCreateFromSelection();
+  const setAlias = useSetAlias();
+  const delAlias = useDeleteAlias();
+  const del = useDelete();
+  const handleRename = useRename();
+  const handleSelect = {
+    group: () => groupFromSelection(props),
+    delete: () => del(props),
+    deleteAlias: () => delAlias(props),
+    alias: () => setAlias(props),
+    rename: () => handleRename(props),
   };
-
   const singleResource = selection.resources.length === 1;
-
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
-      <Group.GroupMenuItem selection={selection} />
       {singleResource && <Ontology.RenameMenuItem />}
+      <Group.GroupMenuItem selection={selection} />
       {activeRange != null && activeRange.persisted && (
         <>
+          <PMenu.Divider />
           {singleResource && (
             <PMenu.Item itemKey="alias" startIcon={<Icon.Rename />}>
               Set Alias Under {activeRange.name}
             </PMenu.Item>
           )}
           <PMenu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
-            Clear Alias Under {activeRange.name}
+            Remove Alias Under {activeRange.name}
           </PMenu.Item>
+          <PMenu.Divider />
         </>
       )}
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
       {singleResource && <Link.CopyMenuItem />}
+      <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );
@@ -234,7 +277,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Channel />,
   hasChildren: false,
   allowRename,
-  onRename: () => {},
+  onRename: undefined,
   canDrop,
   onSelect: handleSelect,
   haulItems,

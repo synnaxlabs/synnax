@@ -19,16 +19,18 @@ import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
+import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
 
 /** The variant of button */
-export type Variant = "filled" | "outlined" | "text";
+export type Variant = "filled" | "outlined" | "text" | "suggestion";
 
 export interface ButtonExtensionProps {
   variant?: Variant;
   size?: ComponentSize;
   sharp?: boolean;
   loading?: boolean;
+  triggers?: Triggers.Trigger[];
 }
 
 /** The base props accepted by all button types in this directory. */
@@ -77,6 +79,7 @@ export const Button = Tooltip.wrap(
     disabled = false,
     loading = false,
     level,
+    triggers,
     startIcon = [] as ReactElement[],
     delay = 0,
     onClick,
@@ -90,6 +93,12 @@ export const Button = Tooltip.wrap(
       const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
       if (span.isZero) return onClick?.(e);
     };
+
+    Triggers.use({
+      triggers,
+      // @ts-expect-error
+      callback: ({ stage }) => stage === "end" && handleClick(new MouseEvent("click")),
+    });
 
     return (
       <Text.WithIcon<"button", any>

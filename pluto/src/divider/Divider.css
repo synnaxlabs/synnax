@@ -17,7 +17,15 @@
         border-top: var(--pluto-border);
 
         &.pluto-divider--padded {
-            padding: 1rem 0;
+            &.pluto--center {
+                margin: 0.5rem 0;
+            }
+            &.pluto--top {
+                margin-top: 1rem;
+            }
+            &.pluto--bottom {
+                margin-bottom: 1.5rem;
+            }
         }
     }
 
@@ -26,7 +34,7 @@
         border-right: var(--pluto-border);
 
         &.pluto-divider--padded {
-            padding: 0 1rem;
+            margin: 0 0.5rem;
         }
     }
 }

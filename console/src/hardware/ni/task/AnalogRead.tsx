@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/ni/task/ConfigureAnalogRead.css";
+import "@/hardware/ni/task/AnalogRead.css";
 
-import { task } from "@synnaxlabs/client";
+import { QueryError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Button,
@@ -17,7 +17,6 @@ import {
   Form,
   Header,
   Menu,
-  Nav,
   Status,
   Synnax,
   useAsyncEffect,
@@ -27,13 +26,16 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { NI } from "@/hardware/ni";
+import { enrich } from "@/hardware/ni/device/enrich/enrich";
+import { Properties } from "@/hardware/ni/device/types";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -52,19 +54,14 @@ import {
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
-import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
+import { ANALOG_INPUT_FORMS, NameField, SelectChannelTypeField } from "./ChannelForms";
 
 export const configureAnalogReadLayout: Layout.State = {
   name: "Configure NI Analog Read Task",
   key: ANALOG_READ_TYPE,
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
-  location: "window",
-  window: {
-    resizable: true,
-    size: { width: 1200, height: 900 },
-    navTop: true,
-  },
+  location: "mosaic",
 };
 
 export const ConfigureAnalogRead: Layout.Renderer = ({ layoutKey }) => {
@@ -123,10 +120,78 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
+    onError: console.error,
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
+
+      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
+      dev.properties = enrich(dev.model, dev.properties);
+
+      let modified = false;
+      let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
+      if (!shouldCreateIndex) {
+        try {
+          await client.channels.retrieve(dev.properties.analogInput.index);
+        } catch (e) {
+          if (e instanceof QueryError) shouldCreateIndex = true;
+          else throw e;
+        }
+      }
+
+      if (shouldCreateIndex) {
+        modified = true;
+        const aiIndex = await client.channels.create({
+          name: `${dev.properties.identifier}_ai_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.analogInput.index = aiIndex.key;
+        dev.properties.analogInput.channels = {};
+      }
+
+      const toCreate: AIChan[] = [];
+      for (const channel of config.channels) {
+        // check if the channel is in properties
+        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+        if (primitiveIsZero(exKey)) toCreate.push(channel);
+        else {
+          try {
+            await client.channels.retrieve(exKey.toString());
+          } catch (e) {
+            if (e instanceof QueryError) toCreate.push(channel);
+            else throw e;
+          }
+        }
+      }
+
+      if (toCreate.length > 0) {
+        modified = true;
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: `${dev.properties.identifier}_ai_${c.port}`,
+            dataType: "float32",
+            index: dev.properties.analogInput.index,
+          })),
+        );
+        channels.forEach((c, i) => {
+          dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key;
+        });
+      }
+
+      if (modified)
+        await client.hardware.devices.create({
+          ...dev,
+          properties: dev.properties,
+        });
+
+      config.channels.forEach((c) => {
+        c.channel = dev.properties.analogInput.channels[c.port.toString()];
+      });
+      methods.set("config", config);
+      if (dev == null) return;
+
       const t = await rack.createTask<
         AnalogReadConfig,
         AnalogReadStateDetails,
@@ -151,6 +216,15 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
     },
   });
 
+  const placer = Layout.usePlacer();
+
+  const handleDeviceChange = async (v: string) => {
+    if (client == null) return;
+    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
+    if (configured) return;
+    placer(NI.Device.createConfigureLayout(v, {}));
+  };
+
   return (
     <Align.Space className={CSS.B("ni-analog-read-task")} direction="y" grow empty>
       <Align.Space className={CSS.B("content")} grow>
@@ -161,7 +235,12 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
             </Form.Field>
           </Align.Space>
           <Align.Space direction="x">
-            <Form.Field<string> path="config.device" label="Device" grow>
+            <Form.Field<string>
+              path="config.device"
+              label="Device"
+              grow
+              onChange={handleDeviceChange}
+            >
               {(p) => (
                 <Device.SelectSingle
                   allowNone={false}
@@ -209,12 +288,15 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
             </Align.Space>
           </Align.Space>
         </Form.Form>
-      </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          <Text.Text level="p">{JSON.stringify(taskState)}</Text.Text>
-        </Nav.Bar.Start>
-        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+        <Align.Space
+          direction="x"
+          style={{
+            borderRadius: "1rem",
+            border: "var(--pluto-border)",
+            padding: "2rem",
+          }}
+          justify="end"
+        >
           <Button.Icon
             loading={start.isPending}
             disabled={start.isPending || taskState == null}
@@ -230,8 +312,8 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
           >
             Configure
           </Button.Button>
-        </Nav.Bar.End>
-      </Nav.Bar>
+        </Align.Space>
+      </Align.Space>
     </Align.Space>
   );
 };
@@ -241,15 +323,16 @@ interface ChannelFormProps {
 }
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  if (selectedChannelIndex == -1) return <></>;
   const prefix = `config.channels.${selectedChannelIndex}`;
   const type = Form.useFieldValue<AIChanType>(`${prefix}.type`, true);
   if (type == null) return <></>;
   const TypeForm = ANALOG_INPUT_FORMS[type];
+  if (selectedChannelIndex == -1) return <></>;
 
   return (
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
+        <NameField path={prefix} />
         <SelectChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
         <TypeForm prefix={prefix} />
       </Align.Space>
@@ -310,15 +393,26 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             push(
               indices.map((i) => ({
                 ...deep.copy(value[i]),
+                channel: 0,
                 port: pf(),
                 key: nanoid(),
               })),
             );
           };
           const handleDisable = () =>
-            set((v) => v.map((c, i) => ({ ...c, enabled: !indices.includes(i) })));
+            set((v) =>
+              v.map((c, i) => {
+                if (!indices.includes(i)) return c;
+                return { ...c, enabled: false };
+              }),
+            );
           const handleEnable = () =>
-            set((v) => v.map((c, i) => ({ ...c, enabled: indices.includes(i) })));
+            set((v) =>
+              v.map((c, i) => {
+                if (!indices.includes(i)) return c;
+                return { ...c, enabled: true };
+              }),
+            );
           const allowDisable = indices.some((i) => value[i].enabled);
           const allowEnable = indices.some((i) => !value[i].enabled);
           return (
@@ -337,6 +431,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
               <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
                 Duplicate
               </Menu.Item>
+              <Menu.Divider />
               {allowDisable && (
                 <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
                   Disable
@@ -347,6 +442,10 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
                   Enable
                 </Menu.Item>
               )}
+              <Menu.Divider />
+              <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
+                Plot Live Data
+              </Menu.Item>
             </Menu.Menu>
           );
         }}
@@ -357,9 +456,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             value={selected}
             allowNone={false}
             allowMultiple={true}
-            onChange={(keys, { clickedIndex }) =>
-              clickedIndex != null && onSelect(keys, clickedIndex)
-            }
+            onChange={(keys, { clickedIndex }) => {
+              console.log(keys);
+
+              clickedIndex != null && onSelect(keys, clickedIndex);
+            }}
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
@@ -378,8 +479,6 @@ const ChannelListItem = ({
 }: List.ItemProps<string, Chan> & {
   path: string;
 }): ReactElement => {
-  const { entry } = props;
-  const hasLine = "line" in entry;
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
   const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
@@ -403,50 +502,46 @@ const ChannelListItem = ({
             style={{ width: "3rem" }}
             color={portValid ? undefined : "var(--pluto-error-z)"}
           >
-            {childValues.port} {hasLine && `/${entry.line}`}
+            {childValues.port}
           </Text.Text>
-          <Text.Text
-            level="p"
-            weight={500}
-            shade={9}
-            color={(() => {
-              if (channelName === "No Synnax Channel") return "var(--pluto-warning-z)";
-              else if (channelValid) return undefined;
-              return "var(--pluto-error-z)";
-            })()}
-          >
-            {channelName}
+          <Text.Text level="p" weight={500} shade={9}>
+            {AI_CHANNEL_TYPE_NAMES[childValues.type]}
           </Text.Text>
         </Align.Space>
-        <Text.Text level="p" shade={6}>
-          {AI_CHANNEL_TYPE_NAMES[childValues.type]}
-        </Text.Text>
+        <Text.Text level="p" shade={6}></Text.Text>
       </Align.Space>
-      <Button.Toggle
-        checkedVariant="outlined"
-        uncheckedVariant="outlined"
-        value={childValues.enabled}
-        size="small"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(v) => {
-          ctx.set({ path: `${path}.enabled`, value: v });
-        }}
-        tooltip={
-          <Text.Text level="small" style={{ maxWidth: 300 }}>
-            Data acquisition for this channel is{" "}
-            {childValues.enabled ? "enabled" : "disabled"}. Click to
-            {childValues.enabled ? " disable" : " enable"} it.
-          </Text.Text>
-        }
-      >
-        <Status.Text
-          variant={childValues.enabled ? "success" : "disabled"}
-          level="small"
-          align="center"
+      <Align.Space direction="x" size="small">
+        <Align.Space direction="x" size="small" className={CSS.B("hover-actions")}>
+          <Button.Icon size="small" variant="outlined" tooltip="Plot Live Data">
+            <Icon.Visualize color="var(--pluto-gray-l7)" />
+          </Button.Icon>
+        </Align.Space>
+        <Button.Toggle
+          checkedVariant="outlined"
+          uncheckedVariant="outlined"
+          value={childValues.enabled}
+          size="small"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(v) => {
+            ctx.set(`${path}.enabled`, v);
+          }}
+          tooltip={
+            <Text.Text level="small" style={{ maxWidth: 300 }}>
+              Data acquisition for this channel is{" "}
+              {childValues.enabled ? "enabled" : "disabled"}. Click to
+              {childValues.enabled ? " disable" : " enable"} it.
+            </Text.Text>
+          }
         >
-          {childValues.enabled ? "Enabled" : "Disabled"}
-        </Status.Text>
-      </Button.Toggle>
+          <Status.Text
+            variant={childValues.enabled ? "success" : "disabled"}
+            level="small"
+            align="center"
+          >
+            {childValues.enabled ? "Enabled" : "Disabled"}
+          </Status.Text>
+        </Button.Toggle>
+      </Align.Space>
     </List.ItemFrame>
   );
 };

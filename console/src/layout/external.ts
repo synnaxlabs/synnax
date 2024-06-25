@@ -17,6 +17,7 @@ export * from "@/layout/GetStarted";
 export * from "@/layout/hooks";
 export * from "@/layout/layout";
 export * from "@/layout/middleware";
+export * from "@/layout/Modals";
 export * from "@/layout/palette";
 export * from "@/layout/selectors";
 export * from "@/layout/slice";

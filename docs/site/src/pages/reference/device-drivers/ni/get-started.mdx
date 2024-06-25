@@ -6,34 +6,39 @@ description: "Learn how to acquire data from and control National Instruments ha
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
+import Note from "@/components/Note.astro";
 
 The National Instruments (NI) device driver allows Synnax to directly connect to your NI 
 hardware, including CompactDAQ, CompactRIO, and PXI systems. This page will walk you
-throught some of the important pre-requisites necessary to get started with the NI driver.
+through some of the important pre-requisites necessary to get started with the NI driver.
 
 <Divider.Divider direction="x" />
 
 ## Installation
 
-The NI driver comes pre-installed with a Synnax Cluster, and does not require any additional
-installation steps. 
+The NI Driver comes pre-installed with every Synnax Deployment. 
+
+### Installing DAQmx
+
+National Instruments' DAQmx drivers must be installed for Synnax to communicate with your
+hardware. Instructions for installing DAQmx can be found on the [National Instruments website.](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710)
+
+<Note variant="warning">
+Synnax will not be able to communicate with your hardware if DAQmx is not installed.
+</Note>
 
 <Divider.Divider direction="x" />
 
 ## OS Compatibility
 
-The NI driver is only compatible when running the Synnax Cluster on a Windows machine. 
+The NI driver is only compatible when running the Synnax Database on a Windows machine. 
 The driver will not be able to find your devices when running on Linux, macOS, or 
 within a Docker container (even if that container is running on Windows).
 
 <Divider.Divider direction="x" />
 
-## Automatic Device Detection
+## Next Steps
 
-The NI driver will automatically detect any connected NI hardware when the Synnax database
-is started. When using the Console, newly connected devices will appear as notifications
-in the bottom left corner of the screen.
-
-{/* Include Video */}
-
-You can also find recently connected devices by using the Resources toolbar.
+Now that you've installed DAQmx on your host machine, you're ready to start integrating
+your devices. Check out the [Configure a Device](/reference/device-drivers/ni/configure-device) 
+page to learn how to do so.

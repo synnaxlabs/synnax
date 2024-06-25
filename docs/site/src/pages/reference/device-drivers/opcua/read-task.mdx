@@ -69,7 +69,7 @@ Synnax can only accept live data from a channel from one source at a time. If
 you have a task running that reads from a `pressure` channel, you cannot create
 another task that reads from the same channel.
 
-### One Running Task Per Index Channel
+### One Running Task per Index Channel
 
 [Index channels](/reference/concepts/channels#channel-types) are use to store
 the timestamps for your data channels. When you configure a task to read from a
@@ -149,15 +149,16 @@ forward these samples to the server.
 
 For very low rate tasks (&lt;50Hz), we recommend setting the stream rate to the
 same value as the sample rate. For higher rate tasks, lowering the stream rate
-can significantly improve performance. It's typically best ot keep the stream
+can significantly improve performance. It's typically best to keep the stream
 rate below 50Hz unless you need to quickly process incoming data in real-time.
 
-### <StepText level="h3" step={5}>Configure Data Saving</StepText>
-If you would like to save the data to the database, toggle the Data Saving
-switch at the top. This will allow data to be saved to the database instead of
-just streamed from the OPC UA server.
+### <StepText level="h3" step={5}>Enable/Disable Data Saving</StepText>
 
-### <StepText level="h3" step={5}>Configure and Start the Task</StepText>
+Data saving defines whether acquired data will be permanently stored in Synnax. When
+enabled, Synnax will both stream and store data. When disabled, Synnax will only
+stream data for real-time visualization. Historical data will not be available for review.
+
+### <StepText level="h3" step={6}>Configure and Start the Task</StepText>
 
 Once you'd added all the channels you need, click the "Configure" button. If
 there are no errors, Synnax will acknowledge the configured task and enable the

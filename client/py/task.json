@@ -1,55 +1,66 @@
 {
-  "device": "130127d9-02aa-47e4-b370-0d590add1bc1",
-  "sample_rate": 50,
-  "stream_rate": 25,
-  "channels": [
-    {
-      "key": "h1pUTQ3Efo_0aYQqxE3Je",
-      "type": "ai_accel",
-      "channel": 1048585,
-      "port": 1,
-      "units": "g",
-      "enabled": true,
-      "min_val": 0,
-      "max_val": 0,
-      "terminal_config": "NRSE",
-      "sensitivity": 0,
-      "sensitivity_units": "mVoltsPerG",
-      "current_excit_source": "None",
-      "current_excit_val": 0
-    },
-    {
-      "key": "2FKZWIBLvK2-H2JWDXQ2f",
-      "type": "ai_pressure_bridge_polynomial",
-      "channel": 1048592,
-      "port": 2,
-      "enabled": true,
-      "min_val": 0,
-      "max_val": 0,
-      "units": "psi",
-      "bridge_config": "FullBridge",
-      "voltage_excit_source": "None",
-      "voltage_excit_val": 0,
-      "nominal_bridge_resistance": 0,
-      "forward_coeffs": [],
-      "reverse_coeffs": [],
-      "electrical_units": "mVoltsPerVolt",
-      "physical_units": "psi"
-    },
-    {
-      "key": "gNDqy5LMVwGOwPjyeCNlo",
-      "type": "ai_accel",
-      "channel": 1048598,
-      "port": 3,
-      "units": "g",
-      "enabled": true,
-      "min_val": 0,
-      "max_val": 0,
-      "terminal_config": "NRSE",
-      "sensitivity": 0,
-      "sensitivity_units": "VoltsPerG",
-      "current_excit_source": "None",
-      "current_excit_val": 0
-    }
-  ]
+    "device": "130227d9-02aa-47e4-b370-0d590add1bc1",
+    "sample_rate": 10,
+    "stream_rate": 5,
+    "channels": [
+        {
+            "key": "Fz88giJY1JJpBKhUqMcSU",
+            "type": "ai_voltage",
+            "terminal_config": "NRSE",
+            "channel": 1048635,
+            "port": 0,
+            "enabled": true,
+            "min_val": 0,
+            "max_val": 0,
+            "units": "Volts",
+            "custom_scale": {
+                "type": "table",
+                "pre_scaled_vals": [],
+                "scaled_vals": [],
+                "pre_scaled_units": "Volts"
+            }
+        },
+        {
+            "key": "MvthmoX9i8Txos1089Bse",
+            "type": "ai_voltage",
+            "terminal_config": "Cfg_Default",
+            "channel": 1048636,
+            "port": 1,
+            "enabled": true,
+            "min_val": 0,
+            "max_val": 0,
+            "units": "Volts",
+            "custom_scale": {
+                "type": "none"
+            }
+        },
+        {
+            "key": "HYZkSO4FLQHxKaJJa9vyg",
+            "type": "ai_voltage",
+            "terminal_config": "Cfg_Default",
+            "channel": 1048637,
+            "port": 2,
+            "enabled": true,
+            "min_val": 0,
+            "max_val": 0,
+            "units": "Volts",
+            "custom_scale": {
+                "type": "none"
+            }
+        },
+        {
+            "key": "2nz2SQo_X3VbzClcbcICu",
+            "type": "ai_voltage",
+            "terminal_config": "Cfg_Default",
+            "channel": 1048638,
+            "port": 3,
+            "enabled": true,
+            "min_val": 0,
+            "max_val": 0,
+            "units": "Volts",
+            "custom_scale": {
+                "type": "none"
+            }
+        }
+    ]
 }

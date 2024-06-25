@@ -31,6 +31,7 @@ export const Notification = ({
   silence,
   actions,
   className,
+  children,
   ...props
 }: NotificationProps): ReactElement => {
   return (
@@ -70,13 +71,17 @@ export const Notification = ({
         className={CSS(CSS.BE("notification", "content"))}
         size="small"
       >
-        <Text.Text
-          className={CSS(CSS.BE("notification", "message"))}
-          level="p"
-          style={{ flexGrow: 1 }}
-        >
-          {message}
-        </Text.Text>
+        {children != null ? (
+          children
+        ) : (
+          <Text.Text
+            className={CSS(CSS.BE("notification", "message"))}
+            level="p"
+            style={{ flexGrow: 1 }}
+          >
+            {message}
+          </Text.Text>
+        )}
         {description != null && (
           <Text.Text
             className={CSS(CSS.BE("notification", "description"))}

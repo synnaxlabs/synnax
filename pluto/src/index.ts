@@ -27,6 +27,7 @@ export { Input } from "@/input";
 export { List } from "@/list";
 export * from "@/memo";
 export { Menu } from "@/menu";
+export { Modal } from "@/modal";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
 export { Note } from "@/note";

@@ -28,11 +28,7 @@ import { Schematic } from "@/schematic";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
-/**
- * The center of it all. This is the main layout for the Synnax Console. Try to keep this
- * component as simple, presentational, and navigatable as possible.
- */
-export const LayoutMain = (): ReactElement => {
+const SideEffect = (): null => {
   const dispatch = useDispatch();
   useEffect(() => {
     dispatch(Layout.maybeCreateGetStartedTab());
@@ -42,12 +38,21 @@ export const LayoutMain = (): ReactElement => {
   Cluster.useLocalServer();
   Workspace.useSyncLayout();
   Link.useDeep({ handlers: HANDLERS });
+  return null;
+};
 
+/**
+ * The center of it all. This is the main layout for the Synnax Console. Try to keep this
+ * component as simple, presentational, and navigatable as possible.
+ */
+export const LayoutMain = (): ReactElement => {
   return (
     <>
       {/* We need to place notifications here so they are in the proper stacking context */}
       <Notifications.Notifications />
+      <SideEffect />
       <NavTop />
+      <Layout.Modals />
       <Align.Space className="console-main-fixed--y" direction="x" empty>
         <NavLeft />
         <Align.Space

@@ -29,7 +29,7 @@ export interface UseEvent {
 }
 
 export interface UseProps {
-  triggers: Trigger[];
+  triggers?: Trigger[];
   callback?: (e: UseEvent) => void;
   region?: RefObject<HTMLElement>;
   loose?: boolean;
@@ -39,11 +39,16 @@ export const use = ({ triggers, callback: f, region, loose }: UseProps): void =>
   const { listen } = useContext();
   const memoTriggers = useMemoCompare(
     () => triggers,
-    ([a], [b]) => compare.primitiveArrays(a.flat(), b.flat()) === compare.EQUAL,
+    ([a], [b]) => {
+      if (a == null && b == null) return true;
+      if (a == null || b == null) return false;
+      return compare.primitiveArrays(a.flat(), b.flat()) === compare.EQUAL;
+    },
     [triggers],
   );
 
   useEffect(() => {
+    if (memoTriggers == null || memoTriggers.length === 0) return;
     return listen((e) => {
       const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
       const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);

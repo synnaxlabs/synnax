@@ -98,6 +98,17 @@ I can successfully:
 - [ ] Delete a range in the resources view.
 - [ ] Delete multiple ranges in the resources view.
 
+### Channels
+
+I can successfully:
+
+- [ ] Create a new channel from the search bar.
+- [ ] Rename a channel in the resources view.
+- [ ] Delete a channel in the resources view.
+- [ ] Delete multiple channels in the resources view.
+- [ ] Set the alias for a channel under a range.
+- [ ] Clear the alias for a channel uner a range.
+
 ### Line Plots
 
 I can successfully:
@@ -170,3 +181,6 @@ I can successfully:
 - [ ] Array Sampling - Auto-generate timestamps on the driver.
 - [ ] Array Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - The driver will not crash if I specify an improper array size.
+ -[ ] Channel Selection - The read task dialog will recommend synnax channels based on
+      the configured OPC UA node.
+

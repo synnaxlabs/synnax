@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired,type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray,type UnknownRecord } from "@synnaxlabs/x";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { toArray, type UnknownRecord } from "@synnaxlabs/x";
 import { binary } from "@synnaxlabs/x/binary";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";

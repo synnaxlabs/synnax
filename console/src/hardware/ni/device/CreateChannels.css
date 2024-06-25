@@ -9,22 +9,34 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-physical-plan {
-    height: 100%;
+.console-physical-plan.console-ni {
+    height: calc(100vh - 20rem);
+    overflow: hidden;
+
+    @media (max-width: 900px) {
+        .console-description {
+            display: none;
+        }
+    }
+
+    & .console-form {
+        overflow: hidden;
+
+        & > *:first-child {
+            overflow: hidden;
+        }
+    }
 
     & .console-groups {
         width: 280px;
         max-width: 280px;
-        height: 525px;
-    }
-
-    .console-list {
-        height: 525px;
+        .pluto-menu-context__container {
+            overflow: hidden;
+        }
     }
 
     & .console-channels {
         border-left: var(--pluto-border);
-        height: 525px;
         overflow: hidden;
         .pluto-menu-context__container {
             overflow: hidden;
@@ -36,8 +48,9 @@
     }
 
     & .console-details {
-        padding: 3rem;
+        padding: 5rem;
         flex-grow: 1;
+        max-height: 300px;
     }
 
     & .console-bad-port .console-port {

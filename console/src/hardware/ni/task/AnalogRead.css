@@ -10,19 +10,36 @@
  */
 
 .console-ni-analog-read-task {
+    height: 100%;
+    align-items: center;
     .console-content {
         padding: 5rem;
+        max-width: 1000px;
+        width: 100%;
+        flex-grow: 1;
 
         .console-channel-form-container {
             height: 0px;
+            border-radius: 1rem;
             overflow: hidden;
             .console-channels {
                 border-right: var(--pluto-border);
                 overflow: hidden;
-                max-width: 500px;
+                max-width: 375px;
                 width: 100%;
+
                 .pluto-menu-context__container {
                     overflow: hidden;
+                }
+
+                .console-hover-actions {
+                    display: none;
+                }
+
+                .pluto-list__item:hover {
+                    .console-hover-actions {
+                        display: flex;
+                    }
                 }
             }
 
