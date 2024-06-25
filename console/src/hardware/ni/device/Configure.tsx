@@ -190,7 +190,7 @@ const ConfigureInternal = ({
                       variant="suggestion"
                       size="small"
                       onClick={() => {
-                        methods.set({ path: "identifier", value: id });
+                        methods.set("identifier", id);
                         identifierRef.current?.focus();
                       }}
                     >

@@ -31,6 +31,16 @@
                 .pluto-menu-context__container {
                     overflow: hidden;
                 }
+
+                .console-hover-actions {
+                    display: none;
+                }
+
+                .pluto-list__item:hover {
+                    .console-hover-actions {
+                        display: flex;
+                    }
+                }
             }
 
             .console-channel-form {

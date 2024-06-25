@@ -29,6 +29,7 @@ export const createWindowLayout = (
   type: CREATE_LAYOUT_TYPE,
   windowKey: CREATE_LAYOUT_TYPE,
   name,
+  icon: "Workspace",
   location: "modal",
   window: {
     resizable: false,

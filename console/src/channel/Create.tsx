@@ -85,17 +85,14 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
       await client.channels.create(methods.value());
       if (!createMore) onClose();
       else
-        methods.set({
-          path: "",
-          value: {
-            key: 0,
-            name: "",
-            index: 0,
-            dataType: "float32",
-            isIndex: false,
-            leaseholder: 0,
-            rate: Rate.hz(0),
-          },
+        methods.set("", {
+          key: 0,
+          name: "",
+          index: 0,
+          dataType: "float32",
+          isIndex: false,
+          leaseholder: 0,
+          rate: Rate.hz(0),
         });
     },
   });
@@ -112,7 +109,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
                 autoFocus
                 level="h2"
                 variant="natural"
-                placeholder="Channel Name"
+                placeholder="Name"
                 {...p}
               />
             )}
@@ -122,8 +119,10 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
               path="isIndex"
               label="Is Index"
               onChange={(v, ctx) => {
-                if (v)
-                  ctx.set({ path: "dataType", value: DataType.TIMESTAMP.toString() });
+                if (v) {
+                  ctx.set("dataType", DataType.TIMESTAMP.toString());
+                  ctx.set("index", 0);
+                }
               }}
             />
             <Form.Field<DataType> path="dataType" label="Data Type" grow>
@@ -138,6 +137,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
                 searchOptions={{ isIndex: true }}
                 disabled={isIndex}
                 maxHeight="small"
+                allowNone={false}
                 {...p}
               />
             )}

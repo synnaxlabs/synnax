@@ -78,7 +78,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   useLayoutEffect(() => {
     setState(get<I>(path, { optional }));
     return bind({ path, onChange: setState, listenToChildren: false });
-  }, [path, bind, setState, optional]);
+  }, [path, onChange, bind, get]);
 
   const handleChange = useCallback(
     (value: O) => {
@@ -249,7 +249,6 @@ export const useFieldArray = <V extends unknown = unknown>({
   const push = useCallback(
     (value: V | V[]) => {
       const copy = shallowCopy(get<V[]>(path).value);
-      console.log(copy);
       copy.push(...toArray(value));
       set(path, copy);
     },
@@ -465,15 +464,15 @@ export const use = <Z extends z.ZodTypeAny>({
   const updateFieldValues = useCallback((path: string) => {
     const { listeners, parentListeners } = ref.current;
     listeners.forEach((lis, lPath) => {
-      const equalOrParent = deep.pathsMatch(lPath, path);
+      const equalOrParent = deep.pathsMatch(path, lPath);
       if (equalOrParent) {
         const fs = get(lPath, { optional: true });
         if (fs != null) lis.forEach((l) => l(fs));
       }
     });
     parentListeners.forEach((lis, lisPath) => {
-      const equalOrParent = deep.pathsMatch(path, lisPath);
-      const equalOrChild = deep.pathsMatch(lisPath, path);
+      const equalOrChild = deep.pathsMatch(path, lisPath);
+      const equalOrParent = deep.pathsMatch(lisPath, lisPath);
       if (equalOrChild || equalOrParent) {
         const v = get(lisPath, { optional: true });
         if (v != null) lis.forEach((l) => l(v));

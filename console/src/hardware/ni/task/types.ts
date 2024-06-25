@@ -187,6 +187,7 @@ const excitSourceZ = z.enum(["Internal", "External", "None"]);
 export type ExcitationSource = z.infer<typeof excitSourceZ>;
 
 const baseAIChanZ = z.object({
+  name: z.string(),
   key: z.string(),
   channel: z.number().optional(),
   port: z.number(),
@@ -263,6 +264,7 @@ const aiAccel4WireDCVoltageChanZ = baseAiAccelChanZ.extend({
 export type AIAccel4WireDCVoltageChan = z.infer<typeof aiAccel4WireDCVoltageChanZ>;
 
 export const ZERO_AI_ACCEL_4WIRE_DC_VOLTAGE_CHAN: AIAccel4WireDCVoltageChan = {
+  name: "",
   key: "",
   type: "ai_accel_4_wire_dc_voltage",
   units: "g",
@@ -290,6 +292,7 @@ const aiAccelChargeChanZ = baseAiAccelChanZ.extend({
 export type AIAccelChargeChan = z.infer<typeof aiAccelChargeChanZ>;
 
 export const ZERO_AI_ACCEL_CHARGE_CHAN: AIAccelChargeChan = {
+  name: "",
   key: "",
   type: "ai_accel_charge",
   channel: 0,
@@ -324,6 +327,7 @@ const aiBridgeChanZ = baseAIChanZ.extend({
 export type AIBridgeChan = z.infer<typeof aiBridgeChanZ>;
 
 export const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
+  name: "",
   key: "",
   type: "ai_bridge",
   units: "mVoltsPerVolt",
@@ -353,6 +357,7 @@ const aiChargeChan = baseAIChanZ.extend({
 export type AIChargeChan = z.infer<typeof aiChargeChan>;
 
 export const ZERO_AI_CHARGE_CHAN: AIChargeChan = {
+  name: "",
   key: "",
   channel: 0,
   type: "ai_charge",
@@ -386,6 +391,7 @@ const aiCurrentChanZ = baseAIChanZ.extend({
 export type AICurrentChan = z.infer<typeof aiCurrentChanZ>;
 
 export const ZERO_AI_CURRENT_CHAN: AICurrentChan = {
+  name: "",
   key: "",
   channel: 0,
   port: 0,
@@ -415,6 +421,7 @@ const aiCurrentRMSChanZ = baseAIChanZ.extend({
 export type AICurrentRMSChan = z.infer<typeof aiCurrentRMSChanZ>;
 
 export const ZERO_AI_CURRENT_RMS_CHAN: AICurrentRMSChan = {
+  name: "",
   key: "",
   channel: 0,
   type: "ai_current_rms",
@@ -450,6 +457,7 @@ const aiForceBridgePolynomialChanZ = baseAIChanZ.extend({
 export type AIForceBridgePolynomialChan = z.infer<typeof aiForceBridgePolynomialChanZ>;
 
 export const ZERO_AI_FORCE_BRIDGE_POLYNOMIAL_CHAN: AIForceBridgePolynomialChan = {
+  name: "",
   key: "",
   type: "ai_force_bridge_polynomial",
   channel: 0,
@@ -490,6 +498,7 @@ const aiForceBridgeTableChanZ = baseAIChanZ.extend({
 export type AIForceBridgeTableChan = z.infer<typeof aiForceBridgeTableChanZ>;
 
 export const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
+  name: "",
   key: "",
   type: "ai_force_bridge_table",
   channel: 0,
@@ -532,6 +541,7 @@ const aiForceBridgeTwoPointLinChan = baseAIChanZ.extend({
 export type AIForceBridgeTwoPointLinChan = z.infer<typeof aiForceBridgeTwoPointLinChan>;
 
 export const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinChan = {
+  name: "",
   key: "",
   type: "ai_force_bridge_two_point_lin",
   channel: 0,
@@ -571,6 +581,7 @@ const aiForgeIEPEChanZ = baseAIChanZ.extend({
 export type AIForceEPEChan = z.infer<typeof aiForgeIEPEChanZ>;
 
 export const ZERO_AI_FORCE_IEPE_CHAN: AIForceEPEChan = {
+  name: "",
   key: "",
   type: "ai_force_iepe",
   channel: 0,
@@ -601,6 +612,7 @@ const aiFreqVoltageChanZ = baseAIChanZ.extend({
 export type AIFreqVoltageChan = z.infer<typeof aiFreqVoltageChanZ>;
 
 export const ZERO_AI_FREQ_VOLTAGE_CHAN: AIFreqVoltageChan = {
+  name: "",
   key: "",
   type: "ai_freq_voltage",
   channel: 0,
@@ -629,6 +641,7 @@ const aiMicrophoneChanZ = baseAIChanZ.extend({
 export type AIMicrophoneChan = z.infer<typeof aiMicrophoneChanZ>;
 
 export const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
+  name: "",
   key: "",
   type: "ai_microphone",
   channel: 0,
@@ -668,6 +681,7 @@ export type AIPressureBridgePolynomialChan = z.infer<
 >;
 
 export const ZERO_AI_PRESSURE_BRIDGE_POLYNOMIAL_CHAN: AIPressureBridgePolynomialChan = {
+  name: "",
   key: "",
   type: "ai_pressure_bridge_polynomial",
   channel: 0,
@@ -707,6 +721,7 @@ const aiPressureBridgeTableChanZ = baseAIChanZ.extend({
 export type AIPressureBridgeTableChan = z.infer<typeof aiPressureBridgeTableChanZ>;
 
 export const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
+  name: "",
   key: "",
   type: "ai_pressure_bridge_table",
   channel: 0,
@@ -752,6 +767,7 @@ export type AIPressureBridgeTwoPointLinChan = z.infer<
 
 export const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPointLinChan =
   {
+    name: "",
     key: "",
     type: "ai_pressure_bridge_two_point_lin",
     channel: 0,
@@ -793,6 +809,7 @@ const aiResistanceChanZ = baseAIChanZ.extend({
 export type AIResistanceChan = z.infer<typeof aiResistanceChanZ>;
 
 export const ZERO_AI_RESISTANCE_CHAN: AIResistanceChan = {
+  name: "",
   key: "",
   type: "ai_resistance",
   channel: 0,
@@ -849,6 +866,7 @@ const aiRosetteStrainGageChanZ = baseAIChanZ.extend({
 export type AIRosetteStrainGageChan = z.infer<typeof aiRosetteStrainGageChanZ>;
 
 export const ZERO_AI_ROSETTE_STRAIN_GAGE_CHAN: AIRosetteStrainGageChan = {
+  name: "",
   key: "",
   type: "ai_rosette_strain_gage",
   channel: 0,
@@ -896,6 +914,7 @@ const aiRTDChanZ = baseAIChanZ.extend({
 export type AIRTDChan = z.infer<typeof aiRTDChanZ>;
 
 export const ZERO_AI_RTD_CHAN: AIRTDChan = {
+  name: "",
   key: "",
   channel: 0,
   type: "ai_rtd",
@@ -939,6 +958,7 @@ const aiStrainGageChan = baseAIChanZ.extend({
 export type AIStrainGageChan = z.infer<typeof aiStrainGageChan>;
 
 export const ZERO_AI_STRAIN_GAGE_CHAN: AIStrainGageChan = {
+  name: "",
   key: "",
   type: "ai_strain_gauge",
   channel: 0,
@@ -968,6 +988,7 @@ const aiTempBuiltInChanZ = baseAIChanZ.extend({
 export type AITempBuiltInChan = z.infer<typeof aiTempBuiltInChanZ>;
 
 export const ZERO_AI_TEMP_BUILTIN_CHAN: AITempBuiltInChan = {
+  name: "",
   key: "",
   type: "ai_temp_builtin",
   channel: 0,
@@ -1013,6 +1034,7 @@ const aiThermocoupleChanZ = baseAIChanZ
 export type AIThermocoupleChan = z.infer<typeof aiThermocoupleChanZ>;
 
 export const ZERO_AI_THERMOCOUPLE_CHAN: AIThermocoupleChan = {
+  name: "",
   key: "",
   type: "ai_thermocouple",
   channel: 0,
@@ -1045,6 +1067,7 @@ const aiThermistorChanIex = baseAIChanZ.extend({
 export type AIThermistorChanIex = z.infer<typeof aiThermistorChanIex>;
 
 export const ZERO_AI_THERMISTOR_CHAN_IEX: AIThermistorChanIex = {
+  name: "",
   key: "",
   type: "ai_thermistor_iex",
   channel: 0,
@@ -1080,6 +1103,7 @@ const aiThermistorChanVex = baseAIChanZ.extend({
 export type AIThermistorChanVex = z.infer<typeof aiThermistorChanVex>;
 
 export const ZERO_AI_THERMISTOR_CHAN_VEX: AIThermistorChanVex = {
+  name: "",
   key: "",
   channel: 0,
   type: "ai_thermistor_vex",
@@ -1123,6 +1147,7 @@ export type AITorqueBridgePolynomialChan = z.infer<
 >;
 
 export const ZERO_AI_TORQUE_BRIDGE_POLYNOMIAL_CHAN: AITorqueBridgePolynomialChan = {
+  name: "",
   key: "",
   type: "ai_torque_bridge_polynomial",
   channel: 0,
@@ -1163,6 +1188,7 @@ const aiTorqueBridgeTableChanZ = baseAIChanZ.extend({
 export type AITorqueBridgeTableChan = z.infer<typeof aiTorqueBridgeTableChanZ>;
 
 export const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
+  name: "",
   key: "",
   type: "ai_torque_bridge_table",
   channel: 0,
@@ -1207,6 +1233,7 @@ export type AITorqueBridgeTwoPointLinChan = z.infer<
 >;
 
 export const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLinChan = {
+  name: "",
   key: "",
   type: "ai_torque_bridge_two_point_lin",
   channel: 0,
@@ -1249,6 +1276,7 @@ const aiVelocityIEPEChanZ = baseAIChanZ.extend({
 export type AIVelocityEPEChan = z.infer<typeof aiVelocityIEPEChanZ>;
 
 export const ZERO_AI_VELOCITY_EPE_CHAN: AIVelocityEPEChan = {
+  name: "",
   key: "",
   type: "ai_velocity_iepe",
   channel: 0,
@@ -1282,6 +1310,7 @@ const aiVoltageChanZ = baseAIChanZ.extend({
 export type AIVoltageChan = z.infer<typeof aiVoltageChanZ>;
 
 export const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
+  name: "",
   key: "",
   type: "ai_voltage",
   terminalConfig: "Cfg_Default",
@@ -1308,6 +1337,7 @@ const aiVoltageRMSChanZ = baseAIChanZ.extend({
 export type AIVoltageRMSChan = z.infer<typeof aiVoltageRMSChanZ>;
 
 export const ZERO_AI_VOLTAGE_RMS_CHAN: AIVoltageRMSChan = {
+  name: "",
   key: "",
   type: "ai_voltage_rms",
   channel: 0,
@@ -1337,6 +1367,7 @@ const aiVoltageChanWithExcitZ = baseAIChanZ.extend({
 export type AIVoltageChanWithExcit = z.infer<typeof aiVoltageChanWithExcitZ>;
 
 export const ZERO_AI_VOLTAGE_CHAN_WITH_EXCIT: AIVoltageChanWithExcit = {
+  name: "",
   key: "",
   type: "ai_voltage_with_excit",
   channel: 0,

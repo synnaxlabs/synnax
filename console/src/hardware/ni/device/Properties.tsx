@@ -35,12 +35,8 @@ export const PropertiesForm = (): ReactElement => {
   Form.useFieldListener<string>({
     path: "properties.name",
     onChange: (state, { set, get }) => {
-      const id = get({ path: "properties.identifier" });
-      if (!id.touched)
-        set({
-          path: "properties.identifier",
-          value: extrapolateIdentifier(state.value),
-        });
+      const id = get("properties.identifier");
+      if (!id.touched) set("properties.identifier", extrapolateIdentifier(state.value));
     },
   });
 

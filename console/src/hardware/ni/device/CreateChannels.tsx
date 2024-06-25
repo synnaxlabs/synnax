@@ -310,13 +310,13 @@ const GroupListItem = ({
     onDrop: ({ items }) => {
       props.onSelect?.(props.entry.key);
       const path = `groups.${index}.channels`;
-      const v = ctx.get<ChannelConfig[]>({ path });
-      ctx.set({
+      const v = ctx.get<ChannelConfig[]>(path);
+      ctx.set(
         path,
-        value: v.value
+        v.value
           .concat(items.map((i) => ({ ...(i.data as ChannelConfig) })))
           .sort((a, b) => a.port - b.port),
-      });
+      );
       setDraggingOver(false);
       return items;
     },
@@ -455,7 +455,7 @@ export const ChannelListItem = memo(
 
     const methods = Form.useContext();
     const [validPort, setValidPort] = useState<boolean>(
-      methods.get({ path: prefix, optional: true })?.status.variant !== "error",
+      methods.get(prefix, { optional: true })?.status.variant !== "error",
     );
     Form.useFieldListener({
       path: `groups.${groupIndex}.channels.${props.index}.port`,
@@ -474,7 +474,7 @@ export const ChannelListItem = memo(
       ];
       if (selected.includes(props.entry.key)) {
         const channels = methods
-          .get<ChannelConfig[]>({ path: groupChannels })
+          .get<ChannelConfig[]>(groupChannels)
           .value.filter((c) => selected.includes(c.key));
         haulItems = channels.map((c) => ({
           key: c.key,

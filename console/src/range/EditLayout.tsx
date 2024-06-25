@@ -42,6 +42,7 @@ export const createEditLayout = (name: string = "Create Range"): Layout.State =>
   type: EDIT_LAYOUT_TYPE,
   windowKey: EDIT_LAYOUT_TYPE,
   name,
+  icon: "Range",
   location: "modal",
   window: {
     resizable: false,

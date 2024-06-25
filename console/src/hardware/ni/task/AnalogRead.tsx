@@ -33,6 +33,7 @@ import { type ReactElement, useCallback, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { NI } from "@/hardware/ni";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
 import {
@@ -53,7 +54,7 @@ import {
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
-import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
+import { ANALOG_INPUT_FORMS, NameField, SelectChannelTypeField } from "./ChannelForms";
 
 export const configureAnalogReadLayout: Layout.State = {
   name: "Configure NI Analog Read Task",
@@ -61,11 +62,6 @@ export const configureAnalogReadLayout: Layout.State = {
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
   location: "mosaic",
-  window: {
-    resizable: true,
-    size: { width: 1200, height: 900 },
-    navTop: true,
-  },
 };
 
 export const ConfigureAnalogRead: Layout.Renderer = ({ layoutKey }) => {
@@ -147,7 +143,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       if (shouldCreateIndex) {
         modified = true;
         const aiIndex = await client.channels.create({
-          name: `${dev.name} Analog Input Time`,
+          name: `${dev.properties.identifier}_ai_time`,
           dataType: "timestamp",
           isIndex: true,
         });
@@ -220,6 +216,15 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
     },
   });
 
+  const placer = Layout.usePlacer();
+
+  const handleDeviceChange = async (v: string) => {
+    if (client == null) return;
+    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
+    if (configured) return;
+    placer(NI.Device.createConfigureLayout(v, {}));
+  };
+
   return (
     <Align.Space className={CSS.B("ni-analog-read-task")} direction="y" grow empty>
       <Align.Space className={CSS.B("content")} grow>
@@ -230,7 +235,12 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
             </Form.Field>
           </Align.Space>
           <Align.Space direction="x">
-            <Form.Field<string> path="config.device" label="Device" grow>
+            <Form.Field<string>
+              path="config.device"
+              label="Device"
+              grow
+              onChange={handleDeviceChange}
+            >
               {(p) => (
                 <Device.SelectSingle
                   allowNone={false}
@@ -313,15 +323,16 @@ interface ChannelFormProps {
 }
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  if (selectedChannelIndex == -1) return <></>;
   const prefix = `config.channels.${selectedChannelIndex}`;
   const type = Form.useFieldValue<AIChanType>(`${prefix}.type`, true);
   if (type == null) return <></>;
   const TypeForm = ANALOG_INPUT_FORMS[type];
+  if (selectedChannelIndex == -1) return <></>;
 
   return (
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
+        <NameField path={prefix} />
         <SelectChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
         <TypeForm prefix={prefix} />
       </Align.Space>
@@ -382,6 +393,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             push(
               indices.map((i) => ({
                 ...deep.copy(value[i]),
+                channel: 0,
                 port: pf(),
                 key: nanoid(),
               })),
@@ -430,6 +442,10 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
                   Enable
                 </Menu.Item>
               )}
+              <Menu.Divider />
+              <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
+                Plot Live Data
+              </Menu.Item>
             </Menu.Menu>
           );
         }}
@@ -440,9 +456,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             value={selected}
             allowNone={false}
             allowMultiple={true}
-            onChange={(keys, { clickedIndex }) =>
-              clickedIndex != null && onSelect(keys, clickedIndex)
-            }
+            onChange={(keys, { clickedIndex }) => {
+              console.log(keys);
+
+              clickedIndex != null && onSelect(keys, clickedIndex);
+            }}
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
@@ -461,8 +479,6 @@ const ChannelListItem = ({
 }: List.ItemProps<string, Chan> & {
   path: string;
 }): ReactElement => {
-  const { entry } = props;
-  const hasLine = "line" in entry;
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
   const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
@@ -486,29 +502,20 @@ const ChannelListItem = ({
             style={{ width: "3rem" }}
             color={portValid ? undefined : "var(--pluto-error-z)"}
           >
-            {childValues.port} {hasLine && `/${entry.line}`}
+            {childValues.port}
           </Text.Text>
-          <Text.Text
-            level="p"
-            weight={500}
-            shade={9}
-            color={(() => {
-              if (channelName === "No Synnax Channel") return "var(--pluto-warning-z)";
-              else if (channelValid) return undefined;
-              return "var(--pluto-error-z)";
-            })()}
-          >
-            {channelName}
+          <Text.Text level="p" weight={500} shade={9}>
+            {AI_CHANNEL_TYPE_NAMES[childValues.type]}
           </Text.Text>
         </Align.Space>
-        <Text.Text level="p" shade={6}>
-          {AI_CHANNEL_TYPE_NAMES[childValues.type]}
-        </Text.Text>
+        <Text.Text level="p" shade={6}></Text.Text>
       </Align.Space>
       <Align.Space direction="x" size="small">
-        <Button.Icon size="small" variant="outlined">
-          <Icon.Visualize color="var(--pluto-gray-l7)" />
-        </Button.Icon>
+        <Align.Space direction="x" size="small" className={CSS.B("hover-actions")}>
+          <Button.Icon size="small" variant="outlined" tooltip="Plot Live Data">
+            <Icon.Visualize color="var(--pluto-gray-l7)" />
+          </Button.Icon>
+        </Align.Space>
         <Button.Toggle
           checkedVariant="outlined"
           uncheckedVariant="outlined"

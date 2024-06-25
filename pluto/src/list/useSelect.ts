@@ -88,7 +88,12 @@ export interface UseSelectMultipleReturn<K extends Key = Key> {
 
 export const selectValueIsZero = <K extends Key>(
   value: K | K[] | null,
-): value is null | K[] => value == null || (Array.isArray(value) && value.length === 0);
+): value is null | K[] => {
+  if (value == null) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "string") return value.length === 0;
+  return false;
+};
 
 const DEFAULT_PROPS_DATA: any[] = [];
 const DEFAULT_PROPS_VALUE: any[] = [];
@@ -204,7 +209,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       if (allowNone === false && v.length === 0) {
         // If we're not allowed to have no select, still call handleChange with the same
         // value. This is useful when you want to close a dialog on selection.
-        handleChange(value, {
+        return handleChange(value, {
           entries: data.filter(({ key }) => value.includes(key)),
           clicked: key,
           clickedIndex: data.findIndex(({ key: k }) => k === key),
@@ -217,7 +222,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
         clickedIndex: data.findIndex(({ key: k }) => k === key),
       });
     },
-    [valueRef, dataRef, handleChange, allowMultiple],
+    [valueRef, dataRef, handleChange, allowMultiple, allowNone],
   );
 
   const clear = useCallback(

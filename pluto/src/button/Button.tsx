@@ -94,8 +94,11 @@ export const Button = Tooltip.wrap(
       if (span.isZero) return onClick?.(e);
     };
 
-    // @ts-expect-error
-    Triggers.use({ triggers, callback: () => handleClick(new MouseEvent("click")) });
+    Triggers.use({
+      triggers,
+      // @ts-expect-error
+      callback: ({ stage }) => stage === "end" && handleClick(new MouseEvent("click")),
+    });
 
     return (
       <Text.WithIcon<"button", any>

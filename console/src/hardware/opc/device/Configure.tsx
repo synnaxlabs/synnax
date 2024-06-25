@@ -125,7 +125,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       const task = await rack.retrieveTaskByName("opc Scanner");
       return await task.executeCommandSync<{ message: string }>(
         "test_connection",
-        { connection: methods.get({ path: "connection" }).value },
+        { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
       );
     },
@@ -141,7 +141,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         const task = await rack.retrieveTaskByName("opc Scanner");
         const { details: deviceProperties } = await task.executeCommandSync<Properties>(
           "scan",
-          { connection: methods.get({ path: "connection" }).value },
+          { connection: methods.get("connection").value },
           TimeSpan.seconds(20),
         );
         if (deviceProperties == null) return;
