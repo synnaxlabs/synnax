@@ -24,10 +24,11 @@ func runSetUp(param SetUpParam) error {
 	switch param.Client {
 	case "py":
 		return setUpPython(param)
+	case "ts":
+		return setUpTS(param)
 	default:
 		panic("unrecognized client in setup")
 	}
-	return nil
 }
 
 func setUpPython(param SetUpParam) error {
@@ -40,6 +41,23 @@ func setUpPython(param SetUpParam) error {
 	)
 
 	cmd.Dir = "./py"
+	var stderr, stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		return errors.Newf("err: %s\nstderr: %s\nstdout: %s", err.Error(), stderr.String(), stdout.String())
+	}
+	return nil
+}
+
+func setUpTS(param SetUpParam) error {
+	cmd := exec.Command("npx", "tsx", "setup.ts",
+		strconv.Itoa(param.IndexChannels),
+		strconv.Itoa(param.DataChannels),
+	)
+
+	cmd.Dir = "./ts"
 	var stderr, stdout bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout

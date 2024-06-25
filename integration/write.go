@@ -75,3 +75,19 @@ func writePython(p NodeParams, identifier string) error {
 
 	return nil
 }
+
+func writeTS(p NodeParams, identifier string) error {
+	args := append([]string{"tsx", "write.ts", identifier}, p.Serialize()...)
+	cmd := exec.Command("npx", args...)
+	cmd.Dir = "./ts"
+	var stderr, stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	err := cmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
+	}
+
+	return nil
+}
