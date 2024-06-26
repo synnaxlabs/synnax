@@ -61,7 +61,7 @@ export const useSelectionUtils = <K extends Key = Key>(): SelectUtilContextValue
  * @param props - The props for the List.Selector component. These props are identical
  * to the props for {@link useSelect} hook.
  */
-export const Selector = memo(
+const Base = memo(
   <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     value,
     children,
@@ -97,4 +97,8 @@ export const Selector = memo(
     );
   },
 );
-Selector.displayName = "List.Selector";
+Base.displayName = "List.Selector";
+
+export const Selector = Base as <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
+  props: SelectorProps<K, E>,
+) => ReactElement;

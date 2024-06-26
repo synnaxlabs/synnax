@@ -330,7 +330,12 @@ export const Tree = ({
 
   return (
     <List.List<string, FlattenedNode> data={nodes}>
-      <List.Selector value={selected} onChange={onSelect} allowMultiple replaceOnSingle>
+      <List.Selector<string, FlattenedNode>
+        value={selected}
+        onChange={onSelect}
+        allowMultiple
+        replaceOnSingle
+      >
         <Core<string, FlattenedNode>
           itemHeight={itemHeight}
           className={CSS(className, CSS.B("tree"), showRules && CSS.M("rules"))}
