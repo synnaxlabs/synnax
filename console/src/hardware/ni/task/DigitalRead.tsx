@@ -28,7 +28,6 @@ import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { ReactElement, useCallback, useRef, useState } from "react";
-import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -47,26 +46,30 @@ import {
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
+import { useSelectArgs } from "@/layout/selectors";
 
-export const configureDigitalReadLayout = (): Layout.State => ({
+interface ConfigureDigitalReadArgs {
+  create: boolean;
+}
+
+export const configureDigitalReadLayout = (
+  create: boolean = false,
+): Layout.State<ConfigureDigitalReadArgs> => ({
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
-  key: uuid(),
+  key: nanoid(),
   windowKey: DIGITAL_READ_TYPE,
-  location: "window",
-  window: {
-    resizable: false,
-    size: { width: 1200, height: 900 },
-    navTop: true,
-  },
+  location: "mosaic",
+  args: { create },
 });
 
 export const ConfigureDigitalRead: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();
+  const { create } = useSelectArgs<ConfigureDigitalReadArgs>(layoutKey);
   const fetchTask = useQuery<InternalProps>({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null || layoutKey == configureDigitalReadLayout.key)
+      if (client == null || create)
         return { initialValues: deep.copy(ZERO_DIGITAL_READ_PAYLOAD) };
       const t = await client.hardware.tasks.retrieve<
         DigitalReadConfig,

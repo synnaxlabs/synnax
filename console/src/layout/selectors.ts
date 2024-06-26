@@ -44,6 +44,14 @@ export const selectRequired = (state: StoreState, key: string): State => {
   return layout;
 };
 
+export const selectArgs = <A>(state: StoreState, key: string): A => {
+  const layout = select(state, key);
+  return layout?.args as A;
+};
+
+export const useSelectArgs = <A>(key: string): A =>
+  useMemoSelect((state: StoreState) => selectArgs(state, key), [key]);
+
 /**
  * Selects a layout from the store by key.
  *
