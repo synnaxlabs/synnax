@@ -106,11 +106,14 @@ func readTestConfig(fileName string) TestSequence {
 func runTest(testConfigFile string) {
 	test := readTestConfig(testConfigFile)
 
-	endCommand := startCluster(test.Cluster)
+	err, endCommand := startCluster(test.Cluster)
+	if err != nil {
+		panic(err)
+	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("PANIC RECOVERED FOR CLEANUP from erro: \n%s\n", r)
+			fmt.Printf("PANIC RECOVERED FOR CLEANUP from error-----\n%s\n------\n", r)
 		}
 		if err := runCleanUp(test.Cleanup); err != nil {
 			panic(err)

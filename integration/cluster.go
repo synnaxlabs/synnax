@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/synnaxlabs/x/telem"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type ClusterParam struct {
@@ -13,10 +16,10 @@ type ClusterParam struct {
 	MemFS    bool `json:"mem_fs"`
 }
 
-func startCluster(p ClusterParam) func() error {
+func startCluster(p ClusterParam) (error, func() error) {
 	if p == (ClusterParam{}) {
 		fmt.Printf("--cannot find cluster startup configration, skipping\n")
-		return func() error { return nil }
+		return nil, func() error { return nil }
 	}
 
 	fmt.Printf("--starting cluster\n")
@@ -27,14 +30,23 @@ func startCluster(p ClusterParam) func() error {
 	if p.MemFS {
 		args = append(args, "-m")
 	}
+
+	var sout, serr = bytes.Buffer{}, bytes.Buffer{}
+
 	cmd := exec.Command("go", args...)
 	cmd.Dir = "./../synnax"
+	cmd.Stderr = &serr
+	cmd.Stdout = &sout
 
 	err := cmd.Start()
 	if err != nil {
-		panic(err)
+		return errors.Newf(
+			"error in starting cluster.\nstdout: %s\nstderr: %s\n",
+			sout.String(),
+			serr.String(),
+		), func() error { return nil }
 	}
 
 	time.Sleep(5 * telem.Second.Duration())
-	return func() error { return cmd.Process.Signal(os.Interrupt) }
+	return nil, func() error { return cmd.Process.Signal(os.Interrupt) }
 }
