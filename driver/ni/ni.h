@@ -267,10 +267,6 @@ public:
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker);
 
-    freighter::Error start();
-
-    freighter::Error stop();
-
     synnax::Frame getDriveState();
 
     void updateState(std::queue<synnax::ChannelKey> &modified_state_keys,
@@ -314,7 +310,7 @@ public:
 
     int init();
 
-    freighter::Error write(synnax::Frame frame);
+    freighter::Error write(synnax::Frame frame) override;
 
     freighter::Error stop();
 
@@ -329,7 +325,12 @@ public:
     bool ok();
 
     ~DigitalWriteSink();
+    
+    void stoppedWithErr(const freighter::Error &err) override;
+    
+    void logError(std::string err_msg);
 
+    void clearTask();
 
     std::shared_ptr<ni::StateSource> writer_state_source;
 
@@ -354,6 +355,7 @@ private:
     WriterConfig writer_config;
     breaker::Breaker breaker;
     std::atomic<bool> running = false;
+    synnax::Task task;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -489,7 +491,6 @@ public:
     bool ok();
 
     ~WriterTask() {
-        LOG(INFO) << "WriterTask destructor called";
     }
 
 private:

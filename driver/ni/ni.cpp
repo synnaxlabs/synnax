@@ -501,8 +501,9 @@ int ni::Source::init() {
         this->err_info["error type"] = "Configuration Error";
         this->err_info["error details"] = "Stream rate is greater than sample rate";
         this->err_info["running"] = false;
+
         this->ctx->setState({
-            .task = this->reader_config.task_key,
+            .task = this->task.key,
             .variant = "error",
             .details = err_info
         });
@@ -620,8 +621,6 @@ void ni::Source::stoppedWithErr(const freighter::Error &err) {
         .details = err.message()
     });
 }
-
-
 
 void ni::Source::jsonifyError(std::string s) {
     this->err_info["error type"] = "Vendor Error";

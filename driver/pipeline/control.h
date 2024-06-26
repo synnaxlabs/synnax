@@ -57,6 +57,9 @@ public:
     /// be considered permanent and the pipeline will exit.
     virtual freighter::Error close() = 0;
 
+    // TODO: add a description
+    virtual void closeSend() = 0; 
+
     virtual ~Streamer() = default;
 };
 
@@ -127,6 +130,7 @@ private:
     std::shared_ptr<StreamerFactory> factory;
     synnax::StreamerConfig config;
     std::shared_ptr<Sink> sink;
+    std::unique_ptr<Streamer> streamer = nullptr;
     breaker::Breaker breaker;
 
     void runInternal();

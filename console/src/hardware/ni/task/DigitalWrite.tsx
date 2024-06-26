@@ -165,7 +165,7 @@ const Internal = ({
           statesToCreate.map((c) => ({
             name: `${dev.properties.identifier}_do_${c.port}_${c.line}_state`,
             index: dev.properties.digitalOutput.stateIndex,
-            dataType: "boolean",
+            dataType: "uint8",
           })),
         );
         states.forEach((s, i) => {
@@ -188,7 +188,7 @@ const Internal = ({
           commandsToCreate.map((c, i) => ({
             name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd`,
             index: commandIndexes[i].key,
-            dataType: "boolean",
+            dataType: "uint8",
           })),
         );
         commands.forEach((s, i) => {
