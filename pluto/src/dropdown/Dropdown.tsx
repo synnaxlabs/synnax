@@ -224,11 +224,26 @@ const calcConnectedDialog = ({
   dialog,
   initial,
 }: CalcDialogProps): position.DialogReturn => {
-  const targetBox = box.construct(target);
+  let targetBox = box.construct(target);
+  // the container is the nearest element that has a container-type or contain property
+
+  let container = box.construct(0, 300, window.innerWidth, window.innerHeight);
+  // iterate through the parent elements to find the container
+  let parent = target.parentElement;
+  while (parent != null) {
+    const style = window.getComputedStyle(parent);
+    if (style.getPropertyValue("container-type") !== "normal") {
+      container = box.construct(parent);
+      targetBox = box.translate(targetBox, xy.scale(box.topLeft(container), -1));
+      break;
+    }
+    parent = parent.parentElement;
+  }
+
   const props: position.DialogProps = {
     target: targetBox,
     dialog: box.resize(box.construct(dialog), "x", box.width(targetBox)),
-    container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+    container,
     ...CONNECTED_PROPS,
     initial: initial ?? CONNECTED_PROPS.initial,
   };

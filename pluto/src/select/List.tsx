@@ -46,6 +46,7 @@ export const Core = <K extends Key, E extends Keyed<K>>({
   listItem = CoreList.Column.Item<K, E>,
   replaceOnSingle,
   omit,
+  autoSelectOnNone,
   ...props
 }: SelectListProps<K, E>): ReactElement => (
   <CoreList.List<K, E> data={data} emptyContent={emptyContent} omit={omit}>
@@ -56,6 +57,7 @@ export const Core = <K extends Key, E extends Keyed<K>>({
       allowMultiple={allowMultiple}
       allowNone={allowNone}
       replaceOnSingle={replaceOnSingle}
+      autoSelectOnNone={autoSelectOnNone}
     >
       <Dropdown.Dialog
         visible={visible}
