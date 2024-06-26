@@ -221,23 +221,29 @@ public:
         return 0;
     }
 
-    static std::unique_ptr<ScaleConfig> getScaleConfig(config::Parser &parser) {
+    std::unique_ptr<ScaleConfig> getScaleConfig(config::Parser &parser) {
         std::string c = std::to_string(parser.required<uint32_t>("channel"));
-        std::string scale_name = c + "_scale";
+
+        parser.get_json();
+        if(!parser.get_json().contains("custom_scale")) return nullptr;
         auto scale_parser = parser.child("custom_scale");
-        return std::make_unique<ScaleConfig>(scale_parser, scale_name);
+        if(scale_parser.required<std::string>("type") == "none") return nullptr;
+        this->scale_name = c + "_scale";
+        return std::make_unique<ScaleConfig>(scale_parser,this->scale_name);
     }
 
     int32 createNIScale() {
-        if(this->scale_config->type == "none") return 0;
+        if(this->scale_name == "") return 0;
         return this->scale_config->createNIScale();
     }
 
     int32 get_units(const std::string &s, config::Parser &parser){
-        if(ni::UNITS_MAP.count(s) == 0){
-            parser.field_err("channels." + this->name, "Invalid units: " + s + ". Defaulting to Volts.");
+        if(ni::UNITS_MAP.find(s) == ni::UNITS_MAP.end()){
+            // parser.field_err("channels." + this->name, "Invalid units: " + s + ". Defaulting to Volts.");
+            // LOG(ERROR) << "Invalid units: " << s << ". Defaulting to Volts.";
             return DAQmx_Val_Volts;
         }
+        
         return ni::UNITS_MAP.at(s);
     }
 
@@ -250,23 +256,20 @@ public:
             name(name),
             type(parser.required<std::string>("type")),
             scale_config(getScaleConfig(parser)){
+                LOG(INFO) << "Analog created with name: " << name;
         // check name of channel
-        if(this->scale_config->type != "none") {
-            this->scale_name = this->scale_config->name;
-            this->units = DAQmx_Val_FromCustomScale;
-        } else{
-            this->scale_config->name = "";
-        }
+        if(this->scale_name != "") this->units = DAQmx_Val_FromCustomScale;
+        
     }
 
     TaskHandle task_handle = 0;
-    std::string scale_name = "";
     double min_val = 0;
     double max_val = 0;
     int32_t units = DAQmx_Val_Volts;
     uint32_t sy_key = 0;
     std::string name = "";
     std::string type = "";
+    std::string scale_name = "";
 
     std::unique_ptr<ScaleConfig> scale_config;
 };
@@ -288,7 +291,6 @@ public:
 
     int32 createNIChannel() override {
         std::string s = "";
-        LOG(INFO) << "Scale name: " << this->scale_config->name;
         return ni::NiDAQmxInterface::CreateAIVoltageChan(
             this->task_handle,
             this->name.c_str(),
@@ -297,7 +299,7 @@ public:
             this->min_val,
             this->max_val,
             this->units,
-            this->scale_config->name.c_str()
+            this->scale_name.c_str()
         );
     }
 };
@@ -318,7 +320,7 @@ class VoltageRMS final : public Voltage {
                 this->min_val,
                 this->max_val,
                 this->units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
             );
     }
 };
@@ -348,7 +350,7 @@ class VoltageWithExcit final : public Voltage {
                 this->excitation_config.excit_source,
                 this->excitation_config.excit_val,
                 this->excitation_config.min_val_for_excitation,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
             ); 
         }
 };
@@ -388,7 +390,7 @@ public:
             this->units,
             this->shunt_resistor_loc,
             this->ext_shunt_resistor_val,
-            this->scale_config->name.c_str()
+            this->scale_name.c_str()
         );
     }
 };
@@ -408,7 +410,7 @@ public:
                 this->units,
                 this->shunt_resistor_loc,
                 this->ext_shunt_resistor_val,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -494,6 +496,7 @@ public:
             thermocoupleType(getType(parser.required<std::string>("thermocouple_type"), parser)),
             cjcSource(getCJCSource(parser.required<std::string>("cjc_source"), parser)),
             cjcVal(parser.required<double>("cjc_val")){
+                LOG(INFO) << "Thermocouple created with name: " << name;
     }
 
     //cjcChannel(parser.required<std::string>("cjc_channel")) {} FIXME: this property should be take form console
@@ -516,6 +519,7 @@ public:
 class TemperatureBuiltInSensor final : public Analog{
     public:
         explicit TemperatureBuiltInSensor(config::Parser &parser, TaskHandle task_handle, const std::string &name){
+            this->units = ni::UNITS_MAP.at(parser.required<std::string>("units"));
             this->task_handle = task_handle;
             size_t pos = name.find("/");
             this->name =  name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
@@ -635,7 +639,7 @@ class Acceleration  : public Analog {
                     this->sensitivity_units,
                     this->excitation_config.excit_source,
                     this->excitation_config.excit_val,
-                    this->scale_config->name.c_str()
+                    this->scale_name.c_str()
             );
         }
 
@@ -660,7 +664,7 @@ public:
                 this->excitation_config.excit_source,
                 this->excitation_config.excit_val,
                 this->excitation_config.use_excit_for_scaling,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -688,7 +692,7 @@ class AccelerationCharge final : public Analog {
                     this->units,
                     this->sensitivity,
                     this->sensitivity_units,
-                    this->scale_config->name.c_str()
+                    this->scale_name.c_str()
             );
         }
 };
@@ -717,7 +721,7 @@ class Resistance final : public Analog{
                 this->resistance_config,
                 this->excitation_config.excit_source,
                 this->excitation_config.excit_val,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -745,7 +749,7 @@ class Bridge final : public Analog {
                     this->bridge_config.voltage_excit_source,
                     this->bridge_config.voltage_excit_val,
                     this->bridge_config.nominal_bridge_resistance,
-                    this->scale_config->name.c_str()
+                    this->scale_name.c_str()
             );
         }
 };
@@ -800,7 +804,7 @@ public:
                 this->nominal_gage_resistance,
                 this->poisson_ratio,
                 this->lead_wire_resistance,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -911,7 +915,7 @@ public:
                 this->max_snd_press_level,
                 this->excitation_config.excit_source,
                 this->excitation_config.excit_val,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -943,7 +947,7 @@ public:
                 this->units,
                 this->threshold_level,
                 this->hysteresis,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -979,7 +983,7 @@ public:
                 this->two_point_lin_config.first_physical_val,
                 this->two_point_lin_config.second_physical_val,
                 this->two_point_lin_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1013,7 +1017,7 @@ public:
                 this->table_config.physicalVals,
                 this->table_config.num_physical_vals,
                 this->table_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1047,7 +1051,7 @@ public:
                 this->polynomial_config.num_reverse_coeffs,
                 this->polynomial_config.electrical_units,
                 this->polynomial_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1083,7 +1087,7 @@ public:
                 this->polynomial_config.num_reverse_coeffs,
                 this->polynomial_config.electrical_units,
                 this->polynomial_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1117,7 +1121,7 @@ public:
                 this->table_config.physicalVals,
                 this->table_config.num_physical_vals,
                 this->table_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1151,7 +1155,7 @@ public:
                 this->two_point_lin_config.first_physical_val,
                 this->two_point_lin_config.second_physical_val,
                 this->two_point_lin_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1186,7 +1190,7 @@ public:
                 this->sensitivity_units,
                 this->excitation_config.excit_source,
                 this->excitation_config.excit_val,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1222,7 +1226,7 @@ public:
                 this->two_point_lin_config.first_physical_val,
                 this->two_point_lin_config.second_physical_val,
                 this->two_point_lin_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1256,7 +1260,7 @@ public:
                 this->polynomial_config.num_reverse_coeffs,
                 this->polynomial_config.electrical_units,
                 this->polynomial_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1289,7 +1293,7 @@ public:
                 this->table_config.physicalVals,
                 this->table_config.num_physical_vals,
                 this->table_config.physical_units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1322,7 +1326,7 @@ public:
                 this->sensitivity_units,
                 this->excitation_config.excit_source,
                 this->excitation_config.excit_val,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };
@@ -1347,7 +1351,7 @@ public:
                 this->min_val,
                 this->max_val,
                 this->units,
-                this->scale_config->name.c_str()
+                this->scale_name.c_str()
         );
     }
 };

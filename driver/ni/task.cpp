@@ -153,8 +153,24 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
         .channels = channel_keys,
         .start = synnax::TimeStamp::now(),
         .enable_auto_commit = true
-    };;
+    };
 
+    // start and stop to catch any immediate errors
+    ni_source->start();
+    ni_source->stop();
+    
+    auto p = std::make_unique<ni::ReaderTask>(  ctx,
+                                                task,
+                                                source,
+                                                ni_source,
+                                                writer_config,
+                                                breaker_config);
+    
+    if(!ni_source->ok()) {
+        LOG(ERROR) << "[NI Task] failed to configure task " << task.name;
+        return p;
+    }
+    
     ctx->setState({
         .task = task.key,
         .variant = "success",
@@ -164,22 +180,6 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     });
 
     LOG(INFO) << "[NI Task] successfully configured task " << task.name;
-
-    auto p = std::make_unique<ni::ReaderTask>(ctx,
-                                            task,
-                                            source,
-                                            ni_source,
-                                            writer_config,
-                                            breaker_config);
-    
-    if(!p->ok()) {
-        LOG(ERROR) << "[NI Task] failed to configure task " << task.name;
-        return p;
-    }
-
-    // // start and stop to catch any immediate errors
-    p->start();
-    p->stop();
 
     return p;
 }   
@@ -209,7 +209,7 @@ void ni::ReaderTask::stop() {
 }
 
 void ni::ReaderTask::start() {
-    if (this->running.exchange(true) || !this->ok()) {
+    if (this->running.exchange(true) || !this->ok() || !this->source->ok()) {
         LOG(INFO) << "[NI Task] did not start " << this->task.name <<
                 " as it is not running or in error state";
         return;

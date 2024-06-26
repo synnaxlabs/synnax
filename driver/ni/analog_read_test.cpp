@@ -356,6 +356,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config){
     
 
     channel_config["channel"] = data.key;
+    channel_config["enabled"] = true;
     channel_config["custom_scale"] = scale_config;
     config["channels"] = json::array();
     config["channels"].push_back(channel_config);
@@ -815,11 +816,11 @@ TEST(read_tests, one_pressure_linear_bridge_channel){
     };
     auto channel_config = json{
         {"name", "test_ni_channel"},
-        {"type", "ai_bridge"},
+        {"type", "ai_pressure_bridge_two_point_lin"},
         {"port", 0},
         {"max_val", 0.5},
         {"min_val", -0.5},
-        {"units", "VoltsPerVolt"},
+        {"units", "Pascals"},
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
@@ -827,7 +828,7 @@ TEST(read_tests, one_pressure_linear_bridge_channel){
         {"voltage_excit_val", 2.5}, // same as below
         {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
         {"first_electrical_val", 0.0},
-        {"second_eletrical_val", 1.0},
+        {"second_electrical_val", 1.0},
         {"electrical_units", "Volts"},
         {"first_physical_val", 0.0},
         {"second_physical_val", 10.0},
@@ -853,7 +854,7 @@ TEST(read_tests, one_analog_thermocouple_channel){
     };
     auto channel_config = json{
         {"name", "test_ni_channel"},
-        {"type", "ai_thrmcpl"},
+        {"type", "ai_thermcouple"},
         {"port", 0},
         {"max_val", 500},
         {"min_val", 65},
@@ -884,7 +885,7 @@ TEST(read_tests, one_analog_RTD_channel){
         {"name", "test_ni_channel"},
         {"type", "ai_rtd"},
         {"port", 0},
-        {"units", "C"},
+        {"units", "Celsius"},
         {"enabled", true},
         {"key", "key"},
         {"max_val", 100.0},

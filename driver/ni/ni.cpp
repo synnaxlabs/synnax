@@ -631,39 +631,44 @@ void ni::Source::jsonifyError(std::string s){
      // Extract status code
     std::smatch statusCodeMatch;
     std::regex_search(s, statusCodeMatch, statusCodeRegex);
-    
-    if (!statusCodeMatch.empty()) this->err_info["Status Code"] = statusCodeMatch[1].str();
-    else this->err_info["Status Code"] = "";  // Indicate no status code found
+
+    std::string sc = "";
+
+    if (!statusCodeMatch.empty()) sc = statusCodeMatch[1].str();
     
     // Extract message
     std::smatch messageMatch;
     std::regex_search(s, messageMatch, messageRegex);
     if (!messageMatch.empty()) {
         std::string message = messageMatch[1].str();
-        std::string status_code = this->err_info["Status Code"].get<std::string>();
-        this->err_info["message"] = "NI Error "  + status_code + ": " +  message;
+        this->err_info["message"] = "NI Error " + sc + ": " +  message;
     }
 
     // Extract channel name
+    std::string cn = "";
     std::smatch channelMatch;
     if (std::regex_search(s, channelMatch, channelRegex)) {
         std::string channel = channelMatch[1].str();
-        this->err_info["Channel Name"] = channel;
+        cn = channel;
     } else return;
     
     // Extract the first property
+    std::string p = "";
     std::smatch propertyMatch;
     if (std::regex_search(s, propertyMatch, propertyRegex)) {
         std::string property = propertyMatch[1].str();
-        this->err_info["Property"] = property;
+        p = property;
     } else return;
 
 
     // check if the property is in the field map
-    if (FIELD_MAP.count(this->err_info["Property"].get<std::string>()) == 0)  return;
+    if (FIELD_MAP.count(p) == 0)  {
+        this->err_info["path"] = channel_map[cn];
+        return;
+    };
 
     this->err_info["type"] = "field error";
-    this->err_info["path"] = channel_map[this->err_info["Channel Name"].get<std::string>()] + "." + FIELD_MAP.at(this->err_info["Property"].get<std::string>());
+    this->err_info["path"] = channel_map[cn] + "." + FIELD_MAP.at(p);
     
     this->err_info["message"] = this->err_info["message"].get<std::string>() + " Path: " + this->err_info["path"].get<std::string>();
     

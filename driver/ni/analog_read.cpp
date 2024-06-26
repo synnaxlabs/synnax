@@ -41,6 +41,10 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
 
             this->channel_map[config.name] = "channels." + std::to_string(c_count);
 
+            if(channel_builder.required<bool>("enabled") == true) {
+                config.enabled = true;
+            }
+            
             this->reader_config.channels.push_back(config);
             
             c_count++;
@@ -70,7 +74,7 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_rtd")  return std::make_shared<RTD>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_strain_gage")  return std::make_shared<StrainGage>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_temp_built_in_sensor")  return std::make_shared<TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_thrmcpl")  return std::make_shared<Thermocouple>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_thermocouple")  return std::make_shared<Thermocouple>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_thrmstr_iex")  return std::make_shared<ThermistorIEX>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_thrmstr_vex")   return std::make_shared<ThermistorVex>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_torque_bridge_polynomial")  return std::make_shared<TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
@@ -192,14 +196,13 @@ int ni::AnalogReadSource::createChannels() {
     auto channels = this->reader_config.channels;
     for (auto &channel: channels) {
         this->numChannels++;
-        if (channel.channel_type == "index") continue;
+        if (channel.channel_type == "index" || !channel.enabled) continue;
         this->numAIChannels++;
         this->checkNIError(channel.ni_channel->createNIScale());
         this->checkNIError(channel.ni_channel->createNIChannel());
         LOG(INFO) << "[ni.reader] created scale for " << channel.name;
         if (!this->ok()) {
-            LOG(ERROR) << "[ni.reader] failed while configuring channel " << channel.
-                    name;
+            this->logError("failed while creating channel " + channel.name);
             return -1;
         }
     }

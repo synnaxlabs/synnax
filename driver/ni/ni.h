@@ -50,7 +50,10 @@ static inline const std::map<std::string, int32_t>    UNITS_MAP = {
     {"F",                                   DAQmx_Val_DegF},
     {"DegC",                                DAQmx_Val_DegC},
     {"C",                                   DAQmx_Val_DegC},
+    {"Celsius",                             DAQmx_Val_DegC},
+    {"Farenheit",                           DAQmx_Val_DegF},
     {"DegR",                                DAQmx_Val_DegR},
+    {"Rankine",                             DAQmx_Val_DegR},
     {"Kelvins",                             DAQmx_Val_Kelvins},
     {"K",                                   DAQmx_Val_Kelvins},
     {"Strain",                              DAQmx_Val_Strain},
@@ -64,7 +67,9 @@ static inline const std::map<std::string, int32_t>    UNITS_MAP = {
     {"g",                                   DAQmx_Val_g},
     {"MetersPerSecondSquared",              DAQmx_Val_MetersPerSecondSquared},
     {"MetersPerSecond",                     DAQmx_Val_MetersPerSecond}, // TODO: make sure option is in console
+    {"m/s",                                 DAQmx_Val_MetersPerSecond},
     {"InchesPerSecond",                     DAQmx_Val_InchesPerSecond}, // TODO: make sure option is in console
+    {"mV/m/s",                              DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MillivoltsPerMillimeterPerSecond",    DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MilliVoltsPerInchPerSecond",          DAQmx_Val_MilliVoltsPerInchPerSecond},
     {"mVoltsPerNewton",                     DAQmx_Val_mVoltsPerNewton},
@@ -93,6 +98,7 @@ struct ChannelConfig {
     std::string name;
     std::string channel_type;
     std::shared_ptr<ni::Analog> ni_channel;
+    bool enabled = false;
 };
 
 struct ReaderConfig {
