@@ -9,11 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-ni-analog-read-task {
+.console-task-configure {
     height: 100%;
     align-items: center;
     container-type: size;
-    .console-content {
+    > div {
         padding: 5rem;
         max-width: 1000px;
         width: 100%;
@@ -21,9 +21,11 @@
 
         .console-channel-form-container {
             display: flex;
+            /* height of 0 means list items will produce overflow scroll correctly */
             height: 0px;
             border-radius: 1rem;
             overflow: hidden;
+
             .console-channels {
                 border-right: var(--pluto-border);
                 overflow: hidden;

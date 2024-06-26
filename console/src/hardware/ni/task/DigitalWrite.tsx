@@ -34,6 +34,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Properties } from "@/hardware/ni/device/types";
+import { Controls } from "@/hardware/ni/task/TaskControls";
 import {
   AnalogReadStateDetails,
   Chan,
@@ -98,7 +99,7 @@ const Internal = ({
     open: async () => await task?.openStateObserver<AnalogReadStateDetails>(),
   });
 
-  const configure = useMutation({
+  const configure = useMutation<void, Error, void>({
     mutationKey: [client?.key, "configure"],
     onError: console.log,
     mutationFn: async () => {
@@ -244,8 +245,8 @@ const Internal = ({
   });
 
   return (
-    <Align.Space className={CSS.B("ni-analog-read-task")} direction="y" grow empty>
-      <Align.Space className={CSS.B("content")} grow>
+    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
+      <Align.Space grow>
         <Form.Form {...methods}>
           <Align.Space direction="x">
             <Form.Field<string> path="name">
@@ -304,40 +305,13 @@ const Internal = ({
             </Align.Space>
           </Align.Space>
         </Form.Form>
-        <Align.Space
-          direction="x"
-          style={{
-            borderRadius: "1rem",
-            border: "var(--pluto-border)",
-            padding: "2rem",
-          }}
-          justify="spaceBetween"
-        >
-          <Align.Space direction="x">
-            {taskState?.details?.message != null && (
-              <Status.Text variant={taskState?.variant as Status.Variant}>
-                {taskState?.details?.message}
-              </Status.Text>
-            )}
-          </Align.Space>
-          <Align.Space direction="x">
-            <Button.Icon
-              loading={start.isPending}
-              disabled={start.isPending || taskState == null}
-              onClick={() => start.mutate()}
-              variant="outlined"
-            >
-              {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
-            </Button.Icon>
-            <Button.Button
-              loading={configure.isPending}
-              disabled={configure.isPending}
-              onClick={() => configure.mutate()}
-            >
-              Configure
-            </Button.Button>
-          </Align.Space>
-        </Align.Space>
+        <Controls
+          state={taskState}
+          startingOrStopping={start.isPending}
+          configuring={configure.isPending}
+          onStartStop={start.mutate}
+          onConfigure={configure.mutate}
+        />
       </Align.Space>
     </Align.Space>
   );
