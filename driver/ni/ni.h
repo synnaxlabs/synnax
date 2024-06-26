@@ -187,7 +187,6 @@ public:
     std::shared_ptr<task::Context> ctx;
     breaker::Breaker breaker;
     uint64_t numChannels = 0;
-    std::atomic<bool> running = false;
     std::thread sample_thread;
     synnax::Task task;
     loop::Timer timer;

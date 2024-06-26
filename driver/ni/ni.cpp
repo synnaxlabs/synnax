@@ -518,7 +518,8 @@ int ni::Source::init() {
 
 
 freighter::Error ni::Source::start() {
-    if (this->running.exchange(true) || !this->ok()) return freighter::NIL;
+    if (this->breaker.running() || !this->ok()) return freighter::NIL;
+    this->breaker.start();
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->logError(
             "failed while starting reader for task " + this->reader_config.task_name +
@@ -538,7 +539,8 @@ freighter::Error ni::Source::start() {
 }
 
 freighter::Error ni::Source::stop() {
-    if (!this->running.exchange(false) || !this->ok()) return freighter::NIL;
+    if (!this->breaker.running() || !this->ok()) return freighter::NIL;
+    this->breaker.stop();
     if (this->sample_thread.joinable()) this->sample_thread.join();
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
         this->logError(
@@ -610,7 +612,6 @@ void ni::Source::logError(std::string err_msg) {
 }
 
 void ni::Source::stoppedWithErr(const freighter::Error &err) {
-    this->running = false;
     this->stop();
     this->logError("stopped with error: " + err.message());
     this->ctx->setState({

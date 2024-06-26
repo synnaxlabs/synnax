@@ -124,7 +124,7 @@ int ni::AnalogReadSource::configureTiming() {
 }
 
 void ni::AnalogReadSource::acquireData() {
-    while (this->running) {
+    while (this->breaker.running()) {
         DataPacket data_packet;
         data_packet.data = new double[this->bufferSize];
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);

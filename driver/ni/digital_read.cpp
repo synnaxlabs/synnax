@@ -89,7 +89,7 @@ int ni::DigitalReadSource::configureTiming() {
 
 
 void ni::DigitalReadSource::acquireData() {
-    while (this->running) {
+    while (this->breaker.running()) {
         int32 numBytesPerSamp;
         DataPacket data_packet;
         data_packet.data = new uInt8[this->bufferSize];
