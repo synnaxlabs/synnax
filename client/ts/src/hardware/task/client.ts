@@ -288,11 +288,11 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   }
 
   async page(offset: number, limit: number): Promise<Payload[]> {
-    return this.execRetrieve({ offset, limit });
+    return await this.execRetrieve({ offset, limit });
   }
 
   async list(options: RetrieveOptions = {}): Promise<Payload[]> {
-    return this.execRetrieve(options);
+    return this.sugar(await this.execRetrieve(options));
   }
 
   async retrieve<

@@ -621,57 +621,116 @@ void ni::Source::stoppedWithErr(const freighter::Error &err) {
     });
 }
 
-void ni::Source::jsonifyError(std::string s){
+
+
+void ni::Source::jsonifyError(std::string s) {
     this->err_info["error type"] = "Vendor Error";
     this->err_info["running"] = false;
 
     std::regex propertyRegex(R"(Property:\s*(\S+))");
     std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
-    std::regex messageRegex(R"((.*?)(?=Property:|Status Code:|$))");
+    std::regex messageRegex(R"(^.*?(?=Property:|Status Code:|Possible Values:|Maximum Value:|Minimum Value:|Channel Name:|Physical Channel Name:|Device:|\n\n|\n$))");
     std::regex channelRegex(R"(Channel Name:\s*(\S+))");
-     // Extract status code
+    std::regex physicalChannelRegex(R"(Physical Channel Name:\s*(\S+))");
+    std::regex deviceRegex(R"(Device:\s*(\S+))");
+    std::regex possibleValuesRegex(R"(Possible Values:\s*([\w\s,.-]+))");
+    std::regex maxValueRegex(R"(Maximum Value:\s*([\d.\s,eE-]+))");
+    std::regex minValueRegex(R"(Minimum Value:\s*([\d.\s,eE-]+))");
+    
+    // Extract status code
     std::smatch statusCodeMatch;
     std::regex_search(s, statusCodeMatch, statusCodeRegex);
+    std::string sc = (!statusCodeMatch.empty()) ? statusCodeMatch[1].str() : "";
 
-    std::string sc = "";
-
-    if (!statusCodeMatch.empty()) sc = statusCodeMatch[1].str();
-    
     // Extract message
     std::smatch messageMatch;
     std::regex_search(s, messageMatch, messageRegex);
-    if (!messageMatch.empty()) {
-        std::string message = messageMatch[1].str();
-        this->err_info["message"] = "NI Error " + sc + ": " +  message;
+    std::string message = (!messageMatch.empty()) ? messageMatch[0].str() : "";
+
+    // Extract device name
+    std::string device = "";
+    std::smatch deviceMatch;
+    if (std::regex_search(s, deviceMatch, deviceRegex)) {
+        device = deviceMatch[1].str();
     }
 
-    // Extract channel name
+    // Extract physical channel name or channel name
     std::string cn = "";
-    std::smatch channelMatch;
-    if (std::regex_search(s, channelMatch, channelRegex)) {
-        std::string channel = channelMatch[1].str();
-        cn = channel;
-    } else return;
+    std::smatch physicalChannelMatch;
+    if (std::regex_search(s, physicalChannelMatch, physicalChannelRegex)) {
+        cn = physicalChannelMatch[1].str();
+        if (!device.empty()) {
+            cn = device + "/" + cn;  // Combine device and physical channel name
+        }
+    } else {
+        std::smatch channelMatch;
+        if (std::regex_search(s, channelMatch, channelRegex)) {
+            cn = channelMatch[1].str();
+        }
+    }
+
     // Extract the first property
     std::string p = "";
     std::smatch propertyMatch;
     if (std::regex_search(s, propertyMatch, propertyRegex)) {
-        std::string property = propertyMatch[1].str();
-        p = property;
+        p = propertyMatch[1].str();
     }
 
+    // Extract possible values
+    std::string possibleValues = "";
+    std::smatch possibleValuesMatch;
+    if (std::regex_search(s, possibleValuesMatch, possibleValuesRegex)) {
+        possibleValues = possibleValuesMatch[1].str();
 
-    // check if the property is in the field map
-    if (FIELD_MAP.count(p) == 0)  {
+        // Remove "Channel Name" from possible values if it exists
+        size_t pos = possibleValues.find("Channel Name");
+        if (pos != std::string::npos) {
+            possibleValues.erase(pos, std::string("Channel Name").length());
+        }
+    }
+    
+    // Extract maximum value
+    std::string maxValue = "";
+    std::smatch maxValueMatch;
+    if (std::regex_search(s, maxValueMatch, maxValueRegex)) {
+        maxValue = maxValueMatch[1].str();
+    }
+
+    // Extract minimum value
+    std::string minValue = "";
+    std::smatch minValueMatch;
+    if (std::regex_search(s, minValueMatch, minValueRegex)) {
+        minValue = minValueMatch[1].str();
+    } 
+
+    // Check if the channel name is in the channel map
+    if (channel_map.count(cn) != 0) {
         this->err_info["path"] = channel_map[cn];
-        this->err_info["message"] = this->err_info["message"].get<std::string>() + " Path: " + this->err_info["path"].get<std::string>();
+    } else {
+        this->err_info["path"] = "unknown";
+    }
+
+    // Check if the property is in the field map
+    if (FIELD_MAP.count(p) == 0) {
+        this->err_info["message"] = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
         return;
-    };
+    }
 
     this->err_info["type"] = "field error";
-    this->err_info["path"] = channel_map[cn] + "." + FIELD_MAP.at(p);
-    
-    this->err_info["message"] = this->err_info["message"].get<std::string>() + " Path: " + this->err_info["path"].get<std::string>();
-    
+    this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + FIELD_MAP.at(p);
+
+    // Update the message with possible values, max value, and min value if they exist
+    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>();
+    if (!possibleValues.empty()) {
+        errorMessage += " Possible Values: " + possibleValues;
+    }
+    if (!maxValue.empty()) {
+        errorMessage += " Maximum Value: " + maxValue;
+    }
+    if (!minValue.empty()) {
+        errorMessage += " Minimum Value: " + minValue;
+    }
+    this->err_info["message"] = errorMessage;   
+
     LOG(INFO) << this->err_info.dump(4);
 }
