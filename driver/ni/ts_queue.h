@@ -19,25 +19,29 @@ public:
     TSQueue() = default;
 
     void enqueue(const T &item) {
-        std::lock_guard<std::mutex> lock(m);
-        queue.push(item);
-        c.notify_one();
+        std::unique_lock lock(m);
+
+        if(queue.size() < max_size){
+            queue.push(item);
+        }
+
+        waiting_consumers.notify_one();
     }
 
     std::pair<T, bool> dequeue(void) {
         std::unique_lock lock(m);
 
-        // while(queue.empty()){
-        // c.wait(lock);
-        // }
+        waiting_consumers.wait_for(lock, std::chrono::seconds(2));
 
-        c.wait_for(lock, std::chrono::seconds(2));
-        if (queue.empty()) {
+        if (queue.empty()) { // FIXME change to while?
             return std::make_pair(T(), false);
         }
 
         T item = queue.front();
         queue.pop();
+        // while (queue.size() > max_size) {
+        //     queue.pop();
+        // }
 
         return std::make_pair(item, true);
     }
@@ -52,5 +56,6 @@ public:
 private:
     std::queue<T> queue;
     std::mutex m;
-    std::condition_variable c;
+    std::condition_variable waiting_consumers;
+    uint64_t max_size = 5;
 };

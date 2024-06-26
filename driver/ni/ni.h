@@ -40,6 +40,7 @@
 #include "driver/breaker/breaker.h"
 #include "driver/config/config.h"
 #include "driver/errors/errors.h"
+#include "driver/loop/loop.h"
 
 namespace ni {
 
@@ -226,6 +227,7 @@ public:
 
     // NI related resources
     uint64_t numAIChannels = 0;
+    loop::Timer timer;
 };
 
 

@@ -276,6 +276,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     auto writer_config = synnax::WriterConfig{
         .channels = state_keys,
         .start = synnax::TimeStamp::now(),
+        .mode = synnax::WriterMode::PersistStream,
         .enable_auto_commit = true,
     };
 

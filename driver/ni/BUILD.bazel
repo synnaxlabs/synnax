@@ -86,6 +86,7 @@ cc_library(
         "//driver/errors",
         "//driver/pipeline",
         "//client/cpp:synnax",
+        "//driver/loop",
         "//driver/config",
         "//driver/task",
         "@nlohmann_json//:json",

@@ -119,6 +119,7 @@ int ni::AnalogReadSource::configureTiming() {
     // make a make a call to read 10 samples at 100hz
     this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
     this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
+    timer = loop::Timer(this->reader_config.stream_rate);
     return 0;
 }
 
@@ -149,8 +150,9 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
     // sleep per stream rate
-    auto ns_period = this->reader_config.stream_rate.period().chrono();
-    std::this_thread::sleep_for(ns_period);
+    // auto ns_period = this->reader_config.stream_rate.period().chrono();
+    // std::this_thread::sleep_for(ns_period);
+    timer.wait(breaker);
         
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();
