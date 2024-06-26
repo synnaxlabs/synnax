@@ -215,6 +215,11 @@ interface SetNavDrawerVisiblePayload {
   value?: boolean;
 }
 
+interface SetArgsPayload<T = unknown> {
+  key: string;
+  args: T;
+}
+
 export const GET_STARTED_LAYOUT_TYPE = "getStarted";
 
 const purgeEmptyMosaics = (state: SliceState) => {
@@ -267,7 +272,6 @@ export const { actions, reducer } = createSlice({
           tab?.location,
           tab?.mosaicKey,
         );
-        console.log(mosaic.root);
         mosaic.activeTab = key;
       }
 
@@ -293,7 +297,6 @@ export const { actions, reducer } = createSlice({
         if (layout == null) {
           // try to find it by alt key
           const alt = Object.values(state.layouts).find((l) => l.altKey === contentKey);
-          console.log(alt);
           if (alt == null) return;
           layout = alt;
         }
@@ -493,6 +496,11 @@ export const { actions, reducer } = createSlice({
         nav: state.nav,
       };
     },
+    setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
+      const layout = state.layouts[key];
+      if (layout == null) return;
+      layout.args = args;
+    },
   },
 });
 
@@ -514,6 +522,9 @@ export const {
   setWorkspace,
   clearWorkspace,
 } = actions;
+
+export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>
+  actions.setArgs(pld) as PayloadAction<SetArgsPayload<T>>;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

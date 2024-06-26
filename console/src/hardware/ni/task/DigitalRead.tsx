@@ -25,7 +25,7 @@ import {
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { ReactElement, useCallback, useRef, useState } from "react";
 import { z } from "zod";
@@ -45,8 +45,8 @@ import {
   ZERO_DI_CHAN,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
+import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
-import { useSelectArgs } from "@/layout/selectors";
 
 interface ConfigureDigitalReadArgs {
   create: boolean;
@@ -62,27 +62,6 @@ export const configureDigitalReadLayout = (
   location: "mosaic",
   args: { create },
 });
-
-export const ConfigureDigitalRead: Layout.Renderer = ({ layoutKey }) => {
-  const client = Synnax.use();
-  const { create } = useSelectArgs<ConfigureDigitalReadArgs>(layoutKey);
-  const fetchTask = useQuery<InternalProps>({
-    queryKey: [layoutKey, client?.key],
-    queryFn: async () => {
-      if (client == null || create)
-        return { initialValues: deep.copy(ZERO_DIGITAL_READ_PAYLOAD) };
-      const t = await client.hardware.tasks.retrieve<
-        DigitalReadConfig,
-        DigitalReadStateDetails,
-        DigitalReadType
-      >(layoutKey, { includeState: true });
-      return { initialValues: t, task: t };
-    },
-  });
-  if (fetchTask.isLoading) return <></>;
-  if (fetchTask.isError) return <></>;
-  return <Internal {...(fetchTask.data as InternalProps)} />;
-};
 
 interface InternalProps {
   task?: DigitalRead;
@@ -383,3 +362,8 @@ const ChannelListItem = ({
     </List.ItemFrame>
   );
 };
+
+export const ConfigureDigitalRead = wrapTaskLayout<DigitalRead, DigitalReadPayload>(
+  Internal,
+  ZERO_DIGITAL_READ_PAYLOAD,
+);

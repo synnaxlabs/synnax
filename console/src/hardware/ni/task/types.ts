@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { device, task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const unitsVoltsZ = z.literal("Volts");
@@ -1269,8 +1269,14 @@ export const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLin
   customScale: ZERO_NO_SCALE,
 };
 
-export const velocityUnitsZ = z.enum(["m/s", "in/s"]);
+export const velocityUnitsZ = z.enum(["MetersPerSecond", "InchesPerSecond"]);
 export type VelocityUnits = z.infer<typeof velocityUnitsZ>;
+
+export const velocitySensitivityUnitsZ = z.enum([
+  "MillivoltsPerMillimeterPerSecond",
+  "MilliVoltsPerInchPerSecond",
+]);
+export type VelocitySensitivityUnits = z.infer<typeof velocitySensitivityUnitsZ>;
 
 // 28 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivelocityiepechan.html
 const aiVelocityIEPEChanZ = baseAIChanZ.extend({
@@ -1281,7 +1287,7 @@ const aiVelocityIEPEChanZ = baseAIChanZ.extend({
   maxVal: z.number(),
   units: velocityUnitsZ,
   sensitivity: z.number(),
-  sensitivityUnits: z.enum(["mV/m/s", "V/m/s"]),
+  sensitivityUnits: velocitySensitivityUnitsZ,
   currentExcitSource: excitSourceZ,
   currentExcitVal: z.number(),
   customScale: scaleZ,
@@ -1299,9 +1305,9 @@ export const ZERO_AI_VELOCITY_EPE_CHAN: AIVelocityEPEChan = {
   terminalConfig: "Cfg_Default",
   minVal: 0,
   maxVal: 1,
-  units: "m/s",
+  units: "MetersPerSecond",
   sensitivity: 0,
-  sensitivityUnits: "mV/m/s",
+  sensitivityUnits: "MillivoltsPerMillimeterPerSecond",
   currentExcitSource: "Internal",
   currentExcitVal: 0,
   customScale: ZERO_NO_SCALE,
@@ -1409,7 +1415,6 @@ export const aiChan = z.union([
   aiPressureBridgeTableChanZ,
   aiPressureBridgeTwoPointLinChanZ,
   aiResistanceChanZ,
-  aiRosetteStrainGageChanZ,
   aiRTDChanZ,
   aiStrainGageChan,
   aiTempBuiltInChanZ,
@@ -1434,7 +1439,6 @@ export const AI_CHANNEL_SCHEMAS: Record<AIChanType, z.ZodType<AIChan>> = {
   ai_pressure_bridge_table: aiPressureBridgeTableChanZ,
   ai_pressure_bridge_two_point_lin: aiPressureBridgeTwoPointLinChanZ,
   ai_resistance: aiResistanceChanZ,
-  ai_rosette_strain_gage: aiRosetteStrainGageChanZ,
   ai_rtd: aiRTDChanZ,
   ai_strain_gauge: aiStrainGageChan,
   ai_temp_builtin: aiTempBuiltInChanZ,
@@ -1456,7 +1460,6 @@ export const ZERO_AI_CHANNELS: Record<AIChanType, AIChan> = {
   ai_pressure_bridge_table: ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN,
   ai_pressure_bridge_two_point_lin: ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN,
   ai_resistance: ZERO_AI_RESISTANCE_CHAN,
-  ai_rosette_strain_gage: ZERO_AI_ROSETTE_STRAIN_GAGE_CHAN,
   ai_rtd: ZERO_AI_RTD_CHAN,
   ai_strain_gauge: ZERO_AI_STRAIN_GAGE_CHAN,
   ai_temp_builtin: ZERO_AI_TEMP_BUILTIN_CHAN,
@@ -1534,20 +1537,23 @@ export const ZERO_DI_CHAN: DIChan = {
 export type DIChan = z.infer<typeof diChanZ>;
 export type DIChanType = DIChan["type"];
 
+const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
+
 export const analogReadTaskConfigZ = z
   .object({
-    device: z.string().min(1),
+    device: deviceKeyZ,
     sampleRate: z.number().min(0).max(50000),
     streamRate: z.number().min(0).max(50000),
     channels: z.array(aiChan),
+    dataSaving: z.boolean(),
   })
   .refine(
     (c) =>
       // Ensure that the stream Rate is lower than the sample rate
-      c.sampleRate > c.streamRate,
+      c.sampleRate >= c.streamRate,
     {
       path: ["streamRate"],
-      message: "Stream rate must be lower than sample rate",
+      message: "Stream rate must be less than or equal to the sample rate",
     },
   )
   .superRefine((cfg, ctx) => {
@@ -1606,6 +1612,7 @@ export const ZERO_ANALOG_READ_CONFIG: AnalogReadTaskConfig = {
   sampleRate: 10,
   streamRate: 5,
   channels: [],
+  dataSaving: true,
 };
 export type AnalogRead = task.Task<
   AnalogReadTaskConfig,
@@ -1628,16 +1635,17 @@ export type DigitalWriteConfig = z.infer<typeof digitalWriteConfigZ>;
 export const DIGITAL_WRITE_TYPE = "ni_digital_write";
 export type DigitalWriteType = typeof DIGITAL_WRITE_TYPE;
 export const digitalWriteConfigZ = z.object({
-  device: z.string().min(1),
+  device: deviceKeyZ,
   channels: z.array(doChanZ),
   stateRate: z.number().min(0).max(50000),
+  dataSaving: z.boolean(),
 });
 
 export const digitalWriteStateDetailsZ = z.object({
   running: z.boolean(),
 });
 export type DigitalWriteStateDetails = z.infer<typeof digitalWriteStateDetailsZ>;
-export type DigitalWriteTask = task.Task<
+export type DigitalWrite = task.Task<
   DigitalWriteConfig,
   DigitalWriteStateDetails,
   DigitalWriteType
@@ -1648,9 +1656,10 @@ export type DigitalWritePayload = task.Payload<
   DigitalWriteType
 >;
 export const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
-  device: "Dev1",
+  device: "",
   stateRate: 10,
   channels: [],
+  dataSaving: true,
 };
 export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   key: "",
@@ -1661,9 +1670,10 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
 
 const digitalReadChannelZ = diChanZ;
 export const digitalReadConfigZ = z.object({
-  device: z.string().min(1),
+  device: deviceKeyZ,
   sampleRate: z.number().min(0).max(50000),
   streamRate: z.number().min(0).max(50000),
+  dataSaving: z.boolean(),
   channels: z.array(digitalReadChannelZ),
 });
 export type DigitalReadConfig = z.infer<typeof digitalReadConfigZ>;
@@ -1684,10 +1694,11 @@ export type DigitalReadPayload = task.Payload<
   DigitalReadType
 >;
 export const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
-  device: "Dev1",
+  device: "",
   channels: [],
   sampleRate: 50,
   streamRate: 25,
+  dataSaving: true,
 };
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
@@ -1696,5 +1707,5 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   type: DIGITAL_READ_TYPE,
 };
 
-export type Task = AnalogRead | DigitalWriteTask | DigitalRead;
+export type Task = AnalogRead | DigitalWrite | DigitalRead;
 export type Chan = DIChan | AIChan | DOChan;

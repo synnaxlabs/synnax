@@ -9,6 +9,7 @@
 
 import { Align, Divider, Form, Input, List, Select, state } from "@synnaxlabs/pluto";
 import { binary, deep } from "@synnaxlabs/x";
+import { width } from "node_modules/@synnaxlabs/x/dist/src/spatial/box/box";
 import { FC, ReactElement, useRef } from "react";
 import { z } from "zod";
 
@@ -30,6 +31,8 @@ import {
   TemperatureUnits,
   TorqueUnits,
   Units,
+  VelocitySensitivityUnits,
+  VelocityUnits,
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
@@ -1075,6 +1078,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           <ElectricalUnitsField path={prefix} grow />
         </Align.Space>
         {/* electricalVals */}
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -1355,11 +1359,13 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         <MinMaxValueFields path={prefix} />
         <PressureUnitsField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
-        <BridgeConfigField path={prefix} />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal Bridge Resistance"
-        />
+        <Align.Space direction="x">
+          <BridgeConfigField path={prefix} grow />
+          <Form.NumericField
+            path={`${prefix}.nominalBridgeResistance`}
+            label="Nominal Bridge Resistance"
+          />
+        </Align.Space>
         <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x">
           <ExcitSourceField
@@ -1382,18 +1388,21 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             fieldKey="physicalUnits"
             label="Physical Units"
             grow
-          />{" "}
-          <ElectricalUnitsField path={prefix} grow />
+            style={{ width: "50%" }}
+          />
+          <ElectricalUnitsField path={prefix} grow style={{ width: "50%" }} />
         </Align.Space>
         <Align.Space direction="x" grow>
           <Form.NumericField
             path={`${prefix}.firstPhysicalVal`}
             label="Physical Value One"
             grow
+            style={{ width: "50%" }}
           />
           <Form.NumericField
             path={`${prefix}.secondPhysicalVal`}
             label="Physical Value Two"
+            style={{ width: "50%" }}
             grow
           />
         </Align.Space>
@@ -1401,11 +1410,13 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           <Form.NumericField
             path={`${prefix}.firstElectricalVal`}
             label="Electrical Value One"
+            style={{ width: "50%" }}
             grow
           />
           <Form.NumericField
             path={`${prefix}.secondElectricalVal`}
             label="Electrical Value Two"
+            style={{ width: "50%" }}
             grow
           />
         </Align.Space>
@@ -1447,119 +1458,119 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
-  ai_rosette_strain_gage: ({ prefix }) => {
-    const TypeField = Form.buildDropdownButtonSelectField({
-      fieldKey: "rosetteType",
-      fieldProps: { label: "Rosette Type" },
-      inputProps: {
-        entryRenderKey: "name",
-        columns: NAMED_KEY_COLS,
-        data: [
-          {
-            key: "RectangularRosette",
-            name: "Rectangular",
-          },
-          {
-            key: "DeltaRosette",
-            name: "Delta",
-          },
-          {
-            key: "TeeRosette",
-            name: "Tee",
-          },
-        ],
-      },
-    });
-    const MeasureTypeField = Form.buildSelectMultiField({
-      fieldKey: "rosetteMeasTypes",
-      fieldProps: { label: "Measurement Type" },
-      inputProps: {
-        data: [
-          {
-            key: "PrincipleStrain1",
-            name: "Principle Strain 1",
-          },
-          {
-            key: "PrincipleStrain2",
-            name: "Principle Strain 2",
-          },
-          {
-            key: "PrincipleStrainAngle",
-            name: "Principle Strain Angle",
-          },
-          {
-            key: "CartesianStrainX",
-            name: "Cartesian Strain X",
-          },
-          {
-            key: "CartesianStrainY",
-            name: "Cartesian Strain Y",
-          },
-          {
-            key: "CartesianShearStrainXY",
-            name: "Cartesian Shear Strain XY",
-          },
-          {
-            key: "MaxShearStrain",
-            name: "Max Shear Strain",
-          },
-          {
-            key: "MaxShearStrainAngle",
-            name: "Max Shear Strain Angle",
-          },
-        ],
-      },
-    });
-    return (
-      <>
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Align.Space direction="x" grow>
-          <TypeField path={prefix} grow />
-          <Form.NumericField
-            path={`${prefix}.gageOrientation`}
-            label="Gage Orientation"
-            grow
-          />
-        </Align.Space>
-        <MeasureTypeField path={prefix} />
-        <StrainConfig path={prefix} />
-        <Align.Space direction="x" grow>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField path={`${prefix}.gageFactor`} label="Gage Factor" grow />
-          <Form.NumericField
-            path={`${prefix}.nominalGageResistance`}
-            label="Nominal Gage Resistance"
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField
-            path={`${prefix}.poissonRatio`}
-            label="Poission's Ratio"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.leadWireResistance`}
-            label="Lead Wire Resistance"
-            grow
-          />
-        </Align.Space>
-      </>
-    );
-  },
+  // ai_rosette_strain_gage: ({ prefix }) => {
+  //   const TypeField = Form.buildDropdownButtonSelectField({
+  //     fieldKey: "rosetteType",
+  //     fieldProps: { label: "Rosette Type" },
+  //     inputProps: {
+  //       entryRenderKey: "name",
+  //       columns: NAMED_KEY_COLS,
+  //       data: [
+  //         {
+  //           key: "RectangularRosette",
+  //           name: "Rectangular",
+  //         },
+  //         {
+  //           key: "DeltaRosette",
+  //           name: "Delta",
+  //         },
+  //         {
+  //           key: "TeeRosette",
+  //           name: "Tee",
+  //         },
+  //       ],
+  //     },
+  //   });
+  //   const MeasureTypeField = Form.buildSelectMultiField({
+  //     fieldKey: "rosetteMeasTypes",
+  //     fieldProps: { label: "Measurement Type" },
+  //     inputProps: {
+  //       data: [
+  //         {
+  //           key: "PrincipleStrain1",
+  //           name: "Principle Strain 1",
+  //         },
+  //         {
+  //           key: "PrincipleStrain2",
+  //           name: "Principle Strain 2",
+  //         },
+  //         {
+  //           key: "PrincipleStrainAngle",
+  //           name: "Principle Strain Angle",
+  //         },
+  //         {
+  //           key: "CartesianStrainX",
+  //           name: "Cartesian Strain X",
+  //         },
+  //         {
+  //           key: "CartesianStrainY",
+  //           name: "Cartesian Strain Y",
+  //         },
+  //         {
+  //           key: "CartesianShearStrainXY",
+  //           name: "Cartesian Shear Strain XY",
+  //         },
+  //         {
+  //           key: "MaxShearStrain",
+  //           name: "Max Shear Strain",
+  //         },
+  //         {
+  //           key: "MaxShearStrainAngle",
+  //           name: "Max Shear Strain Angle",
+  //         },
+  //       ],
+  //     },
+  //   });
+  //   return (
+  //     <>
+  //       <PortField path={prefix} />
+  //       <MinMaxValueFields path={prefix} />
+  //       <Align.Space direction="x" grow>
+  //         <TypeField path={prefix} grow />
+  //         <Form.NumericField
+  //           path={`${prefix}.gageOrientation`}
+  //           label="Gage Orientation"
+  //           grow
+  //         />
+  //       </Align.Space>
+  //       <MeasureTypeField path={prefix} />
+  //       <StrainConfig path={prefix} />
+  //       <Align.Space direction="x" grow>
+  //         <ExcitSourceField
+  //           path={prefix}
+  //           fieldKey="voltageExcitSource"
+  //           label="Voltage Excitation Source"
+  //           grow
+  //         />
+  //         <Form.NumericField
+  //           path={`${prefix}.voltageExcitVal`}
+  //           label="Voltage Excitation Value"
+  //           grow
+  //         />
+  //       </Align.Space>
+  //       <Align.Space direction="x" grow>
+  //         <Form.NumericField path={`${prefix}.gageFactor`} label="Gage Factor" grow />
+  //         <Form.NumericField
+  //           path={`${prefix}.nominalGageResistance`}
+  //           label="Nominal Gage Resistance"
+  //           grow
+  //         />
+  //       </Align.Space>
+  //       <Align.Space direction="x" grow>
+  //         <Form.NumericField
+  //           path={`${prefix}.poissonRatio`}
+  //           label="Poission's Ratio"
+  //           grow
+  //         />
+  //         <Form.NumericField
+  //           path={`${prefix}.leadWireResistance`}
+  //           label="Lead Wire Resistance"
+  //           grow
+  //         />
+  //       </Align.Space>
+  //     </>
+  //   );
+  // },
   ai_rtd: ({ prefix }) => {
     const RTDTypeField = Form.buildDropdownButtonSelectField({
       fieldKey: "rtdType",
@@ -1599,12 +1610,15 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <TemperatureUnitsField path={prefix} grow />
           <RTDTypeField path={prefix} grow />
         </Align.Space>
         <ResistanceConfigField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ExcitSourceField
             path={prefix}
@@ -1729,6 +1743,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
           <TemperatureUnitsField path={prefix} grow />
@@ -1937,10 +1952,15 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_velocity_iepe: ({ prefix }) => {
-    const VelocityUnits = Form.buildDropdownButtonSelectField({
+    const VelocityUnits = Form.buildDropdownButtonSelectField<
+      VelocityUnits,
+      NamedKey<VelocityUnits>
+    >({
       fieldKey: "units",
       fieldProps: { label: "Velocity Units" },
       inputProps: {
+        columns: NAMED_KEY_COLS,
+        entryRenderKey: "name",
         data: [
           {
             key: "MetersPerSecond",
@@ -1953,10 +1973,15 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         ],
       },
     });
-    const SensitivityUnits = Form.buildDropdownButtonSelectField({
+    const SensitivityUnits = Form.buildDropdownButtonSelectField<
+      VelocitySensitivityUnits,
+      NamedKey<VelocitySensitivityUnits>
+    >({
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
+        columns: NAMED_KEY_COLS,
+        entryRenderKey: "name",
         data: [
           {
             key: "MillivoltsPerMillimeterPerSecond",
@@ -1974,19 +1999,27 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
-        <ElectricalUnitsField path={prefix} />
         <VelocityUnits path={prefix} />
-        <Form.NumericField path={`${prefix}.sensitivity`} label="Sensitivity" />
-        <SensitivityUnits path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current Excitation Source"
-        />
         <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current Excitation Value"
+          path={`${prefix}.sensitivity`}
+          label="Sensitivity"
+          inputProps={{
+            children: (
+              <SensitivityUnits path={prefix} showLabel={false} showHelpText={false} />
+            ),
+          }}
         />
+        <Align.Space direction="x" grow>
+          <ExcitSourceField
+            path={prefix}
+            fieldKey="currentExcitSource"
+            label="Current Excitation Source"
+          />
+          <Form.NumericField
+            path={`${prefix}.currentExcitVal`}
+            label="Current Excitation Value"
+          />
+        </Align.Space>
         <CustomScaleForm prefix={prefix} />
       </>
     );

@@ -18,7 +18,7 @@ import {
   Form,
   Header,
   List,
-  Nav,
+  Observe,
   Status,
   Synnax,
   useAsyncEffect,
@@ -27,7 +27,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
 import { deep, primitiveIsZero } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -39,19 +39,19 @@ import {
   AnalogReadStateDetails,
   Chan,
   DIGITAL_WRITE_TYPE,
+  DigitalWrite,
   DigitalWriteConfig,
   digitalWriteConfigZ,
   DigitalWritePayload,
   DigitalWriteStateDetails,
-  DigitalWriteTask,
   DigitalWriteType,
   DOChan,
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHAN,
 } from "@/hardware/ni/task/types";
+import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
-import { useSelectArgs } from "@/layout/selectors";
-import { setAltKey } from "@/layout/slice";
+import { setAltKey, setArgs } from "@/layout/slice";
 
 interface ConfigureDigitalWriteArgs {
   create: boolean;
@@ -68,30 +68,9 @@ export const configureDigitalWriteLayout = (
   args: { create },
 });
 
-export const ConfigureDigitalWrite: Layout.Renderer = ({ layoutKey }) => {
-  const client = Synnax.use();
-  const { create } = useSelectArgs<ConfigureDigitalWriteArgs>(layoutKey);
-  const fetchTask = useQuery<InternalProps>({
-    queryKey: [layoutKey, client?.key],
-    queryFn: async () => {
-      if (client == null || create)
-        return { initialValues: deep.copy(ZERO_DIGITAL_WRITE_PAYLOAD), layoutKey };
-      const t = await client.hardware.tasks.retrieve<
-        DigitalWriteConfig,
-        DigitalWriteStateDetails,
-        DigitalWriteType
-      >(layoutKey, { includeState: true });
-      return { initialValues: t, task: t, layoutKey };
-    },
-  });
-  if (fetchTask.isLoading) return <></>;
-  if (fetchTask.isError) return <></>;
-  return <Internal {...(fetchTask.data as InternalProps)} />;
-};
-
 interface InternalProps {
   layoutKey: string;
-  task?: DigitalWriteTask;
+  task?: DigitalWrite;
   initialValues: DigitalWritePayload;
 }
 
@@ -112,21 +91,13 @@ const Internal = ({
   const dispatch = useDispatch();
 
   const [task, setTask] = useState(pTask);
-  const [taskState, setTaskState] = useState<task.State<AnalogReadStateDetails> | null>(
-    initialValues?.state ?? null,
-  );
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
-  const stateObserverRef =
-    useRef<task.StateObservable<DigitalWriteStateDetails> | null>(null);
-  useAsyncEffect(async () => {
-    if (client == null || task == null) return;
-    stateObserverRef.current = await task.openStateObserver<AnalogReadStateDetails>();
-    stateObserverRef.current.onChange((s) => {
-      setTaskState(s);
-    });
-    return async () => await stateObserverRef.current?.close().catch(console.error);
-  }, [client?.key, task?.key, setTaskState]);
+
+  const taskState = Observe.useState<task.State<AnalogReadStateDetails>>({
+    key: [task?.key],
+    open: async () => await task?.openStateObserver<AnalogReadStateDetails>(),
+  });
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
@@ -256,11 +227,9 @@ const Internal = ({
         config,
       });
       setTask(t);
+      dispatch(setAltKey({ key: layoutKey, altKey: t.key }));
       dispatch(
-        setAltKey({
-          key: layoutKey,
-          altKey: t.key,
-        }),
+        setArgs<ConfigureDigitalWriteArgs>({ key: layoutKey, args: { create: false } }),
       );
     },
   });
@@ -285,7 +254,12 @@ const Internal = ({
             </Form.Field>
           </Align.Space>
           <Align.Space direction="x">
-            <Form.Field<string> path="config.device" label="Device" grow>
+            <Form.Field<string>
+              path="config.device"
+              label="Device"
+              onChange={console.log}
+              grow
+            >
               {(p) => (
                 <Device.SelectSingle
                   allowNone={false}
@@ -298,6 +272,7 @@ const Internal = ({
             <Form.Field<number> label="State Update Rate" path="config.stateRate">
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
+            <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
           </Align.Space>
           <Align.Space
             direction="x"
@@ -548,3 +523,8 @@ const ChannelListItem = ({
     </List.ItemFrame>
   );
 };
+
+export const ConfigureDigitalWrite = wrapTaskLayout<DigitalWrite, DigitalWritePayload>(
+  Internal,
+  ZERO_DIGITAL_WRITE_PAYLOAD,
+);

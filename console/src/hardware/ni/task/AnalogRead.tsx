@@ -26,9 +26,9 @@ import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { deep, primitiveIsZero } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-import { type ReactElement, useCallback, useRef, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -53,14 +53,10 @@ import {
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
+import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
-import { useSelectArgs } from "@/layout/selectors";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
-
-interface AnalogReadTaskArgs {
-  create: boolean;
-}
 
 export const configureAnalogReadLayout = (create: boolean = false): Layout.State => ({
   name: "Configure NI Analog Read Task",
@@ -70,27 +66,6 @@ export const configureAnalogReadLayout = (create: boolean = false): Layout.State
   location: "mosaic",
   args: { create },
 });
-
-export const ConfigureAnalogRead: Layout.Renderer = ({ layoutKey }) => {
-  const client = Synnax.use();
-  const { create } = useSelectArgs<AnalogReadTaskArgs>(layoutKey);
-  const fetchTask = useQuery<InternalProps>({
-    queryKey: [layoutKey, client?.key],
-    queryFn: async () => {
-      if (client == null || create)
-        return { initialValues: deep.copy(ZERO_ANALOG_READ_PAYLOAD), layoutKey };
-      const t = await client.hardware.tasks.retrieve<
-        AnalogReadConfig,
-        AnalogReadStateDetails,
-        AnalogReadType
-      >(layoutKey, { includeState: true });
-      return { initialValues: t, initialTask: t, layoutKey };
-    },
-  });
-  if (fetchTask.isLoading) return <></>;
-  if (fetchTask.isError) return <></>;
-  return <Internal {...(fetchTask.data as InternalProps)} layoutKey={layoutKey} />;
-};
 
 interface InternalProps {
   layoutKey: string;
@@ -121,24 +96,18 @@ const Internal = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const stateObserverRef = useRef<task.StateObservable<AnalogReadStateDetails> | null>(
-    null,
-  );
-
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
-    stateObserverRef.current = await task.openStateObserver<AnalogReadStateDetails>();
-    stateObserverRef.current.onChange((s) => {
-      console.log(s);
+    const stateObserver = await task.openStateObserver<AnalogReadStateDetails>();
+    stateObserver.onChange((s) => {
       setTaskState(s);
-      if (s.details != null && "path" in s.details) {
+      if (s.details != null && "path" in s.details)
         methods.setStatus(`config.${s.details.path}`, {
           variant: "error",
           message: s.details.message,
         });
-      }
     });
-    return async () => await stateObserverRef.current?.close().catch(console.error);
+    return async () => await stateObserver.close().catch(console.error);
   }, [client?.key, task?.key, setTaskState]);
 
   const configure = useMutation<void, Error, void, unknown>({
@@ -234,7 +203,7 @@ const Internal = ({
     },
   });
 
-  const start = useMutation({
+  const startOrStop = useMutation({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (client == null) return;
@@ -274,6 +243,7 @@ const Internal = ({
                   allowNone={false}
                   grow
                   {...p}
+                  autoSelectOnNone={false}
                   searchOptions={{ makes: ["NI"] }}
                 />
               )}
@@ -284,6 +254,7 @@ const Internal = ({
             <Form.Field<number> label="Stream Rate" path="config.streamRate">
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
+            <Form.SwitchField path="config.dataSaving" label="Data Saving" />
           </Align.Space>
           <Align.Space
             direction="x"
@@ -299,7 +270,6 @@ const Internal = ({
               onSelect={useCallback(
                 (v, i) => {
                   setSelectedChannels(v);
-                  console.log(i);
                   setSelectedChannelIndex(i);
                 },
                 [setSelectedChannels, setSelectedChannelIndex],
@@ -337,9 +307,9 @@ const Internal = ({
           </Align.Space>
           <Align.Space direction="x">
             <Button.Icon
-              loading={start.isPending}
-              disabled={start.isPending || taskState == null}
-              onClick={() => start.mutate()}
+              loading={startOrStop.isPending}
+              disabled={startOrStop.isPending || taskState == null}
+              onClick={() => startOrStop.mutate()}
               variant="outlined"
             >
               {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
@@ -585,3 +555,8 @@ const ChannelListItem = ({
     </List.ItemFrame>
   );
 };
+
+export const ConfigureAnalogRead = wrapTaskLayout<AnalogRead, AnalogReadPayload>(
+  Internal,
+  ZERO_ANALOG_READ_PAYLOAD,
+);
