@@ -12,6 +12,7 @@
 .console-ni-analog-read-task {
     height: 100%;
     align-items: center;
+    container-type: size;
     .console-content {
         padding: 5rem;
         max-width: 1000px;
@@ -56,6 +57,29 @@
                     }
                 }
             }
+        }
+    }
+}
+
+@container (max-width: 500px) {
+    .pluto-input--natural input {
+        font-size: var(--pluto-h2-size);
+        line-height: var(--pluto-h2-line-height);
+    }
+    .console-content {
+        padding: 3rem 2rem !important;
+    }
+    .console-channel-form-container {
+        flex-direction: column !important;
+
+        .console-channels {
+            max-width: 100% !important;
+            border-right: none !important;
+        }
+        .console-channel-form {
+            flex-grow: 1;
+            flex-basis: 800px;
+            border-top: var(--pluto-border);
         }
     }
 }

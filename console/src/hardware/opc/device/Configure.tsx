@@ -189,7 +189,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         rackKey == null ||
         deviceProperties == null
       ) {
-        console.log("ExiT");
         return;
       }
       setProgress("Creating channels...");

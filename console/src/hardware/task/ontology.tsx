@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
@@ -20,11 +20,11 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
-const ZERO_LAYOUT_STATES: Record<string, () => Layout.State> = {
+const ZERO_LAYOUT_STATES: Record<string, (create?: boolean) => Layout.State> = {
   [OPC.Task.READ_TYPE]: () => OPC.Task.configureReadLayout(),
-  [NI.Task.ANALOG_READ_TYPE]: () => NI.Task.configureAnalogReadLayout(true),
-  [NI.Task.DIGITAL_WRITE_TYPE]: () => NI.Task.configureDigitalWriteLayout(true),
-  [NI.Task.DIGITAL_READ_TYPE]: () => NI.Task.configureDigitalReadLayout(true),
+  [NI.Task.ANALOG_READ_TYPE]: NI.Task.configureAnalogReadLayout,
+  [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.configureDigitalWriteLayout,
+  [NI.Task.DIGITAL_READ_TYPE]: NI.Task.configureDigitalReadLayout,
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -40,9 +40,8 @@ const handleSelect: Ontology.HandleSelect = ({
       const t = await client.hardware.tasks.retrieve(task.key);
       const baseLayout = ZERO_LAYOUT_STATES[t.type];
       placeLayout({
-        ...baseLayout(),
+        ...baseLayout(false),
         key: selection[0].id.key,
-        args: { create: true },
       });
     } catch (e) {
       addStatus({ variant: "error", message: (e as Error).message });
@@ -134,14 +133,38 @@ const handleRename: Ontology.HandleTreeRename = {
   },
 };
 
+const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
+  client,
+  id,
+  placeLayout,
+  nodeKey,
+  location,
+}) => {
+  const task = await client.hardware.tasks.retrieve(id.key);
+  placeLayout({
+    ...ZERO_LAYOUT_STATES[task.type](false),
+    key: id.key,
+    tab: {
+      mosaicKey: nodeKey,
+      location,
+    },
+  });
+};
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "task",
   hasChildren: false,
   icon: <Icon.Task />,
   canDrop: () => false,
   onSelect: handleSelect,
+  onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
-  haulItems: () => [],
+  haulItems: (r) => [
+    {
+      type: Mosaic.HAUL_CREATE_TYPE,
+      key: r.id.toString(),
+    },
+  ],
   allowRename: () => true,
   onRename: handleRename,
 };
