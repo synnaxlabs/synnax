@@ -71,10 +71,10 @@ func runStep(i int, step TestStep) error {
 			err := runNode(node, fmt.Sprintf("%d-%d", i, n))
 			if err != nil {
 				cancel()
-				fmt.Printf("----error in node %d: %s\n", n, err.Error())
+				return errors.Newf("----error in node %d: %s\n", n, err.Error())
 			}
 
-			return err
+			return nil
 		})
 	}
 
@@ -110,7 +110,7 @@ func runTest(testConfigFile string) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("PANIC RECOVERED FOR CLEANUP\n")
+			fmt.Printf("PANIC RECOVERED FOR CLEANUP from erro: \n%s\n", r)
 		}
 		if err := runCleanUp(test.Cleanup); err != nil {
 			panic(err)
