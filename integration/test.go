@@ -113,7 +113,7 @@ func runTest(testConfigFile string) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("PANIC RECOVERED FOR CLEANUP from error-----\n%s\n------\n", r)
+			fmt.Printf("PANIC RECOVERED FOR CLEANUP from error\n-----\n%s\n------\n", r)
 		}
 		if err := runCleanUp(test.Cleanup); err != nil {
 			panic(err)
