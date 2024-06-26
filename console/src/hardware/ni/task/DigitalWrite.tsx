@@ -21,7 +21,6 @@ import {
   Observe,
   Status,
   Synnax,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -29,7 +28,7 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-import { type ReactElement, useCallback, useRef, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -75,7 +74,7 @@ interface InternalProps {
 }
 
 const Internal = ({
-  task: pTask,
+  task: initialTask,
   initialValues,
   layoutKey,
 }: InternalProps): ReactElement => {
@@ -90,7 +89,7 @@ const Internal = ({
 
   const dispatch = useDispatch();
 
-  const [task, setTask] = useState(pTask);
+  const [task, setTask] = useState(initialTask);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 

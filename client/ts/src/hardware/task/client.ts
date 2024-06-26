@@ -288,11 +288,11 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   }
 
   async page(offset: number, limit: number): Promise<Payload[]> {
-    return this.execRetrieve({ offset, limit });
+    return await this.execRetrieve({ offset, limit });
   }
 
-  async list(options: RetrieveOptions = {}): Promise<Payload[]> {
-    return this.execRetrieve(options);
+  async list(options: RetrieveOptions = {}): Promise<Task[]> {
+    return this.sugar(await this.execRetrieve(options));
   }
 
   async retrieve<
@@ -358,22 +358,17 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     );
   }
 
-  async openTracker(): Promise<signals.Observable<string, Task>> {
-    return await signals.openObservable<string, Task>(
+  async openTracker(): Promise<signals.Observable<string, string>> {
+    return await signals.openObservable<string, string>(
       this.frameClient,
       "sy_task_set",
       "sy_task_delete",
-      (variant, data) => {
-        if (variant === "delete") {
-          return Array.from(data).map((k) => ({
-            variant,
-            key: k.toString(),
-            value: undefined,
-          }));
-        }
-        const sugared = this.sugar(data.parseJSON(taskZ));
-        return sugared.map((t) => ({ variant, key: t.key, value: t }));
-      },
+      (variant, data) =>
+        Array.from(data).map((k) => ({
+          variant,
+          key: k.toString(),
+          value: k.toString(),
+        })),
     );
   }
 
