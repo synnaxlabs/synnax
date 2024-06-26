@@ -119,7 +119,7 @@ int ni::AnalogReadSource::configureTiming() {
     // make a make a call to read 10 samples at 100hz
     this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
     this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
-    timer = loop::Timer(this->reader_config.stream_rate);
+    this->timer = loop::Timer(this->reader_config.stream_rate);
     return 0;
 }
 
@@ -149,19 +149,20 @@ void ni::AnalogReadSource::acquireData() {
 std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
-    // sleep per stream rate
-    // auto ns_period = this->reader_config.stream_rate.period().chrono();
-    // std::this_thread::sleep_for(ns_period);
-    timer.wait(breaker);
-        
+
+    // sleep per streaming period
+    timer.wait(breaker); 
+
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();
 
+    // handle empty queue
     if (!valid)
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
 
+    // data is originally void ptr
     double *data = static_cast<double *>(d.data);
 
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
@@ -171,7 +172,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
     for (uint64_t i = 0; i < d.samplesReadPerChannel; ++i)
         time_index[i] = d.t0 + (std::uint64_t) (incr * i);
-
 
     // Construct and populate synnax frame
     uint64_t data_index = 0;

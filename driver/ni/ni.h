@@ -190,6 +190,7 @@ public:
     std::atomic<bool> running = false;
     std::thread sample_thread;
     synnax::Task task;
+    loop::Timer timer;
     uint32_t buffered_frames = 0;
 
     // maps ni channel name to path
@@ -227,7 +228,6 @@ public:
 
     // NI related resources
     uint64_t numAIChannels = 0;
-    loop::Timer timer;
 };
 
 

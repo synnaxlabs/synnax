@@ -65,7 +65,7 @@ int ni::DigitalReadSource::createChannels() {
 
 int ni::DigitalReadSource::configureTiming() {
     if (this->reader_config.timing_source == "none") {
-        // if timing is not enabled, implement timing in software
+        // if timing is not enabled, implement timing in software, reading one sample at a time
         this->numSamplesPerChannel = 1;
     } else {
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
@@ -83,6 +83,7 @@ int ni::DigitalReadSource::configureTiming() {
             this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
     }
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    this->timer = loop::Timer(this->reader_config.stream_rate);
     return 0;
 }
 
@@ -95,7 +96,7 @@ void ni::DigitalReadSource::acquireData() {
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
 
         // sleep per sample rate
-        auto samp_period = this->reader_config.stream_rate.period().chrono();
+        auto samp_period = this->reader_config.sample_rate.period().chrono();
         std::this_thread::sleep_for(samp_period);
 
         if (this->checkNIError(
@@ -119,9 +120,9 @@ void ni::DigitalReadSource::acquireData() {
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
+    
     // sleep per stream rate
-    auto ns_period = this->reader_config.stream_rate.period().chrono();
-    std::this_thread::sleep_for(ns_period);
+    timer.wait(breaker);
 
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();
