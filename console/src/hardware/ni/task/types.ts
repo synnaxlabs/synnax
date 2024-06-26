@@ -180,7 +180,7 @@ export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
   none: noScaleZ,
 };
 
-const terminalConfigZ = z.enum(["Cfg_Default", "RSE", "NRSE", "PseudoDiff"]);
+const terminalConfigZ = z.enum(["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]);
 
 export type TerminalConfig = z.infer<typeof terminalConfigZ>;
 

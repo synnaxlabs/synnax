@@ -1261,6 +1261,32 @@
             }
         }
     },
+     "USB-9219": {
+        "estimatedPinout": {
+            "confidence": 97,
+            "analogInput": {
+                "portCount": 4
+            },
+            "analogOutput": {
+                "portCount": 0
+            },
+            "thermocouple": {
+                "portCount": 0
+            },
+            "digitalInput": {
+                "portCount": 0,
+                "lineCounts": []
+            },
+            "digitalOutput": {
+                "portCount": 0,
+                "lineCounts": []
+            },
+            "digitalInputOutput": {
+                "portCount": 0,
+                "lineCounts": []
+            }
+        }
+    },
     "USB-6366": {
         "productSpecs": "https://www.ni.com/docs/en-US/bundle/pxie-usb-6366-specs/page/specs.html",
         "productData": {

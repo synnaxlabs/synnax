@@ -116,6 +116,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
     if (client == null || task == null) return;
     stateObserverRef.current = await task.openStateObserver<AnalogReadStateDetails>();
     stateObserverRef.current.onChange((s) => {
+      console.log(s);
       setTaskState(s);
       if (s.details != null && "path" in s.details) {
         methods.setStatus(`config.${s.details.path}`, {

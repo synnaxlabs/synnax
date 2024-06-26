@@ -21,6 +21,7 @@ using json = nlohmann::json;
 
 void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
     // now parse the channels
+    std:: uint64_t c_count;
     parser.iter("channels",
         [&](config::Parser &channel_builder) {
             // LOG(INFO) << channel_builder.get_json().dump(4);
@@ -38,7 +39,11 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
             config.ni_channel = this->parseChannel(
                 channel_builder, config.channel_type, config.name);
 
+            this->channel_map[config.name] = "channels." + std::to_string(c_count);
+
             this->reader_config.channels.push_back(config);
+            
+            c_count++;
         });
 }
 
@@ -200,3 +205,4 @@ int ni::AnalogReadSource::createChannels() {
     }
     return 0;
 }
+

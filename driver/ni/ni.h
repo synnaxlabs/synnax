@@ -134,6 +134,8 @@ public:
 
     void logError(std::string err_msg);
 
+    void jsonifyError(std::string);
+
     std::vector<synnax::ChannelKey> getChannelKeys();
 
     virtual void parseConfig(config::Parser &parser);
@@ -170,7 +172,6 @@ public:
 
     TaskHandle task_handle = 0;
     ReaderConfig reader_config;
-    uint64_t numChannels = 0;
     int numSamplesPerChannel = 0;
     int bufferSize = 0;
 
@@ -178,10 +179,14 @@ public:
     json err_info;
     std::shared_ptr<task::Context> ctx;
     breaker::Breaker breaker;
+    uint64_t numChannels = 0;
     std::atomic<bool> running = false;
     std::thread sample_thread;
     synnax::Task task;
     uint32_t buffered_frames = 0;
+
+    // maps ni channel name to path
+    std::map<std::string, std::string> channel_map;
     
 };
 
@@ -331,8 +336,9 @@ private:
     uint8_t *writeBuffer;
     int bufferSize = 0;
     int numSamplesPerChannel = 0;
-    std::int64_t numChannels = 0;
     TaskHandle task_handle = 0;
+    
+    uint64_t numChannels = 0;
 
     json err_info;
 

@@ -165,13 +165,24 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
     LOG(INFO) << "[NI Task] successfully configured task " << task.name;
 
-    return std::make_unique<ni::ReaderTask>(ctx,
+    auto p = std::make_unique<ni::ReaderTask>(ctx,
                                             task,
                                             source,
                                             ni_source,
                                             writer_config,
                                             breaker_config);
-}
+    
+    if(!p->ok()) {
+        LOG(ERROR) << "[NI Task] failed to configure task " << task.name;
+        return p;
+    }
+
+    // // start and stop to catch any immediate errors
+    p->start();
+    p->stop();
+
+    return p;
+}   
 
 void ni::ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
@@ -184,7 +195,6 @@ void ni::ReaderTask::exec(task::Command &cmd) {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
 }
-
 
 void ni::ReaderTask::stop() {
     if (!this->running.exchange(false) || !this->ok()) {
@@ -208,7 +218,6 @@ void ni::ReaderTask::start() {
     this->daq_read_pipe.start();
     LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
 }
-
 
 bool ni::ReaderTask::ok() {
     return this->ok_state;
