@@ -30,7 +30,7 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
-import { v4 as uuid } from "uuid";
+import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -50,28 +50,38 @@ import {
   ZERO_DO_CHAN,
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
+import { useSelectArgs } from "@/layout/selectors";
+import { setAltKey } from "@/layout/slice";
 
-export const configureDigitalWriteLayout = (): Layout.State => ({
+interface ConfigureDigitalWriteArgs {
+  create: boolean;
+}
+
+export const configureDigitalWriteLayout = (
+  create: boolean = false,
+): Layout.State<ConfigureDigitalWriteArgs> => ({
   name: "Configure NI Digital Write Task",
-  key: uuid(),
+  key: nanoid(),
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",
+  args: { create },
 });
 
 export const ConfigureDigitalWrite: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();
+  const { create } = useSelectArgs<ConfigureDigitalWriteArgs>(layoutKey);
   const fetchTask = useQuery<InternalProps>({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null || layoutKey == configureDigitalWriteLayout.key)
-        return { initialValues: deep.copy(ZERO_DIGITAL_WRITE_PAYLOAD) };
+      if (client == null || create)
+        return { initialValues: deep.copy(ZERO_DIGITAL_WRITE_PAYLOAD), layoutKey };
       const t = await client.hardware.tasks.retrieve<
         DigitalWriteConfig,
         DigitalWriteStateDetails,
         DigitalWriteType
       >(layoutKey, { includeState: true });
-      return { initialValues: t, task: t };
+      return { initialValues: t, task: t, layoutKey };
     },
   });
   if (fetchTask.isLoading) return <></>;
@@ -80,11 +90,16 @@ export const ConfigureDigitalWrite: Layout.Renderer = ({ layoutKey }) => {
 };
 
 interface InternalProps {
+  layoutKey: string;
   task?: DigitalWriteTask;
   initialValues: DigitalWritePayload;
 }
 
-const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement => {
+const Internal = ({
+  task: pTask,
+  initialValues,
+  layoutKey,
+}: InternalProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -93,6 +108,8 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
       config: digitalWriteConfigZ,
     }),
   });
+
+  const dispatch = useDispatch();
 
   const [task, setTask] = useState(pTask);
   const [taskState, setTaskState] = useState<task.State<AnalogReadStateDetails> | null>(
@@ -239,6 +256,12 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
         config,
       });
       setTask(t);
+      dispatch(
+        setAltKey({
+          key: layoutKey,
+          altKey: t.key,
+        }),
+      );
     },
   });
 
@@ -307,29 +330,41 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
             </Align.Space>
           </Align.Space>
         </Form.Form>
+        <Align.Space
+          direction="x"
+          style={{
+            borderRadius: "1rem",
+            border: "var(--pluto-border)",
+            padding: "2rem",
+          }}
+          justify="spaceBetween"
+        >
+          <Align.Space direction="x">
+            {taskState?.details?.message != null && (
+              <Status.Text variant={taskState?.variant as Status.Variant}>
+                {taskState?.details?.message}
+              </Status.Text>
+            )}
+          </Align.Space>
+          <Align.Space direction="x">
+            <Button.Icon
+              loading={start.isPending}
+              disabled={start.isPending || taskState == null}
+              onClick={() => start.mutate()}
+              variant="outlined"
+            >
+              {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
+            </Button.Icon>
+            <Button.Button
+              loading={configure.isPending}
+              disabled={configure.isPending}
+              onClick={() => configure.mutate()}
+            >
+              Configure
+            </Button.Button>
+          </Align.Space>
+        </Align.Space>
       </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          <Text.Text level="p">{JSON.stringify(taskState)}</Text.Text>
-        </Nav.Bar.Start>
-        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
-          <Button.Icon
-            loading={start.isPending}
-            disabled={start.isPending || taskState == null}
-            onClick={() => start.mutate()}
-            variant="outlined"
-          >
-            {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
-          </Button.Icon>
-          <Button.Button
-            loading={configure.isPending}
-            disabled={configure.isPending}
-            onClick={() => configure.mutate()}
-          >
-            Configure
-          </Button.Button>
-        </Nav.Bar.End>
-      </Nav.Bar>
     </Align.Space>
   );
 };

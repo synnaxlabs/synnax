@@ -20,7 +20,7 @@ export type PlacementLocation = "window" | "mosaic" | "modal";
  * Layout represents the properties of a layout currently rendered in the mosaic or in
  * an external window. The key of a layout must be unique.
  */
-export interface State {
+export interface State<A = any | undefined> {
   windowKey: string;
   /** A unique key for the layout */
   key: string;
@@ -55,6 +55,10 @@ export interface State {
    * these properties are ignored.
    */
   tab?: Partial<LayoutTabProps>;
+  /**
+   * A typically optional set of arguments to pass to the layout
+   */
+  args?: A;
 }
 
 export type RenderableLayout = Omit<State, "window">;

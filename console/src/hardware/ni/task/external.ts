@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { ConfigureAnalogRead } from "@/hardware/ni/task/AnalogRead";
-import { ConfigureDigitalRead } from "@/hardware/ni/task/ConfigureDigitalRead";
-import { ConfigureDigitalWrite } from "@/hardware/ni/task/ConfigureDigitalWrite";
+import { ConfigureDigitalRead } from "@/hardware/ni/task/DigitalRead";
+import { ConfigureDigitalWrite } from "@/hardware/ni/task/DigitalWrite";
 import {
   ANALOG_READ_TYPE,
   DIGITAL_READ_TYPE,
@@ -18,8 +18,8 @@ import {
 import { Layout } from "@/layout";
 
 export * from "@/hardware/ni/task/AnalogRead";
-export * from "@/hardware/ni/task/ConfigureDigitalRead";
-export * from "@/hardware/ni/task/ConfigureDigitalWrite";
+export * from "@/hardware/ni/task/DigitalRead";
+export * from "@/hardware/ni/task/DigitalWrite";
 export * from "@/hardware/ni/task/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

@@ -30,7 +30,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { Menu as CMenu } from "@/components/menu";
@@ -55,39 +54,46 @@ import {
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
+import { useSelectArgs } from "@/layout/selectors";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 
-export const configureAnalogReadLayout = (): Layout.State => ({
+interface AnalogReadTaskArgs {
+  create: boolean;
+}
+
+export const configureAnalogReadLayout = (create: boolean = false): Layout.State => ({
   name: "Configure NI Analog Read Task",
-  key: ANALOG_READ_TYPE,
+  key: nanoid(),
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
   location: "mosaic",
+  args: { create },
 });
 
-export const ConfigureAnalogRead: Layout.Renderer = (props) => {
-  const { layoutKey } = props;
+export const ConfigureAnalogRead: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();
+  const { create } = useSelectArgs<AnalogReadTaskArgs>(layoutKey);
   const fetchTask = useQuery<InternalProps>({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null || layoutKey === ANALOG_READ_TYPE)
-        return { initialValues: deep.copy(ZERO_ANALOG_READ_PAYLOAD) };
+      if (client == null || create)
+        return { initialValues: deep.copy(ZERO_ANALOG_READ_PAYLOAD), layoutKey };
       const t = await client.hardware.tasks.retrieve<
         AnalogReadConfig,
         AnalogReadStateDetails,
         AnalogReadType
       >(layoutKey, { includeState: true });
-      return { initialValues: t, initialTask: t };
+      return { initialValues: t, initialTask: t, layoutKey };
     },
   });
   if (fetchTask.isLoading) return <></>;
   if (fetchTask.isError) return <></>;
-  return <Internal {...(fetchTask.data as InternalProps)} {...props} />;
+  return <Internal {...(fetchTask.data as InternalProps)} layoutKey={layoutKey} />;
 };
 
-interface InternalProps extends Layout.RendererProps {
+interface InternalProps {
+  layoutKey: string;
   initialTask?: AnalogRead;
   initialValues: AnalogReadPayload;
 }
@@ -328,7 +334,6 @@ const Internal = ({
               </Status.Text>
             )}
           </Align.Space>
-
           <Align.Space direction="x">
             <Button.Icon
               loading={start.isPending}
