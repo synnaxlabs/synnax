@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
 	"strconv"
 
@@ -70,6 +71,8 @@ func readTS(p NodeParams, identifier string) error {
 	if err != nil {
 		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
 	}
+
+	fmt.Println(stdout.String())
 
 	return nil
 }

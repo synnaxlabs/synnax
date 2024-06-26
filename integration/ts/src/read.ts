@@ -73,9 +73,9 @@ Samples read: ${samples}
 Time taken: ${time}
 Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
 Configuration:
-    Number of iterators: ${this.tc.numIterators}
-    Number of channels: ${this.tc.numChannels()}
-    Chunk size: ${this.tc.chunkSize}
+\tNumber of iterators: ${this.tc.numIterators}
+\tNumber of channels: ${this.tc.numChannels()}
+\tChunk size: ${this.tc.chunkSize}
 
 `;
 
@@ -85,6 +85,7 @@ Configuration:
     async test(): Promise<number> {
         const iterators: Iterator[] = new Array(this.tc.numIterators).fill(null);
         let samples_read = 0;
+        const start = TimeStamp.now();
 
         for (let i = 0; i < this.tc.numIterators; i++) {
             iterators[i] = await client.openIterator(
@@ -93,13 +94,17 @@ Configuration:
                 { chunkSize: this.tc.chunkSize },
             );
         }
+        console.log("done creating", Number(start.span(TimeStamp.now()))/1000000)
 
         try {
             for (const i of iterators) {
                 await i.seekFirst()
+                console.log("done seeking", Number(start.span(TimeStamp.now()))/1000000)
                 for await (const frame of i) {
                     samples_read += frame.series.reduce((a, s) => a + s.length, 0);
                 }
+                
+                console.log("done reading", Number(start.span(TimeStamp.now()))/1000000)
             }
         } finally {
             for (const i of iterators) {

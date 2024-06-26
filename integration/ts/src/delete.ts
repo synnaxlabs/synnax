@@ -45,10 +45,9 @@ class DeleteTest {
         const time: TimeSpan = start.span(end);
         const s = `
 -- TypeScript Delete (${this.tc.identifier}) --
-Time taken: ${time}
+Time taken: ${time.isZero ? 0 : time}
 Configuration:
-    Number of channels: ${this.tc.channels.length}
-    Time Range: ${this.tc.timeRange}
+\tNumber of channels: ${this.tc.channels.length}
 
 `;
 
@@ -62,7 +61,7 @@ Configuration:
 
 
 async function main() {
-    await new DeleteTest(argv).test().catch(e => {
+    await new DeleteTest(argv).testWithTiming().catch(e => {
         console.error(e)
         client.close()
         exit(1)

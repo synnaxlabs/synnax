@@ -55,9 +55,9 @@ Samples streamed: ${samples}
 Time taken: ${time}
 Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
 Configuration:
-    Number of streamers: 1
-    Number of channels: ${this.tc.channels.length}
-    Close after frames: ${this.tc.closeAfterFrames}
+\tNumber of streamers: 1
+\tNumber of channels: ${this.tc.channels.length}
+\tClose after frames: ${this.tc.closeAfterFrames}
 
 `;
 

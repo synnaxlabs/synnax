@@ -1,0 +1,153 @@
+{
+  "setup": {
+    "index_channels": 2,
+    "data_channels": 2,
+    "client": "py"
+  },
+  "body": [
+    [
+      {
+        "op": "write",
+        "client": "py",
+        "params": {
+          "channel_groups": [
+            {
+              "index_channels": [
+                "int0"
+              ],
+              "data_channels": [
+                "int0-0"
+              ]
+            }
+          ],
+          "num_writers": 1,
+          "domains": 100,
+          "samples_per_domain": 1000,
+          "time_range": {
+            "start": 0,
+            "end": 100000000000
+          },
+          "writer_mode": 1
+        }
+      },
+      {
+        "op": "write",
+        "client": "ts",
+        "params": {
+          "channel_groups": [
+            {
+              "index_channels": [
+                "int1"
+              ],
+              "data_channels": [
+                "int1-0"
+              ]
+            }
+          ],
+          "num_writers": 1,
+          "domains": 100,
+          "samples_per_domain": 1000,
+          "time_range": {
+            "start": 0,
+            "end": 100000000000
+          },
+          "writer_mode": 1
+        }
+      },
+      {
+        "op": "stream",
+        "client": "py",
+        "params": {
+          "channels": [
+            "int0",
+            "int0-0"
+          ],
+          "close_after_frames": 10
+        }
+      },
+      {
+        "op": "stream",
+        "client": "ts",
+        "params": {
+          "channels": [
+            "int1",
+            "int1-0"
+          ],
+          "close_after_frames": 10
+        }
+      }
+    ],
+    [
+      {
+        "op": "delete",
+        "client": "py",
+        "params": {
+          "time_range": {
+            "start": 50000000000,
+            "end": 75000000000
+          },
+          "channels": [
+            "int0-0",
+            "int0"
+          ]
+        }
+      },
+      {
+        "op": "delete",
+        "client": "ts",
+        "params": {
+          "time_range": {
+            "start": 50000000000,
+            "end": 75000000000
+          },
+          "channels": [
+            "int1-0",
+            "int1"
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "op": "read",
+        "client": "py",
+        "params": {
+          "num_iterators": 1,
+          "channel_groups": [
+            [
+              "int0-0",
+              "int0"
+            ]
+          ],
+          "chunk_size": 50000,
+          "bounds": {
+            "start": 25000000000,
+            "end": 50000000000
+          }
+        }
+      },
+      {
+        "op": "read",
+        "client": "ts",
+        "params": {
+          "num_iterators": 1,
+          "channel_groups": [
+            [
+              "int1-0",
+              "int1"
+            ]
+          ],
+          "chunk_size": 50000,
+          "bounds": {
+            "start": 25000000000,
+            "end": 50000000000
+          }
+        }
+      }
+    ]
+  ],
+  "cleanup": {
+    "delete_all_channels": true,
+    "client": "py"
+  }
+}

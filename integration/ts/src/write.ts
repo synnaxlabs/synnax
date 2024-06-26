@@ -119,13 +119,13 @@ Samples written: ${samples}
 Time taken: ${time}
 Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
 Configuration:
-    Number of writers: ${this.tc.numWriters}
-    Number of channels: ${this.tc.numChannels()}
-    Number of domains: ${this.tc.domains}
-    Samples per domain: ${this.tc.samplesPerDomain}
-    Auto commit: ${this.tc.autoCommit}
-    Index persist interval: ${this.tc.indexPersistInterval}
-    Writer mode: ${framer.WriterMode[this.tc.writerMode]}
+\tNumber of writers: ${this.tc.numWriters}
+\tNumber of channels: ${this.tc.numChannels()}
+\tNumber of domains: ${this.tc.domains}
+\tSamples per domain: ${this.tc.samplesPerDomain}
+\tAuto commit: ${this.tc.autoCommit}
+\tIndex persist interval: ${this.tc.indexPersistInterval}
+\tWriter mode: ${framer.WriterMode[this.tc.writerMode]}
 
 `;
 
@@ -146,13 +146,15 @@ Configuration:
 			});
 		}
 
+
 		try {
-			const tsHwm = this.tc.timeRange.start.add(new TimeSpan(1));
+			let tsHwm = this.tc.timeRange.start;
+			const timeSpanPerSample = BigInt(timeSpanPerDomain) / BigInt(this.tc.samplesPerDomain);
 			for (let i = 0; i < this.tc.domains; i++) {
 				const timestamps = Array.from<any, bigint>(
 					{ length: this.tc.samplesPerDomain },
-					(_, k) => tsHwm.valueOf() + BigInt(k * timeSpanPerDomain) / BigInt(this.tc.samplesPerDomain));
-				const data = timestamps.map(ts => Math.sin(0.0000000001 * Number(ts)));
+					(_, k) => tsHwm.valueOf() + BigInt(k) * timeSpanPerSample);
+				const data = timestamps.map(ts => Math.sin(0.000000001 * Number(ts)));
 
 				for (let j = 0; j < writers.length; j++) {
 					const writer = writers[j];
@@ -169,11 +171,13 @@ Configuration:
 
 					if (!this.tc.autoCommit) {
 						await writer.commit();
+
 					}
 				}
 
-				tsHwm.add(new TimeSpan(timeSpanPerDomain + 1));
+				tsHwm = tsHwm.add(new TimeSpan(timeSpanPerDomain + 1));
 			}
+
 		} finally {
 			for (const writer of writers) {
 				await writer.close();

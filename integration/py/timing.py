@@ -18,13 +18,13 @@ Samples written: {samples}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}
 Configuration:
-Number of writers: {params.num_writers}
-Number of channels: {params.num_channels()}
-Number of domains: {params.domains:,.0f}
-Samples per domain: {params.samples_per_domain:,.0f}
-Auto commit: {str(params.auto_commit)}
-Index persist interval: {params.index_persist_interval}
-Writer mode: {sy.WriterMode(params.writer_mode).name}
+\tNumber of writers: {params.num_writers}
+\tNumber of channels: {params.num_channels()}
+\tNumber of domains: {params.domains:,.0f}
+\tSamples per domain: {params.samples_per_domain:,.0f}
+\tAuto commit: {str(params.auto_commit)}
+\tIndex persist interval: {params.index_persist_interval}
+\tWriter mode: {sy.WriterMode(params.writer_mode).name}
 
             '''
         with open(FILE_NAME, "a") as f:
@@ -48,9 +48,9 @@ Samples read: {samples}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}
 Configuration:
-Number of iterators: {params.num_iterators}
-Number of channels: {params.num_channels()}
-Chunk size: {params.chunk_size:,.0f}
+\tNumber of iterators: {params.num_iterators}
+\tNumber of channels: {params.num_channels()}
+\tChunk size: {params.chunk_size:,.0f}
 
             '''
         with open(FILE_NAME, "a") as f:
@@ -68,11 +68,10 @@ def time_delete(func):
         time: sy.TimeSpan = start.span(end)
         params = args[0]
         s = f'''
--- Node Delete ({params.identifier})--
+-- Python Delete ({params.identifier})--
 Time taken: {time}
 Configuration:
-Number of channels: {len(params.channels)}
-Time Range: {params.time_range}
+\tNumber of channels: {len(params.channels)}
             '''
         with open(FILE_NAME, "a") as f:
             f.write(s)
@@ -95,9 +94,9 @@ Samples streamed: {samples}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}
 Configuration:
-Number of streamers: 1
-Number of channels: {len(params.channels)}
-Close after frames: {params.close_after_frames}
+\tNumber of streamers: 1
+\tNumber of channels: {len(params.channels)}
+\tClose after frames: {params.close_after_frames}
 
             '''
         with open(FILE_NAME, "a") as f:
