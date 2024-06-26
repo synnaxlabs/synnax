@@ -146,7 +146,7 @@ export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
   BuiltFieldProps<K, K, Select.MultipleProps<K, E>>
 >;
 
-export const buildButtonSelectField = fieldBuilder(Select.DropdownButton) as <
+export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton) as <
   K extends Key,
   E extends Keyed<K>,
 >({
