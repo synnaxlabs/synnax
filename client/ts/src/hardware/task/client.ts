@@ -19,6 +19,7 @@ import { z } from "zod";
 import { framer } from "@/framer";
 import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
+import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
@@ -60,6 +61,7 @@ export const taskZ = z.object({
   key: taskKeyZ,
   name: z.string(),
   type: z.string(),
+  internal: z.boolean().optional(),
   config: z.record(z.unknown()).or(
     z.string().transform((c) => {
       if (c === "") return {};
@@ -114,9 +116,10 @@ export class Task<
 > {
   readonly key: TaskKey;
   readonly name: string;
+  readonly internal: boolean;
   readonly type: T;
   readonly config: C;
-  readonly state?: State<D>;
+  state?: State<D>;
   private readonly frameClient: framer.Client;
 
   constructor(
@@ -125,12 +128,14 @@ export class Task<
     type: T,
     config: C,
     frameClient: framer.Client,
+    internal: boolean = false,
     state?: State<D> | null,
   ) {
     this.key = key;
     this.name = name;
     this.type = type;
     this.config = config;
+    this.internal = internal;
     if (state !== null) this.state = state;
     this.frameClient = frameClient;
   }
@@ -142,6 +147,7 @@ export class Task<
       type: this.type,
       config: this.config,
       state: this.state,
+      internal: this.internal,
     };
   }
 
@@ -285,6 +291,10 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     return this.execRetrieve({ offset, limit });
   }
 
+  async list(options: RetrieveOptions = {}): Promise<Payload[]> {
+    return this.execRetrieve(options);
+  }
+
   async retrieve<
     C extends UnknownRecord = UnknownRecord,
     D extends {} = UnknownRecord,
@@ -343,8 +353,42 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
 
   private sugar(payloads: Payload[]): Task[] {
     return payloads.map(
-      ({ key, name, type, config, state }) =>
-        new Task(key, name, type, config, this.frameClient, state),
+      ({ key, name, type, config, state, internal }) =>
+        new Task(key, name, type, config, this.frameClient, internal, state),
+    );
+  }
+
+  async openTracker(): Promise<signals.Observable<string, Task>> {
+    return await signals.openObservable<string, Task>(
+      this.frameClient,
+      "sy_task_set",
+      "sy_task_delete",
+      (variant, data) => {
+        if (variant === "delete") {
+          return Array.from(data).map((k) => ({
+            variant,
+            key: k.toString(),
+            value: undefined,
+          }));
+        }
+        const sugared = this.sugar(data.parseJSON(taskZ));
+        return sugared.map((t) => ({ variant, key: t.key, value: t }));
+      },
+    );
+  }
+
+  async openStateObserver<D extends UnknownRecord = UnknownRecord>(): Promise<
+    StateObservable<D>
+  > {
+    return new framer.ObservableStreamer<State<D>>(
+      await this.frameClient.openStreamer(TASK_STATE_CHANNEL),
+      (frame) => {
+        const s = frame.get(TASK_STATE_CHANNEL);
+        if (s.length === 0) return [null, false];
+        const parse = stateZ.safeParse(s.at(-1));
+        if (!parse.success) return [null, false];
+        return [parse.data as State<D>, true];
+      },
     );
   }
 }

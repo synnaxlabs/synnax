@@ -31,6 +31,7 @@ export { Modal } from "@/modal";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
 export { Note } from "@/note";
+export { Observe } from "@/observe";
 export { OS } from "@/os";
 export { Pluto } from "@/pluto";
 export { Progress } from "@/progress";
