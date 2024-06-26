@@ -210,13 +210,22 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
         });
       }
 
-      console.log(dev.properties);
-
       if (modified)
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
+
+      config.channels = config.channels.map((c) => {
+        const key = `${c.port}l${c.line}`;
+        const pair = dev.properties.digitalOutput.channels[key];
+        return {
+          ...c,
+          cmdChannel: pair.command,
+          stateChannel: pair.state,
+        };
+      });
+      methods.set("config", config);
 
       const t = await rack.createTask<
         DigitalWriteConfig,
