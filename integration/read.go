@@ -61,7 +61,7 @@ func readPython(p NodeParams, identifier string) error {
 func readTS(p NodeParams, identifier string) error {
 	args := append([]string{"tsx", "read.ts", identifier}, p.Serialize()...)
 	cmd := exec.Command("npx", args...)
-	cmd.Dir = "./ts"
+	cmd.Dir = "./ts/src"
 	var stderr, stdout bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout

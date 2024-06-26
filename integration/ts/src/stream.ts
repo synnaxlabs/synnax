@@ -1,6 +1,6 @@
 import { Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
-import { argv, exit } from 'process';
 import * as fs from 'fs';
+import { argv, exit } from 'process';
 
 class TestConfig {
     identifier: string;
@@ -50,16 +50,16 @@ class StreamTest {
         const time: TimeSpan = start.span(end);
         const samplesPerSecond = samples / (Number(time) / Number(TimeSpan.SECOND));
         const s = `
-    -- TypeScript Stream (${this.tc.identifier}) --
-    Samples streamed: ${samples}
-    Time taken: ${time}
-    Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
-    Configuration:
-        Number of streamers: 1
-        Number of channels: ${this.tc.channels.length}
-        Close after frames: ${this.tc.closeAfterFrames}
-    
-    `;
+-- TypeScript Stream (${this.tc.identifier}) --
+Samples streamed: ${samples}
+Time taken: ${time}
+Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
+Configuration:
+    Number of streamers: 1
+    Number of channels: ${this.tc.channels.length}
+    Close after frames: ${this.tc.closeAfterFrames}
+
+`;
 
         fs.appendFileSync("timing.log", s);
     };

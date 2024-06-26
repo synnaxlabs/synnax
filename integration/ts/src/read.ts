@@ -1,8 +1,8 @@
 import { Synnax } from "@synnaxlabs/client";
 import { Iterator } from "@synnaxlabs/client/dist/framer/iterator";
 import { CrudeTimeStamp, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x"
-import { argv, exit } from 'process';
 import * as fs from 'fs'
+import { argv, exit } from 'process';
 
 class TestConfig {
     identifier: string = "";
@@ -48,10 +48,10 @@ class ReadTest {
         const boundStart = BigInt(argv[argvCounter++]);
         const boundEnd = BigInt(argv[argvCounter++]);
         const number_of_channel_groups = parseInt(argv[argvCounter++]);
-        let channels = [];
+        const channels = [];
         for (let i = 0; i < number_of_channel_groups; i++) {
             const number_of_channels_in_group = parseInt(argv[argvCounter++]);
-            let group = [];
+            const group = [];
             for (let j = 0; j < number_of_channels_in_group; j++) {
                 group.push(argv[argvCounter++]);
             }
@@ -73,9 +73,9 @@ Samples read: ${samples}
 Time taken: ${time}
 Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
 Configuration:
-Number of iterators: ${this.tc.numIterators}
-Number of channels: ${this.tc.numChannels()}
-Chunk size: ${this.tc.chunkSize}
+    Number of iterators: ${this.tc.numIterators}
+    Number of channels: ${this.tc.numChannels()}
+    Chunk size: ${this.tc.chunkSize}
 
 `;
 

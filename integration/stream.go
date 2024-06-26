@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
 	"strconv"
 
@@ -56,13 +55,12 @@ func streamPython(p NodeParams, identifier string) error {
 func streamTS(p NodeParams, identifier string) error {
 	args := append([]string{"tsx", "stream.ts", identifier}, p.Serialize()...)
 	cmd := exec.Command("npx", args...)
-	cmd.Dir = "./ts"
+	cmd.Dir = "./ts/src"
 	var stderr, stdout bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 
 	err := cmd.Run()
-	fmt.Printf("%v", cmd.String())
 	if err != nil {
 		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
 	}

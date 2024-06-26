@@ -7,6 +7,7 @@
     "build:console": "npx turbo build --filter console --cache-dir=.turbo-cache",
     "build:freighter": "npx turbo build --filter freighter --cache-dir=.turbo-cache",
     "build:client": "npx turbo build --filter client --cache-dir=.turbo-cache",
+    "build:integration": "npx turbo build --filter integration --cache-dir=.turbo-cache",
     "build:drift": "npx turbo build --filter drift --cache-dir=.turbo-cache",
     "build:alamos": "npx turbo build --filter alamos --cache-dir=.turbo-cache",
     "build:vite-plugin": "npx turbo build --filter vite-plugin --cache-dir=.turbo-cache",

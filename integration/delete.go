@@ -55,7 +55,7 @@ func deletePython(p NodeParams, identifier string) error {
 func deleteTS(p NodeParams, identifier string) error {
 	args := append([]string{"tsx", "delete.ts", identifier}, p.Serialize()...)
 	cmd := exec.Command("npx", args...)
-	cmd.Dir = "./ts"
+	cmd.Dir = "./ts/src"
 	var stderr, stdout bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout

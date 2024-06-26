@@ -65,7 +65,7 @@ func writePython(p NodeParams, identifier string) error {
 	args := append([]string{"run", "python", "write.py", identifier}, p.Serialize()...)
 	cmd := exec.Command("poetry", args...)
 	cmd.Dir = "./py"
-	var stderr, stdout bytes.Buffer
+var stderr, stdout bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 
@@ -80,7 +80,7 @@ func writePython(p NodeParams, identifier string) error {
 func writeTS(p NodeParams, identifier string) error {
 	args := append([]string{"tsx", "write.ts", identifier}, p.Serialize()...)
 	cmd := exec.Command("npx", args...)
-	cmd.Dir = "./ts"
+	cmd.Dir = "./ts/src"
 	var stderr, stdout bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout

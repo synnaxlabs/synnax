@@ -1,7 +1,7 @@
 import { Synnax } from "@synnaxlabs/client";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { argv, exit } from "process";
 import * as fs from 'fs';
+import { argv, exit } from "process";
 
 class TestConfig {
     identifier: string = "";
@@ -25,7 +25,7 @@ class DeleteTest {
         const timeRangeStart = BigInt(argv[argvCounter++]);
         const timeRangeEnd = BigInt(argv[argvCounter++]);
         const number_of_channels = parseInt(argv[argvCounter++]);
-        let channels = [];
+        const channels = [];
         for (let i = 0; i < number_of_channels; i++) {
             channels.push(argv[argvCounter++]);
         }
@@ -47,8 +47,8 @@ class DeleteTest {
 -- TypeScript Delete (${this.tc.identifier}) --
 Time taken: ${time}
 Configuration:
-Number of channels: ${this.tc.channels.length}
-Time Range: ${this.tc.timeRange}
+    Number of channels: ${this.tc.channels.length}
+    Time Range: ${this.tc.timeRange}
 
 `;
 

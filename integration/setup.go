@@ -57,7 +57,7 @@ func setUpTS(param SetUpParam) error {
 		strconv.Itoa(param.DataChannels),
 	)
 
-	cmd.Dir = "./ts"
+	cmd.Dir = "./ts/src"
 	var stderr, stdout bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
