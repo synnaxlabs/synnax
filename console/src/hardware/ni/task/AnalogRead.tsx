@@ -29,7 +29,6 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
-import { useStore } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -53,7 +52,6 @@ import {
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
-import { RootState } from "@/store";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 

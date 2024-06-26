@@ -463,19 +463,28 @@ export const use = <Z extends z.ZodTypeAny>({
 
   const updateFieldValues = useCallback((path: string) => {
     const { listeners, parentListeners } = ref.current;
+    const fired = [];
     listeners.forEach((lis, lPath) => {
       const equalOrParent = deep.pathsMatch(lPath, path);
       if (equalOrParent) {
         const fs = get(lPath, { optional: true });
-        if (fs != null) lis.forEach((l) => l(fs));
+        if (fs != null)
+          lis.forEach((l) => {
+            fired.push(`${lPath}`);
+            l(fs);
+          });
       }
     });
     parentListeners.forEach((lis, lisPath) => {
       const equalOrChild = deep.pathsMatch(path, lisPath);
-      const equalOrParent = deep.pathsMatch(lisPath, lisPath);
+      const equalOrParent = deep.pathsMatch(lisPath, path);
       if (equalOrChild || equalOrParent) {
         const v = get(lisPath, { optional: true });
-        if (v != null) lis.forEach((l) => l(v));
+        if (v != null)
+          lis.forEach((l) => {
+            fired.push(`parent->${lisPath}`);
+            l(v);
+          });
       }
     });
   }, []);
