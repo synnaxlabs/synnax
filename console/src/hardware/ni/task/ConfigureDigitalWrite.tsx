@@ -30,6 +30,7 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -50,13 +51,13 @@ import {
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
-export const configureDigitalWriteLayout: Layout.State = {
+export const configureDigitalWriteLayout = (): Layout.State => ({
   name: "Configure NI Digital Write Task",
-  key: DIGITAL_WRITE_TYPE,
+  key: uuid(),
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",
-};
+});
 
 export const ConfigureDigitalWrite: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();
@@ -210,13 +211,22 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
         });
       }
 
-      console.log(dev.properties);
-
       if (modified)
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
+
+      config.channels = config.channels.map((c) => {
+        const key = `${c.port}l${c.line}`;
+        const pair = dev.properties.digitalOutput.channels[key];
+        return {
+          ...c,
+          cmdChannel: pair.command,
+          stateChannel: pair.state,
+        };
+      });
+      methods.set("config", config);
 
       const t = await rack.createTask<
         DigitalWriteConfig,

@@ -90,9 +90,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const items = virtualizer.getVirtualItems();
 
-  if (items.at(-1)?.index === data.length - 1 && hasMore) {
-    onFetchMore?.();
-  }
+  if (items.at(-1)?.index === data.length - 1 && hasMore) onFetchMore?.();
 
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
 

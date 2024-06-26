@@ -28,6 +28,7 @@ import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { ReactElement, useCallback, useRef, useState } from "react";
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -47,10 +48,10 @@ import {
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
-export const configureDigitalReadLayout: Layout.State = {
+export const configureDigitalReadLayout = (): Layout.State => ({
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
-  key: DIGITAL_READ_TYPE,
+  key: uuid(),
   windowKey: DIGITAL_READ_TYPE,
   location: "window",
   window: {
@@ -58,7 +59,7 @@ export const configureDigitalReadLayout: Layout.State = {
     size: { width: 1200, height: 900 },
     navTop: true,
   },
-};
+});
 
 export const ConfigureDigitalRead: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();

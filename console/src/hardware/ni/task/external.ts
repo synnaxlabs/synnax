@@ -7,18 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ConfigureAnalogRead } from "@/hardware/ni/task/AnalogRead";
+import { ConfigureDigitalRead } from "@/hardware/ni/task/ConfigureDigitalRead";
+import { ConfigureDigitalWrite } from "@/hardware/ni/task/ConfigureDigitalWrite";
 import {
-  ConfigureAnalogRead,
-  configureAnalogReadLayout,
-} from "@/hardware/ni/task/AnalogRead";
-import {
-  ConfigureDigitalRead,
-  configureDigitalReadLayout,
-} from "@/hardware/ni/task/ConfigureDigitalRead";
-import {
-  ConfigureDigitalWrite,
-  configureDigitalWriteLayout,
-} from "@/hardware/ni/task/ConfigureDigitalWrite";
+  ANALOG_READ_TYPE,
+  DIGITAL_READ_TYPE,
+  DIGITAL_WRITE_TYPE,
+} from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
 export * from "@/hardware/ni/task/AnalogRead";
@@ -27,7 +23,7 @@ export * from "@/hardware/ni/task/ConfigureDigitalWrite";
 export * from "@/hardware/ni/task/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [configureAnalogReadLayout.type]: ConfigureAnalogRead,
-  [configureDigitalWriteLayout.type]: ConfigureDigitalWrite,
-  [configureDigitalReadLayout.type]: ConfigureDigitalRead,
+  [ANALOG_READ_TYPE]: ConfigureAnalogRead,
+  [DIGITAL_WRITE_TYPE]: ConfigureDigitalWrite,
+  [DIGITAL_READ_TYPE]: ConfigureDigitalRead,
 };

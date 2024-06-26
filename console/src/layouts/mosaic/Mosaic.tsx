@@ -10,7 +10,7 @@
 import "@/layouts/mosaic/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
+import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Eraser,
   Mosaic as Core,
@@ -18,7 +18,7 @@ import {
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { deep, type location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -26,7 +26,11 @@ import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
-import { useSelectActiveMosaicTabKey, useSelectMosaic } from "@/layout/selectors";
+import {
+  select,
+  useSelectActiveMosaicTabKey,
+  useSelectMosaic,
+} from "@/layout/selectors";
 import {
   moveMosaicTab,
   remove,
@@ -51,10 +55,10 @@ const emptyContent = <EmptyContent />;
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {
   const [windowKey, mosaic] = useSelectMosaic();
+  const store = useStore();
   const activeTab = useSelectActiveMosaicTabKey();
 
   const client = Synnax.use();
-  const store = useStore();
   const placer = usePlacer();
   const dispatch = useDispatch();
 

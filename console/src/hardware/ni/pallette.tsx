@@ -18,7 +18,8 @@ export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
   name: "NI - Create a New Analog Read Task",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) => placeLayout(configureAnalogReadLayout),
+  onSelect: ({ placeLayout }) =>
+    placeLayout(() => configureAnalogReadLayout({ args: { create: true } })),
 };
 
 export const createDigitalWriteTaskCommand: Command = {

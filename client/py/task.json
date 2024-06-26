@@ -1,66 +1,69 @@
 {
     "device": "130227d9-02aa-47e4-b370-0d590add1bc1",
-    "sample_rate": 10,
-    "stream_rate": 5,
+    "state_rate": 10,
     "channels": [
         {
-            "key": "Fz88giJY1JJpBKhUqMcSU",
-            "type": "ai_voltage",
-            "terminal_config": "NRSE",
-            "channel": 1048635,
+            "key": "MOoM1gtV0c3K3trCYwUEm",
+            "type": "digital_output",
+            "enabled": true,
+            "cmd_channel": 1048946,
+            "state_channel": 1048944,
             "port": 0,
-            "enabled": true,
-            "min_val": 0,
-            "max_val": 0,
-            "units": "Volts",
-            "custom_scale": {
-                "type": "table",
-                "pre_scaled_vals": [],
-                "scaled_vals": [],
-                "pre_scaled_units": "Volts"
-            }
+            "line": 1
         },
         {
-            "key": "MvthmoX9i8Txos1089Bse",
-            "type": "ai_voltage",
-            "terminal_config": "Cfg_Default",
-            "channel": 1048636,
-            "port": 1,
+            "key": "ILq_oCsQOjwXXvrW6flzf",
+            "type": "digital_output",
             "enabled": true,
-            "min_val": 0,
-            "max_val": 0,
-            "units": "Volts",
-            "custom_scale": {
-                "type": "none"
-            }
+            "cmd_channel": 1048959,
+            "state_channel": 1048947,
+            "port": 0,
+            "line": 2
         },
         {
-            "key": "HYZkSO4FLQHxKaJJa9vyg",
-            "type": "ai_voltage",
-            "terminal_config": "Cfg_Default",
-            "channel": 1048637,
-            "port": 2,
+            "key": "Jfl0HLdEhs0w7OaQZvV6X",
+            "type": "digital_output",
             "enabled": true,
-            "min_val": 0,
-            "max_val": 0,
-            "units": "Volts",
-            "custom_scale": {
-                "type": "none"
-            }
+            "cmd_channel": 1048960,
+            "state_channel": 1048948,
+            "port": 0,
+            "line": 3
         },
         {
-            "key": "2nz2SQo_X3VbzClcbcICu",
-            "type": "ai_voltage",
-            "terminal_config": "Cfg_Default",
-            "channel": 1048638,
-            "port": 3,
+            "key": "dtLa7lUAvv22m2Nxi9Af-",
+            "type": "digital_output",
             "enabled": true,
-            "min_val": 0,
-            "max_val": 0,
-            "units": "Volts",
-            "custom_scale": {
-                "type": "none"
-            }
+            "cmd_channel": 1048961,
+            "state_channel": 1048949,
+            "port": 0,
+            "line": 4
+        },
+        {
+            "key": "WnXKCfqXI9Ei0SaHOuxAY",
+            "type": "digital_output",
+            "enabled": true,
+            "cmd_channel": 1048962,
+            "state_channel": 1048950,
+            "port": 0,
+            "line": 5
+        },
+        {
+            "key": "Stc40soKjaOR_61jwZ1Nf",
+            "type": "digital_output",
+            "enabled": true,
+            "cmd_channel": 1048963,
+            "state_channel": 1048951,
+            "port": 0,
+            "line": 6
+        },
+        {
+            "key": "dZSpdahkBkATuMGgaiCTR",
+            "type": "digital_output",
+            "enabled": true,
+            "cmd_channel": 1048964,
+            "state_channel": 1048952,
+            "port": 0,
+            "line": 7
         }
     ]
 }

@@ -67,6 +67,10 @@ export type UnitsInOz = z.infer<typeof unitsInOzZ>;
 export const unitsFtLbsZ = z.literal("FootPounds");
 export type UnitsFtLbs = z.infer<typeof unitsFtLbsZ>;
 
+const resistanceZ = z.number().refine((val) => val > 0, {
+  message: "Value must be greater than 0",
+});
+
 export const unitsZ = z.union([
   unitsVoltsZ,
   unitsAmpsZ,
@@ -102,7 +106,9 @@ export type Units = z.infer<typeof unitsZ>;
 
 export const linScaleZ = z.object({
   type: z.literal("linear"),
-  slope: z.number(),
+  slope: z.number().refine((val) => val !== 0, {
+    message: "Value must be non-zero",
+  }),
   yIntercept: z.number(),
   preScaledUnits: unitsZ,
   scaledUnits: unitsZ,
@@ -112,7 +118,7 @@ export type LinScale = z.infer<typeof linScaleZ>;
 
 export const ZERO_LIN_SCALE: LinScale = {
   type: "linear",
-  slope: 0,
+  slope: 1,
   yIntercept: 0,
   preScaledUnits: "Volts",
   scaledUnits: "Volts",
@@ -248,7 +254,7 @@ export const ZERO_AI_ACCEL_CHAN: AIAccelChan = {
   terminalConfig: "Cfg_Default",
   sensitivity: 0,
   sensitivityUnits: "mVoltsPerG",
-  currentExcitSource: "None",
+  currentExcitSource: "Internal",
   currentExcitVal: 0,
   customScale: ZERO_NO_SCALE,
 };
@@ -278,7 +284,7 @@ export const ZERO_AI_ACCEL_4WIRE_DC_VOLTAGE_CHAN: AIAccel4WireDCVoltageChan = {
   terminalConfig: "Cfg_Default",
   sensitivity: 0,
   sensitivityUnits: "mVoltsPerG",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   useExcitForScaling: false,
   customScale: ZERO_NO_SCALE,
@@ -322,7 +328,9 @@ const aiBridgeChanZ = baseAIChanZ.extend({
   bridgeConfig: bridgeConfigZ,
   voltageExcitSource: excitSourceZ,
   voltageExcitVal: z.number(),
-  nominalBridgeResistance: z.number(),
+  nominalBridgeResistance: z.number().refine((val) => val > 0, {
+    message: "Value must be greater than 0",
+  }),
   customScale: scaleZ,
 });
 
@@ -340,9 +348,9 @@ export const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
   maxVal: 1,
   terminalConfig: "Cfg_Default",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
-  nominalBridgeResistance: 0,
+  nominalBridgeResistance: 1,
   customScale: ZERO_NO_SCALE,
 };
 
@@ -474,7 +482,7 @@ export const ZERO_AI_FORCE_BRIDGE_POLYNOMIAL_CHAN: AIForceBridgePolynomialChan =
   terminalConfig: "Cfg_Default",
   units: "Newtons",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
   forwardCoeffs: [],
@@ -514,7 +522,7 @@ export const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
   maxVal: 1,
   units: "Newtons",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
   electricalUnits: "mVoltsPerVolt",
@@ -558,15 +566,15 @@ export const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinCh
   terminalConfig: "Cfg_Default",
   units: "Newtons",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
   electricalUnits: "mVoltsPerVolt",
   physicalUnits: "Newtons",
   firstElectricalVal: 0,
   firstPhysicalVal: 0,
-  secondElectricalVal: 0,
-  secondPhysicalVal: 0,
+  secondElectricalVal: 1,
+  secondPhysicalVal: 1,
   customScale: ZERO_NO_SCALE,
 };
 
@@ -599,7 +607,7 @@ export const ZERO_AI_FORCE_IEPE_CHAN: AIForceEPEChan = {
   units: "Newtons",
   sensitivity: 0,
   sensitivityUnits: "mVoltsPerVolt",
-  currentExcitSource: "None",
+  currentExcitSource: "Internal",
   currentExcitVal: 0,
   customScale: ZERO_NO_SCALE,
 };
@@ -656,13 +664,13 @@ export const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
   terminalConfig: "Cfg_Default",
   micSensitivity: 0,
   maxSndPressLevel: 0,
-  currentExcitSource: "None",
+  currentExcitSource: "Internal",
   currentExcitVal: 0,
   units: "Pascals",
   customScale: ZERO_NO_SCALE,
 };
 
-export const pressureUnitsZ = z.enum(["psi", "Pa", "bar"]);
+export const pressureUnitsZ = z.enum(["PoundsPerSquareInch", "Pascals", "Bar"]);
 export type PressureUnits = z.infer<typeof pressureUnitsZ>;
 
 // 14 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgepolynomialchan.html
@@ -695,15 +703,15 @@ export const ZERO_AI_PRESSURE_BRIDGE_POLYNOMIAL_CHAN: AIPressureBridgePolynomial
   enabled: true,
   minVal: 0,
   maxVal: 1,
-  units: "psi",
+  units: "PoundsPerSquareInch",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
   forwardCoeffs: [],
   reverseCoeffs: [],
   electricalUnits: "mVoltsPerVolt",
-  physicalUnits: "psi",
+  physicalUnits: "PoundsPerSquareInch",
   customScale: ZERO_NO_SCALE,
 };
 
@@ -735,14 +743,14 @@ export const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
   enabled: true,
   minVal: 0,
   maxVal: 1,
-  units: "psi",
+  units: "PoundsPerSquareInch",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
   electricalUnits: "mV/V",
   electricalVals: [],
-  physicalUnits: "psi",
+  physicalUnits: "PoundsPerSquareInch",
   physicalVals: [],
   customScale: ZERO_NO_SCALE,
 };
@@ -782,17 +790,17 @@ export const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPoin
     minVal: 0,
     maxVal: 1,
     terminalConfig: "Cfg_Default",
-    units: "psi",
+    units: "PoundsPerSquareInch",
     bridgeConfig: "FullBridge",
-    voltageExcitSource: "None",
+    voltageExcitSource: "Internal",
     voltageExcitVal: 0,
     nominalBridgeResistance: 0,
     electricalUnits: "mVoltsPerVolt",
-    physicalUnits: "psi",
+    physicalUnits: "PoundsPerSquareInch",
     firstElectricalVal: 0,
     firstPhysicalVal: 0,
-    secondElectricalVal: 0,
-    secondPhysicalVal: 0,
+    secondElectricalVal: 1,
+    secondPhysicalVal: 1,
     customScale: ZERO_NO_SCALE,
   };
 
@@ -826,7 +834,7 @@ export const ZERO_AI_RESISTANCE_CHAN: AIResistanceChan = {
   terminalConfig: "Cfg_Default",
   units: "Ohms",
   resistanceConfig: "2Wire",
-  currentExcitSource: "None",
+  currentExcitSource: "Internal",
   currentExcitVal: 0,
   customScale: ZERO_NO_SCALE,
 };
@@ -886,7 +894,7 @@ export const ZERO_AI_ROSETTE_STRAIN_GAGE_CHAN: AIRosetteStrainGageChan = {
   gageOrientation: 0,
   rosetteMeasTypes: [],
   units: "strain",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalGageResistance: 0,
   poissonRatio: 0,
@@ -931,7 +939,7 @@ export const ZERO_AI_RTD_CHAN: AIRTDChan = {
   units: "DegC",
   rtdType: "Pt3750",
   resistanceConfig: "2Wire",
-  currentExcitSource: "None",
+  currentExcitSource: "Internal",
   currentExcitVal: 0,
 };
 
@@ -975,7 +983,7 @@ export const ZERO_AI_STRAIN_GAGE_CHAN: AIStrainGageChan = {
   terminalConfig: "Cfg_Default",
   units: "strain",
   strainConfig: "full-bridge-I",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   gageFactor: 0,
   initialBridgeVoltage: 0,
@@ -1083,7 +1091,7 @@ export const ZERO_AI_THERMISTOR_CHAN_IEX: AIThermistorChanIex = {
   maxVal: 1,
   units: "DegC",
   resistanceConfig: "2Wire",
-  currentExcitSource: "None",
+  currentExcitSource: "Internal",
   currentExcitVal: 0,
   a: 0,
   b: 0,
@@ -1119,7 +1127,7 @@ export const ZERO_AI_THERMISTOR_CHAN_VEX: AIThermistorChanVex = {
   maxVal: 1,
   units: "DegC",
   resistanceConfig: "2Wire",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   a: 0,
   b: 0,
@@ -1163,7 +1171,7 @@ export const ZERO_AI_TORQUE_BRIDGE_POLYNOMIAL_CHAN: AITorqueBridgePolynomialChan
   maxVal: 1,
   units: "NewtonMeters",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
   forwardCoeffs: [],
@@ -1204,7 +1212,7 @@ export const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
   maxVal: 1,
   units: "NewtonMeters",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
   electricalUnits: "mVoltsPerVolt",
@@ -1249,15 +1257,15 @@ export const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLin
   maxVal: 1,
   units: "NewtonMeters",
   bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
   electricalUnits: "mVoltsPerVolt",
   physicalUnits: "NewtonMeters",
   firstElectricalVal: 0,
   firstPhysicalVal: 0,
-  secondElectricalVal: 0,
-  secondPhysicalVal: 0,
+  secondElectricalVal: 1,
+  secondPhysicalVal: 1,
   customScale: ZERO_NO_SCALE,
 };
 
@@ -1294,7 +1302,7 @@ export const ZERO_AI_VELOCITY_EPE_CHAN: AIVelocityEPEChan = {
   units: "m/s",
   sensitivity: 0,
   sensitivityUnits: "mV/m/s",
-  currentExcitSource: "None",
+  currentExcitSource: "Internal",
   currentExcitVal: 0,
   customScale: ZERO_NO_SCALE,
 };
@@ -1384,7 +1392,7 @@ export const ZERO_AI_VOLTAGE_CHAN_WITH_EXCIT: AIVoltageChanWithExcit = {
   maxVal: 1,
   units: "V",
   bridgeConfig: "full",
-  voltageExcitSource: "None",
+  voltageExcitSource: "Internal",
   voltageExcitVal: 0,
   useExcitForScaling: false,
   customScale: ZERO_NO_SCALE,
@@ -1392,19 +1400,12 @@ export const ZERO_AI_VOLTAGE_CHAN_WITH_EXCIT: AIVoltageChanWithExcit = {
 
 export const aiChan = z.union([
   aiAccelChanZ,
-  aiAccel4WireDCVoltageChanZ,
-  aiAccelChargeChanZ,
   aiBridgeChanZ,
-  aiChargeChan,
   aiCurrentChanZ,
-  aiCurrentRMSChanZ,
-  aiForceBridgePolynomialChanZ,
   aiForceBridgeTableChanZ,
   aiForceBridgeTwoPointLinChan,
   aiForgeIEPEChanZ,
-  aiFreqVoltageChanZ,
   aiMicrophoneChanZ,
-  aiPressureBridgePolynomialChanZ,
   aiPressureBridgeTableChanZ,
   aiPressureBridgeTwoPointLinChanZ,
   aiResistanceChanZ,
@@ -1413,15 +1414,10 @@ export const aiChan = z.union([
   aiStrainGageChan,
   aiTempBuiltInChanZ,
   aiThermocoupleChanZ,
-  aiThermistorChanIex,
-  aiThermistorChanVex,
-  aiTorqueBridgePolynomialChanZ,
   aiTorqueBridgeTableChanZ,
   aiTorqueBridgeTwoPointLinChanZ,
   aiVelocityIEPEChanZ,
   aiVoltageChanZ,
-  aiVoltageRMSChanZ,
-  aiVoltageChanWithExcitZ,
 ]);
 
 export type AIChan = z.infer<typeof aiChan>;
@@ -1429,19 +1425,12 @@ export type AIChanType = AIChan["type"];
 
 export const AI_CHANNEL_SCHEMAS: Record<AIChanType, z.ZodType<AIChan>> = {
   ai_accel: aiAccelChanZ,
-  ai_accel_4_wire_dc_voltage: aiAccel4WireDCVoltageChanZ,
-  ai_accel_charge: aiAccelChargeChanZ,
   ai_bridge: aiBridgeChanZ,
-  ai_charge: aiChargeChan,
   ai_current: aiCurrentChanZ,
-  ai_current_rms: aiCurrentRMSChanZ,
-  ai_force_bridge_polynomial: aiForceBridgePolynomialChanZ,
   ai_force_bridge_table: aiForceBridgeTableChanZ,
   ai_force_bridge_two_point_lin: aiForceBridgeTwoPointLinChan,
   ai_force_iepe: aiForgeIEPEChanZ,
-  ai_freq_voltage: aiFreqVoltageChanZ,
   ai_microphone: aiMicrophoneChanZ,
-  ai_pressure_bridge_polynomial: aiPressureBridgePolynomialChanZ,
   ai_pressure_bridge_table: aiPressureBridgeTableChanZ,
   ai_pressure_bridge_two_point_lin: aiPressureBridgeTwoPointLinChanZ,
   ai_resistance: aiResistanceChanZ,
@@ -1450,32 +1439,20 @@ export const AI_CHANNEL_SCHEMAS: Record<AIChanType, z.ZodType<AIChan>> = {
   ai_strain_gauge: aiStrainGageChan,
   ai_temp_builtin: aiTempBuiltInChanZ,
   ai_thermocouple: aiThermocoupleChanZ,
-  ai_thermistor_iex: aiThermistorChanIex,
-  ai_thermistor_vex: aiThermistorChanVex,
-  ai_torque_bridge_polynomial: aiTorqueBridgePolynomialChanZ,
   ai_torque_bridge_table: aiTorqueBridgeTableChanZ,
   ai_torque_bridge_two_point_lin: aiTorqueBridgeTwoPointLinChanZ,
   ai_velocity_iepe: aiVelocityIEPEChanZ,
   ai_voltage: aiVoltageChanZ,
-  ai_voltage_rms: aiVoltageRMSChanZ,
-  ai_voltage_with_excit: aiVoltageChanWithExcitZ,
 };
 
 export const ZERO_AI_CHANNELS: Record<AIChanType, AIChan> = {
   ai_accel: ZERO_AI_ACCEL_CHAN,
-  ai_accel_4_wire_dc_voltage: ZERO_AI_ACCEL_4WIRE_DC_VOLTAGE_CHAN,
-  ai_accel_charge: ZERO_AI_ACCEL_CHARGE_CHAN,
   ai_bridge: ZERO_AI_BRIDGE_CHAN,
-  ai_charge: ZERO_AI_CHARGE_CHAN,
   ai_current: ZERO_AI_CURRENT_CHAN,
-  ai_current_rms: ZERO_AI_CURRENT_RMS_CHAN,
-  ai_force_bridge_polynomial: ZERO_AI_FORCE_BRIDGE_POLYNOMIAL_CHAN,
   ai_force_bridge_table: ZERO_AI_FORCE_BRIDGE_TABLE_CHAN,
   ai_force_bridge_two_point_lin: ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN,
   ai_force_iepe: ZERO_AI_FORCE_IEPE_CHAN,
-  ai_freq_voltage: ZERO_AI_FREQ_VOLTAGE_CHAN,
   ai_microphone: ZERO_AI_MICROPHONE_CHAN,
-  ai_pressure_bridge_polynomial: ZERO_AI_PRESSURE_BRIDGE_POLYNOMIAL_CHAN,
   ai_pressure_bridge_table: ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN,
   ai_pressure_bridge_two_point_lin: ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN,
   ai_resistance: ZERO_AI_RESISTANCE_CHAN,
@@ -1484,49 +1461,32 @@ export const ZERO_AI_CHANNELS: Record<AIChanType, AIChan> = {
   ai_strain_gauge: ZERO_AI_STRAIN_GAGE_CHAN,
   ai_temp_builtin: ZERO_AI_TEMP_BUILTIN_CHAN,
   ai_thermocouple: ZERO_AI_THERMOCOUPLE_CHAN,
-  ai_thermistor_iex: ZERO_AI_THERMISTOR_CHAN_IEX,
-  ai_thermistor_vex: ZERO_AI_THERMISTOR_CHAN_VEX,
-  ai_torque_bridge_polynomial: ZERO_AI_TORQUE_BRIDGE_POLYNOMIAL_CHAN,
   ai_torque_bridge_table: ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN,
   ai_torque_bridge_two_point_lin: ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN,
   ai_velocity_iepe: ZERO_AI_VELOCITY_EPE_CHAN,
   ai_voltage: ZERO_AI_VOLTAGE_CHAN,
-  ai_voltage_rms: ZERO_AI_VOLTAGE_RMS_CHAN,
-  ai_voltage_with_excit: ZERO_AI_VOLTAGE_CHAN_WITH_EXCIT,
 };
 
 export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
+  ai_voltage: "Voltage",
+  ai_thermocouple: "Thermocouple",
+  ai_rtd: "RTD",
+  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
   ai_accel: "Accelerometer",
-  ai_accel_4_wire_dc_voltage: "4-Wire DC Voltage",
-  ai_accel_charge: "Accelerometer Charge",
   ai_bridge: "Bridge",
-  ai_charge: "Charge",
   ai_current: "Current",
-  ai_current_rms: "Current RMS",
-  ai_force_bridge_polynomial: "Force Bridge Polynomial",
   ai_force_bridge_table: "Force Bridge Table",
-  ai_force_bridge_two_point_lin: "Force Bridge Two Point Lin",
+  ai_force_bridge_two_point_lin: "Force Bridge Two-Point Linear",
   ai_force_iepe: "Force EPE",
-  ai_freq_voltage: "Frequency Voltage",
   ai_microphone: "Microphone",
-  ai_pressure_bridge_polynomial: "Pressure Bridge Polynomial",
   ai_pressure_bridge_table: "Pressure Bridge Table",
-  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two Point Lin",
   ai_resistance: "Resistance",
   ai_rosette_strain_gage: "Rosette Strain Gage",
-  ai_rtd: "RTD",
   ai_strain_gauge: "Strain Gauge",
   ai_temp_builtin: "Temperature Built-In",
-  ai_thermocouple: "Thermocouple",
-  ai_thermistor_iex: "Thermistor IEX",
-  ai_thermistor_vex: "Thermistor VEX",
-  ai_torque_bridge_polynomial: "Torque Bridge Polynomial",
   ai_torque_bridge_table: "Torque Bridge Table",
-  ai_torque_bridge_two_point_lin: "Torque Bridge Two Point Lin",
+  ai_torque_bridge_two_point_lin: "Torque Bridge - Two-Point Linear",
   ai_velocity_iepe: "Velocity IEPE",
-  ai_voltage: "Voltage",
-  ai_voltage_rms: "Voltage RMS",
-  ai_voltage_with_excit: "Voltage With Excit",
 };
 
 export type AnalogInputVoltageChannel = z.infer<typeof aiVoltageChanZ>;
@@ -1623,11 +1583,11 @@ export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
 
 export const baseAnalogReadStateDetailsZ = z.object({
   running: z.boolean(),
+  message: z.string(),
 });
 
 export const errorAnalogReadStateDetailZ = baseAnalogReadStateDetailsZ.extend({
   path: z.string().optional(),
-  message: z.string(),
 });
 
 type BaseAnalogReadStateDetails = z.infer<typeof baseAnalogReadStateDetailsZ>;
