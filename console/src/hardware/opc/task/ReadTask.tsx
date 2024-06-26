@@ -32,6 +32,7 @@ import { DataType } from "@synnaxlabs/x/telem";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -51,9 +52,9 @@ import {
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 
-export const configureReadLayout: Layout.State = {
+export const configureReadLayout = (): Layout.State => ({
   name: "Configure OPC UA Read Task",
-  key: READ_TYPE,
+  key: uuid(),
   type: READ_TYPE,
   windowKey: READ_TYPE,
   location: "mosaic",
@@ -62,7 +63,7 @@ export const configureReadLayout: Layout.State = {
     size: { width: 1200, height: 900 },
     navTop: true,
   },
-};
+});
 
 export const ReadTask: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();

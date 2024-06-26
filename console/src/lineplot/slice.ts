@@ -607,6 +607,7 @@ export const create =
       name,
       location,
       type: LAYOUT_TYPE,
+      icon: "Visualize",
       window,
       tab,
     };

@@ -20,11 +20,11 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
-const ZERO_LAYOUT_STATES: Record<string, Layout.State> = {
-  [OPC.Task.configureReadLayout.type]: OPC.Task.configureReadLayout,
-  [NI.Task.configureAnalogReadLayout.type]: NI.Task.configureAnalogReadLayout,
-  [NI.Task.configureDigitalWriteLayout.type]: NI.Task.configureDigitalWriteLayout,
-  [NI.Task.configureDigitalReadLayout.type]: NI.Task.configureDigitalReadLayout,
+const ZERO_LAYOUT_STATES: Record<string, () => Layout.State> = {
+  [OPC.Task.READ_TYPE]: OPC.Task.configureReadLayout,
+  [NI.Task.ANALOG_READ_TYPE]: NI.Task.configureAnalogReadLayout,
+  [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.configureDigitalWriteLayout,
+  [NI.Task.DIGITAL_READ_TYPE]: NI.Task.configureDigitalReadLayout,
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -39,7 +39,11 @@ const handleSelect: Ontology.HandleSelect = ({
     try {
       const t = await client.hardware.tasks.retrieve(task.key);
       const baseLayout = ZERO_LAYOUT_STATES[t.type];
-      placeLayout({ ...baseLayout, key: selection[0].id.key });
+      placeLayout({
+        ...baseLayout(),
+        key: selection[0].id.key,
+        args: { create: true },
+      });
     } catch (e) {
       addStatus({ variant: "error", message: (e as Error).message });
     }
@@ -58,12 +62,14 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       ]);
       return prevNodes;
     },
-    mutationFn: (props: Ontology.TreeContextMenuProps) => {
+    mutationFn: async (props: Ontology.TreeContextMenuProps) => {
       const {
         client,
         selection: { resources },
+        removeLayout,
       } = props;
-      return client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
+      await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
+      removeLayout(...resources.map(({ id }) => id.key));
     },
     onError: (e: Error, { addStatus, selection: { resources } }) => {
       let message = "Failed to delete tasks";

@@ -350,7 +350,7 @@ export const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
   bridgeConfig: "FullBridge",
   voltageExcitSource: "Internal",
   voltageExcitVal: 0,
-  nominalBridgeResistance: 0,
+  nominalBridgeResistance: 1,
   customScale: ZERO_NO_SCALE,
 };
 
@@ -1468,6 +1468,10 @@ export const ZERO_AI_CHANNELS: Record<AIChanType, AIChan> = {
 };
 
 export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
+  ai_voltage: "Voltage",
+  ai_thermocouple: "Thermocouple",
+  ai_rtd: "RTD",
+  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
   ai_accel: "Accelerometer",
   ai_bridge: "Bridge",
   ai_current: "Current",
@@ -1476,17 +1480,13 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
   ai_force_iepe: "Force EPE",
   ai_microphone: "Microphone",
   ai_pressure_bridge_table: "Pressure Bridge Table",
-  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
   ai_resistance: "Resistance",
   ai_rosette_strain_gage: "Rosette Strain Gage",
-  ai_rtd: "RTD",
   ai_strain_gauge: "Strain Gauge",
   ai_temp_builtin: "Temperature Built-In",
-  ai_thermocouple: "Thermocouple",
   ai_torque_bridge_table: "Torque Bridge Table",
   ai_torque_bridge_two_point_lin: "Torque Bridge - Two-Point Linear",
   ai_velocity_iepe: "Velocity IEPE",
-  ai_voltage: "Voltage",
 };
 
 export type AnalogInputVoltageChannel = z.infer<typeof aiVoltageChanZ>;
@@ -1583,11 +1583,11 @@ export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
 
 export const baseAnalogReadStateDetailsZ = z.object({
   running: z.boolean(),
+  message: z.string(),
 });
 
 export const errorAnalogReadStateDetailZ = baseAnalogReadStateDetailsZ.extend({
   path: z.string().optional(),
-  message: z.string(),
 });
 
 type BaseAnalogReadStateDetails = z.infer<typeof baseAnalogReadStateDetailsZ>;

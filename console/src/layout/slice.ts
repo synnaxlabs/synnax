@@ -190,6 +190,12 @@ interface ResizeNavDrawerPayload {
   location: NavDrawerLocation;
   size: number;
 }
+
+interface SetAltKeyPayload {
+  key: string;
+  altKey: string;
+}
+
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
@@ -261,6 +267,7 @@ export const { actions, reducer } = createSlice({
           tab?.location,
           tab?.mosaicKey,
         );
+        console.log(mosaic.root);
         mosaic.activeTab = key;
       }
 
@@ -282,18 +289,32 @@ export const { actions, reducer } = createSlice({
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((contentKey) => {
-        const layout = state.layouts[contentKey];
-        if (layout == null) return;
+        let layout = state.layouts[contentKey];
+        if (layout == null) {
+          // try to find it by alt key
+          const alt = Object.values(state.layouts).find((l) => l.altKey === contentKey);
+          console.log(alt);
+          if (alt == null) return;
+          layout = alt;
+        }
         const mosaic = state.mosaics[layout.windowKey];
         if (layout == null || mosaic == null) return;
         const { location } = layout;
         if (location === "mosaic")
-          [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, contentKey);
+          [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, layout.key);
 
-        delete state.layouts[contentKey];
+        delete state.layouts[layout.key];
         state.mosaics[layout.windowKey] = mosaic;
         purgeEmptyMosaics(state);
       });
+    },
+    setAltKey: (
+      state,
+      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
+    ) => {
+      const layout = state.layouts[key];
+      if (layout == null) return;
+      layout.altKey = altKey;
     },
     moveMosaicTab: (
       state,
@@ -478,6 +499,7 @@ export const { actions, reducer } = createSlice({
 export const {
   place,
   remove,
+  setAltKey,
   toggleActiveTheme,
   setActiveTheme,
   moveMosaicTab,

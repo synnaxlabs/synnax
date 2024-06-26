@@ -30,6 +30,7 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -50,13 +51,13 @@ import {
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
-export const configureDigitalWriteLayout: Layout.State = {
+export const configureDigitalWriteLayout = (): Layout.State => ({
   name: "Configure NI Digital Write Task",
-  key: DIGITAL_WRITE_TYPE,
+  key: uuid(),
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",
-};
+});
 
 export const ConfigureDigitalWrite: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();

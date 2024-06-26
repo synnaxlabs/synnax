@@ -49,7 +49,7 @@ const NAMED_KEY_COLS: List.ColumnSpec<string, NamedKey>[] = [
   { key: "name", name: "Name" },
 ];
 
-const TerminalConfigField = Form.buildButtonSelectField<string, NamedKey>({
+const TerminalConfigField = Form.buildDropdownButtonSelectField<string, NamedKey>({
   fieldKey: "terminalConfig",
   fieldProps: {
     label: "Terminal Configuration",
@@ -82,7 +82,7 @@ const TerminalConfigField = Form.buildButtonSelectField<string, NamedKey>({
   },
 });
 
-const AccelSensitivityUnitsField = Form.buildButtonSelectField<
+const AccelSensitivityUnitsField = Form.buildDropdownButtonSelectField<
   AccelSensitivityUnits,
   NamedKey<AccelSensitivityUnits>
 >({
@@ -106,7 +106,7 @@ const AccelSensitivityUnitsField = Form.buildButtonSelectField<
   },
 });
 
-const ExcitSourceField = Form.buildButtonSelectField<string, NamedKey>({
+const ExcitSourceField = Form.buildDropdownButtonSelectField<string, NamedKey>({
   fieldKey: "excitSource",
   fieldProps: {
     label: "Excitation Source",
@@ -131,7 +131,7 @@ const ExcitSourceField = Form.buildButtonSelectField<string, NamedKey>({
   },
 });
 
-const AccelerationUnitsField = Form.buildButtonSelectField<
+const AccelerationUnitsField = Form.buildDropdownButtonSelectField<
   AccelerationUnits,
   NamedKey<AccelerationUnits>
 >({
@@ -159,32 +159,34 @@ const AccelerationUnitsField = Form.buildButtonSelectField<
   },
 });
 
-const BridgeConfigField = Form.buildButtonSelectField<string, NamedKey<string>>({
-  fieldKey: "bridgeConfig",
-  fieldProps: {
-    label: "Bridge Configuration",
+const BridgeConfigField = Form.buildDropdownButtonSelectField<string, NamedKey<string>>(
+  {
+    fieldKey: "bridgeConfig",
+    fieldProps: {
+      label: "Bridge Configuration",
+    },
+    inputProps: {
+      entryRenderKey: "name",
+      columns: NAMED_KEY_COLS,
+      data: [
+        {
+          key: "FullBridge",
+          name: "Full Bridge",
+        },
+        {
+          key: "HalfBridge",
+          name: "Half Bridge",
+        },
+        {
+          key: "QuarterBridge",
+          name: "Quarter Bridge",
+        },
+      ],
+    },
   },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: [
-      {
-        key: "FullBridge",
-        name: "Full Bridge",
-      },
-      {
-        key: "HalfBridge",
-        name: "Half Bridge",
-      },
-      {
-        key: "QuarterBridge",
-        name: "Quarter Bridge",
-      },
-    ],
-  },
-});
+);
 
-const ShuntResistorLocField = Form.buildButtonSelectField<
+const ShuntResistorLocField = Form.buildDropdownButtonSelectField<
   ShuntResistorLoc,
   NamedKey<ShuntResistorLoc>
 >({
@@ -212,7 +214,10 @@ const ShuntResistorLocField = Form.buildButtonSelectField<
   },
 });
 
-const ResistanceConfigField = Form.buildButtonSelectField<string, NamedKey<string>>({
+const ResistanceConfigField = Form.buildDropdownButtonSelectField<
+  string,
+  NamedKey<string>
+>({
   fieldKey: "resistanceConfig",
   fieldProps: {
     label: "Resistance Configuration",
@@ -237,7 +242,7 @@ const ResistanceConfigField = Form.buildButtonSelectField<string, NamedKey<strin
   },
 });
 
-const StrainConfig = Form.buildButtonSelectField({
+const StrainConfig = Form.buildDropdownButtonSelectField({
   fieldKey: "strainConfig",
   fieldProps: {
     label: "Strain Configuration",
@@ -298,7 +303,10 @@ const MinMaxValueFields = ({ path }: { path: string }): ReactElement => (
   </Align.Space>
 );
 
-const ForceUnitsField = Form.buildButtonSelectField<ForceUnits, NamedKey<ForceUnits>>({
+const ForceUnitsField = Form.buildDropdownButtonSelectField<
+  ForceUnits,
+  NamedKey<ForceUnits>
+>({
   fieldKey: "units",
   fieldProps: { label: "Force Units" },
   inputProps: {
@@ -321,7 +329,7 @@ const ForceUnitsField = Form.buildButtonSelectField<ForceUnits, NamedKey<ForceUn
   },
 });
 
-const ElectricalUnitsField = Form.buildButtonSelectField<
+const ElectricalUnitsField = Form.buildDropdownButtonSelectField<
   ElectricalUnits,
   NamedKey<ElectricalUnits>
 >({
@@ -333,36 +341,38 @@ const ElectricalUnitsField = Form.buildButtonSelectField<
     data: [
       {
         key: "VoltsPerVolt",
-        name: "Volts per Volt",
+        name: "V/V",
       },
       {
         key: "mVoltsPerVolt",
-        name: "mV per Volt",
+        name: "mV/V",
       },
     ],
   },
 });
 
-const PressureUnitsField = Form.buildButtonSelectField<PressureUnits, NamedKey>({
-  fieldKey: "units",
-  fieldProps: { label: "Pressure Units" },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: [
-      {
-        key: "Pascals",
-        name: "Pascals",
-      },
-      {
-        key: "PoundsPerSquareInch",
-        name: "PSI",
-      },
-    ],
+const PressureUnitsField = Form.buildDropdownButtonSelectField<PressureUnits, NamedKey>(
+  {
+    fieldKey: "units",
+    fieldProps: { label: "Pressure Units" },
+    inputProps: {
+      entryRenderKey: "name",
+      columns: NAMED_KEY_COLS,
+      data: [
+        {
+          key: "Pascals",
+          name: "Pascals",
+        },
+        {
+          key: "PoundsPerSquareInch",
+          name: "PSI",
+        },
+      ],
+    },
   },
-});
+);
 
-const TemperatureUnitsField = Form.buildButtonSelectField<
+const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
   TemperatureUnits,
   NamedKey<TemperatureUnits>
 >({
@@ -394,7 +404,7 @@ const TemperatureUnitsField = Form.buildButtonSelectField<
   },
 });
 
-const TorqueUnitsField = Form.buildButtonSelectField<
+const TorqueUnitsField = Form.buildDropdownButtonSelectField<
   TorqueUnits,
   NamedKey<TorqueUnits>
 >({
@@ -459,7 +469,7 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
   },
 });
 
-const VoltageUnits = Form.buildButtonSelectField({
+const VoltageUnits = Form.buildDropdownButtonSelectField({
   fieldKey: "units",
   fieldProps: { label: "Voltage Units" },
   inputProps: {
@@ -739,7 +749,7 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   none: () => <></>,
 };
 
-export const SelectCustomScaleTypeField = Form.buildButtonSelectField<
+export const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
   ScaleType,
   NamedKey<ScaleType>
 >({
@@ -798,10 +808,11 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
       <PortField path={prefix} grow />
-      <Align.Space direction="x" grow>
-        <TerminalConfigField path={prefix} grow />
-      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <TerminalConfigField path={prefix} grow />
+      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
       <SensitivityField
         path={prefix}
         grow
@@ -816,6 +827,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           ),
         }}
       />
+      <Divider.Divider direction="x" padded="bottom" />
       <Align.Space direction="x" grow>
         <ExcitSourceField
           path={prefix}
@@ -828,6 +840,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           label="Current Excitation Value"
         />
       </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
   ),
@@ -922,7 +935,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     </>
   ),
   // ai_charge: ({ prefix }) => {
-  //   const Units = Form.buildButtonSelectField({
+  //   const Units = Form.buildDropdownButtonSelectField({
   //     fieldKey: "units",
   //     fieldProps: { label: "Charge Units" },
   //     inputProps: {
@@ -952,8 +965,11 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ShuntResistorLocField path={prefix} grow />
           <Form.NumericField
@@ -962,6 +978,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -1021,30 +1038,41 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <ForceUnitsField path={prefix} />
-        <BridgeConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal Bridge Resistance"
-        />
+        <Divider.Divider direction="x" padded="bottom" />
+        <Align.Space direction="x" size="small">
+          <BridgeConfigField path={prefix} grow />
+          <Form.NumericField
+            path={`${prefix}.nominalBridgeResistance`}
+            label="Nominal Bridge Resistance"
+            grow
+          />
+        </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
+        <Align.Space direction="x" size="small">
+          <ExcitSourceField
+            path={prefix}
+            fieldKey="voltageExcitSource"
+            label="Voltage Excitation Source"
+            grow
+          />
+          <Form.NumericField
+            path={`${prefix}.voltageExcitVal`}
+            label="Voltage Excitation Value"
+            grow
+          />
+        </Align.Space>
         <Align.Space direction="x">
           <ForceUnitsField
             path={prefix}
             fieldKey="physicalUnits"
             label="Physical Units"
+            grow
           />
           {/* physicalVals */}
-          <ElectricalUnitsField path={prefix} />
+          <ElectricalUnitsField path={prefix} grow />
         </Align.Space>
         {/* electricalVals */}
         <CustomScaleForm prefix={prefix} />
@@ -1055,8 +1083,10 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <ForceUnitsField path={prefix} />
+        <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ExcitSourceField
             path={prefix}
@@ -1069,6 +1099,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             label="Voltage Excitation Value"
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <BridgeConfigField path={prefix} grow />
           <Form.NumericField
@@ -1076,6 +1107,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             label="Nominal Bridge Resistance"
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ForceUnitsField
             path={prefix}
@@ -1109,12 +1141,13 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
   },
   ai_force_iepe: ({ prefix }) => {
-    const SensitivityUnits = Form.buildButtonSelectField({
+    const SensitivityUnits = Form.buildDropdownButtonSelectField({
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
@@ -1164,7 +1197,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   // ai_freq_voltage: ({ prefix }) => {
-  //   const UnitsField = Form.buildButtonSelectField({
+  //   const UnitsField = Form.buildDropdownButtonSelectField({
   //     fieldKey: "units",
   //     fieldProps: { label: "Frequency Units" },
   //     inputProps: {
@@ -1196,7 +1229,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   //   );
   // },
   ai_microphone: ({ prefix }) => {
-    const UnitsField = Form.buildButtonSelectField({
+    const UnitsField = Form.buildDropdownButtonSelectField({
       fieldKey: "units",
       fieldProps: { label: "Sound Pressure Units" },
       inputProps: {
@@ -1213,8 +1246,12 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
+        <TerminalConfigField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
         <UnitsField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x">
           <Form.NumericField
             path={`${prefix}.micSensitivity`}
@@ -1227,6 +1264,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x">
           <ExcitSourceField
             path={prefix}
@@ -1240,6 +1278,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -1376,7 +1415,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_resistance: ({ prefix }) => {
-    const UnitsField = Form.buildButtonSelectField({
+    const UnitsField = Form.buildDropdownButtonSelectField({
       fieldKey: "units",
       fieldProps: { label: "Resistance Units" },
       inputProps: {
@@ -1409,7 +1448,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_rosette_strain_gage: ({ prefix }) => {
-    const TypeField = Form.buildButtonSelectField({
+    const TypeField = Form.buildDropdownButtonSelectField({
       fieldKey: "rosetteType",
       fieldProps: { label: "Rosette Type" },
       inputProps: {
@@ -1522,7 +1561,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_rtd: ({ prefix }) => {
-    const RTDTypeField = Form.buildButtonSelectField({
+    const RTDTypeField = Form.buildDropdownButtonSelectField({
       fieldKey: "rtdType",
       fieldProps: { label: "RTD Type" },
       inputProps: {
@@ -1583,7 +1622,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_strain_gauge: ({ prefix }) => {
-    const StrainUnitsField = Form.buildButtonSelectField({
+    const StrainUnitsField = Form.buildDropdownButtonSelectField({
       fieldKey: "units",
       fieldProps: { label: "Strain Units" },
       inputProps: {
@@ -1654,7 +1693,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_thermocouple: ({ prefix }) => {
-    const ThermocoupleTypeField = Form.buildButtonSelectField({
+    const ThermocoupleTypeField = Form.buildDropdownButtonSelectField({
       fieldKey: "thermocoupleType",
       fieldProps: { label: "Thermocouple Type" },
       inputProps: {
@@ -1673,7 +1712,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         ],
       },
     });
-    const CJCSourceField = Form.buildButtonSelectField({
+    const CJCSourceField = Form.buildDropdownButtonSelectField({
       fieldKey: "cjcSource",
       fieldProps: { label: "CJC Source" },
       inputProps: {
@@ -1898,7 +1937,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_velocity_iepe: ({ prefix }) => {
-    const VelocityUnits = Form.buildButtonSelectField({
+    const VelocityUnits = Form.buildDropdownButtonSelectField({
       fieldKey: "units",
       fieldProps: { label: "Velocity Units" },
       inputProps: {
@@ -1914,7 +1953,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         ],
       },
     });
-    const SensitivityUnits = Form.buildButtonSelectField({
+    const SensitivityUnits = Form.buildDropdownButtonSelectField({
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {

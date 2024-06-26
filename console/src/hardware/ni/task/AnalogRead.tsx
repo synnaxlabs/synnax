@@ -29,8 +29,11 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useRef, useState } from "react";
+import { useDispatch } from "react-redux";
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
+import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
 import { NI } from "@/hardware/ni";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
@@ -55,20 +58,21 @@ import { Layout } from "@/layout";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 
-export const configureAnalogReadLayout: Layout.State = {
+export const configureAnalogReadLayout = (): Layout.State => ({
   name: "Configure NI Analog Read Task",
   key: ANALOG_READ_TYPE,
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
   location: "mosaic",
-};
+});
 
-export const ConfigureAnalogRead: Layout.Renderer = ({ layoutKey }) => {
+export const ConfigureAnalogRead: Layout.Renderer = (props) => {
+  const { layoutKey } = props;
   const client = Synnax.use();
   const fetchTask = useQuery<InternalProps>({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null || layoutKey == configureAnalogReadLayout.key)
+      if (client == null || layoutKey === ANALOG_READ_TYPE)
         return { initialValues: deep.copy(ZERO_ANALOG_READ_PAYLOAD) };
       const t = await client.hardware.tasks.retrieve<
         AnalogReadConfig,
@@ -80,15 +84,20 @@ export const ConfigureAnalogRead: Layout.Renderer = ({ layoutKey }) => {
   });
   if (fetchTask.isLoading) return <></>;
   if (fetchTask.isError) return <></>;
-  return <Internal {...(fetchTask.data as InternalProps)} />;
+  return <Internal {...(fetchTask.data as InternalProps)} {...props} />;
 };
 
-interface InternalProps {
+interface InternalProps extends Layout.RendererProps {
   initialTask?: AnalogRead;
   initialValues: AnalogReadPayload;
 }
 
-const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement => {
+const Internal = ({
+  initialTask,
+  initialValues,
+  layoutKey,
+}: InternalProps): ReactElement => {
+  const dispatch = useDispatch();
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -196,7 +205,6 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       config.channels.forEach((c) => {
         c.channel = dev.properties.analogInput.channels[c.port.toString()];
       });
-      methods.set("config", config);
       if (dev == null) return;
 
       const t = await rack.createTask<
@@ -209,6 +217,12 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
         type: ANALOG_READ_TYPE,
         config,
       });
+      dispatch(
+        Layout.setAltKey({
+          key: layoutKey,
+          altKey: t.key,
+        }),
+      );
       setTask(t);
     },
   });
@@ -308,12 +322,13 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
           justify="spaceBetween"
         >
           <Align.Space direction="x">
-            {taskState?.variant != null && (
+            {taskState?.details?.message != null && (
               <Status.Text variant={taskState?.variant as Status.Variant}>
                 {taskState?.details?.message}
               </Status.Text>
             )}
           </Align.Space>
+
           <Align.Space direction="x">
             <Button.Icon
               loading={start.isPending}
@@ -463,10 +478,8 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
                   Enable
                 </Menu.Item>
               )}
-              <Menu.Divider />
-              <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
-                Plot Live Data
-              </Menu.Item>
+              {(allowEnable || allowDisable) && <Menu.Divider />}
+              <CMenu.HardReloadItem />
             </Menu.Menu>
           );
         }}
