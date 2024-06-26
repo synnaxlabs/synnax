@@ -32,10 +32,13 @@ func runSetUp(param SetUpParam) error {
 }
 
 func setUpPython(param SetUpParam) error {
-	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
-		return err
+	var stdErr, stdOut bytes.Buffer
+	cmd := exec.Command("sh", "-c", "cd py && poetry install")
+	cmd.Stderr, cmd.Stdout = &stdErr, &stdOut
+	if err := cmd.Run(); err != nil {
+		return errors.Newf("err: %s\nstderr: %s\nstdout: %s\n", err.Error(), stdErr.String(), stdOut.String())
 	}
-	cmd := exec.Command("poetry", "run", "python", "setup.py",
+	cmd = exec.Command("poetry", "run", "python", "setup.py",
 		strconv.Itoa(param.IndexChannels),
 		strconv.Itoa(param.DataChannels),
 	)
