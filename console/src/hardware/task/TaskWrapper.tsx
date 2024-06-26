@@ -22,6 +22,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
     const fetchTask = useQuery<WrappedProps<T, P>>({
       queryKey: [layoutKey, client?.key],
       queryFn: async () => {
+        console.log(args);
         if (client == null || args.create)
           return { initialValues: deep.copy(zeroPayload), layoutKey };
         // try to parse the key as a big int. If the parse fails, set the lat key as a key
@@ -36,6 +37,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
           if (e instanceof SyntaxError) key = altKey;
         }
         const t = await client.hardware.tasks.retrieve(key, { includeState: true });
+        console.log(t);
         return { initialValues: t as unknown as P, task: t as T, layoutKey };
       },
     });

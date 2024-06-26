@@ -112,7 +112,7 @@ import {
   TbLivePhoto,
   TbPlugConnected,
   TbPlugConnectedX,
-  TbSubtask,
+  TbRadarFilled,
 } from "react-icons/tb";
 
 export type IconProps = React.SVGProps<SVGSVGElement>;
@@ -310,7 +310,7 @@ export const Icon: IconType = {
   Disconnect: wrapIcon(TbPlugConnectedX),
   Hardware: wrapIcon(MdHardware),
   Save: wrapIcon(MdSaveAlt),
-  Task: wrapIcon(TbSubtask),
+  Task: wrapIcon(TbRadarFilled),
   Device: wrapIcon(SiGooglenearby),
   Link: wrapIcon(MdLink),
   Attachment: wrapIcon(GrAttachment),

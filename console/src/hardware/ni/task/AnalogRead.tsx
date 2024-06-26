@@ -69,12 +69,12 @@ export const configureAnalogReadLayout = (create: boolean = false): Layout.State
 
 interface InternalProps {
   layoutKey: string;
-  initialTask?: AnalogRead;
+  task?: AnalogRead;
   initialValues: AnalogReadPayload;
 }
 
 const Internal = ({
-  initialTask,
+  task: initialTask,
   initialValues,
   layoutKey,
 }: InternalProps): ReactElement => {
