@@ -651,19 +651,19 @@ void ni::Source::jsonifyError(std::string s){
         std::string channel = channelMatch[1].str();
         cn = channel;
     } else return;
-    
     // Extract the first property
     std::string p = "";
     std::smatch propertyMatch;
     if (std::regex_search(s, propertyMatch, propertyRegex)) {
         std::string property = propertyMatch[1].str();
         p = property;
-    } else return;
+    }
 
 
     // check if the property is in the field map
     if (FIELD_MAP.count(p) == 0)  {
         this->err_info["path"] = channel_map[cn];
+        this->err_info["message"] = this->err_info["message"].get<std::string>() + " Path: " + this->err_info["path"].get<std::string>();
         return;
     };
 
