@@ -15,22 +15,6 @@ permissions:
   contents: write
   packages: write
 jobs:
-  setup:
-    runs-on: self-hosted
-    outputs:
-      changed: ${{ steps.filter.outputs.changed }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "**/*"
-
   test-integration:
     needs: [setup]
     runs-on: self-hosted
@@ -46,31 +30,6 @@ jobs:
           filters: |
             changed:
                 - "**/*"
-
-      - name: Set up Python
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install Poetry
-        if: steps.filter.outputs.changed == 'true'
-        run: |
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install
-        working-directory: ./client/py
-
-      - name: Setup Node
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
 
       - name: Test
         run: ./run-integration basic.json
