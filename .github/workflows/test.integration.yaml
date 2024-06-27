@@ -16,7 +16,6 @@ permissions:
   packages: write
 jobs:
   test-integration:
-    needs: [setup]
     runs-on: self-hosted
     if: needs.setup.outputs.changed == 'true'
     steps:
