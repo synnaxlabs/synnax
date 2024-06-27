@@ -1,4 +1,8 @@
 {
+  "cluster": {
+    "memfs": true,
+    "insecure": true
+  },
   "setup": {
     "index_channels": 2,
     "data_channels": 2,
