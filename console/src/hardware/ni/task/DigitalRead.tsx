@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { QueryError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -18,21 +18,23 @@ import {
   Header,
   Input,
   List,
-  Nav,
+  Observe,
   Status,
   Synnax,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-import { ReactElement, useCallback, useRef, useState } from "react";
+import { ReactElement, useCallback, useState } from "react";
+import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { enrich } from "@/hardware/ni/device/enrich/enrich";
+import { Properties } from "@/hardware/ni/device/types";
+import { Controls } from "@/hardware/ni/task/TaskControls";
 import {
-  AnalogReadStateDetails,
   Chan,
   DIChan,
   DIGITAL_READ_TYPE,
@@ -64,11 +66,16 @@ export const configureDigitalReadLayout = (
 });
 
 interface InternalProps {
+  layoutKey: string;
   task?: DigitalRead;
   initialValues: DigitalReadPayload;
 }
 
-const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement => {
+const Internal = ({
+  task: pTask,
+  initialValues,
+  layoutKey,
+}: InternalProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -79,22 +86,15 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
   });
 
   const [task, setTask] = useState(pTask);
-  const [taskState, setTaskState] = useState<task.State<AnalogReadStateDetails> | null>(
-    initialValues?.state ?? null,
-  );
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
-  const stateObserverRef = useRef<task.StateObservable<DigitalReadStateDetails> | null>(
-    null,
-  );
-  useAsyncEffect(async () => {
-    if (client == null || task == null) return;
-    stateObserverRef.current = await task.openStateObserver<DigitalReadStateDetails>();
-    stateObserverRef.current.onChange((s) => {
-      setTaskState(s);
-    });
-    return async () => await stateObserverRef.current?.close().catch(console.error);
-  }, [client?.key, task?.key, setTaskState]);
+
+  const taskState = Observe.useState<task.State<DigitalReadStateDetails>>({
+    key: [task?.key],
+    open: async () => await task?.openStateObserver<DigitalReadStateDetails>(),
+  });
+
+  const dispatch = useDispatch();
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
@@ -102,6 +102,75 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
       if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
+
+      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
+      dev.properties = enrich(dev.model, dev.properties);
+
+      let modified = false;
+      let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
+      if (!shouldCreateIndex) {
+        try {
+          await client.channels.retrieve(dev.properties.digitalInput.index);
+        } catch (e) {
+          if (e instanceof QueryError) shouldCreateIndex = true;
+          else throw e;
+        }
+      }
+
+      if (shouldCreateIndex) {
+        modified = true;
+        const aiIndex = await client.channels.create({
+          name: `${dev.properties.identifier}_di_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.digitalInput.index = aiIndex.key;
+        dev.properties.digitalInput.channels = {};
+      }
+
+      const toCreate: DIChan[] = [];
+      for (const channel of config.channels) {
+        const key = `${channel.port}l${channel.line}`;
+        // check if the channel is in properties
+        const exKey = dev.properties.digitalInput.channels[key];
+        if (primitiveIsZero(exKey)) toCreate.push(channel);
+        else {
+          try {
+            await client.channels.retrieve(exKey.toString());
+          } catch (e) {
+            if (e instanceof QueryError) toCreate.push(channel);
+            else throw e;
+          }
+        }
+      }
+
+      if (toCreate.length > 0) {
+        modified = true;
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
+            dataType: "float32",
+            index: dev.properties.digitalInput.index,
+          })),
+        );
+        channels.forEach((c, i) => {
+          const key = `${toCreate[i].port}l${toCreate[i].line}`;
+          dev.properties.digitalInput.channels[key] = c.key;
+        });
+      }
+
+      if (modified)
+        await client.hardware.devices.create({
+          ...dev,
+          properties: dev.properties,
+        });
+
+      config.channels.forEach((c) => {
+        const key = `${c.port}l${c.line}`;
+        c.channel = dev.properties.digitalInput.channels[key];
+      });
+      if (dev == null) return;
+
       const t = await rack.createTask<
         DigitalReadConfig,
         DigitalReadStateDetails,
@@ -112,6 +181,7 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
         type: DIGITAL_READ_TYPE,
         config,
       });
+      dispatch(Layout.setAltKey({ key: layoutKey, altKey: t.key }));
       setTask(t);
     },
   });
@@ -127,14 +197,12 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
   });
 
   return (
-    <Align.Space className={CSS.B("ni-analog-read-task")} direction="y" grow empty>
-      <Align.Space className={CSS.B("content")} grow>
+    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
+      <Align.Space>
         <Form.Form {...methods}>
-          <Align.Space direction="x">
-            <Form.Field<string> path="name">
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-            </Form.Field>
-          </Align.Space>
+          <Form.Field<string> path="name">
+            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+          </Form.Field>
           <Align.Space direction="x">
             <Form.Field<string> path="config.device" label="Device" grow>
               {(p) => (
@@ -180,29 +248,14 @@ const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement =
             </Align.Space>
           </Align.Space>
         </Form.Form>
+        <Controls
+          state={taskState}
+          startingOrStopping={start.isPending}
+          configuring={configure.isPending}
+          onConfigure={configure.mutate}
+          onStartStop={start.mutate}
+        />
       </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          <Text.Text level="p">{JSON.stringify(taskState)}</Text.Text>
-        </Nav.Bar.Start>
-        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
-          <Button.Icon
-            loading={start.isPending}
-            disabled={start.isPending || taskState == null}
-            onClick={() => start.mutate()}
-            variant="outlined"
-          >
-            {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
-          </Button.Icon>
-          <Button.Button
-            loading={configure.isPending}
-            disabled={configure.isPending}
-            onClick={() => configure.mutate()}
-          >
-            Configure
-          </Button.Button>
-        </Nav.Bar.End>
-      </Nav.Bar>
     </Align.Space>
   );
 };

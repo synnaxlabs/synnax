@@ -17,9 +17,9 @@ import {
   Form,
   Header,
   Menu,
+  Observe,
   Status,
   Synnax,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -37,6 +37,7 @@ import { CSS } from "@/css";
 import { NI } from "@/hardware/ni";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
+import { Controls } from "@/hardware/ni/task/TaskControls";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -47,7 +48,6 @@ import {
   AnalogReadStateDetails as AnalogReadStateDetails,
   AnalogReadTaskConfig as AnalogReadConfig,
   analogReadTaskConfigZ,
-  AnalogReadTaskState,
   AnalogReadType,
   type Chan,
   ZERO_AI_CHANNELS,
@@ -89,26 +89,14 @@ const Internal = ({
   });
 
   const [task, setTask] = useState(initialTask);
-  const [taskState, setTaskState] = useState<AnalogReadTaskState | null>(
-    initialValues?.state ?? null,
-  );
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  useAsyncEffect(async () => {
-    if (client == null || task == null) return;
-    const stateObserver = await task.openStateObserver<AnalogReadStateDetails>();
-    stateObserver.onChange((s) => {
-      setTaskState(s);
-      if (s.details != null && "path" in s.details)
-        methods.setStatus(`config.${s.details.path}`, {
-          variant: "error",
-          message: s.details.message,
-        });
-    });
-    return async () => await stateObserver.close().catch(console.error);
-  }, [client?.key, task?.key, setTaskState]);
+  const taskState = Observe.useState({
+    key: [task?.key],
+    open: async () => await task?.openStateObserver<AnalogReadStateDetails>(),
+  });
 
   const configure = useMutation<void, Error, void, unknown>({
     mutationKey: [client?.key, "configure"],
@@ -193,12 +181,7 @@ const Internal = ({
         type: ANALOG_READ_TYPE,
         config,
       });
-      dispatch(
-        Layout.setAltKey({
-          key: layoutKey,
-          altKey: t.key,
-        }),
-      );
+      dispatch(Layout.setAltKey({ key: layoutKey, altKey: t.key }));
       setTask(t);
     },
   });
@@ -223,14 +206,12 @@ const Internal = ({
   };
 
   return (
-    <Align.Space className={CSS.B("ni-analog-read-task")} direction="y" grow empty>
-      <Align.Space className={CSS.B("content")} grow>
+    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
+      <Align.Space grow>
         <Form.Form {...methods}>
-          <Align.Space direction="x">
-            <Form.Field<string> path="name">
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-            </Form.Field>
-          </Align.Space>
+          <Form.Field<string> path="name">
+            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+          </Form.Field>
           <Align.Space direction="x">
             <Form.Field<string>
               path="config.device"
@@ -289,40 +270,13 @@ const Internal = ({
             </Align.Space>
           </Align.Space>
         </Form.Form>
-        <Align.Space
-          direction="x"
-          style={{
-            borderRadius: "1rem",
-            border: "var(--pluto-border)",
-            padding: "2rem",
-          }}
-          justify="spaceBetween"
-        >
-          <Align.Space direction="x">
-            {taskState?.details?.message != null && (
-              <Status.Text variant={taskState?.variant as Status.Variant}>
-                {taskState?.details?.message}
-              </Status.Text>
-            )}
-          </Align.Space>
-          <Align.Space direction="x">
-            <Button.Icon
-              loading={startOrStop.isPending}
-              disabled={startOrStop.isPending || taskState == null}
-              onClick={() => startOrStop.mutate()}
-              variant="outlined"
-            >
-              {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
-            </Button.Icon>
-            <Button.Button
-              loading={configure.isPending}
-              disabled={configure.isPending}
-              onClick={() => configure.mutate()}
-            >
-              Configure
-            </Button.Button>
-          </Align.Space>
-        </Align.Space>
+        <Controls
+          state={taskState}
+          startingOrStopping={startOrStop.isPending}
+          configuring={configure.isPending}
+          onStartStop={startOrStop.mutate}
+          onConfigure={configure.mutate}
+        />
       </Align.Space>
     </Align.Space>
   );

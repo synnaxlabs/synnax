@@ -54,6 +54,8 @@ const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
   digitalInput: z.object({
     portCount: z.number(),
     lineCounts: z.number().array(),
+    index: z.number(),
+    channels: z.record(z.string(), z.number()),
   }),
   digitalOutput: z.object({
     portCount: z.number(),
