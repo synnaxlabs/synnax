@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/synnaxlabs/x/errors"
 	"os/exec"
+	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 type CleanUpParam struct {
@@ -25,25 +27,24 @@ func runCleanUp(param CleanUpParam) error {
 	default:
 		panic("unrecognized client in cleanup")
 	}
-	return nil
 }
 
 func cleanUpPython(param CleanUpParam) error {
 	if !param.DeleteAllChannels {
 		return nil
 	}
-	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
-		return err
-	}
-	cmd := exec.Command("poetry", "run", "python", "delete_all.py")
+	args := "-c poetry install && poetry run python delete_all.py"
+	var (
+		cmd            = exec.Command("sh", strings.Split(args, " ")...)
+		stdErr, stdOut bytes.Buffer
+	)
 
 	cmd.Dir = "./py"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
+	cmd.Stderr = &stdErr
+	cmd.Stdout = &stdOut
 
 	if err := cmd.Run(); err != nil {
-		return errors.Newf("err: %s\nstderr: %s\nstdout: %s", err.Error(), stderr.String(), stdout.String())
+		return errors.Newf("err: %s\nstderr: %s\nstdout: %s", err.Error(), stdErr.String(), stdOut.String())
 	}
 	return nil
 }
