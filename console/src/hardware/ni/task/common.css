@@ -63,6 +63,13 @@
     }
 }
 
+@container (max-height: 500px) {
+    .pluto-input--natural input {
+        font-size: var(--pluto-h2-size);
+        line-height: var(--pluto-h2-line-height);
+    }
+}
+
 @container (max-width: 500px) {
     .pluto-input--natural input {
         font-size: var(--pluto-h2-size);

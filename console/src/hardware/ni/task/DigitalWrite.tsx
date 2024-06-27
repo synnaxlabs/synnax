@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/ni/task/AnalogRead.css";
-
 import { QueryError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -34,7 +32,11 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Properties } from "@/hardware/ni/device/types";
-import { Controls } from "@/hardware/ni/task/TaskControls";
+import {
+  ChannelListEmptyContent,
+  ChannelListHeader,
+  Controls,
+} from "@/hardware/ni/task/common";
 import {
   AnalogReadStateDetails,
   Chan,
@@ -108,7 +110,6 @@ const Internal = ({
       const { name, config } = methods.value();
 
       const dev = await client.hardware.devices.retrieve<Properties>(config.device);
-      console.log(dev.properties);
 
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(
@@ -248,11 +249,9 @@ const Internal = ({
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
         <Form.Form {...methods}>
-          <Align.Space direction="x">
-            <Form.Field<string> path="name">
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-            </Form.Field>
-          </Align.Space>
+          <Form.Field<string> path="name">
+            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+          </Form.Field>
           <Align.Space direction="x">
             <Form.Field<string>
               path="config.device"
@@ -294,8 +293,8 @@ const Internal = ({
               )}
             />
             <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h3">
-                <Header.Title weight={500}>Channel Details</Header.Title>
+              <Header.Header level="h4">
+                <Header.Title weight={500}>Details</Header.Title>
               </Header.Header>
               <Align.Space className={CSS.B("details")}>
                 {selectedChannelIndex != null && (
@@ -351,20 +350,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
   };
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h3">
-        <Header.Title weight={500}>Channels</Header.Title>
-        <Header.Actions>
-          {[
-            {
-              key: "add",
-              onClick: handleAdd,
-              children: <Icon.Add />,
-              size: "large",
-            },
-          ]}
-        </Header.Actions>
-      </Header.Header>
-      <List.List<string, Chan> data={value}>
+      <ChannelListHeader onAdd={handleAdd} />
+      <List.List<string, Chan>
+        data={value}
+        emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+      >
         <List.Selector<string, Chan>
           value={selected}
           allowNone={false}
