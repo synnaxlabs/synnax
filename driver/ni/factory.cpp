@@ -11,7 +11,12 @@
 #include "driver/ni/ni.h"
 #include "nlohmann/json.hpp"
 #include <vector>
+
+#ifdef _WIN32
 #include "dll_check_windows.h"
+#else
+#include "dll_check_linux.h"
+#endif
 
 ni::Factory::Factory(){
 
@@ -34,14 +39,13 @@ ni::Factory::Factory(){
         "niprtsiu.dll"
     };
 
+    this->dlls_present = true;
     for (const auto &dll: dlls) {
         if (!does_dll_exist(dll.c_str())) {
-            LOG(ERROR) << "[ni] Required DLL not found: " << dll;
             this->dlls_present = false; 
         }
     }
-    LOG(INFO) << "[ni] All required DLLs found.";
-    this->dlls_present = true;
+    if(this->dlls_present) LOG(INFO) << "[ni] All required DLLs found.";
 }
 
 
@@ -50,9 +54,9 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const synnax::Task &task
 ) {
     if(!this->dlls_present){
-        LOG(ERROR) << "[ni] Required DLLs not found, cannot configure task." << std::endl;
+        LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." << std::endl;
         json j = {
-            {"error", "Required DLLs not found."}
+            {"error", "Required NI DLLs not found."}
         };
         ctx->setState({
             .task = task.key,
@@ -61,6 +65,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
         });
         return {nullptr, false};
     }
+
     if (task.type == "ni_scanner") // TODO change to ni_scan_task
         return {ni::ScannerTask::configure(ctx, task), true};
     if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
@@ -79,8 +84,10 @@ ni::Factory::configureInitialTasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    
-    std::cout << "Configuring initial tasks" << std::endl;
+    if(!this->dlls_present){
+        LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." << std::endl;
+        return {};
+    }
     // generate task list
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 
