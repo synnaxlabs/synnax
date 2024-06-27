@@ -1,7 +1,7 @@
 import { Icon } from "@synnaxlabs/media";
 import { Button, Modal as Core, Nav, Text } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { CSSProperties, ReactElement } from "react";
+import { CSSProperties, FC, ReactElement } from "react";
 
 import { Content } from "@/layout/Content";
 import { useRemover } from "@/layout/hooks";
@@ -24,7 +24,7 @@ const Modal = ({ state, remove }: ModalProps) => {
   const { key, name, window, icon } = state;
   let iconC: ReactElement | undefined = undefined;
   if (icon) {
-    const IconC = deep.get(Icon, icon);
+    const IconC = deep.get<FC, typeof Icon>(Icon, icon);
     iconC = <IconC />;
   }
   return (

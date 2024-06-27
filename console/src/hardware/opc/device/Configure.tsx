@@ -145,30 +145,27 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           TimeSpan.seconds(20),
         );
         if (deviceProperties == null) return;
-        methods.set({
-          path: "groups",
-          value: [
-            {
-              key: nanoid(),
-              name: "Group 1",
-              channels: [
-                {
-                  key: nanoid(),
-                  name: "group_1_time",
-                  dataType: "timestamp",
-                  nodeId: "",
-                  isIndex: true,
-                  isArray: false,
-                },
-                ...deviceProperties.channels.map((c) => ({
-                  ...c,
-                  key: nanoid(),
-                  isIndex: false,
-                })),
-              ],
-            },
-          ],
-        });
+        methods.set("groups", [
+          {
+            key: nanoid(),
+            name: "Group 1",
+            channels: [
+              {
+                key: nanoid(),
+                name: "group_1_time",
+                dataType: "timestamp",
+                nodeId: "",
+                isIndex: true,
+                isArray: false,
+              },
+              ...deviceProperties.channels.map((c) => ({
+                ...c,
+                key: nanoid(),
+                isIndex: false,
+              })),
+            ],
+          },
+        ]);
         setDeviceProperties(deviceProperties);
         setRackKey(rack.key);
         setStep("createChannels");
@@ -192,7 +189,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         return;
       }
       setProgress("Creating channels...");
-      const groups = methods.get<GroupConfig[]>({ path: "groups" }).value;
+      const groups = methods.get<GroupConfig[]>("groups").value;
       const mapped = new Map<string, number>();
       for (const group of groups) {
         // find the index channel
@@ -226,11 +223,11 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       });
       await client.hardware.devices.create({
         key: uuidv4(),
-        name: methods.get<string>({ path: "name" }).value,
+        name: methods.get<string>("name").value,
         model: "opc",
         make: "opc",
         rack: rackKey,
-        location: methods.get<string>({ path: "connection.endpoint" }).value,
+        location: methods.get<string>("connection.endpoint").value,
         properties: deviceProperties,
         configured: true,
       });

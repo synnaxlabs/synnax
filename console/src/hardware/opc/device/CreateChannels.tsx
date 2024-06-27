@@ -260,11 +260,11 @@ const GroupListItem = ({
     onDrop: ({ items }) => {
       props.onSelect?.(props.entry.key);
       const path = `groups.${index}.channels`;
-      const v = ctx.get<ChannelConfig[]>({ path });
-      ctx.set({
+      const v = ctx.get<ChannelConfig[]>(path);
+      ctx.set(
         path,
-        value: v.value.concat(items.map((i) => ({ ...(i.data as ChannelConfig) }))),
-      });
+        v.value.concat(items.map((i) => ({ ...(i.data as ChannelConfig) }))),
+      );
       setDraggingOver(false);
       return items;
     },
@@ -409,7 +409,7 @@ export const ChannelListItem = memo(
       ];
       if (selected.includes(props.entry.key)) {
         const channels = methods
-          .get<ChannelConfig[]>({ path: groupChannels })
+          .get<ChannelConfig[]>(groupChannels)
           .value.filter((c) => selected.includes(c.key));
         haulItems = channels.map((c) => ({
           key: c.key,
@@ -419,13 +419,11 @@ export const ChannelListItem = memo(
       }
       startDrag(haulItems, ({ dropped }) => {
         const keys = dropped.map((d) => d.key);
-        const channels = methods.get<ChannelConfig[]>({
-          path: groupChannels,
-        }).value;
-        methods.set({
-          path: groupChannels,
-          value: channels.filter((c) => !keys.includes(c.key)),
-        });
+        const channels = methods.get<ChannelConfig[]>(groupChannels).value;
+        methods.set(
+          groupChannels,
+          channels.filter((c) => !keys.includes(c.key)),
+        );
       });
     }, [startDrag, props.entry.key, groupIndex, getSelected, methods.get, methods.set]);
 

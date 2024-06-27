@@ -243,6 +243,7 @@ export const aiAccelChanZ = baseAiAccelChanZ.extend({
 export type AIAccelChan = z.infer<typeof aiAccelChanZ>;
 
 export const ZERO_AI_ACCEL_CHAN: AIAccelChan = {
+  name: "",
   key: "",
   type: "ai_accel",
   channel: 0,
@@ -923,6 +924,7 @@ const aiRTDChanZ = baseAIChanZ.extend({
   resistanceConfig: resistanceConfigZ,
   currentExcitSource: excitSourceZ,
   currentExcitVal: z.number(),
+  r0: z.number(),
 });
 
 export type AIRTDChan = z.infer<typeof aiRTDChanZ>;
@@ -941,6 +943,7 @@ export const ZERO_AI_RTD_CHAN: AIRTDChan = {
   resistanceConfig: "2Wire",
   currentExcitSource: "Internal",
   currentExcitVal: 0,
+  r0: 0,
 };
 
 // 20 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html
@@ -1484,7 +1487,6 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
   ai_microphone: "Microphone",
   ai_pressure_bridge_table: "Pressure Bridge Table",
   ai_resistance: "Resistance",
-  ai_rosette_strain_gage: "Rosette Strain Gage",
   ai_strain_gauge: "Strain Gauge",
   ai_temp_builtin: "Temperature Built-In",
   ai_torque_bridge_table: "Torque Bridge Table",

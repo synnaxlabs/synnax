@@ -18,7 +18,7 @@ import { type ReactElement, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { configurablePropertiesZ } from "@/hardware/ni/device/types";
+import { configurablePropertiesZ, Properties } from "@/hardware/ni/device/types";
 import { type Layout } from "@/layout";
 
 export const Configure = ({
@@ -30,7 +30,7 @@ export const Configure = ({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
       if (client == null) return;
-      return await client.hardware.devices.retrieve(layoutKey);
+      return await client.hardware.devices.retrieve<Properties>(layoutKey);
     },
   });
   if (isPending || data == null) return <div>Loading...</div>;
@@ -38,21 +38,10 @@ export const Configure = ({
 };
 
 interface ConfigureInternalProps extends Pick<Layout.RendererProps, "onClose"> {
-  device: device.Device;
+  device: device.Device<Properties>;
 }
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
-
-const STEPS = [
-  {
-    key: "name",
-    title: "Name",
-  },
-  {
-    key: "identifier",
-    title: "Identifier",
-  },
-];
 
 const generateShortIdentifiers = (name: string): string[] => {
   const words = name.split(" ");
@@ -127,7 +116,7 @@ const ConfigureInternal = ({
         }
       } else if (step === "identifier") {
         if (!methods.validate("identifier")) return;
-        const er = enrich(device.model, {});
+        const er = enrich(device.model, device.properties);
         await client.hardware.devices.create({
           ...device,
           configured: true,
@@ -169,9 +158,10 @@ const ConfigureInternal = ({
           {step == "identifier" && (
             <>
               <Text.Text level="h4" shade={7}>
-                Next, we'll need a short identifier for {methods.get("name").value}.
-                We'll use this as a prefix for all channels associated with this device.
-                We've generated some suggestions below.
+                Next, we'll need a short identifier for{" "}
+                {methods.get<string>("name").value}. We'll use this as a prefix for all
+                channels associated with this device. We've generated some suggestions
+                below.
               </Text.Text>
               <Align.Space direction="y" size="small">
                 <Form.TextField

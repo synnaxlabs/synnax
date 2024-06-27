@@ -70,7 +70,7 @@ export const ReadTask: Layout.Renderer = ({ layoutKey }) => {
   const fetchTask = useQuery<InternalProps>({
     queryKey: [client?.key, "task", layoutKey],
     queryFn: async () => {
-      if (client == null || layoutKey == configureReadLayout.key)
+      if (client == null || layoutKey == READ_TYPE)
         return { initialValues: deep.copy(ZERO_READ_PAYLOAD) };
       const t = await client.hardware.tasks.retrieve<
         ReadConfig,
@@ -443,7 +443,7 @@ export const ChannelListItem = ({
         value={entry.enabled}
         size="small"
         onClick={(e) => e.stopPropagation()}
-        onChange={(v) => ctx.set({ path: `${path}.${props.index}.enabled`, value: v })}
+        onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>
             Data acquisition for this channel is{" "}
@@ -509,7 +509,7 @@ const ChannelForm = ({
           <Button.Icon
             variant="text"
             size="small"
-            onClick={() => ctx.set({ path: channelPath, value: channelRec })}
+            onClick={() => ctx.set(channelPath, channelRec)}
             tooltip={"Apply recommended channel"}
           >
             <Icon.Bolt style={{ color: "var(--pluto-gray-l6)" }} />
@@ -519,7 +519,7 @@ const ChannelForm = ({
             size="small"
             style={{ width: "fit-content" }}
             startIcon={<Icon.Channel />}
-            onClick={() => ctx.set({ path: channelPath, value: channelRec })}
+            onClick={() => ctx.set(channelPath, channelRec)}
             tooltip={"Apply recommended channel"}
           >
             {channelRecName}
