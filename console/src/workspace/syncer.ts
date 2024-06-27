@@ -11,7 +11,7 @@ import { QueryError } from "@synnaxlabs/client";
 import { Status, Synnax, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -41,26 +41,23 @@ export const useSyncLayout = async (): Promise<void> => {
       250,
       [client],
     ),
-    onError: useCallback(
-      (e) => {
-        if (e instanceof QueryError) {
-          addStatus({
-            key: "workspace.save",
-            variant: "error",
-            message: "Layout not found in cluster. Clearing.",
-          });
-          store.dispatch(setActive(null));
-          return;
-        }
+    onError: (e) => {
+      if (e instanceof QueryError) {
         addStatus({
           key: "workspace.save",
           variant: "error",
-          message: "Failed to save workspace",
-          description: e.message,
+          message: "Layout not found in cluster. Clearing.",
         });
-      },
-      [store],
-    ),
+        store.dispatch(setActive(null));
+        return;
+      }
+      addStatus({
+        key: "workspace.save",
+        variant: "error",
+        message: "Failed to save workspace",
+        description: e.message,
+      });
+    },
   });
 
   useEffect(() => {

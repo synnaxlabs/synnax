@@ -171,7 +171,7 @@ const Internal = ({
         const key = `${c.port}l${c.line}`;
         c.channel = dev.properties.digitalInput.channels[key];
       });
-      if (dev == null) return;
+      methods.set("config", config);
 
       const t = await rack.createTask<
         DigitalReadConfig,

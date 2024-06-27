@@ -354,26 +354,27 @@ const ElectricalUnitsField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const PressureUnitsField = Form.buildDropdownButtonSelectField<PressureUnits, NamedKey>(
-  {
-    fieldKey: "units",
-    fieldProps: { label: "Pressure Units" },
-    inputProps: {
-      entryRenderKey: "name",
-      columns: NAMED_KEY_COLS,
-      data: [
-        {
-          key: "Pascals",
-          name: "Pascals",
-        },
-        {
-          key: "PoundsPerSquareInch",
-          name: "PSI",
-        },
-      ],
-    },
+const PressureUnitsField = Form.buildDropdownButtonSelectField<
+  PressureUnits,
+  NamedKey<PressureUnits>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Pressure Units" },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: NAMED_KEY_COLS,
+    data: [
+      {
+        key: "Pascals",
+        name: "Pascals",
+      },
+      {
+        key: "PoundsPerSquareInch",
+        name: "PSI",
+      },
+    ],
   },
-);
+});
 
 const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
   TemperatureUnits,
@@ -452,6 +453,7 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<AIChan>(parentPath).value;
       let schema = AI_CHANNEL_SCHEMAS[value];
+      // @ts-expect-error - schema source type checking
       if ("sourceType" in schema) schema = schema.sourceType() as z.ZodObject<AIChan>;
       set(parentPath, {
         ...deep.overrideValidItems(next, prevParent, schema),
@@ -1632,6 +1634,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Form.NumericField path={`${prefix}.r0`} label="R0 Resistance" grow />
       </>
     );
   },
