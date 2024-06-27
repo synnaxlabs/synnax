@@ -10,11 +10,57 @@
 #include "glog/logging.h"
 #include "driver/ni/ni.h"
 #include "nlohmann/json.hpp"
+#include <vector>
+#include "dll_check_windows.h"
+
+ni::Factory::Factory(){
+
+    std::vector<std::string> dlls = {
+        "nicaiu.dll",
+        "nipalu.dll",
+        "nimdbgu.dll",
+        "nidmxfu.dll",
+        "niorbu.dll",
+        "nimxdfu.dll",
+        "nimru2u.dll",
+        "nipalut.dll",
+        "nicrtsiu.dll",
+        "nimhwcfu.dll",
+        "nidimu.dll",
+        "nirpc.dll",
+        "nimdnsResponder.dll",
+        "nirocoapi.dll",
+        "nisysapi.dll",
+        "niprtsiu.dll"
+    };
+
+    for (const auto &dll: dlls) {
+        if (!does_dll_exist(dll.c_str())) {
+            LOG(ERROR) << "[ni] Required DLL not found: " << dll;
+            this->dlls_present = false; 
+        }
+    }
+    LOG(INFO) << "[ni] All required DLLs found.";
+    this->dlls_present = true;
+}
+
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
+    if(!this->dlls_present){
+        LOG(ERROR) << "[ni] Required DLLs not found, cannot configure task." << std::endl;
+        json j = {
+            {"error", "Required DLLs not found."}
+        };
+        ctx->setState({
+            .task = task.key,
+            .variant = "error",
+            .details = j
+        });
+        return {nullptr, false};
+    }
     if (task.type == "ni_scanner") // TODO change to ni_scan_task
         return {ni::ScannerTask::configure(ctx, task), true};
     if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
@@ -33,6 +79,7 @@ ni::Factory::configureInitialTasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
+    
     std::cout << "Configuring initial tasks" << std::endl;
     // generate task list
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;

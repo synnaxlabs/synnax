@@ -45,8 +45,8 @@ cc_test(
 cc_binary(
     name = "driver_main",
     srcs = select({
-        "@platforms//os:windows": ["main_windows.cpp"],
-        "//conditions:default":["main_linux.cpp"],
+        # "@platforms//os:windows": ["main_windows.cpp"],
+        "//conditions:default":["main.cpp"],
     }),
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

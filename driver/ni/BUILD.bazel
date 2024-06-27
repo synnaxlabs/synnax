@@ -53,17 +53,30 @@ cc_library(
         "scanner.cpp",
         "ni.cpp", 
     ],
-    hdrs = [
-        "ni.h",
-        "scale.h",
-        "ai_channels.h",
-        "error.h",
-        "//driver/task",
-        "//driver/pipeline",
-        "//client/cpp:synnax",
-        "ts_queue.h"
-
-    ],
+    hdrs = select({
+        "@platforms//os:windows": [
+            "ni.h",
+            "scale.h",
+            "ai_channels.h",
+            "error.h",
+            "//driver/task",
+            "//driver/pipeline",
+            "//client/cpp:synnax",
+            "ts_queue.h",
+            "dll_check_windows.h",
+        ],
+        "//conditions:default": [
+            "ni.h",
+            "scale.h",
+            "ai_channels.h",
+            "error.h",
+            "//driver/task",
+            "//driver/pipeline",
+            "//client/cpp:synnax",
+            "ts_queue.h",
+            "dll_check_linux.h",
+        ],
+    }),
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],

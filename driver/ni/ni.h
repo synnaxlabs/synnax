@@ -511,6 +511,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class Factory final : public task::Factory {
 public:
+    Factory();
     std::pair<std::unique_ptr<task::Task>, bool> configureTask(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task) override;
@@ -520,6 +521,7 @@ public:
                           const synnax::Rack &rack) override;
 
     ~Factory() = default;
+    bool dlls_present = false;
 };
 
 
