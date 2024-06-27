@@ -366,22 +366,23 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
 ///////////////////////////////////////////////////////////////////////////////////
 ni::StateSource::StateSource(std::uint64_t state_rate,
                              synnax::ChannelKey &drive_state_index_key,
-                             std::vector<synnax::ChannelKey> &drive_state_channel_keys)
-    : state_rate(state_rate) {
+                             std::vector<synnax::ChannelKey> &drive_state_channel_keys){
+    
+    this->state_rate.value = state_rate;
     // start the periodic thread
-    this->state_period = std::chrono::duration<double>(1.0 / this->state_rate);
     this->drive_state_index_key = drive_state_index_key;
 
     // initialize all states to 0 (logic low)
     for (auto &key: drive_state_channel_keys) 
         this->state_map[key] = 0;
+    this->timer = loop::Timer(this->state_rate);
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // sleep for state period
-    // std::this_thread::sleep_for(stdthis->state_period);    
-    waiting_reader.wait_for(lock, state_period);
+    timer.wait(breaker);
+    waiting_reader.wait_for(lock, this->state_rate.period().chrono());
     return std::make_pair(this->getDriveState(), freighter::NIL);
 }
 

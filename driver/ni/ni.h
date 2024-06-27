@@ -275,10 +275,10 @@ public:
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
-    std::uint64_t state_rate;
-    std::chrono::duration<double> state_period;
+    synnax::Rate state_rate = synnax::Rate(1);
     std::map<synnax::ChannelKey, uint8_t> state_map;
     synnax::ChannelKey drive_state_index_key;
+    loop::Timer timer;
 };
 
 
