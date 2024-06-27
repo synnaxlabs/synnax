@@ -141,11 +141,9 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     // Construct and populate synnax frame
     uint64_t data_index = 0;
     for (int i = 0; i < numChannels; i++) {
-        // LOG(INFO) << "Frame: " << i << " bob" << f;
         if (this->reader_config.channels[i].channel_type == "index") {
             f.add(this->reader_config.channels[i].channel_key,
                   synnax::Series(time_index, synnax::TIMESTAMP));
-            LOG(INFO) << "Frame: " << i << " idx" << f;
             continue;
         }
         // copy data into vector
@@ -158,7 +156,6 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
               synnax::Series(data_vec, synnax::UINT8));
         data_index++;
     }
-    // LOG(INFO) << "AFTER FRAME: " << f;
     delete[] data;
     return std::make_pair(std::move(f), freighter::NIL);
 }

@@ -59,7 +59,8 @@ ni::Factory::configureInitialTasks(
             rack.key,
             "ni scanner",
             "ni_scanner",
-            ""
+            "",
+            true
         );
         auto err = rack.tasks.create(sy_task);
         LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;

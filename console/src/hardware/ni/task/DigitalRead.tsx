@@ -151,7 +151,7 @@ const Internal = ({
         const channels = await client.channels.create(
           toCreate.map((c) => ({
             name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
-            dataType: "float32",
+            dataType: "uint8",
             index: dev.properties.digitalInput.index,
           })),
         );

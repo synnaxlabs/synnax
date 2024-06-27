@@ -34,7 +34,7 @@ const Content = (): ReactElement => {
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const v = (await client.hardware.tasks.list()).filter((t) => !t.internal);
+    const v = (await client.hardware.tasks.list({ includeState: true })).filter((t) => !t.internal);
     setTasks(v);
   }, [client]);
 
