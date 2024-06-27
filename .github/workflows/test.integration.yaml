@@ -44,6 +44,7 @@ jobs:
 
       - name: Poetry install
         run: poetry install
+        working-directory: ./integration/py
 
       - name: Test
         run: ./run-integration.sh basic.json
