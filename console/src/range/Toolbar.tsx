@@ -126,32 +126,32 @@ export const List = (): ReactElement => {
       },
     };
     return (
-      <PMenu.Menu onChange={handleSelect}>
-        <PMenu.Item startIcon={<Icon.Add />} size="small" itemKey="create">
+      <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+        <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
           Create New
         </PMenu.Item>
         <PMenu.Divider />
         {rng != null && (
           <>
-            <PMenu.Item startIcon={<Icon.Edit />} size="small" itemKey="edit">
+            <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
               Edit
             </PMenu.Item>
-            <PMenu.Item startIcon={<Icon.Play />} size="small" itemKey="setActive">
+            <PMenu.Item startIcon={<Icon.Play />} itemKey="setActive">
               Set as Active Range
             </PMenu.Item>
             <PMenu.Divider />
-            <PMenu.Item startIcon={<Icon.Close />} size="small" itemKey="remove">
+            <PMenu.Item startIcon={<Icon.Close />} itemKey="remove">
               Remove from List
             </PMenu.Item>
             {rng.persisted ? (
-              <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="delete">
+              <PMenu.Item startIcon={<Icon.Delete />} itemKey="delete">
                 Delete
               </PMenu.Item>
             ) : (
               client != null && (
                 <>
                   <PMenu.Divider />
-                  <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
+                  <PMenu.Item startIcon={<Icon.Save />} itemKey="save">
                     Save to Synnax
                   </PMenu.Item>
                 </>

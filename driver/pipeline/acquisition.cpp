@@ -153,6 +153,8 @@ void Acquisition::runInternal() {
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
         auto [frame, source_err] = this->source->read(this->breaker);
+        // LOG(INFO) << "Read frame from source";
+        LOG(INFO) << "Frame: " << frame;
         if (source_err) {
             LOG(ERROR) << "[acquisition] failed to read source: " << source_err.
                     message();

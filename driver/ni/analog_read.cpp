@@ -153,10 +153,8 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
 
     // sleep per streaming period
     timer.wait(breaker); 
-
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();
-
     // handle empty queue
     if (!valid)
         return std::make_pair(std::move(f), freighter::Error(

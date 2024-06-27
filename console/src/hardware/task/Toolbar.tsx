@@ -9,10 +9,20 @@
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, List, Observe, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { Menu } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import {
+  Align,
+  Button,
+  List,
+  Menu,
+  Observe,
+  Status,
+  Synnax,
+  Text,
+  useAsyncEffect,
+} from "@synnaxlabs/pluto";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
+import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
@@ -22,14 +32,11 @@ const Content = (): ReactElement => {
 
   const [tasks, setTasks] = useState<task.Task[]>([]);
 
-  useQuery({
-    queryKey: [client?.key, "tasks"],
-    queryFn: async () => {
-      if (client == null) return;
-      const v = (await client.hardware.tasks.list()).filter((t) => !t.internal);
-      setTasks(v);
-    },
-  });
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const v = (await client.hardware.tasks.list()).filter((t) => !t.internal);
+    setTasks(v);
+  }, [client]);
 
   Observe.useListener({
     key: [client?.key, "tasks.state"],
@@ -57,11 +64,9 @@ const Content = (): ReactElement => {
             .filter((t) => !removed.includes(t.key))
             .map((t) => {
               const u = nextTasks.find((u) => u.key === t.key);
-              if (u != null) {
-                u.state = t.state;
-                return u;
-              }
-              return t;
+              if (u == null) return t;
+              u.state = t.state;
+              return u;
             });
           const nextKeys = next.map((t) => t.key);
           return [
@@ -75,19 +80,87 @@ const Content = (): ReactElement => {
 
   const [selected, setSelected] = useState<string[]>([]);
 
+  const menuProps = Menu.useContextMenu();
+
+  const addStatus = Status.useAggregator();
+  const dispatch = useDispatch();
+
+  const del = useMutation<void, Error, string[], task.Task[]>({
+    onMutate: (keys: string[]) => {
+      setSelected([]);
+      const toDelete: task.Task[] = [];
+      setTasks((prev) => {
+        const next = prev.filter((t) => {
+          const includes = keys.includes(t.key.toString());
+          if (includes) toDelete.push(t);
+          return !includes;
+        });
+        return [...next];
+      });
+      return toDelete;
+    },
+    mutationFn: async (keys: string[]) => {
+      if (client == null) return;
+      await client.hardware.tasks.delete(keys.map((k) => BigInt(k)));
+      dispatch(Layout.remove({ keys }));
+      setSelected([]);
+    },
+    onError: ({ message }, _, toDelete) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to delete tasks",
+        description: message,
+      });
+      if (toDelete != null) setTasks((prev) => [...prev, ...toDelete]);
+    },
+  });
+
   return (
-    <Align.Space empty style={{ height: "100%" }}>
-      <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
-      </ToolbarHeader>
-      <List.List data={tasks}>
-        <List.Selector value={selected} onChange={setSelected}>
-          <List.Core<string, task.Task>>
-            {(props) => <TaskListTem {...props} />}
-          </List.Core>
-        </List.Selector>
-      </List.List>
-    </Align.Space>
+    <Menu.ContextMenu
+      menu={({ keys }) => {
+        const selected = keys.map((k) => tasks.find((t) => t.key === k));
+        const canStart = selected.some((t) => t?.state?.details?.running !== true);
+        const canStop = selected.some((t) => t?.state?.details?.running === false);
+        return (
+          <Menu.Menu
+            level="small"
+            iconSpacing="small"
+            onChange={{
+              delete: () => del.mutate(keys),
+            }}
+          >
+            {canStart && (
+              <Menu.Item startIcon={<Icon.Play />} itemKey="start">
+                Start Tasks
+              </Menu.Item>
+            )}
+            {canStop && (
+              <Menu.Item startIcon={<Icon.Pause />} itemKey="stop">
+                Stop Tasks
+              </Menu.Item>
+            )}
+            <Menu.Divider />
+            <Menu.Item startIcon={<Icon.Delete />} itemKey="delete">
+              Delete
+            </Menu.Item>
+          </Menu.Menu>
+        );
+      }}
+      {...menuProps}
+    >
+      <Align.Space empty style={{ height: "100%" }}>
+        <ToolbarHeader>
+          <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
+        </ToolbarHeader>
+        <List.List data={tasks}>
+          <List.Selector value={selected} onChange={setSelected}>
+            <List.Core<string, task.Task>>
+              {(props) => <TaskListTem {...props} />}
+            </List.Core>
+          </List.Selector>
+        </List.List>
+      </Align.Space>
+    </Menu.ContextMenu>
   );
 };
 

@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/ni/task/AnalogRead.css";
-
-import { QueryError, task } from "@synnaxlabs/client";
+import { QueryError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Button,
@@ -37,7 +35,11 @@ import { CSS } from "@/css";
 import { NI } from "@/hardware/ni";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { Controls } from "@/hardware/ni/task/TaskControls";
+import {
+  ChannelListEmptyContent,
+  ChannelListHeader,
+  Controls,
+} from "@/hardware/ni/task/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -334,19 +336,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h4">
-        <Header.Title weight={500}>Channels</Header.Title>
-        <Header.Actions>
-          {[
-            {
-              key: "add",
-              onClick: handleAdd,
-              children: <Icon.Add />,
-              size: "large",
-            },
-          ]}
-        </Header.Actions>
-      </Header.Header>
+      <ChannelListHeader onAdd={handleAdd} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const indices = keys.map((k) => value.findIndex((v) => v.key === k));
@@ -417,16 +407,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       >
         <List.List<string, Chan>
           data={value}
-          emptyContent={
-            <Align.Space direction="y" style={{ height: "100%" }}>
-              <Align.Center direction="y">
-                <Text.Text level="p">No channels in task.</Text.Text>
-                <Text.Link level="p" onClick={handleAdd}>
-                  Add a channel
-                </Text.Link>
-              </Align.Center>
-            </Align.Space>
-          }
+          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
         >
           <List.Selector<string, Chan>
             value={selected}

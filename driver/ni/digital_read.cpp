@@ -27,16 +27,15 @@ void ni::DigitalReadSource::parseChannels(config::Parser &parser) {
     parser.iter("channels",
             [&](config::Parser &channel_builder) {
 
+
             ni::ChannelConfig config;
             // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-            std::string port = "port" + std::to_string(
-                channel_builder.required<std::uint64_t>("port"));
-            std::string line = "line" + std::to_string(
-                channel_builder.required<std::uint64_t>("line"));
+            std::string port = "port" + std::to_string(channel_builder.required<std::uint64_t>("port"));
+            std::string line = "line" + std::to_string(channel_builder.required<std::uint64_t>("line"));
 
-            config.name = (this->reader_config.device_name + "/" + port + "/" + line);
 
             config.channel_key = channel_builder.required<uint32_t>("channel");
+            config.name = (this->reader_config.device_name + "/" + port + "/" + line);
             this->reader_config.channels.push_back(config);
         });
     if(!parser.ok()) LOG(ERROR) << "Failed to parse channels for task " << this->reader_config.task_name;
@@ -94,7 +93,6 @@ void ni::DigitalReadSource::acquireData() {
         DataPacket data_packet;
         data_packet.data = new uInt8[this->bufferSize];
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
-
         // sleep per sample rate
         auto samp_period = this->reader_config.sample_rate.period().chrono();
         std::this_thread::sleep_for(samp_period);
@@ -123,18 +121,15 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     
     // sleep per stream rate
     timer.wait(breaker);
-
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();
-    if (!valid){
+    if (!valid)
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
-                                  LOG(ERROR) << "Failed to read data from queue";
-                                  }
-
 
     uInt8 *data = static_cast<uInt8 *>(d.data);
+
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->numSamplesPerChannel);
 
@@ -146,20 +141,24 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     // Construct and populate synnax frame
     uint64_t data_index = 0;
     for (int i = 0; i < numChannels; i++) {
+        // LOG(INFO) << "Frame: " << i << " bob" << f;
         if (this->reader_config.channels[i].channel_type == "index") {
             f.add(this->reader_config.channels[i].channel_key,
                   synnax::Series(time_index, synnax::TIMESTAMP));
+            LOG(INFO) << "Frame: " << i << " idx" << f;
             continue;
         }
-
+        // copy data into vector
         std::vector<uint8_t> data_vec(d.samplesReadPerChannel);
-        for (int j = 0; j < d.samplesReadPerChannel; j++)
+        for (int j = 0; j < d.samplesReadPerChannel; j++){
             data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
+        }
 
         f.add(this->reader_config.channels[i].channel_key,
               synnax::Series(data_vec, synnax::UINT8));
         data_index++;
     }
+    // LOG(INFO) << "AFTER FRAME: " << f;
     delete[] data;
     return std::make_pair(std::move(f), freighter::NIL);
 }

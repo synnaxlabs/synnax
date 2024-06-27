@@ -8,10 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { QueryError, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Button,
   Channel,
   Device,
   Form,
@@ -19,7 +17,6 @@ import {
   Input,
   List,
   Observe,
-  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
@@ -33,7 +30,12 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { Controls } from "@/hardware/ni/task/TaskControls";
+import {
+  ChannelListEmptyContent,
+  ChannelListHeader,
+  Controls,
+  EnableDisableButton,
+} from "@/hardware/ni/task/common";
 import {
   Chan,
   DIChan,
@@ -216,6 +218,7 @@ const Internal = ({
             </Form.Field>
             <Form.NumericField label="Sample Rate" path="config.sampleRate" />
             <Form.NumericField label="Stream Rate" path="config.streamRate" />
+            <Form.SwitchField label="Data Saving" path="config.dataSaving" />
           </Align.Space>
           <Align.Space
             direction="x"
@@ -237,8 +240,8 @@ const Internal = ({
               )}
             />
             <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h3">
-                <Header.Title weight={500}>Channel Details</Header.Title>
+              <Header.Header level="h4">
+                <Header.Title weight={500}>Details</Header.Title>
               </Header.Header>
               <Align.Space className={CSS.B("details")}>
                 {selectedChannelIndex != null && (
@@ -296,20 +299,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
   };
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h3">
-        <Header.Title weight={500}>Channels</Header.Title>
-        <Header.Actions>
-          {[
-            {
-              key: "add",
-              onClick: handleAdd,
-              children: <Icon.Add />,
-              size: "large",
-            },
-          ]}
-        </Header.Actions>
-      </Header.Header>
-      <List.List<string, Chan> data={value}>
+      <ChannelListHeader onAdd={handleAdd} />
+      <List.List<string, Chan>
+        data={value}
+        emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+      >
         <List.Selector<string, Chan>
           value={selected}
           allowNone={false}
@@ -387,31 +381,10 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <Button.Toggle
-        checkedVariant="outlined"
-        uncheckedVariant="outlined"
+      <EnableDisableButton
         value={childValues.enabled}
-        size="small"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(v) => {
-          ctx.set(`${path}.${props.index}.enabled`, v);
-        }}
-        tooltip={
-          <Text.Text level="small" style={{ maxWidth: 300 }}>
-            Data acquisition for this channel is{" "}
-            {childValues.enabled ? "enabled" : "disabled"}. Click to
-            {childValues.enabled ? " disable" : " enable"} it.
-          </Text.Text>
-        }
-      >
-        <Status.Text
-          variant={childValues.enabled ? "success" : "disabled"}
-          level="small"
-          align="center"
-        >
-          {childValues.enabled ? "Enabled" : "Disabled"}
-        </Status.Text>
-      </Button.Toggle>
+        onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
+      />
     </List.ItemFrame>
   );
 };

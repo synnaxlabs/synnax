@@ -41,7 +41,7 @@ export const newF = <T>(v: T, reverse: boolean = false): CompareF<T> => {
       f = (a: T, b: T) => Number(a) - Number(b);
       break;
     default:
-      console.warn("sortFunc: unknown type");
+      console.warn(`sortFunc: unknown type ${t}`);
       return () => -1;
   }
   return reverse ? reverseF(f) : f;
