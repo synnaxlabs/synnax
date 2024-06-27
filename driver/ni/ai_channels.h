@@ -50,7 +50,7 @@ static inline int32_t get_excitation_src(const std::string &s){
     if(s == "None") return DAQmx_Val_None;
     return DAQmx_Val_None;
 }
-// TODO: make one for current excitation for correct parsing
+
 struct VoltageExcitationConfig {
     int32_t excit_source;
     double excit_val;
@@ -116,9 +116,20 @@ struct PolynomialConfig {
 
             auto eu = parser.required<std::string>("electrical_units");
             auto pu = parser.required<std::string>("physical_units");
-            // TODO check for valid units
-            electrical_units = ni::UNITS_MAP.at(eu);
-            physical_units = ni::UNITS_MAP.at(pu);
+
+            if(ni::UNITS_MAP.find(eu) == ni::UNITS_MAP.end()){
+                LOG(ERROR) << "Invalid units: " << eu << ". Defaulting to Volts.";
+                electrical_units = DAQmx_Val_Volts;
+            } else {
+                electrical_units = ni::UNITS_MAP.at(eu);
+            }
+
+            if(ni::UNITS_MAP.find(pu) == ni::UNITS_MAP.end()){
+                LOG(ERROR) << "Invalid units: " << pu << ". Defaulting to Volts.";
+                physical_units = DAQmx_Val_Volts;
+            } else {
+                physical_units = ni::UNITS_MAP.at(pu);
+            }
 
         json j = parser.get_json();
 
@@ -453,8 +464,8 @@ class RTD final : public Analog{
                     this->units,
                     this->rtdType,
                     this->resistance_config,
-                    this->excitation_config.excit_source, //TODO change name to current
-                    this->excitation_config.excit_val, //TODO change name to current
+                    this->excitation_config.excit_source, 
+                    this->excitation_config.excit_val,
                     this->r0
             );
         }

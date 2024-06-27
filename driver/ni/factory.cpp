@@ -58,7 +58,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
         return {nullptr, false};
     }
 
-    if (task.type == "ni_scanner") // TODO change to ni_scan_task
+    if (task.type == "ni_scanner") 
         return {ni::ScannerTask::configure(ctx, task), true};
     if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
         return {ni::ReaderTask::configure(ctx, task), true};

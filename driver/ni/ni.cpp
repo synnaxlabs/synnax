@@ -404,7 +404,6 @@ void ni::Source::getIndexKeys() {
     for (auto &channel: this->reader_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        // TODO handle error with breaker
         if (err != freighter::NIL) {
             this->logError(
                 "failed to retrieve channel " + std::to_string(channel.channel_key));

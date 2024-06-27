@@ -134,7 +134,6 @@ int ni::DigitalWriteSink::init() {
                 DAQmx_Val_ChanPerLine));
         }
         this->numChannels++;
-        // includes index channels TODO: how is this different form jsut channels.size()?
         if (err < 0) {
             this->logError("failed to create channel " + channel.name);
             return -1;
