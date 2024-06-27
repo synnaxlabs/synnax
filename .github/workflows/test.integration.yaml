@@ -17,7 +17,7 @@ permissions:
 jobs:
   test-integration:
     runs-on: self-hosted
-    if: needs.setup.outputs.changed == 'true'
+    # if: needs.setup.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
