@@ -37,6 +37,11 @@ jobs:
       - name: Build things
         run: pnpm build:client
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
       - name: Poetry install
         run: poetry install
 
