@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"os/exec"
 	"strconv"
-
-	"github.com/synnaxlabs/x/errors"
+	"strings"
 )
 
 type StreamParams struct {
@@ -14,7 +11,7 @@ type StreamParams struct {
 	Channels         []string `json:"channels"`
 }
 
-func (p StreamParams) Serialize() []string {
+func (p StreamParams) serialize() []string {
 	args := make([]string, 0)
 	args = append(
 		args,
@@ -30,40 +27,14 @@ func (p StreamParams) Serialize() []string {
 	return args
 }
 
+func (p StreamParams) ToPythonCommand(identifier string) []string {
+	cmd := "-c poetry install && poetry run python stream.py " + identifier
+	return append(strings.Split(cmd, " "), p.serialize()...)
+}
+
+func (p StreamParams) ToTSCommand(identifier string) []string {
+	cmd := "-c npx tsx stream.ts " + identifier
+	return append(strings.Split(cmd, " "), p.serialize()...)
+}
+
 var _ NodeParams = &StreamParams{}
-
-func streamPython(p NodeParams, identifier string) error {
-	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
-		return err
-	}
-
-	args := append([]string{"run", "python", "stream.py", identifier}, p.Serialize()...)
-	cmd := exec.Command("poetry", args...)
-	cmd.Dir = "./py"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
-	}
-
-	return nil
-}
-
-func streamTS(p NodeParams, identifier string) error {
-	args := append([]string{"tsx", "stream.ts", identifier}, p.Serialize()...)
-	cmd := exec.Command("npx", args...)
-	cmd.Dir = "./ts/src"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
-	}
-
-	return nil
-}

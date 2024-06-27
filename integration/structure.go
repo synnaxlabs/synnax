@@ -15,7 +15,9 @@ const (
 )
 
 type NodeParams interface {
-	Serialize() []string
+	serialize() []string
+	ToPythonCommand(identifier string) []string
+	ToTSCommand(identifier string) []string
 }
 
 type TestNode struct {

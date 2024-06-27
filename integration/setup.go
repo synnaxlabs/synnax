@@ -38,7 +38,7 @@ func setUpPython(param SetUpParam) error {
 	if err := cmd.Run(); err != nil {
 		return errors.Newf("err: %s\nstderr: %s\nstdout: %s\n", err.Error(), stdErr.String(), stdOut.String())
 	}
-	cmd = exec.Command("poetry", "run", "python", "setup.py",
+	cmd = exec.Command("sh", "-c", "poetry", "run", "python", "setup.py",
 		strconv.Itoa(param.IndexChannels),
 		strconv.Itoa(param.DataChannels),
 	)
@@ -55,7 +55,7 @@ func setUpPython(param SetUpParam) error {
 }
 
 func setUpTS(param SetUpParam) error {
-	cmd := exec.Command("npx", "tsx", "setup.ts",
+	cmd := exec.Command("sh", "-c", "npx", "tsx", "setup.ts",
 		strconv.Itoa(param.IndexChannels),
 		strconv.Itoa(param.DataChannels),
 	)

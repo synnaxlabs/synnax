@@ -1,14 +1,11 @@
 package main
 
 import (
-	"bytes"
-	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/telem"
-
-	"github.com/synnaxlabs/x/errors"
 )
 
 type ChannelGroup struct {
@@ -27,7 +24,7 @@ type WriteParams struct {
 	ChannelGroups        []ChannelGroup  `json:"channel_groups"`
 }
 
-func (p WriteParams) Serialize() []string {
+func (p WriteParams) serialize() []string {
 	args := make([]string, 0)
 	args = append(
 		args,
@@ -55,40 +52,14 @@ func (p WriteParams) Serialize() []string {
 	return args
 }
 
+func (p WriteParams) ToPythonCommand(identifier string) []string {
+	cmd := "-c poetry install && poetry run python write.py " + identifier
+	return append(strings.Split(cmd, " "), p.serialize()...)
+}
+
+func (p WriteParams) ToTSCommand(identifier string) []string {
+	cmd := "-c npx tsx write.ts " + identifier
+	return append(strings.Split(cmd, " "), p.serialize()...)
+}
+
 var _ NodeParams = &WriteParams{}
-
-func writePython(p NodeParams, identifier string) error {
-	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
-		return err
-	}
-
-	args := append([]string{"run", "python", "write.py", identifier}, p.Serialize()...)
-	cmd := exec.Command("poetry", args...)
-	cmd.Dir = "./py"
-var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
-	}
-
-	return nil
-}
-
-func writeTS(p NodeParams, identifier string) error {
-	args := append([]string{"tsx", "write.ts", identifier}, p.Serialize()...)
-	cmd := exec.Command("npx", args...)
-	cmd.Dir = "./ts/src"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
-	}
-
-	return nil
-}

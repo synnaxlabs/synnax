@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"os/exec"
 	"strconv"
+	"strings"
 
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -14,7 +12,7 @@ type DeleteParams struct {
 	Channels  []string        `json:"channels"`
 }
 
-func (p DeleteParams) Serialize() []string {
+func (p DeleteParams) serialize() []string {
 	args := make([]string, 0)
 	args = append(
 		args,
@@ -30,40 +28,14 @@ func (p DeleteParams) Serialize() []string {
 	return args
 }
 
-var _ NodeParams = &StreamParams{}
-
-func deletePython(p NodeParams, identifier string) error {
-	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
-		return err
-	}
-
-	args := append([]string{"run", "python", "delete.py", identifier}, p.Serialize()...)
-	cmd := exec.Command("poetry", args...)
-	cmd.Dir = "./py"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
-	}
-
-	return nil
+func (p DeleteParams) ToPythonCommand(identifier string) []string {
+	cmd := "-c poetry install && poetry run python delete.py " + identifier
+	return append(strings.Split(cmd, " "), p.serialize()...)
 }
 
-func deleteTS(p NodeParams, identifier string) error {
-	args := append([]string{"tsx", "delete.ts", identifier}, p.Serialize()...)
-	cmd := exec.Command("npx", args...)
-	cmd.Dir = "./ts/src"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
-	}
-
-	return nil
+func (p DeleteParams) ToTSCommand(identifier string) []string {
+	cmd := "-c npx tsx delete.ts " + identifier
+	return append(strings.Split(cmd, " "), p.serialize()...)
 }
+
+var _ NodeParams = &DeleteParams{}

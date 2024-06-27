@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -12,42 +14,14 @@ import (
 )
 
 func runNode(node TestNode, identifier string) error {
-	switch node.Op {
-	case Read:
-		switch node.Client {
-		case "py":
-			return readPython(node.Params, identifier)
-		case "ts":
-			return readTS(node.Params, identifier)
-		}
-		break
-	case Write:
-		switch node.Client {
-		case "py":
-			return writePython(node.Params, identifier)
-		case "ts":
-			return writeTS(node.Params, identifier)
-		}
-		break
-	case Stream:
-		switch node.Client {
-		case "py":
-			return streamPython(node.Params, identifier)
-		case "ts":
-			return streamTS(node.Params, identifier)
-		}
-		break
-	case Delete:
-		switch node.Client {
-		case "py":
-			return deletePython(node.Params, identifier)
-		case "ts":
-			return deleteTS(node.Params, identifier)
-		}
-		break
+	switch node.Client {
+	case "py":
+		return testPython(node.Params, identifier)
+	case "ts":
+		return testTS(node.Params, identifier)
 	}
 
-	return errors.Newf("unknown operation or client %s on %s", node.Op, node.Client)
+	return errors.Newf("unknown client for %s: %s on %s", identifier, node.Op, node.Client)
 }
 
 func runStep(i int, step TestStep) error {
@@ -133,4 +107,38 @@ func runTest(testConfigFile string) {
 			panic(err)
 		}
 	}
+}
+
+func testPython(p NodeParams, identifier string) error {
+	var (
+		stderr, stdout bytes.Buffer
+		cmd            = exec.Command("sh", p.ToPythonCommand(identifier)...)
+	)
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	cmd.Dir = "./py"
+
+	err := cmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
+	}
+
+	return nil
+}
+
+func testTS(p NodeParams, identifier string) error {
+	var (
+		stderr, stdout bytes.Buffer
+		cmd            = exec.Command("sh", p.ToTSCommand(identifier)...)
+	)
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	cmd.Dir = "./ts/src"
+
+	err := cmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
+	}
+
+	return nil
 }

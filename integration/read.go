@@ -1,14 +1,10 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
-	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/x/telem"
-
-	"github.com/synnaxlabs/x/errors"
 )
 
 type ReadParams struct {
@@ -18,7 +14,7 @@ type ReadParams struct {
 	ChannelGroups [][]string      `json:"channel_groups"`
 }
 
-func (p ReadParams) Serialize() []string {
+func (p ReadParams) serialize() []string {
 	args := make([]string, 0)
 	args = append(
 		args,
@@ -37,42 +33,14 @@ func (p ReadParams) Serialize() []string {
 	return args
 }
 
-var _ NodeParams = &WriteParams{}
-
-func readPython(p NodeParams, identifier string) error {
-	if err := exec.Command("cd", "py", "&&", "poetry", "install").Run(); err != nil {
-		return err
-	}
-
-	args := append([]string{"run", "python", "read.py", identifier}, p.Serialize()...)
-	cmd := exec.Command("poetry", args...)
-	cmd.Dir = "./py"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
-	}
-
-	return nil
+func (p ReadParams) ToPythonCommand(identifier string) []string {
+	cmd := "-c poetry install && poetry run python read.py " + identifier
+	return append(strings.Split(cmd, " "), p.serialize()...)
 }
 
-func readTS(p NodeParams, identifier string) error {
-	args := append([]string{"tsx", "read.ts", identifier}, p.Serialize()...)
-	cmd := exec.Command("npx", args...)
-	cmd.Dir = "./ts/src"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
-	}
-
-	fmt.Println(stdout.String())
-
-	return nil
+func (p ReadParams) ToTSCommand(identifier string) []string {
+	cmd := "-c npx tsx read.ts " + identifier
+	return append(strings.Split(cmd, " "), p.serialize()...)
 }
+
+var _ NodeParams = &ReadParams{}
