@@ -58,6 +58,7 @@ export { Viewport } from "@/viewport";
 export { Canvas } from "@/vis/canvas";
 export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
+export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
 export { LinePlot } from "@/vis/lineplot";
 export { Range } from "@/vis/lineplot/range";

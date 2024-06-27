@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
-import { type Text, type Viewport } from "@synnaxlabs/pluto";
+import { Legend, type Text, type Viewport } from "@synnaxlabs/pluto";
 import {
   bounds,
   box,
@@ -50,10 +50,12 @@ const ZERO_TITLE_STATE: TitleState = {
 
 export interface LegendState {
   visible: boolean;
+  position: Legend.StickyXY;
 }
 
-const ZERO_LEGEND_STATE = {
+const ZERO_LEGEND_STATE: LegendState = {
   visible: true,
+  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
 };
 
 // |||||| VIEWPORT ||||||
