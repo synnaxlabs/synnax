@@ -31,6 +31,6 @@ jobs:
                 - "**/*"
 
       - name: Test
-        run: ./run-integration basic.json
+        run: ./run-integration.sh basic.json
         if: steps.filter.outputs.changed == 'true'
         working-directory: ./integration
