@@ -167,6 +167,9 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
         return p;
     }
     
+    // sleep for 10ms: this is here to temporarily fix a race condition in the console after hitting configure
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
     ctx->setState({
         .task = task.key,
         .variant = "success",
@@ -290,6 +293,9 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         return p;
     }
     
+    // sleep for 10ms: this is here to temporarily fix a race condition in the console after hitting configure
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
     ctx->setState({
         .task = task.key,
         .variant = "success",

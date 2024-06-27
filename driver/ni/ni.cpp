@@ -390,7 +390,8 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_PhysicalChanName", "physical_chan_name"},
     {"DAQmx_ChanDescr", "chan_descr"},
     {"DAQmx_ChanIsGlobal", "chan_is_global"},
-    {"DAQmx_Chan_SyncUnlockBehavior", "chan_sync_unlock_behavior"}
+    {"DAQmx_Chan_SyncUnlockBehavior", "chan_sync_unlock_behavior"},
+    {"DAQmx_SampClk_Rate", "sample_rate"}
 };
 
 
@@ -626,25 +627,28 @@ void ni::Source::jsonifyError(std::string s) {
     this->err_info["error type"] = "Vendor Error";
     this->err_info["running"] = false;
 
-    std::regex propertyRegex(R"(Property:\s*(\S+))");
+    // Define regex patterns
     std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
-    std::regex messageRegex(R"(^.*?(?=Property:|Status Code:|Possible Values:|Maximum Value:|Minimum Value:|Channel Name:|Physical Channel Name:|Device:|\n\n|\n$))");
+    std::regex messageRegex(R"(^.*?(?=\nProperty:|\nStatus Code:|\nPossible Values:|\nMaximum Value:|\nMinimum Value:|\nChannel Name:|\nPhysical Channel Name:|\nDevice:|\nTask Name:|\n\n|\n$))");
     std::regex channelRegex(R"(Channel Name:\s*(\S+))");
     std::regex physicalChannelRegex(R"(Physical Channel Name:\s*(\S+))");
     std::regex deviceRegex(R"(Device:\s*(\S+))");
     std::regex possibleValuesRegex(R"(Possible Values:\s*([\w\s,.-]+))");
     std::regex maxValueRegex(R"(Maximum Value:\s*([\d.\s,eE-]+))");
     std::regex minValueRegex(R"(Minimum Value:\s*([\d.\s,eE-]+))");
-    
+    std::regex propertyRegex(R"(Property:\s*(\S+))");
+
     // Extract status code
     std::smatch statusCodeMatch;
     std::regex_search(s, statusCodeMatch, statusCodeRegex);
     std::string sc = (!statusCodeMatch.empty()) ? statusCodeMatch[1].str() : "";
 
     // Extract message
+    std::string message = "";
     std::smatch messageMatch;
-    std::regex_search(s, messageMatch, messageRegex);
-    std::string message = (!messageMatch.empty()) ? messageMatch[0].str() : "";
+    if (std::regex_search(s, messageMatch, messageRegex)) {
+        message = messageMatch.str();
+    }
 
     // Extract device name
     std::string device = "";
@@ -687,7 +691,7 @@ void ni::Source::jsonifyError(std::string s) {
             possibleValues.erase(pos, std::string("Channel Name").length());
         }
     }
-    
+
     // Extract maximum value
     std::string maxValue = "";
     std::smatch maxValueMatch;
@@ -700,17 +704,20 @@ void ni::Source::jsonifyError(std::string s) {
     std::smatch minValueMatch;
     if (std::regex_search(s, minValueMatch, minValueRegex)) {
         minValue = minValueMatch[1].str();
-    } 
+    }
 
     // Check if the channel name is in the channel map
     if (channel_map.count(cn) != 0) {
         this->err_info["path"] = channel_map[cn];
-    } else {
+    } else if(!cn.empty()) {
+        this->err_info["path"] = cn;
+    } else{
         this->err_info["path"] = "unknown";
     }
 
     // Check if the property is in the field map
     if (FIELD_MAP.count(p) == 0) {
+        this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + p;
         this->err_info["message"] = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
         return;
     }
