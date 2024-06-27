@@ -14,6 +14,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
+  useEffect,
   useLayoutEffect,
   useRef,
 } from "react";
@@ -89,8 +90,11 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   }, [data]);
 
   const items = virtualizer.getVirtualItems();
-
-  if (items.at(-1)?.index === data.length - 1 && hasMore) onFetchMore?.();
+  const lastItemIndex = items.at(-1)?.index;
+  const dataLength = data.length;
+  useEffect(() => {
+    if (lastItemIndex === dataLength - 1 && hasMore) onFetchMore?.();
+  }, [lastItemIndex, dataLength, hasMore]);
 
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
 

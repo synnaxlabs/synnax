@@ -98,7 +98,7 @@ const Internal = ({
   const taskState = Observe.useState({
     key: [task?.key],
     open: async () => await task?.openStateObserver<AnalogReadStateDetails>(),
-    initialValue: task?.state
+    initialValue: task?.state,
   });
 
   const configure = useMutation<void, Error, void, unknown>({

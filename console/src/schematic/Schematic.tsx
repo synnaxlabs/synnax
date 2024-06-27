@@ -15,6 +15,7 @@ import {
   Control,
   Diagram,
   Haul,
+  Legend,
   Schematic as Core,
   Status,
   Synnax,
@@ -29,7 +30,14 @@ import { Triggers } from "@synnaxlabs/pluto/triggers";
 import { box, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid/non-secure";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { Syncer, UseSyncerArgs, useSyncerDispatch } from "@/hooks/dispatchers";
@@ -52,6 +60,7 @@ import {
   setEditable,
   setElementProps,
   setFitViewOnResize,
+  setLegend,
   setNodes,
   setRemoteCreated,
   setViewport,
@@ -317,6 +326,30 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     );
   }, [windowKey, dispatch, schematic.editable]);
 
+  const [legendPosition, setLegendPosition] = useState<Legend.StickyXY>(
+    schematic.legend.position,
+  );
+
+  const storeLegendPosition = useCallback(
+    (position: Legend.StickyXY) => {
+      dispatch(
+        setLegend({
+          key: layoutKey,
+          legend: { position },
+        }),
+      );
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleLegendPositionChange = useCallback(
+    (position: Legend.StickyXY) => {
+      setLegendPosition(position);
+      storeLegendPosition(position);
+    },
+    [storeLegendPosition],
+  );
+
   return (
     <div
       ref={ref}
@@ -370,7 +403,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
             )}
           </Diagram.Controls>
         </Diagram.Diagram>
-        <Control.Legend />
+        <Control.Legend
+          position={legendPosition}
+          onPositionChange={handleLegendPositionChange}
+        />
       </Control.Controller>
     </div>
   );
