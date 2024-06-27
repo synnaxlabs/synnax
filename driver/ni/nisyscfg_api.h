@@ -42,7 +42,6 @@ namespace ni {
                 void *syscfgHandle
         );
 
-
         static NISYSCFGCFUNC FindHardware(
                 NISysCfgSessionHandle sessionHandle,
                 NISysCfgFilterMode filterMode,

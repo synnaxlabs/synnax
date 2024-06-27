@@ -40,7 +40,6 @@ ni::Scanner::Scanner(
         return;
     }
 
-
     // create a filter to only identify NI devices rather than chassis and devices which are connected (which includes simulated devices)
     this->filter = NULL;
     ni::NiSysCfgInterface::CreateFilter(this->session, &this->filter);
@@ -133,7 +132,6 @@ json ni::Scanner::getDeviceProperties(NISysCfgResourceHandle resource) {
     rsrc_name = rsrc_name.substr(1, rsrc_name.size() - 2);
     device["resource_name"] = rsrc_name;
 
-    //get temp
     double temp;
     ni::NiSysCfgInterface::GetResourceProperty(
         resource,
@@ -142,7 +140,6 @@ json ni::Scanner::getDeviceProperties(NISysCfgResourceHandle resource) {
     );
     device["temperature"] = temp;
 
-    // check if its simulated
     NISysCfgBool isSimulated;
     ni::NiSysCfgInterface::GetResourceProperty(
         resource,
@@ -156,7 +153,6 @@ json ni::Scanner::getDeviceProperties(NISysCfgResourceHandle resource) {
         device["is_simulated"] = false;
         device["key"] = device["serial_number"];
     }
-
     return device;
 }
 
