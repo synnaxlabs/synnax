@@ -54,15 +54,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const synnax::Task &task
 ) {
     if(!this->dlls_present){
-        LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." << std::endl;
-        json j = {
-            {"error", "Required NI DLLs not found."}
-        };
-        ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = j
-        });
+        log_dll_error(ctx, task);
         return {nullptr, false};
     }
 
