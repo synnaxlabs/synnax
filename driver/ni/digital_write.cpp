@@ -379,6 +379,8 @@ ni::StateSource::StateSource(std::uint64_t state_rate,
 
 std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
+    // sleep for state period
+    // std::this_thread::sleep_for(stdthis->state_period);    
     waiting_reader.wait_for(lock, state_period);
     return std::make_pair(this->getDriveState(), freighter::NIL);
 }
