@@ -9,15 +9,16 @@ on:
     branches:
       - rc
       - main
-      - 'leo/sy-685-integration-testing'
+      - 'leo/sy685-integration-testing'
   workflow_dispatch:
+
 permissions:
   contents: write
   packages: write
+
 jobs:
   test-integration:
     runs-on: self-hosted
-    # if: needs.setup.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -30,7 +31,15 @@ jobs:
             changed:
                 - "**/*"
 
+      - name: Install Dependencies
+        run: pnpm i
+
+      - name: Build things
+        run: pnpm build:client
+
+      - name: Poetry install
+        run: poetry install
+
       - name: Test
         run: ./run-integration.sh basic.json
-        if: steps.filter.outputs.changed == 'true'
         working-directory: ./integration
