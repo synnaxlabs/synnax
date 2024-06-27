@@ -1,7 +1,12 @@
 #!/bin/sh
 
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <argument>"
+    exit 1
+fi
+
 # Run the Go program with the provided arguments
-go run . h2h.json
+go run . "$1"
 
 # Capture the exit code of the Go program
 exit_code=$?
