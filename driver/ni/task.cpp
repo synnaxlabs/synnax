@@ -193,7 +193,7 @@ void ni::ReaderTask::exec(task::Command &cmd) {
 }
 
 void ni::ReaderTask::stop() {
-    if (!this->running.exchange(false) || !this->ok()) {
+    if (!this->running.exchange(false)) {
         LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " <<
                 this->running << " ok: "
                 << this->ok();
@@ -253,7 +253,6 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
 
     auto daq_writer = std::make_shared<ni::DigitalWriteSink>(task_handle, ctx, task);
-    
 
     // construct writer config
     std::vector<synnax::ChannelKey> cmd_keys = daq_writer->getCmdChannelKeys();
@@ -277,19 +276,17 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 
     auto state_writer = daq_writer->writer_state_source;
 
-    LOG(INFO) << "[NI Task] successfully configured task " << task.name;
-    
-    auto p = std::make_unique<ni::WriterTask>(ctx,
-                                            task,
-                                            daq_writer,
-                                            daq_writer,
-                                            state_writer,
-                                            writer_config,
-                                            streamer_config,
-                                            breaker_config);
+    auto p = std::make_unique<ni::WriterTask>(  ctx,
+                                                task,
+                                                daq_writer,
+                                                daq_writer,
+                                                state_writer,
+                                                writer_config,
+                                                streamer_config,
+                                                breaker_config);
     
     if (!daq_writer->ok()) {
-        LOG(ERROR) << "[ni.writer] failed to construct reader for " << task.name;
+        LOG(ERROR) << "[ni.writer] failed to construct writer for " << task.name;
         return p;
     }
     
@@ -301,24 +298,20 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         }
     });
     
+    LOG(INFO) << "[ni.writer] successfully configured task " << task.name;
     return p;
 }
 
 void ni::WriterTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") {
-        this->start();
-    } else if (cmd.type == "stop") {
-        this->stop();
-    } else {
-        LOG(ERROR) << "unknown command type: " << cmd.type;
-    }
+    if (cmd.type == "start") this->start(); 
+    else if (cmd.type == "stop") this->stop();
+    else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 
 void ni::WriterTask::start() {
-    if (this->running.exchange(true) || !this->ok()) {
-        return;
-    }
+    if (this->running.exchange(true) || !this->ok() || !this->sink->ok()) return;
+
     sink->start();
     this->cmd_write_pipe.start();
     this->state_write_pipe.start();
@@ -326,9 +319,9 @@ void ni::WriterTask::start() {
 
 
 void ni::WriterTask::stop() {
-    if (!this->running.exchange(false) || !this->ok()) {
+    if (!this->running.exchange(false)) {
         LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " << this->running << " ok: " << this->ok();
-        return; // TODO: handle this error
+        return; 
     }
     this->state_write_pipe.stop();
     this->cmd_write_pipe.stop();

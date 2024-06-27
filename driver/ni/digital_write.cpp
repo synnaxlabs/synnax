@@ -11,6 +11,7 @@
 #include <chrono>
 #include <stdio.h>
 #include <cassert>
+#include <regex>
 
 #include "client/cpp/telem/telem.h"
 #include "driver/ni/ni.h"
@@ -91,7 +92,7 @@ void ni::DigitalWriteSink::parseConfig(config::Parser &parser) {
         return;
     }
     this->writer_config.device_name = dev.location;
-
+    std::uint64_t c_count = 0;
     parser.iter("channels",
         [&](config::Parser &channel_builder) {
 
@@ -114,7 +115,9 @@ void ni::DigitalWriteSink::parseConfig(config::Parser &parser) {
             this->writer_config.drive_state_channel_keys.push_back(
                 drive_state_key);
 
+            this->channel_map[config.name] = "channels." + std::to_string(c_count);
             this->writer_config.channels.push_back(config);
+            c_count++;
         });
 }
 
@@ -239,7 +242,7 @@ freighter::Error ni::DigitalWriteSink::formatData(synnax::Frame frame) {
 
 ni::DigitalWriteSink::~DigitalWriteSink() {
     this->clearTask();
-    delete[] this->writeBuffer;
+    if(this->writeBuffer) delete[] this->writeBuffer;
 }
 
 void ni::DigitalWriteSink::clearTask(){
@@ -266,8 +269,10 @@ int ni::DigitalWriteSink::checkNIError(int32 error) {
     if (error < 0) {
         char errBuff[2048] = {'\0'};
         ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
-        this->err_info["error type"] = "Vendor Error";
-        this->err_info["error details"] = errBuff;
+
+        std::string s(errBuff);
+        jsonifyError(s);
+
         this->ctx->setState({
             .task = this->task.key,
             .variant = "error",
@@ -298,6 +303,63 @@ void ni::DigitalWriteSink::stoppedWithErr(const freighter::Error &err) {
         .details = err.message()
     });
 }
+
+void ni::DigitalWriteSink::jsonifyError(std::string s) {
+    this->err_info["error type"] = "Vendor Error";
+    this->err_info["running"] = false;
+
+    std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
+    std::regex messageRegex(R"(^.*?(?=Status Code:|Channel Name:|Physical Channel Name:|Device:|\n\n|\n$))");
+    std::regex channelRegex(R"(Channel Name:\s*(\S+))");
+    std::regex physicalChannelRegex(R"(Physical Channel Name:\s*(\S+))");
+    std::regex deviceRegex(R"(Device:\s*(\S+))");
+
+    // Extract status code
+    std::smatch statusCodeMatch;
+    std::regex_search(s, statusCodeMatch, statusCodeRegex);
+    std::string sc = (!statusCodeMatch.empty()) ? statusCodeMatch[1].str() : "";
+
+    // Extract message
+    std::smatch messageMatch;
+    std::regex_search(s, messageMatch, messageRegex);
+    std::string message = (!messageMatch.empty()) ? messageMatch[0].str() : "";
+
+    // Extract device name
+    std::string device = "";
+    std::smatch deviceMatch;
+    if (std::regex_search(s, deviceMatch, deviceRegex)) {
+        device = deviceMatch[1].str();
+    }
+
+    // Extract physical channel name or channel name
+    std::string cn = "";
+    std::smatch physicalChannelMatch;
+    if (std::regex_search(s, physicalChannelMatch, physicalChannelRegex)) {
+        cn = physicalChannelMatch[1].str();
+        if (!device.empty()) {
+            cn = device + "/" + cn;  // Combine device and physical channel name
+        }
+    } else {
+        std::smatch channelMatch;
+        if (std::regex_search(s, channelMatch, channelRegex)) {
+            cn = channelMatch[1].str();
+        }
+    }
+
+    // Check if the channel name is in the channel map
+    if (channel_map.count(cn) != 0) {
+        this->err_info["path"] = channel_map[cn];
+    } else {
+        this->err_info["path"] = "unknown";
+    }
+
+    // Update the message with the extracted information
+    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
+    this->err_info["message"] = errorMessage;   
+
+    LOG(INFO) << this->err_info.dump(4);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //

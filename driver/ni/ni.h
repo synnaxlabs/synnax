@@ -324,6 +324,8 @@ public:
 
     bool ok();
 
+    void jsonifyError(std::string);
+
     ~DigitalWriteSink();
     
     void stoppedWithErr(const freighter::Error &err) override;
@@ -341,7 +343,7 @@ private:
 
     int checkNIError(int32 error);
 
-    uint8_t *writeBuffer;
+    uint8_t *writeBuffer = nullptr;
     int bufferSize = 0;
     int numSamplesPerChannel = 0;
     TaskHandle task_handle = 0;
@@ -356,6 +358,8 @@ private:
     breaker::Breaker breaker;
     std::atomic<bool> running = false;
     synnax::Task task;
+    std::map<std::string, std::string> channel_map;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -478,6 +482,8 @@ public:
                         synnax::StreamerConfig streamer_config,
                         const breaker::Config breaker_config);
 
+    explicit WriterTask() = default;
+
     void exec(task::Command &cmd) override;
 
     void stop() override;
@@ -489,10 +495,6 @@ public:
         const synnax::Task &task);
 
     bool ok();
-
-    ~WriterTask() {
-    }
-
 private:
     std::atomic<bool> running = false;
     std::shared_ptr<task::Context> ctx;
