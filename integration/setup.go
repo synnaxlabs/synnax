@@ -32,24 +32,26 @@ func runSetUp(param SetUpParam) error {
 }
 
 func setUpPython(param SetUpParam) error {
-	var stdErr, stdOut bytes.Buffer
-	cmd := exec.Command("sh", "-c", "cd py && poetry install")
-	cmd.Stderr, cmd.Stdout = &stdErr, &stdOut
-	if err := cmd.Run(); err != nil {
-		return errors.Newf("err: %s\nstderr: %s\nstdout: %s\n", err.Error(), stdErr.String(), stdOut.String())
-	}
-	cmd = exec.Command("sh", "-c", "poetry", "run", "python", "setup.py",
-		strconv.Itoa(param.IndexChannels),
-		strconv.Itoa(param.DataChannels),
+	var (
+		stdErr, stdOut bytes.Buffer
+		cmd            = exec.Command("sh", "-c", "poetry", "install", "&&", "poetry",
+			"run", "python", "setup.py",
+			strconv.Itoa(param.IndexChannels),
+			strconv.Itoa(param.DataChannels),
+		)
 	)
 
 	cmd.Dir = "./py"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
+	cmd.Stderr = &stdErr
+	cmd.Stdout = &stdOut
 
 	if err := cmd.Run(); err != nil {
-		return errors.Newf("err: %s\nstderr: %s\nstdout: %s", err.Error(), stderr.String(), stdout.String())
+		return errors.Newf(
+			"err: %s\nstderr: %s\nstdout: %s",
+			err.Error(),
+			stdErr.String(),
+			stdOut.String(),
+		)
 	}
 	return nil
 }
@@ -61,12 +63,17 @@ func setUpTS(param SetUpParam) error {
 	)
 
 	cmd.Dir = "./ts/src"
-	var stderr, stdout bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
+	var stdErr, stdOut bytes.Buffer
+	cmd.Stderr = &stdErr
+	cmd.Stdout = &stdOut
 
 	if err := cmd.Run(); err != nil {
-		return errors.Newf("err: %s\nstderr: %s\nstdout: %s", err.Error(), stderr.String(), stdout.String())
+		return errors.Newf(
+			"err: %s\nstderr: %s\nstdout: %s",
+			err.Error(),
+			stdErr.String(),
+			stdOut.String(),
+		)
 	}
 	return nil
 }

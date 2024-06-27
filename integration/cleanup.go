@@ -44,7 +44,12 @@ func cleanUpPython(param CleanUpParam) error {
 	cmd.Stdout = &stdOut
 
 	if err := cmd.Run(); err != nil {
-		return errors.Newf("err: %s\nstderr: %s\nstdout: %s", err.Error(), stdErr.String(), stdOut.String())
+		return errors.Newf(
+			"err: %s\nstderr: %s\nstdout: %s",
+			err.Error(),
+			stdErr.String(),
+			stdOut.String(),
+		)
 	}
 	return nil
 }

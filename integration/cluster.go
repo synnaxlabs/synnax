@@ -31,19 +31,21 @@ func startCluster(p ClusterParam) (error, func() error) {
 		args = append(args, "-m")
 	}
 
-	var sout, serr = bytes.Buffer{}, bytes.Buffer{}
+	var (
+		stdOut, stdErr = bytes.Buffer{}, bytes.Buffer{}
+		cmd            = exec.Command("go", args...)
+	)
 
-	cmd := exec.Command("go", args...)
 	cmd.Dir = "./../synnax"
-	cmd.Stderr = &serr
-	cmd.Stdout = &sout
+	cmd.Stderr = &stdErr
+	cmd.Stdout = &stdOut
 
 	err := cmd.Start()
 	if err != nil {
 		return errors.Newf(
 			"error in starting cluster.\nstdout: %s\nstderr: %s\n",
-			sout.String(),
-			serr.String(),
+			stdOut.String(),
+			stdErr.String(),
 		), func() error { return nil }
 	}
 

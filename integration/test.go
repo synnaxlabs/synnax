@@ -111,16 +111,21 @@ func runTest(testConfigFile string) {
 
 func testPython(p NodeParams, identifier string) error {
 	var (
-		stderr, stdout bytes.Buffer
+		stdErr, stdOut bytes.Buffer
 		cmd            = exec.Command("sh", p.ToPythonCommand(identifier)...)
 	)
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
+	cmd.Stderr = &stdErr
+	cmd.Stdout = &stdOut
 	cmd.Dir = "./py"
 
 	err := cmd.Run()
 	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
+		return errors.Wrapf(
+			err,
+			"stdout: %s\nstderr: %s\n",
+			stdOut.String(),
+			stdErr.String(),
+		)
 	}
 
 	return nil
@@ -137,7 +142,11 @@ func testTS(p NodeParams, identifier string) error {
 
 	err := cmd.Run()
 	if err != nil {
-		return errors.Wrapf(err, "stdout: %s\nstderr: %s\n", stdout.String(), stderr.String())
+		return errors.Wrapf(err,
+			"stdout: %s\nstderr: %s\n",
+			stdout.String(),
+			stderr.String(),
+		)
 	}
 
 	return nil
