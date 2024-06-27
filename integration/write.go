@@ -52,14 +52,16 @@ func (p WriteParams) serialize() []string {
 	return args
 }
 
-func (p WriteParams) ToPythonCommand(identifier string) []string {
-	cmd := "-c poetry install && poetry run python write.py " + identifier
-	return append(strings.Split(cmd, " "), p.serialize()...)
+func (p WriteParams) ToPythonCommand(identifier string) string {
+	cmd := "poetry run python write.py "
+	cmd += identifier + " " + strings.Join(p.serialize(), " ")
+	return cmd
 }
 
-func (p WriteParams) ToTSCommand(identifier string) []string {
-	cmd := "-c npx tsx write.ts " + identifier
-	return append(strings.Split(cmd, " "), p.serialize()...)
+func (p WriteParams) ToTSCommand(identifier string) string {
+	cmd := "npx tsx write.ts "
+	cmd += identifier + " " + strings.Join(p.serialize(), " ")
+	return cmd
 }
 
 var _ NodeParams = &WriteParams{}

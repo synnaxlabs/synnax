@@ -28,14 +28,16 @@ func (p DeleteParams) serialize() []string {
 	return args
 }
 
-func (p DeleteParams) ToPythonCommand(identifier string) []string {
-	cmd := "-c poetry install && poetry run python delete.py " + identifier
-	return append(strings.Split(cmd, " "), p.serialize()...)
+func (p DeleteParams) ToPythonCommand(identifier string) string {
+	cmd := "poetry run python delete.py "
+	cmd += identifier + " " + strings.Join(p.serialize(), " ")
+	return cmd
 }
 
-func (p DeleteParams) ToTSCommand(identifier string) []string {
-	cmd := "-c npx tsx delete.ts " + identifier
-	return append(strings.Split(cmd, " "), p.serialize()...)
+func (p DeleteParams) ToTSCommand(identifier string) string {
+	cmd := "npx tsx delete.ts "
+	cmd += identifier + " " + strings.Join(p.serialize(), " ")
+	return cmd
 }
 
 var _ NodeParams = &DeleteParams{}

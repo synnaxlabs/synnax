@@ -1,6 +1,6 @@
 import synnax as sy
 
-FILE_NAME = "timing.log"
+FILE_NAME = "../timing.log"
 
 def time_write(func):
     def wrapper(*args):
@@ -28,6 +28,8 @@ Configuration:
 
             '''
         with open(FILE_NAME, "a") as f:
+            print(f)
+            print(s)
             f.write(s)
 
     return wrapper

@@ -1,12 +1,8 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"fmt"
-	"os/exec"
-	"strings"
-
-	"github.com/synnaxlabs/x/errors"
 )
 
 type CleanUpParam struct {
@@ -14,42 +10,37 @@ type CleanUpParam struct {
 	Client            string `json:"client"`
 }
 
-func runCleanUp(param CleanUpParam) error {
-	if param == (CleanUpParam{}) {
-		fmt.Printf("--cannot find cleanup configuration, skipping\n")
-		return nil
-	}
-
-	fmt.Printf("--cleaning up\n")
-	switch param.Client {
-	case "py":
-		return cleanUpPython(param)
-	default:
-		panic("unrecognized client in cleanup")
-	}
+func (p CleanUpParam) serialize() []string {
+	return []string{}
 }
 
-func cleanUpPython(param CleanUpParam) error {
-	if !param.DeleteAllChannels {
-		return nil
+func (p CleanUpParam) ToPythonCommand(_ string) string {
+	if p == (CleanUpParam{}) {
+		return ""
 	}
-	args := "-c poetry install && poetry run python delete_all.py"
-	var (
-		cmd            = exec.Command("sh", strings.Split(args, " ")...)
-		stdErr, stdOut bytes.Buffer
-	)
 
-	cmd.Dir = "./py"
-	cmd.Stderr = &stdErr
-	cmd.Stdout = &stdOut
+	return "poetry run python delete_all.py"
+}
 
-	if err := cmd.Run(); err != nil {
-		return errors.Newf(
-			"err: %s\nstderr: %s\nstdout: %s",
-			err.Error(),
-			stdErr.String(),
-			stdOut.String(),
-		)
+func (p CleanUpParam) ToTSCommand(_ string) string {
+	panic("unimplemented")
+}
+
+var _ NodeParams = &CleanUpParam{}
+
+func runCleanUp(param CleanUpParam) error {
+	fmt.Printf("--cleaning up\n")
+
+	if param.DeleteAllChannels {
+		switch param.Client {
+		case "py":
+			return testPython(context.Background(), param, "cleanup")
+		case "ts":
+			return testTS(context.Background(), param, "cleanup")
+		default:
+			panic("unrecognized client in cleanup")
+		}
 	}
+
 	return nil
 }

@@ -33,14 +33,15 @@ func (p ReadParams) serialize() []string {
 	return args
 }
 
-func (p ReadParams) ToPythonCommand(identifier string) []string {
-	cmd := "-c poetry install && poetry run python read.py " + identifier
-	return append(strings.Split(cmd, " "), p.serialize()...)
+func (p ReadParams) ToPythonCommand(identifier string) string {
+	cmd := "poetry run python read.py "
+	cmd += identifier + " " + strings.Join(p.serialize(), " ")
+	return cmd
 }
 
-func (p ReadParams) ToTSCommand(identifier string) []string {
-	cmd := "-c npx tsx read.ts " + identifier
-	return append(strings.Split(cmd, " "), p.serialize()...)
+func (p ReadParams) ToTSCommand(identifier string) string {
+	cmd := "npx tsx read.ts "
+	cmd += identifier + " " + strings.Join(p.serialize(), " ")
+	return cmd
 }
-
 var _ NodeParams = &ReadParams{}

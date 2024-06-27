@@ -1,12 +1,8 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"fmt"
-	"os/exec"
-	"strconv"
-
-	"github.com/synnaxlabs/x/errors"
 )
 
 type SetUpParam struct {
@@ -14,6 +10,36 @@ type SetUpParam struct {
 	DataChannels  int    `json:"data_channels"`
 	Client        string `json:"client"`
 }
+
+func (p SetUpParam) serialize() []string {
+	return []string{}
+}
+
+func (p SetUpParam) ToPythonCommand(_ string) string {
+	if p == (SetUpParam{}) {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"poetry run python setup.py %d %d",
+		p.IndexChannels,
+		p.DataChannels,
+	)
+}
+
+func (p SetUpParam) ToTSCommand(_ string) string {
+	if p == (SetUpParam{}) {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"npx tsx setup.ts %d %d",
+		p.IndexChannels,
+		p.DataChannels,
+	)
+}
+
+var _ NodeParams = &SetUpParam{}
 
 func runSetUp(param SetUpParam) error {
 	if param == (SetUpParam{}) {
@@ -23,57 +49,10 @@ func runSetUp(param SetUpParam) error {
 	fmt.Printf("--setting up\n")
 	switch param.Client {
 	case "py":
-		return setUpPython(param)
+		return testPython(context.Background(), param, "setup")
 	case "ts":
-		return setUpTS(param)
+		return testTS(context.Background(), param, "setup")
 	default:
 		panic("unrecognized client in setup")
 	}
-}
-
-func setUpPython(param SetUpParam) error {
-	var (
-		stdErr, stdOut bytes.Buffer
-		cmd            = exec.Command("sh", "-c", "poetry", "install", "&&", "poetry",
-			"run", "python", "setup.py",
-			strconv.Itoa(param.IndexChannels),
-			strconv.Itoa(param.DataChannels),
-		)
-	)
-
-	cmd.Dir = "./py"
-	cmd.Stderr = &stdErr
-	cmd.Stdout = &stdOut
-
-	if err := cmd.Run(); err != nil {
-		return errors.Newf(
-			"err: %s\nstderr: %s\nstdout: %s",
-			err.Error(),
-			stdErr.String(),
-			stdOut.String(),
-		)
-	}
-	return nil
-}
-
-func setUpTS(param SetUpParam) error {
-	cmd := exec.Command("sh", "-c", "npx", "tsx", "setup.ts",
-		strconv.Itoa(param.IndexChannels),
-		strconv.Itoa(param.DataChannels),
-	)
-
-	cmd.Dir = "./ts/src"
-	var stdErr, stdOut bytes.Buffer
-	cmd.Stderr = &stdErr
-	cmd.Stdout = &stdOut
-
-	if err := cmd.Run(); err != nil {
-		return errors.Newf(
-			"err: %s\nstderr: %s\nstdout: %s",
-			err.Error(),
-			stdErr.String(),
-			stdOut.String(),
-		)
-	}
-	return nil
 }

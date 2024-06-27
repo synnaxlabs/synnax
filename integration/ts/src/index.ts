@@ -11,3 +11,5 @@ import './read'
 import './write'
 import './stream'
 import './delete'
+
+export const FILE_NAME = "../../timing.log"

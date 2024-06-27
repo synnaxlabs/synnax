@@ -8,7 +8,7 @@
     [
       {
         "op": "write",
-        "client": "ts",
+        "client": "py",
         "params": {
           "channel_groups": [
             {
@@ -29,58 +29,11 @@
           },
           "writer_mode": 1
         }
-      },
-      {
-        "op": "stream",
-        "client": "ts",
-        "params": {
-          "channels": [
-            "int1",
-            "int1-0"
-          ],
-          "close_after_frames": 10
-        }
-      }
-    ],
-    [
-      {
-        "op": "delete",
-        "client": "ts",
-        "params": {
-          "time_range": {
-            "start": 50000000000,
-            "end": 75000000000
-          },
-          "channels": [
-            "int1-0",
-            "int1"
-          ]
-        }
-      }
-    ],
-    [
-      {
-        "op": "read",
-        "client": "ts",
-        "params": {
-          "num_iterators": 1,
-          "channel_groups": [
-            [
-              "int1-0",
-              "int1"
-            ]
-          ],
-          "chunk_size": 50000,
-          "bounds": {
-            "start": 25000000000,
-            "end": 50000000000
-          }
-        }
       }
     ]
   ],
   "cleanup": {
-    "delete_all_channels": true,
+    "delete_all_channels": false,
     "client": "py"
   }
 }

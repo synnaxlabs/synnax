@@ -79,7 +79,7 @@ Configuration:
 
 `;
 
-        fs.appendFileSync("timing.log", s);
+        fs.appendFileSync("../../timing.log", s);
     };
 
     async test(): Promise<number> {

@@ -1,6 +1,8 @@
 package main
 
-import "os"
+import (
+	"os"
+)
 
 func main() {
 	testConfigFileName := os.Args[1]

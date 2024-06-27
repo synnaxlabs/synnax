@@ -27,14 +27,16 @@ func (p StreamParams) serialize() []string {
 	return args
 }
 
-func (p StreamParams) ToPythonCommand(identifier string) []string {
-	cmd := "-c poetry install && poetry run python stream.py " + identifier
-	return append(strings.Split(cmd, " "), p.serialize()...)
+func (p StreamParams) ToPythonCommand(identifier string) string {
+	cmd := "poetry run python stream.py "
+	cmd += identifier + " " + strings.Join(p.serialize(), " ")
+	return cmd
 }
 
-func (p StreamParams) ToTSCommand(identifier string) []string {
-	cmd := "-c npx tsx stream.ts " + identifier
-	return append(strings.Split(cmd, " "), p.serialize()...)
+func (p StreamParams) ToTSCommand(identifier string) string {
+	cmd := "npx tsx stream.ts "
+	cmd += identifier + " " + strings.Join(p.serialize(), " ")
+	return cmd
 }
 
 var _ NodeParams = &StreamParams{}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -13,12 +14,12 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-func runNode(node TestNode, identifier string) error {
+func runNode(ctx context.Context, node TestNode, identifier string) error {
 	switch node.Client {
 	case "py":
-		return testPython(node.Params, identifier)
+		return testPython(ctx, node.Params, identifier)
 	case "ts":
-		return testTS(node.Params, identifier)
+		return testTS(ctx, node.Params, identifier)
 	}
 
 	return errors.Newf("unknown client for %s: %s on %s", identifier, node.Op, node.Client)
@@ -26,8 +27,8 @@ func runNode(node TestNode, identifier string) error {
 
 func runStep(i int, step TestStep) error {
 	var (
-		sem          = semaphore.NewWeighted(int64(len(step)))
-		sCtx, cancel = signal.Isolated()
+		sem     = semaphore.NewWeighted(int64(len(step)))
+		sCtx, _ = signal.Isolated()
 	)
 	fmt.Printf("--step %d\n", i)
 	for n, node := range step {
@@ -38,18 +39,13 @@ func runStep(i int, step TestStep) error {
 
 		n, node := n, node
 		sCtx.Go(func(ctx context.Context) error {
-			defer func() {
-				sem.Release(1)
-				fmt.Printf("----finished node %d\n", n)
-			}()
-			err := runNode(node, fmt.Sprintf("%d-%d", i, n))
-			if err != nil {
-				cancel()
-				return errors.Newf("----error in node %d: %s\n", n, err.Error())
+			defer func() { sem.Release(1) }()
+			if err := runNode(ctx, node, fmt.Sprintf("%d-%d", i, n)); err != nil {
+				return err
 			}
 
 			return nil
-		})
+		}, signal.CancelOnExitErr())
 	}
 
 	return sCtx.Wait()
@@ -78,6 +74,7 @@ func readTestConfig(fileName string) TestSequence {
 }
 
 func runTest(testConfigFile string) {
+	writeTestStart("timing.log", testConfigFile)
 	test := readTestConfig(testConfigFile)
 
 	err, endCommand := startCluster(test.Cluster)
@@ -87,7 +84,7 @@ func runTest(testConfigFile string) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("PANIC RECOVERED FOR CLEANUP from error\n-----\n%s\n------\n", r)
+			fmt.Printf("PANIC RECOVERED FOR CLEANUP FROM ERROR\n-----\n%s\n------\n", r)
 		}
 		if err := runCleanUp(test.Cleanup); err != nil {
 			panic(err)
@@ -109,16 +106,18 @@ func runTest(testConfigFile string) {
 	}
 }
 
-func testPython(p NodeParams, identifier string) error {
+func testPython(ctx context.Context, p NodeParams, identifier string) error {
 	var (
 		stdErr, stdOut bytes.Buffer
-		cmd            = exec.Command("sh", p.ToPythonCommand(identifier)...)
+		cmd            = exec.Command("sh", "-c", p.ToPythonCommand(identifier))
+		process        = make(chan error, 1)
 	)
 	cmd.Stderr = &stdErr
 	cmd.Stdout = &stdOut
 	cmd.Dir = "./py"
+	cmd.Env = os.Environ()
 
-	err := cmd.Run()
+	err := cmd.Start()
 	if err != nil {
 		return errors.Wrapf(
 			err,
@@ -128,26 +127,91 @@ func testPython(p NodeParams, identifier string) error {
 		)
 	}
 
-	return nil
+	go func() { process <- cmd.Wait() }()
+
+	select {
+	case <-ctx.Done():
+		fmt.Printf("----%s canceled\n", identifier)
+		return nil
+	case err := <-process:
+		if err != nil {
+			fmt.Printf("----%s errored\n", identifier)
+			return errors.Wrapf(
+				err,
+				"error in %s:\nstdout: %s\nstderr: %s\n",
+				identifier,
+				stdOut.String(),
+				stdErr.String(),
+			)
+		}
+		fmt.Printf("----%s finished\n", identifier)
+		return nil
+	}
 }
 
-func testTS(p NodeParams, identifier string) error {
+func testTS(ctx context.Context, p NodeParams, identifier string) error {
 	var (
-		stderr, stdout bytes.Buffer
-		cmd            = exec.Command("sh", p.ToTSCommand(identifier)...)
+		stdErr, stdOut bytes.Buffer
+		cmd            = exec.Command("sh", "-c", p.ToTSCommand(identifier))
+		process        = make(chan error, 1)
 	)
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
+	cmd.Stderr = &stdErr
+	cmd.Stdout = &stdOut
 	cmd.Dir = "./ts/src"
+	cmd.Env = os.Environ()
 
-	err := cmd.Run()
+	err := cmd.Start()
 	if err != nil {
-		return errors.Wrapf(err,
+		return errors.Wrapf(
+			err,
 			"stdout: %s\nstderr: %s\n",
-			stdout.String(),
-			stderr.String(),
+			stdOut.String(),
+			stdErr.String(),
 		)
 	}
 
-	return nil
+	go func() { process <- cmd.Wait() }()
+
+	select {
+	case <-ctx.Done():
+		fmt.Printf("----%s canceled\n", identifier)
+		return nil
+	case err := <-process:
+		if err != nil {
+			fmt.Printf("----%s errored\n", identifier)
+			return errors.Wrapf(
+				err,
+				"error in %s:\nstdout: %s\nstderr: %s\n",
+				identifier,
+				stdOut.String(),
+				stdErr.String(),
+			)
+		}
+		fmt.Printf("----%s finished\n", identifier)
+		return nil
+	}
+}
+
+func writeTestStart(fileName string, testFileName string) {
+	var (
+		fs     = xfs.Default
+		f, err = fs.Open(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND)
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	msg := fmt.Sprintf(
+		"-----Test Started | %s | %s-----\n",
+		time.Now().Format(time.RFC3339),
+		testFileName,
+	)
+	_, err = f.Write([]byte(msg))
+	if err != nil {
+		panic(err)
+	}
+	if err := f.Close(); err != nil {
+		panic(err)
+	}
 }
