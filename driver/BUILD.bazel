@@ -45,7 +45,6 @@ cc_test(
 cc_binary(
     name = "driver_main",
     srcs = select({
-        # "@platforms//os:windows": ["main_windows.cpp"],
         "//conditions:default":["main.cpp"],
     }),
     copts = select({
@@ -62,6 +61,28 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = select({
+        "@platforms//os:windows": [
+            "//driver",
+            "//driver/breaker",
+            "//driver/meminfo",
+            "//driver/ni",
+            "//driver/opc",
+            "//driver/task",
+            "@com_github_gflags_gflags//:gflags",
+            "@com_github_google_glog//:glog",
+            "@mbedtls_win",
+        ],
+        "@platforms//os:linux": [
+            "//driver",
+            "//driver/breaker",
+            "//driver/meminfo",
+            "//driver/ni",
+            "//driver/opc",
+            "//driver/task",
+            "@com_github_gflags_gflags//:gflags",
+            "@com_github_google_glog//:glog",
+            "@mbedtls_linux",
+        ],
         "//conditions:default": [
             "//driver",
             "//driver/breaker",
