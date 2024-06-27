@@ -13,6 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { List as CoreList } from "@/list";
+import { componentRenderProp } from "@/util/renderProp";
 
 export type SelectListProps<
   K extends Key = Key,
@@ -31,6 +32,8 @@ export type SelectListProps<
 
 const DEFAULT_COLUMNS: CoreList.ColumnSpec[] = [];
 
+const defaultListItem = componentRenderProp(CoreList.Column.Item);
+
 export const Core = <K extends Key, E extends Keyed<K>>({
   data,
   emptyContent,
@@ -43,7 +46,7 @@ export const Core = <K extends Key, E extends Keyed<K>>({
   columns = DEFAULT_COLUMNS,
   visible,
   itemHeight = CoreList.Column.itemHeight,
-  listItem = CoreList.Column.Item<K, E>,
+  listItem = defaultListItem as CoreList.VirtualCoreProps<K, E>["children"],
   replaceOnSingle,
   omit,
   autoSelectOnNone,

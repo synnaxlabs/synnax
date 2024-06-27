@@ -91,9 +91,10 @@ const Internal = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = Observe.useState<task.State<DigitalReadStateDetails>>({
+  const taskState = Observe.useState({
     key: [task?.key],
     open: async () => await task?.openStateObserver<DigitalReadStateDetails>(),
+    initialValue: task?.state,
   });
 
   const dispatch = useDispatch();

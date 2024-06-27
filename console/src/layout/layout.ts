@@ -24,7 +24,6 @@ export interface State<A = any | undefined> {
   windowKey: string;
   /** A unique key for the layout */
   key: string;
-  altKey?: string;
   /**
    * The type of the layout. This is used to identify the correct renderer to
    * use for the layout.

@@ -33,6 +33,7 @@ export interface SliceState extends migrate.Migratable {
    * currently rendered in the mosaic or in external windows.
    */
   layouts: Record<string, State>;
+  altKeys: Record<string, string>;
   hauling: Haul.DraggingState;
   mosaics: Record<string, MosaicState>;
   nav: NavState;
@@ -117,12 +118,17 @@ const MIGRATIONS: migrate.Migrations = {
     },
     version: "0.2.0",
   }),
+  "0.2.0": (state: Omit<SliceState, "altKeys">): SliceState => ({
+    altKeys: {},
+    ...state,
+    version: "0.3.0",
+  }),
 };
 
 export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
 
 export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.2.0",
+  version: "0.3.0",
   activeTheme: "synnaxDark",
   themes: Theming.SYNNAX_THEMES,
   alreadyCheckedGetStarted: false,
@@ -132,6 +138,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   mosaics: {
     main: ZERO_MOSAIC_STATE,
   },
+  altKeys: {},
   hauling: Haul.ZERO_DRAGGING_STATE,
   nav: {
     main: {
@@ -231,6 +238,17 @@ const purgeEmptyMosaics = (state: SliceState) => {
   });
 };
 
+const select = (state: SliceState, key: string): State | null => {
+  const layout = state.layouts[key];
+  if (layout == null) {
+    const altKey = state.altKeys[key];
+    if (altKey == null) return null;
+    const altLayout = state.layouts[altKey];
+    if (altLayout == null) return null;
+  }
+  return layout;
+};
+
 const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State> =>
   Object.fromEntries(
     Object.entries(layouts).filter(
@@ -246,7 +264,7 @@ export const { actions, reducer } = createSlice({
     place: (state, { payload: layout }: PayloadAction<PlacePayload>) => {
       const { key, location, name, tab } = layout;
 
-      const prev = state.layouts[key];
+      const prev = select(state, key);
       const mosaic = state.mosaics[layout.windowKey];
 
       if (layout.type === MOSAIC_WINDOW_TYPE) state.mosaics[key] = ZERO_MOSAIC_STATE;
@@ -293,13 +311,8 @@ export const { actions, reducer } = createSlice({
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((contentKey) => {
-        let layout = state.layouts[contentKey];
-        if (layout == null) {
-          // try to find it by alt key
-          const alt = Object.values(state.layouts).find((l) => l.altKey === contentKey);
-          if (alt == null) return;
-          layout = alt;
-        }
+        const layout = select(state, contentKey);
+        if (layout == null) return;
         const mosaic = state.mosaics[layout.windowKey];
         if (layout == null || mosaic == null) return;
         const { location } = layout;
@@ -315,19 +328,20 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
     ) => {
-      const layout = state.layouts[key];
+      const layout = select(state, key);
       if (layout == null) return;
-      layout.altKey = altKey;
+      state.altKeys[altKey] = key;
     },
     moveMosaicTab: (
       state,
       { payload: { tabKey, windowKey, key, loc } }: PayloadAction<MoveMosaicTabPayload>,
     ) => {
-      const layout = state.layouts[tabKey];
+      const layout = select(state, tabKey);
+      if (layout == null) return;
       const prevWindowKey = layout.windowKey;
       if (windowKey == null || prevWindowKey === windowKey) {
         const mosaic = state.mosaics[prevWindowKey];
-        [mosaic.root] = Mosaic.moveTab(mosaic.root, tabKey, loc, key);
+        [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key);
         state.mosaics[prevWindowKey] = mosaic;
         return;
       }
@@ -336,7 +350,7 @@ export const { actions, reducer } = createSlice({
       state.mosaics[prevWindowKey] = prevMosaic;
       const mosaic = state.mosaics[windowKey];
       if (mosaic.activeTab == null) mosaic.activeTab = tabKey;
-      state.layouts[tabKey].windowKey = windowKey;
+      state.layouts[layout.key].windowKey = windowKey;
 
       const mosaicTab = {
         closable: true,
@@ -353,11 +367,13 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { tabKey } }: PayloadAction<SelectMosaicTabPayload>,
     ) => {
-      const { windowKey } = state.layouts[tabKey];
+      const layout = select(state, tabKey);
+      if (layout == null) return;
+      const { windowKey } = layout;
       const mosaic = state.mosaics[windowKey];
       if (mosaic.activeTab === tabKey) return;
-      mosaic.root = Mosaic.selectTab(mosaic.root, tabKey);
-      mosaic.activeTab = tabKey;
+      mosaic.root = Mosaic.selectTab(mosaic.root, layout.key);
+      mosaic.activeTab = layout.key;
       state.mosaics[windowKey] = mosaic;
     },
     resizeMosaicTab: (
@@ -372,11 +388,11 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { key: tabKey, name } }: PayloadAction<RenamePayload>,
     ) => {
-      const layout = state.layouts[tabKey];
+      const layout = select(state, tabKey);
       if (layout == null) return;
       const mosaic = state.mosaics[layout.windowKey];
       layout.name = name;
-      mosaic.root = Mosaic.renameTab(mosaic.root, tabKey, name);
+      mosaic.root = Mosaic.renameTab(mosaic.root, layout.key, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
     setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
@@ -497,7 +513,7 @@ export const { actions, reducer } = createSlice({
       };
     },
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
-      const layout = state.layouts[key];
+      const layout = select(state, key);
       if (layout == null) return;
       layout.args = args;
     },

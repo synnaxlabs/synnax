@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { QueryError, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
+import { QueryError } from "@synnaxlabs/client";
 import {
   Button,
   Channel,
@@ -96,9 +95,10 @@ const Internal = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = Observe.useState<task.State<AnalogReadStateDetails>>({
+  const taskState = Observe.useState({
     key: [task?.key],
     open: async () => await task?.openStateObserver<AnalogReadStateDetails>(),
+    initialValue: task?.state,
   });
 
   const configure = useMutation<void, Error, void>({

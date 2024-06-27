@@ -20,7 +20,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -34,7 +34,9 @@ const Content = (): ReactElement => {
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const v = (await client.hardware.tasks.list()).filter((t) => !t.internal);
+    const v = (await client.hardware.tasks.list({ includeState: true })).filter(
+      (t) => !t.internal,
+    );
     setTasks(v);
   }, [client]);
 
