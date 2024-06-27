@@ -9,7 +9,7 @@ on:
     branches:
       - rc
       - main
-      - 'leo/sy685-integration-testing'
+      - 'leo/sy-685-integration-testing'
   workflow_dispatch:
 permissions:
   contents: write
