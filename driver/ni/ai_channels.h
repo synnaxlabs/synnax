@@ -259,8 +259,7 @@ public:
 
     int32 get_units(const std::string &s, config::Parser &parser) {
         if (ni::UNITS_MAP.find(s) == ni::UNITS_MAP.end()) {
-            // parser.field_err("channels." + this->name, "Invalid units: " + s + ". Defaulting to Volts.");
-            // LOG(ERROR) << "Invalid units: " << s << ". Defaulting to Volts.";
+            LOG(ERROR) << "Invalid units: " << s << ". Defaulting to Volts.";
             return DAQmx_Val_Volts;
         }
 
@@ -277,8 +276,6 @@ public:
           name(name),
           type(parser.required<std::string>("type")),
           scale_config(getScaleConfig(parser)) {
-        LOG(INFO) << "Analog created with name: " << name;
-        // check name of channel
         if (this->scale_name != "") this->units = DAQmx_Val_FromCustomScale;
     }
 
@@ -300,8 +297,6 @@ public:
 /// @brief voltage channel.
 class Voltage : public Analog {
 public:
-    int32_t terminal_config = 0;
-
     explicit Voltage(config::Parser &parser, TaskHandle task_handle,
                      const std::string &name)
         : Analog(parser, task_handle, name),
@@ -325,6 +320,8 @@ public:
             this->scale_name.c_str()
         );
     }
+
+    int32_t terminal_config = 0;
 };
 
 /// @brief RMS voltage Channel
@@ -390,10 +387,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class Current : public Analog {
 public:
-    int32_t shunt_resistor_loc;
-    double ext_shunt_resistor_val;
-    int32 terminal_config = 0;
-
     static int32_t getShuntResistorLocation(const std::string &loc) {
         if (loc == "External") return DAQmx_Val_External;
         if (loc == "Internal") return DAQmx_Val_Internal;
@@ -425,6 +418,11 @@ public:
             this->scale_name.c_str()
         );
     }
+
+    int32_t shunt_resistor_loc;
+    double ext_shunt_resistor_val;
+    int32 terminal_config = 0;
+
 };
 
 class CurrentRMS final : public Current {
@@ -455,11 +453,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class RTD final : public Analog {
 public:
-    int32_t rtdType;
-    int32_t resistance_config;
-    CurrentExcitationConfig excitation_config;
-    double r0;
-
     static int32_t getRTDType(std::string type) {
         if (type == "Pt3750") return DAQmx_Val_Pt3750;
         if (type == "PT3851") return DAQmx_Val_Pt3851;
@@ -496,6 +489,12 @@ public:
             this->r0
         );
     }
+private:
+    int32_t rtdType;
+    int32_t resistance_config;
+    CurrentExcitationConfig excitation_config;
+    double r0;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -503,11 +502,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class Thermocouple final : public Analog {
 public:
-    int32_t thermocoupleType;
-    int32_t cjcSource;
-    double cjcVal;
-    std::string cjcChannel;
-
     int32_t getType(const std::string &type, config::Parser &parser) {
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
@@ -558,6 +552,12 @@ public:
             ""
         );
     }
+private:
+    int32_t thermocoupleType;
+    int32_t cjcSource;
+    double cjcVal;
+    std::string cjcChannel;
+
 };
 
 class TemperatureBuiltInSensor final : public Analog {
@@ -581,13 +581,7 @@ public:
 };
 
 class ThermistorIEX final : public Analog {
-public:
-    int32_t resistance_config;
-    CurrentExcitationConfig excitation_config;
-    double a;
-    double b;
-    double c;
-
+public: 
     explicit ThermistorIEX(config::Parser &parser, TaskHandle task_handle,
                            const std::string &name)
         : Analog(parser, task_handle, name),
@@ -615,17 +609,16 @@ public:
             this->c
         );
     }
+private:
+    int32_t resistance_config;
+    CurrentExcitationConfig excitation_config;
+    double a;
+    double b;
+    double c;
 };
 
 class ThermistorVex final : public Analog {
 public:
-    int32_t resistance_config;
-    VoltageExcitationConfig excitation_config;
-    double a;
-    double b;
-    double c;
-    double r1;
-
     explicit ThermistorVex(config::Parser &parser, TaskHandle task_handle,
                            const std::string &name)
         : Analog(parser, task_handle, name),
@@ -655,6 +648,14 @@ public:
             this->r1
         );
     }
+    
+private:
+    int32_t resistance_config;
+    VoltageExcitationConfig excitation_config;
+    double a;
+    double b;
+    double c;
+    double r1;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -662,12 +663,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 /// @brief acceleration channel
 class Acceleration : public Analog {
-public:
-    double sensitivity;
-    int32_t sensitivity_units;
-    CurrentExcitationConfig excitation_config;
-    int32 terminal_config = 0;
-
+public: 
     explicit Acceleration(config::Parser &parser, TaskHandle task_handle,
                           const std::string &name)
         : Analog(parser, task_handle, name),
@@ -696,6 +692,11 @@ public:
             this->scale_name.c_str()
         );
     }
+
+    double sensitivity;
+    int32_t sensitivity_units;
+    CurrentExcitationConfig excitation_config;
+    int32 terminal_config = 0;
 };
 
 /// @brief acceleration channel with 4 wire DC voltage
@@ -728,10 +729,6 @@ public:
 /// @brief acceleration channel with charge
 class AccelerationCharge final : public Analog {
 public:
-    double sensitivity;
-    int32_t sensitivity_units;
-    int32 terminal_config = 0;
-
     explicit AccelerationCharge(config::Parser &parser, TaskHandle task_handle,
                                 const std::string &name)
         : Analog(parser, task_handle, name),
@@ -754,16 +751,17 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    double sensitivity;
+    int32_t sensitivity_units;
+    int32 terminal_config = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Resistance                               //
 ///////////////////////////////////////////////////////////////////////////////////
 class Resistance final : public Analog {
-public:
-    int32_t resistance_config;
-    CurrentExcitationConfig excitation_config;
-
+public: 
     explicit Resistance(config::Parser &parser, TaskHandle task_handle,
                         const std::string &name)
         : Analog(parser, task_handle, name),
@@ -786,6 +784,9 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    int32_t resistance_config;
+    CurrentExcitationConfig excitation_config;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -793,8 +794,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class Bridge final : public Analog {
 public:
-    BridgeConfig bridge_config;
-
     explicit Bridge(config::Parser &parser, TaskHandle task_handle,
                     const std::string &name)
         : Analog(parser, task_handle, name),
@@ -816,6 +815,8 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -823,14 +824,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class StrainGage final : public Analog {
 public:
-    int32_t strain_config;
-    VoltageExcitationConfig excitation_config;
-    double gage_factor;
-    double initialBridgeVoltage;
-    double nominal_gage_resistance;
-    double poisson_ratio;
-    double lead_wire_resistance;
-
     static inline int32_t get_strain_config(std::string s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
         if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
@@ -874,23 +867,21 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    int32_t strain_config;
+    VoltageExcitationConfig excitation_config;
+    double gage_factor;
+    double initialBridgeVoltage;
+    double nominal_gage_resistance;
+    double poisson_ratio;
+    double lead_wire_resistance;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Rosette Strain Gage                      //
 ///////////////////////////////////////////////////////////////////////////////////
 class RosetteStrainGage final : public Analog {
-public:
-    int32_t rosette_type;
-    double gage_orientation;
-    int32 rosette_meas_type;
-    int32 strain_config;
-    VoltageExcitationConfig excitation_config;
-    double gage_factor;
-    double nominal_gage_resistance;
-    double poisson_ratio;
-    double lead_wire_resistance;
-
+public: 
     static inline int32_t get_strain_config(std::string s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
         if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
@@ -957,6 +948,16 @@ public:
             this->lead_wire_resistance
         );
     }
+private:
+    int32_t rosette_type;
+    double gage_orientation;
+    int32 rosette_meas_type;
+    int32 strain_config;
+    VoltageExcitationConfig excitation_config;
+    double gage_factor;
+    double nominal_gage_resistance;
+    double poisson_ratio;
+    double lead_wire_resistance;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -964,11 +965,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class Microphone final : public Analog {
 public:
-    double mic_sensitivity;
-    double max_snd_press_level;
-    CurrentExcitationConfig excitation_config;
-    int32 terminal_config = 0;
-
     explicit Microphone(config::Parser &parser, TaskHandle task_handle,
                         const std::string &name)
         : Analog(parser, task_handle, name),
@@ -993,6 +989,11 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    double mic_sensitivity;
+    double max_snd_press_level;
+    CurrentExcitationConfig excitation_config;
+    int32 terminal_config = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1000,9 +1001,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class FrequencyVoltage final : public Analog {
 public:
-    double threshold_level;
-    double hysteresis;
-
     explicit FrequencyVoltage(config::Parser &parser, TaskHandle task_handle,
                               const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1027,6 +1025,9 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    double threshold_level;
+    double hysteresis;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1034,9 +1035,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class PressureBridgeTwoPointLin final : public Analog {
 public:
-    BridgeConfig bridge_config;
-    TwoPointLinConfig two_point_lin_config;
-
     explicit PressureBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle,
                                        const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1065,13 +1063,13 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    TwoPointLinConfig two_point_lin_config;
 };
 
 class PressureBridgeTable final : public Analog {
 public:
-    BridgeConfig bridge_config;
-    TableConfig table_config;
-
     explicit PressureBridgeTable(config::Parser &parser, TaskHandle task_handle,
                                  const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1100,13 +1098,13 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    TableConfig table_config;
 };
 
 class PressureBridgePolynomial final : public Analog {
 public:
-    BridgeConfig bridge_config;
-    PolynomialConfig polynomial_config;
-
     explicit PressureBridgePolynomial(config::Parser &parser, TaskHandle task_handle,
                                       const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1135,6 +1133,10 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    PolynomialConfig polynomial_config;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1142,9 +1144,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class ForceBridgePolynomial final : public Analog {
 public:
-    BridgeConfig bridge_config;
-    PolynomialConfig polynomial_config;
-
+    
     explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle,
                                    const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1173,13 +1173,14 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    PolynomialConfig polynomial_config;
+
 };
 
 class ForceBridgeTable final : public Analog {
 public:
-    BridgeConfig bridge_config;
-    TableConfig table_config;
-
     explicit ForceBridgeTable(config::Parser &parser, TaskHandle task_handle,
                               const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1208,13 +1209,16 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    TableConfig table_config;
+
+
 };
 
 class ForceBridgeTwoPointLin final : public Analog {
 public:
-    BridgeConfig bridge_config;
-    TwoPointLinConfig two_point_lin_config;
-
+    
     explicit ForceBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle,
                                     const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1243,18 +1247,17 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    TwoPointLinConfig two_point_lin_config;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Velocity                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 class VelocityIEPE final : public Analog {
-public:
-    int32_t sensitivity_units;
-    double sensitivity;
-    CurrentExcitationConfig excitation_config;
-    int32_t terminal_config = 0;
-
+public: 
     explicit VelocityIEPE(config::Parser &parser, TaskHandle task_handle,
                           const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1282,6 +1285,12 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    int32_t sensitivity_units;
+    double sensitivity;
+    CurrentExcitationConfig excitation_config;
+    int32_t terminal_config = 0;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1289,9 +1298,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class TorqueBridgeTwoPointLin final : public Analog {
 public:
-    BridgeConfig bridge_config;
-    TwoPointLinConfig two_point_lin_config;
-
     explicit TorqueBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle,
                                      const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1320,13 +1326,13 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    TwoPointLinConfig two_point_lin_config;
 };
 
 class TorqueBridgePolynomial final : public Analog {
-public:
-    BridgeConfig bridge_config;
-    PolynomialConfig polynomial_config;
-
+public: 
     explicit TorqueBridgePolynomial(config::Parser &parser, TaskHandle task_handle,
                                     const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1355,13 +1361,15 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    PolynomialConfig polynomial_config;
+
 };
 
 class TorqueBridgeTable final : public Analog {
 public:
-    BridgeConfig bridge_config;
-    TableConfig table_config;
-
+    
     explicit TorqueBridgeTable(config::Parser &parser, TaskHandle task_handle,
                                const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1390,15 +1398,14 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    BridgeConfig bridge_config;
+    TableConfig table_config;
+
 };
 
 class ForceIEPE final : public Analog {
-public:
-    int32_t sensitivity_units;
-    double sensitivity;
-    CurrentExcitationConfig excitation_config;
-    int32 terminal_config = 0;
-
+public: 
     explicit ForceIEPE(config::Parser &parser, TaskHandle task_handle,
                        const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1426,6 +1433,11 @@ public:
             this->scale_name.c_str()
         );
     }
+private:
+    int32_t sensitivity_units;
+    double sensitivity;
+    CurrentExcitationConfig excitation_config;
+    int32 terminal_config = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1433,8 +1445,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class Charge final : public Analog {
 public:
-    int32 terminal_config = 0;
-
     explicit Charge(config::Parser &parser, TaskHandle task_handle,
                     const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1455,5 +1465,8 @@ public:
             this->scale_name.c_str()
         );
     }
+
+private:
+    int32 terminal_config = 0;
 };
 } // namespace ni
