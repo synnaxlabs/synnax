@@ -36,11 +36,6 @@ jobs:
 
       - name: Build things
         run: pnpm build:client
-
-      - name: Set up Python
-        uses: kishaningithub/setup-python-amazon-linux@v1
-        with:
-          python-version: "3.11"
       
       - name: Install Poetry
         run: |
