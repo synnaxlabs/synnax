@@ -51,12 +51,9 @@
             .console-channel-form {
                 overflow: hidden;
                 .console-details {
-                    overflow: hidden;
-                    .console-channel-form-content {
-                        height: 100%;
-                        overflow: auto;
-                        padding: 3rem 5rem;
-                    }
+                    height: 100%;
+                    overflow: auto;
+                    padding: 3rem 5rem;
                 }
             }
         }
@@ -74,6 +71,12 @@
     .pluto-input--natural input {
         font-size: var(--pluto-h2-size);
         line-height: var(--pluto-h2-line-height);
+    }
+    .console-task-controls {
+        flex-direction: column !important;
+        .console-task-state {
+            min-height: 10rem;
+        }
     }
     .console-content {
         padding: 3rem 2rem !important;

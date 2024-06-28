@@ -35,7 +35,7 @@ import {
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
-} from "@/hardware/ni/task/common";
+} from "@/hardware/task/common/common";
 import {
   AnalogReadStateDetails,
   Chan,

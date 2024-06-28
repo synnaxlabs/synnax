@@ -1,8 +1,10 @@
-import "@/hardware/ni/task/common.css";
+import "@/hardware/task/common/common.css";
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Header, Status, Text, Triggers } from "@synnaxlabs/pluto";
+
+import { CSS } from "@/css";
 
 export interface ControlsProps {
   onStartStop: () => void;
@@ -36,8 +38,9 @@ export const Controls = ({
   onConfigure,
   configuring,
 }: ControlsProps) => (
-  <Align.Space direction="x" justify="spaceBetween">
+  <Align.Space direction="x" className={CSS.B("task-controls")} justify="spaceBetween">
     <Align.Space
+      className={CSS.B("task-state")}
       direction="x"
       style={{
         borderRadius: "1rem",
@@ -59,6 +62,7 @@ export const Controls = ({
         border: "var(--pluto-border)",
         padding: "2rem",
       }}
+      justify="end"
     >
       <Align.Space direction="y">
         <Button.Icon

@@ -80,7 +80,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const prev = usePrevious(data);
 
-  // // Whenever the data changes, scroll to the top of the list
+  // Whenever the data changes, scroll to the top of the list
   useLayoutEffect(() => {
     if (prev == null || prev.length === 0) return;
     if (data.length > 0 && data[0].key !== prev[0].key) {
@@ -88,6 +88,14 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       setHover(0);
     }
   }, [data]);
+
+  useEffect(() => {
+    if (parentRef.current == null) return;
+    const rng = virtualizer.calculateRange();
+    const b = bounds.construct(rng.startIndex + 2, rng.endIndex - 2);
+    if (bounds.contains(b, hoverValue)) return;
+    virtualizer.scrollToIndex(hoverValue);
+  }, [hoverValue, itemHeight]);
 
   const items = virtualizer.getVirtualItems();
   const lastItemIndex = items.at(-1)?.index;
