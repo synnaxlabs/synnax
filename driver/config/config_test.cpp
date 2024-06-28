@@ -305,3 +305,57 @@ TEST(testConfig, testInterpretStringAsNumber) {
     // assert that the value is close to the expected value.
     ASSERT_NEAR(v.dog, 1.232, 0.0001);
 }
+
+TEST(testConfig, testArray){
+    json j = {
+        {"array", {1, 2, 3, 4, 5}}
+    };
+    config::Parser parser(j);
+    auto values = parser.required_array<int>("array");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(values.size(), 5);
+    ASSERT_EQ(values[0], 1);
+    ASSERT_EQ(values[1], 2);
+    ASSERT_EQ(values[2], 3);
+    ASSERT_EQ(values[3], 4);
+    ASSERT_EQ(values[4], 5);
+}
+
+TEST(testConfig, testArrayDoesNotExist){
+    json j = {};
+    config::Parser parser(j);
+    auto values = parser.required_array<int>("array");
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "array");
+    EXPECT_EQ(err["message"], "This field is required");
+}
+
+TEST(testConfig, testArrayIsNotArray){
+    json j = {
+        {"array", 1}
+    };
+    config::Parser parser(j);
+    auto values = parser.required_array<int>("array");
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "array");
+    EXPECT_EQ(err["message"], "Expected an array");
+}
+
+TEST(testConfig, testOptionalArray){
+    json j = {
+        {"array", {1, 2, 3, 4, 5}}
+    };
+    config::Parser parser(j);
+    auto values = parser.optional_array<int>("array", {6, 7, 8});
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(values.size(), 5);
+    ASSERT_EQ(values[0], 1);
+    ASSERT_EQ(values[1], 2);
+    ASSERT_EQ(values[2], 3);
+    ASSERT_EQ(values[3], 4);
+    ASSERT_EQ(values[4], 5);
+}

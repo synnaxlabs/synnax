@@ -70,6 +70,51 @@ public:
         }
         return get<T>(path, iter);
     }
+    
+    /// @brief gets the array field at the given path and returns a vector. If the field is not found,
+    /// accumulates an error in the builder.
+    /// @param path The JSON path to the array.
+    template<typename T>
+    std::vector<T>  required_array(const std::string &path) {
+        if (noop) return std::vector<T>();
+        const auto iter = config.find(path);
+        if (iter == config.end()) {
+            field_err(path, "This field is required");
+            return std::vector<T>();
+        }
+        if (!iter->is_array()) {
+            field_err(path, "Expected an array");
+            return std::vector<T>();
+        }
+        std::vector<T> values;
+        for (size_t i = 0; i < iter->size(); ++i) {
+            const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
+            values.push_back(get<T>(child_path, iter->begin() + i));
+        }
+        return values;
+    }
+    
+    /// @brief attempts to pull the value at the provided path. If that path is not found,
+    /// returns the default. Note that this function will still accumulate an error if the
+    /// path is found but the value is not of the expected type.
+    /// @param path The JSON path to the value.
+    /// @param default_value The default value to return if the path is not found.
+    template<typename T>
+    std::vector<T> optional_array(const std::string &path, std::vector<T> default_value) {
+        if (noop) return default_value;
+        const auto iter = config.find(path);
+        if (iter == config.end()) return default_value;
+        if (!iter->is_array()) {
+            field_err(path, "Expected an array");
+            return default_value;
+        }
+        std::vector<T> values;
+        for (size_t i = 0; i < iter->size(); ++i) {
+            const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
+            values.push_back(get<T>(child_path, iter->begin() + i));
+        }
+        return values;
+    }
 
     /// @brief attempts to pull the value at the provided path. If that path is not found,
     /// returns the default. Note that this function will still accumulate an error if the
