@@ -39,8 +39,9 @@ jobs:
 
       - name: Poetry install
         run: |
-            poetry env info
-            poetry env list
+            poetry env remove --all
+            poetry cache clear --all .
+            rm -rf $(poetry config cache-dir)/artifacts
             poetry env use /usr/bin/python3.11
             poetry install
         working-directory: ./integration/py
