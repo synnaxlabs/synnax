@@ -39,6 +39,7 @@ jobs:
 
       - name: Poetry install
         run: |
+            source ~/.bashrc
             which python
             which python3
             poetry env info
