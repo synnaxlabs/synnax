@@ -18,8 +18,7 @@
 #include "dll_check_linux.h"
 #endif
 
-ni::Factory::Factory(){
-
+ni::Factory::Factory() {
     std::vector<std::string> dlls = {
         "nicaiu.dll",
         "nipalu.dll",
@@ -42,10 +41,10 @@ ni::Factory::Factory(){
     this->dlls_present = true;
     for (const auto &dll: dlls) {
         if (!does_dll_exist(dll.c_str())) {
-            this->dlls_present = false; 
+            this->dlls_present = false;
         }
     }
-    if(this->dlls_present) LOG(INFO) << "[ni] All required DLLs found.";
+    if (this->dlls_present) LOG(INFO) << "[ni] All required DLLs found.";
 }
 
 
@@ -53,12 +52,12 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if(!this->dlls_present){
+    if (!this->dlls_present) {
         log_dll_error(ctx, task);
         return {nullptr, false};
     }
 
-    if (task.type == "ni_scanner") 
+    if (task.type == "ni_scanner")
         return {ni::ScannerTask::configure(ctx, task), true};
     if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
         return {ni::ReaderTask::configure(ctx, task), true};
@@ -76,8 +75,9 @@ ni::Factory::configureInitialTasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    if(!this->dlls_present){
-        LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." << std::endl;
+    if (!this->dlls_present) {
+        LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." <<
+                std::endl;
         return {};
     }
     // generate task list

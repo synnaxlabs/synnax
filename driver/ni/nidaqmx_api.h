@@ -142,8 +142,8 @@ public:
         float64 maxVal,
         int32 units,
         float64 sensitivity,
-        int32 sensitivityUnits, 
-        int32 currentExcitSource, 
+        int32 sensitivityUnits,
+        int32 currentExcitSource,
         float64 currentExcitVal,
         const char customScaleName[]
     );
@@ -154,10 +154,10 @@ public:
         const char nameToAssignToChannel[],
         int32 terminalConfig,
         float64 minVal,
-        float64 maxVal, 
+        float64 maxVal,
         int32 units,
-        float64 sensitivity, 
-        int32 sensitivityUnits, 
+        float64 sensitivity,
+        int32 sensitivityUnits,
         const char customScaleName[]
     );
 
@@ -166,12 +166,12 @@ public:
         const char physicalChannel[],
         const char nameToAssignToChannel[],
         float64 minVal,
-        float64 maxVal, 
+        float64 maxVal,
         int32 units,
         int32 bridgeConfig,
-        int32 voltageExcitSource, 
+        int32 voltageExcitSource,
         float64 voltageExcitVal,
-        float64 nominalBridgeResistance, 
+        float64 nominalBridgeResistance,
         const char customScaleName[]
     );
 
@@ -430,8 +430,8 @@ public:
         int32 units,
         int32 rtdType,
         int32 resistanceConfig,
-        int32 currentExcitSource, 
-        float64 currentExcitVal, 
+        int32 currentExcitSource,
+        float64 currentExcitVal,
         float64 r0);
 
     static int32 CreateAIResistanceChan(

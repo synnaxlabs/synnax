@@ -9,12 +9,10 @@
 
 #pragma once
 
-/// std
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 
-/// external
 #include "glog/logging.h"
 #include "client/cpp/synnax.h"
 #include "freighter/cpp/freighter.h"

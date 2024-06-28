@@ -154,19 +154,19 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     // start and stop to catch any immediate errors
     ni_source->start();
     ni_source->stop();
-    
-    auto p = std::make_unique<ni::ReaderTask>(  ctx,
-                                                task,
-                                                source,
-                                                ni_source,
-                                                writer_config,
-                                                breaker_config);
-    
-    if(!ni_source->ok()) {
+
+    auto p = std::make_unique<ni::ReaderTask>(ctx,
+                                              task,
+                                              source,
+                                              ni_source,
+                                              writer_config,
+                                              breaker_config);
+
+    if (!ni_source->ok()) {
         LOG(ERROR) << "[NI Task] failed to configure task " << task.name;
         return p;
     }
-    
+
     // sleep for 10ms: this is here to temporarily fix a race condition in the console after hitting configure
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -181,7 +181,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     LOG(INFO) << "[NI Task] successfully configured task " << task.name;
 
     return p;
-}   
+}
 
 void ni::ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
@@ -235,8 +235,11 @@ ni::WriterTask::WriterTask(const std::shared_ptr<task::Context> &ctx,
                            const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
-    cmd_write_pipe(pipeline::Control(ctx->client, streamer_config, std::move(sink), breaker_config)),
-    state_write_pipe(pipeline::Acquisition(ctx->client, writer_config, state_source, breaker_config)),
+    cmd_write_pipe(pipeline::Control(ctx->client, streamer_config, std::move(sink),
+                                     breaker_config)),
+    state_write_pipe(
+        pipeline::Acquisition(ctx->client, writer_config, state_source,
+                              breaker_config)),
     sink(ni_sink) {
 }
 
@@ -275,24 +278,23 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         .start = synnax::TimeStamp::now(),
     };
 
-    
 
     auto state_writer = daq_writer->writer_state_source;
 
-    auto p = std::make_unique<ni::WriterTask>(  ctx,
-                                                task,
-                                                daq_writer,
-                                                daq_writer,
-                                                state_writer,
-                                                writer_config,
-                                                streamer_config,
-                                                breaker_config);
-    
+    auto p = std::make_unique<ni::WriterTask>(ctx,
+                                              task,
+                                              daq_writer,
+                                              daq_writer,
+                                              state_writer,
+                                              writer_config,
+                                              streamer_config,
+                                              breaker_config);
+
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[ni.writer] failed to construct writer for " << task.name;
         return p;
     }
-    
+
     // sleep for 10ms: this is here to temporarily fix a race condition in the console after hitting configure
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -303,13 +305,13 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
             {"running", false}
         }
     });
-    
+
     LOG(INFO) << "[ni.writer] successfully configured task " << task.name;
     return p;
 }
 
 void ni::WriterTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") this->start(); 
+    if (cmd.type == "start") this->start();
     else if (cmd.type == "stop") this->stop();
     else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
@@ -326,8 +328,9 @@ void ni::WriterTask::start() {
 
 void ni::WriterTask::stop() {
     if (!this->running.exchange(false)) {
-        LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " << this->running << " ok: " << this->ok();
-        return; 
+        LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " <<
+                this->running << " ok: " << this->ok();
+        return;
     }
     this->state_write_pipe.stop();
     this->cmd_write_pipe.stop();

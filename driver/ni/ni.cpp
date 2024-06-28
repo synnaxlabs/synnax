@@ -46,7 +46,10 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_AI_RosetteStrainGage_RosetteType", "rosettestraingage_rosette_type"},
     {"DAQmx_AI_RosetteStrainGage_Orientation", "rosettestraingage_orientation"},
     {"DAQmx_AI_RosetteStrainGage_StrainChans", "rosettestraingage_strain_chans"},
-    {"DAQmx_AI_RosetteStrainGage_RosetteMeasType", "rosettestraingage_rosette_meas_type"},
+    {
+        "DAQmx_AI_RosetteStrainGage_RosetteMeasType",
+        "rosettestraingage_rosette_meas_type"
+    },
     {"DAQmx_AI_Resistance_Units", "resistance_units"},
     {"DAQmx_AI_Freq_Units", "freq_units"},
     {"DAQmx_AI_Freq_ThreshVoltage", "freq_thresh_voltage"},
@@ -58,16 +61,28 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_AI_RVDT_Sensitivity", "rvdt_sensitivity"},
     {"DAQmx_AI_RVDT_SensitivityUnits", "rvdt_sensitivity_units"},
     {"DAQmx_AI_EddyCurrentProxProbe_Units", "eddy_current_prox_probe_units"},
-    {"DAQmx_AI_EddyCurrentProxProbe_Sensitivity", "eddy_current_prox_probe_sensitivity"},
-    {"DAQmx_AI_EddyCurrentProxProbe_SensitivityUnits", "eddy_current_prox_probe_sensitivity_units"},
-    {"DAQmx_AI_SoundPressure_MaxSoundPressureLvl", "sound_pressure_max_sound_pressure_lvl"},
+    {
+        "DAQmx_AI_EddyCurrentProxProbe_Sensitivity",
+        "eddy_current_prox_probe_sensitivity"
+    },
+    {
+        "DAQmx_AI_EddyCurrentProxProbe_SensitivityUnits",
+        "eddy_current_prox_probe_sensitivity_units"
+    },
+    {
+        "DAQmx_AI_SoundPressure_MaxSoundPressureLvl",
+        "sound_pressure_max_sound_pressure_lvl"
+    },
     {"DAQmx_AI_SoundPressure_Units", "sound_pressure_units"},
     {"DAQmx_AI_SoundPressure_dBRef", "sound_pressure_db_ref"},
     {"DAQmx_AI_Microphone_Sensitivity", "microphone_sensitivity"},
     {"DAQmx_AI_Accel_Units", "accel_units"},
     {"DAQmx_AI_Accel_dBRef", "accel_db_ref"},
     {"DAQmx_AI_Accel_4WireDCVoltage_Sensitivity", "accel_4wire_dc_voltage_sensitivity"},
-    {"DAQmx_AI_Accel_4WireDCVoltage_SensitivityUnits", "accel_4wire_dc_voltage_sensitivity_units"},
+    {
+        "DAQmx_AI_Accel_4WireDCVoltage_SensitivityUnits",
+        "accel_4wire_dc_voltage_sensitivity_units"
+    },
     {"DAQmx_AI_Accel_Sensitivity", "accel_sensitivity"},
     {"DAQmx_AI_Accel_SensitivityUnits", "accel_sensitivity_units"},
     {"DAQmx_AI_Accel_Charge_Sensitivity", "accel_charge_sensitivity"},
@@ -75,20 +90,38 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_AI_Velocity_Units", "velocity_units"},
     {"DAQmx_AI_Velocity_IEPESensor_dBRef", "velocity_iepe_sensor_db_ref"},
     {"DAQmx_AI_Velocity_IEPESensor_Sensitivity", "velocity_iepe_sensor_sensitivity"},
-    {"DAQmx_AI_Velocity_IEPESensor_SensitivityUnits", "velocity_iepe_sensor_sensitivity_units"},
+    {
+        "DAQmx_AI_Velocity_IEPESensor_SensitivityUnits",
+        "velocity_iepe_sensor_sensitivity_units"
+    },
     {"DAQmx_AI_Force_Units", "force_units"},
     {"DAQmx_AI_Force_IEPESensor_Sensitivity", "force_iepe_sensor_sensitivity"},
-    {"DAQmx_AI_Force_IEPESensor_SensitivityUnits", "force_iepe_sensor_sensitivity_units"},
+    {
+        "DAQmx_AI_Force_IEPESensor_SensitivityUnits",
+        "force_iepe_sensor_sensitivity_units"
+    },
     {"DAQmx_AI_Pressure_Units", "pressure_units"},
     {"DAQmx_AI_Torque_Units", "torque_units"},
     {"DAQmx_AI_Bridge_Units", "bridge_units"},
     {"DAQmx_AI_Bridge_ElectricalUnits", "bridge_electrical_units"},
     {"DAQmx_AI_Bridge_PhysicalUnits", "bridge_physical_units"},
     {"DAQmx_AI_Bridge_ScaleType", "bridge_scale_type"},
-    {"DAQmx_AI_Bridge_TwoPointLin_First_ElectricalVal", "bridge_two_point_lin_first_electrical_val"},
-    {"DAQmx_AI_Bridge_TwoPointLin_First_PhysicalVal", "bridge_two_point_lin_first_physical_val"},
-    {"DAQmx_AI_Bridge_TwoPointLin_Second_ElectricalVal", "bridge_two_point_lin_second_electrical_val"},
-    {"DAQmx_AI_Bridge_TwoPointLin_Second_PhysicalVal", "bridge_two_point_lin_second_physical_val"},
+    {
+        "DAQmx_AI_Bridge_TwoPointLin_First_ElectricalVal",
+        "bridge_two_point_lin_first_electrical_val"
+    },
+    {
+        "DAQmx_AI_Bridge_TwoPointLin_First_PhysicalVal",
+        "bridge_two_point_lin_first_physical_val"
+    },
+    {
+        "DAQmx_AI_Bridge_TwoPointLin_Second_ElectricalVal",
+        "bridge_two_point_lin_second_electrical_val"
+    },
+    {
+        "DAQmx_AI_Bridge_TwoPointLin_Second_PhysicalVal",
+        "bridge_two_point_lin_second_physical_val"
+    },
     {"DAQmx_AI_Bridge_Table_ElectricalVals", "bridge_table_electrical_vals"},
     {"DAQmx_AI_Bridge_Table_PhysicalVals", "bridge_table_physical_vals"},
     {"DAQmx_AI_Bridge_Poly_ForwardCoeff", "bridge_poly_forward_coeff"},
@@ -110,10 +143,22 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_AI_Bridge_ShuntCal_Select", "bridge_shunt_cal_select"},
     {"DAQmx_AI_Bridge_ShuntCal_ShuntCalASrc", "bridge_shunt_cal_shunt_cal_a_src"},
     {"DAQmx_AI_Bridge_ShuntCal_GainAdjust", "bridge_shunt_cal_gain_adjust"},
-    {"DAQmx_AI_Bridge_ShuntCal_ShuntCalAResistance", "bridge_shunt_cal_shunt_cal_a_resistance"},
-    {"DAQmx_AI_Bridge_ShuntCal_ShuntCalAActualResistance", "bridge_shunt_cal_shunt_cal_a_actual_resistance"},
-    {"DAQmx_AI_Bridge_ShuntCal_ShuntCalBResistance", "bridge_shunt_cal_shunt_cal_b_resistance"},
-    {"DAQmx_AI_Bridge_ShuntCal_ShuntCalBActualResistance", "bridge_shunt_cal_shunt_cal_b_actual_resistance"},
+    {
+        "DAQmx_AI_Bridge_ShuntCal_ShuntCalAResistance",
+        "bridge_shunt_cal_shunt_cal_a_resistance"
+    },
+    {
+        "DAQmx_AI_Bridge_ShuntCal_ShuntCalAActualResistance",
+        "bridge_shunt_cal_shunt_cal_a_actual_resistance"
+    },
+    {
+        "DAQmx_AI_Bridge_ShuntCal_ShuntCalBResistance",
+        "bridge_shunt_cal_shunt_cal_b_resistance"
+    },
+    {
+        "DAQmx_AI_Bridge_ShuntCal_ShuntCalBActualResistance",
+        "bridge_shunt_cal_shunt_cal_b_actual_resistance"
+    },
     {"DAQmx_AI_Bridge_Balance_CoarsePot", "bridge_balance_coarse_pot"},
     {"DAQmx_AI_Bridge_Balance_FinePot", "bridge_balance_fine_pot"},
     {"DAQmx_AI_CurrentShunt_Loc", "current_shunt_loc"},
@@ -198,12 +243,21 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_AI_UsbXferReqCount", "usb_xfer_req_count"},
     {"DAQmx_AI_MemMapEnable", "mem_map_enable"},
     {"DAQmx_AI_RawDataCompressionType", "raw_data_compression_type"},
-    {"DAQmx_AI_LossyLSBRemoval_CompressedSampSize", "lossy_lsb_removal_compressed_samp_size"},
+    {
+        "DAQmx_AI_LossyLSBRemoval_CompressedSampSize",
+        "lossy_lsb_removal_compressed_samp_size"
+    },
     {"DAQmx_AI_DevScalingCoeff", "dev_scaling_coeff"},
     {"DAQmx_AI_EnhancedAliasRejectionEnable", "enhanced_alias_rejection_enable"},
     {"DAQmx_AI_OpenChanDetectEnable", "open_chan_detect_enable"},
-    {"DAQmx_AI_InputLimitsFaultDetect_UpperLimit", "input_limits_fault_detect_upper_limit"},
-    {"DAQmx_AI_InputLimitsFaultDetect_LowerLimit", "input_limits_fault_detect_lower_limit"},
+    {
+        "DAQmx_AI_InputLimitsFaultDetect_UpperLimit",
+        "input_limits_fault_detect_upper_limit"
+    },
+    {
+        "DAQmx_AI_InputLimitsFaultDetect_LowerLimit",
+        "input_limits_fault_detect_lower_limit"
+    },
     {"DAQmx_AI_InputLimitsFaultDetectEnable", "input_limits_fault_detect_enable"},
     {"DAQmx_AI_PowerSupplyFaultDetectEnable", "power_supply_fault_detect_enable"},
     {"DAQmx_AI_OvercurrentDetectEnable", "overcurrent_detect_enable"},
@@ -321,23 +375,47 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_CI_CountEdges_TermCfg", "count_edges_term_cfg"},
     {"DAQmx_CI_CountEdges_LogicLvlBehavior", "count_edges_logic_lvl_behavior"},
     {"DAQmx_CI_CountEdges_DigFltr_Enable", "count_edges_dig_fltr_enable"},
-    {"DAQmx_CI_CountEdges_DigFltr_MinPulseWidth", "count_edges_dig_fltr_min_pulse_width"},
+    {
+        "DAQmx_CI_CountEdges_DigFltr_MinPulseWidth",
+        "count_edges_dig_fltr_min_pulse_width"
+    },
     {"DAQmx_CI_CountEdges_DigFltr_TimebaseSrc", "count_edges_dig_fltr_timebase_src"},
     {"DAQmx_CI_CountEdges_DigFltr_TimebaseRate", "count_edges_dig_fltr_timebase_rate"},
     {"DAQmx_CI_CountEdges_DigSync_Enable", "count_edges_dig_sync_enable"},
     {"DAQmx_CI_CountEdges_Dir", "count_edges_dir"},
     {"DAQmx_CI_CountEdges_DirTerm", "count_edges_dir_term"},
     {"DAQmx_CI_CountEdges_CountDir_TermCfg", "count_edges_count_dir_term_cfg"},
-    {"DAQmx_CI_CountEdges_CountDir_LogicLvlBehavior", "count_edges_count_dir_logic_lvl_behavior"},
-    {"DAQmx_CI_CountEdges_CountDir_DigFltr_Enable", "count_edges_count_dir_dig_fltr_enable"},
-    {"DAQmx_CI_CountEdges_CountDir_DigFltr_MinPulseWidth", "count_edges_count_dir_dig_fltr_min_pulse_width"},
-    {"DAQmx_CI_CountEdges_CountDir_DigFltr_TimebaseSrc", "count_edges_count_dir_dig_fltr_timebase_src"},
-    {"DAQmx_CI_CountEdges_CountDir_DigFltr_TimebaseRate", "count_edges_count_dir_dig_fltr_timebase_rate"},
-    {"DAQmx_CI_CountEdges_CountDir_DigSync_Enable", "count_edges_count_dir_dig_sync_enable"},
+    {
+        "DAQmx_CI_CountEdges_CountDir_LogicLvlBehavior",
+        "count_edges_count_dir_logic_lvl_behavior"
+    },
+    {
+        "DAQmx_CI_CountEdges_CountDir_DigFltr_Enable",
+        "count_edges_count_dir_dig_fltr_enable"
+    },
+    {
+        "DAQmx_CI_CountEdges_CountDir_DigFltr_MinPulseWidth",
+        "count_edges_count_dir_dig_fltr_min_pulse_width"
+    },
+    {
+        "DAQmx_CI_CountEdges_CountDir_DigFltr_TimebaseSrc",
+        "count_edges_count_dir_dig_fltr_timebase_src"
+    },
+    {
+        "DAQmx_CI_CountEdges_CountDir_DigFltr_TimebaseRate",
+        "count_edges_count_dir_dig_fltr_timebase_rate"
+    },
+    {
+        "DAQmx_CI_CountEdges_CountDir_DigSync_Enable",
+        "count_edges_count_dir_dig_sync_enable"
+    },
     {"DAQmx_CI_CountEdges_InitialCnt", "count_edges_initial_cnt"},
     {"DAQmx_CI_CountEdges_ActiveEdge", "count_edges_active_edge"},
     {"DAQmx_CI_CountEdges_CountReset_Enable", "count_edges_count_reset_enable"},
-    {"DAQmx_CI_CountEdges_CountReset_ResetCount", "count_edges_count_reset_reset_count"},
+    {
+        "DAQmx_CI_CountEdges_CountReset_ResetCount",
+        "count_edges_count_reset_reset_count"
+    },
     {"DAQmx_CI_CountEdges_CountReset_Term", "count_edges_count_reset_term"},
     {"DAQmx_CI_SampClkOverrunSentinelVal", "samp_clk_overrun_sentinel_val"},
     {"DAQmx_CI_DataXferMech", "data_xfer_mech"},
@@ -367,9 +445,15 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_CO_CtrTimebaseRate", "ctr_timebase_rate"},
     {"DAQmx_CO_CtrTimebaseActiveEdge", "ctr_timebase_active_edge"},
     {"DAQmx_CO_CtrTimebase_DigFltr_Enable", "ctr_timebase_dig_fltr_enable"},
-    {"DAQmx_CO_CtrTimebase_DigFltr_MinPulseWidth", "ctr_timebase_dig_fltr_min_pulse_width"},
+    {
+        "DAQmx_CO_CtrTimebase_DigFltr_MinPulseWidth",
+        "ctr_timebase_dig_fltr_min_pulse_width"
+    },
     {"DAQmx_CO_CtrTimebase_DigFltr_TimebaseSrc", "ctr_timebase_dig_fltr_timebase_src"},
-    {"DAQmx_CO_CtrTimebase_DigFltr_TimebaseRate", "ctr_timebase_dig_fltr_timebase_rate"},
+    {
+        "DAQmx_CO_CtrTimebase_DigFltr_TimebaseRate",
+        "ctr_timebase_dig_fltr_timebase_rate"
+    },
     {"DAQmx_CO_CtrTimebase_DigSync_Enable", "ctr_timebase_dig_sync_enable"},
     {"DAQmx_CO_Count", "count"},
     {"DAQmx_CO_OutputState", "output_state"},
@@ -444,11 +528,15 @@ void ni::Source::parseConfig(config::Parser &parser) {
     this->reader_config.device_key = parser.required<std::string>("device");
     this->reader_config.timing_source = "none";
     // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
-    if (parser.optional<bool>("test", false)) this->reader_config.device_name = parser.required<std::string>("device_location");
+    if (parser.optional<bool>("test", false))
+        this->reader_config.device_name = parser.required<std::string>(
+            "device_location");
     else {
-        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
+        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+            this->reader_config.device_key);
         if (err != freighter::NIL) {
-            this->logError("failed to retrieve device " + this->reader_config.device_name);
+            this->logError(
+                "failed to retrieve device " + this->reader_config.device_name);
             return;
         }
         this->reader_config.device_name = dev.location;
@@ -527,7 +615,7 @@ freighter::Error ni::Source::start() {
             " requires reconfigure");
         this->clearTask();
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
-    } 
+    }
     this->sample_thread = std::thread(&ni::Source::acquireData, this);
     ctx->setState({
         .task = task.key,
@@ -564,7 +652,8 @@ freighter::Error ni::Source::stop() {
 
 void ni::Source::clearTask() {
     if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))) {
-        this->logError("failed while clearing reader for task " + this->reader_config.task_name);
+        this->logError(
+            "failed while clearing reader for task " + this->reader_config.task_name);
     }
 }
 
@@ -581,7 +670,7 @@ int ni::Source::checkNIError(int32 error) {
 
         std::string s(errBuff);
         jsonifyError(errBuff);
-        
+
         this->ctx->setState({
             .task = this->task.key,
             .variant = "error",
@@ -602,7 +691,8 @@ bool ni::Source::ok() {
 
 std::vector<synnax::ChannelKey> ni::Source::getChannelKeys() {
     std::vector<synnax::ChannelKey> keys;
-    for (auto &channel: this->reader_config.channels) keys.push_back(channel.channel_key);
+    for (auto &channel: this->reader_config.channels) keys.push_back(
+        channel.channel_key);
     return keys;
 }
 
@@ -628,7 +718,8 @@ void ni::Source::jsonifyError(std::string s) {
 
     // Define regex patterns
     std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
-    std::regex messageRegex(R"(^.*?(?=\nProperty:|\nStatus Code:|\nPossible Values:|\nMaximum Value:|\nMinimum Value:|\nChannel Name:|\nPhysical Channel Name:|\nDevice:|\nTask Name:|\n\n|\n$))");
+    std::regex messageRegex(
+        R"(^.*?(?=\nProperty:|\nStatus Code:|\nPossible Values:|\nMaximum Value:|\nMinimum Value:|\nChannel Name:|\nPhysical Channel Name:|\nDevice:|\nTask Name:|\n\n|\n$))");
     std::regex channelRegex(R"(Channel Name:\s*(\S+))");
     std::regex physicalChannelRegex(R"(Physical Channel Name:\s*(\S+))");
     std::regex deviceRegex(R"(Device:\s*(\S+))");
@@ -662,7 +753,7 @@ void ni::Source::jsonifyError(std::string s) {
     if (std::regex_search(s, physicalChannelMatch, physicalChannelRegex)) {
         cn = physicalChannelMatch[1].str();
         if (!device.empty()) {
-            cn = device + "/" + cn;  // Combine device and physical channel name
+            cn = device + "/" + cn; // Combine device and physical channel name
         }
     } else {
         std::smatch channelMatch;
@@ -708,24 +799,28 @@ void ni::Source::jsonifyError(std::string s) {
     // Check if the channel name is in the channel map
     if (channel_map.count(cn) != 0) {
         this->err_info["path"] = channel_map[cn];
-    } else if(!cn.empty()) {
+    } else if (!cn.empty()) {
         this->err_info["path"] = cn;
-    } else{
+    } else {
         this->err_info["path"] = "unknown";
     }
 
     // Check if the property is in the field map
     if (FIELD_MAP.count(p) == 0) {
         this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + p;
-        this->err_info["message"] = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
+        this->err_info["message"] =
+                "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].
+                get<std::string>() + " Channel: " + cn;
         return;
     }
 
     this->err_info["type"] = "field error";
-    this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + FIELD_MAP.at(p);
+    this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + FIELD_MAP
+                             .at(p);
 
     // Update the message with possible values, max value, and min value if they exist
-    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>();
+    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->
+                               err_info["path"].get<std::string>();
     if (!possibleValues.empty()) {
         errorMessage += " Possible Values: " + possibleValues;
     }
@@ -735,7 +830,7 @@ void ni::Source::jsonifyError(std::string s) {
     if (!minValue.empty()) {
         errorMessage += " Minimum Value: " + minValue;
     }
-    this->err_info["message"] = errorMessage;   
+    this->err_info["message"] = errorMessage;
 
     LOG(INFO) << this->err_info.dump(4);
 }

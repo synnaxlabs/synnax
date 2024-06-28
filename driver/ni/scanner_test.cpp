@@ -38,7 +38,7 @@ TEST(NiScannerTests, test_valid_scan) {
         std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
         std::cout << devices.dump(4) << std::endl;
     } else {
-        std::cout << "Scanner failed to retreive devices" <<std::endl;
+        std::cout << "Scanner failed to retreive devices" << std::endl;
     }
 
     // scan a second time

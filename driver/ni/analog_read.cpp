@@ -21,69 +21,133 @@ using json = nlohmann::json;
 
 void ni::AnalogReadSource::parseChannels(config::Parser &parser) {
     // now parse the channels
-    std:: uint64_t c_count = 0;
+    std::uint64_t c_count = 0;
     parser.iter("channels",
-        [&](config::Parser &channel_builder) {
-            // LOG(INFO) << channel_builder.get_json().dump(4);
+                [&](config::Parser &channel_builder) {
+                    // LOG(INFO) << channel_builder.get_json().dump(4);
 
-            ni::ChannelConfig config;
-            // analog channel names are formatted: <device_name>/ai<port>
-            std::string port = std::to_string(channel_builder.required<std::uint64_t>("port"));
-            std::string name = this->reader_config.device_name;
-            config.name = name + "/ai" + port;
-            
-            config.channel_key = channel_builder.required<uint32_t>("channel");
-            config.channel_type = channel_builder.required<std::string>("type");
+                    ni::ChannelConfig config;
+                    // analog channel names are formatted: <device_name>/ai<port>
+                    std::string port = std::to_string(
+                        channel_builder.required<std::uint64_t>("port"));
+                    std::string name = this->reader_config.device_name;
+                    config.name = name + "/ai" + port;
 
-            config.ni_channel = this->parseChannel(
-                channel_builder, config.channel_type, config.name);
+                    config.channel_key = channel_builder.required<uint32_t>("channel");
+                    config.channel_type = channel_builder.required<std::string>("type");
 
-            this->channel_map[config.name] = "channels." + std::to_string(c_count);
-            LOG(INFO) << "Channel name: " << config.name;
-            if(channel_builder.required<bool>("enabled") == true) {
-                config.enabled = true;
-            }
-            
-            this->reader_config.channels.push_back(config);
-            
-            LOG(INFO) << "Count: " << c_count; 
-            c_count++;
-        });
+                    config.ni_channel = this->parseChannel(
+                        channel_builder, config.channel_type, config.name);
+
+                    this->channel_map[config.name] =
+                            "channels." + std::to_string(c_count);
+                    LOG(INFO) << "Channel name: " << config.name;
+                    if (channel_builder.required<bool>("enabled") == true) {
+                        config.enabled = true;
+                    }
+
+                    this->reader_config.channels.push_back(config);
+
+                    LOG(INFO) << "Count: " << c_count;
+                    c_count++;
+                });
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     config::Parser &parser, std::string channel_type, std::string channel_name) {
-    if (channel_type == "ai_accel") return std::make_shared<Acceleration>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_accel_4_wire_dc_voltage") return std::make_shared<Acceleration4WireDCVoltage>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_accel_charge")  return std::make_shared<AccelerationCharge>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_bridge")  return std::make_shared<Bridge>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_charge")  return std::make_shared<Charge>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_current")  return std::make_shared<Current>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_current_rms")  return std::make_shared<CurrentRMS>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_force_bridge_polynomial")  return std::make_shared<ForceBridgePolynomial>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_force_bridge_table")  return std::make_shared<ForceBridgeTable>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_force_bridge_two_point_lin")  return std::make_shared<ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_force_iepe")  return std::make_shared<ForceIEPE>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_freq_voltage")  return std::make_shared<FrequencyVoltage>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_microphone")  return std::make_shared<Microphone>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_pressure_bridge_polynomial")  return std::make_shared<PressureBridgePolynomial>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_pressure_bridge_table")  return std::make_shared<PressureBridgeTable>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_pressure_bridge_two_point_lin")  return std::make_shared<PressureBridgeTwoPointLin>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_resistance")  return std::make_shared<Resistance>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_rosette_strain_gage")  return std::make_shared<RosetteStrainGage>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_rtd")  return std::make_shared<RTD>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_strain_gage")  return std::make_shared<StrainGage>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_temp_built_in_sensor")  return std::make_shared<TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_thermocouple")  return std::make_shared<Thermocouple>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_thrmstr_iex")  return std::make_shared<ThermistorIEX>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_thrmstr_vex")   return std::make_shared<ThermistorVex>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_torque_bridge_polynomial")  return std::make_shared<TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_torque_bridge_table")  return std::make_shared<TorqueBridgeTable>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_torque_bridge_two_point_lin")  return std::make_shared<TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_velocity_iepe")  return std::make_shared<VelocityIEPE>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_voltage")  return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_voltage_rms")  return std::make_shared<VoltageRMS>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_voltage_with_excit")  return std::make_shared<VoltageWithExcit>(parser, this->task_handle, channel_name); 
+    if (channel_type == "ai_accel")
+        return std::make_shared<Acceleration>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_accel_4_wire_dc_voltage")
+        return std::make_shared<
+            Acceleration4WireDCVoltage>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_accel_charge")
+        return std::make_shared<AccelerationCharge>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_bridge")
+        return std::make_shared<Bridge>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_charge")
+        return std::make_shared<Charge>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_current")
+        return std::make_shared<Current>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_current_rms")
+        return std::make_shared<CurrentRMS>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_force_bridge_polynomial")
+        return std::make_shared<
+            ForceBridgePolynomial>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_force_bridge_table")
+        return std::make_shared<
+            ForceBridgeTable>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_force_bridge_two_point_lin")
+        return std::make_shared<
+            ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_force_iepe")
+        return std::make_shared<ForceIEPE>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_freq_voltage")
+        return std::make_shared<FrequencyVoltage>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_microphone")
+        return std::make_shared<Microphone>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_pressure_bridge_polynomial")
+        return std::make_shared<
+            PressureBridgePolynomial>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_pressure_bridge_table")
+        return std::make_shared<
+            PressureBridgeTable>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_pressure_bridge_two_point_lin")
+        return std::make_shared<
+            PressureBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_resistance")
+        return std::make_shared<Resistance>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_rosette_strain_gage")
+        return std::make_shared<
+            RosetteStrainGage>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_rtd")
+        return std::make_shared<RTD>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_strain_gage")
+        return std::make_shared<StrainGage>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_temp_built_in_sensor")
+        return std::make_shared<
+            TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_thermocouple")
+        return std::make_shared<Thermocouple>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_thrmstr_iex")
+        return std::make_shared<ThermistorIEX>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_thrmstr_vex")
+        return std::make_shared<ThermistorVex>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_torque_bridge_polynomial")
+        return std::make_shared<
+            TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_torque_bridge_table")
+        return std::make_shared<
+            TorqueBridgeTable>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_torque_bridge_two_point_lin")
+        return std::make_shared<
+            TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+    if (channel_type == "ai_velocity_iepe")
+        return std::make_shared<VelocityIEPE>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_voltage")
+        return std::make_shared<Voltage>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_voltage_rms")
+        return std::make_shared<VoltageRMS>(
+            parser, this->task_handle, channel_name);
+    if (channel_type == "ai_voltage_with_excit")
+        return std::make_shared<
+            VoltageWithExcit>(parser, this->task_handle, channel_name);
     return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
 }
 
@@ -117,7 +181,8 @@ int ni::AnalogReadSource::configureTiming() {
     // we read data in chunks of numSamplesPerChannel such that we can send frames of data of size numSamplesPerChannel at the stream rate
     // e.g. if we have 4 channels and we want to stream at 100Hz at a 1000hz sample rate
     // make a make a call to read 10 samples at 100hz
-    this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
+    this->numSamplesPerChannel = std::floor(
+        this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
     this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
     return 0;
@@ -151,7 +216,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     synnax::Frame f = synnax::Frame(numChannels);
 
     // sleep per streaming period
-    timer.wait(breaker); 
+    timer.wait(breaker);
     // take data off of queue
     auto [d, valid] = data_queue.dequeue();
     // handle empty queue
@@ -183,7 +248,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
         std::vector<float> data_vec(d.samplesReadPerChannel);
         for (int j = 0; j < d.samplesReadPerChannel; j++)
             data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
-            
+
         f.add(this->reader_config.channels[i].channel_key,
               synnax::Series(data_vec, synnax::FLOAT32));
         data_index++;
@@ -208,4 +273,3 @@ int ni::AnalogReadSource::createChannels() {
     }
     return 0;
 }
-

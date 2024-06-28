@@ -26,65 +26,72 @@ using json = nlohmann::json;
 //                                                   Basic Tests                                                //                
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-TEST(read_tests, multiple_analog_channels){
-
+TEST(read_tests, multiple_analog_channels) {
     // setup synnax test infrustructure
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create( "idx", synnax::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create( "ai",synnax::FLOAT32,time.key,false);
+    auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    auto [data1, dErr2] = client->channels.create( "ai2",synnax::FLOAT32,time.key,false);
+    auto [data1, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key,
+                                                  false);
     ASSERT_FALSE(dErr2) << dErr.message();
 
-    auto [data2, dErr3] = client->channels.create( "ai3",synnax::FLOAT32,time.key,false);
+    auto [data2, dErr3] = client->channels.create("ai3", synnax::FLOAT32, time.key,
+                                                  false);
     ASSERT_FALSE(dErr3) << dErr.message();
 
-    auto [data3, dErr4] = client->channels.create( "ai4",synnax::FLOAT32,time.key,false);
+    auto [data3, dErr4] = client->channels.create("ai4", synnax::FLOAT32, time.key,
+                                                  false);
     ASSERT_FALSE(dErr4) << dErr.message();
-    
+
     // Create NI readerconfig
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev1"},
         {"type", "ni_analog_read"}, //TODO: change to analog_read
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     json scale_config = json{
         {"type", "none"}
     };
 
-    add_AI_channel_JSON(config, "a1", data.key, 0, -10.0, 10.0, "Default", scale_config);
-    add_AI_channel_JSON(config, "a2", data1.key, 1, -10.0, 10.0, "Default", scale_config);
-    add_AI_channel_JSON(config, "a3", data2.key, 2, -10.0, 10.0, "Default", scale_config);
-    add_AI_channel_JSON(config, "a4", data3.key, 3, -10.0, 10.0, "Default", scale_config);
+    add_AI_channel_JSON(config, "a1", data.key, 0, -10.0, 10.0, "Default",
+                        scale_config);
+    add_AI_channel_JSON(config, "a2", data1.key, 1, -10.0, 10.0, "Default",
+                        scale_config);
+    add_AI_channel_JSON(config, "a3", data2.key, 2, -10.0, 10.0, "Default",
+                        scale_config);
+    add_AI_channel_JSON(config, "a4", data3.key, 3, -10.0, 10.0, "Default",
+                        scale_config);
 
-  
+
     // create synnax task (name, type, config)
-    auto task = synnax::Task( "my_task", "ni_analog_read", to_string(config));
+    auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     // Now construct NI reader
-    TaskHandle taskHandle;  
-    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+    TaskHandle taskHandle;
+    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
-    auto reader = ni::AnalogReadSource( taskHandle, mockCtx, task); // analog reader
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); // analog reader
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
 
-    if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start();
 
-    for(int i = 0; i < 2; i++ ) { // test for 50 read cycles
+    for (int i = 0; i < 2; i++) {
+        // test for 50 read cycles
         std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
         auto [frame, err] = reader.read(b);
         std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-        
+
         LOG(INFO) << frame << "\n";
     }
     reader.stop();
@@ -92,30 +99,31 @@ TEST(read_tests, multiple_analog_channels){
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
-//                                                   Scaling Tests                                              //                  
+//                                                   Scaling Tests                                              //
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 //                          LINEAR                               //
 ///////////////////////////////////////////////////////////////////
-TEST(read_tests, analog_linear_scaling){
+TEST(read_tests, analog_linear_scaling) {
     // create synnax client
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    
+
     // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
+    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai_channel",synnax::FLOAT32,time.key,false);
+    auto [data, dErr] = client->channels.create("ai_channel", synnax::FLOAT32, time.key,
+                                                false);
     ASSERT_FALSE(dErr) << dErr.message();
 
     // Create NI readerconfig
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev1"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     json scale_config = json{
@@ -126,21 +134,21 @@ TEST(read_tests, analog_linear_scaling){
         {"y_intercept", 5}
     };
     add_AI_channel_JSON(config, "a1", data.key, 0, 0, 10.0, "Default", scale_config);
-  
+
     // create synnax task
     auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     // Now construct NI reader
-    TaskHandle taskHandle;  
-    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+    TaskHandle taskHandle;
+    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
 
 
-    if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start();
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -154,25 +162,25 @@ TEST(read_tests, analog_linear_scaling){
 ///////////////////////////////////////////////////////////////////
 //                          MAP                                  //
 ///////////////////////////////////////////////////////////////////
-TEST(read_tests, analog_map_scaling){
-    
+TEST(read_tests, analog_map_scaling) {
     // create synnax client
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    
+
     // create all the necessary channels in the synnax client
-    auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
+    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai_channel",synnax::FLOAT32,time.key,false);
+    auto [data, dErr] = client->channels.create("ai_channel", synnax::FLOAT32, time.key,
+                                                false);
     ASSERT_FALSE(dErr) << dErr.message();
 
     // Create NI readerconfig
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev1"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     json scale_config = json{
@@ -186,20 +194,20 @@ TEST(read_tests, analog_map_scaling){
     };
 
     add_AI_channel_JSON(config, "a1", data.key, 0, 0, 100, "Default", scale_config);
-    
+
     // create synnax task
     auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     // Now construct NI reader
-    TaskHandle taskHandle;  
-    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+    TaskHandle taskHandle;
+    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
 
-    if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
@@ -216,7 +224,7 @@ TEST(read_tests, analog_map_scaling){
 // TEST(read_tests, analog_table_scaling){
 //     // create synnax client
 //     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    
+
 //     // create all the necessary channels in the synnax client
 //     auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
 //     ASSERT_FALSE(tErr) << tErr.message();
@@ -226,11 +234,11 @@ TEST(read_tests, analog_map_scaling){
 
 //     // Create NI readerconfig
 //     auto config = json{
-//         {"sample_rate", 5}, 
-//         {"stream_rate", 1}, 
+//         {"sample_rate", 5},
+//         {"stream_rate", 1},
 //         {"device_location", "Dev1"},
 //         {"type", "ni_analog_read"},
-//         {"test", true},    
+//         {"test", true},
 //         {"device", ""}
 //     };
 //     json scale_config = json{
@@ -242,19 +250,19 @@ TEST(read_tests, analog_map_scaling){
 //         {"scaled_vals", {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}}
 //     };
 //     add_AI_channel_JSON(config, "a1", data.key, 0, 0, 500.0, "Default", scale_config);
-    
+
 //     // create synnax task
 //     auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
 //     auto mockCtx = std::make_shared<task::MockContext>(client);
 //     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
 //    // Now construct NI reader
-//     TaskHandle taskHandle;  
+//     TaskHandle taskHandle;
 //     ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
-//     auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
+//     auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
 //     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
-    
+
 //     if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
 //     reader.start();
 //     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -272,7 +280,7 @@ TEST(read_tests, analog_map_scaling){
 // TEST(read_tests, analog_polynomial_scaling){
 //     // create synnax client
 //     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    
+
 //     // create all the necessary channels in the synnax client
 //     auto [time, tErr] = client->channels.create("idx",synnax::TIMESTAMP,0,true);
 //     ASSERT_FALSE(tErr) << tErr.message();
@@ -282,11 +290,11 @@ TEST(read_tests, analog_map_scaling){
 
 //     // Create NI readerconfig
 //     auto config = json{
-//         {"sample_rate", 100}, 
-//         {"stream_rate", 20}, 
+//         {"sample_rate", 100},
+//         {"stream_rate", 20},
 //         {"device_location", "Dev1"},
 //         {"type", "ni_analog_read"},
-//         {"test", true},    
+//         {"test", true},
 //         {"device", ""}
 //     };
 //     json scale_config = json{
@@ -307,10 +315,10 @@ TEST(read_tests, analog_map_scaling){
 //     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
 //     // Now construct NI reader
-//     TaskHandle taskHandle;  
+//     TaskHandle taskHandle;
 //     ni::NiDAQmxInterface::CreateTask("",&taskHandle);
-    
-//     auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
+
+//     auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
 //     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
 
 //     if(reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
@@ -327,14 +335,13 @@ TEST(read_tests, analog_map_scaling){
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
-//                                                   Channnel Tests                                             //                  
+//                                                   Channnel Tests                                             //
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 //                          Helper                               //
 ///////////////////////////////////////////////////////////////////
-void analog_channel_helper(json config, json scale_config, json channel_config){
-    
+void analog_channel_helper(json config, json scale_config, json channel_config) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     // create all the necessary channels in the synnax client
@@ -353,7 +360,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config){
         false);
 
     ASSERT_FALSE(dErr) << dErr.message();
-    
+
 
     channel_config["channel"] = data.key;
     channel_config["enabled"] = true;
@@ -362,38 +369,39 @@ void analog_channel_helper(json config, json scale_config, json channel_config){
     config["channels"].push_back(channel_config);
 
     // create synnax task
-    auto task = synnax::Task( 
+    auto task = synnax::Task(
         "my_task",
-         "ni_analog_read",
-         to_string(config));
+        "ni_analog_read",
+        to_string(config));
 
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     // Now construct NI reader
-    TaskHandle taskHandle;  
-    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+    TaskHandle taskHandle;
+    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
-    auto reader = ni::AnalogReadSource( 
-        taskHandle, 
-        mockCtx, 
+    auto reader = ni::AnalogReadSource(
+        taskHandle,
+        mockCtx,
         task); // analog reader
 
     auto b = breaker::Breaker(
         breaker::Config{
             "my-breaker",
-             1*SECOND, 
-             1, 
-             1});
+            1 * SECOND,
+            1,
+            1
+        });
 
-    if(reader.init() != 0) LOG(ERROR) << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0) LOG(ERROR) << "Failed to initialize reader" << std::endl;
     reader.start();
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
-     //iterate through each series and print the data
+    //iterate through each series and print the data
     LOG(INFO) << frame << "\n";
     reader.stop();
 }
@@ -402,13 +410,13 @@ void analog_channel_helper(json config, json scale_config, json channel_config){
 //                          Voltage                              //
 ///////////////////////////////////////////////////////////////////
 /// @brief Voltage
-TEST(read_tests, one_analog_voltage_channel){
+TEST(read_tests, one_analog_voltage_channel) {
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev1"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     json scale_config = json{
@@ -426,17 +434,17 @@ TEST(read_tests, one_analog_voltage_channel){
         {"terminal_config", "Default"}
     };
     analog_channel_helper(config, scale_config, channel_config);
-
 }
+
 ///@brief Temperature Built in sensor : NI USB-6289
-TEST(read_tests, one_analog_temp_built_in_sensor_channel){
+TEST(read_tests, one_analog_temp_built_in_sensor_channel) {
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev1"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -448,21 +456,22 @@ TEST(read_tests, one_analog_temp_built_in_sensor_channel){
         {"key", "key"},
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///////////////////////////////////////////////////////////////////
 //                          Torque                               //
 ///////////////////////////////////////////////////////////////////
 ///@brief torque bridge linear : NI USB-9219
-TEST(read_tests, one_torque_linear_bridge_channel){
+TEST(read_tests, one_torque_linear_bridge_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -475,9 +484,9 @@ TEST(read_tests, one_torque_linear_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "VoltsPerVolt"},
@@ -486,18 +495,19 @@ TEST(read_tests, one_torque_linear_bridge_channel){
         {"physical_units", "NewtonMeters"}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief torque bridge table : NI USB-9219
-TEST(read_tests, one_torque_table_bridge_channel){
+TEST(read_tests, one_torque_table_bridge_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -510,30 +520,34 @@ TEST(read_tests, one_torque_table_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "NewtonMeters"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
-        {"physical_vals", {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}},
+        {
+            "physical_vals",
+            {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}
+        },
         {"num_physical_vals", 11},
         {"num_electrical_vals", 11}
 
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief torque bridge polynomial : NI USB-9219
-TEST(read_tests, one_torque_polynomial_bridge_channel){
+TEST(read_tests, one_torque_polynomial_bridge_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -546,9 +560,9 @@ TEST(read_tests, one_torque_polynomial_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "NewtonMeters"},
         {"forward_coeffs", {1, 3, 2}},
@@ -556,21 +570,22 @@ TEST(read_tests, one_torque_polynomial_bridge_channel){
         {"num_reverse_coeffs", 3}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///////////////////////////////////////////////////////////////////
 //                          Velocity                             //
 ///////////////////////////////////////////////////////////////////
 ///@brief velocity : NI USB-9234
-TEST(read_tests, one_velocity_channel){
+TEST(read_tests, one_velocity_channel) {
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev9"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -583,27 +598,28 @@ TEST(read_tests, one_velocity_channel){
         {"enabled", true},
         {"key", "key"},
         {"terminal_config", "Default"}, // TODO try pseudo differential
-        {"current_excit_source","Internal"},
+        {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0},
         {"sensitivity", 50},
         {"sensitivity_units", "MillivoltsPerMillimeterPerSecond"}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///////////////////////////////////////////////////////////////////
 //                          Force                                //
 ///////////////////////////////////////////////////////////////////
 ///@brief Force Bridge Polynomial : NI USB-9219
-TEST(read_tests, one_force_polynomial_bridge_channel){
+TEST(read_tests, one_force_polynomial_bridge_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -616,9 +632,9 @@ TEST(read_tests, one_force_polynomial_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Newtons"},
         {"forward_coeffs", {1, 3, 2}},
@@ -626,18 +642,19 @@ TEST(read_tests, one_force_polynomial_bridge_channel){
         {"num_reverse_coeffs", 3}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief Force Bridge Table : NI USB-9219
-TEST(read_tests, one_force_table_bridge_channel){
+TEST(read_tests, one_force_table_bridge_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -650,29 +667,33 @@ TEST(read_tests, one_force_table_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Newtons"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
-        {"physical_vals", {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}},
+        {
+            "physical_vals",
+            {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}
+        },
         {"num_physical_vals", 11},
         {"num_electrical_vals", 11}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief Force Bridge Linear : NI USB-9219
-TEST(read_tests, one_force_linear_bridge_channel){
+TEST(read_tests, one_force_linear_bridge_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -685,9 +706,9 @@ TEST(read_tests, one_force_linear_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "VoltsPerVolt"},
@@ -696,18 +717,19 @@ TEST(read_tests, one_force_linear_bridge_channel){
         {"physical_units", "Newtons"}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief force IEPE : NI USB-9234
-TEST(read_tests, one_force_iepe_channel){
+TEST(read_tests, one_force_iepe_channel) {
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev9"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -720,27 +742,28 @@ TEST(read_tests, one_force_iepe_channel){
         {"enabled", true},
         {"key", "key"},
         {"terminal_config", "Default"}, // TODO try pseudo differential
-        {"current_excit_source","Internal"},
+        {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0},
         {"sensitivity", 50},
         {"sensitivity_units", "mVoltsPerNewton"}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///////////////////////////////////////////////////////////////////
 //                          Pressure                             //
 ///////////////////////////////////////////////////////////////////
 ///@brief pressure bridge polynomial : NI USB-9219
-TEST(read_tests, one_pressure_polynomial_bridge_channel){
+TEST(read_tests, one_pressure_polynomial_bridge_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -753,9 +776,9 @@ TEST(read_tests, one_pressure_polynomial_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Pascals"},
         {"forward_coeffs", {1, 3, 2}},
@@ -763,19 +786,20 @@ TEST(read_tests, one_pressure_polynomial_bridge_channel){
         {"num_reverse_coeffs", 3}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief pressure bridge table : NI USB-9219
-TEST(read_tests, one_pressure_table_bridge_channel){
+TEST(read_tests, one_pressure_table_bridge_channel) {
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -788,30 +812,34 @@ TEST(read_tests, one_pressure_table_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Pascals"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
-        {"physical_vals", {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}},
+        {
+            "physical_vals",
+            {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}
+        },
         {"num_physical_vals", 11},
         {"num_electrical_vals", 11}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief pressure bridge linear : NI USB-9219
-TEST(read_tests, one_pressure_linear_bridge_channel){
+TEST(read_tests, one_pressure_linear_bridge_channel) {
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -824,9 +852,9 @@ TEST(read_tests, one_pressure_linear_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "Volts"},
@@ -835,21 +863,22 @@ TEST(read_tests, one_pressure_linear_bridge_channel){
         {"physical_units", "Pascals"}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///////////////////////////////////////////////////////////////////
 //                         Temperature                           //
 ///////////////////////////////////////////////////////////////////
 ///@brief Thermocouple : NI USB-9211A
-TEST(read_tests, one_analog_thermocouple_channel){
+TEST(read_tests, one_analog_thermocouple_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev2"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -866,19 +895,20 @@ TEST(read_tests, one_analog_thermocouple_channel){
         {"cjc_val", 25.0}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief RTD : NI PXIe-4357
-TEST(read_tests, one_analog_RTD_channel){
+TEST(read_tests, one_analog_RTD_channel) {
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "PXI1Slot3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -894,26 +924,27 @@ TEST(read_tests, one_analog_RTD_channel){
         {"rtd_type", "PT375"},
         {"resistance_config", "4Wire"},
         {"r0", 100.0},
-        {"current_excit_source","Internal"},
-        {"current_excit_val",0.0009}
+        {"current_excit_source", "Internal"},
+        {"current_excit_val", 0.0009}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Acceleration                               //
 ///////////////////////////////////////////////////////////////////////////////////
 ///@brief Acceleration : NI USB-9234
-TEST(read_tests, one_acceleration_channel){
+TEST(read_tests, one_acceleration_channel) {
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev9"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -926,27 +957,28 @@ TEST(read_tests, one_acceleration_channel){
         {"enabled", true},
         {"key", "key"},
         {"terminal_config", "Default"}, // TODO try pseudo differential
-        {"current_excit_source","Internal"},
+        {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0},
         {"sensitivity", 50},
         {"sensitivity_units", "mVoltsPerG"}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///////////////////////////////////////////////////////////////////
 //                         Current                               //
 ///////////////////////////////////////////////////////////////////
 ///@brief Current : NI PXIe-4302
-TEST(read_tests, one_analog_current_channel){
+TEST(read_tests, one_analog_current_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "PXI1Slot2"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -963,18 +995,19 @@ TEST(read_tests, one_analog_current_channel){
         {"terminal_config", "Default"}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief Microphone : NI USB-9234
-TEST(read_tests, one_microphone_channel){
+TEST(read_tests, one_microphone_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev9"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -984,25 +1017,26 @@ TEST(read_tests, one_microphone_channel){
         {"units", "Pascals"},
         {"enabled", true},
         {"key", "key"},
-        {"current_excit_source","Internal"},
+        {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0},
         {"terminal_config", "PseudoDiff"},
         {"mic_sensitivity", 50},
-        {"max_snd_press_level",120}
+        {"max_snd_press_level", 120}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief resistance : NI USB-9219
-TEST(read_tests, one_resistance_channel){
+TEST(read_tests, one_resistance_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -1014,23 +1048,24 @@ TEST(read_tests, one_resistance_channel){
         {"units", "Ohms"},
         {"enabled", true},
         {"key", "key"},
-        {"current_excit_source","Internal"},
+        {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0005},
         {"resistance_config", "2Wire"},
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief strain gage
-TEST(read_tests, one_strain_gage){
+TEST(read_tests, one_strain_gage) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -1052,18 +1087,19 @@ TEST(read_tests, one_strain_gage){
         {"lead_wire_resistance", 0.0}
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 ///@brief Bridge Channel : NI USB-9219
-TEST(read_tests, one_bridge_channel){
+TEST(read_tests, one_bridge_channel) {
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
     auto channel_config = json{
@@ -1076,39 +1112,40 @@ TEST(read_tests, one_bridge_channel){
         {"enabled", true},
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
-        {"voltage_excit_source","Internal"}, 
+        {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is 
+        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
     };
     auto scale_config = json{
-        {"type","none"}
+        {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
-//                                              Error Handling                                                  //                  
+//                                              Error Handling                                                  //
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // TODO:
-// driver errors 
-    // - invalid channel
-        // - invalid scale (analog)
-            // linear
-                // - missing slope or offset or both
-                // - invalid slope & offset or both (i.e. isnt comptaible with specified max and min)
-            // map
-                // - missing attributes
-                // - prescaled_min >= prescaled_max || scaled_min >= scaled_max
-                // - invalid prescaled_min, prescaled_max, scaled_min, scaled_max
-            // polynomial
-            // table
-        // - min >= max val (analog)
-        // - invalid terminal config (analog)
-        // - invalid port (digital and analog)
-        // - invalid line (analog)
-    // - invalid device
-    // - stream rate > sample rate
+// driver errors
+// - invalid channel
+// - invalid scale (analog)
+// linear
+// - missing slope or offset or both
+// - invalid slope & offset or both (i.e. isnt comptaible with specified max and min)
+// map
+// - missing attributes
+// - prescaled_min >= prescaled_max || scaled_min >= scaled_max
+// - invalid prescaled_min, prescaled_max, scaled_min, scaled_max
+// polynomial
+// table
+// - min >= max val (analog)
+// - invalid terminal config (analog)
+// - invalid port (digital and analog)
+// - invalid line (analog)
+// - invalid device
+// - stream rate > sample rate
 
 // vendor/hardware errors
 // double start
@@ -1118,23 +1155,23 @@ TEST(read_tests, one_bridge_channel){
 // trying to configure a channel for a dev ice that doesnn't have that  channel
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
-//                                         Channel types without dedicated hardware found                       //                  
+//                                         Channel types without dedicated hardware found                       //
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
-///@brief RMS Voltage 
+///@brief RMS Voltage
 // TODO: find a device which actually supports this channel
 TEST(read_tests, one_voltage_RMS_channel){
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev9"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
-   
+
     auto channel_config = json{
         {"name", "test_ni_channel"},
         {"type", "ai_voltage_rms"},
@@ -1157,14 +1194,14 @@ TEST(read_tests, one_voltage_RMS_channel){
 TEST(read_tests, one_voltage_with_excitation_channel){
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
-   
+
     auto channel_config = json{
         {"name", "test_ni_channel"},
         {"type", "ai_voltage_rms"},
@@ -1192,14 +1229,14 @@ TEST(read_tests, one_voltage_with_excitation_channel){
 TEST(read_tests, one_analog_thermistor_IEX_channel){
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
-   
+
     auto channel_config = json{
         {"name", "test_ni_channel"},
         {"type", "ai_thrmstr_iex"},
@@ -1229,14 +1266,14 @@ TEST(read_tests, one_analog_thermistor_IEX_channel){
 TEST(read_tests, one_acceleration_4_wire_channel){
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev10"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
-   
+
     auto channel_config = json{
         {"name", "test_ni_channel"},
         {"type", "ai_accel_4_wire_dc_voltage"},
@@ -1264,14 +1301,14 @@ TEST(read_tests, one_acceleration_4_wire_channel){
 TEST(read_tests, one_acceleration_charge_channel){
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 100}, 
-        {"stream_rate", 20}, 
+        {"sample_rate", 100},
+        {"stream_rate", 20},
         {"device_location", "Dev11"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
-   
+
     auto channel_config = json{
         {"name", "test_ni_channel"},
         {"type", "ai_accel_charge"},
@@ -1299,14 +1336,14 @@ TEST(read_tests, one_acceleration_charge_channel){
 TEST(read_tests, one_rosette_strain_gage){
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
-   
+
     auto channel_config = json{
         {"name", "test_ni_channel"},
         {"type", "ai_rosette_strain_gage"},
@@ -1339,14 +1376,14 @@ TEST(read_tests, one_rosette_strain_gage){
 TEST(read_tests, one_frequency_channel){
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev3"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
-   
+
     auto channel_config = json{
         {"name", "test_ni_channel"},
         {"type", "ai_freq_voltage"},
@@ -1373,14 +1410,14 @@ TEST(read_tests, one_frequency_channel){
 TEST(read_tests, one_current_RMS_channel){
     // Create NI readerconfig json
     auto config = json{
-        {"sample_rate", 5}, 
-        {"stream_rate", 1}, 
+        {"sample_rate", 5},
+        {"stream_rate", 1},
         {"device_location", "Dev8"},
         {"type", "ni_analog_read"},
-        {"test", true},    
+        {"test", true},
         {"device", ""}
     };
-   
+
     auto channel_config = json{
         {"name", "test_ni_channel"},
         {"type", "ai_current_rms"},

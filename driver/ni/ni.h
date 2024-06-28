@@ -43,55 +43,58 @@
 #include "driver/loop/loop.h"
 
 namespace ni {
-
-inline const std::map<std::string, int32_t>    UNITS_MAP = {
-    {"Volts",                               DAQmx_Val_Volts},
-    {"Amps",                                DAQmx_Val_Amps},
-    {"DegF",                                DAQmx_Val_DegF},
-    {"F",                                   DAQmx_Val_DegF},
-    {"DegC",                                DAQmx_Val_DegC},
-    {"C",                                   DAQmx_Val_DegC},
-    {"Celsius",                             DAQmx_Val_DegC},
-    {"Farenheit",                           DAQmx_Val_DegF},
-    {"DegR",                                DAQmx_Val_DegR},
-    {"Rankine",                             DAQmx_Val_DegR},
-    {"Kelvins",                             DAQmx_Val_Kelvins},
-    {"K",                                   DAQmx_Val_Kelvins},
-    {"Strain",                              DAQmx_Val_Strain},
-    {"Ohms",                                DAQmx_Val_Ohms},
-    {"Hz",                                  DAQmx_Val_Hz},
-    {"Seconds",                             DAQmx_Val_Seconds},
-    {"Meters",                              DAQmx_Val_Meters},
-    {"Inches",                              DAQmx_Val_Inches},
-    {"Degrees",                             DAQmx_Val_Degrees},
-    {"Radians",                             DAQmx_Val_Radians},
-    {"g",                                   DAQmx_Val_g},
-    {"MetersPerSecondSquared",              DAQmx_Val_MetersPerSecondSquared},
-    {"MetersPerSecond",                     DAQmx_Val_MetersPerSecond}, // TODO: make sure option is in console
-    {"m/s",                                 DAQmx_Val_MetersPerSecond},
-    {"InchesPerSecond",                     DAQmx_Val_InchesPerSecond}, // TODO: make sure option is in console
-    {"mV/m/s",                              DAQmx_Val_MillivoltsPerMillimeterPerSecond},
-    {"MillivoltsPerMillimeterPerSecond",    DAQmx_Val_MillivoltsPerMillimeterPerSecond},
-    {"MilliVoltsPerInchPerSecond",          DAQmx_Val_MilliVoltsPerInchPerSecond},
-    {"mVoltsPerNewton",                     DAQmx_Val_mVoltsPerNewton},
-    {"mVoltsPerPound",                      DAQmx_Val_mVoltsPerPound},
-    {"Newtons",                             DAQmx_Val_Newtons},
-    {"Pounds",                              DAQmx_Val_Pounds},
-    {"KilogramForce",                       DAQmx_Val_KilogramForce},
-    {"PoundsPerSquareInch",                 DAQmx_Val_PoundsPerSquareInch},
-    {"Bar",                                 DAQmx_Val_Bar},
-    {"Pascals",                             DAQmx_Val_Pascals},
-    {"VoltsPerVolt",                        DAQmx_Val_VoltsPerVolt},
-    {"mVoltsPerVolt",                       DAQmx_Val_mVoltsPerVolt},
-    {"NewtonMeters",                        DAQmx_Val_NewtonMeters},
-    {"InchOunces",                          DAQmx_Val_InchOunces},
-    {"InchPounds",                          DAQmx_Val_InchPounds},
-    {"FootPounds",                          DAQmx_Val_FootPounds},
-    {"Strain",                              DAQmx_Val_Strain},
-    {"FromTEDS",                            DAQmx_Val_FromTEDS},
-    {"VoltsPerG",                           DAQmx_Val_VoltsPerG}, // TODO: verify this is an option in the console
-    {"mVoltsPerG",                          DAQmx_Val_mVoltsPerG}, // TODO: verify this is an option in the console
-    {"AccelUnit_g",                         DAQmx_Val_AccelUnit_g}  // TODO: verify this is an option in the console for sensitivity units
+inline const std::map<std::string, int32_t> UNITS_MAP = {
+    {"Volts", DAQmx_Val_Volts},
+    {"Amps", DAQmx_Val_Amps},
+    {"DegF", DAQmx_Val_DegF},
+    {"F", DAQmx_Val_DegF},
+    {"DegC", DAQmx_Val_DegC},
+    {"C", DAQmx_Val_DegC},
+    {"Celsius", DAQmx_Val_DegC},
+    {"Farenheit", DAQmx_Val_DegF},
+    {"DegR", DAQmx_Val_DegR},
+    {"Rankine", DAQmx_Val_DegR},
+    {"Kelvins", DAQmx_Val_Kelvins},
+    {"K", DAQmx_Val_Kelvins},
+    {"Strain", DAQmx_Val_Strain},
+    {"Ohms", DAQmx_Val_Ohms},
+    {"Hz", DAQmx_Val_Hz},
+    {"Seconds", DAQmx_Val_Seconds},
+    {"Meters", DAQmx_Val_Meters},
+    {"Inches", DAQmx_Val_Inches},
+    {"Degrees", DAQmx_Val_Degrees},
+    {"Radians", DAQmx_Val_Radians},
+    {"g", DAQmx_Val_g},
+    {"MetersPerSecondSquared", DAQmx_Val_MetersPerSecondSquared},
+    {"MetersPerSecond", DAQmx_Val_MetersPerSecond},
+    // TODO: make sure option is in console
+    {"m/s", DAQmx_Val_MetersPerSecond},
+    {"InchesPerSecond", DAQmx_Val_InchesPerSecond},
+    // TODO: make sure option is in console
+    {"mV/m/s", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
+    {"MillivoltsPerMillimeterPerSecond", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
+    {"MilliVoltsPerInchPerSecond", DAQmx_Val_MilliVoltsPerInchPerSecond},
+    {"mVoltsPerNewton", DAQmx_Val_mVoltsPerNewton},
+    {"mVoltsPerPound", DAQmx_Val_mVoltsPerPound},
+    {"Newtons", DAQmx_Val_Newtons},
+    {"Pounds", DAQmx_Val_Pounds},
+    {"KilogramForce", DAQmx_Val_KilogramForce},
+    {"PoundsPerSquareInch", DAQmx_Val_PoundsPerSquareInch},
+    {"Bar", DAQmx_Val_Bar},
+    {"Pascals", DAQmx_Val_Pascals},
+    {"VoltsPerVolt", DAQmx_Val_VoltsPerVolt},
+    {"mVoltsPerVolt", DAQmx_Val_mVoltsPerVolt},
+    {"NewtonMeters", DAQmx_Val_NewtonMeters},
+    {"InchOunces", DAQmx_Val_InchOunces},
+    {"InchPounds", DAQmx_Val_InchPounds},
+    {"FootPounds", DAQmx_Val_FootPounds},
+    {"Strain", DAQmx_Val_Strain},
+    {"FromTEDS", DAQmx_Val_FromTEDS},
+    {"VoltsPerG", DAQmx_Val_VoltsPerG}, // TODO: verify this is an option in the console
+    {"mVoltsPerG", DAQmx_Val_mVoltsPerG},
+    // TODO: verify this is an option in the console
+    {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
+    // TODO: verify this is an option in the console for sensitivity units
 };
 
 struct ChannelConfig {
@@ -155,7 +158,8 @@ public:
 
     virtual void getIndexKeys();
 
-    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) = 0;
+    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) =
+    0;
 
     virtual void parseChannels(config::Parser &parser) = 0;
 
@@ -191,8 +195,8 @@ public:
 
     // maps ni channel name to path
     std::map<std::string, std::string> channel_map;
-    
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    AnalogReadSource                           //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -224,6 +228,7 @@ public:
     // NI related resources
     uint64_t numAIChannels = 0;
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalReadSource                           //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -246,6 +251,7 @@ public:
 
     void parseChannels(config::Parser &parser) override;
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -272,6 +278,7 @@ private:
     synnax::ChannelKey drive_state_index_key;
     loop::Timer timer;
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalWriteSink                           //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -316,9 +323,9 @@ public:
     void jsonifyError(std::string);
 
     ~DigitalWriteSink();
-    
+
     void stoppedWithErr(const freighter::Error &err) override;
-    
+
     void logError(std::string err_msg);
 
     void clearTask();
@@ -336,7 +343,7 @@ private:
     int bufferSize = 0;
     int numSamplesPerChannel = 0;
     TaskHandle task_handle = 0;
-    
+
     uint64_t numChannels = 0;
 
     json err_info;
@@ -348,8 +355,8 @@ private:
     std::atomic<bool> running = false;
     synnax::Task task;
     std::map<std::string, std::string> channel_map;
-
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Scanner                                    //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -382,6 +389,7 @@ private:
     synnax::Task task;
     std::shared_ptr<task::Context> ctx;
 };
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                         //
 //                                    TASK INTERFACES                                      //
@@ -419,6 +427,7 @@ private:
     std::thread thread;
     bool ok_state = true;
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -451,6 +460,7 @@ private:
     bool ok_state = true;
     std::shared_ptr<ni::Source> source;
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -478,6 +488,7 @@ public:
         const synnax::Task &task);
 
     bool ok();
+
 private:
     std::atomic<bool> running = false;
     std::shared_ptr<task::Context> ctx;
@@ -487,12 +498,14 @@ private:
     bool ok_state = true;
     std::shared_ptr<ni::DigitalWriteSink> sink;
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Factory                                    //
 ///////////////////////////////////////////////////////////////////////////////////
 class Factory final : public task::Factory {
 public:
     Factory();
+
     std::pair<std::unique_ptr<task::Task>, bool> configureTask(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task) override;
@@ -502,6 +515,7 @@ public:
                           const synnax::Rack &rack) override;
 
     ~Factory() = default;
+
     bool dlls_present = false;
 };
 }

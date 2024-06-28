@@ -25,21 +25,25 @@ void ni::DigitalReadSource::parseChannels(config::Parser &parser) {
             task_name;
     // now parse the channels
     parser.iter("channels",
-            [&](config::Parser &channel_builder) {
+                [&](config::Parser &channel_builder) {
+                    ni::ChannelConfig config;
+                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+                    std::string port = "port" + std::to_string(
+                                           channel_builder.required<std::uint64_t>(
+                                               "port"));
+                    std::string line = "line" + std::to_string(
+                                           channel_builder.required<std::uint64_t>(
+                                               "line"));
 
 
-            ni::ChannelConfig config;
-            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-            std::string port = "port" + std::to_string(channel_builder.required<std::uint64_t>("port"));
-            std::string line = "line" + std::to_string(channel_builder.required<std::uint64_t>("line"));
-
-
-            config.channel_key = channel_builder.required<uint32_t>("channel");
-            config.name = (this->reader_config.device_name + "/" + port + "/" + line);
-            this->reader_config.channels.push_back(config);
-        });
-    if(!parser.ok()) LOG(ERROR) << "Failed to parse channels for task " << this->reader_config.task_name;
- }
+                    config.channel_key = channel_builder.required<uint32_t>("channel");
+                    config.name = (this->reader_config.device_name + "/" + port + "/" +
+                                   line);
+                    this->reader_config.channels.push_back(config);
+                });
+    if (!parser.ok()) LOG(ERROR) << "Failed to parse channels for task " << this->
+                      reader_config.task_name;
+}
 
 int ni::DigitalReadSource::createChannels() {
     int err = 0;
@@ -79,7 +83,8 @@ int ni::DigitalReadSource::configureTiming() {
             return -1;
         }
         this->numSamplesPerChannel = std::floor(
-            this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
+            this->reader_config.sample_rate.value / this->reader_config.stream_rate.
+            value);
     }
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
@@ -98,7 +103,7 @@ void ni::DigitalReadSource::acquireData() {
         std::this_thread::sleep_for(samp_period);
 
         if (this->checkNIError(
-                ni::NiDAQmxInterface::ReadDigitalLines(
+            ni::NiDAQmxInterface::ReadDigitalLines(
                 this->task_handle, // task handle
                 this->numSamplesPerChannel, // numSampsPerChan
                 -1, // timeout
@@ -108,7 +113,9 @@ void ni::DigitalReadSource::acquireData() {
                 &data_packet.samplesReadPerChannel, // sampsPerChanRead
                 &numBytesPerSamp, // numBytesPerSamp
                 NULL))) {
-                this->logError("failed while reading digital data for task " + this->reader_config.task_name);
+            this->logError(
+                "failed while reading digital data for task " + this->reader_config.
+                task_name);
         }
         data_packet.tf = (uint64_t) ((synnax::TimeStamp::now()).value);
         data_queue.enqueue(data_packet);
@@ -118,7 +125,7 @@ void ni::DigitalReadSource::acquireData() {
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
-    
+
     // sleep per stream rate
     timer.wait(breaker);
     // take data off of queue
@@ -148,7 +155,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
         }
         // copy data into vector
         std::vector<uint8_t> data_vec(d.samplesReadPerChannel);
-        for (int j = 0; j < d.samplesReadPerChannel; j++){
+        for (int j = 0; j < d.samplesReadPerChannel; j++) {
             data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
         }
 

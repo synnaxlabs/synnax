@@ -21,7 +21,7 @@ public:
     void enqueue(const T &item) {
         std::unique_lock lock(m);
 
-        if(queue.size() < max_size){
+        if (queue.size() < max_size) {
             queue.push(item);
         }
 
@@ -33,7 +33,8 @@ public:
 
         waiting_consumers.wait_for(lock, std::chrono::seconds(2));
 
-        if (queue.empty()) { // FIXME change to while?
+        if (queue.empty()) {
+            // FIXME change to while?
             return std::make_pair(T(), false);
         }
 

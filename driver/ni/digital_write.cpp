@@ -24,7 +24,8 @@
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::DigitalWriteSink::getIndexKeys() {
     auto state_channel = this->writer_config.drive_state_channel_keys[0];
-    auto [state_channel_info, err] = this->ctx->client->channels.retrieve(state_channel);
+    auto [state_channel_info, err] = this->ctx->client->channels.
+            retrieve(state_channel);
     if (err) {
         this->logError("failed to retrieve channel " + state_channel);
         this->ok_state = false;
@@ -41,16 +42,17 @@ ni::DigitalWriteSink::DigitalWriteSink(
     TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task task)
-    :   task_handle(task_handle),
-        ctx(ctx),
-        task(task){
+    : task_handle(task_handle),
+      ctx(ctx),
+      task(task) {
     // Create parser
     auto config_parser = config::Parser(task.config);
     this->writer_config.task_name = task.name;
     // Parse configuration and make sure it is valid
     this->parseConfig(config_parser);
     if (!config_parser.ok()) {
-        this->logError("failed to parse configuration for " + this->writer_config.task_name);
+        this->logError(
+            "failed to parse configuration for " + this->writer_config.task_name);
         this->ctx->setState({
             .task = this->task.key,
             .variant = "error",
@@ -67,9 +69,10 @@ ni::DigitalWriteSink::DigitalWriteSink(
     };
     this->breaker = breaker::Breaker(breaker_config);
     // Now configure the actual NI hardware
-    if (this->init()) {;
+    if (this->init()) {
+        ;
         this->logError("failed to configure NI hardware for task " + this->
-                writer_config.task_name);
+                       writer_config.task_name);
     }
 
     this->getIndexKeys();
@@ -88,37 +91,41 @@ void ni::DigitalWriteSink::parseConfig(config::Parser &parser) {
         this->writer_config.device_key);
 
     if (err != freighter::NIL) {
-        this->logError("failed to retrieve device with key " + this->writer_config.device_key);
+        this->logError(
+            "failed to retrieve device with key " + this->writer_config.device_key);
         return;
     }
     this->writer_config.device_name = dev.location;
     std::uint64_t c_count = 0;
     parser.iter("channels",
-        [&](config::Parser &channel_builder) {
+                [&](config::Parser &channel_builder) {
+                    ni::ChannelConfig config;
+                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+                    std::string port = "port" + std::to_string(
+                                           channel_builder.required<std::uint64_t>(
+                                               "port"));
+                    std::string line = "line" + std::to_string(
+                                           channel_builder.required<std::uint64_t>(
+                                               "line"));
 
-            ni::ChannelConfig config;
-            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-            std::string port = "port" + std::to_string(
-                channel_builder.required<std::uint64_t>("port"));
-            std::string line = "line" + std::to_string(
-                channel_builder.required<std::uint64_t>("line"));
-                
-            config.name = (this->writer_config.device_name + "/" + port + "/" + line);
+                    config.name = (this->writer_config.device_name + "/" + port + "/" +
+                                   line);
 
-            config.channel_key = channel_builder.required<uint32_t>(
-                "cmd_channel");
-            this->writer_config.drive_cmd_channel_keys.push_back(
-                config.channel_key);
+                    config.channel_key = channel_builder.required<uint32_t>(
+                        "cmd_channel");
+                    this->writer_config.drive_cmd_channel_keys.push_back(
+                        config.channel_key);
 
-            uint32_t drive_state_key = channel_builder.required<uint32_t>(
-                "state_channel");
-            this->writer_config.drive_state_channel_keys.push_back(
-                drive_state_key);
+                    uint32_t drive_state_key = channel_builder.required<uint32_t>(
+                        "state_channel");
+                    this->writer_config.drive_state_channel_keys.push_back(
+                        drive_state_key);
 
-            this->channel_map[config.name] = "channels." + std::to_string(c_count);
-            this->writer_config.channels.push_back(config);
-            c_count++;
-        });
+                    this->channel_map[config.name] =
+                            "channels." + std::to_string(c_count);
+                    this->writer_config.channels.push_back(config);
+                    c_count++;
+                });
 }
 
 
@@ -153,7 +160,8 @@ freighter::Error ni::DigitalWriteSink::start() {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
-        this->logError("failed to start writer for task " + this->writer_config.task_name);
+        this->logError(
+            "failed to start writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
         this->clearTask();
     }
@@ -174,7 +182,8 @@ freighter::Error ni::DigitalWriteSink::stop() {
     if (!this->breaker.running()) return freighter::NIL;
     this->breaker.stop();
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(task_handle))) {
-        this->logError("failed to stop writer for task " + this->writer_config.task_name);
+        this->logError(
+            "failed to stop writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->
@@ -241,18 +250,19 @@ freighter::Error ni::DigitalWriteSink::formatData(synnax::Frame frame) {
 
 ni::DigitalWriteSink::~DigitalWriteSink() {
     this->clearTask();
-    if(this->writeBuffer) delete[] this->writeBuffer;
+    if (this->writeBuffer) delete[] this->writeBuffer;
 }
 
-void ni::DigitalWriteSink::clearTask(){
-    if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(task_handle))) 
-        this->logError("failed to clear writer for task " + this->writer_config.task_name);
+void ni::DigitalWriteSink::clearTask() {
+    if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(task_handle)))
+        this->logError(
+            "failed to clear writer for task " + this->writer_config.task_name);
 }
 
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::getCmdChannelKeys() {
     std::vector<synnax::ChannelKey> keys;
 
-    for (auto &channel: this->writer_config.channels) 
+    for (auto &channel: this->writer_config.channels)
         if (channel.channel_type != "index") keys.push_back(channel.channel_key);
 
     return keys;
@@ -288,7 +298,7 @@ bool ni::DigitalWriteSink::ok() {
     return this->ok_state;
 }
 
-void ni::DigitalWriteSink::logError(std::string err_msg){
+void ni::DigitalWriteSink::logError(std::string err_msg) {
     LOG(ERROR) << "[ni.writer] " << err_msg;
     this->ok_state = false;
 }
@@ -308,7 +318,8 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
     this->err_info["running"] = false;
 
     std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
-    std::regex messageRegex(R"(^.*?(?=Status Code:|Channel Name:|Physical Channel Name:|Device:|\n\n|\n$))");
+    std::regex messageRegex(
+        R"(^.*?(?=Status Code:|Channel Name:|Physical Channel Name:|Device:|\n\n|\n$))");
     std::regex channelRegex(R"(Channel Name:\s*(\S+))");
     std::regex physicalChannelRegex(R"(Physical Channel Name:\s*(\S+))");
     std::regex deviceRegex(R"(Device:\s*(\S+))");
@@ -336,7 +347,7 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
     if (std::regex_search(s, physicalChannelMatch, physicalChannelRegex)) {
         cn = physicalChannelMatch[1].str();
         if (!device.empty()) {
-            cn = device + "/" + cn;  // Combine device and physical channel name
+            cn = device + "/" + cn; // Combine device and physical channel name
         }
     } else {
         std::smatch channelMatch;
@@ -353,8 +364,9 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
     }
 
     // Update the message with the extracted information
-    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
-    this->err_info["message"] = errorMessage;   
+    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->
+                               err_info["path"].get<std::string>() + " Channel: " + cn;
+    this->err_info["message"] = errorMessage;
 
     LOG(INFO) << this->err_info.dump(4);
 }
@@ -365,19 +377,20 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
 ///////////////////////////////////////////////////////////////////////////////////
 ni::StateSource::StateSource(std::uint64_t state_rate,
                              synnax::ChannelKey &drive_state_index_key,
-                             std::vector<synnax::ChannelKey> &drive_state_channel_keys){
-    
+                             std::vector<synnax::ChannelKey> &
+                             drive_state_channel_keys) {
     this->state_rate.value = state_rate;
     // start the periodic thread
     this->drive_state_index_key = drive_state_index_key;
 
     // initialize all states to 0 (logic low)
-    for (auto &key: drive_state_channel_keys) 
+    for (auto &key: drive_state_channel_keys)
         this->state_map[key] = 0;
     this->timer = loop::Timer(this->state_rate);
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(breaker::Breaker &breaker) {
+std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
+    breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // sleep for state period
     timer.wait(breaker);
@@ -412,4 +425,3 @@ void ni::StateSource::updateState(std::queue<synnax::ChannelKey> &modified_state
     }
     waiting_reader.notify_one();
 }
-
