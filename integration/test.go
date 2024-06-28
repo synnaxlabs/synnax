@@ -62,7 +62,7 @@ func runTest(testConfigFile string) (exitCode int) {
 		panic(err)
 	}
 
-	for i, step := range test.Body {
+	for i, step := range test.Steps {
 		if err := runStep(i, step); err != nil {
 			panic(err)
 		}

@@ -80,7 +80,7 @@ type TestStep = []TestNode
 type TestSequence struct {
 	Cluster ClusterParam `json:"cluster"`
 	Setup   SetUpParam   `json:"setup"`
-	Body    []TestStep   `json:"body"`
+	Steps   []TestStep   `json:"steps"`
 	Cleanup CleanUpParam `json:"cleanup"`
 }
 
