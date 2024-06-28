@@ -38,9 +38,16 @@ jobs:
         run: pnpm build:client
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: kishaningithub/setup-python-amazon-linux@v1
         with:
           python-version: "3.11"
+      
+      - name: Install Poetry
+        run: |
+            pip install poetry
+            poetry config virtualenvs.create false
+            poetry install
+        working-directory: ./client/py
 
       - name: Poetry install
         run: poetry install
