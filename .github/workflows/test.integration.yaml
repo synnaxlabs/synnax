@@ -36,13 +36,6 @@ jobs:
 
       - name: Build things
         run: pnpm build:client
-      
-      - name: Install Poetry
-        run: |
-            pip install poetry
-            poetry config virtualenvs.create false
-            poetry install
-        working-directory: ./client/py
 
       - name: Poetry install
         run: poetry install
