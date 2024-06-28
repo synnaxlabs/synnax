@@ -41,18 +41,13 @@ func (p SetUpParam) ToTSCommand(_ string) string {
 
 var _ NodeParams = &SetUpParam{}
 
-func runSetUp(param SetUpParam) error {
-	if param == (SetUpParam{}) {
+func runSetUp(p SetUpParam) error {
+	if p == (SetUpParam{}) {
 		fmt.Printf("--cannot find setup configuration, skipping\n")
+		return nil
 	}
 
 	fmt.Printf("--setting up\n")
-	switch param.Client {
-	case "py":
-		return testPython(context.Background(), param, "setup")
-	case "ts":
-		return testTS(context.Background(), param, "setup")
-	default:
-		panic("unrecognized client in setup")
-	}
+	return runNode(context.Background(), TestNode{Client: p.Client, Params: p}, "cleanup")
+
 }

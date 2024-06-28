@@ -99,70 +99,27 @@ func runStep(i int, step TestStep) error {
 }
 
 func runNode(ctx context.Context, node TestNode, identifier string) error {
+	var (
+		stdErr, stdOut bytes.Buffer
+		cmd            *exec.Cmd
+		process        = make(chan error, 1)
+		dir            string
+	)
+
 	switch node.Client {
 	case "py":
-		return testPython(ctx, node.Params, identifier)
+		cmd = exec.Command("sh", "-c", node.Params.ToPythonCommand(identifier))
+		dir = "./py"
 	case "ts":
-		return testTS(ctx, node.Params, identifier)
+		cmd = exec.Command("sh", "-c", node.Params.ToTSCommand(identifier))
+		dir = "./ts/src"
+	default:
+		return errors.Newf("Unrecognized client in %s: %s", identifier, node.Client)
 	}
 
-	return errors.Newf("unknown client for %s: %s on %s", identifier, node.Op, node.Client)
-}
-
-// testPython exists when the desired operation finishes, ctx is canceled, or
-// ch is empty
-func testPython(ctx context.Context, p NodeParams, identifier string) error {
-	var (
-		stdErr, stdOut bytes.Buffer
-		cmd            = exec.Command("sh", "-c", p.ToPythonCommand(identifier))
-		process        = make(chan error, 1)
-	)
 	cmd.Stderr = &stdErr
 	cmd.Stdout = &stdOut
-	cmd.Dir = "./py"
-	cmd.Env = os.Environ()
-
-	err := cmd.Start()
-	if err != nil {
-		return errors.Wrapf(
-			err,
-			"stdout: %s\nstderr: %s\n",
-			stdOut.String(),
-			stdErr.String(),
-		)
-	}
-
-	go func() { process <- cmd.Wait() }()
-
-	select {
-	case <-ctx.Done():
-		fmt.Printf("----%s canceled\n", identifier)
-		return nil
-	case err := <-process:
-		if err != nil {
-			fmt.Printf("----%s errored\n", identifier)
-			return errors.Wrapf(
-				err,
-				"error in %s:\nstdout: %s\nstderr: %s\n",
-				identifier,
-				stdOut.String(),
-				stdErr.String(),
-			)
-		}
-		fmt.Printf("----%s finished\n", identifier)
-		return nil
-	}
-}
-
-func testTS(ctx context.Context, p NodeParams, identifier string) error {
-	var (
-		stdErr, stdOut bytes.Buffer
-		cmd            = exec.Command("sh", "-c", p.ToTSCommand(identifier))
-		process        = make(chan error, 1)
-	)
-	cmd.Stderr = &stdErr
-	cmd.Stdout = &stdOut
-	cmd.Dir = "./ts/src"
+	cmd.Dir = dir
 	cmd.Env = os.Environ()
 
 	err := cmd.Start()

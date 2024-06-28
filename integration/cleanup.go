@@ -15,7 +15,7 @@ func (p CleanUpParam) serialize() []string {
 }
 
 func (p CleanUpParam) ToPythonCommand(_ string) string {
-	if p == (CleanUpParam{}) {
+	if !p.DeleteAllChannels {
 		return ""
 	}
 
@@ -28,19 +28,12 @@ func (p CleanUpParam) ToTSCommand(_ string) string {
 
 var _ NodeParams = &CleanUpParam{}
 
-func runCleanUp(param CleanUpParam) error {
+func runCleanUp(p CleanUpParam) error {
+	if p == (CleanUpParam{}) {
+		fmt.Printf("--cannot find cleanup configuration, skipping\n")
+		return nil
+	}
 	fmt.Printf("--cleaning up\n")
 
-	if param.DeleteAllChannels {
-		switch param.Client {
-		case "py":
-			return testPython(context.Background(), param, "cleanup")
-		case "ts":
-			return testTS(context.Background(), param, "cleanup")
-		default:
-			panic("unrecognized client in cleanup")
-		}
-	}
-
-	return nil
+	return runNode(context.Background(), TestNode{Client: p.Client, Params: p}, "cleanup")
 }
