@@ -103,7 +103,7 @@ export class ClusterRetriever implements Retriever {
 
 export class CacheRetriever implements Retriever {
   private readonly cache: Map<number, Payload>;
-  private readonly namesToKeys: Map<string, number>;
+  private readonly namesToKeys: Map<string, Set<number>>;
   private readonly wrapped: Retriever;
 
   constructor(wrapped: Retriever) {
@@ -128,27 +128,77 @@ export class CacheRetriever implements Retriever {
     const results: Payload[] = [];
     const toFetch: KeysOrNames = [];
     normalized.forEach((keyOrName) => {
-      const c = this.getFromCache(keyOrName);
-      if (c != null) results.push(c);
+      const c = this.get(keyOrName);
+      if (c != null) results.push(...c);
       else toFetch.push(keyOrName as never);
     });
     if (toFetch.length === 0) return results;
     const fetched = await this.wrapped.retrieve(toFetch, options);
-    this.updateCache(fetched);
+    this.set(fetched);
     return results.concat(fetched);
   }
 
-  private updateCache(channels: Payload[]): void {
-    channels.forEach((channel) => {
-      this.cache.set(channel.key, channel);
-      this.namesToKeys.set(channel.name, channel.key);
+  delete(channels: Params): void {
+    const { variant, normalized } = analyzeChannelParams(channels);
+    if (variant === "names")
+      (normalized as string[]).forEach((name) => {
+        const keys = this.namesToKeys.get(name);
+        if (keys == null) return;
+        keys.forEach((k) => this.cache.delete(k));
+        this.namesToKeys.delete(name);
+      });
+    else
+      (normalized as number[]).forEach((key) => {
+        const channel = this.cache.get(key);
+        if (channel == null) return;
+        this.cache.delete(key);
+        this.namesToKeys.delete(channel.name);
+      });
+  }
+
+  rename(keys: Key[], names: string[]): void {
+    keys.forEach((key, i) => {
+      const name = names[i];
+      const ch = this.cache.get(key);
+      if (ch == null) return;
+      this.cache.delete(key);
+      const keys = this.namesToKeys.get(ch.name);
+      if (keys != null) {
+        keys.delete(key);
+        if (keys.size === 0) this.namesToKeys.delete(ch.name);
+      }
+      ch.name = name;
+      this.cache.set(key, ch);
+      const newKeys = this.namesToKeys.get(name);
+      if (newKeys == null) this.namesToKeys.set(name, new Set([key]));
+      else newKeys.add(key);
     });
   }
 
-  private getFromCache(channel: KeyOrName): Payload | undefined {
-    const key = typeof channel === "number" ? channel : this.namesToKeys.get(channel);
-    if (key == null) return undefined;
-    return this.cache.get(key);
+  set(channels: Payload[]): void {
+    channels.forEach((channel) => {
+      this.cache.set(channel.key, channel);
+      const keys = this.namesToKeys.get(channel.name);
+      if (keys == null) this.namesToKeys.set(channel.name, new Set([channel.key]));
+      else keys.add(channel.key);
+    });
+  }
+
+  private get(channel: KeyOrName): Payload[] | undefined {
+    if (typeof channel === "number") {
+      const ch = this.cache.get(channel);
+      if (ch == null) return undefined;
+      return [ch];
+    }
+    const keys = this.namesToKeys.get(channel);
+    if (keys == null) return undefined;
+    const channels: Payload[] = [];
+    keys.forEach((key) => {
+      const ch = this.cache.get(key);
+      if (ch != null) channels.push(ch);
+    });
+    if (channels.length === 0) return undefined;
+    return channels;
   }
 }
 
