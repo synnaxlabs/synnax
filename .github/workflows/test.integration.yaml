@@ -38,7 +38,9 @@ jobs:
         run: pnpm build:client
 
       - name: Poetry install
-        run: poetry install
+        run: |
+            poetry env use /usr/bin/python3.11
+            poetry install
         working-directory: ./integration/py
 
       - name: Test
