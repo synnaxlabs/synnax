@@ -5,13 +5,13 @@ import { argv, exit } from 'process';
 class TestConfig {
     identifier: string;
     startTimeStamp: TimeStamp;
-    closeAfterFrames: number;
+    samplesExpected: number;
     channels: string[];
 
-    constructor(identifier: string, startTimeStamp: bigint, closeAfterFrames: number, channels: string[]) {
+    constructor(identifier: string, startTimeStamp: bigint, samplesExpected: number, channels: string[]) {
         this.identifier = identifier;
         this.startTimeStamp = new TimeStamp(startTimeStamp);
-        this.closeAfterFrames = closeAfterFrames;
+        this.samplesExpected = samplesExpected;
         this.channels = channels;
     }
 }
@@ -31,7 +31,7 @@ class StreamTest {
         let argvCounter = 2;
         const identifier = argv[argvCounter++];
         const startTimeStamp = BigInt(argv[argvCounter++]);
-        const closeAfterFrames = parseInt(argv[argvCounter++]);
+        const samplesExpected = parseInt(argv[argvCounter++]);
         const numberOfChannels = parseInt(argv[argvCounter++]);
 
         const channels: string[] = [];
@@ -39,7 +39,7 @@ class StreamTest {
             channels.push(argv[argvCounter++]);
         }
 
-        this.tc = new TestConfig(identifier, startTimeStamp, closeAfterFrames, channels);
+        this.tc = new TestConfig(identifier, startTimeStamp, samplesExpected, channels);
     }
 
     async testWithTiming(): Promise<void> {
@@ -57,7 +57,7 @@ Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
 Configuration:
 \tNumber of streamers: 1
 \tNumber of channels: ${this.tc.channels.length}
-\tClose after frames: ${this.tc.closeAfterFrames}
+\tSamples expected: ${this.tc.samplesExpected}
 
 `;
 
@@ -65,7 +65,6 @@ Configuration:
     };
 
     async test(): Promise<number> {
-        let counter = 0;
         let samplesStreamed = 0;
 
         const streamer = await client.openStreamer({
@@ -73,16 +72,13 @@ Configuration:
             from: this.tc.startTimeStamp,
         });
 
-        const f = await streamer.read()
-        console.log(f)
         try {
             for await (const frame of streamer) {
-                counter += 1;
-                if (counter >= this.tc.closeAfterFrames) {
+                samplesStreamed += frame.series.reduce((total, s) => total + s.length, 0);
+                console.log(samplesStreamed)
+                if (samplesStreamed >= this.tc.samplesExpected) {
                     return samplesStreamed;
                 }
-                console.log(frame)
-                samplesStreamed += frame.series.reduce((total, series) => total + series.length, 0);
             }
         } finally {
             streamer.close();

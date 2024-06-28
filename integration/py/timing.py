@@ -98,7 +98,7 @@ Calculated Samples per Second: {samples_per_second:,.2f}
 Configuration:
 \tNumber of streamers: 1
 \tNumber of channels: {len(params.channels)}
-\tClose after frames: {params.close_after_frames}
+\tSamples expected: {params.samples_expected}
 
             '''
         with open(FILE_NAME, "a") as f:

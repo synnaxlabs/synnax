@@ -62,7 +62,7 @@
             "int0",
             "int0-0"
           ],
-          "close_after_frames": 10
+          "samples_expected": 100000
         }
       },
       {
@@ -73,7 +73,7 @@
             "int1",
             "int1-0"
           ],
-          "close_after_frames": 10
+          "samples_expected": 10000
         }
       }
     ],

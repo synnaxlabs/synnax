@@ -1,6 +1,6 @@
 {
   "cluster": {
-    "memfs": true,
+    "mem_fs": true,
     "insecure": true
   },
   "setup": {
@@ -67,7 +67,7 @@
             "int0-0",
             "int1-0"
           ],
-          "close_after_frames": 100
+          "samples_expected": 100000
         }
       },
       {
@@ -78,7 +78,7 @@
             "int0-0",
             "int1-0"
           ],
-          "close_after_frames": 100
+          "samples_expected": 100000
         }
       }
     ],
@@ -104,7 +104,7 @@
           "channels": [
             "int0-0"
           ],
-          "close_after_frames": 50
+          "samples_expected": 1000000
         }
       },
       {

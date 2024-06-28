@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"time"
 
@@ -16,10 +16,10 @@ type ClusterParam struct {
 	MemFS    bool `json:"mem_fs"`
 }
 
-func startCluster(p ClusterParam) (error, func() error) {
+func startCluster(ctx context.Context, p ClusterParam) error {
 	if p == (ClusterParam{}) {
 		fmt.Printf("--cannot find cluster startup configration, skipping\n")
-		return nil, func() error { return nil }
+		return nil
 	}
 
 	fmt.Printf("--starting cluster\n")
@@ -33,7 +33,7 @@ func startCluster(p ClusterParam) (error, func() error) {
 
 	var (
 		stdOut, stdErr = bytes.Buffer{}, bytes.Buffer{}
-		cmd            = exec.Command("go", args...)
+		cmd            = exec.CommandContext(ctx, "go", args...)
 	)
 
 	cmd.Dir = "./../synnax"
@@ -46,9 +46,9 @@ func startCluster(p ClusterParam) (error, func() error) {
 			"error in starting cluster.\nstdout: %s\nstderr: %s\n",
 			stdOut.String(),
 			stdErr.String(),
-		), func() error { return nil }
+		)
 	}
 
 	time.Sleep(5 * telem.Second.Duration())
-	return nil, func() error { return cmd.Process.Signal(os.Interrupt) }
+	return nil
 }

@@ -24,16 +24,26 @@
           "domains": 100,
           "samples_per_domain": 1000,
           "time_range": {
-            "start": 0,
-            "end": 100000000000
+            "start": 99000000000,
+            "end": 200000000000
           },
           "writer_mode": 1
+        }
+      },
+      {
+        "op": "stream",
+        "client": "py",
+        "params":{
+          "channels": [
+            "int1"
+          ],
+          "samples_expected": 100000
         }
       }
     ]
   ],
   "cleanup": {
-    "delete_all_channels": false,
+    "delete_all_channels": true,
     "client": "py"
   }
 }

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 <argument>"
+    echo "Usage: $0 <test config name>"
     exit 1
 fi
 
@@ -17,7 +17,7 @@ if [ $exit_code -ne 0 ]; then
     exit $exit_code
 fi
 
-echo "\n"
+printf "\n"
 
 # Find the last occurrence of "Test Started" and print everything after that
 last_occurrence=$(grep -n "Test Started" ./timing.log | tail -n 1 | cut -d: -f1)

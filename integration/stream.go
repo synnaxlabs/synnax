@@ -7,7 +7,7 @@ import (
 
 type StreamParams struct {
 	StartTimeStamp   int      `json:"start_time_stamp"`
-	CloseAfterFrames int      `json:"close_after_frames"`
+	SamplesExpected int      `json:"samples_expected"`
 	Channels         []string `json:"channels"`
 }
 
@@ -16,7 +16,7 @@ func (p StreamParams) serialize() []string {
 	args = append(
 		args,
 		strconv.FormatInt(int64(p.StartTimeStamp), 10),
-		strconv.Itoa(p.CloseAfterFrames),
+		strconv.Itoa(p.SamplesExpected),
 		strconv.Itoa(len(p.Channels)),
 	)
 

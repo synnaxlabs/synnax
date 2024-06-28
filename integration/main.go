@@ -6,5 +6,6 @@ import (
 
 func main() {
 	testConfigFileName := os.Args[1]
-	runTest(testConfigFileName)
+	exitCode := runTest(testConfigFileName)
+	os.Exit(exitCode)
 }
