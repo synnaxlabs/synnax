@@ -39,10 +39,8 @@ jobs:
 
       - name: Poetry install
         run: |
-            source ~/.bashrc
-            which python
-            which python3
             poetry env info
+            poetry env remove python3.9
             poetry env use /usr/bin/python3.11
             poetry install
         working-directory: ./integration/py
