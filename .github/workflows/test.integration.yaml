@@ -31,11 +31,11 @@ jobs:
             changed:
                 - "**/*"
 
-      # - name: Install Dependencies
-      #   run: pnpm i
+      - name: Install Dependencies
+        run: pnpm i
 
-      # - name: Build things
-      #   run: pnpm build:client
+      - name: Build things
+        run: pnpm build:client
 
       - name: Poetry install
         run: |
