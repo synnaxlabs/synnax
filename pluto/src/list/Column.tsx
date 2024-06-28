@@ -288,5 +288,5 @@ export const Column = {
    */
   Item,
   /** The default height of a column list item. */
-  itemHeight: 36,
+  itemHeight: 5.5 * 6,
 };
