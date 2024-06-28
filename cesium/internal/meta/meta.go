@@ -25,7 +25,7 @@ const metaFile = "meta.json"
 // encoded by the provided encoder. If the file does not exist, it will be created. If
 // the file does exist, it will be read and returned. The provided channel should have
 // all fields required by the DB correctly set.
-func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.Channel, error) {
+func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.Codec) (core.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
 		return ch, err
@@ -43,7 +43,7 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
+func Read(fs xfs.FS, ecd binary.Codec) (core.Channel, error) {
 	s, err := fs.Stat("")
 	if err != nil {
 		return core.Channel{}, err
@@ -62,7 +62,7 @@ func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
-func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
+func Create(fs xfs.FS, ecd binary.Codec, ch core.Channel) error {
 	err := validateMeta(ch)
 	if err != nil {
 		return err

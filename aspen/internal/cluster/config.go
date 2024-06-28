@@ -48,7 +48,7 @@ type Config struct {
 	Pledge pledge_.Config
 	// EncoderDecoder is the encoder/decoder to use for encoding and decoding the
 	// Cluster state.
-	EncoderDecoder binary.EncoderDecoder
+	EncoderDecoder binary.Codec
 }
 
 var _ config.Config[Config] = Config{}
@@ -70,7 +70,7 @@ func (cfg Config) Override(other Config) Config {
 func (cfg Config) Validate() error {
 	v := validate.New("Cluster")
 	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)
-	validate.NotNil(v, "EncoderDecoder", cfg.EncoderDecoder)
+	validate.NotNil(v, "Codec", cfg.EncoderDecoder)
 	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
 	validate.NotEmptySlice(v, "LocalKey", cfg.StorageKey)
 	return v.Error()
