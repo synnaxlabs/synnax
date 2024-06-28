@@ -39,7 +39,10 @@ jobs:
 
       - name: Poetry install
         run: |
-            poetry env use /usr/bin/python3.11
+            poetry env use $(pyenv which python3.10)
+            which python
+            which python3
+            poetry env info
             poetry install
         working-directory: ./integration/py
 
