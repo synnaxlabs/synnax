@@ -31,12 +31,6 @@ import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
 import {
-  ChannelListEmptyContent,
-  ChannelListHeader,
-  Controls,
-  EnableDisableButton,
-} from "@/hardware/ni/task/common";
-import {
   Chan,
   DIChan,
   DIGITAL_READ_TYPE,
@@ -49,6 +43,12 @@ import {
   ZERO_DI_CHAN,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
+import {
+  ChannelListEmptyContent,
+  ChannelListHeader,
+  Controls,
+  EnableDisableButton,
+} from "@/hardware/task/common/common";
 import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
 
@@ -272,11 +272,9 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   if (selectedChannelIndex == -1) return <></>;
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
-    <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-      <Align.Space direction="x" grow>
-        <Form.NumericField path={`${prefix}.port`} label="Port" grow />
-        <Form.NumericField path={`${prefix}.line`} label="Line" grow />
-      </Align.Space>
+    <Align.Space direction="x" grow>
+      <Form.NumericField path={`${prefix}.port`} label="Port" grow />
+      <Form.NumericField path={`${prefix}.line`} label="Line" grow />
     </Align.Space>
   );
 };

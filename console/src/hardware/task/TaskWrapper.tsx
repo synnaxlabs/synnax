@@ -18,11 +18,11 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const client = Synnax.use();
-    const { args, altKey } = Layout.useSelectRequired(layoutKey);
+    const args = Layout.useSelectArgs<{ create: boolean }>(layoutKey);
+    const altKey = Layout.useSelectAltKey(layoutKey);
     const fetchTask = useQuery<WrappedProps<T, P>>({
       queryKey: [layoutKey, client?.key],
       queryFn: async () => {
-        console.log(args);
         if (client == null || args.create)
           return { initialValues: deep.copy(zeroPayload), layoutKey };
         // try to parse the key as a big int. If the parse fails, set the lat key as a key
@@ -37,7 +37,6 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
           if (e instanceof SyntaxError) key = altKey;
         }
         const t = await client.hardware.tasks.retrieve(key, { includeState: true });
-        console.log(t);
         return { initialValues: t as unknown as P, task: t as T, layoutKey };
       },
     });

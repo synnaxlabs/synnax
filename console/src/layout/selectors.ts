@@ -52,6 +52,12 @@ export const selectArgs = <A>(state: StoreState, key: string): A => {
 export const useSelectArgs = <A>(key: string): A =>
   useMemoSelect((state: StoreState) => selectArgs(state, key), [key]);
 
+export const selectAltKey = (state: StoreState, key: string): string | undefined =>
+  selectSliceState(state).altKeys[key];
+
+export const useSelectAltKey = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectAltKey(state, key), [key]);
+
 /**
  * Selects a layout from the store by key.
  *

@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/task/ReadTask.css";
-
-import { channel, device, type task } from "@synnaxlabs/client";
+import { channel, device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -21,15 +19,14 @@ import {
   Input,
   List,
   Menu,
-  Nav,
+  Observe,
   Status,
   Synnax,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
 import { DataType } from "@synnaxlabs/x/telem";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -45,14 +42,19 @@ import {
   type ReadConfig,
   readConfigZ,
   ReadPayload,
-  type ReadState,
   type ReadStateDetails,
   ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
+import {
+  ChannelListEmptyContent,
+  ChannelListHeader,
+  Controls,
+} from "@/hardware/task/common/common";
+import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { type Layout } from "@/layout";
 
-export const configureReadLayout = (): Layout.State => ({
+export const configureReadLayout = (create: boolean = false): Layout.State => ({
   name: "Configure OPC UA Read Task",
   key: uuid(),
   type: READ_TYPE,
@@ -63,27 +65,8 @@ export const configureReadLayout = (): Layout.State => ({
     size: { width: 1200, height: 900 },
     navTop: true,
   },
+  args: { create },
 });
-
-export const ReadTask: Layout.Renderer = ({ layoutKey }) => {
-  const client = Synnax.use();
-  const fetchTask = useQuery<InternalProps>({
-    queryKey: [client?.key, "task", layoutKey],
-    queryFn: async () => {
-      if (client == null || layoutKey == READ_TYPE)
-        return { initialValues: deep.copy(ZERO_READ_PAYLOAD) };
-      const t = await client.hardware.tasks.retrieve<
-        ReadConfig,
-        ReadStateDetails,
-        ReadType
-      >(layoutKey, { includeState: true });
-      return { initialValues: t, task: t };
-    },
-  });
-  if (fetchTask.isLoading) return <></>;
-  if (fetchTask.isError) return <></>;
-  return <Internal {...(fetchTask.data as InternalProps)} />;
-};
 
 interface InternalProps {
   task?: Read;
@@ -93,9 +76,6 @@ interface InternalProps {
 const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement => {
   const client = Synnax.use();
   const [task, setTask] = useState(pTask);
-  const [taskState, setTaskState] = useState<ReadState | null>(
-    initialValues.state ?? null,
-  );
   const [device, setDevice] = useState<device.Device<Device.Properties> | null>(null);
 
   const schema = useMemo(
@@ -166,14 +146,11 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const stateObserverRef = useRef<task.StateObservable<ReadStateDetails> | null>(null);
-
-  useAsyncEffect(async () => {
-    if (client == null || task == null) return;
-    stateObserverRef.current = await task.openStateObserver<ReadStateDetails>();
-    stateObserverRef.current.onChange((s) => setTaskState(s));
-    return async () => await stateObserverRef.current?.close().catch(console.error);
-  }, [client?.key, task?.key, setTaskState]);
+  const taskState = Observe.useState({
+    key: [task?.key],
+    open: async () => await task?.openStateObserver<ReadStateDetails>(),
+    initialValue: task?.state,
+  });
 
   const configure = useMutation({
     mutationKey: [client?.key],
@@ -201,8 +178,8 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
   return (
-    <Align.Space className={CSS.B("opc-read-task")} direction="y" grow empty>
-      <Align.Space className={CSS.B("content")} direction="y" grow>
+    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
+      <Align.Space direction="y" grow>
         <Form.Form {...methods}>
           <Align.Space direction="x">
             <Form.Field<string> path="name" label="Name">
@@ -254,10 +231,10 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
               )}
             />
             <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h3">
-                <Header.Title weight={500}>Channel Details</Header.Title>
+              <Header.Header level="h4">
+                <Header.Title weight={500}>Details</Header.Title>
               </Header.Header>
-              <Align.Space direction="y" className={CSS.B("channel-form-content")} grow>
+              <Align.Space direction="y" className={CSS.B("details")} grow>
                 {selectedChannelIndex != null && (
                   <ChannelForm
                     key={selectedChannelIndex}
@@ -269,36 +246,14 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
             </Align.Space>
           </Align.Space>
         </Form.Form>
+        <Controls
+          state={taskState}
+          startingOrStopping={start.isPending}
+          configuring={configure.isPending}
+          onStartStop={start.mutate}
+          onConfigure={configure.mutate}
+        />
       </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          {taskState?.details?.message != null && taskState.variant != null && (
-            <Status.Text
-              variant={(taskState?.variant ?? "error") as Status.Variant}
-              level="p"
-            >
-              {taskState?.details?.message}
-            </Status.Text>
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
-          <Button.ToggleIcon
-            loading={start.isPending}
-            disabled={start.isPending || taskState == null}
-            value={taskState?.details?.running ?? false}
-            onChange={() => start.mutate()}
-          >
-            {taskState?.details?.running ? <Icon.Pause /> : <Icon.Play />}
-          </Button.ToggleIcon>
-          <Button.Button
-            loading={configure.isPending}
-            disabled={configure.isPending}
-            onClick={() => configure.mutate()}
-          >
-            Configure
-          </Button.Button>
-        </Nav.Bar.End>
-      </Nav.Bar>
     </Align.Space>
   );
 };
@@ -329,19 +284,7 @@ export const ChannelList = ({
 
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h3">
-        <Header.Title weight={500}>Channels</Header.Title>
-        <Header.Actions>
-          {[
-            {
-              key: "add",
-              onClick: handleAdd,
-              children: <Icon.Add />,
-              size: "large",
-            },
-          ]}
-        </Header.Actions>
-      </Header.Header>
+      <ChannelListHeader onAdd={handleAdd} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string): void => {
@@ -367,7 +310,10 @@ export const ChannelList = ({
         }}
         {...menuProps}
       >
-        <List.List<string, ReadChannelConfig> data={value}>
+        <List.List<string, ReadChannelConfig>
+          data={value}
+          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+        >
           <List.Selector<string, ReadChannelConfig>
             value={selected}
             allowNone
@@ -401,6 +347,7 @@ export const ChannelList = ({
 
 export const ChannelListItem = ({
   path,
+  remove,
   ...props
 }: List.ItemProps<string, ReadChannelConfig> & {
   path: string;
@@ -529,3 +476,8 @@ const ChannelForm = ({
     </>
   );
 };
+
+export const ReadTask: Layout.Renderer = wrapTaskLayout<Read, ReadPayload>(
+  Internal,
+  ZERO_READ_PAYLOAD,
+);

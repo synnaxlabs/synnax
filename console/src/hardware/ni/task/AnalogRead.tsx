@@ -39,7 +39,7 @@ import {
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
-} from "@/hardware/ni/task/common";
+} from "@/hardware/task/common/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -92,8 +92,12 @@ const Internal = ({
 
   const [task, setTask] = useState(initialTask);
 
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    initialValues.config.channels.length ? [initialValues.config.channels[0].key] : [],
+  );
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+    initialValues.config.channels.length > 0 ? 0 : null,
+  );
 
   const taskState = Observe.useState({
     key: [task?.key],
@@ -323,7 +327,8 @@ const availablePortFinder = (channels: Chan[]): (() => number) => {
 };
 
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
-  const { value, push, remove, set } = Form.useFieldArray<Chan>({ path });
+  const { value, push, remove } = Form.useFieldArray<Chan>({ path });
+  const methods = Form.useContext();
   const handleAdd = (): void => {
     const key = nanoid();
     push({
@@ -357,19 +362,15 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             );
           };
           const handleDisable = () =>
-            set((v) =>
-              v.map((c, i) => {
-                if (!indices.includes(i)) return c;
-                return { ...c, enabled: false };
-              }),
-            );
+            value.forEach((_, i) => {
+              if (!indices.includes(i)) return;
+              methods.set(`${path}.${i}.enabled`, false);
+            });
           const handleEnable = () =>
-            set((v) =>
-              v.map((c, i) => {
-                if (!indices.includes(i)) return c;
-                return { ...c, enabled: true };
-              }),
-            );
+            value.forEach((_, i) => {
+              if (!indices.includes(i)) return;
+              methods.set(`${path}.${i}.enabled`, true);
+            });
           const allowDisable = indices.some((i) => value[i].enabled);
           const allowEnable = indices.some((i) => !value[i].enabled);
           return (
