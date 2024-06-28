@@ -34,16 +34,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-      - name: Build things
+      - name: Build client
         run: pnpm build:client
 
       - name: Poetry install
-        run: |
-            poetry env remove --all
-            poetry cache clear --all .
-            rm -rf $(poetry config cache-dir)/artifacts
-            poetry env use /usr/bin/python3.11
-            poetry install
+        run: poetry install
         working-directory: ./integration/py
 
       - name: Test
