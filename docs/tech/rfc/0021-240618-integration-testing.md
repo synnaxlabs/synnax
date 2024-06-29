@@ -172,3 +172,12 @@ deleted from, etc.
 Currently, the testing framework only asserts that no errors occur when running the
 operations. Eventually, it will be equally important to assert that data written and
 read are indeed correct.
+
+#### Orphan processes:
+
+When running the cluster with integration tests, we cannot kill the cluster process at the
+end – since killing a process does not kill other processes started by it. In addition,
+we cannot send a `Interrupt` signal as golang does not implement interrupting a Windows
+process (see [issue](https://github.com/golang/go/issues/6720)). Fortunately, the
+GitHub Actions runner cleans up orphan processes by default, but this is something that
+should be addressed.
