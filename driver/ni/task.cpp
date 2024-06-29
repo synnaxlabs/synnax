@@ -265,6 +265,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
 
+    LOG(INFO) << "[ni.writer] configuring task " << task.name;
     auto daq_writer = std::make_shared<ni::DigitalWriteSink>(task_handle, ctx, task);
 
     // construct writer config
@@ -291,7 +292,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     auto state_writer = daq_writer->writer_state_source;
 
     daq_writer->cycle();
-
+    LOG(INFO) << "[ni.writer] constructed writer for " << task.name;
     auto p = std::make_unique<ni::WriterTask>(ctx,
                                               task,
                                               daq_writer,

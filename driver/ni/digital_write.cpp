@@ -23,12 +23,15 @@
 //                             Helper Functions                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::DigitalWriteSink::getIndexKeys() {
+    if(this->writer_config.drive_state_channel_keys.size() == 0) {
+        // this->logError("no state channels found for task " + this->writer_config.task_name);
+        return;
+    }
     auto state_channel = this->writer_config.drive_state_channel_keys[0];
     auto [state_channel_info, err] = this->ctx->client->channels.
             retrieve(state_channel);
     if (err) {
         this->logError("failed to retrieve channel " + state_channel);
-        this->ok_state = false;
         return;
     } else {
         this->writer_config.drive_state_index_key = state_channel_info.index;
@@ -60,6 +63,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
         });
         return;
     }
+        writer_config.task_name;
     // Create breaker
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -69,13 +73,13 @@ ni::DigitalWriteSink::DigitalWriteSink(
     };
     this->breaker = breaker::Breaker(breaker_config);
     // Now configure the actual NI hardware
-    if (this->init()) {
-        ;
+    if (this->init()) 
         this->logError("failed to configure NI hardware for task " + this->
                        writer_config.task_name);
-    }
 
+    LOG(INFO) << "retrieving index keys";
     this->getIndexKeys();
+    LOG(INFO) << "Retreived index keys"; 
     this->writer_state_source = std::make_shared<ni::StateSource>(
         this->writer_config.state_rate,
         this->writer_config.drive_state_index_key,
@@ -132,7 +136,6 @@ void ni::DigitalWriteSink::parseConfig(config::Parser &parser) {
 int ni::DigitalWriteSink::init() {
     int err = 0;
     auto channels = this->writer_config.channels;
-
     // iterate through channels
     for (auto &channel: channels) {
         if (channel.channel_type != "index") {
@@ -146,10 +149,11 @@ int ni::DigitalWriteSink::init() {
             return -1;
         }
     }
+
     // Configure buffer size and read resources
     this->bufferSize = this->numChannels;
     this->writeBuffer = new uint8_t[this->bufferSize];
-
+    
     for (int i = 0; i < this->bufferSize; i++) {
         writeBuffer[i] = 0;
     }
@@ -157,6 +161,8 @@ int ni::DigitalWriteSink::init() {
 }
 
 freighter::Error ni::DigitalWriteSink::cycle(){
+    if(this->breaker.running() || !this->ok()) return freighter::NIL;
+    LOG(INFO) << "cycling task " << this->writer_config.task_name;
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->logError(
             "failed while starting reader for task " + this->writer_config.task_name +
@@ -169,6 +175,7 @@ freighter::Error ni::DigitalWriteSink::cycle(){
             "failed while stopping reader for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
+    return freighter::NIL;
 }
 
 freighter::Error ni::DigitalWriteSink::start() {
@@ -333,21 +340,43 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
     this->err_info["running"] = false;
 
     std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
-    std::regex messageRegex(
-        R"(^.*?(?=Status Code:|Channel Name:|Physical Channel Name:|Device:|\n\n|\n$))");
     std::regex channelRegex(R"(Channel Name:\s*(\S+))");
     std::regex physicalChannelRegex(R"(Physical Channel Name:\s*(\S+))");
     std::regex deviceRegex(R"(Device:\s*(\S+))");
+
+    // Extract the entire message
+    std::string message = s; // Start with the entire string
+
+    // Define a vector of field names to look for
+    std::vector<std::string> fields = {
+        "Status Code:", "Channel Name:", "Physical Channel Name:",
+        "Device:", "Task Name:"
+    };
+
+    // Find the position of the first occurrence of any field
+    size_t firstFieldPos = std::string::npos;
+    for (const auto& field : fields) {
+        size_t pos = s.find("\n" + field);
+        if (pos != std::string::npos && (firstFieldPos == std::string::npos || pos < firstFieldPos)) {
+            firstFieldPos = pos;
+        }
+    }
+
+    // If we found a field, extract the message up to that point
+    if (firstFieldPos != std::string::npos) {
+        message = s.substr(0, firstFieldPos);
+    }
+
+    // Trim trailing whitespace and newlines
+    message = std::regex_replace(message, std::regex("\\s+$"), "");
 
     // Extract status code
     std::smatch statusCodeMatch;
     std::regex_search(s, statusCodeMatch, statusCodeRegex);
     std::string sc = (!statusCodeMatch.empty()) ? statusCodeMatch[1].str() : "";
 
-    // Extract message
-    std::smatch messageMatch;
-    std::regex_search(s, messageMatch, messageRegex);
-    std::string message = (!messageMatch.empty()) ? messageMatch[0].str() : "";
+    // Check if the status code is -200170
+    bool isPortError = (sc == "-200170");
 
     // Extract device name
     std::string device = "";
@@ -374,18 +403,26 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
     // Check if the channel name is in the channel map
     if (channel_map.count(cn) != 0) {
         this->err_info["path"] = channel_map[cn];
+    } else if (!cn.empty()) {
+        this->err_info["path"] = cn;
     } else {
         this->err_info["path"] = "unknown";
     }
 
+    // Handle the special case for -200170 error
+    if (isPortError) {
+        this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
+    }
+
     // Update the message with the extracted information
-    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->
-                               err_info["path"].get<std::string>() + " Channel: " + cn;
+    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>();
+    if (!cn.empty()) {
+        errorMessage += " Channel: " + cn;
+    }
     this->err_info["message"] = errorMessage;
 
     LOG(INFO) << this->err_info.dump(4);
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
