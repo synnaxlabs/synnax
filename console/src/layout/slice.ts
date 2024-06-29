@@ -33,7 +33,8 @@ export interface SliceState extends migrate.Migratable {
    * currently rendered in the mosaic or in external windows.
    */
   layouts: Record<string, State>;
-  altKeys: Record<string, string>;
+  altKeyToKey: Record<string, string>;
+  keyToAltKey: Record<string, string>;
   hauling: Haul.DraggingState;
   mosaics: Record<string, MosaicState>;
   nav: NavState;
@@ -118,8 +119,9 @@ const MIGRATIONS: migrate.Migrations = {
     },
     version: "0.2.0",
   }),
-  "0.2.0": (state: Omit<SliceState, "altKeys">): SliceState => ({
-    altKeys: {},
+  "0.2.0": (state: Omit<SliceState, "altKeyToKey" | "keyToAltKey">): SliceState => ({
+    altKeyToKey: {},
+    keyToAltKey: {},
     ...state,
     version: "0.3.0",
   }),
@@ -138,7 +140,8 @@ export const ZERO_SLICE_STATE: SliceState = {
   mosaics: {
     main: ZERO_MOSAIC_STATE,
   },
-  altKeys: {},
+  altKeyToKey: {},
+  keyToAltKey: {},
   hauling: Haul.ZERO_DRAGGING_STATE,
   nav: {
     main: {
@@ -241,10 +244,10 @@ const purgeEmptyMosaics = (state: SliceState) => {
 const select = (state: SliceState, key: string): State | null => {
   const layout = state.layouts[key];
   if (layout == null) {
-    const altKey = state.altKeys[key];
+    const altKey = state.altKeyToKey[key];
     if (altKey == null) return null;
     const altLayout = state.layouts[altKey];
-    if (altLayout == null) return null;
+    return altLayout ?? null;
   }
   return layout;
 };
@@ -262,10 +265,15 @@ export const { actions, reducer } = createSlice({
   initialState: ZERO_SLICE_STATE,
   reducers: {
     place: (state, { payload: layout }: PayloadAction<PlacePayload>) => {
-      const { key, location, name, tab } = layout;
+      const { location, name, tab } = layout;
+      let key = layout.key;
 
       const prev = select(state, key);
       const mosaic = state.mosaics[layout.windowKey];
+      if (prev != null) {
+        key = prev.key;
+        layout.key = prev.key;
+      }
 
       if (layout.type === MOSAIC_WINDOW_TYPE) state.mosaics[key] = ZERO_MOSAIC_STATE;
 
@@ -302,9 +310,7 @@ export const { actions, reducer } = createSlice({
 
       state.layouts[key] = layout;
       state.mosaics[layout.windowKey] = mosaic;
-      if (layout.type !== MOSAIC_WINDOW_TYPE) {
-        purgeEmptyMosaics(state);
-      }
+      if (layout.type !== MOSAIC_WINDOW_TYPE) purgeEmptyMosaics(state);
     },
     setHauled: (state, { payload }: PayloadAction<SetHaulingPayload>) => {
       state.hauling = payload;
@@ -330,7 +336,8 @@ export const { actions, reducer } = createSlice({
     ) => {
       const layout = select(state, key);
       if (layout == null) return;
-      state.altKeys[altKey] = key;
+      state.altKeyToKey[altKey] = key;
+      state.keyToAltKey[key] = altKey;
     },
     moveMosaicTab: (
       state,

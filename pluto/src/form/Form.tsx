@@ -486,7 +486,7 @@ export const use = <Z extends z.ZodTypeAny>({
           });
       }
     });
-    console.log("Fired", fired);
+    // console.log("Fired", fired);
   }, []);
 
   const processValidationResult = useCallback(

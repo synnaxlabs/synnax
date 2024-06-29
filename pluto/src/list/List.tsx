@@ -43,9 +43,9 @@ export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     () => (omit != null ? data?.filter((e) => !omit.includes(e.key)) : data),
     ([prevOmit, prevData], [omit, data]) => {
       let omitsEqual = false;
-      if (prevOmit != null && omit != null)
+      if (prevOmit != null && omit != null) {
         omitsEqual = compare.unorderedPrimitiveArrays(prevOmit, omit) === compare.EQUAL;
-      else omitsEqual = prevOmit == omit;
+      } else omitsEqual = prevOmit == omit;
       return prevData === data && omitsEqual;
     },
     [omit, data] as [K[] | undefined, E[] | undefined],
