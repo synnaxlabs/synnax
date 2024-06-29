@@ -266,6 +266,7 @@ const sortTransform =
   ): ArrayTransform<E> =>
   ({ data }) => {
     if (data.length === 0) return { data, transformed: false };
+    console.log(data[0], k);
     return {
       data: [...data].sort(compare.newFieldF(k, data[0], !dir)),
       transformed: true,

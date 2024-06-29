@@ -14,6 +14,7 @@
     margin: 0;
     width: 100%;
     flex-shrink: 0;
+    overflow: hidden;
 
     & .pluto-input__internal {
         position: relative;
@@ -44,7 +45,8 @@
         }
 
         &::placeholder {
-            color: transparent;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
     }
 
@@ -92,7 +94,8 @@
     /* z-index of placeholder is above that of input, so we move it a bit to the right
     to make sure the cursor doesn't look weird. */
     padding-left: 1.75rem;
-    width: 100%;
+    width: calc(100% - 1.5rem);
+    overflow: hidden;
     display: flex;
     align-items: center;
     pointer-events: none;

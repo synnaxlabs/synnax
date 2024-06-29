@@ -53,7 +53,7 @@ export const useSelectArgs = <A>(key: string): A =>
   useMemoSelect((state: StoreState) => selectArgs(state, key), [key]);
 
 export const selectAltKey = (state: StoreState, key: string): string | undefined =>
-  selectSliceState(state).altKeys[key];
+  selectSliceState(state).keyToAltKey[key];
 
 export const useSelectAltKey = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectAltKey(state, key), [key]);

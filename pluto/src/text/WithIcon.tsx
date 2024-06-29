@@ -82,21 +82,6 @@ export const WithIcon = <
   );
 };
 
-// const formatIcons = (
-//   icon: false | IconElement | IconElement[],
-//   color?: string,
-// ): ReactElement[] => {
-//   if (icon === false) return [];
-//   return (Children.toArray(icon) as IconElement[]).map((icon, i) =>
-//     cloneElement(icon, {
-//       key: i,
-//       ...icon.props,
-//       color,
-//       style: { ...icon.props.style },
-//     }),
-//   );
-// }
-
 export const formatChildren = <L extends text.Level>(
   level: L,
   children: ReactNode = [],

@@ -36,6 +36,7 @@ import {
 } from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
+import { Triggers } from "@/triggers";
 
 export interface SingleProps<K extends Key, E extends Keyed<K>>
   extends Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
@@ -173,6 +174,8 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   onFocus: () => void;
 }
 
+export const DEFAULT_PLACEHOLDER = "Select";
+
 const SingleInput = <K extends Key, E extends Keyed<K>>({
   entryRenderKey,
   selected,
@@ -180,7 +183,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   onChange,
   onFocus,
   allowNone = true,
-  placeholder = "Select...",
+  placeholder = DEFAULT_PLACEHOLDER,
   className,
   disabled,
   ...props
@@ -235,6 +238,11 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
       value={internalValue}
       onChange={handleChange}
       onFocus={handleFocus}
+      onKeyDown={Triggers.matchCallback([["Enter"]], (e) => {
+        e.preventDefault();
+        if (visible) return;
+        onFocus?.();
+      })}
       style={{ flexGrow: 1 }}
       onClick={handleClick}
       placeholder={placeholder}

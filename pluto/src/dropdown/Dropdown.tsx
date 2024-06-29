@@ -227,7 +227,7 @@ const calcConnectedDialog = ({
   let targetBox = box.construct(target);
   // the container is the nearest element that has a container-type or contain property
 
-  let container = box.construct(0, 300, window.innerWidth, window.innerHeight);
+  let container = box.construct(0, 0, window.innerWidth, window.innerHeight);
   // iterate through the parent elements to find the container
   let parent = target.parentElement;
   while (parent != null) {

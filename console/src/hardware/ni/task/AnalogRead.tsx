@@ -36,11 +36,6 @@ import { NI } from "@/hardware/ni";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
 import {
-  ChannelListEmptyContent,
-  ChannelListHeader,
-  Controls,
-} from "@/hardware/task/common/common";
-import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
   AIChanType,
@@ -55,6 +50,11 @@ import {
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
+import {
+  ChannelListEmptyContent,
+  ChannelListHeader,
+  Controls,
+} from "@/hardware/task/common/common";
 import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
 
@@ -339,6 +339,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
     onSelect([key], value.length);
   };
   const menuProps = Menu.useContextMenu();
+  console.log(value);
 
   return (
     <Align.Space className={CSS.B("channels")} grow empty>

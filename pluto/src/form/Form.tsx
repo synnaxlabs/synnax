@@ -463,7 +463,7 @@ export const use = <Z extends z.ZodTypeAny>({
 
   const updateFieldValues = useCallback((path: string) => {
     const { listeners, parentListeners } = ref.current;
-    const fired = [];
+    const fired: string[] = [];
     const lis = listeners.get(path);
     if (lis != null) {
       const fs = get(path, { optional: true });
@@ -474,17 +474,6 @@ export const use = <Z extends z.ZodTypeAny>({
         });
     }
 
-    // listeners.forEach((lis, lPath) => {
-    //   const equalOrParent = deep.pathsMatch(lPath, path);
-    //   if (equalOrParent) {
-    //     const fs = get(lPath, { optional: true });
-    //     if (fs != null)
-    //       lis.forEach((l) => {
-    //         fired.push(`${lPath}`);
-    //         l(fs);
-    //       });
-    //   }
-    // });
     parentListeners.forEach((lis, lisPath) => {
       const equalOrChild = deep.pathsMatch(path, lisPath);
       // const equalOrParent = deep.pathsMatch(lisPath, path);
@@ -497,7 +486,7 @@ export const use = <Z extends z.ZodTypeAny>({
           });
       }
     });
-    console.log("Fired", fired);
+    // console.log("Fired", fired);
   }, []);
 
   const processValidationResult = useCallback(

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { compare, type xy } from "@synnaxlabs/x";
+import { KeyboardEvent, MouseEvent } from "react";
 import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";
@@ -234,6 +235,15 @@ export const mouseKey = (button: number): Key => MOUSE_BUTTONS[button] ?? "Mouse
  */
 export const match = (expected: Trigger[], actual: Trigger[], loose = false): boolean =>
   filter(expected, actual, loose).length > 0;
+
+export const matchCallback =
+  <E extends KeyboardEvent | MouseEvent>(
+    expect: Trigger[],
+    callback: (e: E) => void,
+  ): ((e: E) => void) =>
+  (e) => {
+    if (match(expect, [[eventKey(e)]])) return callback(e);
+  };
 
 /**
  * Filter compares the expected triggers against the actual triggers and returns

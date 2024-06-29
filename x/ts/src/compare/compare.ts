@@ -40,6 +40,9 @@ export const newF = <T>(v: T, reverse: boolean = false): CompareF<T> => {
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);
       break;
+    case "undefined":
+      f = () => 0;
+      break;
     default:
       console.warn(`sortFunc: unknown type ${t}`);
       return () => -1;
