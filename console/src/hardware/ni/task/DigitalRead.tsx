@@ -11,13 +11,12 @@ import { QueryError } from "@synnaxlabs/client";
 import {
   Align,
   Channel,
-  Device,
   Form,
   Header,
   Input,
   List,
   Menu,
-  Observe,
+  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
@@ -25,12 +24,12 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
+import { SelectDevice } from "@/hardware/ni/task/common";
 import {
   Chan,
   DIChan,
@@ -50,6 +49,8 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  useCreate,
+  useObserveState,
 } from "@/hardware/task/common/common";
 import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
@@ -93,19 +94,30 @@ const Internal = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = Observe.useState({
-    key: [task?.key],
-    open: async () => await task?.openStateObserver<DigitalReadStateDetails>(),
-    initialValue: task?.state,
-  });
+  const taskState = useObserveState<DigitalReadStateDetails>(
+    methods.setStatus,
+    task?.key,
+    task?.state,
+  );
 
-  const dispatch = useDispatch();
+  const createTask = useCreate<
+    DigitalReadConfig,
+    DigitalReadStateDetails,
+    DigitalReadType
+  >(layoutKey);
+
+  const addStatus = Status.useAggregator();
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
+    onError: ({ message }) =>
+      addStatus({
+        key: `configure-${layoutKey}`,
+        variant: "error",
+        message,
+      }),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
 
       const dev = await client.hardware.devices.retrieve<Properties>(config.device);
@@ -176,18 +188,13 @@ const Internal = ({
       });
       methods.set("config", config);
 
-      const t = await rack.createTask<
-        DigitalReadConfig,
-        DigitalReadStateDetails,
-        DigitalReadType
-      >({
+      const t = await createTask({
         key: task?.key,
         name,
         type: DIGITAL_READ_TYPE,
         config,
       });
-      dispatch(Layout.setAltKey({ key: layoutKey, altKey: t.key }));
-      setTask(t);
+      if (t != null) setTask(t);
     },
   });
 
@@ -209,21 +216,7 @@ const Internal = ({
             {(p) => <Input.Text variant="natural" level="h1" {...p} />}
           </Form.Field>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <Form.Field<string>
-              path="config.device"
-              label="Device"
-              grow
-              style={{ width: "100%" }}
-            >
-              {(p) => (
-                <Device.SelectSingle
-                  allowNone={false}
-                  grow
-                  {...p}
-                  searchOptions={{ makes: ["NI"] }}
-                />
-              )}
-            </Form.Field>
+            <SelectDevice />
             <Align.Space direction="x">
               <Form.NumericField label="Sample Rate" path="config.sampleRate" />
               <Form.NumericField label="Stream Rate" path="config.streamRate" />

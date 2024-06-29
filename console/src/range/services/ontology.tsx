@@ -11,7 +11,6 @@ import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
-import { Divider } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";

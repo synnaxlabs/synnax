@@ -13,9 +13,8 @@ import { type FC, type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
-import { Schematic } from "@/schematic";
-import { createLayoutSelector, LayoutSelector } from "@/vis/LayoutSelector";
+// import { LinePlot } from "@/lineplot";
+// import { Schematic } from "@/schematic";
 import { type LayoutType } from "@/vis/types";
 
 export const VisToolbarTitle = (): ReactElement => (
@@ -31,13 +30,13 @@ const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
-    <LayoutSelector layoutKey={layoutKey} />
+    {/* <LayoutSelector layoutKey={layoutKey} /> */}
   </Align.Space>
 );
 
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
-  schematic: Schematic.Toolbar,
-  lineplot: LinePlot.Toolbar,
+  // schematic: Sce.Toolbar,
+  // lineplot: LinePlot.Toolbar,
   vis: SelectVis,
 };
 

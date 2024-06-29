@@ -21,9 +21,7 @@ import {
   unique,
   xy,
 } from "@synnaxlabs/x";
-import { nanoid } from "nanoid/non-secure";
 
-import { type Layout } from "@/layout";
 import {
   AxisKey,
   MultiXAxisRecord,
@@ -215,7 +213,7 @@ export const ZERO_AXES_STATE: AxesState = {
   },
 };
 
-export const ZERO_LINE_VIS: State = {
+export const ZERO_STATE: State = {
   version: "0.0.0",
   key: "",
   remoteCreated: false,
@@ -594,23 +592,3 @@ export const {
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type LinePayload = Action["payload"];
-
-export type LayoutType = "lineplot";
-export const LAYOUT_TYPE = "lineplot";
-
-export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? nanoid();
-    dispatch(actions.create({ ...deep.copy(ZERO_LINE_VIS), ...rest, key }));
-    return {
-      key,
-      name,
-      location,
-      type: LAYOUT_TYPE,
-      icon: "Visualize",
-      window,
-      tab,
-    };
-  };

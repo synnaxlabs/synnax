@@ -15,7 +15,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
-import { create, type State } from "@/lineplot/slice";
+import { create } from "@/lineplot/LinePlot";
+import { type State } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 

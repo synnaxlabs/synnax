@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layouts/LayoutMain/Nav.css";
+import "@/layouts/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
@@ -15,6 +15,7 @@ import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
+import { ClusterServices } from "@/cluster/services";
 import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
@@ -22,13 +23,16 @@ import { Docs } from "@/docs";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
-import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
+import { NAV_SIZES } from "@/layouts/constants";
 import { LinePlot } from "@/lineplot";
+import { LinePlotServices } from "@/lineplot/services";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
+import { RangeServices } from "@/range/services";
 import { Schematic } from "@/schematic";
+import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -41,13 +45,13 @@ const DEFAULT_TRIGGER: TriggerConfig = {
 };
 
 const COMMANDS = [
-  ...LinePlot.COMMANDS,
+  ...LinePlotServices.COMMANDS,
   ...Layout.COMMANDS,
-  ...Schematic.COMMANDS,
+  ...SchematicServices.COMMANDS,
   ...Docs.COMMANDS,
   ...Workspace.COMMANDS,
-  ...Cluster.COMMANDS,
-  ...Range.COMMANDS,
+  ...ClusterServices.COMMANDS,
+  ...RangeServices.COMMANDS,
   ...OPC.COMMANDS,
   ...Persist.COMMANDS,
   ...NI.COMMANDS,

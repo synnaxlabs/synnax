@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Channel } from "@/channel";
-import { Cluster } from "@/cluster";
+import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
+import { ClusterServices } from "@/cluster/services";
 import { Group } from "@/group";
 import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
-import { LinePlot } from "@/lineplot";
+import { LinePlotServices } from "@/lineplot/services";
 import { Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
-import { Range } from "@/range";
-import { Schematic } from "@/schematic";
+import { RangeServices } from "@/range/services";
+import { SchematicServices } from "@/schematic/services";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
 
@@ -35,19 +35,19 @@ export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
 };
 
 export const SERVICES: Ontology.Services = {
-  schematic: Schematic.ONTOLOGY_SERVICE,
-  cluster: Cluster.ONTOLOGY_SERVICE,
+  schematic: SchematicServices.ONTOLOGY_SERVICE,
+  cluster: ClusterServices.ONTOLOGY_SERVICE,
   user: User.ONTOLOGY_SERVICE,
   builtin: Builtin.ONTOLOGY_SERVICE,
   node: Node.ONTOLOGY_SERVICE,
   group: Group.ONTOLOGY_SERVICE,
-  range: Range.ONTOLOGY_SERVICE,
+  range: RangeServices.ONTOLOGY_SERVICE,
   workspace: Workspace.ONTOLOGY_SERVICE,
-  lineplot: LinePlot.ONTOLOGY_SERVICE,
+  lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": EMPTY_ONTOLOGY_SERVICE,
   label: EMPTY_ONTOLOGY_SERVICE,
   rack: EMPTY_ONTOLOGY_SERVICE,
   task: Task.ONTOLOGY_SERVICE,
   device: Device.ONTOLOGY_SERVICE,
-  channel: Channel.ONTOLOGY_SERVICE,
+  channel: ChannelServices.ONTOLOGY_SERVICE,
 };

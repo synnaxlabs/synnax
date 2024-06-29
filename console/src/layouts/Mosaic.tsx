@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layouts/mosaic/Mosaic.css";
+import "@/layouts/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon, Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/media";
 import {
   Eraser,
   Mosaic as Core,
@@ -18,7 +18,7 @@ import {
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { deep, type location } from "@synnaxlabs/x";
+import { type location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -26,11 +26,7 @@ import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
-import {
-  select,
-  useSelectActiveMosaicTabKey,
-  useSelectMosaic,
-} from "@/layout/selectors";
+import { useSelectActiveMosaicTabKey, useSelectMosaic } from "@/layout/selectors";
 import {
   moveMosaicTab,
   remove,
@@ -39,6 +35,7 @@ import {
   selectMosaicTab,
   setNavDrawer,
 } from "@/layout/slice";
+import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
@@ -51,6 +48,8 @@ const EmptyContent = (): ReactElement => (
 );
 
 const emptyContent = <EmptyContent />;
+
+export const MOSAIC_TYPE = "mosaic";
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {
@@ -73,7 +72,7 @@ export const Mosaic = memo((): ReactElement => {
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
         placer(
-          Vis.createLayoutSelector({
+          createSelector({
             tab: { mosaicKey, location },
             location: "mosaic",
           }),

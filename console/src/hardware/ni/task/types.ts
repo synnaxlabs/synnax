@@ -1595,7 +1595,12 @@ export const baseAnalogReadStateDetailsZ = z.object({
 });
 
 export const errorAnalogReadStateDetailZ = baseAnalogReadStateDetailsZ.extend({
-  path: z.string().optional(),
+  errors: z.array(
+    z.object({
+      message: z.string(),
+      path: z.string(),
+    }),
+  ),
 });
 
 type BaseAnalogReadStateDetails = z.infer<typeof baseAnalogReadStateDetailsZ>;

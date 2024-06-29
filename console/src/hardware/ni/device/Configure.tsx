@@ -104,6 +104,7 @@ const ConfigureInternal = ({
 
   const { isPending, mutate } = useMutation({
     mutationKey: [client?.key],
+    onError: console.error,
     mutationFn: async () => {
       if (client == null) return;
       if (step === "name") {

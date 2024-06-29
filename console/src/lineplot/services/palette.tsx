@@ -9,14 +9,21 @@
 
 import { Icon } from "@synnaxlabs/media";
 
+import { create } from "@/lineplot/LinePlot";
 import { type Command } from "@/palette/Palette";
-import { create } from "@/schematic/slice";
 
-export const createCommand: Command = {
-  key: "create-schematic",
-  name: "Create a Schematic",
-  icon: <Icon.Schematic />,
+export const createLinePlotCommand: Command = {
+  key: "create-line-plot",
+  name: "Create a Line Plot",
+  icon: <Icon.Visualize />,
   onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(create({})),
+  actions: [
+    {
+      name: "Create in New Window",
+      onClick: ({ placeLayout: layoutPlacer }) => layoutPlacer(create({})),
+      trigger: ["Enter"],
+    },
+  ],
 };
 
-export const COMMANDS = [createCommand];
+export const COMMANDS = [createLinePlotCommand];

@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Link } from "@/link";
-import { create, State } from "@/schematic/slice";
+import { create } from "@/schematic/Schematic";
+import { State } from "@/schematic/slice";
 
 export const linkHandler: Link.Handler = async ({
   resource,

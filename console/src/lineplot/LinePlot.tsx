@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   Color,
+  Legend,
   Menu as PMenu,
   Status,
   Synnax,
@@ -20,10 +21,10 @@ import {
   useDebouncedCallback,
   usePrevious,
   Viewport,
-  Legend
 } from "@synnaxlabs/pluto";
 import {
   box,
+  deep,
   getEntries,
   location,
   scale,
@@ -31,9 +32,10 @@ import {
   unique,
   type UnknownRecord,
 } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
+import { v4 as uuidv4 } from "uuid";
 
 import { Menu } from "@/components/menu";
 import { UseSyncerArgs, useSyncerDispatch } from "@/hooks/dispatchers";
@@ -75,6 +77,7 @@ import {
   type StoreState,
   storeViewport,
   typedLineKeyToString,
+  ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { Workspace } from "@/workspace";
@@ -523,6 +526,26 @@ const buildLines = (
     ),
   );
 
+export type LayoutType = "lineplot";
+export const LAYOUT_TYPE = "lineplot";
+
+export const create =
+  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  ({ dispatch }) => {
+    const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
+    const key = initial.key ?? uuidv4();
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
+    return {
+      key,
+      name,
+      location,
+      type: LAYOUT_TYPE,
+      icon: "Visualize",
+      window,
+      tab,
+    };
+  };
+
 export const LinePlot: Layout.Renderer = ({
   layoutKey,
   ...props
@@ -537,4 +560,11 @@ export const LinePlot: Layout.Renderer = ({
   }, [client, linePlot]);
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
+};
+
+export const SELECTABLE: Layout.Selectable = {
+  key: LAYOUT_TYPE,
+  title: "Line Plot",
+  icon: <Icon.Visualize />,
+  create: (layoutKey: string) => create({ key: layoutKey }),
 };

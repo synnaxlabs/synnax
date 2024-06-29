@@ -34,7 +34,6 @@ import {
   setNavDrawerVisible,
   toggleActiveTheme,
 } from "@/layout/slice";
-import { RootStore } from "@/store";
 
 export interface CreatorProps {
   windowKey: string;
@@ -44,8 +43,10 @@ export interface CreatorProps {
 /** A function that creates a layout given a set of utilities. */
 export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
 
+export type PlacerArgs = Omit<State, "windowKey"> | Creator;
+
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: Omit<State, "windowKey"> | Creator) => {
+export type Placer = (layout: PlacerArgs) => {
   windowKey: string;
   key: string;
 };
