@@ -167,10 +167,10 @@ func writeTestStart(fileName string, testFileName string, c ClusterParam, s SetU
 	msg := fmt.Sprintf(
 		`-----Test Started | %s | %s-----
 Configuration:
-		TLS: %t
-		Mem-based FS: %t
-		Number of index channels: %d
-		Number of data channels: %d
+	TLS: %t
+	Mem-based FS: %t
+	Number of index channels: %d
+	Number of data channels: %d
 `,
 		time.Now().Format(time.RFC3339),
 		testFileName,
