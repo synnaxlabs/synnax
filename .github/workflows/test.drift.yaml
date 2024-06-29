@@ -24,7 +24,7 @@ jobs:
           filters: |
             changed:
               - "drift/**"
-              - ".github/workflows/drift.test.yaml"
+              - ".github/workflows/test.drift.yaml"
 
       - name: Set up pnpm
         if: steps.filter.outputs.changed == 'true'

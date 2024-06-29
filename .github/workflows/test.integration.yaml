@@ -17,7 +17,7 @@ permissions:
   packages: write
 
 jobs:
-  test-integration-ubuntu-large:
+  test-integration-ubuntu-load:
     runs-on: "Ubuntu"
     steps:
       - name: Checkout Repository
@@ -29,18 +29,68 @@ jobs:
         with:
           filters: |
             changed:
-                - "**/*"
+                - "client/**"
+                - "freighter/py/**"
+                - "synnax/**"
+                - "cesium/**"
+                - "aspen/**"
+                - "x/**"
+                - "freighter/**"
+                - ".github/workflows/test.integration.yaml"
 
       - name: Install Dependencies
+        if: steps.filter.outputs.changed == 'true'
         run: pnpm i
 
       - name: Build client
+        if: steps.filter.outputs.changed == 'true'
         run: pnpm build:client
 
       - name: Poetry install
+        if: steps.filter.outputs.changed == 'true'
         run: poetry install
         working-directory: ./integration/py
 
       - name: Test
+        if: steps.filter.outputs.changed == 'true'
+        run: ./run-integration.sh tests/ws-d-r.json
+        working-directory: ./integration
+
+  test-integration-windows:
+    runs-on: "Windows"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changed:
+                - "client/**"
+                - "freighter/py/**"
+                - "synnax/**"
+                - "cesium/**"
+                - "aspen/**"
+                - "x/**"
+                - "freighter/**"
+                - ".github/workflows/test.integration.yaml"
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm i
+
+      - name: Build client
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm build:client
+
+      - name: Poetry install
+        if: steps.filter.outputs.changed == 'true'
+        run: poetry install
+        working-directory: ./integration/py
+
+      - name: Test
+        if: steps.filter.outputs.changed == 'true'
         run: ./run-integration.sh tests/ws-d-r.json
         working-directory: ./integration

@@ -23,7 +23,7 @@ jobs:
           filters: |
             changed:
               - 'x/go/**'
-              - '.github/workflows/x.test.yaml'
+              - '.github/workflows/test.x.yaml'
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -65,7 +65,7 @@ jobs:
           filters: |
             changed:
               - 'x/typescript/**'
-              - '.github/workflows/x.test.yaml'
+              - '.github/workflows/test.x.yaml'
 
       - name: Setup pnpm
         if: steps.filter.outputs.changed == 'true'

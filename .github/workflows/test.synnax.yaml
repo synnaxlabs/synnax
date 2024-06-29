@@ -27,7 +27,7 @@ jobs:
               - 'aspen/**'
               - 'x/**'
               - 'freighter/go/**'
-              - '.github/workflows/synnax.test.yaml'
+              - '.github/workflows/test.synnax.yaml'
 
       - name: Set up Go
         uses: actions/setup-go@v5

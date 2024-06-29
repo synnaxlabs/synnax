@@ -24,7 +24,7 @@ jobs:
             changed:
                 - 'aspen/**'
                 - 'x/**'
-                - '.github/workflows/aspen.test.yaml'
+                - '.github/workflows/test.aspen.yaml'
 
       - name: Set up Go
         uses: actions/setup-go@v5
