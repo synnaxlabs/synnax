@@ -155,7 +155,7 @@ const Content = (): ReactElement => {
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
         </ToolbarHeader>
         <List.List data={tasks}>
-          <List.Selector value={selected} onChange={setSelected}>
+          <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>
               {(props) => <TaskListTem {...props} />}
             </List.Core>

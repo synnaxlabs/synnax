@@ -28,7 +28,7 @@ import {
 import { DataType } from "@synnaxlabs/x/telem";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
@@ -186,8 +186,12 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
           </Align.Space>
-          <Align.Space direction="x">
-            <Form.Field<string> path="config.device" label="Device" grow>
+          <Align.Space direction="x" className={CSS.B("task-properties")}>
+            <Form.Field<string>
+              path="config.device"
+              label="Device"
+              style={{ width: "100%" }}
+            >
               {(p) => (
                 <PDevice.SelectSingle
                   {...p}
@@ -196,19 +200,25 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
                 />
               )}
             </Form.Field>
-            <Form.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
-              {(p) => <Input.Switch {...p} />}
-            </Form.Field>
-            <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-              {(p) => <Input.Numeric {...p} />}
-            </Form.Field>
-            <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
-            <Form.Field<number>
-              label={arrayMode ? "Array Size" : "Stream Rate"}
-              path={arrayMode ? "config.arraySize" : "config.streamRate"}
-            >
-              {(p) => <Input.Numeric {...p} />}
-            </Form.Field>
+            <Align.Space direction="x">
+              <Form.Field<boolean>
+                label="Data Saving"
+                path="config.dataSaving"
+                optional
+              >
+                {(p) => <Input.Switch {...p} />}
+              </Form.Field>
+              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
+              <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
+              <Form.Field<number>
+                label={arrayMode ? "Array Size" : "Stream Rate"}
+                path={arrayMode ? "config.arraySize" : "config.streamRate"}
+              >
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
+            </Align.Space>
           </Align.Space>
           <Align.Space
             className={CSS.B("channel-form-container")}

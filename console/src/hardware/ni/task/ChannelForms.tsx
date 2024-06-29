@@ -445,8 +445,8 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
 });
 
 export const UnitsField = Form.buildSelectSingleField<Units, NamedKey<Units>>({
-  fieldKey: "preScaledUnits",
-  fieldProps: { label: "Pre-Scaled Units", grow: true },
+  fieldKey: "units",
+  fieldProps: { label: "Units", grow: true },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
