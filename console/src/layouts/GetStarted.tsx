@@ -21,6 +21,7 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { usePlacer } from "@/layout/hooks";
 import { setNavDrawerVisible } from "@/layout/slice";
+import { createSelector } from "@/layouts/Selector";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
@@ -45,7 +46,7 @@ const NoCluster = (): ReactElement => {
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    placer(Vis.createLayoutSelector({}));
+    placer(createSelector({}));
     dispatch(setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }));
   };
 

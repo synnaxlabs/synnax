@@ -7,9 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ConfigureAnalogRead } from "@/hardware/ni/task/AnalogRead";
-import { ConfigureDigitalRead } from "@/hardware/ni/task/DigitalRead";
-import { ConfigureDigitalWrite } from "@/hardware/ni/task/DigitalWrite";
+import {
+  ANALOG_READ_SELECTABLE,
+  ConfigureAnalogRead,
+} from "@/hardware/ni/task/AnalogRead";
+import {
+  ConfigureDigitalRead,
+  DIGITAL_READ_SELECTABLE,
+} from "@/hardware/ni/task/DigitalRead";
+import {
+  ConfigureDigitalWrite,
+  DIGITAL_WRITE_SELECTABLE,
+} from "@/hardware/ni/task/DigitalWrite";
 import {
   ANALOG_READ_TYPE,
   DIGITAL_READ_TYPE,
@@ -27,3 +36,9 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [DIGITAL_WRITE_TYPE]: ConfigureDigitalWrite,
   [DIGITAL_READ_TYPE]: ConfigureDigitalRead,
 };
+
+export const SELECTABLES: Layout.Selectable[] = [
+  DIGITAL_READ_SELECTABLE,
+  DIGITAL_WRITE_SELECTABLE,
+  ANALOG_READ_SELECTABLE,
+];

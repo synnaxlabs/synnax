@@ -102,7 +102,7 @@ const ConfigureInternal = ({
 
   const identifierRef = useRef<HTMLInputElement>(null);
 
-  const { isPending, mutate } = useMutation({
+  const { isPending, mutate } = useMutation<void, Error, void>({
     mutationKey: [client?.key],
     onError: console.error,
     mutationFn: async () => {

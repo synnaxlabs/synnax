@@ -189,13 +189,13 @@ export const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <FormWrapper direction="x" grow align="stretch">
-      <Input.Item label="Input Channel" grow>
+      <Input.Item label="State Channel" grow>
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
         />
       </Input.Item>
-      <Input.Item label="Output Channel" grow>
+      <Input.Item label="Command Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
     </FormWrapper>

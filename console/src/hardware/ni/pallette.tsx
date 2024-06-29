@@ -16,21 +16,21 @@ import { Command } from "@/palette/Palette";
 
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
-  name: "NI - Create a New Analog Read Task",
+  name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(() => configureAnalogReadLayout(true)),
 };
 
 export const createDigitalWriteTaskCommand: Command = {
   key: "ni-create-digital-write-task",
-  name: "NI - Create a New Digital Write Task",
+  name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(configureDigitalWriteLayout(true)),
 };
 
 export const createDigitalReadTaskCommand: Command = {
   key: "ni-create-digital-read-task",
-  name: "NI - Create a New Digital Read Task",
+  name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(configureDigitalReadLayout(true)),
 };

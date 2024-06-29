@@ -70,7 +70,7 @@ const handleSelect: Ontology.HandleSelect = ({
   }
 };
 
-const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
+const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
   const t = telem.sourcePipeline("string", {
     connections: [
       {
@@ -91,15 +91,18 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
     },
     telem: t,
   };
-  return [
-    {
-      type: "channel",
-      key: Number(id.key),
-    },
+  const items = [
     {
       type: Schematic.HAUL_TYPE,
       key: "value",
       data: schematicSymbolProps as UnknownRecord,
+    },
+  ];
+  if (data?.internal === true) return items;
+  return [
+    {
+      type: "channel",
+      key: Number(id.key),
     },
   ];
 };

@@ -94,7 +94,7 @@ export const Mosaic = memo((): ReactElement => {
           });
         } else
           placer(
-            Vis.createLayoutSelector({
+            createSelector({
               tab: { mosaicKey, location },
               location: "mosaic",
             }),

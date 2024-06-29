@@ -14,18 +14,18 @@ import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Channel } from "@/channel";
+import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
-import { LinePlot } from "@/lineplot";
+import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { Notifications } from "@/notifications";
-import { Range } from "@/range";
-import { Schematic } from "@/schematic";
+import { RangeServices } from "@/range/services";
+import { SchematicServices } from "@/schematic/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -79,9 +79,9 @@ export const Main = (): ReactElement => {
 };
 
 export const HANDLERS: Link.Handler[] = [
-  Channel.linkHandler,
-  LinePlot.linkHandler,
-  Range.linkHandler,
-  Schematic.linkHandler,
+  ChannelServices.linkHandler,
+  LinePlotServices.linkHandler,
+  RangeServices.linkHandler,
+  SchematicServices.linkHandler,
   Workspace.linkHandler,
 ];

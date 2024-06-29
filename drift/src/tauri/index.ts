@@ -29,6 +29,20 @@ const tauriError = "tauri://error";
 const tauriCreated = "tauri://created";
 const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 
+//  Prevent the user or a programming error from creating a tiny window.
+const MIN_DIM = 100;
+
+const capWindowDimensions = (
+  props: Omit<WindowProps, "key">,
+): Omit<WindowProps, "key"> => {
+  const { size, maxSize } = props;
+  if (size?.width != null) size.width = Math.max(size.width, MIN_DIM);
+  if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
+  if (maxSize?.width != null) maxSize.width = Math.max(maxSize.width, MIN_DIM);
+  if (maxSize?.height != null) maxSize.height = Math.max(maxSize.height, MIN_DIM);
+  return props;
+};
+
 /**
  * A Tauri backed implementation of the drift Runtime.
  */
@@ -128,7 +142,11 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
-    const { size, minSize, maxSize, position, ...rest } = props;
+    const { size, minSize, maxSize, position, ...rest } = capWindowDimensions(props);
+    if (size?.width != null) size.width = Math.max(size.width, MIN_DIM);
+    if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
+    if (maxSize?.width != null) maxSize.width = Math.max(maxSize.width, MIN_DIM);
+    if (maxSize?.height != null) maxSize.height = Math.max(maxSize.height, MIN_DIM);
     try {
       const w = new WebviewWindow(label, {
         x: position?.x,
@@ -201,6 +219,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async setSize(dims: dimensions.Dimensions): Promise<void> {
+    dims.width = Math.max(dims.width, MIN_DIM);
+    dims.height = Math.max(dims.height, MIN_DIM);
     await this.win.setSize(new LogicalSize(dims.width, dims.height));
   }
 
@@ -209,6 +229,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async setMaxSize(dims: dimensions.Dimensions): Promise<void> {
+    dims.width = Math.max(dims.width, MIN_DIM);
+    dims.height = Math.max(dims.height, MIN_DIM);
     await this.win.setMaxSize(new LogicalSize(dims.width, dims.height));
   }
 
