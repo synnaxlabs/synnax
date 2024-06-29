@@ -643,6 +643,48 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						})
 					})
 				})
+
+				Describe("Regressions", func() {
+					// This spec was added due to a bug in the line plotting mechanics
+					// due to misalignment between actually-related domains. Let's
+					// say you create an index and write a domain to it
+					//
+					// idx [1, 2, 3, 4]
+					//
+					// this domain will have alignment (0d0p - 0d3p). Now, if you write
+					// another domain to the index
+					//
+					// idx [1, 2, 3, 4] [5, 6, 7, 8]
+					//
+					// the new domain will have alignment (1d0p - 1d3p). Then, we
+					// write to a data channel aligned at the second domain
+					//
+					// idx [1, 2, 3, 4] [5, 6, 7, 8]
+					// data 			[8, 9, 10, 11]
+					//
+					// the data domain will have alignment (0d0p - 0d3p), but it actually
+					// aligns with the index domain at (1d0p - 1d3p). This spec tests
+					// a fix made to ensure that the data domain has the alignment (1d0p - 1d3p)
+					It("Should correctly define the alignment of a series when a domain has already been written to the index channel", func() {
+						Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
+						Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](8, 9, 10, 11, 12, 13, 14))).To(Succeed())
+						iter := db.OpenIterator(unary.IteratorConfig{
+							Bounds:        (20 * telem.SecondTS).SpanRange(15 * telem.Second),
+							AutoChunkSize: 3,
+						})
+						defer func() {
+							defer GinkgoRecover()
+							Expect(iter.Close()).To(Succeed())
+						}()
+						Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+						fr := iter.Value()
+						Expect(fr.Len()).To(Equal(int64(3)))
+						s := fr.Series[0]
+						Expect(s.Alignment).To(Equal(telem.NewAlignmentPair(1, 0)))
+					})
+				})
 			})
 			Describe("Close", func() {
 				var (

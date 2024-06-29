@@ -73,7 +73,7 @@ func (db *DB) calculateStartOffset(
 	domainStart telem.TimeStamp,
 	ts telem.TimeStamp,
 ) (int64, telem.TimeStamp, error) {
-	approxDist, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
+	approxDist, _, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
 	if err != nil {
 		return 0, ts, err
 	}
@@ -104,7 +104,7 @@ func (db *DB) calculateEndOffset(
 	domainStart telem.TimeStamp,
 	ts telem.TimeStamp,
 ) (int64, telem.TimeStamp, error) {
-	approxDist, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
+	approxDist, _, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
 	if err != nil {
 		return 0, ts, err
 	}

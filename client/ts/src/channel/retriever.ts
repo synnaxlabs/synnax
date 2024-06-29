@@ -138,8 +138,8 @@ export class CacheRetriever implements Retriever {
     return results.concat(fetched);
   }
 
-  delete(keys: Params): void {
-    const { variant, normalized } = analyzeChannelParams(keys);
+  delete(channels: Params): void {
+    const { variant, normalized } = analyzeChannelParams(channels);
     if (variant === "names")
       (normalized as string[]).forEach((name) => {
         const keys = this.namesToKeys.get(name);
@@ -163,7 +163,10 @@ export class CacheRetriever implements Retriever {
       if (ch == null) return;
       this.cache.delete(key);
       const keys = this.namesToKeys.get(ch.name);
-      if (keys != null) keys.delete(key);
+      if (keys != null) {
+        keys.delete(key);
+        if (keys.size === 0) this.namesToKeys.delete(ch.name);
+      }
       ch.name = name;
       this.cache.set(key, ch);
       const newKeys = this.namesToKeys.get(name);

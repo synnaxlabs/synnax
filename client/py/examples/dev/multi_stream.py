@@ -65,4 +65,3 @@ with client.open_writer(
         })
 
 
-
