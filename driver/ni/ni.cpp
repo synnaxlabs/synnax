@@ -605,12 +605,13 @@ int ni::Source::init() {
     return 0;
 }
 
-freighter::Error cycle(){
+freighter::Error  ni::Source::cycle(){
+    if (this->breaker.running() || !this->ok()) return freighter::NIL;
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->logError(
             "failed while starting reader for task " + this->reader_config.task_name +
             " requires reconfigure");
-        this->clearTask();
+        // this->clearTask();
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
@@ -618,6 +619,7 @@ freighter::Error cycle(){
             "failed while stopping reader for task " + this->reader_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
+    return freighter::NIL;
 }
 
 freighter::Error ni::Source::start() {
@@ -732,8 +734,6 @@ void ni::Source::jsonifyError(std::string s) {
 
     // Define regex patterns
     std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
-    std::regex messageRegex(
-        R"(^.*?(?=\nProperty:|\nStatus Code:|\nPossible Values:|\nMaximum Value:|\nMinimum Value:|\nChannel Name:|\nPhysical Channel Name:|\nDevice:|\nTask Name:|\n\n|\n$))");
     std::regex channelRegex(R"(Channel Name:\s*(\S+))");
     std::regex physicalChannelRegex(R"(Physical Channel Name:\s*(\S+))");
     std::regex deviceRegex(R"(Device:\s*(\S+))");
@@ -742,16 +742,38 @@ void ni::Source::jsonifyError(std::string s) {
     std::regex minValueRegex(R"(Minimum Value:\s*([\d.\s,eE-]+))");
     std::regex propertyRegex(R"(Property:\s*(\S+))");
 
-    // Extract status code
-    std::smatch statusCodeMatch;
-    std::regex_search(s, statusCodeMatch, statusCodeRegex);
-    std::string sc = (!statusCodeMatch.empty()) ? statusCodeMatch[1].str() : "";
+    // Extract the entire message
+    std::string message = s; // Start with the entire string
 
-    // Extract message
-    std::string message = "";
-    std::smatch messageMatch;
-    if (std::regex_search(s, messageMatch, messageRegex)) {
-        message = messageMatch.str();
+    // Define a vector of field names to look for
+    std::vector<std::string> fields = {
+        "Property:", "Status Code:", "Possible Values:", "Maximum Value:",
+        "Minimum Value:", "Channel Name:", "Physical Channel Name:",
+        "Device:", "Task Name:"
+    };
+
+    // Find the position of the first occurrence of any field
+    size_t firstFieldPos = std::string::npos;
+    for (const auto& field : fields) {
+        size_t pos = s.find("\n" + field);
+        if (pos != std::string::npos && (firstFieldPos == std::string::npos || pos < firstFieldPos)) {
+            firstFieldPos = pos;
+        }
+    }
+
+    // If we found a field, extract the message up to that point
+    if (firstFieldPos != std::string::npos) {
+        message = s.substr(0, firstFieldPos);
+    }
+
+    // Trim trailing whitespace and newlines
+    message = std::regex_replace(message, std::regex("\\s+$"), "");
+
+    // Extract status code
+    std::string sc = "";
+    std::smatch statusCodeMatch;
+    if (std::regex_search(s, statusCodeMatch, statusCodeRegex)) {
+        sc = statusCodeMatch[1].str();
     }
 
     // Extract device name
@@ -781,6 +803,9 @@ void ni::Source::jsonifyError(std::string s) {
     std::smatch propertyMatch;
     if (std::regex_search(s, propertyMatch, propertyRegex)) {
         p = propertyMatch[1].str();
+    }
+    if(sc == "-200170"){
+        p = "port";
     }
 
     // Extract possible values
@@ -822,19 +847,15 @@ void ni::Source::jsonifyError(std::string s) {
     // Check if the property is in the field map
     if (FIELD_MAP.count(p) == 0) {
         this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + p;
-        this->err_info["message"] =
-                "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].
-                get<std::string>() + " Channel: " + cn;
+        this->err_info["message"] = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
         return;
     }
 
     this->err_info["type"] = "field error";
-    this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + FIELD_MAP
-                             .at(p);
+    this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + FIELD_MAP.at(p);
 
     // Update the message with possible values, max value, and min value if they exist
-    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->
-                               err_info["path"].get<std::string>();
+    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>();
     if (!possibleValues.empty()) {
         errorMessage += " Possible Values: " + possibleValues;
     }

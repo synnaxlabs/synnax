@@ -156,17 +156,17 @@ int ni::DigitalWriteSink::init() {
     return 0;
 }
 
-freighter::Error cycle(){
+freighter::Error ni::DigitalWriteSink::cycle(){
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->logError(
-            "failed while starting reader for task " + this->reader_config.task_name +
+            "failed while starting reader for task " + this->writer_config.task_name +
             " requires reconfigure");
         this->clearTask();
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
         this->logError(
-            "failed while stopping reader for task " + this->reader_config.task_name);
+            "failed while stopping reader for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
 }

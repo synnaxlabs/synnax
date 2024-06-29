@@ -126,8 +126,8 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
         .scale = 1.2,
     };
 
-    auto p = config::Parser(task.config);
-    auto data_saving = p.optional<bool>("data_saving", false);
+    auto parser = config::Parser(task.config);
+    auto data_saving = parser.optional<bool>("data_saving", false);
 
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
@@ -152,7 +152,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
         .start = synnax::TimeStamp::now(),
         .mode = data_saving 
                     ? synnax::WriterMode::PersistStream 
-                    : synnax::WriterMode::Persist,
+                    : synnax::WriterMode::StreamOnly,
         .enable_auto_commit = true
     };
 
@@ -259,8 +259,8 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         .scale = 1.2,
     };
 
-    auto p = config::Parser(task.config);
-    auto data_saving = p.optional<bool>("data_saving", false);
+    auto parser = config::Parser(task.config);
+    auto data_saving = parser.optional<bool>("data_saving", false);
 
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
@@ -277,7 +277,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         .start = synnax::TimeStamp::now(),
         .mode = data_saving 
                     ? synnax::WriterMode::PersistStream 
-                    : synnax::WriterMode::Persist,
+                    : synnax::WriterMode::StreamOnly,
         .enable_auto_commit = true,
     };
 
