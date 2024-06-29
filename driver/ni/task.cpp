@@ -119,13 +119,15 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     const synnax::Task &task) {
     LOG(INFO) << "[NI Task] configuring task " << task.name;
 
-    // create a breaker config TODO: use the task to generate the other parameters?
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
         .max_retries = 20,
         .scale = 1.2,
     };
+
+    auto p = config::Parser(task.config);
+    auto data_saving = p.optional<bool>("data_saving", false);
 
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
@@ -148,6 +150,9 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     auto writer_config = synnax::WriterConfig{
         .channels = channel_keys,
         .start = synnax::TimeStamp::now(),
+        .mode = data_saving 
+                    ? synnax::WriterMode::PersistStream 
+                    : synnax::WriterMode::Persist,
         .enable_auto_commit = true
     };
 
@@ -254,6 +259,9 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         .scale = 1.2,
     };
 
+    auto p = config::Parser(task.config);
+    auto data_saving = p.optional<bool>("data_saving", false);
+
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
 
@@ -267,7 +275,9 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     auto writer_config = synnax::WriterConfig{
         .channels = state_keys,
         .start = synnax::TimeStamp::now(),
-        .mode = synnax::WriterMode::PersistStream,
+        .mode = data_saving 
+                    ? synnax::WriterMode::PersistStream 
+                    : synnax::WriterMode::Persist,
         .enable_auto_commit = true,
     };
 
