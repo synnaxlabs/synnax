@@ -53,13 +53,14 @@ var _ = Describe("Domain", func() {
 							expected index.DistanceApproximation,
 							expectedErr error,
 						) {
-							actual, err := idx.Distance(ctx, tr /*continuous*/, true)
+							actual, db, err := idx.Distance(ctx, tr /*continuous*/, true)
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
 							Expect(actual).To(Equal(expected))
+							Expect(db).To(Equal(index.ExactDomainBounds(0)))
 						},
 						Entry("Zero zero",
 							telem.TimeRangeZero,
@@ -134,7 +135,7 @@ var _ = Describe("Domain", func() {
 					)
 				})
 
-				// Distance does not work on discontinuous domains if the end timerange
+				// Distance does not work on discontinuous domains if the end time range
 				// is not in any domain: in backlog to be fixed.
 
 				Context("Discontinuous", func() {
@@ -162,11 +163,13 @@ var _ = Describe("Domain", func() {
 						func(
 							tr telem.TimeRange,
 							expected index.DistanceApproximation,
+							db index.DomainBounds,
 							err error,
 						) {
-							actual, e := idx.Distance(ctx, tr, false)
+							actual, bounds, e := idx.Distance(ctx, tr, false)
 							if err == nil {
 								Expect(actual).To(Equal(expected))
+								Expect(db).To(Equal(bounds))
 							} else {
 								Expect(e).To(MatchError(err))
 							}
@@ -174,66 +177,85 @@ var _ = Describe("Domain", func() {
 						Entry("Zero zero",
 							telem.TimeRangeZero,
 							index.Exactly[int64](0),
+							index.ExactDomainBounds(0),
 							index.ErrDiscontinuous,
+						),
+						Entry("Exact, start and end equal",
+							(27*telem.SecondTS).SpanRange(0),
+							index.Exactly[int64](0),
+							index.ExactDomainBounds(1),
+							nil,
 						),
 						Entry("Exact, start in domain, end not in domain",
 							(15*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Exactly[int64](3),
+							index.BetweenDomains(0, 1),
 							nil,
 						),
 						Entry("Inexact, start in domain, end not in domain",
 							(14*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Between[int64](3, 4),
+							index.BetweenDomains(0, 1),
 							nil,
 						),
 						Entry("Exact, start in domain, end not in domain (after a domain)",
 							(15*telem.SecondTS).Range(35*telem.SecondTS),
 							index.Exactly[int64](7),
+							index.BetweenDomains(0, 2),
 							nil,
 						),
 						Entry("Inexact, start in domain end not in domain (after a domain)",
 							(14*telem.SecondTS).Range(35*telem.SecondTS),
 							index.Between[int64](7, 8),
+							index.BetweenDomains(0, 2),
 							nil,
 						),
 						Entry("Exact, start in domain, end in domain",
 							(15*telem.SecondTS).Range(42*telem.SecondTS),
 							index.Exactly[int64](8),
+							index.BetweenDomains(0, 2),
 							nil,
 						),
 						Entry("End inexact, start in domain, end in domain",
 							(15*telem.SecondTS).Range(42*telem.SecondTS+500*telem.MillisecondTS),
 							index.Between[int64](8, 9),
+							index.BetweenDomains(0, 2),
 							nil,
 						),
 						Entry("Start inexact, start in domain, end in domain",
 							(14*telem.SecondTS).Range(42*telem.SecondTS),
 							index.Between[int64](8, 9),
+							index.BetweenDomains(0, 2),
 							nil,
 						),
 						Entry("Both inexact, start in domain, end in domain",
 							(14*telem.SecondTS).Range(42*telem.SecondTS+500*telem.MillisecondTS),
 							index.Between[int64](8, 10),
+							index.BetweenDomains(0, 2),
 							nil,
 						),
 						Entry("End exact, start not in domain, end in first domain",
 							(-1*telem.SecondTS).Range(5*telem.SecondTS),
 							index.Between[int64](3, 4),
+							index.BetweenDomains(0, 0),
 							nil,
 						),
 						Entry("End inexact, start not in domain, end in first domain",
 							(-1*telem.SecondTS).Range(6*telem.SecondTS),
 							index.Between[int64](3, 5),
+							index.BetweenDomains(0, 0),
 							nil,
 						),
 						Entry("End exact, start not in domain, end not in first domain",
 							(-1*telem.SecondTS).Range(26*telem.SecondTS),
 							index.Between[int64](10, 11),
+							index.BetweenDomains(0, 1),
 							nil,
 						),
 						Entry("End inexact, start not in domain, end not in first domain",
 							(-1*telem.SecondTS).Range(27*telem.SecondTS),
 							index.Between[int64](10, 12),
+							index.BetweenDomains(0, 1),
 							nil,
 						),
 					)
