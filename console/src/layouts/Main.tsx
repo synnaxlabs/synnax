@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layouts/LayoutMain/LayoutMain.css";
+import "@/layouts/Main.css";
 
+import { Drift } from "@synnaxlabs/drift";
 import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -18,8 +19,8 @@ import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
-import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
-import { Mosaic } from "@/layouts/mosaic";
+import { Mosaic } from "@/layouts/Mosaic";
+import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Notifications } from "@/notifications";
@@ -41,11 +42,13 @@ const SideEffect = (): null => {
   return null;
 };
 
+export const MAIN_TYPE = Drift.MAIN_WINDOW;
+
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
-export const LayoutMain = (): ReactElement => {
+export const Main = (): ReactElement => {
   return (
     <>
       {/* We need to place notifications here so they are in the proper stacking context */}
@@ -62,7 +65,7 @@ export const LayoutMain = (): ReactElement => {
           <Align.Space className="console-main--driven" direction="x" empty>
             <NavDrawer location="left" />
             <main className="console-main--driven" style={{ position: "relative" }}>
-              <Mosaic.Mosaic />
+              <Mosaic />
             </main>
             <NavDrawer location="right" />
           </Align.Space>

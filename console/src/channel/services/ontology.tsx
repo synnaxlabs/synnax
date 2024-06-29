@@ -11,7 +11,6 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
-  Divider,
   type Haul,
   Menu as PMenu,
   type Schematic as PSchematic,

@@ -8,14 +8,20 @@ import {
   Form,
   Header,
   Menu,
+  Observe,
   Status,
+  Synnax,
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { Key, Keyed } from "@synnaxlabs/x";
+import { Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
+import { useCallback, useState } from "react";
+import { useDispatch } from "react-redux";
+import { z } from "zod";
 
 import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
+import { Layout } from "@/layout";
 
 export interface ControlsProps {
   onStartStop: () => void;
@@ -112,6 +118,47 @@ export const ChannelListContextMenu = <
       <CMenu.HardReloadItem />
     </Menu.Menu>
   );
+};
+
+export const parserErrorZ = z.object({
+  message: z.string(),
+  path: z.string(),
+});
+
+export type ParserError = z.infer<typeof parserErrorZ>;
+
+export const parserErrorsZ = z.array(parserErrorZ);
+
+export type ParserErrors = z.infer<typeof parserErrorsZ>;
+
+interface ParserErrorsDetails extends UnknownRecord {
+  errors?: ParserErrors;
+}
+
+export const useObserveState = <T extends ParserErrorsDetails>(
+  setStatus: Form.UseReturn<any>["setStatus"],
+  taskKey?: string,
+  initialState?: task.State<T>,
+): task.State<T> | undefined => {
+  const client = Synnax.use();
+  const [taskState, setTaskState] = useState<task.State<T> | undefined>(initialState);
+  Observe.useListener({
+    key: [taskKey],
+    open: async () => await client?.hardware.tasks.openStateObserver<T>(),
+    onChange: (state) => {
+      if (state.task !== taskKey) return;
+      setTaskState(state);
+      if (state.details != null && state.details.errors != null) {
+        state.details.errors.forEach((e) =>
+          setStatus(e.path, {
+            variant: "error",
+            message: e.message,
+          }),
+        );
+      }
+    },
+  });
+  return taskState;
 };
 
 export const Controls = ({
@@ -223,3 +270,27 @@ export const EnableDisableButton = ({
     </Status.Text>
   </Button.Toggle>
 );
+
+export const useCreate = <
+  C extends UnknownRecord,
+  D extends {} = UnknownRecord,
+  T extends string = string,
+>(
+  layoutKey: string,
+): ((
+  t: Optional<task.NewTask<C, T>, "key">,
+) => Promise<task.Task<C, D, T> | undefined>) => {
+  const client = Synnax.use();
+  const dispatch = useDispatch();
+  return useCallback(
+    async (pld: task.NewTask<C, T>) => {
+      if (client == null) return;
+      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
+      const ot = await rack.createTask<C, D, T>(pld);
+      dispatch(Layout.setAltKey({ key: layoutKey, altKey: ot.key }));
+      dispatch(Layout.setArgs({ key: layoutKey, args: { create: false } }));
+      return ot;
+    },
+    [client, layoutKey],
+  );
+};

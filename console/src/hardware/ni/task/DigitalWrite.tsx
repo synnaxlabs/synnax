@@ -11,12 +11,10 @@ import { QueryError } from "@synnaxlabs/client";
 import {
   Button,
   Channel,
-  Device,
   Form,
   Header,
   List,
   Menu,
-  Observe,
   Status,
   Synnax,
 } from "@synnaxlabs/pluto";
@@ -27,13 +25,12 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Properties } from "@/hardware/ni/device/types";
+import { SelectDevice } from "@/hardware/ni/task/common";
 import {
-  AnalogReadStateDetails,
   Chan,
   DIGITAL_WRITE_TYPE,
   DigitalWrite,
@@ -51,10 +48,11 @@ import {
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
+  useCreate,
+  useObserveState,
 } from "@/hardware/task/common/common";
 import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
-import { setAltKey, setArgs } from "@/layout/slice";
 
 interface ConfigureDigitalWriteArgs {
   create: boolean;
@@ -91,24 +89,34 @@ const Internal = ({
     }),
   });
 
-  const dispatch = useDispatch();
-
   const [task, setTask] = useState(initialTask);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = Observe.useState({
-    key: [task?.key],
-    open: async () => await task?.openStateObserver<AnalogReadStateDetails>(),
-    initialValue: task?.state,
-  });
+  const taskState = useObserveState<DigitalWriteStateDetails>(
+    methods.setStatus,
+    task?.key,
+    task?.state,
+  );
+
+  const createTask = useCreate<
+    DigitalWriteConfig,
+    DigitalWriteStateDetails,
+    DigitalWriteType
+  >(layoutKey);
+
+  const addStatus = Status.useAggregator();
 
   const configure = useMutation<void, Error, void>({
     mutationKey: [client?.key, "configure"],
-    onError: console.log,
+    onError: ({ message }) =>
+      addStatus({
+        key: `configure-${layoutKey}`,
+        variant: "error",
+        message,
+      }),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
 
       const dev = await client.hardware.devices.retrieve<Properties>(config.device);
@@ -219,21 +227,13 @@ const Internal = ({
       });
       methods.set("config", config);
 
-      const t = await rack.createTask<
-        DigitalWriteConfig,
-        DigitalWriteStateDetails,
-        DigitalWriteType
-      >({
+      const t = await createTask({
         key: task?.key,
         name,
         type: DIGITAL_WRITE_TYPE,
         config,
       });
       setTask(t);
-      dispatch(setAltKey({ key: layoutKey, altKey: t.key }));
-      dispatch(
-        setArgs<ConfigureDigitalWriteArgs>({ key: layoutKey, args: { create: false } }),
-      );
     },
   });
 
@@ -255,22 +255,7 @@ const Internal = ({
             {(p) => <Input.Text variant="natural" level="h1" {...p} />}
           </Form.Field>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <Form.Field<string>
-              path="config.device"
-              label="Device"
-              onChange={console.log}
-              grow
-              style={{ width: "100%" }}
-            >
-              {(p) => (
-                <Device.SelectSingle
-                  allowNone={false}
-                  grow
-                  {...p}
-                  searchOptions={{ makes: ["NI"] }}
-                />
-              )}
-            </Form.Field>
+            <SelectDevice />
             <Align.Space direction="x">
               <Form.Field<number>
                 label="State Update Rate"

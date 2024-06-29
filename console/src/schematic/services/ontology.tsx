@@ -19,7 +19,8 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
-import { create, type State } from "@/schematic/slice";
+import { create } from "@/schematic/Schematic";
+import { type State } from "@/schematic/slice";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({

@@ -66,3 +66,33 @@ const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
 });
 
 export type Properties = z.infer<typeof enrichedPropertiesDigestZ>;
+
+export const ZERO_PROPERTIES: Properties = {
+  key: "",
+  enriched: false,
+  identifier: "",
+  analogInput: {
+    portCount: 0,
+    index: 0,
+    channels: {},
+  },
+  analogOutput: {
+    portCount: 0,
+  },
+  digitalInputOutput: {
+    portCount: 0,
+    lineCounts: [],
+  },
+  digitalInput: {
+    portCount: 0,
+    lineCounts: [],
+    index: 0,
+    channels: {},
+  },
+  digitalOutput: {
+    portCount: 0,
+    lineCounts: [],
+    stateIndex: 0,
+    channels: {},
+  },
+};

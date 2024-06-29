@@ -8,16 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { QueryError } from "@synnaxlabs/client";
-import {
-  Button,
-  Device,
-  Form,
-  Header,
-  Menu,
-  Observe,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
@@ -26,13 +17,12 @@ import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { NI } from "@/hardware/ni";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
+import { SelectDevice } from "@/hardware/ni/task/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -53,6 +43,8 @@ import {
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
+  useCreate,
+  useObserveState,
 } from "@/hardware/task/common/common";
 import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
@@ -79,7 +71,6 @@ const Internal = ({
   initialValues,
   layoutKey,
 }: InternalProps): ReactElement => {
-  const dispatch = useDispatch();
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -98,18 +89,30 @@ const Internal = ({
     initialValues.config.channels.length > 0 ? 0 : null,
   );
 
-  const taskState = Observe.useState({
-    key: [task?.key],
-    open: async () => await task?.openStateObserver<AnalogReadStateDetails>(),
-    initialValue: task?.state,
-  });
+  const taskState = useObserveState<AnalogReadStateDetails>(
+    methods.setStatus,
+    task?.key,
+    task?.state,
+  );
+
+  const createTask = useCreate<
+    AnalogReadConfig,
+    AnalogReadStateDetails,
+    AnalogReadType
+  >(layoutKey);
+
+  const addStatus = Status.useAggregator();
 
   const configure = useMutation<void, Error, void, unknown>({
     mutationKey: [client?.key, "configure"],
-    onError: console.error,
+    onError: ({ message }) =>
+      addStatus({
+        key: `configure-${layoutKey}`,
+        variant: "error",
+        message,
+      }),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
 
       const dev = await client.hardware.devices.retrieve<Properties>(config.device);
@@ -176,19 +179,13 @@ const Internal = ({
         c.channel = dev.properties.analogInput.channels[c.port.toString()];
       });
       if (dev == null) return;
-
-      const t = await rack.createTask<
-        AnalogReadConfig,
-        AnalogReadStateDetails,
-        AnalogReadType
-      >({
+      const t = await createTask({
         key: task?.key,
         name,
         type: ANALOG_READ_TYPE,
         config,
       });
-      dispatch(Layout.setAltKey({ key: layoutKey, altKey: t.key }));
-      setTask(t);
+      if (t != null) setTask(t);
     },
   });
 
@@ -202,15 +199,6 @@ const Internal = ({
     },
   });
 
-  const placer = Layout.usePlacer();
-
-  const handleDeviceChange = async (v: string) => {
-    if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
-    if (configured) return;
-    placer(NI.Device.createConfigureLayout(v, {}));
-  };
-
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
@@ -219,23 +207,7 @@ const Internal = ({
             {(p) => <Input.Text variant="natural" level="h1" {...p} />}
           </Form.Field>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <Form.Field<string>
-              path="config.device"
-              label="Device"
-              grow
-              onChange={handleDeviceChange}
-              style={{ width: "100%" }}
-            >
-              {(p) => (
-                <Device.SelectSingle
-                  allowNone={false}
-                  grow
-                  {...p}
-                  autoSelectOnNone={false}
-                  searchOptions={{ makes: ["NI"] }}
-                />
-              )}
-            </Form.Field>
+            <SelectDevice />
             <Align.Space direction="x">
               <Form.Field<number> label="Sample Rate" path="config.sampleRate">
                 {(p) => <Input.Numeric {...p} />}

@@ -9,7 +9,6 @@
 
 import "@/error/Overlay.css";
 
-import { setWindowVisible } from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
 import {
   Align,
@@ -32,7 +31,7 @@ import {
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { NAV_SIZES } from "@/layouts/LayoutMain";
+import { NAV_SIZES } from "@/layouts/constants";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 

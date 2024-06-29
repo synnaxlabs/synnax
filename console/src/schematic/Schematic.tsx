@@ -27,7 +27,7 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
-import { box, type UnknownRecord } from "@synnaxlabs/x";
+import { box, deep, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid/non-secure";
 import {
@@ -39,6 +39,7 @@ import {
   useState,
 } from "react";
 import { useDispatch } from "react-redux";
+import { v4 as uuidv4 } from "uuid";
 
 import { Syncer, UseSyncerArgs, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
@@ -67,6 +68,7 @@ import {
   type State,
   type StoreState,
   toggleControl,
+  ZERO_STATE,
 } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
 
@@ -427,3 +429,29 @@ export const Schematic: Layout.Renderer = ({
   if (schematic == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };
+
+export type LayoutType = "schematic";
+export const LAYOUT_TYPE = "schematic";
+
+export const SELECTABLE: Layout.Selectable = {
+  key: LAYOUT_TYPE,
+  title: "Schematic",
+  icon: <Icon.Schematic />,
+  create: (layoutKey: string) => create({ key: layoutKey }),
+};
+
+export const create =
+  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  ({ dispatch }) => {
+    const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
+    const key = initial.key ?? uuidv4();
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
+    return {
+      key,
+      location,
+      name,
+      type: LAYOUT_TYPE,
+      window,
+      tab,
+    };
+  };
