@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { QueryError, task } from "@synnaxlabs/client";
+import { QueryError } from "@synnaxlabs/client";
 import {
   Align,
   Channel,
@@ -16,6 +16,7 @@ import {
   Header,
   Input,
   List,
+  Menu,
   Observe,
   Synnax,
   Text,
@@ -44,6 +45,7 @@ import {
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import {
+  ChannelListContextMenu,
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
@@ -286,7 +288,7 @@ interface ChannelListProps {
 }
 
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
-  const { value, push } = Form.useFieldArray<DIChan>({ path });
+  const { value, push, remove } = Form.useFieldArray<DIChan>({ path });
   const handleAdd = (): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
     push({
@@ -296,27 +298,48 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       key: nanoid(),
     });
   };
+  const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
       <ChannelListHeader onAdd={handleAdd} />
-      <List.List<string, Chan>
-        data={value}
-        emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+      <Menu.ContextMenu
+        menu={({ keys }: Menu.ContextMenuMenuProps) => (
+          <ChannelListContextMenu
+            path={path}
+            keys={keys}
+            value={value}
+            remove={remove}
+            onSelect={onSelect}
+            onDuplicate={(indices) => {
+              const newChannels = indices.map((i) => ({
+                ...value[i],
+                key: nanoid(),
+              }));
+              push(newChannels);
+            }}
+          />
+        )}
+        {...menuProps}
       >
-        <List.Selector<string, Chan>
-          value={selected}
-          allowNone={false}
-          allowMultiple
-          onChange={(keys, { clickedIndex }) =>
-            clickedIndex != null && onSelect(keys, clickedIndex)
-          }
-          replaceOnSingle
+        <List.List<string, Chan>
+          data={value}
+          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
         >
-          <List.Core<string, Chan> grow>
-            {(props) => <ChannelListItem {...props} path={path} />}
-          </List.Core>
-        </List.Selector>
-      </List.List>
+          <List.Selector<string, Chan>
+            value={selected}
+            allowNone={false}
+            allowMultiple
+            onChange={(keys, { clickedIndex }) =>
+              clickedIndex != null && onSelect(keys, clickedIndex)
+            }
+            replaceOnSingle
+          >
+            <List.Core<string, Chan> grow>
+              {(props) => <ChannelListItem {...props} path={path} />}
+            </List.Core>
+          </List.Selector>
+        </List.List>
+      </Menu.ContextMenu>
     </Align.Space>
   );
 };
@@ -339,12 +362,14 @@ const ChannelListItem = ({
   const channelValid =
     Form.useField<number>({
       path: `${path}.${props.index}.channel`,
-    }).status.variant === "success";
+      optional: true,
+    })?.status?.variant === "success";
 
   const portValid =
     Form.useField<number>({
       path: `${path}.${props.index}.port`,
-    }).status.variant === "success";
+      optional: true,
+    })?.status?.variant === "success";
   if (childValues == null) return <></>;
 
   return (
