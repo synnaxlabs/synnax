@@ -152,8 +152,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     };
 
     // start and stop to catch any immediate errors
-    ni_source->start();
-    ni_source->stop();
+    ni_source->cycle();
 
     auto p = std::make_unique<ni::ReaderTask>(ctx,
                                               task,
@@ -280,6 +279,8 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 
 
     auto state_writer = daq_writer->writer_state_source;
+
+    daq_writer->cycle();
 
     auto p = std::make_unique<ni::WriterTask>(ctx,
                                               task,

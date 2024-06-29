@@ -169,6 +169,8 @@ public:
 
     virtual int createChannels() = 0;
 
+    freighter::Error cycle();
+
     struct DataPacket {
         void *data; // actual data
         uint64_t t0; // initial timestamp
@@ -312,6 +314,8 @@ public:
 
     freighter::Error start();
 
+    freighter::Error cycle();
+    
     std::vector<synnax::ChannelKey> getCmdChannelKeys();
 
     std::vector<synnax::ChannelKey> getStateChannelKeys();
