@@ -202,6 +202,8 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 	return w.Channel.DataType.Density().SampleCount(telem.Size(dw.Len()))
 }
 
+const leadingEdge = math.MaxUint32
+
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if w.closed {
@@ -218,10 +220,10 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 		w.updateHwm(series)
 	}
 	if *w.Persist {
-		a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
+		a = telem.NewAlignmentPair(leadingEdge, uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
 	} else {
-		a = telem.NewAlignmentPair(math.MaxUint32, w.virtualAlignment)
+		a = telem.NewAlignmentPair(leadingEdge, w.virtualAlignment)
 		w.virtualAlignment += uint32(series.Len())
 	}
 	return a, w.wrapError(err)

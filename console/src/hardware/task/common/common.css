@@ -13,6 +13,14 @@
     height: 100%;
     align-items: center;
     container-type: size;
+
+    .pluto-field__config-sampleRate,
+    .pluto-field__config--streamRate,
+    .pluto-field__config--arraySize {
+        flex-basis: 200px;
+        flex-grow: 1;
+    }
+
     > div {
         padding: 5rem;
         max-width: 1000px;
@@ -60,14 +68,18 @@
     }
 }
 
-@container (max-height: 500px) {
+@container (max-height: 600px) {
     .pluto-input--natural input {
         font-size: var(--pluto-h2-size);
         line-height: var(--pluto-h2-line-height);
     }
 }
 
-@container (max-width: 500px) {
+@container (max-width: 600px) {
+    .console-task-properties {
+        flex-direction: column !important;
+        gap: 0 !important;
+    }
     .pluto-input--natural input {
         font-size: var(--pluto-h2-size);
         line-height: var(--pluto-h2-line-height);

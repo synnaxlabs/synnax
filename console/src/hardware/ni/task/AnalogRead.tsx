@@ -218,12 +218,13 @@ const Internal = ({
           <Form.Field<string> path="name">
             {(p) => <Input.Text variant="natural" level="h1" {...p} />}
           </Form.Field>
-          <Align.Space direction="x">
+          <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
               path="config.device"
               label="Device"
               grow
               onChange={handleDeviceChange}
+              style={{ width: "100%" }}
             >
               {(p) => (
                 <Device.SelectSingle
@@ -235,13 +236,15 @@ const Internal = ({
                 />
               )}
             </Form.Field>
-            <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-              {(p) => <Input.Numeric {...p} />}
-            </Form.Field>
-            <Form.Field<number> label="Stream Rate" path="config.streamRate">
-              {(p) => <Input.Numeric {...p} />}
-            </Form.Field>
-            <Form.SwitchField path="config.dataSaving" label="Data Saving" />
+            <Align.Space direction="x">
+              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
+              <Form.Field<number> label="Stream Rate" path="config.streamRate">
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
+              <Form.SwitchField path="config.dataSaving" label="Data Saving" />
+            </Align.Space>
           </Align.Space>
           <Align.Space
             direction="x"
