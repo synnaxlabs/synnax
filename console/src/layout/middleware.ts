@@ -106,9 +106,12 @@ export const closeWindowOnRemoveEffect: MiddlewareEffect<
 export const createWindowsOnSetWorkspaceEffect: MiddlewareEffect<
   StoreState & Drift.StoreState,
   SetWorkspacePayload,
-  Drift.CreateWindowPayload
+  Drift.CreateWindowPayload | Drift.CloseWindowPayload
 > = ({ getState, dispatch }) => {
-  const { layouts } = selectSliceState(getState());
+  const state = getState();
+  const winKey = selectWindowKey(state);
+  if (winKey !== MAIN_WINDOW) return;
+  const { layouts } = selectSliceState(state);
   Object.values(layouts)
     .filter(({ location: l }) => l === "window")
     .forEach(({ key, name, window }) => {
