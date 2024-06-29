@@ -167,6 +167,13 @@ configuration. Ideally, one could use results from past operations as channel gr
 i.e. delete the time range from all channels just written to, read from channels just
 deleted from, etc.  
 
+One way to do this, for example, is to write the test configuration file in a format
+"smarter" than JSON – for example, a Python List or a Javascript Array. This way, one
+can easily refer to the resulting channels of a step. This does not need to abandon all
+the code used to parse JSON test configurations, though: to borrow an analogy from the
+land of compilers, the tester could write "source code" that get compiled into the
+"machine code" that is the JSON configuration file.
+
 #### Correctness testing:
 
 Currently, the testing framework only asserts that no errors occur when running the

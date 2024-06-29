@@ -17,8 +17,8 @@ permissions:
   packages: write
 
 jobs:
-  test-integration:
-    runs-on: self-hosted
+  test-integration-ubuntu-large:
+    runs-on: "Ubuntu"
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -42,5 +42,5 @@ jobs:
         working-directory: ./integration/py
 
       - name: Test
-        run: ./run-integration.sh basic.json
+        run: ./run-integration.sh tests/ws-d-r.json
         working-directory: ./integration
