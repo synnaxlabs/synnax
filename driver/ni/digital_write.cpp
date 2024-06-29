@@ -321,6 +321,7 @@ bool ni::DigitalWriteSink::ok() {
 }
 
 void ni::DigitalWriteSink::logError(std::string err_msg) {
+    // TODO get rid of the fields outside of the errors array
     LOG(ERROR) << "[ni.writer] " << err_msg;
     this->ok_state = false;
 }
@@ -421,6 +422,10 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
     }
     this->err_info["message"] = errorMessage;
 
+    json j = json::array();
+    j.push_back(this->err_info);
+    this->err_info["errors"] = j;
+
     LOG(INFO) << this->err_info.dump(4);
 }
 
@@ -445,7 +450,6 @@ std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
     breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // sleep for state period
-    timer.wait(breaker);
     waiting_reader.wait_for(lock, this->state_rate.period().chrono());
     return std::make_pair(this->getDriveState(), freighter::NIL);
 }

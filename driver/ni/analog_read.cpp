@@ -190,15 +190,15 @@ int ni::AnalogReadSource::configureTiming() {
 void ni::AnalogReadSource::acquireData() {
     while (this->breaker.running()) {
         DataPacket data_packet;
-        data_packet.data = new double[this->bufferSize];
+        data_packet.analog_data.resize(this->bufferSize);
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
         if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
             this->task_handle,
             this->numSamplesPerChannel,
             -1,
             DAQmx_Val_GroupByChannel,
-            static_cast<double *>(data_packet.data),
-            this->bufferSize,
+            data_packet.analog_data.data(),
+            data_packet.analog_data.size(),
             &data_packet.samplesReadPerChannel,
             NULL))) {
             this->logError(
@@ -215,44 +215,37 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     synnax::Frame f = synnax::Frame(numChannels);
 
     // sleep per streaming period
-    timer.wait(breaker);
-    // take data off of queue
-    auto [d, valid] = data_queue.dequeue();
-    // handle empty queue
-    if (!valid)
+    // timer.wait(breaker);
+    auto [d, err] = data_queue.dequeue();
+    if (!err)
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
 
-    // data is originally void ptr
-    double *data = static_cast<double *>(d.data);
-
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->numSamplesPerChannel);
-
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
     for (uint64_t i = 0; i < d.samplesReadPerChannel; ++i)
         time_index[i] = d.t0 + (std::uint64_t) (incr * i);
 
+    size_t s = d.samplesReadPerChannel;
     // Construct and populate synnax frame
-    uint64_t data_index = 0;
-    for (int i = 0; i < numChannels; i++) {
-        if (this->reader_config.channels[i].channel_type == "index") {
-            f.add(this->reader_config.channels[i].channel_key,
+    size_t data_index = 0;
+    for (int ch = 0; ch < numChannels; ch++) {
+        if (this->reader_config.channels[ch].channel_type == "index") {
+            f.add(this->reader_config.channels[ch].channel_key,
                   synnax::Series(time_index, synnax::TIMESTAMP));
             continue;
         }
-        // copy data into vector
-        std::vector<float> data_vec(d.samplesReadPerChannel);
-        for (int j = 0; j < d.samplesReadPerChannel; j++)
-            data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
-
-        f.add(this->reader_config.channels[i].channel_key,
-              synnax::Series(data_vec, synnax::FLOAT32));
+        auto series = synnax::Series(synnax::FLOAT32, s);
+        // copy data from start to end into series
+        for(int i = 0; i < s; i++) 
+            series.write((float)(d.analog_data[data_index*s + i]));
+        
+        f.add(this->reader_config.channels[ch].channel_key, std::move(series));
         data_index++;
     }
-    delete[] data;
     return std::make_pair(std::move(f), freighter::NIL);
 }
 

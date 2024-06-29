@@ -172,7 +172,9 @@ public:
     freighter::Error cycle();
 
     struct DataPacket {
-        void *data; // actual data
+        // void *data; // actual data
+        std::vector<double> analog_data;
+        std::vector<std::uint8_t> digital_data;
         uint64_t t0; // initial timestamp
         uint64_t tf; // final timestamp
         int32 samplesReadPerChannel;

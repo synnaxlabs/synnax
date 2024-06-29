@@ -21,10 +21,11 @@ public:
     void enqueue(const T &item) {
         std::unique_lock lock(m);
 
-        if (queue.size() < max_size) {
-            queue.push(item);
+        if (queue.size() == 1) {
+            queue.pop();
         }
-
+        queue.push(item);
+        
         waiting_consumers.notify_one();
     }
 
@@ -40,9 +41,6 @@ public:
 
         T item = queue.front();
         queue.pop();
-        // while (queue.size() > max_size) {
-        //     queue.pop();
-        // }
 
         return std::make_pair(item, true);
     }
@@ -58,5 +56,4 @@ private:
     std::queue<T> queue;
     std::mutex m;
     std::condition_variable waiting_consumers;
-    uint64_t max_size = 5;
 };

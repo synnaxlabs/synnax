@@ -127,7 +127,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     };
 
     auto parser = config::Parser(task.config);
-    auto data_saving = parser.optional<bool>("data_saving", false);
+    auto data_saving = parser.optional<bool>("data_saving", true);
 
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
@@ -260,7 +260,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     };
 
     auto parser = config::Parser(task.config);
-    auto data_saving = parser.optional<bool>("data_saving", false);
+    auto data_saving = parser.optional<bool>("data_saving", true);
 
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);

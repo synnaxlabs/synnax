@@ -96,20 +96,19 @@ void ni::DigitalReadSource::acquireData() {
     while (this->breaker.running()) {
         int32 numBytesPerSamp;
         DataPacket data_packet;
-        data_packet.data = new uInt8[this->bufferSize];
+        data_packet.digital_data.resize(this->bufferSize);
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
         // sleep per sample rate
         auto samp_period = this->reader_config.sample_rate.period().chrono();
         std::this_thread::sleep_for(samp_period);
-
         if (this->checkNIError(
             ni::NiDAQmxInterface::ReadDigitalLines(
                 this->task_handle, // task handle
                 this->numSamplesPerChannel, // numSampsPerChan
                 -1, // timeout
                 DAQmx_Val_GroupByChannel, // dataLayout
-                static_cast<uInt8 *>(data_packet.data), // readArray
-                this->bufferSize, // arraySizeInSamps
+                data_packet.digital_data.data(),// readArray
+                data_packet.digital_data.size(), // arraySizeInSamps
                 &data_packet.samplesReadPerChannel, // sampsPerChanRead
                 &numBytesPerSamp, // numBytesPerSamp
                 NULL))) {
@@ -128,23 +127,19 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
 
     // sleep per stream rate
     timer.wait(breaker);
-    // take data off of queue
-    auto [d, valid] = data_queue.dequeue();
-    if (!valid)
+    auto [d, err] = data_queue.dequeue();
+    if (!err)
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
-
-    uInt8 *data = static_cast<uInt8 *>(d.data);
-
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->numSamplesPerChannel);
-
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
     for (uint64_t i = 0; i < d.samplesReadPerChannel; ++i)
         time_index[i] = d.t0 + (std::uint64_t) (incr * i);
 
+    auto s = d.samplesReadPerChannel;
     // Construct and populate synnax frame
     uint64_t data_index = 0;
     for (int i = 0; i < numChannels; i++) {
@@ -153,16 +148,13 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
                   synnax::Series(time_index, synnax::TIMESTAMP));
             continue;
         }
+        auto series = synnax::Series(synnax::UINT8,s);
         // copy data into vector
-        std::vector<uint8_t> data_vec(d.samplesReadPerChannel);
-        for (int j = 0; j < d.samplesReadPerChannel; j++) {
-            data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
-        }
+        for (int j = 0; j < d.samplesReadPerChannel; j++) 
+            series.write((uint8_t) d.digital_data[data_index + j]);
 
-        f.add(this->reader_config.channels[i].channel_key,
-              synnax::Series(data_vec, synnax::UINT8));
+        f.add(this->reader_config.channels[i].channel_key, std::move(series));
         data_index++;
     }
-    delete[] data;
     return std::make_pair(std::move(f), freighter::NIL);
 }

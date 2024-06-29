@@ -729,6 +729,7 @@ void ni::Source::stoppedWithErr(const freighter::Error &err) {
 }
 
 void ni::Source::jsonifyError(std::string s) {
+    // TODO get rid of the fields outside of the errors array
     this->err_info["error type"] = "Vendor Error";
     this->err_info["running"] = false;
 
@@ -866,6 +867,10 @@ void ni::Source::jsonifyError(std::string s) {
         errorMessage += " Minimum Value: " + minValue;
     }
     this->err_info["message"] = errorMessage;
+
+    json j = json::array();
+    j.push_back(this->err_info);
+    this->err_info["errors"] = j;
 
     LOG(INFO) << this->err_info.dump(4);
 }
