@@ -1483,7 +1483,7 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
   ai_current: "Current",
   ai_force_bridge_table: "Force Bridge Table",
   ai_force_bridge_two_point_lin: "Force Bridge Two-Point Linear",
-  ai_force_iepe: "Force EPE",
+  ai_force_iepe: "Force IEPE",
   ai_microphone: "Microphone",
   ai_pressure_bridge_table: "Pressure Bridge Table",
   ai_resistance: "Resistance",

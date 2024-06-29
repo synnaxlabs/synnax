@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { QueryError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Button,
   Device,
@@ -30,7 +29,6 @@ import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
 import { NI } from "@/hardware/ni";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
@@ -51,6 +49,7 @@ import {
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import {
+  ChannelListContextMenu,
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
@@ -328,7 +327,6 @@ const availablePortFinder = (channels: Chan[]): (() => number) => {
 
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<Chan>({ path });
-  const methods = Form.useContext();
   const handleAdd = (): void => {
     const key = nanoid();
     push({
@@ -339,73 +337,30 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
     onSelect([key], value.length);
   };
   const menuProps = Menu.useContextMenu();
-  console.log(value);
-
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
       <ChannelListHeader onAdd={handleAdd} />
       <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-          const indices = keys.map((k) => value.findIndex((v) => v.key === k));
-          const handleRemove = () => {
-            remove(indices);
-            onSelect([], -1);
-          };
-          const handleDuplicate = () => {
-            const pf = availablePortFinder(value);
-            push(
-              indices.map((i) => ({
-                ...deep.copy(value[i]),
-                channel: 0,
-                port: pf(),
-                key: nanoid(),
-              })),
-            );
-          };
-          const handleDisable = () =>
-            value.forEach((_, i) => {
-              if (!indices.includes(i)) return;
-              methods.set(`${path}.${i}.enabled`, false);
-            });
-          const handleEnable = () =>
-            value.forEach((_, i) => {
-              if (!indices.includes(i)) return;
-              methods.set(`${path}.${i}.enabled`, true);
-            });
-          const allowDisable = indices.some((i) => value[i].enabled);
-          const allowEnable = indices.some((i) => !value[i].enabled);
-          return (
-            <Menu.Menu
-              onChange={{
-                remove: handleRemove,
-                duplicate: handleDuplicate,
-                disable: handleDisable,
-                enable: handleEnable,
-              }}
-              level="small"
-            >
-              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-                Remove
-              </Menu.Item>
-              <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
-                Duplicate
-              </Menu.Item>
-              <Menu.Divider />
-              {allowDisable && (
-                <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
-                  Disable
-                </Menu.Item>
-              )}
-              {allowEnable && (
-                <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
-                  Enable
-                </Menu.Item>
-              )}
-              {(allowEnable || allowDisable) && <Menu.Divider />}
-              <CMenu.HardReloadItem />
-            </Menu.Menu>
-          );
-        }}
+        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
+          <ChannelListContextMenu
+            path={path}
+            keys={keys}
+            value={value}
+            remove={remove}
+            onSelect={onSelect}
+            onDuplicate={(indices) => {
+              const pf = availablePortFinder(value);
+              push(
+                indices.map((i) => ({
+                  ...deep.copy(value[i]),
+                  channel: 0,
+                  port: pf(),
+                  key: nanoid(),
+                })),
+              );
+            }}
+          />
+        )}
         {...menuProps}
       >
         <List.List<string, Chan>
@@ -416,9 +371,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             value={selected}
             allowNone={false}
             allowMultiple={true}
-            onChange={(keys, { clickedIndex }) => {
-              clickedIndex != null && onSelect(keys, clickedIndex);
-            }}
+            onChange={(keys, { clickedIndex }) =>
+              clickedIndex != null && onSelect(keys, clickedIndex)
+            }
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>

@@ -147,7 +147,7 @@ export const NavRight = (): ReactElement | null => {
   );
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="right" size={NAV_SIZES.side}>
-      <Nav.Bar.Content className="console-main-nav__content" size="small">
+      <Nav.Bar.Content className="console-main-nav__content" size="medium">
         <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
       {bottomMenuItems.length > 0 && (

@@ -2,8 +2,19 @@ import "@/hardware/task/common/common.css";
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Header, Status, Text, Triggers } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Form,
+  Header,
+  Menu,
+  Status,
+  Text,
+  Triggers,
+} from "@synnaxlabs/pluto";
+import { Key, Keyed } from "@synnaxlabs/x";
 
+import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
 
 export interface ControlsProps {
@@ -30,6 +41,78 @@ export const ChannelListEmptyContent = ({ onAdd }: ChannelListEmptyContentProps)
     </Align.Center>
   </Align.Space>
 );
+
+interface ChannelListContextMenuProps<T> {
+  keys: string[];
+  value: T[];
+  onSelect: (keys: string[], index: number) => void;
+  remove: (indices: number[]) => void;
+  onDuplicate: (indices: number[]) => void;
+  path: string;
+}
+
+export const ChannelListContextMenu = <
+  K extends Key,
+  T extends Keyed<K> & { enabled: boolean },
+>({
+  keys,
+  value,
+  onSelect,
+  remove,
+  onDuplicate,
+  path,
+}: ChannelListContextMenuProps<T>) => {
+  const methods = Form.useContext();
+  const indices = keys.map((k) => value.findIndex((v) => v.key === k));
+  const handleRemove = () => {
+    remove(indices);
+    onSelect([], -1);
+  };
+  const handleDuplicate = () => onDuplicate(indices);
+  const handleDisable = () =>
+    value.forEach((_, i) => {
+      if (!indices.includes(i)) return;
+      methods.set(`${path}.${i}.enabled`, false);
+    });
+  const handleEnable = () =>
+    value.forEach((_, i) => {
+      if (!indices.includes(i)) return;
+      methods.set(`${path}.${i}.enabled`, true);
+    });
+  const allowDisable = indices.some((i) => value[i].enabled);
+  const allowEnable = indices.some((i) => !value[i].enabled);
+  return (
+    <Menu.Menu
+      onChange={{
+        remove: handleRemove,
+        duplicate: handleDuplicate,
+        disable: handleDisable,
+        enable: handleEnable,
+      }}
+      level="small"
+    >
+      <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+        Remove
+      </Menu.Item>
+      <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+        Duplicate
+      </Menu.Item>
+      <Menu.Divider />
+      {allowDisable && (
+        <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+          Disable
+        </Menu.Item>
+      )}
+      {allowEnable && (
+        <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+          Enable
+        </Menu.Item>
+      )}
+      {(allowEnable || allowDisable) && <Menu.Divider />}
+      <CMenu.HardReloadItem />
+    </Menu.Menu>
+  );
+};
 
 export const Controls = ({
   state,
