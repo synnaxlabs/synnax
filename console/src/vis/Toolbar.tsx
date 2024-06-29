@@ -13,6 +13,8 @@ import { type FC, type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { LinePlot } from "@/lineplot";
+import { Schematic } from "@/schematic";
 // import { LinePlot } from "@/lineplot";
 // import { Schematic } from "@/schematic";
 import { type LayoutType } from "@/vis/types";
@@ -35,8 +37,8 @@ const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
 );
 
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
-  // schematic: Sce.Toolbar,
-  // lineplot: LinePlot.Toolbar,
+  schematic: Schematic.Toolbar,
+  lineplot: LinePlot.Toolbar,
   vis: SelectVis,
 };
 
