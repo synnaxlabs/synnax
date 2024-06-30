@@ -32,15 +32,19 @@ const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 //  Prevent the user or a programming error from creating a tiny window.
 const MIN_DIM = 100;
 
+const clampDims = (dims?: dimensions.Dimensions): dimensions.Dimensions | undefined => {
+  if (dims == null) return undefined;
+  return {
+    width: Math.max(dims.width, MIN_DIM),
+    height: Math.max(dims.height, MIN_DIM),
+  };
+};
+
 const capWindowDimensions = (
   props: Omit<WindowProps, "key">,
 ): Omit<WindowProps, "key"> => {
   const { size, maxSize } = props;
-  if (size?.width != null) size.width = Math.max(size.width, MIN_DIM);
-  if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
-  if (maxSize?.width != null) maxSize.width = Math.max(maxSize.width, MIN_DIM);
-  if (maxSize?.height != null) maxSize.height = Math.max(maxSize.height, MIN_DIM);
-  return props;
+  return { ...props, maxSize: clampDims(maxSize), size: clampDims(size) };
 };
 
 /**
@@ -219,18 +223,17 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async setSize(dims: dimensions.Dimensions): Promise<void> {
-    dims.width = Math.max(dims.width, MIN_DIM);
-    dims.height = Math.max(dims.height, MIN_DIM);
+    dims = clampDims(dims) as dimensions.Dimensions;
     await this.win.setSize(new LogicalSize(dims.width, dims.height));
   }
 
   async setMinSize(dims: dimensions.Dimensions): Promise<void> {
+    dims = clampDims(dims) as dimensions.Dimensions;
     await this.win.setMinSize(new LogicalSize(dims.width, dims.height));
   }
 
   async setMaxSize(dims: dimensions.Dimensions): Promise<void> {
-    dims.width = Math.max(dims.width, MIN_DIM);
-    dims.height = Math.max(dims.height, MIN_DIM);
+    dims = clampDims(dims) as dimensions.Dimensions;
     await this.win.setMaxSize(new LogicalSize(dims.width, dims.height));
   }
 
