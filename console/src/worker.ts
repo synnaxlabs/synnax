@@ -9,4 +9,37 @@
 
 import { pluto } from "@synnaxlabs/pluto/ether";
 
+class CustomPromise extends Promise {
+  static openPromisesCount = 0;
+
+  constructor(executor) {
+    CustomPromise.openPromisesCount++;
+    super((resolve, reject) => {
+      executor(
+        (value) => {
+          CustomPromise.openPromisesCount--;
+          CustomPromise.maybeLogOpenPromisesCount();
+          resolve(value);
+        },
+        (reason) => {
+          CustomPromise.openPromisesCount--;
+          CustomPromise.maybeLogOpenPromisesCount();
+          reject(reason);
+        },
+      );
+    });
+  }
+
+  static maybeLogOpenPromisesCount() {
+    // console.log(`Open promises count: ${CustomPromise.openPromisesCount}`);
+  }
+
+  static getOpenPromisesCount() {
+    return CustomPromise.openPromisesCount;
+  }
+}
+
+// Override the native Promise with the custom implementation
+self.Promise = CustomPromise;
+
 pluto.render();

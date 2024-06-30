@@ -121,7 +121,10 @@ export const Selector = (): ReactElement => {
                     <Button.Button
                       startIcon={<Icon.Add />}
                       variant="outlined"
-                      onClick={() => place(createWindowLayout())}
+                      onClick={() => {
+                        close();
+                        place(createWindowLayout());
+                      }}
                       iconSpacing="small"
                       tooltip="Create a new workspace"
                       tooltipLocation={{ y: "bottom" }}

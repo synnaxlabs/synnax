@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { QueryError } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   Button,
   Channel,
@@ -68,6 +69,13 @@ export const configureDigitalWriteLayout = (
   location: "mosaic",
   args: { create },
 });
+
+export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
+  key: DIGITAL_WRITE_TYPE,
+  title: "NI Digital Write Task",
+  icon: <Icon.Logo.NI />,
+  create: (layoutKey) => ({ ...configureDigitalWriteLayout(true), key: layoutKey }),
+};
 
 interface InternalProps {
   layoutKey: string;

@@ -123,9 +123,15 @@ export const Palette = ({
 
   const placer = Layout.usePlacer();
   const d = useDispatch();
+  const store = useStore<RootState>();
 
   const handleDrop = useCallback(
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
+      const windows = Drift.selectWindows(store.getState());
+      const boxes = windows
+        // .filter((w) => w.key.startsWith(MOSAIC_TYPE))
+        .map((w) => box.construct(w.position, w.size));
+      if (boxes.some((b) => box.contains(b, cursor))) return [];
       const { key } = placer(
         Layout.createMosaicWindow({
           position: cursor ? xy.translate(cursor, { x: -80, y: -45 }) : undefined,

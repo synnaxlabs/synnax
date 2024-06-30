@@ -19,3 +19,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Task.LAYOUTS,
   ...Device.LAYOUTS,
 };
+
+export const SELECTABLES = Task.SELECTABLES;

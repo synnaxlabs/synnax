@@ -9,6 +9,7 @@
 
 import "@/layout/Selector.css";
 
+import { Logo } from "@synnaxlabs/media";
 import { Button, Eraser, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
@@ -44,16 +45,23 @@ const Base = ({
         {...props}
         wrap
       >
-        <Text.Text level="h4" color="var(--pluto-gray-l6)">
-          Select a layout type
+        <Text.Text level="h4" shade={6} weight={400}>
+          Select a Component Type
         </Text.Text>
-        <Align.Space direction={direction}>
+        <Align.Space
+          direction="x"
+          wrap
+          style={{ width: "500px" }}
+          justify="center"
+          size={2.5}
+        >
           {layouts?.map(({ key, title, icon, create }) => (
             <Button.Button
               key={key}
               variant="outlined"
               onClick={() => place(create(layoutKey))}
               startIcon={icon}
+              style={{ flexBasis: "200px" }}
             >
               {title}
             </Button.Button>

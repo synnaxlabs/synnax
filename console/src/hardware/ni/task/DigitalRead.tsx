@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { QueryError } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Channel,
@@ -69,6 +70,13 @@ export const configureDigitalReadLayout = (
   location: "mosaic",
   args: { create },
 });
+
+export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
+  key: DIGITAL_READ_TYPE,
+  title: "NI Digital Read Task",
+  icon: <Icon.Logo.NI />,
+  create: (layoutKey) => ({ ...configureDigitalReadLayout(true), key: layoutKey }),
+};
 
 interface InternalProps {
   layoutKey: string;

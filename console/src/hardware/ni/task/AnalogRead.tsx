@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { QueryError } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -59,6 +60,13 @@ export const configureAnalogReadLayout = (create: boolean = false): Layout.State
   location: "mosaic",
   args: { create },
 });
+
+export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
+  key: ANALOG_READ_TYPE,
+  title: "NI Analog Read Task",
+  icon: <Icon.Logo.NI />,
+  create: (layoutKey) => ({ ...configureAnalogReadLayout(true), key: layoutKey }),
+};
 
 interface InternalProps {
   layoutKey: string;

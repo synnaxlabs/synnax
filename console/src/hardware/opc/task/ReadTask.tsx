@@ -68,14 +68,24 @@ export const configureReadLayout = (create: boolean = false): Layout.State => ({
   args: { create },
 });
 
+export const READ_SELECTABLE: Layout.Selectable = {
+  key: READ_TYPE,
+  title: "OPC UA Read Task",
+  icon: <Icon.Logo.OPC />,
+  create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
+};
+
 interface InternalProps {
   task?: Read;
   initialValues: ReadPayload;
 }
 
-const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement => {
+const Internal = ({
+  initialValues,
+  task: initialTask,
+}: InternalProps): ReactElement => {
   const client = Synnax.use();
-  const [task, setTask] = useState(pTask);
+  const [task, setTask] = useState(initialTask);
   const [device, setDevice] = useState<device.Device<Device.Properties> | null>(null);
 
   const schema = useMemo(
@@ -384,7 +394,7 @@ export const ChannelListItem = ({
       entry={childValues}
       justify="spaceBetween"
       align="center"
-      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && props.remove?.()}
+      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && remove?.()}
     >
       <Align.Space direction="y" size="small">
         <Text.Text level="p" weight={500} shade={9} color={channelColor}>
