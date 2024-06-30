@@ -11,6 +11,8 @@ import "@/layouts/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { Memory } from "@synnaxlabs/pluto";
+import { Size } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
@@ -164,20 +166,23 @@ export const NavRight = (): ReactElement | null => {
 };
 
 interface MemoryUsage {
-  used: number;
-  total: number;
+  used: Size;
+  total: Size;
 }
 
 const MemoryBadge = (): ReactElement => {
-  const [memory, setMemory] = useState<MemoryUsage>({ used: 0, total: 0 });
+  const [memory, setMemory] = useState<MemoryUsage>({
+    used: Size.ZERO,
+    total: Size.ZERO,
+  });
   const displayMemory = "memory" in performance;
   useEffect(() => {
     const interval = setInterval(() => {
       if ("memory" in performance) {
         const { memory } = performance;
         setMemory({
-          used: memory.usedJSHeapSize,
-          total: memory.jsHeapSizeLimit,
+          used: Size.bytes(memory.usedJSHeapSize),
+          total: Size.bytes(memory.jsHeapSizeLimit),
         });
       }
     }, 1000);
@@ -186,7 +191,9 @@ const MemoryBadge = (): ReactElement => {
 
   return (
     <Text.Text level="p" style={{ padding: "0 2rem" }}>
-      {displayMemory ? `${memory.used} / ${memory.total}` : "N/A"}
+      {displayMemory
+        ? `${memory.used.truncate(Size.MEGABYTE).toString()} / ${memory.total.truncate(Size.MEGABYTE).toString()}`
+        : "N/A"}
     </Text.Text>
   );
 };
@@ -202,6 +209,8 @@ export const NavBottom = (): ReactElement => {
         <Vis.NavControls />
       </Nav.Bar.Start>
       <Nav.Bar.End className="console-main-nav-bottom__end" empty>
+        <Divider.Divider />
+        <Memory.Usage />
         <Divider.Divider />
         <MemoryBadge />
         <Divider.Divider />
