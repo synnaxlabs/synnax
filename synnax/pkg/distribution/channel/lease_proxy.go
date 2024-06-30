@@ -213,7 +213,7 @@ func (lp *leaseProxy) createGateway(
 		return err
 	}
 
-	var externalCreatedKeys Keys
+	externalCreatedKeys := make(Keys, 0, len(toCreate))
 	for _, ch := range toCreate {
 		if !ch.Internal {
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
