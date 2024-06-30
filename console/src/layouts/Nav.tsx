@@ -11,7 +11,7 @@ import "@/layouts/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -163,6 +163,34 @@ export const NavRight = (): ReactElement | null => {
   );
 };
 
+interface MemoryUsage {
+  used: number;
+  total: number;
+}
+
+const MemoryBadge = (): ReactElement => {
+  const [memory, setMemory] = useState<MemoryUsage>({ used: 0, total: 0 });
+  const displayMemory = "memory" in performance;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if ("memory" in performance) {
+        const { memory } = performance;
+        setMemory({
+          used: memory.usedJSHeapSize,
+          total: memory.jsHeapSizeLimit,
+        });
+      }
+    }, 1000);
+    return (): void => clearInterval(interval);
+  });
+
+  return (
+    <Text.Text level="p" style={{ padding: "0 2rem" }}>
+      {displayMemory ? `${memory.used} / ${memory.total}` : "N/A"}
+    </Text.Text>
+  );
+};
+
 /**
  * NavBottom is the bottom navigation bar for the Synnax Console. Try to keep this component
  * presentational.
@@ -174,6 +202,8 @@ export const NavBottom = (): ReactElement => {
         <Vis.NavControls />
       </Nav.Bar.Start>
       <Nav.Bar.End className="console-main-nav-bottom__end" empty>
+        <Divider.Divider />
+        <MemoryBadge />
         <Divider.Divider />
         <Version.Badge />
         <Divider.Divider />
