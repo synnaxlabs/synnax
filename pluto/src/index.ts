@@ -26,6 +26,7 @@ export * from "@/hooks";
 export { Input } from "@/input";
 export { List } from "@/list";
 export * from "@/memo";
+export { Memory } from "@/memory";
 export { Menu } from "@/menu";
 export { Modal } from "@/modal";
 export { Mosaic } from "@/mosaic";

@@ -11,6 +11,7 @@ import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { memory } from "@/memory/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -61,6 +62,7 @@ export const render = (): void => {
     ...alamos.REGISTRY,
     ...eraser.REGISTRY,
     ...range.REGISTRY,
+    ...memory.REGISTRY,
   };
 
   aether.render({
