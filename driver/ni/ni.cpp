@@ -732,7 +732,6 @@ void ni::Source::stoppedWithErr(const freighter::Error &err) {
 
 void ni::Source::jsonifyError(std::string s) {
     // TODO get rid of the fields outside of the errors array
-    this->err_info["error type"] = "Vendor Error";
     this->err_info["running"] = false;
 
     // Define regex patterns
@@ -840,22 +839,22 @@ void ni::Source::jsonifyError(std::string s) {
 
     // Check if the channel name is in the channel map
     if (channel_map.count(cn) != 0) {
-        this->err_info["path"] = channel_map[cn];
+        this->err_info["path"] = channel_map[cn] + ".";
     } else if (!cn.empty()) {
-        this->err_info["path"] = cn;
+        this->err_info["path"] = cn + ".";
     } else {
-        this->err_info["path"] = "unknown";
+        this->err_info["path"] = "";
     }
 
     // Check if the property is in the field map
     if (FIELD_MAP.count(p) == 0) {
-        this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + p;
+        this->err_info["path"] = this->err_info["path"].get<std::string>() + p;
         this->err_info["message"] = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
         return;
     }
 
     this->err_info["type"] = "field error";
-    this->err_info["path"] = this->err_info["path"].get<std::string>() + "." + FIELD_MAP.at(p);
+    this->err_info["path"] = this->err_info["path"].get<std::string>() + FIELD_MAP.at(p);
 
     // Update the message with possible values, max value, and min value if they exist
     std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>();

@@ -339,7 +339,6 @@ void ni::DigitalWriteSink::stoppedWithErr(const freighter::Error &err) {
 }
 
 void ni::DigitalWriteSink::jsonifyError(std::string s) {
-    this->err_info["error type"] = "Vendor Error";
     this->err_info["running"] = false;
 
     std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
@@ -409,7 +408,7 @@ void ni::DigitalWriteSink::jsonifyError(std::string s) {
     } else if (!cn.empty()) {
         this->err_info["path"] = cn;
     } else {
-        this->err_info["path"] = "unknown";
+        this->err_info["path"] = "";
     }
 
     // Handle the special case for -200170 error
