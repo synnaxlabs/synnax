@@ -482,6 +482,7 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
+// Also verify data type of channel
 void ni::Source::getIndexKeys() {
     std::set<std::uint32_t> index_keys;
     //iterate through channels in reader config
@@ -567,6 +568,7 @@ int ni::Source::init() {
         return -1;
     }
     this->getIndexKeys();
+    this->validateChannels();
     // Create breaker
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -875,3 +877,5 @@ void ni::Source::jsonifyError(std::string s) {
 
     LOG(INFO) << this->err_info.dump(4);
 }
+
+

@@ -158,3 +158,25 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     }
     return std::make_pair(std::move(f), freighter::NIL);
 }
+
+int ni::DigitalReadSource::validateChannels() {
+    LOG(INFO) << "[NI Reader] Validating channels for task " << this->reader_config.
+            task_name;
+    for (auto &channel: this->reader_config.channels) {
+        if (channel.channel_type == "index") {
+            if (channel.channel_key == 0) {
+                LOG(ERROR) << "[NI Reader] Index channel key is 0";
+                return -1;
+            }
+            continue;
+        }
+        // if not index, make sure channel type is valid
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(
+            channel.channel_key);
+        if(channel_info.data_type != synnax::FLOAT32 || channel_info.data_type != synnax::FLOAT64) {
+            LOG(ERROR) << "[NI Reader] Channel " << channel.name << " is not of type FLOAT32";
+            return -1;
+        }
+    }
+    return 0;
+}

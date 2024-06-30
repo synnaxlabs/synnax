@@ -169,6 +169,8 @@ public:
 
     virtual int createChannels() = 0;
 
+    virtual int validateChannels() = 0;
+
     freighter::Error cycle();
 
     struct DataPacket {
@@ -231,16 +233,10 @@ public:
 
     int createChannel(ChannelConfig &channel);
 
+    int validateChannels() override;
 
-    int32 CVICALLBACK everyNSamplesCallback(TaskHandle task_handle,  int32 everyNsamplesEventType, uInt32 nSamples, void *callbackData);
-
-    static int32 CVICALLBACK everyNCallbackWrapper(TaskHandle taskHandle, int32 everyNsamplesEventType, uInt32 nSamples, void *callbackData);
-   
     // NI related resources
     uint64_t numAIChannels = 0;
-    std::vector<double> data;
-    std::condition_variable waiting_reader;
-    std::mutex data_mutex;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -260,6 +256,8 @@ public:
     void acquireData() override;
 
     int configureTiming() override;
+
+    int validateChannels() override;
 
     int createChannels() override;
 
