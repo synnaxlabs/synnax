@@ -23,9 +23,9 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_AI_Temp_Units", "temp_units"},
     {"DAQmx_AI_Thrmcpl_Type", "thrmcpl_type"},
     {"DAQmx_AI_Thrmcpl_ScaleType", "thrmcpl_scale_type"},
-    {"DAQmx_AI_Thrmcpl_CJCSrc", "thrmcpl_cjc_src"},
-    {"DAQmx_AI_Thrmcpl_CJCVal", "thrmcpl_cjc_val"},
-    {"DAQmx_AI_Thrmcpl_CJCChan", "thrmcpl_cjc_chan"},
+    {"DAQmx_AI_Thrmcpl_CJCSrc", "cjc_source"},
+    {"DAQmx_AI_Thrmcpl_CJCVal", "cjc_val"},
+    {"DAQmx_AI_Thrmcpl_CJCChan", "cjc_port"},
     {"DAQmx_AI_RTD_Type", "rtd_type"},
     {"DAQmx_AI_RTD_R0", "rtd_r0"},
     {"DAQmx_AI_RTD_A", "rtd_a"},
@@ -625,7 +625,6 @@ freighter::Error  ni::Source::cycle(){
 freighter::Error ni::Source::start() {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
-    this->start_time = (uint64_t)((synnax::TimeStamp::now()).value);
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->logError(
             "failed while starting reader for task " + this->reader_config.task_name +
@@ -638,7 +637,8 @@ freighter::Error ni::Source::start() {
         .task = task.key,
         .variant = "success",
         .details = {
-            {"running", true}
+            {"running", true},
+            {"message", "Task started successfully"}
         }
     });
     return freighter::NIL;
@@ -660,7 +660,8 @@ freighter::Error ni::Source::stop() {
         .task = task.key,
         .variant = "success",
         .details = {
-            {"running", false}
+            {"running", false},
+            {"message", "Task stopped successfully"}
         }
     });
     return freighter::NIL;

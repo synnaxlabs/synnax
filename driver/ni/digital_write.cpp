@@ -193,7 +193,8 @@ freighter::Error ni::DigitalWriteSink::start() {
         .task = this->task.key,
         .variant = "success",
         .details = {
-            {"running", true}
+            {"running", true},
+            {"message", "Task started successfully"}
         }
     });
     return freighter::NIL;
@@ -214,7 +215,8 @@ freighter::Error ni::DigitalWriteSink::stop() {
         .task = this->task.key,
         .variant = "success",
         .details = {
-            {"running", false}
+            {"running", false},
+            {"message", "Task stopped successfully"}
         }
     });
     return freighter::NIL;
