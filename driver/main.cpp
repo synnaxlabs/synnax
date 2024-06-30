@@ -45,13 +45,10 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
 std::atomic<bool> stopped = false;
 
 int main(int argc, char *argv[]) {
-    FLAGS_logtostderr = 1;
-    google::InitGoogleLogging(argv[0]);
-
     std::string config_path = "./synnax-driver-config.json";
-    if (argc > 1) config_path = argv[1]; // Use the first argument as the config path if provided
+    if (argc > 1) config_path = argv[1];
+    // Use the first argument as the config path if provided
 
-    LOG(INFO) << "[driver] starting up";
 
     auto cfg_json = config::read(config_path);
     if (cfg_json.empty())
@@ -66,9 +63,15 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     VLOG(1) << "[driver] configuration parsed successfully";
-    VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
-            cfg.client_config.port;
 
+
+    LOG(INFO) << "[driver] starting up";
+    FLAGS_logtostderr = 1;
+    if (cfg.debug) FLAGS_v = 1;
+    google::InitGoogleLogging(argv[0]);
+
+    VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
+             cfg.client_config.port;
 
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
