@@ -625,6 +625,7 @@ freighter::Error  ni::Source::cycle(){
 freighter::Error ni::Source::start() {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
+    this->start_time = (uint64_t)((synnax::TimeStamp::now()).value);
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->logError(
             "failed while starting reader for task " + this->reader_config.task_name +

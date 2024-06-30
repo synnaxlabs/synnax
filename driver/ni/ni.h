@@ -196,9 +196,11 @@ public:
     synnax::Task task;
     loop::Timer timer;
     uint32_t buffered_frames = 0;
-
+    uint64_t start_time = 0;
+    uint64_t next_start_time = 0;
     // maps ni channel name to path
     std::map<std::string, std::string> channel_map;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -229,8 +231,16 @@ public:
 
     int createChannel(ChannelConfig &channel);
 
+
+    int32 CVICALLBACK everyNSamplesCallback(TaskHandle task_handle,  int32 everyNsamplesEventType, uInt32 nSamples, void *callbackData);
+
+    static int32 CVICALLBACK everyNCallbackWrapper(TaskHandle taskHandle, int32 everyNsamplesEventType, uInt32 nSamples, void *callbackData);
+   
     // NI related resources
     uint64_t numAIChannels = 0;
+    std::vector<double> data;
+    std::condition_variable waiting_reader;
+    std::mutex data_mutex;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////

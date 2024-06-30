@@ -177,6 +177,9 @@ int ni::AnalogReadSource::configureTiming() {
             return -1;
         }
     }
+    // TODO: access through api wrapper
+    DAQmxRegisterEveryNSamplesEvent(this->task_handle, DAQmx_Val_Acquired_Into_Buffer,
+                                    this->numSamplesPerChannel, DAQmx_Val_SynchronousEventCallbacks, ni::AnalogReadSource::everyNCallbackWrapper, this);
     // we read data in chunks of numSamplesPerChannel such that we can send frames of data of size numSamplesPerChannel at the stream rate
     // e.g. if we have 4 channels and we want to stream at 100Hz at a 1000hz sample rate
     // make a make a call to read 10 samples at 100hz
@@ -184,29 +187,31 @@ int ni::AnalogReadSource::configureTiming() {
         this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
     this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
+    this->data.resize(this->bufferSize);
     return 0;
 }
 
 void ni::AnalogReadSource::acquireData() {
     while (this->breaker.running()) {
-        DataPacket data_packet;
-        data_packet.analog_data.resize(this->bufferSize);
-        data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
-        if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
-            this->task_handle,
-            this->numSamplesPerChannel,
-            -1,
-            DAQmx_Val_GroupByChannel,
-            data_packet.analog_data.data(),
-            data_packet.analog_data.size(),
-            &data_packet.samplesReadPerChannel,
-            NULL))) {
-            this->logError(
-                "failed while reading analog data for task " + this->reader_config.
-                task_name);
-        }
-        data_packet.tf = (uint64_t) ((synnax::TimeStamp::now()).value);
-        data_queue.enqueue(data_packet);
+        // DataPacket data_packet;
+        // data_packet.analog_data.resize(this->bufferSize);
+        // data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
+        // if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
+        //     this->task_handle,
+        //     this->numSamplesPerChannel,
+        //     -1,
+        //     DAQmx_Val_GroupByChannel,
+        //     data_packet.analog_data.data(),
+        //     data_packet.analog_data.size(),
+        //     &data_packet.samplesReadPerChannel,
+        //     NULL))) {
+        //     this->logError(
+        //         "failed while reading analog data for task " + this->reader_config.
+        //         task_name);
+        // }
+        // data_packet.tf = (uint64_t) ((synnax::TimeStamp::now()).value);
+        // //print period
+        // data_queue.enqueue(data_packet);
     }
 }
 
@@ -214,13 +219,28 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
     synnax::Frame f = synnax::Frame(numChannels);
 
+    std::unique_lock<std::mutex> lock(this->data_mutex);
+    auto start = this->start_time;
+    LOG(INFO) << "Waiting for data from queue";
+    this->waiting_reader.wait(lock); // TODO: add timeout
+    LOG(INFO) << "Reading data from queue";
+    std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
+    for (uint64_t i = 0; i < this->numSamplesPerChannel; ++i)
+        time_index[i] = start + (std::uint64_t) (this->reader_config.sample_rate.period().value * i);
+    
+    this->start_time = time_index[this->numSamplesPerChannel - 1];
+    
+    /*
+    // std::vector<double> data;
+    // data.resize(this->bufferSize);
     // sleep per streaming period
     // timer.wait(breaker);
-    auto [d, err] = data_queue.dequeue();
-    if (!err)
-        return std::make_pair(std::move(f), freighter::Error(
-                                  driver::TEMPORARY_HARDWARE_ERROR,
-                                  "Failed to read data from queue"));
+
+    // auto [d, err] = data_queue.dequeue();
+    // if (!err)
+    //     return std::make_pair(std::move(f), freighter::Error(
+    //                               driver::TEMPORARY_HARDWARE_ERROR,
+    //                               "Failed to read data from queue"));
 
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->numSamplesPerChannel);
@@ -228,8 +248,8 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
     for (uint64_t i = 0; i < d.samplesReadPerChannel; ++i)
         time_index[i] = d.t0 + (std::uint64_t) (incr * i);
-
-    size_t s = d.samplesReadPerChannel;
+    */
+    size_t s = this->numSamplesPerChannel;
     // Construct and populate synnax frame
     size_t data_index = 0;
     for (int ch = 0; ch < numChannels; ch++) {
@@ -241,7 +261,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
         auto series = synnax::Series(synnax::FLOAT32, s);
         // copy data from start to end into series
         for(int i = 0; i < s; i++) 
-            series.write((float)(d.analog_data[data_index*s + i]));
+            series.write((float)(this->data[data_index*s + i]));
         
         f.add(this->reader_config.channels[ch].channel_key, std::move(series));
         data_index++;
@@ -265,3 +285,33 @@ int ni::AnalogReadSource::createChannels() {
     }
     return 0;
 }
+
+int32 CVICALLBACK ni::AnalogReadSource::everyNSamplesCallback(TaskHandle taskHandle, int32 everyNsamplesEventType,
+                            uInt32 nSamples, void *callbackData) {
+                                LOG(INFO) << "Callback called";
+        std::unique_lock<std::mutex> lock(this->data_mutex);
+        LOG(INFO) << "mutex acquired";
+        // this->start_time = synnax::TimeStamp::now();
+        int32 samplesRead;
+        if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
+            this->task_handle,
+            this->numSamplesPerChannel,
+            -1,
+            DAQmx_Val_GroupByChannel,
+            this->data.data(),
+            this->data.size(),
+            &samplesRead,
+            NULL))) {
+            this->logError(
+                "failed while reading analog data for task " + this->reader_config.
+                task_name);
+        }
+        this->waiting_reader.notify_one();
+    return 0;
+}
+
+int32 CVICALLBACK ni::AnalogReadSource::everyNCallbackWrapper(TaskHandle taskHandle, int32 everyNsamplesEventType, uInt32 nSamples, void *callbackData){
+    LOG(INFO) << "Callback wrapper called";
+    auto s = reinterpret_cast<ni::AnalogReadSource*>(callbackData);
+    return s->everyNSamplesCallback(taskHandle, everyNsamplesEventType, nSamples, callbackData);
+ }
