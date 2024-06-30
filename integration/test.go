@@ -137,7 +137,7 @@ func runNode(ctx context.Context, node TestNode, identifier string) error {
 	select {
 	case <-ctx.Done():
 		fmt.Printf("----%s canceled\n", identifier)
-		return nil
+		return cmd.Process.Kill()
 	case err := <-process:
 		if err != nil {
 			fmt.Printf("----%s errored\n", identifier)
