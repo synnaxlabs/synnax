@@ -92,7 +92,7 @@ json add_DO_channel_JSON(
     json &config,
     std::string name,
     int drive_cmd_key,
-    int drive_state_key,
+    int state_key,
     int port,
     int line
 ) {
@@ -100,7 +100,7 @@ json add_DO_channel_JSON(
     json channel;
     channel["name"] = name;
     channel["channel_key"] = drive_cmd_key;
-    channel["drive_state_key"] = drive_state_key;
+    channel["state_key"] = state_key;
     channel["channel_type"] = "digitalOutput";
     channel["port"] = port;
     channel["line"] = line;

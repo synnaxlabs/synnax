@@ -17,7 +17,7 @@ void log_dll_error(const std::shared_ptr<task::Context> &ctx,
     LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." <<
             std::endl;
     json j = {
-        {"error", "Required NI DLLs not found."}
+        {"error", "Required NI DLLs not found. To find more information on how to install the required DLLS, please visit https://www.ni.com/en/support/downloads/driver"}
     };
     ctx->setState({
         .task = task.key,

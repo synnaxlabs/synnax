@@ -341,7 +341,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
         0,
         0
     );
-    add_drive_state_index_channel_JSON(
+    add_state_index_channel_JSON(
         config,
         "do_state_idx",
         ack_idx.key
@@ -545,7 +545,7 @@ Digital Writer Task Config: {
         {
             "channel_key": 1048610,
             "channel_type": "digitalOutput",
-            "drive_state_key": 1048609,
+            "state_key": 1048609,
             "line": 0,
             "name": "do_cmd",
             "port": 0

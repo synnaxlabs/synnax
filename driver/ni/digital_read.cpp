@@ -35,7 +35,6 @@ void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
                                            channel_builder.required<std::uint64_t>(
                                                "line"));
 
-
                     config.channel_key = channel_builder.required<uint32_t>("channel");
                     config.name = (this->reader_config.device_name + "/" + port + "/" +
                                    line);
@@ -116,14 +115,14 @@ void ni::DigitalReadSource::acquire_data() {
                 "failed while reading digital data for task " + this->reader_config.
                 task_name);
         }
-        data_packet.tf = (uint64_t) ((synnax::TimeStamp::now()).value);
+        data_packet.tf = (synnax::TimeStamp::now()).value;
         data_queue.enqueue(data_packet);
     }
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
-    synnax::Frame f = synnax::Frame(num_channels);
+    auto f = synnax::Frame(num_channels);
 
     // sleep per stream rate
     timer.wait(breaker);

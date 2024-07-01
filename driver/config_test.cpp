@@ -19,7 +19,7 @@ using json = nlohmann::json;
 
 /// @brief it should correctly apply defaults for an empty configuration.
 TEST(TestDriverConfig, parseEmptyConfig) {
-    auto [cfg, err] = driver::parseConfig(json::object());
+    auto [cfg, err] = driver::parse_config(json::object());
     ASSERT_FALSE(err) << err;
     ASSERT_EQ(cfg.client_config.host, "localhost");
     ASSERT_NEAR(cfg.breaker_config.scale, 1.2, 0.0001);
@@ -54,7 +54,7 @@ TEST(TestDriverConfig, testValidConfig) {
         },
         {"integrations", {"opc"}}
     };
-    auto [cfg, err] = driver::parseConfig(config);
+    auto [cfg, err] = driver::parse_config(config);
     ASSERT_FALSE(err) << err;
     ASSERT_EQ(cfg.client_config.host, "demo.synnaxlabs.com");
     ASSERT_EQ(cfg.client_config.port, 80);
@@ -77,7 +77,7 @@ TEST(TestDriverConfig, testReadConfig) {
     auto path = std::filesystem::current_path();
     path += "/driver/driver/testdata/example_config.json";
     auto cfg_contents = driver::readConfig(path);
-    auto [cfg, err] = driver::parseConfig(cfg_contents);
+    auto [cfg, err] = driver::parse_config(cfg_contents);
     ASSERT_FALSE(err) << err;
     ASSERT_EQ(cfg.client_config.host, "demo.synnaxlabs.com");
     ASSERT_EQ(cfg.client_config.port, 9090);

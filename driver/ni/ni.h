@@ -284,12 +284,12 @@ public:
     explicit StateSource() = default;
 
     explicit StateSource(std::uint64_t state_rate,
-                         synnax::ChannelKey &drive_state_index_key,
-                         std::vector<synnax::ChannelKey> &drive_state_channel_keys);
+                         synnax::ChannelKey &state_index_key,
+                         std::vector<synnax::ChannelKey> &state_channel_keys);
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker);
 
-    synnax::Frame get_drive_state();
+    synnax::Frame get_state();
 
     void update_state(std::queue<synnax::ChannelKey> &modified_state_keys,
                      std::queue<std::uint8_t> &modified_state_values);
@@ -299,7 +299,7 @@ private:
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
     std::map<synnax::ChannelKey, uint8_t> state_map;
-    synnax::ChannelKey drive_state_index_key;
+    synnax::ChannelKey state_index_key;
     loop::Timer timer;
 };
 
@@ -314,10 +314,10 @@ struct WriterConfig {
     std::string task_name;
     synnax::ChannelKey task_key;
 
-    std::vector<synnax::ChannelKey> drive_state_channel_keys;
+    std::vector<synnax::ChannelKey> state_channel_keys;
     std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
 
-    synnax::ChannelKey drive_state_index_key;
+    synnax::ChannelKey state_index_key;
     std::queue<synnax::ChannelKey> modified_state_keys;
     std::queue<std::uint8_t> modified_state_values;
 };

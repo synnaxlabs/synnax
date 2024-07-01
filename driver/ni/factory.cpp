@@ -39,11 +39,10 @@ ni::Factory::Factory() {
     };
 
     this->dlls_present = true;
-    for (const auto &dll: dlls) {
-        if (!does_dll_exist(dll.c_str())) {
+    for (const auto &dll: dlls) 
+        if (!does_dll_exist(dll.c_str())) 
             this->dlls_present = false;
-        }
-    }
+    
     if (this->dlls_present) LOG(INFO) << "[ni] All required DLLs found.";
 }
 

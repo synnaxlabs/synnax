@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/ni/ni.h"
 #include <cassert>
 #include <stdio.h>
+
+#include "driver/ni/ni.h"
+
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ScannerTask                                //
@@ -19,8 +21,6 @@ ni::ScannerTask::ScannerTask(
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task
 ) : running(true), scanner(ctx, task), ctx(ctx), task(task) {
-    //begin scanning on construction
-    LOG(INFO) << "[NI Task] constructing scanner task " << this->task.name;
     thread = std::thread(&ni::ScannerTask::run, this);
 }
 

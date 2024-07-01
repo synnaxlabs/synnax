@@ -37,7 +37,7 @@ extern std::mt19937 random_generator(std::string suite_name);
 json add_DO_channel_JSON(json &config,
                          std::string name,
                          int drive_cmd_key,
-                         int drive_state_key,
+                         int state_key,
                          int port,
                          int line);
 
@@ -45,7 +45,7 @@ json add_index_channel_JSON(json &config,
                             std::string name,
                             int key);
 
-json add_drive_state_index_channel_JSON(json &config,
+json add_state_index_channel_JSON(json &config,
                                std::string name,
                                int key);
 

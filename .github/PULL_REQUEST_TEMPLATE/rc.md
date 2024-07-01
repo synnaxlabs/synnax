@@ -184,3 +184,49 @@ I can successfully:
  -[ ] Channel Selection - The read task dialog will recommend synnax channels based on
       the configured OPC UA node.
 
+### National Instruments
+
+#### Configuration
+I can successfully:
+- [ ] Recognize and connect to a National Instruments device available on local machine.
+- [ ] Recognize and connect to a National Instruments devices available on network.
+- [ ] Recognize and connect to physcial and simulated devices.
+- [ ] Save device configuration.
+
+#### Read Task
+I can successfully:
+
+- [ ] Plot live data from an analog read task.
+- [ ] Plot live data from a digital read task.
+- [ ] Stop, start and reconfigure task at will.
+- [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
+- [ ] Begin several tasks at different times and see them all plotting live data.
+
+
+##### Special Purpose Channels
+- [ ] Configure Ther
+
+#### Write Task
+I can succesfully:
+
+- [ ] Begin a digital write task and perform control actions with a schematic.
+- [ ] Stop, start and reconfigure task at will.
+- [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
+
+#### General Usage
+I can successfully:
+
+- [ ] Run multiple types of tasks on a single device
+- [ ] Run multiple tasks across multiple devices simultaneously
+
+
+
+
+#### Error Handling
+I can successfully:
+
+- [ ] Pass in an invalid device configuration and receive meaningful feedback.
+     - [ ] Invalid ports
+     - [ ] Invalid task type for devices (e.g. analog read on a analog output device)
+     - [ ] Out of range values
+     - [ ] Multiple tasks using the same channel
