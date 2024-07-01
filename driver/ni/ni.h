@@ -237,8 +237,8 @@ public:
     int create_channels() override;
 
     std::shared_ptr<ni::Analog> parse_channel(config::Parser &parser,
-                                             std::string channel_type,
-                                             std::string channel_name);
+                                             const std::string &channel_type,
+                                             const std::string &channel_name);
 
     void parse_channels(config::Parser &parser) override;
 

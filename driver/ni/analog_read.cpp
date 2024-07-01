@@ -41,19 +41,16 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 
                     this->port_to_channel[channel_builder.required<std::uint64_t>("port")] = config.name;
                     
-                    LOG(INFO) << "Channel name: " << config.name;
-
                     config.enabled = channel_builder.optional<bool>("enabled", true);
 
                     this->reader_config.channels.push_back(config);
 
-                    LOG(INFO) << "Count: " << c_count;
                     c_count++;
                 });
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
-    config::Parser &parser, std::string channel_type, std::string channel_name) {
+    config::Parser &parser, const std::string &channel_type, const std::string &channel_name) {
     if (channel_type == "ai_accel")
         return std::make_shared<Acceleration>(
             parser, this->task_handle, channel_name);
@@ -123,7 +120,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     if (channel_type == "ai_voltage")
         return std::make_shared<Voltage>(
             parser, this->task_handle, channel_name);
-    return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
+
+    LOG(ERROR) << "[ni.reader] unknown channel type " << channel_type;
+    return nullptr;
 }
 
 
@@ -229,7 +228,7 @@ int ni::AnalogReadSource::create_channels() {
     auto channels = this->reader_config.channels;
     for (auto &channel: channels) {
         this->numChannels++;
-        if (channel.channel_type == "index" || !channel.enabled) continue;
+        if (channel.channel_type == "index" || !channel.enabled || !channel.ni_channel) continue;
         this->numAIChannels++;
         this->check_ni_error(channel.ni_channel->create_ni_scale());
         this->check_ni_error(channel.ni_channel->create_ni_channel());
