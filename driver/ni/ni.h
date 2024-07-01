@@ -247,6 +247,7 @@ public:
     int validate_channels() override;
 
     // NI related resources
+    std::map<std::int32_t, std::string> port_to_channel;
     uint64_t numAIChannels = 0;
 };
 

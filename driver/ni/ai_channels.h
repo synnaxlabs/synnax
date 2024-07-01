@@ -10,6 +10,7 @@
 #pragma once
 
 #include <string>
+#include <map>
 
 #include "daqmx.h"
 #include "nidaqmx_api.h"
@@ -528,13 +529,20 @@ public:
     }
 
     explicit Thermocouple(config::Parser &parser, TaskHandle task_handle,
-                          const std::string &name)
+                          const std::string &name, std::map<std::int32_t, std::string> &cjc_sources)
         : Analog(parser, task_handle, name),
           thermocoupleType(getType(parser.required<std::string>("thermocouple_type"),
                                    parser)),
           cjcSource(getCJCSource(parser.required<std::string>("cjc_source"), parser)),
-          cjcVal(parser.required<double>("cjc_val")) {
+          cjcVal(parser.optional<double>("cjc_val",0)) {
         LOG(INFO) << "Thermocouple created with name: " << name;
+
+        auto source = parser.required<std::int32_t>("cjc_port"); 
+        if (cjc_sources.find(source) == cjc_sources.end()) {
+            this->cjcPort = "";
+        } else{
+            this->cjcPort =cjc_sources.at(source);
+        }
     }
 
     //cjcChannel(parser.required<std::string>("cjc_channel")) {} FIXME: this property should be take form console
@@ -549,12 +557,13 @@ public:
             this->thermocoupleType,
             this->cjcSource,
             this->cjcVal,
-            ""
+            this->cjcPort.c_str()
         );
     }
 private:
     int32_t thermocoupleType;
     int32_t cjcSource;
+    std::string cjcPort;
     double cjcVal;
     std::string cjcChannel;
 

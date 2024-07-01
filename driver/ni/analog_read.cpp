@@ -39,6 +39,9 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 
                     this->channel_map[config.name] =
                             "channels." + std::to_string(c_count);
+
+                    this->port_to_channel[channel_builder.required<std::uint64_t>("port")] = config.name;
+                    
                     LOG(INFO) << "Channel name: " << config.name;
                     if (channel_builder.required<bool>("enabled") == true) {
                         config.enabled = true;
@@ -106,7 +109,7 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
             TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_thermocouple")
         return std::make_shared<Thermocouple>(
-            parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name, this->port_to_channel);
     if (channel_type == "ai_torque_bridge_polynomial")
         return std::make_shared<
             TorqueBridgePolynomial>(parser, this->task_handle, channel_name);

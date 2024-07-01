@@ -523,6 +523,8 @@ ni::Source::Source(
 }
 
 void ni::Source::parse_config(config::Parser &parser) {
+
+    LOG(INFO) << "CONFIG: " << parser.get_json().dump(4);
     // Get Acquisition Rate and Stream Rates
     this->reader_config.sample_rate.value = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate.value = parser.required<uint64_t>("stream_rate");
@@ -855,10 +857,11 @@ void ni::Source::jsonify_error(std::string s) {
         this->err_info["path"] = "";
     }
 
+    message = s;
     // Check if the property is in the field map
     if (FIELD_MAP.count(p) == 0) {
         this->err_info["path"] = this->err_info["path"].get<std::string>() + p;
-        this->err_info["message"] = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
+        this->err_info["message"] = "NI Error " + sc + ": " + message + "\nPath: " + this->err_info["path"].get<std::string>() + " Channel: " + cn;
         return;
     }
 
@@ -866,7 +869,7 @@ void ni::Source::jsonify_error(std::string s) {
     this->err_info["path"] = this->err_info["path"].get<std::string>() + FIELD_MAP.at(p);
 
     // Update the message with possible values, max value, and min value if they exist
-    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>();
+    std::string errorMessage = "NI Error " + sc + ": " + message + "\nPath: " + this->err_info["path"].get<std::string>();
     if (!possibleValues.empty()) {
         errorMessage += " Possible Values: " + possibleValues;
     }
