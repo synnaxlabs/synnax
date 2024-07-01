@@ -143,8 +143,4 @@ export default class Synnax extends framer.Client {
   close(): void {
     this.connectivity.stopChecking();
   }
-
-  rename(name: string): void {
-    this.props.name = name;
-  }
 }
