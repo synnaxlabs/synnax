@@ -86,9 +86,10 @@ export const isZero = (c: Crude): boolean => equals(c, ZERO);
  * @returns the given coordinate scaled by the given factors. If only one factor is given,
  * the y factor is assumed to be the same as the x factor.
  */
-export const scale = (c: Crude, x: number, y: number = x): XY => {
+export const scale = (c: Crude, x: number | Crude, y?: number): XY => {
   const p = construct(c);
-  return { x: p.x * x, y: p.y * y };
+  const xy = construct(x, y);
+  return { x: p.x * xy.x, y: p.y * xy.y };
 };
 
 /** @returns the given coordinate translated in the X direction by the given amount. */
