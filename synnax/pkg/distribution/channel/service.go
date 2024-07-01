@@ -52,6 +52,7 @@ type service struct {
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
+	group group.Group
 }
 
 var _ Service = (*service)(nil)
