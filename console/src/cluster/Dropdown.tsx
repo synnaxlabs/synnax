@@ -10,10 +10,15 @@
 import "@/cluster/Dropdown.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Dropdown as Core, Synnax } from "@synnaxlabs/pluto";
-import { List as CoreList } from "@synnaxlabs/pluto/list";
-import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
-import { Text } from "@synnaxlabs/pluto/text";
+import {
+  Align,
+  Button,
+  Dropdown as Core,
+  List as CoreList,
+  Menu as PMenu,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import {
   type MouseEvent,
   type MouseEventHandler,
@@ -41,7 +46,7 @@ import { Link } from "@/link";
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
-  const clusters = Object.values(useSelectMany());
+  const allClusters = useSelectMany();
   const active = useSelect();
   const openWindow = Layout.usePlacer();
 
@@ -59,6 +64,10 @@ export const List = (): ReactElement => {
     Text.edit(`text-${key}`);
   };
 
+  const handleLink = (key: string): void => {
+    void navigator.clipboard.writeText(`synnax://cluster/${key}`);
+  };
+
   const contextMenu = useCallback(
     ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
       if (key == null) return <Layout.DefaultContextMenu />;
@@ -72,8 +81,7 @@ export const List = (): ReactElement => {
           case "disconnect":
             return handleConnect(null);
           case "link":
-            void navigator.clipboard.writeText(`synnax://cluster/${key}`);
-            return;
+            return handleLink(key);
           case "rename":
             return handleRename(key);
         }
@@ -81,11 +89,9 @@ export const List = (): ReactElement => {
 
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
-          {key !== null && (
-            <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
-              Remove
-            </PMenu.Item>
-          )}
+          <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
+            Remove
+          </PMenu.Item>
           {key === active?.key ? (
             <PMenu.Item
               startIcon={<Icon.Disconnect />}
@@ -99,7 +105,7 @@ export const List = (): ReactElement => {
               Connect
             </PMenu.Item>
           )}
-          {key !== null && <Link.CopyMenuItem />}
+          <Link.CopyMenuItem />
           <Menu.RenameItem />
           <Menu.HardReloadItem />
         </PMenu.Menu>
@@ -137,7 +143,7 @@ export const List = (): ReactElement => {
         {...menuProps}
       >
         <CoreList.List<string, Cluster>
-          data={clusters}
+          data={allClusters}
           emptyContent={<NoneConnected />}
         >
           <CoreList.Selector
@@ -184,12 +190,14 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
     if (value.length === 0) return;
     dispatch(rename({ key: props.entry.key, name: value }));
   };
+
   const handleClick: MouseEventHandler = (e): void => {
     e.stopPropagation();
     if (!isLocal) return;
     if (status === "running") dispatch(setLocalState({ command: "stop" }));
     if (status === "stopped") dispatch(setLocalState({ command: "start" }));
   };
+
   return (
     <CoreList.ItemFrame
       className={CSS(CSS.B("cluster-list-item"), isLocal && "local")}
