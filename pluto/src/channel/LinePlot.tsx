@@ -10,7 +10,7 @@
 import "@/channel/LinePlot.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { box, location as loc } from "@synnaxlabs/x/spatial";
+import { box, location as loc, xy } from "@synnaxlabs/x/spatial";
 import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useRef } from "react";
 
@@ -91,11 +91,17 @@ export interface LinePlotProps extends Core.LinePlotProps {
   titleLevel?: Text.Level;
   // Legend
   showLegend?: boolean;
+  legendPosition?: xy.XY;
+  onLegendPositionChange?: (value: xy.XY) => void;
+  // Tooltip
   enableTooltip?: boolean;
+  // Measure
   enableMeasure?: boolean;
+  // Viewport
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
+  // Annotation
   annotationProvider?: Range.ProviderProps;
 }
 
@@ -116,6 +122,8 @@ export const LinePlot = ({
   title = "",
   onTitleChange,
   showLegend = true,
+  legendPosition,
+  onLegendPositionChange,
   titleLevel = "h4",
   onLineChange,
   onRuleChange,
@@ -161,7 +169,13 @@ export const LinePlot = ({
           />
         );
       })}
-      {showLegend && <Core.Legend onLineChange={onLineChange} />}
+      {showLegend && (
+        <Core.Legend
+          onLineChange={onLineChange}
+          position={legendPosition}
+          onPositionChange={onLegendPositionChange}
+        />
+      )}
       {showTitle && (
         <Core.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}

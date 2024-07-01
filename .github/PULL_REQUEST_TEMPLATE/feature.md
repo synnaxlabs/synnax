@@ -2,7 +2,7 @@
 
 ## Key Information
 
-- [Linear Issue]()
+- **Linear Issue**: [SY-###]()
 
 ## Description
 
@@ -13,6 +13,13 @@ Maximum 2-3 sentence description describing the changes.
 - [ ] I have performed a self-review of my code.
 - [ ] I have added relevant tests to cover the changes.
 - [ ] I have updated user facing documentation accordingly.
+
+## Migrations
+
+- [ ] Console - I have ensured that previous versions of stored data structures are 
+properly migrated to new formats.
+- [ ] Server - I have ensured that previous versions of stored data structures are 
+properly migrated to new formats.
 
 ## Manual QA Additions
 

@@ -181,3 +181,6 @@ I can successfully:
 - [ ] Array Sampling - Auto-generate timestamps on the driver.
 - [ ] Array Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - The driver will not crash if I specify an improper array size.
+ -[ ] Channel Selection - The read task dialog will recommend synnax channels based on
+      the configured OPC UA node.
+

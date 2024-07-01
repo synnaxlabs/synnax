@@ -11,6 +11,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type Control,
   type Diagram,
+  Legend,
   type Schematic,
   type Viewport,
 } from "@synnaxlabs/pluto";
@@ -38,6 +39,7 @@ export interface State extends migrate.Migratable {
   props: Record<string, NodeProps>;
   control: Control.Status;
   controlAcquireTrigger: number;
+  legend: LegendState;
 }
 
 interface CopyBuffer {
@@ -46,6 +48,16 @@ interface CopyBuffer {
   edges: Diagram.Edge[];
   props: Record<string, NodeProps>;
 }
+
+export interface LegendState {
+  visible: boolean;
+  position: Legend.StickyXY;
+}
+
+const ZERO_LEGEND_STATE: LegendState = {
+  visible: false,
+  position: xy.ZERO,
+};
 
 const ZERO_COPY_BUFFER: CopyBuffer = {
   pos: xy.ZERO,
@@ -88,6 +100,7 @@ export const ZERO_STATE: State = {
   control: "released",
   controlAcquireTrigger: 0,
   fitViewOnResize: false,
+  legend: ZERO_LEGEND_STATE,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {
@@ -187,6 +200,11 @@ export interface SetRemoteCreatedPayload {
   key: string;
 }
 
+export interface SetLegendPayload {
+  key: string;
+  legend: Partial<LegendState>;
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -202,9 +220,25 @@ export const calculatePos = (
   return s.pos(cursor);
 };
 
-const MIGRATIONS: migrate.Migrations = {};
+export const STATE_MIGRATIONS: migrate.Migrations = {
+  "0.0.0": (state: State): State => {
+    if (state.legend == null) state.legend = deep.copy(ZERO_LEGEND_STATE);
+    state.version = "0.0.1";
+    return state;
+  },
+};
 
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+const migrateState = migrate.migrator<State, State>(STATE_MIGRATIONS);
+
+const SLICE_MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = (v: SliceState) => {
+  const mig = migrate.migrator<SliceState, SliceState>(SLICE_MIGRATIONS)(v);
+  mig.schematics = Object.fromEntries(
+    Object.entries(mig.schematics).map(([key, value]) => [key, migrateState(value)]),
+  );
+  return mig;
+};
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -281,7 +315,7 @@ export const { actions, reducer } = createSlice({
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      const schematic = { ...ZERO_STATE, ...payload };
+      const schematic = { ...ZERO_STATE, ...migrateState(payload) };
       if (schematic.snapshot) {
         schematic.editable = false;
         clearSelections(schematic);
@@ -473,6 +507,11 @@ export const { actions, reducer } = createSlice({
         });
       });
     },
+    setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
+      const { key: layoutKey, legend } = payload;
+      const schematic = state.schematics[layoutKey];
+      schematic.legend = { ...schematic.legend, ...legend };
+    },
   },
 });
 
@@ -494,6 +533,7 @@ const clearSelections = (state: State): void => {
 };
 
 export const {
+  setLegend,
   setNodePositions,
   toggleControl,
   setControlStatus,
