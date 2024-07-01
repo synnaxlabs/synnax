@@ -23,6 +23,7 @@ from synnax.channel.payload import (
     ChannelPayload,
     normalize_channel_params,
 )
+from synnax.exceptions import NotFoundError
 
 
 class _Request(Payload):
@@ -81,7 +82,7 @@ class ClusterChannelRetriever:
 class CacheChannelRetriever:
     __retriever: ChannelRetriever
     __channels: dict[ChannelKey, ChannelPayload]
-    __names_to_keys: dict[ChannelName, ChannelKey]
+    __names_to_keys: dict[ChannelName, set[ChannelKey]]
     instrumentation: Instrumentation
 
     def __init__(
@@ -94,19 +95,61 @@ class CacheChannelRetriever:
         self.instrumentation = instrumentation
         self.__retriever = retriever
 
+    def delete(self, keys: ChannelParams) -> None:
+        normal = normalize_channel_params(keys)
+        if normal.variant == "names":
+            matches = {ch for ch in self.__channels.values() if ch.name in
+                       normal.params}
+            for ch in matches:
+                self.__channels.pop(ch.key)
+                self.__names_to_keys.pop(ch.name)
+        else:
+            for key in normal.params:
+                channel = self.__channels.get(key)
+                if channel is not None:
+                    self.__channels.pop(key)
+                    self.__names_to_keys.pop(channel.name)
+
+    def rename(self, keys: list[ChannelKey], names: list[ChannelName]) -> None:
+        for key, name in zip(keys, names):
+            channel = self.__channels.get(key)
+            if channel is None:
+                continue
+            self.__channels.pop(key)
+            existing_keys = self.__names_to_keys.get(channel.name)
+            if existing_keys is not None:
+                existing_keys.remove(key)
+            channel.name = name
+            self.__channels[channel.key] = channel
+            existing_keys = self.__names_to_keys.get(name)
+            if existing_keys is None:
+                self.__names_to_keys[name] = {channel.key}
+            else:
+                existing_keys.add(channel.key)
+
     def _(self) -> ChannelRetriever:
         return self
 
-    def __get(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+    def __get(self, param: ChannelKey | ChannelName) -> list[ChannelPayload] | None:
         if isinstance(param, ChannelKey):
-            return self.__channels.get(param)
-        key = self.__names_to_keys.get(param)
-        return None if key is None else self.__channels.get(key)
+            ch = self.__channels.get(param)
+            return [ch] if ch is not None else None
+        keys = self.__names_to_keys.get(param, set())
+        channels = list()
+        for key in keys:
+            ch = self.__channels.get(key)
+            if ch is not None:
+                channels.append(ch)
+        return None if len(channels) == 0 else channels
 
-    def __set(self, channels: list[ChannelPayload]) -> None:
+    def set(self, channels: list[ChannelPayload]) -> None:
         for channel in channels:
             self.__channels[channel.key] = channel
-            self.__names_to_keys[channel.name] = channel.key
+            keys = self.__names_to_keys.get(channel.name)
+            if keys is None:
+                self.__names_to_keys[channel.name] = {channel.key}
+            else:
+                keys.add(channel.key)
 
     @trace("debug")
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
@@ -118,13 +161,13 @@ class CacheChannelRetriever:
             if ch is None:
                 to_retrieve.append(p)  # type: ignore
             else:
-                results.append(ch)
+                results.extend(ch)
 
         if len(to_retrieve) == 0:
             return results
 
         retrieved = self.__retriever.retrieve(to_retrieve)
-        self.__set(retrieved)
+        self.set(retrieved)
         results.extend(retrieved)
         return results
 
@@ -140,5 +183,5 @@ def retrieve_required(
         if ch is None:
             not_found.append(p)
     if len(not_found) > 0:
-        raise RuntimeError(f"Could not find channels: {not_found}")
+        raise NotFoundError(f"Could not find channels: {not_found}")
     return results

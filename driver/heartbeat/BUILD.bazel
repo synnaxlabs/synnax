@@ -1,8 +1,5 @@
 cc_library(
     name = "heartbeat",
-    srcs = [
-        "heartbeat.cpp",
-    ],
     hdrs = [
         "heartbeat.h",
     ],
@@ -15,6 +12,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/breaker",
+        "//driver/task",
         "//freighter/cpp:freighter",
     ],
 )

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+
 #include "client/cpp/framer/framer.h"
 
 std::string STREAM_ENDPOINT = "/frame/stream";

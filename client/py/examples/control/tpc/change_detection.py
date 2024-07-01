@@ -10,7 +10,9 @@ with client.open_streamer(["fuel_pt_1", "daq_time"]) as s:
         elif value["fuel_pt_1"] < 20 and above_threshold:
             client.ranges.create(
                 name=f"Fuel Above Threshold - " + str(above_threshold)[11:19],
-                time_range=sy.TimeRange(start=above_threshold, end=value["daq_time"][-1]),
-                color="#BADA55"
+                time_range=sy.TimeRange(
+                    start=above_threshold, end=value["daq_time"][-1]
+                ),
+                color="#BADA55",
             )
             above_threshold = None

@@ -13,6 +13,7 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -198,6 +199,11 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(err).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
 				})
 
+				It("Should return an error when the db is closed", func() {
+					db2 := MustSucceed(domain.Open(domain.Config{FS: fs}))
+					Expect(db2.Close()).To(Succeed())
+					Expect(db2.Delete(ctx, createCalcOffset(0), createCalcOffset(0), telem.TimeRangeMin, telem.Density(1))).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+				})
 			})
 		})
 	}

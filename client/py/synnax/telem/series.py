@@ -82,6 +82,18 @@ class Series(Payload):
             data_type = data_type or data.data_type
             data_ = data.data
             time_range = data.time_range if time_range is None else time_range
+        elif isinstance(data, MultiSeries):
+            if len(data.series) == 1:
+                data_type = data_type or data.series[0].data_type
+                data_ = data.series[0].data
+                time_range = (
+                    data.series[0].time_range if time_range is None else time_range
+                )
+            else:
+                raise ValueError(
+                    "[Series] - MultiSeries with more than one series cannot be converted to a Series"
+                )
+            data_type = data_type or data
         elif isinstance(data, pd.Series):
             data_type = data_type or DataType(data.dtype)
             data_ = data.to_numpy(dtype=data_type.np).tobytes()

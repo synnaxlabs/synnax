@@ -364,7 +364,9 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 			r.Lock()
 			if r.curr != nil {
 				r.Unlock()
-				return nil, t, errors.Wrapf(ErrRegionOverlap, "timerange %v overlaps with a controlled region with bounds %v controlled by %v", tr, r.timeRange, r.curr.Subject)
+				return nil, t, errors.Wrapf(
+					control.Unauthorized,
+					"timerange %v overlaps with a controlled region with bounds %v controlled by %v", tr, r.timeRange, r.curr.Subject)
 			}
 
 			g = &Gate[E]{

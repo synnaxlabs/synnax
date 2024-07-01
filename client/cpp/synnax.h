@@ -10,12 +10,13 @@
 #pragma once
 
 #include <memory>
-#include "client/cpp/framer/framer.h"
-#include "client/cpp/ranger/ranger.h"
-#include "client/cpp/channel/channel.h"
-#include "client/cpp/hardware/hardware.h"
+
 #include "client/cpp/transport.h"
+#include "client/cpp/channel/channel.h"
 #include "client/cpp/errors/errors.h"
+#include "client/cpp/framer/framer.h"
+#include "client/cpp/hardware/hardware.h"
+#include "client/cpp/ranger/ranger.h"
 
 using namespace synnax;
 

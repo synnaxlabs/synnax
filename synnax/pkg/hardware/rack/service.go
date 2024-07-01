@@ -14,6 +14,7 @@ package rack
 import (
 	"context"
 	"fmt"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -32,6 +33,7 @@ import (
 
 // Config is the configuration for creating a Service.
 type Config struct {
+	alamos.Instrumentation
 	DB           *gorp.DB
 	Ontology     *ontology.Ontology
 	Group        *group.Service
@@ -47,6 +49,7 @@ var (
 
 // Override implements config.Properties.
 func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)

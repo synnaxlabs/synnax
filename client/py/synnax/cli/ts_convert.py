@@ -8,8 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 from pathlib import Path
-
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 import click
+import time
+from datetime import datetime
 
 from synnax.cli import default
 from synnax.cli.flow import Context
@@ -160,13 +168,27 @@ def pure_tsconvert(
     writer = IO_FACTORY.open_writer(output_path)
 
     reader.seek_first()
-
-    for chunk in reader:
-        converted = convert_time_units(
-            chunk[input_channel], input_precision, output_precision
-        )
-        chunk[output_channel] = converted
-        writer.write(chunk)
+    try:
+        with Progress(
+            BarColumn(),
+            TaskProgressColumn(),
+            TextColumn("{task.completed} out of {task.total} samples"),
+            TimeElapsedColumn(),
+            TextColumn("{task.fields[tp]} samples/s"),
+        ) as progress:
+            task = progress.add_task("convert", total=reader.nsamples(), tp=0)
+            for chunk in reader:
+                t0 = datetime.now()
+                converted = convert_time_units(
+                    chunk[input_channel], input_precision, output_precision
+                )
+                chunk[output_channel] = converted
+                writer.write(chunk)
+                tp = chunk.size / (datetime.now() - t0).total_seconds()
+                progress.update(task, advance=chunk.size, tp=int(tp))
+    finally:
+        reader.close()
+        writer.close()
 
 
 def ask_channel_and_check_exists(

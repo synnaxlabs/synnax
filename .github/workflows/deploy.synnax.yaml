@@ -1,22 +1,42 @@
-name: "Synnax Build"
+name: Deploy - Synnax
 on:
   push:
+    branches:
+      - rc
+      - main
+  pull_request:
+    branches:
+      - rc
+      - main
   workflow_dispatch:
 permissions:
   contents: write
   packages: write
 jobs:
-  create-release:
+  setup:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    outputs:
+      VERSION: ${{ steps.version.outputs.VERSION }}
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
+      - name: Get Version
+        id: version
+        working-directory: ./synnax
+        run: |
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
+          fi
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
             changed:
               - 'synnax/**'
@@ -25,17 +45,14 @@ jobs:
               - 'aspen/**'
               - 'freighter/go/**'
               - 'driver/**'
-              - '.github/workflows/synnax.build.yaml'
+              - '.github/workflows/deploy.synnax.yaml'
 
-      - name: Get Version
-        if: steps.filter.outputs.changed == 'true'
-        id: version
-        working-directory: ./synnax
-        run: echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-
+  create-release:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+    steps:
       - name: Create Release
-        if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
-        id: create-release
         uses: actions/github-script@v6
         with:
           script: |
@@ -43,28 +60,133 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo
             })
-            const release = releases.find(r => r.tag_name === 'synnax-v${{ steps.version.outputs.VERSION }}')
+            const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
             if (release != null) return release.id
             const { data: { id } } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: 'synnax-v${{ steps.version.outputs.VERSION }}',
-              name: 'Synnax v${{ steps.version.outputs.VERSION }}',
+              tag_name: 'synnax-v${{ needs.setup.outputs.VERSION }}',
+              name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
               draft: false,
               prerelease: false
             });
 
-            return id;
-            
   build:
+    needs: setup
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, windows-latest, macos-latest]
+        platform: [ ubuntu-latest, windows-latest, macos-latest ]
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout Repository
+        if: needs.setup.outputs.changed == 'true'
         uses: actions/checkout@v3
+
+      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+        if: matrix.platform == 'windows-latest'  && needs.setup.outputs.changed == 'true'
+        with:
+          sdk-version: 22000
+
+      - name: Build MbedTLS On Windows
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        shell: bash
+        run: |
+          curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
+          tar -xjf mbedtls-3.6.0.tar.bz2
+          mv mbedtls-3.6.0 mbedtls
+          cmake -G "Visual Studio 17 2022" -S mbedtls -B mbedtls-build
+          cmake --build mbedtls-build --config Release
+          cmake --install mbedtls-build --config Release
+          cmake --install mbedtls-build --config Release --prefix mbedtls-install
+        working-directory: driver/vendor/mbedtls
+
+      - name: Install MbedTLS On Mac
+        if: matrix.platform == 'macos-latest' && needs.setup.outputs.changed == 'true'
+        run: brew install mbedtls
+
+      - name: Install MbedTLS On Ubuntu
+        if: matrix.platform == 'ubuntu-latest' && needs.setup.outputs.changed == 'true'
+        run: |
+          sudo apt-get install -y libmbedtls-dev
+
+      - name: Update Submodules
+        if: needs.setup.outputs.changed == 'true'
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        if: needs.setup.outputs.changed == 'true'
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Build Open65421 on Windows
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
+          cmake --build . --config RelWithDebInfo --target install
+        working-directory: driver/vendor/open62541/open62541
+
+      - name: Build Open62541 on Mac and Ubuntu
+        if: (matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest') && needs.setup.outputs.changed == 'true'
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
+          cmake --build . --config RelWithDebInfo --target install
+        working-directory: driver/vendor/open62541/open62541
+
+      - name: Build Driver on Windows
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+
+      - name: Build Driver on on Mac and Ubuntu
+        if: matrix.platform != 'windows-latest' && needs.setup.outputs.changed == 'true'
+        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+
+      - name: Determine Executable Name
+        id: executable
+        if: needs.setup.outputs.changed == 'true'
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Move Driver
+        if: needs.setup.outputs.changed == 'true'
+        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
+
+      - name: Rename Driver
+        if:  needs.setup.outputs.changed == 'true'
+        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+
+      - name: Set up Go
+        if: needs.setup.outputs.changed == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "aspen/go.sum"
+            "cesium/go.sum"
+            "freighter/go/go.sum"
+            "synnax/go.sum"
+            "x/go/go.sum"
+
+      - name: Download Dependencies
+        if: needs.setup.outputs.changed == 'true'
+        working-directory: ./synnax
+        run: |
+          go mod download
 
       - name: Determine OS
         id: os
@@ -78,148 +200,31 @@ jobs:
             echo "OS=windows" >> $GITHUB_OUTPUT
           fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - 'synnax/**'
-              - 'cesium/**'
-              - 'x/**'
-              - 'console/**'
-              - 'freighter/go/**'
-              - 'driver/**'
-              - '.github/workflows/synnax.build.yaml'
-      
-      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        with:
-          sdk-version: 22000
-
-      - name: Build MbedTLS On Windows
-        if: ${{ matrix.platform == 'windows-latest' }}
-        shell: bash
-        run: |
-          curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
-          tar -xjf mbedtls-3.6.0.tar.bz2
-          mv mbedtls-3.6.0 mbedtls
-          cmake -G "Visual Studio 17 2022" -S mbedtls -B mbedtls-build
-          cmake --build mbedtls-build --config Release
-          cmake --install mbedtls-build --config Release
-          cmake --install mbedtls-build --config Release --prefix mbedtls-install
-        working-directory: driver/vendor/mbedtls
-        
-      - name: Install MbedTLS On Mac
-        if: ${{ matrix.platform == 'macos-latest' }}
-        run: brew install mbedtls
-
-      - name: Install MbedTLS On Ubuntu
-        if: ${{ matrix.platform == 'ubuntu-latest' }}
-        run: |
-         sudo apt-get install -y libmbedtls-dev
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-
-      - name: Build Open65421 on Windows
-        if: ${{ matrix.platform == 'windows-latest' }}
-        shell: bash
-        run: |
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
-          cmake --build . --config RelWithDebInfo --target install
-        working-directory: driver/vendor/open62541/open62541
-
-      - name: Build Open62541 on Mac and Ubuntu
-        if: ${{ matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest' }}
-        shell: bash
-        run: |
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
-          cmake --build . --config RelWithDebInfo --target install
-        working-directory: driver/vendor/open62541/open62541
-
-      - name: Build Driver on Windows
-        if: ${{ matrix.platform == 'windows-latest' }}
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
-
-      - name: Build Driver on on Mac and Ubuntu
-        if: ${{ matrix.platform != 'windows-latest' }}
-        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
-
-      - name: Determine Executable Name
-        id: executable
-        shell: bash
-        run: |
-          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Move Driver
-        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
-      
-      - name: Rename Driver
-        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: "go.work"
-          cache-dependency-path: |
-            "alamos/go/go.sum"
-            "aspen/go.sum"
-            "cesium/go.sum"
-            "freighter/go/go.sum"
-            "synnax/go.sum"
-            "x/go/go.sum"
-
-      - name: Download Dependencies
-        working-directory: ./synnax
-        run: |
-          go mod download
-
-      - name: Get Version
-        id: version
-        working-directory: ./synnax
-        shell: bash
-        run: |
-          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-
       - name: Build
+        if: needs.setup.outputs.changed == 'true'
         working-directory: ./synnax
         run: |
-          go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
-      - name: Download latest earthly
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
+      - name: Download Latest Earthly
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         uses: earthly/actions-setup@v1
 
       - name: Login to Docker Hub
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -227,25 +232,31 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Image
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
-        run: earthly --push +docker -tag=${{ steps.version.outputs.VERSION }}
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
+        run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
         working-directory: ./synnax
- 
+
       - name: Push to Github Container Registry
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         run: |
-          docker push ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
+          docker push ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
             docker push ghcr.io/synnaxlabs/synnax:latest
+          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:rc
+            docker push ghcr.io/synnaxlabs/synnax:rc
           fi
 
       - name: Push to Docker Hub
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         run: |
-          docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
-          docker push synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
+          docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
+          docker push synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:latest
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:latest
             docker push synnaxlabs/synnax:latest
+          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:rc
+            docker push synnaxlabs/synnax:rc
           fi

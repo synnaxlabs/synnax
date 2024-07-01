@@ -45,7 +45,7 @@ export const NavMenu = ({
 );
 
 export interface NavDrawerProps {
-  location: Layout.NavdrawerLocation;
+  location: Layout.NavDrawerLocation;
 }
 
 export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactElement => {

@@ -10,6 +10,7 @@
 import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
 import { Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
   Menu,
@@ -32,6 +33,7 @@ export interface HandlerProps {
   dispatch: Dispatch<UnknownAction>;
   placer: Layout.Placer;
   addStatus: (status: Status.CrudeSpec) => void;
+  windowKey: string;
 }
 
 export type Handler = (props: HandlerProps) => Promise<boolean>;
@@ -47,6 +49,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
   const dispatch = useDispatch();
   const placer = Layout.usePlacer();
   const store = useStore();
+  const windowKey = useSelectWindowKey() as string;
   const openUrlErrorMessage =
     "Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>";
   const addOpenUrlErrorStatus = () => {
@@ -114,6 +117,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
             dispatch,
             placer,
             addStatus,
+            windowKey,
           })
         )
           return;

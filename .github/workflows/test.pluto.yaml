@@ -1,13 +1,17 @@
-name: "Aspen Test"
+name: "Test - Pluto"
 on:
   pull_request:
     branches:
+      - rc
       - main
-    paths:
-      - '.github/workflows/aspen.test.yaml'
+  push:
+    branches:
+      - rc
+      - main
   workflow_dispatch:
 jobs:
   test:
+    name: "Run Tests"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -19,33 +23,35 @@ jobs:
         with:
           filters: |
             changed:
-                - 'aspen/**'
-                - 'x/**'
-                - '.github/workflows/aspen.test.yaml'
+              - "pluto/**"
+              - ".github/workflows/pluto.test.yaml"
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Set up pnpm
         if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v3
         with:
-          go-version-file: "go.work"
-          cache-dependency-path: |
-            "alamos/go/go.sum"
-            "aspen/go.sum"
-            "cesium/go.sum"
-            "freighter/go/go.sum"
-            "synnax/go.sum"
-            "x/go/go.sum"
+          version: 9
+
+      - name: Set up Node
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: go test -v --covermode=atomic --coverprofile=coverage.txt ./...
-        working-directory: ./aspen
+        run: pnpm cov:pluto
 
       - name: Upload Coverage
         if: steps.filter.outputs.changed == 'true'
         uses: codecov/codecov-action@v3
         with:
-          directory: ./aspen
+          directory: ./pluto
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          flags: aspen
+          flags: pluto

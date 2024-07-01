@@ -10,18 +10,21 @@
 import "@/ranger/TimeRangeChip.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { type CrudeTimeRange, TimeSpan,TimeStamp } from "@synnaxlabs/x";
+import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 
-export interface TimeRangeChipProps {
+export interface TimeRangeChipProps extends Align.SpaceProps<"div"> {
   timeRange: CrudeTimeRange;
 }
 
-export const TimeRangeChip = ({ timeRange }: TimeRangeChipProps): ReactElement => {
+export const TimeRangeChip = ({
+  timeRange,
+  ...props
+}: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
   const startFormat = startTS.isToday ? "time" : "dateTime";
   const endTS = new TimeStamp(timeRange.end);
@@ -34,6 +37,7 @@ export const TimeRangeChip = ({ timeRange }: TimeRangeChipProps): ReactElement =
       size="small"
       className={CSS(CSS.B("time-range-chip"))}
       align="center"
+      {...props}
     >
       {startTS.isToday && (
         <Text.Text level="p" shade={7} weight={450}>

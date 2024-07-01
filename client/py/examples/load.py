@@ -103,7 +103,7 @@ rate = (sy.Rate.HZ * 100).period.seconds
 sensor_states = {v.key: np.uint8(False) for v in valve_responses}
 
 # Open a streamer to listen for incoming valve commands.
-with (client.open_streamer([a.key for a in valve_commands]) as streamer):
+with client.open_streamer([a.key for a in valve_commands]) as streamer:
     i = 0
     # Open a writer to write data to Synnax.
     with client.open_writer(

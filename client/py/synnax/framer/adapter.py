@@ -63,11 +63,13 @@ class WriteFrameAdapter:
     __adapter: dict[ChannelName, ChannelKey] | None
     retriever: ChannelRetriever
     __keys: list[ChannelKey] | None
+    __err_on_extra_chans: bool
 
-    def __init__(self, retriever: ChannelRetriever):
+    def __init__(self, retriever: ChannelRetriever, err_on_extra_chans: bool = True):
         self.retriever = retriever
         self.__adapter = None
         self.__keys = None
+        self.__err_on_extra_chans = err_on_extra_chans
 
     def update(self, channels: ChannelParams):
         results = retrieve_required(self.retriever, channels)
@@ -102,7 +104,7 @@ class WriteFrameAdapter:
                 but no series.
                 """
                 )
-            if isinstance(series, list) and len(list) > 1:
+            if isinstance(series, list) and len(series) > 1:
                 raise ValidationError(
                     f"""
                 Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
@@ -140,21 +142,24 @@ class WriteFrameAdapter:
         is_frame = isinstance(channels_or_data, Frame)
         is_df = isinstance(channels_or_data, DataFrame)
         if is_frame or is_df:
-            if is_df:
-                channels_or_data = Frame(channels_or_data)
+            cols = channels_or_data.channels if is_frame else channels_or_data.columns
             if self.__adapter is None:
                 return channels_or_data
-            try:
-                channels = [
-                    self.__adapter[col] if isinstance(col, ChannelName) else col
-                    for col in channels_or_data.channels
-                ]
-            except KeyError as e:
-                raise ValidationError(
-                    f"Channel {e} was not provided in the list of "
-                    f"channels when the writer was opened."
-                )
-            return Frame(channels=channels, series=channels_or_data.series)
+            channels = list()
+            series = list()
+            for col in cols:
+                try:
+                    channels.append(
+                        self.__adapter[col] if isinstance(col, ChannelName) else col
+                    )
+                    series.append(Series(channels_or_data[col]))
+                except KeyError as e:
+                    if self.__err_on_extra_chans:
+                        raise ValidationError(
+                            f"Channel {e} was not provided in the list of "
+                            f"channels when the writer was opened."
+                        )
+            return Frame(channels=channels, series=series)
 
         if isinstance(channels_or_data, dict):
             channels = list()

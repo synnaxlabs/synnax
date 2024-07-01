@@ -14,12 +14,15 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	"go/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
@@ -29,6 +32,7 @@ type (
 	frameIteratorResponseTranslator struct{}
 	frameStreamerRequestTranslator  struct{}
 	frameStreamerResponseTranslator struct{}
+	FrameDeleteRequestTranslator    struct{}
 	writerServerCore                = fgrpc.StreamServerCore[
 		api.FrameWriterRequest,
 		*gapi.FrameWriterRequest,
@@ -47,6 +51,12 @@ type (
 		api.FrameStreamerResponse,
 		*gapi.FrameStreamerResponse,
 	]
+	frameDeleteServer = fgrpc.UnaryServer[
+		api.FrameDeleteRequest,
+		*gapi.FrameDeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
 )
 
 var (
@@ -56,6 +66,7 @@ var (
 	_ fgrpc.Translator[api.FrameIteratorResponse, *gapi.FrameIteratorResponse] = (*frameIteratorResponseTranslator)(nil)
 	_ fgrpc.Translator[api.FrameStreamerRequest, *gapi.FrameStreamerRequest]   = (*frameStreamerRequestTranslator)(nil)
 	_ fgrpc.Translator[api.FrameStreamerResponse, *gapi.FrameStreamerResponse] = (*frameStreamerResponseTranslator)(nil)
+	_ fgrpc.Translator[api.FrameDeleteRequest, *gapi.FrameDeleteRequest]       = (*FrameDeleteRequestTranslator)(nil)
 )
 
 func translateFrameForward(f api.Frame) *gapi.Frame {
@@ -167,11 +178,12 @@ func (t frameIteratorRequestTranslator) Forward(
 	msg api.FrameIteratorRequest,
 ) (*gapi.FrameIteratorRequest, error) {
 	return &gapi.FrameIteratorRequest{
-		Command: int32(msg.Command),
-		Span:    int64(msg.Span),
-		Range:   telem.TranslateTimeRangeForward(msg.Bounds),
-		Keys:    translateChannelKeysForward(msg.Keys),
-		Stamp:   int64(msg.Stamp),
+		Command:   int32(msg.Command),
+		Span:      int64(msg.Span),
+		Range:     telem.TranslateTimeRangeForward(msg.Bounds),
+		Keys:      translateChannelKeysForward(msg.Keys),
+		Stamp:     int64(msg.Stamp),
+		ChunkSize: msg.ChunkSize,
 	}, nil
 }
 
@@ -180,11 +192,12 @@ func (t frameIteratorRequestTranslator) Backward(
 	msg *gapi.FrameIteratorRequest,
 ) (api.FrameIteratorRequest, error) {
 	return api.FrameIteratorRequest{
-		Command: iterator.Command(msg.Command),
-		Span:    telem.TimeSpan(msg.Span),
-		Bounds:  telem.TranslateTimeRangeBackward(msg.Range),
-		Keys:    translateChannelKeysBackward(msg.Keys),
-		Stamp:   telem.TimeStamp(msg.Stamp),
+		Command:   iterator.Command(msg.Command),
+		Span:      telem.TimeSpan(msg.Span),
+		Bounds:    telem.TranslateTimeRangeBackward(msg.Range),
+		Keys:      translateChannelKeysBackward(msg.Keys),
+		Stamp:     telem.TimeStamp(msg.Stamp),
+		ChunkSize: msg.ChunkSize,
 	}, nil
 }
 
@@ -258,6 +271,28 @@ func (t frameStreamerResponseTranslator) Backward(
 	}, nil
 }
 
+func (t FrameDeleteRequestTranslator) Forward(
+	_ context.Context,
+	msg api.FrameDeleteRequest,
+) (*gapi.FrameDeleteRequest, error) {
+	return &gapi.FrameDeleteRequest{
+		Keys:   msg.Keys.Uint32(),
+		Names:  msg.Names,
+		Bounds: telem.TranslateTimeRangeForward(msg.Bounds),
+	}, nil
+}
+
+func (t FrameDeleteRequestTranslator) Backward(
+	_ context.Context,
+	msg *gapi.FrameDeleteRequest,
+) (api.FrameDeleteRequest, error) {
+	return api.FrameDeleteRequest{
+		Keys:   channel.KeysFromUint32(msg.Keys),
+		Names:  msg.Names,
+		Bounds: telem.TranslateTimeRangeBackward(msg.Bounds),
+	}, nil
+}
+
 type writerServer struct{ *writerServerCore }
 
 func (f *writerServer) Exec(
@@ -316,8 +351,13 @@ func newFramer(a *api.Transport) fgrpc.BindableTransport {
 			ServiceDesc:        &gapi.FrameStreamerService_ServiceDesc,
 		},
 	}
+	var ds = &frameDeleteServer{
+		RequestTranslator: FrameDeleteRequestTranslator{},
+		ServiceDesc:       &gapi.FrameDeleteService_ServiceDesc,
+	}
 	a.FrameStreamer = ss
 	a.FrameWriter = ws
 	a.FrameIterator = is
+	a.FrameDelete = ds
 	return fgrpc.CompoundBindableTransport{ws, is, ss}
 }

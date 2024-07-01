@@ -36,7 +36,6 @@ enum Command {
   Commit = 2,
   Error = 3,
   SetAuthority = 4,
-  SetMode = 5,
 }
 
 export enum WriterMode {
@@ -227,14 +226,6 @@ export class Writer {
         keys: Object.keys(value).map((k) => Number(k)),
         authorities: Object.values(value),
       },
-    });
-    return res.ack;
-  }
-
-  async setMode(mode: WriterMode): Promise<boolean> {
-    const res = await this.execute({
-      command: Command.SetMode,
-      config: { mode },
     });
     return res.ack;
   }

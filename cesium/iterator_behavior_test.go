@@ -14,9 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -37,9 +38,168 @@ var _ = Describe("Iterator Behavior", func() {
 				Expect(cleanUp()).To(Succeed())
 			})
 
+			Describe("Accuracy", func() {
+				var (
+					data1Key, index1Key, data2Key, index2Key cesium.ChannelKey
+					data1, index1, data2, index2             cesium.Channel
+					i                                        *cesium.Iterator
+				)
+				BeforeAll(func() {
+					data1Key, index1Key, data2Key, index2Key = GenerateChannelKey(),
+						GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
+					index1 = cesium.Channel{Key: index1Key, IsIndex: true, DataType: telem.TimeStampT}
+					data1 = cesium.Channel{Key: data1Key, Index: index1Key, DataType: telem.Uint16T}
+					index2 = cesium.Channel{Key: index2Key, IsIndex: true, DataType: telem.TimeStampT}
+					data2 = cesium.Channel{Key: data2Key, Index: index2Key, DataType: telem.Uint16T}
+
+					Expect(db.CreateChannel(ctx, index1, data1, index2, data2)).To(Succeed())
+					Expect(db.Write(ctx, 0, cesium.NewFrame(
+						[]cesium.ChannelKey{index1Key, data1Key},
+						[]telem.Series{
+							telem.NewSecondsTSV(0, 1, 2),
+							telem.NewSeriesV[uint16](10, 11, 12),
+						},
+					))).To(Succeed())
+					Expect(db.Write(ctx, 10*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{index1Key, data1Key},
+						[]telem.Series{
+							telem.NewSecondsTSV(10, 12, 15),
+							telem.NewSeriesV[uint16](20, 22, 25),
+						},
+					))).To(Succeed())
+					Expect(db.Write(ctx, 4*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{index1Key, data1Key},
+						[]telem.Series{
+							telem.NewSecondsTSV(4, 7, 9),
+							telem.NewSeriesV[uint16](14, 17, 19),
+						},
+					))).To(Succeed())
+					Expect(db.Write(ctx, 2*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{index2Key, data2Key},
+						[]telem.Series{
+							telem.NewSecondsTSV(2, 3, 6, 8),
+							telem.NewSeriesV[uint16](2, 3, 6, 8),
+						},
+					))).To(Succeed())
+					Expect(db.Write(ctx, 11*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{index2Key, data2Key},
+						[]telem.Series{
+							telem.NewSecondsTSV(11, 12, 13, 15),
+							telem.NewSeriesV[uint16](11, 12, 13, 15),
+						},
+					)))
+
+					// Index1: 0  1  2 / _  4  _  _  7  _  9  /  10  _  12   _   _  15
+					// Data1: 10 11 12 / _ 14  _  _ 17  _ 19  /  20  _  22   _   _  25
+					// Index2: _  _  2   3  _  _  6  _  8  _  /  _  11  12  13   _  15
+					// Data2:  _  _  2   3  _  _  6  _  8  _  /  _  11  12  13   _  15
+				})
+
+				Specify("With bound", func() {
+					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:   (1 * telem.SecondTS).Range(13 * telem.SecondTS),
+						Channels: []cesium.ChannelKey{data1Key, data2Key},
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(4 * telem.Second)).To(BeTrue())
+					f := i.Value()
+					Expect(f.Series).To(HaveLen(3))
+					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{11, 12}))
+					Expect(f.Get(data1Key)[0].TimeRange).To(Equal((1 * telem.SecondTS).Range(2*telem.SecondTS + 1)))
+					Expect(f.Get(data1Key)[1].Data).To(EqualUnmarshal([]uint16{14}))
+					Expect(f.Get(data1Key)[1].TimeRange).To(Equal((4 * telem.SecondTS).Range(5 * telem.SecondTS)))
+					Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{2, 3}))
+					Expect(f.Get(data2Key)[0].TimeRange).To(Equal((2 * telem.SecondTS).Range(6 * telem.SecondTS)))
+
+					Expect(i.Next(20 * telem.Second)).To(BeTrue())
+					f = i.Value()
+					Expect(f.Series).To(HaveLen(4))
+					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{17, 19}))
+					Expect(f.Get(data1Key)[0].TimeRange).To(Equal((5 * telem.SecondTS).Range(9*telem.SecondTS + 1)))
+					Expect(f.Get(data1Key)[1].Data).To(EqualUnmarshal([]uint16{20, 22}))
+					Expect(f.Get(data1Key)[1].TimeRange).To(Equal((10 * telem.SecondTS).Range(13 * telem.SecondTS)))
+					Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{6, 8}))
+					Expect(f.Get(data2Key)[0].TimeRange).To(Equal((6 * telem.SecondTS).Range(8*telem.SecondTS + 1)))
+					Expect(f.Get(data2Key)[1].Data).To(EqualUnmarshal([]uint16{11, 12}))
+					Expect(f.Get(data2Key)[1].TimeRange).To(Equal((11 * telem.SecondTS).Range(13 * telem.SecondTS)))
+
+					Expect(i.Next(1 * telem.Second)).To(BeFalse())
+
+					Expect(i.Prev(20 * telem.Second)).To(BeTrue())
+					f = i.Value()
+					Expect(f.Series).To(HaveLen(5))
+					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{11, 12}))
+					Expect(f.Get(data1Key)[1].Data).To(EqualUnmarshal([]uint16{14, 17, 19}))
+					Expect(f.Get(data1Key)[2].Data).To(EqualUnmarshal([]uint16{20, 22}))
+					Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{2, 3, 6, 8}))
+					Expect(f.Get(data2Key)[1].Data).To(EqualUnmarshal([]uint16{11, 12}))
+					Expect(i.Close()).To(Succeed())
+				})
+				Specify("No bound", func() {
+					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:   telem.TimeRangeMax,
+						Channels: []cesium.ChannelKey{data1Key, data2Key},
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(4 * telem.Second)).To(BeTrue())
+					f := i.Value()
+					Expect(f.Series).To(HaveLen(2))
+					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{10, 11, 12}))
+					Expect(f.Get(data1Key)[0].TimeRange).To(Equal((0 * telem.SecondTS).Range(2*telem.SecondTS + 1)))
+					Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{2, 3}))
+					Expect(f.Get(data2Key)[0].TimeRange).To(Equal((2 * telem.SecondTS).Range(6 * telem.SecondTS)))
+
+					Expect(i.Next(20 * telem.Second)).To(BeTrue())
+					f = i.Value()
+					Expect(f.Series).To(HaveLen(4))
+					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{14, 17, 19}))
+					Expect(f.Get(data1Key)[0].TimeRange).To(Equal((4 * telem.SecondTS).Range(9*telem.SecondTS + 1)))
+					Expect(f.Get(data1Key)[1].Data).To(EqualUnmarshal([]uint16{20, 22, 25}))
+					Expect(f.Get(data1Key)[1].TimeRange).To(Equal((10 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
+					Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{6, 8}))
+					Expect(f.Get(data2Key)[0].TimeRange).To(Equal((6 * telem.SecondTS).Range(8*telem.SecondTS + 1)))
+					Expect(f.Get(data2Key)[1].Data).To(EqualUnmarshal([]uint16{11, 12, 13, 15}))
+					Expect(f.Get(data2Key)[1].TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
+
+					Expect(i.Next(1 * telem.Second)).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
+				})
+				Specify("Auto-Span", func() {
+					// Index1: [ 0  1  2 / _  4]  _  _  [7  _  9  /  10  _  12]   _   _  15
+					// Data1:  [10 11 12 / _ 14]  _  _ [17  _ 19  /  20  _  22]   _   _  25
+					// Index2: _  _  [2   3  _  _  6  _  8]  _  /  _  [11  12  13   _]  15
+					// Data2:  _  _  [2   3  _  _  6  _  8]  _  /  _  [11  12  13  _]  15
+					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:        telem.TimeRangeMax,
+						Channels:      []cesium.ChannelKey{data1Key, data2Key},
+						AutoChunkSize: 4,
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+					f := i.Value()
+					Expect(f.Series).To(HaveLen(3))
+					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{10, 11, 12}))
+					Expect(f.Get(data1Key)[1].Data).To(EqualUnmarshal([]uint16{14}))
+					Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{2, 3, 6, 8}))
+
+					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+					f = i.Value()
+					Expect(f.Series).To(HaveLen(3))
+					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{17, 19}))
+					Expect(f.Get(data1Key)[1].Data).To(EqualUnmarshal([]uint16{20, 22}))
+					Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{11, 12, 13, 15}))
+
+					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+					f = i.Value()
+					Expect(f.Series).To(HaveLen(1))
+					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{25}))
+					Expect(i.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Close", func() {
 				It("Should not allow operations on a closed iterator", func() {
-					key := testutil.GenerateChannelKey()
+					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 					var (
 						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{key}}))

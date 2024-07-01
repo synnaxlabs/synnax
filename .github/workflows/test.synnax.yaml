@@ -1,11 +1,13 @@
-name: "Cesium Test"
+name: "Test - Synnax"
 on:
   pull_request:
     branches:
+      - rc
       - main
   push:
-    paths:
-      - '.github/workflows/cesium.test.yaml'
+    branches:
+      - rc
+      - main
   workflow_dispatch:
 jobs:
   test:
@@ -20,9 +22,12 @@ jobs:
         with:
           filters: |
             changed:
-                - 'cesium/**'
-                - 'x/**'
-                - '.github/workflows/cesium.test.yaml'
+              - 'synnax/**'
+              - 'cesium/**'
+              - 'aspen/**'
+              - 'x/**'
+              - 'freighter/go/**'
+              - '.github/workflows/synnax.test.yaml'
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -37,16 +42,17 @@ jobs:
             "synnax/go.sum"
             "x/go/go.sum"
 
+
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: go test -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
-        working-directory: ./cesium
+        run: go test -tags noui -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
+        working-directory: ./synnax
 
       - name: Upload Coverage
         if: steps.filter.outputs.changed == 'true'
         uses: codecov/codecov-action@v3
         with:
-          directory: ./cesium
+          directory: ./synnax
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          flags: cesium
+          flags: synnax

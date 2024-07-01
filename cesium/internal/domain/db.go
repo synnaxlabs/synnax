@@ -151,7 +151,12 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{Config: cfg, idx: idx, files: controller, closed: &atomic.Bool{}}, nil
+	return &DB{
+		Config: cfg,
+		idx:    idx,
+		files:  controller,
+		closed: &atomic.Bool{},
+	}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
@@ -175,6 +180,7 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
 }
 
+// HasDataFor returns whether any time stamp in the time range tr exists in the database.
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed.Load() {
 		return false, errDBClosed

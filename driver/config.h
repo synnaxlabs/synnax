@@ -9,17 +9,14 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <thread>
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
 #include "driver/breaker/breaker.h"
-#include "heartbeat/heartbeat.h"
 #include "task/task.h"
 
 using json = nlohmann::json;
 
-namespace driver {
+namespace config {
 struct Config {
     synnax::RackKey rack_key;
     std::string rack_name;
@@ -28,25 +25,7 @@ struct Config {
     std::vector<std::string> integrations;
 };
 
-std::pair<Config, freighter::Error> parseConfig(const json &content);
+std::pair<Config, freighter::Error> parse(const json &content);
 
-json readConfig(std::string path);
-
-class Driver {
-public:
-    Driver(
-        Rack rack,
-        const std::shared_ptr<Synnax> &client,
-        std::unique_ptr<task::Factory> task_factory,
-        const breaker::Config &breaker_config
-    );
-
-    freighter::Error run();
-
-    void stop();
-private:
-    task::Manager task_manager;
-    heartbeat::Heartbeat heartbeat;
-    std::atomic<bool> done = false;
-};
+json read(const std::string &path);
 }

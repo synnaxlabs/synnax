@@ -47,7 +47,10 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		return err
 	}
 
-	g.Authorize()
+	_, err = g.Authorize()
+	if err != nil {
+		return err
+	}
 	defer g.Release()
 
 	return db.Domain.Delete(
@@ -63,7 +66,7 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 // Additionally, it "snaps" the time stamp to the nearest previous sample + 1.
 // calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
 //
-// THIS METHOD SHOULD NOT BE CALLED BY UNARY! It should only be passed as a callback
+// **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
 // to Domain.Delete.
 func (db *DB) calculateStartOffset(
 	ctx context.Context,
@@ -94,7 +97,7 @@ func (db *DB) calculateStartOffset(
 // Additionally, it "snaps" the time stamp to the nearest next sample.
 // calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
 //
-// THIS METHOD SHOULD NOT BE CALLED BY UNARY! It should only be passed as a callback
+// **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
 // to Domain.Delete.
 func (db *DB) calculateEndOffset(
 	ctx context.Context,

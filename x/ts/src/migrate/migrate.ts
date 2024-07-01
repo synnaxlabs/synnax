@@ -43,7 +43,9 @@ export type Migrations = Record<string, Migration<any, any>>;
 export const migrator = <I = unknown, O = unknown>(
   migrations: Migrations,
 ): Migration<I, O> => {
-  const latestVersion = Object.keys(migrations).sort(compareSemVer).pop() ?? "";
+  const latestVersion = Object.keys(migrations).sort(compareSemVer).pop();
+  if (latestVersion == null)
+    return ((v: Migratable) => v) as unknown as Migration<I, O>;
   const migLength = Object.keys(migrations).length;
   const f = (old: Migratable): Migratable => {
     if (migLength === 0 || semVerNewer(old.version, latestVersion)) return old;

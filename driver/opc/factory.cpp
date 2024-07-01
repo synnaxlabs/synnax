@@ -16,7 +16,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (task.type == "opcScanner") // TODO: not sure if we want this and also the configure initial tasks
+    if (task.type == "opcScanner")
         return {std::make_unique<Scanner>(ctx, task), true};
     if (task.type == "opc_read")
         return {Reader::configure(ctx, task), true};
@@ -29,38 +29,28 @@ opc::Factory::configureInitialTasks(
     const synnax::Rack &rack
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
-    auto [existing, err] = rack.tasks.list();
-    if (err) {
-        LOG(ERROR) << "[opc] Failed to list existing tasks: " << err;
-        return tasks;
-    }
-    // check if a task with the same type and name already exists
-    bool hasScanner = false;
-    for (const auto &t: existing) {
-        if (t.type == "opcScanner") {
-            LOG(INFO) << "[opc] found existing scanner task with key: " << t.key <<
-                    " skipping creation." << std::endl;
-            hasScanner = true;
-        }
-    }
-
-    if (!hasScanner) {
+    auto [existing, err] = rack.tasks.retrieveByType("opcScanner");
+    if (err.matches(synnax::NOT_FOUND)) {
         auto sy_task = synnax::Task(
             rack.key,
             "opc Scanner",
             "opcScanner",
-            ""
+            "",
+            true
         );
-        auto err = rack.tasks.create(sy_task);
-        LOG(INFO) << "[opc] created scanner task with key: " << sy_task.key;
-        if (err) {
-            LOG(ERROR) << "[opc] Failed to create scanner task: " << err;
+        const auto c_err = rack.tasks.create(sy_task);
+        if (c_err) {
+            LOG(ERROR) << "[opc] Failed to create scanner task: " << c_err;
             return tasks;
         }
         auto [task, ok] = configureTask(ctx, sy_task);
         if (ok && task != nullptr)
-            tasks.emplace_back(std::make_pair(sy_task, std::move(task)));
-        else LOG(ERROR) << "[opc] Failed to configure scanner task";
+            tasks.emplace_back(sy_task, std::move(task));
+        else
+            LOG(ERROR) << "[opc] Failed to configure scanner task";
+    } else if (err) {
+        LOG(ERROR) << "[opc] Failed to list existing tasks: " << err;
+        return tasks;
     }
     return tasks;
 }

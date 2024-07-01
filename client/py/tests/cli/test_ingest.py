@@ -17,31 +17,30 @@ from synnax.synnax import Synnax
 
 from .data import DATA_DIR
 
+CHANNELS = ["ingest-valid-idx", "ingest-valid-1", "ingest-valid-2"]
 
 @pytest.mark.cli
 class TestIngest:
     def test_valid_ingest(self, client: Synnax):
         try:
-            ch = client.channels.retrieve("ingest-valid-idx")
-        except QueryError:
-            ch = None
-        if ch is not None:
-            pytest.skip("Channel already exists")
-        c = MockConsole(
-            responses=[
-                True,  # Ingest all channels?
-                True,  # Channels not found, create them?
-                True,  # Are any channels indexed?
-                "ingest-valid-idx",  # Index channel
-                True,  # Do all non-indexed channels have the same data rate?
-                "ingest-valid-idx",  # Enter the name of the data rate or index?,
-                0,  # Guess data types from file.
-                True,  # Is the starting timestamp correct?
-                "Random Range",
-            ]
-        )
-        pure_ingest(
-            path_=DATA_DIR / "ingest_valid_1.csv",
-            client=client,
-            ctx=Context(console=c),
-        )
+            c = MockConsole(
+                responses=[
+                    True,  # Ingest all channels?
+                    True,  # Channels not found, create them?
+                    True,  # Are any channels indexed?
+                    "ingest-valid-idx",  # Index channel
+                    True,  # Do all non-indexed channels have the same data rate?
+                    "ingest-valid-idx",  # Enter the name of the data rate or index?,
+                    0,  # Guess data types from file.
+                    True,  # Is the starting timestamp correct?
+                    "Random Range",
+                ]
+            )
+            pure_ingest(
+                path_=DATA_DIR / "ingest_valid_1.csv",
+                client=client,
+                ctx=Context(console=c),
+            )
+        finally:
+            client.channels.delete(CHANNELS)
+

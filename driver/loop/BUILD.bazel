@@ -8,11 +8,10 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//driver/breaker",
         "@com_github_google_glog//:glog",
     ],
 )
-
-
 
 cc_test(
     name = "loop_test",

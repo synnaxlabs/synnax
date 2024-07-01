@@ -9,7 +9,7 @@
 
 import "@/schematic/toolbar/Symbols.css";
 
-import { Align, Haul, Input,Schematic, Text, Theming } from "@synnaxlabs/pluto";
+import { Align, Haul, Input, Schematic, Text, Theming } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { nanoid } from "nanoid/non-secure";
 import {
@@ -35,8 +35,8 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       const initialProps = spec.defaultProps(theme);
       dispatch(
         addElement({
-          layoutKey,
-          key: nanoid(),
+          key: layoutKey,
+          elKey: nanoid(),
           node: {
             zIndex: spec.zIndex,
           },

@@ -1,15 +1,72 @@
-name: "Client Test"
+name: "Test - Client"
 on:
   pull_request:
     branches:
+      - rc
       - main
   push:
-    paths:
-      - ".github/workflows/client.test.yaml"
+    branches:
+      - rc
+      - main
   workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
 jobs:
-  test-python:
+  setup:
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changed:
+                - "client/**"
+                - "freighter/py/**"
+                - "synnax/**"
+                - "cesium/**"
+                - "aspen/**"
+                - "x/**"
+                - "freighter/**"
+                - ".github/workflows/client.test.yaml"
+
+  build-server:
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.changed == 'true'
+    env:
+      GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Latest Earthly 
+        uses: earthly/actions-setup@v1
+
+      - name: Build Image
+        run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
+        working-directory: ./synnax
+      
+      - name: Push to Github Container Registry
+        run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
+      
+  test-python:
+    needs: [setup, build-server]
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -59,7 +116,7 @@ jobs:
 
     services:
       synnax:
-        image: ghcr.io/synnaxlabs/synnax:latest
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
         env:
           SYNNAX_LISTEN: localhost:9090
           SYNNAX_VERBOSE: true
@@ -74,6 +131,8 @@ jobs:
           - 9090:9090
 
   test-typescript:
+    needs: [setup, build-server]
+    if: needs.setup.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -124,7 +183,7 @@ jobs:
 
     services:
       synnax:
-        image: ghcr.io/synnaxlabs/synnax:latest
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
         env:
           SYNNAX_LISTEN: localhost:9090
           SYNNAX_VERBOSE: true
@@ -137,3 +196,37 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 9090:9090
+
+  test-cpp:
+    needs: [setup, build-server]
+    if: needs.setup.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Test
+        run: bazel test //client/...
+    services:
+      synnax:
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
+

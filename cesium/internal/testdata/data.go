@@ -20,7 +20,7 @@ var (
 		{Key: basic2, Index: index1, DataType: telem.Int64T},
 		{Key: index2, IsIndex: true, DataType: telem.TimeStampT},
 		{Key: basic3, Index: index2, DataType: telem.Uint16T},
-		{Key: basic4, Index: index2, DataType: telem.Float64T},
+		{Key: basic4, Index: index2, DataType: telem.Int64T},
 		{Key: virtual, Virtual: true, DataType: telem.StringT},
 		{Key: rate, Rate: 2 * telem.Hz, DataType: telem.Uint32T},
 	}
@@ -37,7 +37,7 @@ var (
 		cesium.NewFrame([]cesium.ChannelKey{basic3, basic4},
 			[]telem.Series{
 				telem.NewSeriesV[uint16](100, 101, 102, 103, 106),
-				telem.NewSeriesV[float64](0.01, 0.11, 0.21, 0.31, 0.61),
+				telem.NewSeriesV[int64](1, 11, 21, 31, 61),
 			}),
 		cesium.NewFrame(
 			[]cesium.ChannelKey{index1, basic1, basic2, rate},
@@ -52,13 +52,13 @@ var (
 			[]telem.Series{
 				telem.NewSecondsTSV(13, 14, 15),
 				telem.NewSeriesV[uint16](130, 140, 150),
-				telem.NewSeriesV[float64](0.13, 0.14, 0.15),
+				telem.NewSeriesV[int64](13, 14, 15),
 			}),
 		cesium.NewFrame(
 			[]cesium.ChannelKey{index2, basic4},
 			[]telem.Series{
 				telem.NewSecondsTSV(20, 25, 30),
-				telem.NewSeriesV[float64](2.0, 2.5, 3.0),
+				telem.NewSeriesV[int64](2, 2, 3),
 			}),
 	}
 )

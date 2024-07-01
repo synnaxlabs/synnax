@@ -33,7 +33,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 
 var (
 	errIteratorClosed     = core.EntityClosed("unary.iterator")
-	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 5e5}
+	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 1e5}
 )
 
 type Iterator struct {
@@ -138,7 +138,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 
-	if i.view.IsZero() {
+	if i.view.IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
 		return
 	}
 
@@ -147,7 +147,9 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		return
 	}
 
-	for i.internal.Next() && i.accumulate(ctx) {
+	for i.internal.Next() &&
+		i.accumulate(ctx) &&
+		!i.satisfied() {
 	}
 	return
 }
@@ -220,7 +222,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
 
-	if i.view.IsZero() {
+	if i.view.IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
 		return
 	}
 
@@ -229,7 +231,9 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		return
 	}
 
-	for i.internal.Prev() && i.accumulate(ctx) {
+	for i.internal.Prev() &&
+		i.accumulate(ctx) &&
+		!i.satisfied() {
 	}
 	return
 }
@@ -246,6 +250,8 @@ func (i *Iterator) Error() error {
 	return wrap(i.err)
 }
 
+// Valid checks if an iterator has accumulated no errors and has at least one series
+// in its current frame.
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 func (i *Iterator) Close() (err error) {
@@ -260,6 +266,7 @@ func (i *Iterator) Close() (err error) {
 
 // accumulate reads the underlying data contained in the view from OS and
 // appends them to the frame.
+// accumulate returns false if iterator must stop moving.
 func (i *Iterator) accumulate(ctx context.Context) bool {
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false

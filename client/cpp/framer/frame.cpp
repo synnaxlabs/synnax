@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <vector>
 #include <memory>
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+#include <vector>
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/telem/series.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
 
 using namespace synnax;
 
@@ -21,7 +21,6 @@ Frame::Frame(
 ) : channels(std::move(channels)), series(std::move(series)) {
 }
 
-
 Frame::Frame(const size_t size) {
     channels = std::make_unique<std::vector<ChannelKey> >();
     series = std::make_unique<std::vector<synnax::Series> >();
@@ -29,7 +28,7 @@ Frame::Frame(const size_t size) {
     channels->reserve(size);
 }
 
-Frame::Frame(const ChannelKey chan, synnax::Series ser) {
+Frame::Frame(const ChannelKey &chan, synnax::Series ser) {
     channels = std::make_unique<std::vector<ChannelKey> >();
     series = std::make_unique<std::vector<synnax::Series> >();
     channels->push_back(chan);
@@ -46,8 +45,13 @@ Frame::Frame(const api::v1::Frame &f) {
     for (auto &k: key) channels->push_back(k);
 }
 
-void Frame::add(ChannelKey col, synnax::Series ser) const {
-    channels->push_back(col);
+void Frame::add(const ChannelKey &chan, synnax::Series &ser) const {
+    channels->push_back(chan);
+    series->push_back(std::move(ser));
+}
+
+void Frame::add(const ChannelKey &chan, synnax::Series ser) const {
+    channels->push_back(chan);
     series->push_back(std::move(ser));
 }
 
@@ -57,11 +61,10 @@ void Frame::toProto(api::v1::Frame *f) const {
     for (auto &ser: *series) ser.to_proto(f->add_series());
 }
 
-// implement th ostream operator
 std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {
-    os << "Frame{";
+    os << "Frame{" << std::endl;
     for (size_t i = 0; i < f.channels->size(); i++) {
-        os << f.channels->at(i) << ": " << f.series->at(i) << ", " << std::endl;
+        os << " " << f.channels->at(i) << ": " << f.series->at(i) << ", " << std::endl;
     }
     os << "}";
     return os;

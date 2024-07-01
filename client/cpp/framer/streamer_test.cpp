@@ -9,6 +9,7 @@
 
 #include <thread>
 #include <include/gtest/gtest.h>
+
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 
@@ -25,7 +26,7 @@ TEST(FramerTests, testStreamBasic) {
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
         channels,
         now,
-        std::vector<synnax::Authority>{synnax::ABSOLUTE},
+        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
@@ -47,7 +48,7 @@ TEST(FramerTests, testStreamBasic) {
     ASSERT_FALSE(recErr) << recErr.message();
 
     ASSERT_EQ(res_frame.size(), 1);
-    ASSERT_EQ(res_frame.series->at(0).float32()[0], 1.0);
+    ASSERT_EQ(res_frame.series->at(0).values<float>()[0], 1.0);
 
     auto wcErr = writer.close();
     ASSERT_FALSE(cErr) << cErr.message();

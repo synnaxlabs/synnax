@@ -20,7 +20,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { usePlacer } from "@/layout/hooks";
-import { setNavdrawerVisible } from "@/layout/slice";
+import { setNavDrawerVisible } from "@/layout/slice";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
@@ -46,7 +46,7 @@ const NoCluster = (): ReactElement => {
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
     placer(Vis.createLayoutSelector({}));
-    dispatch(setNavdrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }));
+    dispatch(setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }));
   };
 
   const handleDocs: Text.LinkProps["onClick"] = (e) => {

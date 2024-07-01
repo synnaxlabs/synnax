@@ -2,6 +2,7 @@ syntax = "proto3";
 
 import "x/go/errors/errors.proto";
 import "x/go/telem/telem.proto";
+import "google/protobuf/empty.proto";
 
 package ts.v1;
 
@@ -17,6 +18,7 @@ message IteratorRequest {
     int64 span = 3;
     telem.PBTimeRange bounds = 4;
     repeated uint32 keys = 6;
+    int64 chunk_size = 7;
 }
 
 message IteratorResponse {
@@ -70,5 +72,15 @@ message WriterResponse {
     int32 node_key = 4;
     errors.PBPayload error = 5;
     int64 time_stamp = 6;
+}
+
+service DeleteService {
+    rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message DeleteRequest {
+    repeated uint32 keys = 1;
+    repeated string names = 2;
+    telem.PBTimeRange bounds = 3;
 }
 

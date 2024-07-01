@@ -45,11 +45,14 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 		if !ok {
 			vdb, vok := db.virtualDBs[key]
 			if vok {
-				return nil, errors.Newf("cannot open iterator on virtual channel %v", vdb.Channel)
+				return nil, errors.Newf(
+					"cannot open iterator on virtual channel %v",
+					vdb.Channel,
+				)
 			}
 			return nil, core.NewErrChannelNotFound(key)
 		}
-		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
+		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 	}
 
 	return &streamIterator{internal: internal}, nil

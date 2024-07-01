@@ -1,11 +1,13 @@
-name: "Freighter Test"
+name: "Test - Freighter"
 on:
   pull_request:
     branches:
+      - rc
       - main
   push:
-    paths:
-      - ".github/workflows/freighter.test.yaml"
+    branches:
+      - rc
+      - main
   workflow_dispatch:
 permissions:
   contents: write
@@ -69,7 +71,7 @@ jobs:
               - "freighter/integration/**"
               - ".github/workflows/freighter.test.yaml"
 
-      - name: Login to Docker
+      - name: Login to Github Container Registry
         if: steps.filter.outputs.changed == 'true'
         uses: docker/login-action@v2
         with:

@@ -9,9 +9,10 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
+
 #include "freighter/cpp/freighter.h"
 #include "google/protobuf/empty.pb.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"

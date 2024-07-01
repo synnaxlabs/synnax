@@ -107,7 +107,7 @@ import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
 const writer = await client.openWriter({
     start: TimeStamp.now(),
-    channels: [timeChannel.key, temperatureChannel.key]
+    channels: [timeChannel.key, temperatureChannel.key],
 });
 
 try {

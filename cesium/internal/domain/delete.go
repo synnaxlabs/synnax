@@ -44,6 +44,10 @@ func (db *DB) Delete(
 	ctx, span := db.T.Bench(ctx, "Delete")
 	defer span.End()
 
+	if db.closed.Load() {
+		return errDBClosed
+	}
+
 	// Ensure that there cannot be deletion operations on the index between index lookup
 	// as that would invalidate the offsets.
 	// However, we cannot lock the index as a whole since index Distance() call requires
@@ -172,6 +176,10 @@ func (db *DB) Delete(
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	ctx, span := db.T.Bench(ctx, "garbage_collect")
 	defer span.End()
+
+	if db.closed.Load() {
+		return errDBClosed
+	}
 
 	_, err := db.files.gcWriters()
 	if err != nil {

@@ -23,6 +23,7 @@ var _ = Describe("Search", func() {
 		var idx *search.Index
 		BeforeEach(func() {
 			idx = MustSucceed(search.New())
+			idx.Register(ctx, schema.Schema{Type: "test"})
 		})
 		DescribeTable("Term Searching",
 			func(resource schema.Resource, term string) {
@@ -49,7 +50,7 @@ var _ = Describe("Search", func() {
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "gse_ai_15",
 			}, "ai_15"),
-			Entry("Captialization", schema.Resource{
+			Entry("All Caps", schema.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "BBTPC",
 			}, "BTTPC"),
@@ -65,6 +66,14 @@ var _ = Describe("Search", func() {
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "Channel",
 			}, "ch"),
+			Entry("Scream Case with Underscore Exact", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "DAQ_PT",
+			}, "DAQ_PT"),
+			Entry("Scream Case with Underscore Partial", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "DAQ_PT_1",
+			}, "DAQ_PT"),
 		)
 		DescribeTable("Term Prioritization",
 			func(resources []schema.Resource, term string, first ontology.ID) {
@@ -73,6 +82,7 @@ var _ = Describe("Search", func() {
 					Type: "test",
 					Term: term,
 				}))
+				Expect(len(res)).To(BeNumerically(">", 0))
 				Expect(res[0].Key).To(Equal(first.Key))
 			},
 			Entry("Exact Match First", []schema.Resource{
@@ -117,10 +127,6 @@ var _ = Describe("Search", func() {
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "test",
 			}, "nope"),
-			Entry("Multiple words no match", schema.Resource{
-				ID:   ontology.ID{Type: "test", Key: "1"},
-				Name: "October 28 Gooster",
-			}, "December Gooster"),
 			Entry("Underscores no match", schema.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "gse_ai_15",
@@ -131,4 +137,20 @@ var _ = Describe("Search", func() {
 			}, "nn"),
 		)
 	})
+	DescribeTable("Custom Tokenizer",
+		func(input string, expected []string) {
+			tk := &search.SepTokenizer{}
+			tok := tk.Tokenize([]byte(input))
+			Expect(tok).To(HaveLen(len(expected)))
+			for i, term := range expected {
+				Expect(tok[i].Term).To(Equal([]byte(term)))
+			}
+		},
+		Entry("Single Word", "test", []string{"test"}),
+		Entry("Two Words", "test test", []string{"test", "test"}),
+		Entry("Two Words with Underscore", "test_test", []string{"test", "test"}),
+		Entry("Scream Case", "TEST", []string{"TEST"}),
+		Entry("Scream Case with Underscore", "TEST_TEST", []string{"TEST", "TEST"}),
+		Entry("Scream Case with Space", "TEST TEST", []string{"TEST", "TEST"}),
+	)
 })

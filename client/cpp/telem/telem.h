@@ -9,12 +9,25 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <string>
-#include <typeindex>
+#include <chrono>
 #include <cstdint>
+#include <string>
+#include <iostream>
+#include <typeindex>
+#include <unordered_map>
 
 namespace synnax {
+namespace _priv {
+const uint64_t NANOSECOND = 1;
+const uint64_t MICROSECOND = NANOSECOND * 1e3;
+const uint64_t MILLISECOND = MICROSECOND * 1e3;
+const uint64_t SECOND = MILLISECOND * 1e3;
+const uint64_t MINUTE = SECOND * 60;
+const uint64_t HOUR = MINUTE * 60;
+const uint64_t DAY = HOUR * 24;
+} // namespace _priv
+
+
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
@@ -36,7 +49,7 @@ public:
 
     /// @returns the data type corresponding to the given type.
     template<typename T>
-    DataType static from_type() {
+    DataType static infer() {
         if (!TYPE_INDEXES.count(std::type_index(typeid(T))))
             return DataType("");
         return DataType(TYPE_INDEXES[std::type_index(typeid(T))]);
@@ -161,9 +174,16 @@ public:
     explicit TimeSpan(const std::uint64_t i) : value(i) {
     }
 
+    explicit TimeSpan(const std::chrono::duration<std::int64_t, std::nano> &duration) : value(duration.count()) {
+    }
+
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
     bool operator==(const TimeSpan &other) const { return value == other.value; }
+
+    bool operator==(const std::uint64_t &other) const { return value == other; }
+
+    bool operator!=(const std::uint64_t &other) const { return value != other; }
 
     bool operator!=(const TimeSpan &other) const { return value != other.value; }
 
@@ -181,12 +201,17 @@ public:
         return TimeSpan(value + other.value);
     }
 
-    friend TimeSpan operator+(const unsigned long long &lhs, const TimeSpan &rhs) {
-        return TimeSpan(lhs + rhs.value);
+    TimeSpan operator+=(const TimeSpan &other) {
+        this->value += other.value;
+        return *this;
     }
 
-    TimeSpan operator+(const unsigned long long &other) const {
+    TimeSpan operator+(const std::uint64_t &other) const {
         return TimeSpan(value + other);
+    }
+
+    friend TimeSpan operator+(const unsigned long long &lhs, const TimeSpan &rhs) {
+        return TimeSpan(lhs + rhs.value);
     }
 
     /////////////////////////////////// SUBTRACTION ///////////////////////////////////
@@ -259,15 +284,70 @@ public:
         return TimeSpan(value % other);
     }
 
+    [[nodiscard]] TimeSpan truncate(const TimeSpan &other) const {
+        return TimeSpan((value / other.value) * other.value);
+    }
+
+    [[nodiscard]] TimeSpan delta(const TimeSpan &other) const {
+        if (other > *this) return other - *this;
+        return *this - other;
+    }
+
+    [[nodiscard]] double days() const {
+        return static_cast<double>(value) / _priv::DAY;
+    }
+
+    [[nodiscard]] double hours() const {
+        return static_cast<double>(value) / _priv::HOUR;
+    }
+
+    [[nodiscard]] double minutes() const {
+        return static_cast<double>(value) / _priv::MINUTE;
+    }
+
+    [[nodiscard]] double seconds() const {
+        return static_cast<double>(value) / _priv::SECOND;
+    }
+
+    [[nodiscard]] double milliseconds() const {
+        return static_cast<double>(value) / _priv::MILLISECOND;
+    }
+
+    [[nodiscard]] double microseconds() const {
+        return static_cast<double>(value) / _priv::MICROSECOND;
+    }
+
+
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
     friend std::ostream &operator<<(std::ostream &os, const TimeSpan &ts) {
-        return os << ts.value;
+        const auto total_days = ts.truncate(TimeSpan(_priv::DAY));
+        const auto total_hours = ts.truncate(TimeSpan(_priv::HOUR));
+        const auto total_minutes = ts.truncate(TimeSpan(_priv::MINUTE));
+        const auto total_seconds = ts.truncate(TimeSpan(_priv::SECOND));
+        const auto total_milliseconds = ts.truncate(TimeSpan(_priv::MILLISECOND));
+        const auto total_microseconds = ts.truncate(TimeSpan(_priv::MICROSECOND));
+        const auto total_nanoseconds = ts;
+        const auto days = total_days;
+        const auto hours = total_hours - total_days;
+        const auto minutes = total_minutes - total_hours;
+        const auto seconds = total_seconds - total_minutes;
+        const auto milliseconds = total_milliseconds - total_seconds;
+        const auto microseconds = total_microseconds - total_milliseconds;
+        const auto nanoseconds = total_nanoseconds - total_microseconds;
+
+        if (total_days != 0) os << days.days() << "d ";
+        if (total_hours != 0) os << hours.hours() << "h ";
+        if (total_minutes != 0) os << minutes.minutes() << "m ";
+        if (total_seconds != 0) os << seconds.seconds() << "s ";
+        if (total_milliseconds != 0) os << milliseconds.milliseconds() << "ms ";
+        if (total_microseconds != 0) os << microseconds.microseconds() << "us ";
+        if (total_nanoseconds != 0) os << nanoseconds.value << "ns";
+        return os;
     }
 
-    std::int64_t milliseconds() const { return value / 1e6; }
 
-    std::chrono::nanoseconds nanoseconds() const {
+    std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
 };
@@ -296,6 +376,7 @@ public:
             std::chrono::system_clock::now().time_since_epoch()
         ).count());
     }
+
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
@@ -415,6 +496,12 @@ public:
     explicit Rate(const float i) : value(i) {
     }
 
+    explicit Rate(const int i) : value(i) {
+    }
+
+    explicit Rate(const double i) : value(i) {
+    }
+
     Rate() = default;
 
     //////////////////////////////////// COMPARISON ///////////////////////////////////
@@ -477,7 +564,7 @@ public:
 
     Rate operator/(const long &other) const { return Rate(value / other); }
 
-    Rate operator/(const size_t &other) const { return Rate(value / other); } 
+    Rate operator/(const size_t &other) const { return Rate(value / other); }
 };
 
 /// @brief a single hertz. Can be made into many hertz through multiplication
