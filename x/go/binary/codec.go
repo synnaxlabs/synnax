@@ -5,22 +5,23 @@ import (
 	"context"
 	"encoding/gob"
 	"encoding/json"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/vmihailenco/msgpack/v5"
 	"io"
 	"reflect"
 	"strconv"
+
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // sugarEncodingErr adds additional context to encoding errors.
-func sugarEncodingErr(_ context.Context, value interface{}, err error) error {
+func sugarEncodingErr(value interface{}, err error) error {
 	val := reflect.ValueOf(value)
 	return errors.Wrapf(err, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
 }
 
 // sugarDecodingErr adds additional context to decoding errors.
-func sugarDecodingErr(_ context.Context, data []byte, value interface{}, err error) error {
+func sugarDecodingErr(data []byte, value interface{}, err error) error {
 	val := reflect.ValueOf(value)
 	return errors.Wrapf(err, "failed to decode into value: kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
 }
@@ -63,7 +64,7 @@ func (e *GobEncoderDecoder) Encode(ctx context.Context, value interface{}) ([]by
 		b    = buff.Bytes()
 	)
 	if err != nil {
-		return nil, sugarEncodingErr(ctx, value, err)
+		return nil, sugarEncodingErr(value, err)
 	}
 	return b, nil
 }
@@ -72,7 +73,7 @@ func (e *GobEncoderDecoder) Encode(ctx context.Context, value interface{}) ([]by
 func (e *GobEncoderDecoder) Decode(ctx context.Context, data []byte, value interface{}) error {
 	err := e.DecodeStream(ctx, bytes.NewReader(data), value)
 	if err != nil {
-		return sugarDecodingErr(ctx, data, value, err)
+		return sugarDecodingErr(data, value, err)
 	}
 	return nil
 }
@@ -82,7 +83,7 @@ func (e *GobEncoderDecoder) DecodeStream(ctx context.Context, r io.Reader, value
 	err := gob.NewDecoder(r).Decode(value)
 	if err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(ctx, data, value, err)
+		return sugarDecodingErr(data, value, err)
 	}
 	return nil
 }
@@ -103,7 +104,7 @@ func (j *JSONEncoderDecoder) Encode(ctx context.Context, value interface{}) ([]b
 		b, err = json.Marshal(value)
 	}
 	if err != nil {
-		return nil, sugarEncodingErr(ctx, value, err)
+		return nil, sugarEncodingErr(value, err)
 	}
 	return b, nil
 }
@@ -112,7 +113,7 @@ func (j *JSONEncoderDecoder) Encode(ctx context.Context, value interface{}) ([]b
 func (j *JSONEncoderDecoder) Decode(ctx context.Context, data []byte, value interface{}) error {
 	err := json.Unmarshal(data, value)
 	if err != nil {
-		return sugarDecodingErr(ctx, data, value, err)
+		return sugarDecodingErr(data, value, err)
 	}
 	return nil
 }
@@ -122,7 +123,7 @@ func (j *JSONEncoderDecoder) DecodeStream(ctx context.Context, r io.Reader, valu
 	err := json.NewDecoder(r).Decode(value)
 	if err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(ctx, data, value, err)
+		return sugarDecodingErr(data, value, err)
 	}
 	return nil
 }
@@ -134,7 +135,7 @@ type MsgPackEncoderDecoder struct{}
 func (m *MsgPackEncoderDecoder) Encode(ctx context.Context, value interface{}) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
 	if err != nil {
-		return nil, sugarEncodingErr(ctx, value, err)
+		return nil, sugarEncodingErr(value, err)
 	}
 	return b, nil
 }
@@ -143,7 +144,7 @@ func (m *MsgPackEncoderDecoder) Encode(ctx context.Context, value interface{}) (
 func (m *MsgPackEncoderDecoder) Decode(ctx context.Context, data []byte, value interface{}) error {
 	err := m.DecodeStream(ctx, bytes.NewReader(data), value)
 	if err != nil {
-		return sugarDecodingErr(ctx, data, value, err)
+		return sugarDecodingErr(data, value, err)
 	}
 	return nil
 }
@@ -153,7 +154,7 @@ func (m *MsgPackEncoderDecoder) DecodeStream(ctx context.Context, r io.Reader, v
 	err := msgpack.NewDecoder(r).Decode(value)
 	if err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(ctx, data, value, err)
+		return sugarDecodingErr(data, value, err)
 	}
 	return nil
 }
@@ -197,7 +198,7 @@ func (enc *TracingEncoderDecoder) Encode(ctx context.Context, value interface{})
 	ctx, span := enc.T.Trace(ctx, "encode", enc.Level)
 	b, err := enc.Codec.Encode(ctx, value)
 	if err != nil {
-		return nil, sugarEncodingErr(ctx, value, err)
+		return nil, sugarEncodingErr(value, err)
 	}
 	return b, span.EndWith(err)
 }
@@ -207,7 +208,7 @@ func (enc *TracingEncoderDecoder) Decode(ctx context.Context, data []byte, value
 	ctx, span := enc.T.Trace(ctx, "decode", enc.Level)
 	err := enc.Codec.Decode(ctx, data, value)
 	if err != nil {
-		return sugarDecodingErr(ctx, data, value, err)
+		return sugarDecodingErr(data, value, err)
 	}
 	return span.EndWith(err)
 }
@@ -218,7 +219,7 @@ func (enc *TracingEncoderDecoder) DecodeStream(ctx context.Context, r io.Reader,
 	err := enc.Codec.DecodeStream(ctx, r, value)
 	if err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(ctx, data, value, err)
+		return sugarDecodingErr(data, value, err)
 	}
 	return span.EndWith(err)
 }
