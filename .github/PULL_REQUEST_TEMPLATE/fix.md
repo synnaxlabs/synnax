@@ -2,7 +2,7 @@
 
 ## Key Information
 
-- [Linear Issue]()
+- **Linear Issue**: [SY-###]()
 
 ## Description
 
