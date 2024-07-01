@@ -74,11 +74,7 @@ interface InternalProps {
   initialValues: AnalogReadPayload;
 }
 
-const Internal = ({
-  task: initialTask,
-  initialValues,
-  layoutKey,
-}: InternalProps): ReactElement => {
+const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -87,8 +83,6 @@ const Internal = ({
       config: analogReadTaskConfigZ,
     }),
   });
-
-  const [task, setTask] = useState(initialTask);
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(
     initialValues.config.channels.length ? [initialValues.config.channels[0].key] : [],
@@ -187,13 +181,12 @@ const Internal = ({
         c.channel = dev.properties.analogInput.channels[c.port.toString()];
       });
       if (dev == null) return;
-      const t = await createTask({
+      await createTask({
         key: task?.key,
         name,
         type: ANALOG_READ_TYPE,
         config,
       });
-      if (t != null) setTask(t);
     },
   });
 

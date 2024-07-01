@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
+import { FC, ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
@@ -29,6 +30,13 @@ type DeviceLayoutCreator = (
 const ZERO_LAYOUT_STATES: Record<string, DeviceLayoutCreator> = {
   [NI.Device.CONFIGURE_LAYOUT_TYPE]: NI.Device.createConfigureLayout,
   [OPC.Device.CONFIGURE_LAYOUT_TYPE]: OPC.Device.createConfigureLayout,
+};
+
+const CONTEXT_MENUS: Record<
+  string,
+  (props: Ontology.TreeContextMenuProps) => ReactElement | null
+> = {
+  [NI.MAKE]: NI.Device.ContextMenuItems,
 };
 
 export const handleSelect: Ontology.HandleSelect = () => {};
@@ -89,6 +97,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     },
     rename: () => Tree.startRenaming(nodes[0].key),
   };
+  console.log(selection.resources);
+  const make = selection.resources[0].data?.make;
+  let customMenuItems: ReactElement | null = null;
+  console.log(make);
+  if (make != null) {
+    const C = CONTEXT_MENUS[make as string];
+    if (C != null) customMenuItems = <C {...props} />;
+  }
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
@@ -106,6 +122,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         Delete
       </PMenu.Item>
       {singleResource && <Link.CopyMenuItem />}
+      {customMenuItems}
       <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>

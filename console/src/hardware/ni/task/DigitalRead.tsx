@@ -84,11 +84,7 @@ interface InternalProps {
   initialValues: DigitalReadPayload;
 }
 
-const Internal = ({
-  task: pTask,
-  initialValues,
-  layoutKey,
-}: InternalProps): ReactElement => {
+const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -98,7 +94,6 @@ const Internal = ({
     }),
   });
 
-  const [task, setTask] = useState(pTask);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
@@ -194,15 +189,12 @@ const Internal = ({
         const key = `${c.port}l${c.line}`;
         c.channel = dev.properties.digitalInput.channels[key];
       });
-      methods.set("config", config);
-
-      const t = await createTask({
+      await createTask({
         key: task?.key,
         name,
         type: DIGITAL_READ_TYPE,
         config,
       });
-      if (t != null) setTask(t);
     },
   });
 
