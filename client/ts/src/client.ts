@@ -83,7 +83,7 @@ export default class Synnax extends framer.Client {
    * @param props.password - Password for authentication. Not required if the
    * cluster is insecure.
    * @param props.connectivityPollFrequency - Frequency at which to poll the
-   * cluster for connectivity information. Defaults to 5 seconds.
+   * cluster for connectivity information. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster
    * must be configured to support TLS. Defaults to false.
    *
@@ -142,5 +142,9 @@ export default class Synnax extends framer.Client {
 
   close(): void {
     this.connectivity.stopChecking();
+  }
+
+  rename(name: string): void {
+    this.props.name = name;
   }
 }
