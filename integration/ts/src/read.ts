@@ -9,6 +9,7 @@ class TestConfig {
     numIterators: number = 0;
     chunkSize: number = 1e5;
     bounds: TimeRange = TimeRange.ZERO;
+    expectedSamples: number = 0;
     channels: string[][] = [];
 
     constructor(
@@ -17,12 +18,14 @@ class TestConfig {
         chunkSize: number,
         boundStart: CrudeTimeStamp,
         boundEnd: CrudeTimeStamp,
+        expectedSamples: number,
         channels: string[][],
     ) {
         this.identifier = identifier;
         this.numIterators = numIterators;
         this.chunkSize = chunkSize;
         this.bounds = new TimeRange(boundStart, boundEnd);
+        this.expectedSamples = expectedSamples;
         this.channels = channels;
     }
 
@@ -47,6 +50,7 @@ class ReadTest {
         const chunkSize = parseInt(argv[argvCounter++]);
         const boundStart = BigInt(argv[argvCounter++]);
         const boundEnd = BigInt(argv[argvCounter++]);
+        const expectedSamples = parseInt(argv[argvCounter++]);
         const number_of_channel_groups = parseInt(argv[argvCounter++]);
         const channels = [];
         for (let i = 0; i < number_of_channel_groups; i++) {
@@ -57,7 +61,7 @@ class ReadTest {
             }
             channels.push(group);
         }
-        this.tc = new TestConfig(identifier, numIterators, chunkSize, boundStart, boundEnd, channels);
+        this.tc = new TestConfig(identifier, numIterators, chunkSize, boundStart, boundEnd, expectedSamples, channels);
     }
 
     async testWithTiming(): Promise<void> {
@@ -67,6 +71,8 @@ class ReadTest {
 
         const time: TimeSpan = start.span(end);
         const samplesPerSecond = samples / (Number(time) / Number(TimeSpan.SECOND));
+        const assertionPassed = samples == this.tc.expectedSamples;
+        const assertionResult = `\tExpected samples: ${this.tc.expectedSamples}; Actual samples: ${samples}`;
         const s = `
 -- TypeScript Read (${this.tc.identifier}) --
 Samples read: ${samples}
@@ -76,6 +82,7 @@ Configuration:
 \tNumber of iterators: ${this.tc.numIterators}
 \tNumber of channels: ${this.tc.numChannels()}
 \tChunk size: ${this.tc.chunkSize}
+${assertionResult}: ${assertionPassed ? "PASS!!" : "FAIL!!"}
 
 `;
 
@@ -85,7 +92,6 @@ Configuration:
     async test(): Promise<number> {
         const iterators: Iterator[] = new Array(this.tc.numIterators).fill(null);
         let samples_read = 0;
-        const start = TimeStamp.now();
 
         for (let i = 0; i < this.tc.numIterators; i++) {
             iterators[i] = await client.openIterator(
@@ -94,17 +100,13 @@ Configuration:
                 { chunkSize: this.tc.chunkSize },
             );
         }
-        console.log("done creating", Number(start.span(TimeStamp.now()))/1000000)
 
         try {
             for (const i of iterators) {
                 await i.seekFirst()
-                console.log("done seeking", Number(start.span(TimeStamp.now()))/1000000)
                 for await (const frame of i) {
                     samples_read += frame.series.reduce((a, s) => a + s.length, 0);
                 }
-                
-                console.log("done reading", Number(start.span(TimeStamp.now()))/1000000)
             }
         } finally {
             for (const i of iterators) {

@@ -8,10 +8,11 @@ import (
 )
 
 type ReadParams struct {
-	NumIterators  int             `json:"num_iterators"`
-	ChunkSize     int             `json:"chunk_size"`
-	Bounds        telem.TimeRange `json:"bounds"`
-	ChannelGroups [][]string      `json:"channel_groups"`
+	NumIterators    int             `json:"num_iterators"`
+	ChunkSize       int             `json:"chunk_size"`
+	Bounds          telem.TimeRange `json:"bounds"`
+	ChannelGroups   [][]string      `json:"channel_groups"`
+	ExpectedSamples int             `json:"expected_samples"`
 }
 
 func (p ReadParams) serialize() []string {
@@ -22,6 +23,7 @@ func (p ReadParams) serialize() []string {
 		strconv.Itoa(p.ChunkSize),
 		strconv.FormatInt(int64(p.Bounds.Start), 10),
 		strconv.FormatInt(int64(p.Bounds.End), 10),
+		strconv.FormatInt(int64(p.ExpectedSamples), 10),
 		strconv.Itoa(len(p.ChannelGroups)),
 	)
 
@@ -44,4 +46,5 @@ func (p ReadParams) ToTSCommand(identifier string) string {
 	cmd += identifier + " " + strings.Join(p.serialize(), " ")
 	return cmd
 }
+
 var _ NodeParams = &ReadParams{}
