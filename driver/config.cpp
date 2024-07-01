@@ -44,6 +44,7 @@ std::pair<config::Config, freighter::Error> config::parse(
     auto rack_name = rack.optional<std::string>("name", "sy_node_1_rack");
     auto integrations = p.optional<std::vector<std::string> >(
         "integrations", {opc::INTEGRATION_NAME});
+    auto debug = p.optional<bool>("debug", false);
     if (!p.ok()) return {config::Config{}, p.error()};
     return {
         config::Config{
@@ -52,6 +53,7 @@ std::pair<config::Config, freighter::Error> config::parse(
             .client_config = synnax_cfg,
             .breaker_config = breaker_config,
             .integrations = integrations,
+            .debug = debug,
         },
         freighter::NIL,
     };
