@@ -46,9 +46,8 @@ std::atomic<bool> stopped = false;
 
 int main(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
-    if (argc > 1) config_path = argv[1];
     // Use the first argument as the config path if provided
-
+    if (argc > 1) config_path = argv[1];
 
     auto cfg_json = config::read(config_path);
     if (cfg_json.empty())
@@ -63,7 +62,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     VLOG(1) << "[driver] configuration parsed successfully";
-
 
     LOG(INFO) << "[driver] starting up";
     FLAGS_logtostderr = 1;
