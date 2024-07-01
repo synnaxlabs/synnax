@@ -213,6 +213,7 @@ I can successfully:
      - [ ] Acceleration
      - [ ] Acceleration 4 wire 
      - [ ] Bridge
+          - [ ] All bridge configurations
      - [ ] Charge
      - [ ] Current
      - [ ] Force bridge polynomial
@@ -228,6 +229,7 @@ I can successfully:
           - [ ] All RTD types.
           - [ ] All resistance configs.
      - [ ] Strain gauge
+          - [ ] all strain guage configurations.
      - [ ] Built in temperature sensor
      - [ ] Thermocouple
           - [ ] All thermocouple types.
@@ -237,6 +239,10 @@ I can successfully:
      - [ ] Torque bridge two point linear
      - [ ] Velocity iepe
      - [ ] Voltage
+          - [ ] All terminal configurations.
+- [ ] I can sucessfully configure the following scales:
+     - [ ] Linear
+     - [ ] Map
 
 
 #### Write Task
@@ -246,6 +252,9 @@ I can successfully:
 - [ ] Begin a digital write task and perform control actions with a schematic.
 - [ ] Stop, start and reconfigure task at will.
 - [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
+- [ ] Configure response time based on state rate specified
+     - [ ] 1 Hz (should have visible delay in response)
+     - [ ] 20 Hz (should feel almost immediate)
 
 #### General Usage
 
@@ -253,6 +262,21 @@ I can successfully:
 
 - [ ] Run multiple types of tasks on a single device
 - [ ] Run multiple tasks across multiple devices simultaneously
+- [ ] I can reliable stream data at the following sample rates
+     = [ ] 1 Hz
+     - [ ] 10 Hz
+     - [ ] 50 Hz
+     - [ ] 100 Hz
+     - [ ] 500 Hz
+     - [ ] 1 kHz
+     - [ ] 2 kHz
+     - [ ] 5 kHz
+- [ ] configure the following stream rates
+     - [ ] 1 Hz
+     - [ ] 5 Hz
+     - [ ] 10 Hz
+     - [ ] 20 Hz
+     - [ ] 30 Hz
 
 #### Error Handling
 
