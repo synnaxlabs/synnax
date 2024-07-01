@@ -38,9 +38,6 @@ export const List = (): ReactElement => {
   const data = Object.values(useSelectMany());
   const active = useSelect();
   const openWindow = Layout.usePlacer();
-  // const client = Synnax.use();
-  // client?.key
-  // client?.props.name = "test";
 
   const selected = active?.key ?? null;
 
@@ -52,13 +49,8 @@ export const List = (): ReactElement => {
     dispatch(remove({ keys }));
   };
 
-  // const handleChange = (key: string): void => {
-  //   console.log(key);
-  // }
-
   const handleRename = (key: string): void => {
-    console.log(key);
-    Text.edit("text-1234");
+    Text.edit(`text-${key}`);
   };
 
   const contextMenu = useCallback(
@@ -178,19 +170,13 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
         break;
     }
   }
+  const foo = Synnax.use();
+  console.log(foo);
 
-  // const itemKey = props.entry.key;
-  // props.
-
-  // const foo = (value: string) => {
-  //   try {
-  //     await client.chan
-  //   }
-
-  //   console.log(value);
-  // };
-  const foo = (value: string) => {
+  const handleChange = (value: string) => {
+    // TODO: Add logic here to rename the client
     console.log(value);
+    foo?.rename(value);
   };
   const handleClick: MouseEventHandler = (e): void => {
     e.stopPropagation();
@@ -208,13 +194,12 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
       <Align.Space direction="y" justify="spaceBetween" size={0.5} grow>
         <Text.MaybeEditable
           level="p"
-          id={`text-1234`}
+          id={`text-${props.entry.key}`}
           weight={450}
           value={props.entry.name}
-          onChange={foo}
+          onChange={handleChange}
           allowDoubleClick={false}
         />
-        {/* </Text.Editable> */}
         <Text.Text level="p" shade={6}>
           {props.entry.props.host}:{props.entry.props.port}
         </Text.Text>

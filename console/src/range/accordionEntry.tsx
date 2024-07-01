@@ -9,7 +9,7 @@
 
 import "@/range/accordionEntry.css";
 
-import { type label, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { type label, TimeRange } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,

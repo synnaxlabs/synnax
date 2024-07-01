@@ -12,7 +12,6 @@ import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -115,9 +114,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     void Group.fromSelection(props);
   };
 
-  const clusterKey = Cluster.useSelectActiveKey();
   const handleLink = (): void => {
-    const toCopy = `synnax://cluster/${clusterKey}/workspace/${selection.resources[0].id.key}`;
+    const toCopy = `synnax://cluster/${client.key}/workspace/${selection.resources[0].id.key}`;
     void navigator.clipboard.writeText(toCopy);
   };
 
