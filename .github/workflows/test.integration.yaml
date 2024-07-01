@@ -92,5 +92,6 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
+        shell: bash
         run: ./run-integration.sh tests/ws-d-r-small.json
         working-directory: ./integration
