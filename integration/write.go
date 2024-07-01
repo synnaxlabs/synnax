@@ -21,6 +21,7 @@ type WriteParams struct {
 	AutoCommit           bool            `json:"auto_commit"`
 	IndexPersistInterval telem.TimeSpan  `json:"index_persist_interval"`
 	WriterMode           writer.Mode     `json:"writer_mode"`
+	ExpectedError        string          `json:"expected_error"`
 	ChannelGroups        []ChannelGroup  `json:"channel_groups"`
 }
 
@@ -36,6 +37,7 @@ func (p WriteParams) serialize() []string {
 		strconv.FormatBool(p.AutoCommit),
 		strconv.FormatInt(int64(p.IndexPersistInterval), 10),
 		strconv.Itoa(int(p.WriterMode)),
+		p.ExpectedError,
 		strconv.Itoa(len(p.ChannelGroups)),
 	)
 

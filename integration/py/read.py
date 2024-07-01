@@ -3,8 +3,7 @@ from typing import NamedTuple, List
 
 import synnax as sy
 from timing import time_read
-FILE_NAME = "../timing.log"
-
+from integration import FILE_NAME, NO_ERROR
 
 # length of channels must = num_iterators
 class TestConfig(NamedTuple):
@@ -13,6 +12,7 @@ class TestConfig(NamedTuple):
     chunk_size: int
     bounds: sy.TimeRange
     expected_samples: int
+    expected_error: str
     channels: List[List[str]]
 
     def num_channels(self):
@@ -44,6 +44,11 @@ class Read_Test():
         argv_counter += 1
         expected_samples = int(argv[argv_counter])
         argv_counter += 1
+        expected_error = argv[argv_counter]
+        if expected_error == "none":
+            # Obfuscate to avoid false positive error matches
+            expected_error = NO_ERROR
+        argv_counter += 1
         number_of_channel_groups = int(argv[argv_counter])
         argv_counter += 1
         channels = []
@@ -62,20 +67,39 @@ class Read_Test():
             chunk_size=chunk_size,
             expected_samples=expected_samples,
             bounds=sy.TimeRange(sy.TimeStamp(bounds_start), sy.TimeStamp(bounds_end)),
+            expected_error=expected_error,
             channels=channels,
         )
 
 
-    def testWithTiming(self):
+    def test_with_timing(self):
         start = sy.TimeStamp.now()
-        samples = self.test()
+        error_assertion_passed = False
+        try:
+            samples = self.test()
+        except Exception as e:
+            if self._tc.expected_error != NO_ERROR and self._tc.expected_error in str(e):
+                error_assertion_passed = True
+        else:
+            if self._tc.expected_error == NO_ERROR:
+                error_assertion_passed = True
         end = sy.TimeStamp.now()
 
-        time: sy.TimeSpan = start.span(end)
+        err_assertion = f'''
+Expected error: {self._tc.expected_error}; Actual error: {str(e)}: {"PASS!!" if error_assertion_passed else "FAIL!!"}
+'''
+
+        s = self.generate_test_report(samples, start.span(end), err_assertion)
+        
+        with open(FILE_NAME, "a") as f:
+            f.write(s)
+
+
+    def generate_test_report(self, samples: int, time: sy.TimeSpan, err_assertion: str) -> str:
         samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
-        assertion_passed = self._tc.expected_samples == samples
+        assertion_passed = "PASS!!" if self._tc.expected_samples == samples else "FAIL!!"
         assertion_result = f'''
-\tExpected samples: {self._tc.expected_samples}; Actual samples: {samples}
+Expected samples: {self._tc.expected_samples}; Actual samples: {samples}: {assertion_passed}
 ''' if self._tc.expected_samples != 0 else ""
         
         s = f'''
@@ -88,11 +112,12 @@ Configuration:
 \tNumber of channels: {self._tc.num_channels()}
 \tChunk size: {self._tc.chunk_size:,.0f}
 {assertion_result}
-        '''
-        with open(FILE_NAME, "a") as f:
-            f.write(s)
-
-
+{error_assertion}
+'''
+        
+        return s
+    
+    
     def test(self) -> int:
         iterators: List[sy.Iterator] = []
         samples_read = 0
@@ -117,7 +142,7 @@ Configuration:
 
 
 def main():
-    Read_Test(sys.argv).testWithTiming()
+    Read_Test(sys.argv).test_with_timing()
 
 
 if __name__ == "__main__":

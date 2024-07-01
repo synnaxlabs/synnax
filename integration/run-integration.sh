@@ -28,5 +28,13 @@ if [ -z "$last_occurrence" ]; then
     exit 1
 fi
 
-# Print everything after the last occurrence
-sed -n "${last_occurrence},\$p" ./timing.log
+# We want everything after the last occurrence
+result=$(sed -n "${last_occurrence},\$p" ./timing.log)
+
+echo "$result"
+
+# Check if any assertions failed
+if echo "$result" | grep -q "FAIL!!"; then
+    echo "Integration test failed: at least one assertion failed"
+    exit 1
+fi

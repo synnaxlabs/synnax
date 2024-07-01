@@ -72,7 +72,7 @@ class ReadTest {
         const time: TimeSpan = start.span(end);
         const samplesPerSecond = samples / (Number(time) / Number(TimeSpan.SECOND));
         const assertionPassed = samples == this.tc.expectedSamples;
-        const assertionResult = `\tExpected samples: ${this.tc.expectedSamples}; Actual samples: ${samples}`;
+        const assertionResult = `Expected samples: ${this.tc.expectedSamples}; Actual samples: ${samples}`;
         const s = `
 -- TypeScript Read (${this.tc.identifier}) --
 Samples read: ${samples}

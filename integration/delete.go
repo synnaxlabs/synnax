@@ -8,8 +8,9 @@ import (
 )
 
 type DeleteParams struct {
-	TimeRange telem.TimeRange `json:"time_range"`
-	Channels  []string        `json:"channels"`
+	TimeRange     telem.TimeRange `json:"time_range"`
+	Channels      []string        `json:"channels"`
+	ExpectedError string          `json:"expected_error"`
 }
 
 func (p DeleteParams) serialize() []string {
@@ -18,6 +19,7 @@ func (p DeleteParams) serialize() []string {
 		args,
 		strconv.FormatInt(int64(p.TimeRange.Start), 10),
 		strconv.FormatInt(int64(p.TimeRange.End), 10),
+		p.ExpectedError,
 		strconv.Itoa(len(p.Channels)),
 	)
 
