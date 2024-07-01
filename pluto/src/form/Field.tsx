@@ -57,7 +57,7 @@ export const Field = <
   if (label == null) label = caseconv.capitalize(deep.element(path, -1));
   visible = typeof visible === "function" ? visible(field, ctx) : visible;
   if (!visible) return null;
-  const helpText = field.touched ? field.status.message : "";
+  const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
   return (
     <Input.Item

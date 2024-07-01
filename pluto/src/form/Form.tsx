@@ -77,7 +77,14 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 
   useEffect(() => {
     setState(get<I>(path, { optional }));
-    return bind({ path, onChange: setState, listenToChildren: false });
+    return bind({
+      path,
+      onChange: (p) => {
+        console.log(path, p);
+        setState(p);
+      },
+      listenToChildren: false,
+    });
   }, [path, onChange, bind, get]);
 
   const handleChange = useCallback(
@@ -457,6 +464,7 @@ export const use = <Z extends z.ZodTypeAny>({
   const updateFieldState = useCallback((path: string) => {
     const { listeners } = ref.current;
     const fs = get(path, { optional: true });
+    console.log(fs, path, listeners.get(path));
     if (fs == null) return;
     listeners.get(path)?.forEach((l) => l(fs));
   }, []);
