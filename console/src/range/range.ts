@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import { ranger } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, toArray } from "@synnaxlabs/x";
 
 interface BaseRange {
   name: string;
@@ -26,3 +27,15 @@ export type DynamicRange = BaseRange & {
 };
 
 export type Range = StaticRange | DynamicRange;
+
+export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
+  toArray(ranges).map((range) => ({
+    variant: "static",
+    key: range.key,
+    name: range.name,
+    timeRange: {
+      start: Number(range.timeRange.start.valueOf()),
+      end: Number(range.timeRange.end.valueOf()),
+    },
+    persisted: true,
+  }));

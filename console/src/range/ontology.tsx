@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
+import { type ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { toArray } from "@synnaxlabs/x";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
@@ -21,21 +20,9 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createEditLayout } from "@/range/EditLayout";
-import { type Range } from "@/range/range";
+import { fromClientRange } from "@/range/range";
 import { select } from "@/range/selectors";
 import { add, remove, setActive, type StoreState } from "@/range/slice";
-
-export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
-  toArray(ranges).map((range) => ({
-    variant: "static",
-    key: range.key,
-    name: range.name,
-    timeRange: {
-      start: Number(range.timeRange.start.valueOf()),
-      end: Number(range.timeRange.end.valueOf()),
-    },
-    persisted: true,
-  }));
 
 const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
   void (async () => {
