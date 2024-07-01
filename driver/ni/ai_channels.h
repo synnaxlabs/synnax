@@ -143,12 +143,11 @@ struct PolynomialConfig {
         forward_coeffs = new double[num_forward_coeffs];
         reverse_coeffs = new double[num_reverse_coeffs];
 
+        auto f = parser.required_array<double>("forward_coeffs");
+
         //get forward coeffs (prescale -> scale)
-        if (j.contains("forward_coeffs")) {
-            forward_coeffs = new double[num_forward_coeffs];
-            for (uint32_t i = 0; i < num_forward_coeffs; i++)
-                forward_coeffs[i] = j["forward_coeffs"][i];
-        }
+        for (uint32_t i = 0; i < num_forward_coeffs; i++)
+            forward_coeffs[i] = f[i];
 
         ni::NiDAQmxInterface::CalculateReversePolyCoeff(
             forward_coeffs,
@@ -188,19 +187,18 @@ struct TableConfig {
 
         json j = parser.get_json();
 
+            
         //get electrical vals
-        if (j.contains("electrical_vals")) {
-            electrical_vals = new double[num_eletrical_vals];
-            for (uint32_t i = 0; i < num_eletrical_vals; i++)
-                electrical_vals[i] = j["electrical_vals"][i];
-        }
+        electrical_vals = new double[num_eletrical_vals];
+        auto e = parser.required_array<double>("electrical_vals");
+        for (uint32_t i = 0; i < num_eletrical_vals; i++)
+            electrical_vals[i] = e[i];
 
         //get physical vals
-        if (j.contains("physical_vals")) {
-            physicalVals = new double[num_physical_vals];
-            for (uint32_t i = 0; i < num_physical_vals; i++)
-                physicalVals[i] = j["physical_vals"][i];
-        }
+        physicalVals = new double[num_physical_vals];
+        auto p = parser.required_array<double>("physical_vals");
+        for (uint32_t i = 0; i < num_physical_vals; i++)
+            physicalVals[i] = p[i];
     }
 };
 
