@@ -118,8 +118,9 @@ type streamIterator struct {
 }
 
 type IteratorConfig struct {
-	Bounds   telem.TimeRange
-	Channels []core.ChannelKey
+	Bounds        telem.TimeRange
+	Channels      []core.ChannelKey
+	AutoChunkSize int64
 }
 
 // Flow implements the confluence.Segment interface.
@@ -152,28 +153,28 @@ func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
 func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool, err error) {
 	switch req.Command {
 	case IterNext:
-		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) })
+		ok = s.execWithResponse(func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) }, IterNext)
 	case IterPrev:
-		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) })
+		ok = s.execWithResponse(func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) }, IterPrev)
 	case IterSeekFirst:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekFirst(ctx) })
+		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekFirst(ctx) })
 	case IterSeekLast:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLast(ctx) })
+		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekLast(ctx) })
 	case IterSeekLE:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) })
+		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) })
 	case IterSeekGE:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) })
+		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) })
 	case IterValid:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.Valid() })
+		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.Valid() })
 	case IterError:
 		err = s.error()
 	case IterSetBounds:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true })
+		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true })
 	}
 	return
 }
 
-func (s *streamIterator) execWithOps(f func(i *unary.Iterator) bool) (ok bool) {
+func (s *streamIterator) execWithResponse(f func(i *unary.Iterator) bool, cmd IteratorCommand) (ok bool) {
 	for _, i := range s.internal {
 		if f(i) {
 			ok = true
@@ -188,7 +189,7 @@ func (s *streamIterator) execWithOps(f func(i *unary.Iterator) bool) (ok bool) {
 	return ok
 }
 
-func (s *streamIterator) execWithoutOps(f func(i *unary.Iterator) bool) (ok bool) {
+func (s *streamIterator) execWithoutResponse(f func(i *unary.Iterator) bool) (ok bool) {
 	for _, i := range s.internal {
 		if f(i) {
 			ok = true

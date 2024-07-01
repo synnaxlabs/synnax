@@ -34,7 +34,7 @@ convert the returned data to a JavaScript array easily:
 const data = Array.from(series);
 ```
 
-For more information on `MultiSeries` and their underlying `Series` object, see 
+For more information on `MultiSeries` and their underlying `Series` object, see
 [Series](series-and-frames#series).
 
 <Divider.Divider direction="x" />
@@ -68,15 +68,21 @@ For more information on the `Frame` class, see [Frames](series-and-frames#frames
 
 While the above methods will cover most use cases, there are situations where
 it's necessary to query large volumes of data. Iterators provide a way to
-efficiently process data in chunks:
+efficiently process data in chunks to avoid keeping large amounts of data in memory.
+By default, Synnax uses a chunk size of 100,000 samples. To configure a
+custom chunk size, set the `chunk_size` field in the options argument to the
+`open_iterator` method with the desired number of samples per iteration.
 
 ```typescript
 const start = TimeStamp.now();
 const end = start.add(TimeStamp.seconds(10));
 
 const iterator = await client.openIterator(
-    { start, end }, 
-    ["temperature", "humidity"]
+    { start, end },
+    ["temperature", "humidity"],
+    {
+        chunkSize: 100,
+    },
 );
 try {
     for await (const frame of iterator) {

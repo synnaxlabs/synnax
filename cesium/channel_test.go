@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"math"
 	"os"
 	"strconv"
 )
@@ -107,7 +108,29 @@ var _ = Describe("Channel", Ordered, func() {
 					})
 				})
 			})
-
+			Describe("Retrieve", func() {
+				var k1, k2, k3 cesium.ChannelKey
+				BeforeEach(func() {
+					k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, []cesium.Channel{
+						{Key: k1, DataType: telem.TimeStampT, IsIndex: true},
+						{Key: k2, DataType: telem.Uint32T, Index: k1},
+						{Key: k3, DataType: telem.Int8T, Rate: 1 * telem.KHz},
+					}...)).To(Succeed())
+				})
+				It("Should retrieve multiple channels", func() {
+					chs := MustSucceed(db.RetrieveChannels(ctx, k1, k2, k3))
+					Expect(chs).To(HaveLen(3))
+					Expect(chs[0].Key).To(Equal(k1))
+					Expect(chs[1].Key).To(Equal(k2))
+					Expect(chs[2].Key).To(Equal(k3))
+				})
+				It("Should fail if one retrieval fails", func() {
+					chs, err := db.RetrieveChannels(ctx, k1, k2, math.MaxUint32)
+					Expect(chs).To(HaveLen(0))
+					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+				})
+			})
 			Describe("Rekey", func() {
 				var (
 					unaryKey         = GenerateChannelKey()
@@ -481,13 +504,15 @@ var _ = Describe("Channel", Ordered, func() {
 					key1 := GenerateChannelKey()
 					key2 := GenerateChannelKey()
 					key3 := GenerateChannelKey()
+					key4 := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key1, Name: "fermat", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key2, Name: "laplace", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key3, Name: "newton", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key4, Name: "descartes", Virtual: true, DataType: telem.StringT})).To(Succeed())
 
 					Expect(db.RenameChannels(ctx,
-						[]cesium.ChannelKey{key1, key2, key3},
-						[]string{"newton2", "fermat3", "laplace4"},
+						[]cesium.ChannelKey{key1, key2, key3, key4},
+						[]string{"newton2", "fermat3", "laplace4", "descartes5"},
 					)).To(Succeed())
 
 					ch := MustSucceed(db.RetrieveChannel(ctx, key1))
@@ -496,6 +521,19 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(ch.Name).To(Equal("fermat3"))
 					ch = MustSucceed(db.RetrieveChannel(ctx, key3))
 					Expect(ch.Name).To(Equal("laplace4"))
+					ch = MustSucceed(db.RetrieveChannel(ctx, key4))
+					Expect(ch.Name).To(Equal("descartes5"))
+				})
+				It("Should correctly rename if a channel is provided twice", func() {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "1", Rate: 2 * telem.KHz, DataType: telem.Uint32T})).To(Succeed())
+					Expect(db.RenameChannels(ctx,
+						[]cesium.ChannelKey{key, key, key, key},
+						[]string{"2", "3", "4", "5"},
+					)).To(Succeed())
+
+					ch := MustSucceed(db.RetrieveChannel(ctx, key))
+					Expect(ch.Name).To(Equal("5"))
 				})
 			})
 		})

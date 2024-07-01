@@ -60,7 +60,7 @@ export type CrudeFrame =
   | Record<KeyOrName, Series[] | Series>;
 
 /**
- * A frame is a collection of related typed arrays keyed to a particular channel. Frames
+ * A frame is a collection of series mapped to a particular channel. Frames
  * can be keyed by channel name or channel key, but not both.
  *
  * Frames have two important characteristics: alignment and orientation.
@@ -283,10 +283,10 @@ export class Frame {
   }
 
   /**
-   * Pushes a set of typed arrays for the given channel onto the frame.
+   * Pushes a set of series for the given channel onto the frame.
    *
    * @param key the channel key or name;
-   * @param v the typed arrays to push.
+   * @param v the series to push.
    */
   push(key: KeyOrName, ...v: Series[]): void;
 
@@ -316,7 +316,7 @@ export class Frame {
   }
 
   /**
-   * @returns a shallow copy of this frame containing all typed arrays in the current frame and the
+   * @returns a shallow copy of this frame containing all series in the current frame and the
    * provided frame.
    */
   concat(frame: Frame): Frame {
@@ -338,7 +338,7 @@ export class Frame {
 
   /**
    * @returns a new frame containing the mapped output of the provided function.
-   * @param fn a function that takes a channel key and typed array and returns a
+   * @param fn a function that takes a channel key and series and returns a
    * boolean.
    */
   map(fn: (k: KeyOrName, arr: Series, i: number) => [KeyOrName, Series]): Frame {
@@ -348,9 +348,9 @@ export class Frame {
   }
 
   /**
-   * Iterates over all typed arrays in the current frame.
+   * Iterates over all series in the current frame.
    *
-   * @param fn a function that takes a channel key and typed array.
+   * @param fn a function that takes a channel key and series.
    */
   forEach(fn: (k: KeyOrName, arr: Series, i: number) => void): void {
     this.columns.forEach((k, i) => {
@@ -372,9 +372,9 @@ export class Frame {
   }
 
   /**
-   * @returns a new frame containing all typed arrays in the current frame that pass
+   * @returns a new frame containing all series in the current frame that pass
    * the provided filter function.
-   * @param fn a function that takes a channel key and typed array and returns a boolean.
+   * @param fn a function that takes a channel key and series and returns a boolean.
    */
   filter(fn: (k: KeyOrName, arr: Series, i: number) => boolean): Frame {
     const frame = new Frame();

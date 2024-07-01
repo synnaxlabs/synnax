@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "gtest/gtest.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
+#include "gtest/gtest.h"
+
+std::mt19937 gen_rand = random_generator(std::move("Hardware Tests"));
 
 /// @brief it should correctly create a rack in the cluster.
 TEST(HardwareTests, testCreateRack) {
@@ -74,6 +76,38 @@ TEST(HardwareTests, testRetrieveTask) {
     ASSERT_EQ(synnax::taskKeyLocal(t2.key), synnax::taskKeyLocal(t.key));
 }
 
+/// @brief it should retrieve a task by its name
+TEST(HardwareTests, testRetrieveTaskByName) {
+    auto client = new_test_client();
+    auto r = Rack("test_rack");
+    auto err = client.hardware.createRack(r);
+    ASSERT_FALSE(err) << err.message();
+    auto rand_name = std::to_string(gen_rand());
+    auto t = Task(r.key, rand_name, "mock", "config");
+    auto err2 = r.tasks.create(t);
+    ASSERT_FALSE(err2) << err2.message();
+    auto [t2, m2err] = r.tasks.retrieve(rand_name);
+    ASSERT_FALSE(m2err) << m2err.message();
+    ASSERT_EQ(t2.name, rand_name);
+    ASSERT_EQ(synnax::taskKeyRack(t.key), r.key);
+}
+
+/// @brief it should retrieve a task by its type
+TEST(HardwareTests, testRetrieveTaskByType) {
+    auto client = new_test_client();
+    auto r = Rack("test_rack");
+    auto err = client.hardware.createRack(r);
+    ASSERT_FALSE(err) << err.message();
+    auto rand_type = std::to_string(gen_rand());
+    auto t = Task(r.key, "test_module", rand_type, "config");
+    auto err2 = r.tasks.create(t);
+    ASSERT_FALSE(err2) << err2.message();
+    auto [t2, m2err] = r.tasks.retrieveByType(rand_type);
+    ASSERT_FALSE(m2err) << m2err.message();
+    ASSERT_EQ(t2.name, "test_module");
+    ASSERT_EQ(synnax::taskKeyRack(t.key), r.key);
+}
+
 /// @brief it should correctly list the tasks on a rack.
 TEST(HardwareTests, testListTasks) {
     auto client = new_test_client();
@@ -135,3 +169,4 @@ TEST(HardwareTests, testRetrieveDevice) {
     ASSERT_EQ(d2.name, "test_device");
     ASSERT_EQ(d2.key, d.key);
 }
+

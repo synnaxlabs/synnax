@@ -34,4 +34,8 @@ export class TauriKV {
   async delete(key: string): Promise<void> {
     await this.store.delete(key);
   }
+
+  async clear(): Promise<void> {
+    await this.store.clear();
+  }
 }

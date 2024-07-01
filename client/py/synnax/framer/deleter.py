@@ -40,11 +40,7 @@ class Deleter:
     __client: UnaryClient
     instrumentation: Instrumentation
 
-    def __init__(
-        self,
-        client: UnaryClient,
-        instrumentation: Instrumentation
-    ) -> None:
+    def __init__(self, client: UnaryClient, instrumentation: Instrumentation) -> None:
         self.__client = client
         self.instrumentation = instrumentation
 
@@ -55,10 +51,12 @@ class Deleter:
         tr: TimeRange,
     ) -> None:
         normal = normalize_channel_params(channels)
-        req = _Request(**{
-            normal.variant: normal.params,
-            "bounds": tr,
-        })
+        req = _Request(
+            **{
+                normal.variant: normal.params,
+                "bounds": tr,
+            }
+        )
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc

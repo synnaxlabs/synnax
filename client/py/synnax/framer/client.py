@@ -120,18 +120,20 @@ class Client:
             mode=mode,
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
-            auto_index_persist_interval=auto_index_persist_interval
+            auto_index_persist_interval=auto_index_persist_interval,
         )
 
     def open_iterator(
         self,
         tr: TimeRange,
         params: ChannelParams,
+        chunk_size: int = 1e5,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
         :param params: A list of channel keys to iterator over.
         :param tr: A time range to iterate over.
+        :param chunk_size: The number of samples to read in a chunk with AutoSpan. Defaults to 500000
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
@@ -141,6 +143,7 @@ class Client:
             tr=tr,
             adapter=adapter,
             client=self.__stream_client,
+            chunk_size=chunk_size,
             instrumentation=self.instrumentation,
         )
 
@@ -241,11 +244,7 @@ class Client:
         await s.open()
         return s
 
-    def delete(
-        self,
-        channels: ChannelParams,
-        tr: TimeRange
-    ) -> None:
+    def delete(self, channels: ChannelParams, tr: TimeRange) -> None:
         """
         delete deletes data in the specified channels in the specified time range.
         Note that the time range is start-inclusive and end-exclusive.

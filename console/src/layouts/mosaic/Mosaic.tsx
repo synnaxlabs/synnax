@@ -33,7 +33,7 @@ import {
   rename,
   resizeMosaicTab,
   selectMosaicTab,
-  setNavdrawer,
+  setNavDrawer,
 } from "@/layout/slice";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
@@ -159,7 +159,7 @@ export const Window = memo(({ layoutKey }: Layout.RendererProps): ReactElement =
   const d = useDispatch();
   useLayoutEffect(() => {
     d(
-      setNavdrawer({
+      setNavDrawer({
         windowKey: layoutKey,
         location: "bottom",
         menuItems: ["visualization"],

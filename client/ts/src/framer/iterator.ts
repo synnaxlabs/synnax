@@ -50,6 +50,7 @@ const reqZ = z.object({
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
   keys: z.number().array().optional(),
+  chunkSize: z.number().optional(),
 });
 
 type Request = z.infer<typeof reqZ>;
@@ -61,6 +62,13 @@ const resZ = z.object({
   error: errorZ.optional().nullable(),
   frame: frameZ.optional(),
 });
+
+export interface IteratorConfig {
+  /** chunkSize is the maximum number of samples contained per channel in the frame
+  * resulting from a call to next with {@link AUTO_SPAN}.
+  */
+  chunkSize?: number;
+}
 
 /**
  * Used to iterate over a clusters telemetry in time-order. It should not be
@@ -90,13 +98,18 @@ export class Iterator {
    * channels with the given keys within the provided time range.
    *
    * @param tr - The time range to iterate over.
-   * @param keys - The keys of the channels to iterate over.
+   * @param channels - The channels for the iterator to iterate over (can be provided
+   * in keys or names).
+   * @param retriever - Retriever used to retrieve channel keys from names.
+   * @param client - The stream client allowing streaming of iterated data.
+   * @param opts - See {@link IteratorConfig}.
    */
   static async _open(
     tr: CrudeTimeRange,
     channels: Params,
     retriever: Retriever,
     client: StreamClient,
+    opts: IteratorConfig = {},
   ): Promise<Iterator> {
     const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
@@ -105,6 +118,7 @@ export class Iterator {
       command: Command.Open,
       keys: adapter.keys,
       bounds: new TimeRange(tr),
+      chunkSize: opts.chunkSize ?? 1e5,
     });
     return iter;
   }

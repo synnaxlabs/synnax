@@ -9,14 +9,16 @@
 
 #include <iostream>
 #include <fstream>
-#include "driver/driver.h"
+#include "driver/config.h"
 #include "driver/opc/opc.h"
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
 
 using json = nlohmann::json;
 
-std::pair<driver::Config, freighter::Error> driver::parseConfig(const json &content) {
+std::pair<config::Config, freighter::Error> config::parse(
+    const json &content
+) {
     config::Parser p(content);
     auto conn = p.optional_child("connection");
     auto synnax_cfg = synnax::Config{
@@ -42,22 +44,24 @@ std::pair<driver::Config, freighter::Error> driver::parseConfig(const json &cont
     auto rack_name = rack.optional<std::string>("name", "sy_node_1_rack");
     auto integrations = p.optional<std::vector<std::string> >(
         "integrations", {opc::INTEGRATION_NAME});
-    if (!p.ok()) return {driver::Config{}, p.error()};
+    auto debug = p.optional<bool>("debug", false);
+    if (!p.ok()) return {config::Config{}, p.error()};
     return {
-        driver::Config{
+        config::Config{
             .rack_key = rack_key,
             .rack_name = rack_name,
             .client_config = synnax_cfg,
             .breaker_config = breaker_config,
             .integrations = integrations,
+            .debug = debug,
         },
         freighter::NIL,
     };
 }
 
 
-json driver::readConfig(std::string path) {
-    LOG(INFO) << "[driver] reading configuration from " << path;
+json config::read(const std::string &path) {
+    VLOG(1) << "[driver] reading configuration from " << path;
     std::ifstream file(path);
     json content = json::object();
     if (file.is_open()) {
@@ -68,8 +72,6 @@ json driver::readConfig(std::string path) {
         file.read(&content_str[0], content_str.size());
         file.close();
         content = json::parse(content_str);
-    } else {
-        LOG(ERROR) << "[driver] failed to open configuration file at " << path;
     }
     return content;
 }

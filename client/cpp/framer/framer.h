@@ -9,15 +9,16 @@
 
 #pragma once
 
-#include <vector>
-#include <utility>
 #include <memory>
+#include <utility>
+#include <vector>
+
+#include "client/cpp/channel/channel.h"
+#include "client/cpp/telem/control.h"
+#include "client/cpp/telem/series.h"
+#include "client/cpp/telem/telem.h"
 #include "freighter/cpp/freighter.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
-#include "client/cpp/telem/telem.h"
-#include "client/cpp/telem/series.h"
-#include "client/cpp/telem/control.h"
-#include "client/cpp/channel/channel.h"
 
 using namespace synnax;
 
@@ -28,7 +29,7 @@ typedef freighter::Stream<
     api::v1::FrameStreamerResponse
 > StreamerStream;
 
-/// @brief typ;e alias for frame writer network transport.
+/// @brief type alias for frame writer network transport.
 typedef freighter::StreamClient<
     api::v1::FrameStreamerRequest,
     api::v1::FrameStreamerResponse
@@ -47,44 +48,67 @@ typedef freighter::StreamClient<
 > WriterClient;
 
 
-/// @brief Frame type.
+/// @brief A frame is a collection of series mapped to their corresponding channel keys.
 struct Frame {
-    std::unique_ptr<std::vector<ChannelKey> > channels;
-    std::unique_ptr<std::vector<synnax::Series> > series;
+    /// @brief the channels in the frame.
+    std::unique_ptr<std::vector<ChannelKey>> channels;
+    /// @brief the series in the frame.
+    std::unique_ptr<std::vector<synnax::Series>> series;
 
     Frame() = default;
 
+    /// @brief constructs the frame from the given vector of channels and series.
+    /// @param channels the vector of channel keys. This must be the same size as the series
+    /// vector. The frame takes ownership of the vector.
+    /// @param series the vector of series mapped index-wise to the channels vector. This
+    /// must be the same size as the channels vector. The frame takes ownership of the vector.
     Frame(
         std::unique_ptr<std::vector<ChannelKey> > channels,
         std::unique_ptr<std::vector<synnax::Series> > series
     );
 
+    /// @brief allocates a frame that can hold the given number of series.
+    /// @param size the number of series to allocate space for.
     explicit Frame(size_t size);
 
+    /// @brief constructs the frame from its protobuf representation.
+    /// @param f the protobuf representation of the frame.
     explicit Frame(const api::v1::Frame &f);
 
+    /// @brief constructs a frame with a single channel and series.
+    /// @param chan the channel key corresponding to the given series.
+    /// @param ser the series to add to the frame.
     Frame(
-        ChannelKey chan,
+        const ChannelKey &chan,
         synnax::Series ser
     );
 
+    /// @brief binds the frame to the given protobuf representation.
+    /// @param f the protobuf representation to bind to. This pb must be non-null.
     void toProto(api::v1::Frame *f) const;
 
-    void add(ChannelKey col, synnax::Series ser) const;
+    /// @brief adds a channel and series to the frame.
+    /// @param chan the channel key to add.
+    /// @param ser the series to add for the channel key.
+    void add(const ChannelKey &chan, synnax::Series &ser) const;
 
-    // implement the ostream operator
+    /// @brief adds a channel and series to the frame.
+    /// @param chan the channel key to add.
+    /// @param ser the series to add for the channel key.
+    void add(const ChannelKey &chan, synnax::Series ser) const;
+
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
+    /// @brief retruns the sample for the given channel and index.
     template<typename NumericType>
-    NumericType at(synnax::ChannelKey key, int index) const {
-        for (size_t i = 0; i < channels->size(); i++) {
+    NumericType at(const ChannelKey &key, const int &index) const {
+        for (size_t i = 0; i < channels->size(); i++)
             if (channels->at(i) == key)
                 return series->at(i).at<NumericType>(index);
-        }
         throw std::runtime_error("channel not found");
     }
 
-
+    /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series->size(); }
 };
 
@@ -125,7 +149,7 @@ public:
     /// If error.ok() is false, then the streamer has failed and must be closed.
     /// @note read is not safe to call concurrently with itself or with close(), but it
     /// is safe to call concurrently with setChannels().
-    std::pair<Frame, freighter::Error> read() const;
+    [[nodiscard]] std::pair<Frame, freighter::Error> read() const;
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
     /// channels set during construction or a previous call to setChannels().
@@ -134,7 +158,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with close(),
     /// but it is safe to call concurrently with read().
-    freighter::Error setChannels(std::vector<ChannelKey> channels) const;
+    [[nodiscard]] freighter::Error setChannels(std::vector<ChannelKey> channels) const;
 
     /// @brief closes the streamer and releases any resources associated with it. If any
     /// errors occurred during the stream, they will be returned. A streamer MUST be
@@ -144,7 +168,7 @@ public:
     /// during operation.
     /// @note close() is not safe to call concurrently with itself or any other streamer
     /// methods.
-    freighter::Error close() const;
+    [[nodiscard]] freighter::Error close() const;
 
     /// @brief closes the sending end of the streamer. Subsequence calls to receive()
     /// will exhaust the stream and eventually return an EOF.
@@ -169,16 +193,21 @@ private:
     friend class FrameClient;
 };
 
+/// @brief sets the persistence and streaming mode for a writer.
 enum WriterMode : uint8_t {
-    WriterPersistStream = 1,
-    WriterPersistOnly = 2,
-    WriterStreamOnly = 3
+    /// @brief sets the writer so that it both persists and streams data.
+    PersistStream = 1,
+    /// @brief sets the writer so that it persists data, but does not stream it.
+    /// Typically used in scenarios involving historical writes.
+    PersistOnly = 2,
+    /// @brief sets the writer so that it streams data, but does not persist it.
+    /// @brief typically used in scenarios involving streaming writes.
+    StreamOnly = 3
 };
 
 /// @brief configuration for opening a new Writer. For more information on writers,
 /// see https://docs.synnaxlabs.com/concepts/write.
-class WriterConfig {
-public:
+struct WriterConfig {
     /// @brief The channels to write to.
     std::vector<ChannelKey> channels;
 
@@ -265,12 +294,12 @@ public:
 
     /// @brief returns any error accumulated during the write process. If no err has
     /// occurred, err.ok() will be true.
-    freighter::Error error() const;
+    [[nodiscard]] freighter::Error error() const;
 
     /// @brief closes the writer and releases any resources associated with it. A writer
     /// MUST be closed after use, or the caller risks leaking resources. Calling any
     /// method on a closed writer will throw a runtime_error.
-    freighter::Error close() const;
+    [[nodiscard]] freighter::Error close() const;
 
 private:
     /// @brief whether an error has occurred in the write pipeline.
@@ -292,14 +321,11 @@ private:
 };
 
 class FrameClient {
-private:
-    std::unique_ptr<StreamerClient> streamer_client;
-    std::unique_ptr<WriterClient> writer_client;
-
 public:
-    FrameClient(std::unique_ptr<StreamerClient> streamer_client,
-                std::unique_ptr<WriterClient> writer_client) : streamer_client(
-            std::move(streamer_client)),
+    FrameClient(
+        std::unique_ptr<StreamerClient> streamer_client,
+        std::unique_ptr<WriterClient> writer_client
+    ) : streamer_client(std::move(streamer_client)),
         writer_client(std::move(writer_client)) {
     }
 
@@ -310,7 +336,8 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the writer
     /// will be in an invalid state and does not need to be closed. If ok() is true,
     /// The writer must be closed after use to avoid leaking resources.
-    std::pair<Writer, freighter::Error> openWriter(const WriterConfig &config) const;
+    [[nodiscard]] std::pair<Writer, freighter::Error>
+    openWriter(const WriterConfig &config) const;
 
     /// @brief opens a new frame streamer using the given configuration. For information
     /// on configuration parameters, see StreamerConfig.
@@ -318,7 +345,10 @@ public:
     /// if the streamer could not be opened. In the case where ok() is false, the
     /// streamer will be in an invalid state and does not need to be closed. If ok()
     /// is true, the streamer must be closed after use to avoid leaking resources.
-    std::pair<Streamer, freighter::Error> openStreamer(
-        const StreamerConfig &config) const;
+    [[nodiscard]] std::pair<Streamer, freighter::Error>
+    openStreamer(const StreamerConfig &config) const;
+private:
+    std::unique_ptr<StreamerClient> streamer_client;
+    std::unique_ptr<WriterClient> writer_client;
 };
 }

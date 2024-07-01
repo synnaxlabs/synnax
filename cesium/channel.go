@@ -23,7 +23,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// CreateChannel implements DB.
+// CreateChannel creates a channel in the database.
 func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 	if db.closed.Load() {
 		return errDBClosed
@@ -38,7 +38,8 @@ func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 	return nil
 }
 
-// RetrieveChannels implements DB.
+// RetrieveChannels retrieves the channels by the specified keys. It is atomic and will
+// either return all the channels or no channels if there is an error.
 func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
 	if db.closed.Load() {
 		return nil, errDBClosed
@@ -56,6 +57,7 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 	return chs, nil
 }
 
+// RetrieveChannel retrieves one channel from the database.
 func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, error) {
 	if db.closed.Load() {
 		return Channel{}, errDBClosed
@@ -79,6 +81,8 @@ func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	return Channel{}, core.NewErrChannelNotFound(key)
 }
 
+// RenameChannels finds the specified keys in the database and renames them to the new
+// name as specified in names.
 func (db *DB) RenameChannels(ctx context.Context, keys []ChannelKey, names []string) error {
 	if db.closed.Load() {
 		return errDBClosed
@@ -110,7 +114,7 @@ func (db *DB) renameChannel(_ context.Context, key ChannelKey, newName string) e
 	udb, uok := db.unaryDBs[key]
 	if uok {
 		// There is a race condition here: one could rename a channel while it is being
-		// read or  streamed from or written to. We choose to not address this since
+		// read or streamed from or written to. We choose to not address this since
 		// the name is purely decorative in Cesium and not used to identify channels
 		// whereas the key is the unique identifier. The same goes for the virtual database.
 		if udb.Channel.Name == newName {

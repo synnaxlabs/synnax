@@ -10,12 +10,11 @@
 #include "gtest/gtest.h"
 #include "driver/breaker/breaker.h"
 
-
 void helper(breaker::Breaker &b){
     while(b.wait("testBreakRetries breaker"));
 }
 
-// @brief it should correctly wait for an expended number of requests.
+/// @brief it should correctly wait for an expended number of requests.
 TEST(BreakerTests, testBreaker)
 {
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
@@ -24,7 +23,7 @@ TEST(BreakerTests, testBreaker)
     ASSERT_FALSE(b.wait("testBreaker breaker"));
 }
 
-//@brief it should correctly expend max number of requests
+/// @brief it should correctly expend max number of requests
 TEST(BreakerTests, testBreakRetries){
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 10, 1.1});
     b.start();
@@ -33,7 +32,7 @@ TEST(BreakerTests, testBreakRetries){
     b.stop();
 }
 
-//@brief it should correctly shutdown before expending the max number of requests
+/// @brief it should correctly shutdown before expending the max number of requests
 TEST(BreakerTests, testBreakerPrematureShutdown){
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 10, 1});
     b.start();
@@ -45,10 +44,7 @@ TEST(BreakerTests, testBreakerPrematureShutdown){
     t.join();
 }
 
-
-
-
-//@brief it should correctly shutdown before expending the max number of requests
+/// @brief it should correctly shutdown before expending the max number of requests
 TEST(BreakerTests, testDestructorShuttingDown){
     // create a unique pointer to a breaker
     auto b = std::make_unique<breaker::Breaker>(breaker::Config{"my-breaker", 1*SECOND, 10, 1});

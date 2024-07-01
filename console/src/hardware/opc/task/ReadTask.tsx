@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/ReadTask.css";
 
-import { device, type task } from "@synnaxlabs/client";
+import { channel, device, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -137,10 +137,15 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
     [client?.key, device?.key],
   );
 
-  const methods = Form.use({
-    schema,
-    values: initialValues,
-  });
+  const methods = Form.use({ schema, values: initialValues });
+
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const dev = methods.value().config.device;
+    if (dev === "") return;
+    const d = await client.hardware.devices.retrieve<Device.Properties>(dev);
+    setDevice(d);
+  }, [client?.key]);
 
   Form.useFieldListener<string, typeof schema>({
     ctx: methods,
@@ -165,9 +170,7 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
     stateObserverRef.current = await task.openStateObserver<ReadStateDetails>();
-    stateObserverRef.current.onChange((s) => {
-      setTaskState(s);
-    });
+    stateObserverRef.current.onChange((s) => setTaskState(s));
     return async () => await stateObserverRef.current?.close().catch(console.error);
   }, [client?.key, task?.key, setTaskState]);
 
@@ -180,7 +183,7 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
         key: task?.key,
         name: methods.value().name,
         type: READ_TYPE,
-        config: methods.value().config,
+        config: readConfigZ.parse(methods.value().config),
       });
       setTask(t);
     },
@@ -214,6 +217,9 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
                   searchOptions={{ makes: ["opc"] }}
                 />
               )}
+            </Form.Field>
+            <Form.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
+              {(p) => <Input.Switch {...p} />}
             </Form.Field>
             <Form.Field<number> label="Sample Rate" path="config.sampleRate">
               {(p) => <Input.Numeric {...p} />}
@@ -252,7 +258,11 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
               </Header.Header>
               <Align.Space direction="y" className={CSS.B("channel-form-content")} grow>
                 {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+                  <ChannelForm
+                    key={selectedChannelIndex}
+                    deviceProperties={device?.properties}
+                    selectedChannelIndex={selectedChannelIndex}
+                  />
                 )}
               </Align.Space>
             </Align.Space>
@@ -416,9 +426,7 @@ export const ChannelListItem = ({
       entry={childValues}
       justify="spaceBetween"
       align="center"
-      onKeyDown={(e) => {
-        if (["Delete", "Backspace"].includes(e.key)) props.remove?.();
-      }}
+      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && props.remove?.()}
     >
       <Align.Space direction="y" size="small">
         <Text.Text level="p" weight={500} shade={9} color={channelColor}>
@@ -434,9 +442,7 @@ export const ChannelListItem = ({
         value={entry.enabled}
         size="small"
         onClick={(e) => e.stopPropagation()}
-        onChange={(v) => {
-          ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
-        }}
+        onChange={(v) => ctx.set({ path: `${path}.${props.index}.enabled`, value: v })}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>
             Data acquisition for this channel is{" "}
@@ -459,19 +465,66 @@ export const ChannelListItem = ({
 
 interface ChannelFormProps {
   selectedChannelIndex: number;
+  deviceProperties?: Device.Properties;
 }
 
-const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
+const ChannelForm = ({
+  selectedChannelIndex,
+  deviceProperties,
+}: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
   const dev = Form.useField<string>({ path: "config.device" }).value;
+  const channelPath = `${prefix}.channel`;
+  const channelValue = Form.useFieldValue<number>(channelPath);
+  const [channelRec, setChannelRec] = useState<channel.Key>(0);
+  const channelRecName = Channel.useName(channelRec, "");
+  const ctx = Form.useContext();
   return (
     <>
-      <Form.Field<number> path={`${prefix}.channel`} label="Synnax Channel" hideIfNull>
-        {(p) => <Channel.SelectSingle allowNone={false} {...p} />}
-      </Form.Field>
-      <Form.Field<string> path={`${prefix}.nodeId`} label="OPC Node" hideIfNull>
+      <Form.Field<string>
+        path={`${prefix}.nodeId`}
+        label="OPC Node"
+        onChange={(v) => {
+          if (deviceProperties == null) return;
+          const defaultChan = deviceProperties.channels.find(
+            (c) => c.nodeId === v,
+          )?.synnaxChannel;
+          if (defaultChan != null) setChannelRec(defaultChan);
+        }}
+        hideIfNull
+      >
         {(p) => <SelectNodeRemote allowNone={false} device={dev} {...p} />}
       </Form.Field>
+      <Form.Field<number>
+        path={channelPath}
+        label="Synnax Channel"
+        hideIfNull
+        padHelpText={false}
+      >
+        {(p) => <Channel.SelectSingle allowNone={false} {...p} />}
+      </Form.Field>
+      {channelRecName.length > 0 && channelValue !== channelRec && (
+        <Align.Space direction="x" size="small">
+          <Button.Icon
+            variant="text"
+            size="small"
+            onClick={() => ctx.set({ path: channelPath, value: channelRec })}
+            tooltip={"Apply recommended channel"}
+          >
+            <Icon.Bolt style={{ color: "var(--pluto-gray-l6)" }} />
+          </Button.Icon>
+          <Button.Button
+            variant="suggestion"
+            size="small"
+            style={{ width: "fit-content" }}
+            startIcon={<Icon.Channel />}
+            onClick={() => ctx.set({ path: channelPath, value: channelRec })}
+            tooltip={"Apply recommended channel"}
+          >
+            {channelRecName}
+          </Button.Button>
+        </Align.Space>
+      )}
     </>
   );
 };

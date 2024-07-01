@@ -22,7 +22,7 @@ import { Tooltip } from "@/tooltip";
 import { type ComponentSize } from "@/util/component";
 
 /** The variant of button */
-export type Variant = "filled" | "outlined" | "text";
+export type Variant = "filled" | "outlined" | "text" | "suggestion";
 
 export interface ButtonExtensionProps {
   variant?: Variant;

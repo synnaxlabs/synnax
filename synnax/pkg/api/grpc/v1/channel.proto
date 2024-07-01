@@ -21,6 +21,7 @@ service ChannelDeleteService {
 message ChannelDeleteRequest {
     repeated uint32 keys = 1;
     repeated string names = 2;
+    bool allow_internal = 3;
 }
 
 

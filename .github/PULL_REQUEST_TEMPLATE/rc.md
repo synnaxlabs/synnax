@@ -1,12 +1,14 @@
-# Key Information
+# Release Candidate Pull Request Template
+
+## Key Information
 
 - **Platform Version**:
 
-# Versioning
+## Versioning
 
-## Public Packages
+### Public Packages
 
-### Version Consistency
+#### Version Consistency
 
 I have verified that the following packages have the same minor version number:
 
@@ -21,7 +23,7 @@ I have verified that the following packages have the same minor version number:
 - [ ] console
 - [ ] root package.json file
 
-### Version Conflicts
+#### Version Conflicts
 
 I have verified that, when released, the following packages will not conflict with any
 previously released packages:
@@ -36,17 +38,17 @@ previously released packages:
 - [ ] synnax server
 - [ ] console
 
-# CI Tests
+## CI Tests
 
 - [ ] I have verified that all CI tests pass.
 
-# CD Builds
+## CD Builds
 
 - [ ] I have verified that all CD builds pass.
 
-# User Documentation
+## User Documentation
 
-## Content Changes
+### Content Changes
 
 I have verified that user facing documentation for each of the following services has
 been updated to match any changes in the release candidate. If not, I will note why
@@ -60,20 +62,20 @@ the documentation has been left stale.
 - [ ] references/device-drivers/opcua
 - [ ] references/device-drivers/ni
 
-## Examples
+### Examples
 
 I have verified that code examples for each of the following services run correctly:
 
 - [ ] client/py
 - [ ] client/ts
 
-# Console
+## Console
 
-## Auto Update
+### Auto Update
 
 - [ ] I have verified that the nightly builds of the Console are able to auto-update correctly.
 
-## Cluster Connection
+### Cluster Connection
 
 I can successfully:
 
@@ -83,7 +85,7 @@ I can successfully:
 - [ ] Remove a cluster.
 - [ ] Rename a cluster.
 
-## Ranges
+### Ranges
 
 I can successfully:
 
@@ -96,7 +98,7 @@ I can successfully:
 - [ ] Delete a range in the resources view.
 - [ ] Delete multiple ranges in the resources view.
 
-## Line Plots
+### Line Plots
 
 I can successfully:
 
@@ -110,7 +112,7 @@ I can successfully:
 - [ ] Re-label a line.
 - [ ] Set the title of the plot.
 
-## Schematics
+### Schematics
 
 I can successfully:
 
@@ -144,9 +146,9 @@ I can successfully:
 - [ ] Rename a group.
 - [ ] Delete a group.
 
-## OPC UA
+### OPC UA
 
-### Configuration
+#### Configuration
 
 I can successfully:
 
@@ -157,7 +159,7 @@ I can successfully:
 - [ ] Move and rename channels.
 - [ ] Save the device configuration.
 
-### Read Task
+#### Read Task
 
 I can successfully:
 
@@ -168,3 +170,6 @@ I can successfully:
 - [ ] Array Sampling - Auto-generate timestamps on the driver.
 - [ ] Array Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - The driver will not crash if I specify an improper array size.
+ -[ ] Channel Selection - The read task dialog will recommend synnax channels based on
+      the configured OPC UA node.
+

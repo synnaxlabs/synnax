@@ -60,7 +60,7 @@ TEST(FramerTests, testWriteBasic) {
     );
 
 
-    ASSERT_TRUE(writer.write(std::move(frame)));
+    ASSERT_TRUE(writer.write(frame));
     auto [end, ok] = writer.commit();
     ASSERT_TRUE(ok);
     ASSERT_EQ(end.value, (now + (synnax::SECOND * 8 + 1)).value);

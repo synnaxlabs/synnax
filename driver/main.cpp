@@ -15,18 +15,19 @@
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
 
-#include "driver/driver.h"
+#include "driver/config.h"
 #include "task/task.h"
 #include "driver/opc/opc.h"
 #include "driver/meminfo/meminfo.h"
-#include "driver/ni/ni.h"
+#include "driver/heartbeat/heartbeat.h"
+// #include "driver/ni/ni.h"
 
 using json = nlohmann::json;
 
-std::unique_ptr<driver::Driver> d;
+std::unique_ptr<task::Manager> task_manager;
 
 std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
-    const driver::Config &config,
+    const config::Config &config,
     breaker::Breaker &breaker,
     const std::shared_ptr<synnax::Synnax> &client
 ) {
@@ -44,63 +45,58 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
 std::atomic<bool> stopped = false;
 
 int main(int argc, char *argv[]) {
-    FLAGS_logtostderr = 1;
-    google::InitGoogleLogging(argv[0]);
-
     std::string config_path = "./synnax-driver-config.json";
-    if (argc > 1) config_path = argv[1]; // Use the first argument as the config path if provided
+    // Use the first argument as the config path if provided
+    if (argc > 1) config_path = argv[1];
 
-    LOG(INFO) << "[main] starting up";
-
-    auto cfg_json = driver::readConfig(config_path);
+    auto cfg_json = config::read(config_path);
     if (cfg_json.empty())
-        LOG(INFO) << "[main] no configuration found at " << config_path <<
+        LOG(INFO) << "[driver] no configuration found at " << config_path <<
                 ". We'll just use the default configuration";
     else {
-        LOG(INFO) << "[main] loaded configuration from " << config_path;
+        LOG(INFO) << "[driver] loaded configuration from " << config_path;
     }
-    auto [cfg, cfg_err] = driver::parseConfig(cfg_json);
+    auto [cfg, cfg_err] = config::parse(cfg_json);
     if (cfg_err) {
-        LOG(FATAL) << "[main] failed to parse configuration: " << cfg_err;
+        LOG(FATAL) << "[driver] failed to parse configuration: " << cfg_err;
         return 1;
     }
-    LOG(INFO) << "[main] configuration parsed successfully";
-    LOG(INFO) << "[main] connecting to Synnax at " << cfg.client_config.host << ":" <<
-            cfg.client_config.port;
+    VLOG(1) << "[driver] configuration parsed successfully";
 
+    LOG(INFO) << "[driver] starting up";
+    FLAGS_logtostderr = 1;
+    if (cfg.debug) FLAGS_v = 1;
+    google::InitGoogleLogging(argv[0]);
+
+    VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
+             cfg.client_config.port;
 
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
     auto breaker = breaker::Breaker(cfg.breaker_config);
     breaker.start();
-    LOG(INFO) << "[main] retrieving meta-data";
+    VLOG(1) << "[driver] retrieving meta-data";
     auto [rack, rack_err] = retrieveDriverRack(cfg, breaker, client);
     breaker.stop();
     if (rack_err) {
         LOG(FATAL) <<
-                "[main] failed to retrieve meta-data - can't proceed without it. Exiting."
+                "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
                 << rack_err;
         return 1;
     }
 
-    std::unique_ptr<task::Factory> opc_factory = std::make_unique<opc::Factory>();
-    std::unique_ptr<meminfo::Factory> meminfo_factory = std::make_unique<
-        meminfo::Factory>();
-    // std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
-
-    // std::vector<std::shared_ptr<task::Factory> > factories = {
-    //     std::move(opc_factory), std::move(meminfo_factory), std::move(ni_factory)
-    // };
-
+    auto meminfo_factory = std::make_unique<meminfo::Factory>();
+    auto heartbeat_factory = std::make_unique<heartbeat::Factory>();
+    auto opc_factory = std::make_unique<opc::Factory>();
     std::vector<std::shared_ptr<task::Factory> > factories = {
-        std::move(opc_factory), std::move(meminfo_factory)
+        std::move(opc_factory),
+        // std::move(meminfo_factory),
+        std::move(heartbeat_factory)
     };
-
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
         std::move(factories)
     );
-
-    d = std::make_unique<driver::Driver>(
+    task_manager = std::make_unique<task::Manager>(
         rack,
         client,
         std::move(factory),
@@ -108,14 +104,15 @@ int main(int argc, char *argv[]) {
     );
     signal(SIGINT, [](int) {
         if (stopped) return;
-        LOG(INFO) << "[main] received interrupt signal. shutting down";
+        LOG(INFO) << "[driver] received interrupt signal. shutting down";
         stopped = true;
-        d->stop();
+        task_manager->stop();
     });
-    auto err = d->run();
+    std::atomic<bool> running = false;
+    auto err = task_manager->start(running);
+    running.wait(false);
     if (err)
-        LOG(FATAL) << "[main] failed to start: " << err;
-
-    LOG(INFO) << "[main] shutdown complete";
+        LOG(FATAL) << "[driver] failed to start: " << err;
+    LOG(INFO) << "[driver] shutdown complete";
     return 0;
 }

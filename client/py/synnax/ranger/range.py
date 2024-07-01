@@ -254,8 +254,7 @@ class Range(RangePayload):
         return self.__getattr__(name)
 
     def __splice_cached(
-        self,
-        channels: list[ChannelPayload]
+        self, channels: list[ChannelPayload]
     ) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:

@@ -76,7 +76,9 @@ class TestAllStringFirstCol:
     def test_channels(self, valid_file: RowFileReader):
         """It should correctly return a list of the channel names in the file"""
         assert [c.name for c in valid_file.channels()] == [
-            "randStringChan", *VALID_FILE_CHANNELS]
+            "randStringChan",
+            *VALID_FILE_CHANNELS,
+        ]
 
     def test_num_samples(self, valid_file: RowFileReader):
         """It should return the approximate number of samples in the file"""

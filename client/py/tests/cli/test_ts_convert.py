@@ -80,7 +80,7 @@ class TestTSConvert:
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
-        assert (sy.TimeStamp(df["Time"].to_numpy()[0]) - sy.TimeStamp(
-            1483257600000000000) < sy.TimeSpan.DAY)
-
-
+        assert (
+            sy.TimeStamp(df["Time"].to_numpy()[0]) - sy.TimeStamp(1483257600000000000)
+            < sy.TimeSpan.DAY
+        )

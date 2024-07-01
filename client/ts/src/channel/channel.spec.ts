@@ -246,14 +246,15 @@ describe("Channel", () => {
           dataType: DataType.FLOAT32,
         },
       ]);
+      // Retrieve channels here to ensure we check for cache invalidation
+      const initial = await client.channels.retrieve(channels.map((c) => c.key));
+      expect(initial[0].name).toEqual("test1");
+      expect(initial[1].name).toEqual("test2");
       await client.channels.rename(
-        [channels[0].key, channels[1].key],
+        channels.map((c) => c.key),
         ["test3", "test4"],
       );
-      const renamed = await client.channels.retrieve([
-        channels[0].key,
-        channels[1].key,
-      ]);
+      const renamed = await client.channels.retrieve(channels.map((c) => c.key));
       expect(renamed[0].name).toEqual("test3");
       expect(renamed[1].name).toEqual("test4");
     });

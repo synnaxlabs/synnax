@@ -48,13 +48,15 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
   extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
     Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<Input.TextProps, "placeholder"> {
+    Pick<Input.TextProps, "placeholder">,
+    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   searcher?: AsyncTermSearcher<string, K, E>;
   entryRenderKey?: keyof E | ((e: E) => string | number);
   renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
+  children?: CoreList.VirtualCoreProps<K, E>["children"];
 }
 
 /**
@@ -93,6 +95,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   replaceOnSingle,
   onTagDragEnd,
   style,
+  children,
   ...props
 }: MultipleProps<K, E>): ReactElement => {
   const { visible, open, close } = Dropdown.use();
@@ -149,6 +152,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       replaceOnSingle={replaceOnSingle}
       columns={columns}
       allowMultiple
+      listItem={children}
       {...props}
     >
       <InputWrapper<K, E> searcher={searcher}>

@@ -83,6 +83,7 @@ func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 	return domain.IteratorConfig{Bounds: i.Bounds}
 }
 
+// LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *controller.State {
 	return db.Controller.LeadingState()
 }

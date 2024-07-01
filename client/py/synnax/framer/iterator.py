@@ -10,7 +10,7 @@
 from enum import Enum
 
 from alamos import NOOP, Instrumentation, trace
-from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
+from freighter import EOF, Payload, Stream, StreamClient
 
 from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
@@ -45,6 +45,7 @@ class _Request(Payload):
     bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
     keys: ChannelKeys | None = None
+    chunk_size: int | None = None
 
 
 class _Response(Payload):
@@ -72,18 +73,21 @@ class Iterator:
     tr: TimeRange
     instrumentation: Instrumentation
     value: Frame
+    _chunk_size: int
 
     def __init__(
         self,
         tr: TimeRange,
         client: StreamClient,
         adapter: ReadFrameAdapter,
+        chunk_size: int = 1e5,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self.tr = tr
         self.instrumentation = instrumentation
         self.__adapter = adapter
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
+        self._chunk_size = chunk_size
         self.__open()
 
     @trace("debug", "open")
@@ -94,7 +98,12 @@ class Iterator:
         :param keys: The keys of the channels to iterate over.
         :param tr: The time range to iterate over.
         """
-        self._exec(command=_Command.OPEN, bounds=self.tr, keys=self.__adapter.keys)
+        self._exec(
+            command=_Command.OPEN,
+            bounds=self.tr,
+            keys=self.__adapter.keys,
+            chunk_size=self._chunk_size,
+        )
         self.value = Frame()
 
     @trace("debug")
@@ -180,7 +189,7 @@ class Iterator:
     @trace("debug")
     def close(self):
         """Close closes the iterator. An iterator MUST be closed after use, and this method
-        should probably be placed in a 'finally' block. If the iterator is not closed, it make
+        should probably be placed in a 'finally' block. If the iterator is not closed, it may
         leak resources and threads.
         """
         exc = self.__stream.close_send()

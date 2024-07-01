@@ -15,6 +15,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("delete", Ordered, func() {
@@ -60,6 +62,21 @@ var _ = Describe("delete", Ordered, func() {
 			Expect(gorp.NewDelete[int, entry]().Where(func(e *entry) bool {
 				return e.Data == "Synnax"
 			}).Exec(ctx, tx)).To(Succeed())
+		})
+	})
+	Describe("Guard", func() {
+		It("Should prevent deletion if any of the guard functions fail", func() {
+			Expect(gorp.NewCreate[int, entry]().
+				Entry(&entry{ID: 1, Data: "Synnax"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewDelete[int, entry]().
+				WhereKeys(1).
+				Guard(func(e entry) error {
+					return validate.Error
+				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
 		})
 	})
 })

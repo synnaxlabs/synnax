@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <vector>
 #include "client/cpp/channel/channel.h"
+
+#include <vector>
+
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 

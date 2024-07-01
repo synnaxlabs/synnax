@@ -190,7 +190,39 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         deviceProperties == null
       )
         return;
+      setProgress("Creating channels...");
+      const groups = methods.get<GroupConfig[]>({ path: "groups" }).value;
+      const mapped = new Map<string, number>();
+      for (const group of groups) {
+        // find the index channel
+        const idxBase = group.channels.find((c) => c.isIndex);
+        if (idxBase == null) throw new UnexpectedError("No index channel found");
+        const idx = await client.channels.create({
+          name: idxBase.name,
+          isIndex: true,
+          dataType: DataType.TIMESTAMP.toString(),
+        });
+        mapped.set(idxBase.nodeId, idx.key);
+        setProgress(`Creating channels for ${group.name}...`);
+        const toCreate = group.channels.filter((c) => !c.isIndex);
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: c.name,
+            dataType: new DataType(c.dataType).toString(),
+            index: idx.key,
+          })),
+        );
+        channels.forEach((c, i) => {
+          const nodeId = toCreate[i].nodeId;
+          if (nodeId != null) mapped.set(nodeId, c.key);
+        });
+      }
       setProgress("Creating device...");
+      deviceProperties.channels.forEach((c) => {
+        const synnaxChannel = mapped.get(c.nodeId);
+        if (synnaxChannel == null) return;
+        c.synnaxChannel = synnaxChannel;
+      });
       await client.hardware.devices.create({
         key: uuidv4(),
         name: methods.get<string>({ path: "name" }).value,
@@ -201,28 +233,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         properties: deviceProperties,
         configured: true,
       });
-      setProgress("Creating channels...");
-      const groups = methods.get<GroupConfig[]>({ path: "groups" }).value;
-      for (const group of groups) {
-        // find the index channel
-        const idxBase = group.channels.find((c) => c.isIndex);
-        if (idxBase == null) throw new UnexpectedError("No index channel found");
-        const idx = await client.channels.create({
-          name: idxBase.name,
-          isIndex: true,
-          dataType: DataType.TIMESTAMP.toString(),
-        });
-        setProgress(`Creating channels for ${group.name}...`);
-        await client.channels.create(
-          group.channels
-            .filter((c) => !c.isIndex)
-            .map((c) => ({
-              name: c.name,
-              dataType: new DataType(c.dataType).toString(),
-              index: idx.key,
-            })),
-        );
-      }
     },
   });
 

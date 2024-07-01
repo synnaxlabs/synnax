@@ -9,6 +9,7 @@ booleanMap = {
     "false": False,
 }
 
+
 def convert_df(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
         all_bools = all(str(val) in booleanMap for val in df[col])

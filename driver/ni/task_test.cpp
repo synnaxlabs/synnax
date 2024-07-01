@@ -310,7 +310,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task){
     auto cmdWriterConfig = synnax::WriterConfig{
                 .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
                 .start = TimeStamp::now(),
-                .mode = synnax::WriterStreamOnly};
+                .mode = synnax::StreamOnly};
 
     auto [cmdWriter, wErr] = client->telem.openWriter(cmdWriterConfig);
     ASSERT_FALSE(wErr) << wErr.message();

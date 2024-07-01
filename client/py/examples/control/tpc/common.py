@@ -1,4 +1,3 @@
-
 # Time
 DAQ_TIME = "daq_time"
 # OX
@@ -56,8 +55,16 @@ VALVES = {
     GAS_BOOSTER_ISO_CMD: GAS_BOOSTER_ISO_STATE,
 }
 
-PTS = (OX_PT_1, OX_PT_2, FUEL_PT_1, FUEL_PT_2, PRESS_PT_1, PRESS_PT_2, SUPPLY_PT,
-       PNEUMATICS_PT)
+PTS = (
+    OX_PT_1,
+    OX_PT_2,
+    FUEL_PT_1,
+    FUEL_PT_2,
+    PRESS_PT_1,
+    PRESS_PT_2,
+    SUPPLY_PT,
+    PNEUMATICS_PT,
+)
 
 SENSORS = (
     OX_TC_1,

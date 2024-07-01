@@ -31,6 +31,11 @@ func (d Delete[K, E]) Where(filter func(*E) bool, opts ...FilterOption) Delete[K
 	return d
 }
 
+func (d Delete[K, E]) Guard(filter func(E) error) Delete[K, E] {
+	addGuard[K, E](d.params, filter)
+	return d
+}
+
 // WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
 // this lookup is substantially faster than a general Where query.
 // If called in conjunction with Where, the WhereKeys filter will be applied first.
@@ -52,6 +57,48 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	if err := q.Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
+	if err := checkGuards[K](d.params, entries); err != nil {
+		return err
+	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
 	return WrapWriter[K, E](tx).Delete(ctx, keys...)
+}
+
+const deleteGuardKey = "deleteGuard"
+
+type guards[K Key, E Entry[K]] []func(E) error
+
+func (g guards[K, E]) exec(entry E) error {
+	for _, f := range g {
+		if err := f(entry); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addGuard[K Key, E Entry[K]](q query.Parameters, guard func(E) error) {
+	var g guards[K, E]
+	rg, ok := q.Get(deleteGuardKey)
+	if !ok {
+		g = make(guards[K, E], 0, 1)
+	} else {
+		g = rg.(guards[K, E])
+	}
+	g = append(g, guard)
+	q.Set(deleteGuardKey, g)
+}
+
+func checkGuards[K Key, E Entry[K]](q query.Parameters, entries []E) error {
+	g, ok := q.Get(deleteGuardKey)
+	if !ok {
+		return nil
+	}
+	guards_ := g.(guards[K, E])
+	for _, entry := range entries {
+		if err := guards_.exec(entry); err != nil {
+			return err
+		}
+	}
+	return nil
 }

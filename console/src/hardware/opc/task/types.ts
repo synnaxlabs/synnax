@@ -38,6 +38,7 @@ export const readConfigZ = z
     arrayMode: z.boolean(),
     arraySize: z.number().min(1),
     channels: z.array(readChanZ),
+    dataSaving: z.boolean().optional().default(true),
   })
   .refine(
     (cfg) => {
@@ -101,6 +102,10 @@ export const readConfigZ = z
         },
       });
     });
+  })
+  .transform((cfg) => {
+    if (!cfg.arrayMode) cfg.arraySize = 1;
+    return cfg;
   });
 
 export type ReadConfig = z.infer<typeof readConfigZ>;
@@ -117,6 +122,7 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
     arrayMode: false,
     arraySize: 1,
     channels: [],
+    dataSaving: true,
   },
 };
 

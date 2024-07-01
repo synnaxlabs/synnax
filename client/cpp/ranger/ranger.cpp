@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "client/cpp/ranger/ranger.h"
+
+#include "client/cpp/errors/errors.h"
+#include "client/cpp/telem/telem.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
-#include "client/cpp/ranger/ranger.h"
-#include "client/cpp/telem/telem.h"
-#include "client/cpp/errors/errors.h"
 
 using namespace synnax;
 
