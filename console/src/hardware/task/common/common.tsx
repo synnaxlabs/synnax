@@ -14,7 +14,7 @@ import {
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
+import { deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
@@ -149,12 +149,14 @@ export const useObserveState = <T extends ParserErrorsDetails>(
       if (state.task !== taskKey) return;
       setTaskState(state);
       if (state.details != null && state.details.errors != null) {
-        state.details.errors.forEach((e) =>
-          setStatus(e.path, {
+        state.details.errors.forEach((e) => {
+          const path = `config.${deep.pathToCamel(e.path)}`;
+          console.log(path, e.message);
+          setStatus(path, {
             variant: "error",
             message: e.message,
-          }),
-        );
+          });
+        });
       }
     },
   });

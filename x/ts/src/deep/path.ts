@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@/caseconv";
 import { type Join } from "@/join";
 import { type UnknownRecord } from "@/record";
 
@@ -88,6 +89,12 @@ export const transformPath = (
     .filter((part) => part != null) as string[];
   return result.join(".");
 };
+
+export const pathToSnake = (path: string): string =>
+  transformPath(path, caseconv.stringToSnake);
+
+export const pathToCamel = (path: string): string =>
+  transformPath(path, caseconv.stringToCamel);
 
 export const get = (<V = unknown, T = UnknownRecord>(
   obj: T,

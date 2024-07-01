@@ -19,7 +19,6 @@ import {
   Input,
   List,
   Menu,
-  Observe,
   Status,
   Synnax,
   Text,
@@ -33,6 +32,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
 import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
 import {
@@ -50,6 +50,8 @@ import {
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
+  useCreate,
+  useObserveState,
 } from "@/hardware/task/common/common";
 import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { type Layout } from "@/layout";
@@ -76,16 +78,13 @@ export const READ_SELECTABLE: Layout.Selectable = {
 };
 
 interface InternalProps {
+  layoutKey: string;
   task?: Read;
   initialValues: ReadPayload;
 }
 
-const Internal = ({
-  initialValues,
-  task: initialTask,
-}: InternalProps): ReactElement => {
+const Internal = ({ layoutKey, initialValues, task }: InternalProps): ReactElement => {
   const client = Synnax.use();
-  const [task, setTask] = useState(initialTask);
   const [device, setDevice] = useState<device.Device<Device.Properties> | null>(null);
 
   const schema = useMemo(
@@ -156,24 +155,23 @@ const Internal = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = Observe.useState({
-    key: [task?.key],
-    open: async () => await task?.openStateObserver<ReadStateDetails>(),
-    initialValue: task?.state,
-  });
+  const taskState = useObserveState<DigitalWriteStateDetails>(
+    methods.setStatus,
+    task?.key,
+    task?.state,
+  );
+  const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
 
   const configure = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      const t = await rack.createTask<ReadConfig, ReadStateDetails, ReadType>({
+      createTask({
         key: task?.key,
         name: methods.value().name,
         type: READ_TYPE,
         config: readConfigZ.parse(methods.value().config),
       });
-      setTask(t);
     },
   });
 
