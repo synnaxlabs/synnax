@@ -10,7 +10,6 @@
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
@@ -47,7 +46,6 @@ const handleSelect: Ontology.HandleSelect = ({
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus } = props;
   const { resources } = selection;
-  const clusterKey = Cluster.useSelectActiveKey();
 
   const _handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -74,7 +72,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         });
         break;
       case "link": {
-        const url = `synnax://cluster/${clusterKey}/task/${selection.resources[0].id.key}`;
+        const url = `synnax://cluster/${client.key}/task/${selection.resources[0].id.key}`;
         void navigator.clipboard.writeText(url);
         break;
       }
