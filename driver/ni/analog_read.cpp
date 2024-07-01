@@ -278,7 +278,7 @@ int ni::AnalogReadSource::validateChannels() {
         // if not index, make sure channel type is valid
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if(channel_info.data_type != synnax::FLOAT32 || channel_info.data_type != synnax::FLOAT64) {
+        if(channel_info.data_type != synnax::FLOAT32 && channel_info.data_type != synnax::FLOAT64) {
             this->logError("Channel " + channel.name + " is not of type FLOAT32 or FLOAT64");
             return -1;
         }
