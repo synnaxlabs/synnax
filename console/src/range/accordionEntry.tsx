@@ -34,7 +34,7 @@ import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
 import type { StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
-import { add, remove, setActive } from "@/range/slice";
+import { add, remove, rename, setActive } from "@/range/slice";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -105,9 +105,7 @@ export const List = (): ReactElement => {
   };
 
   const handleRename = (key: string): void => {
-    if (key.length === 0) return;
-    // Tree.startRenaming(key);
-    return;
+    Text.edit(`text-${key}`);
   };
 
   const clusterKey = Cluster.useSelectActiveKey();
@@ -138,10 +136,12 @@ export const List = (): ReactElement => {
         case "rename":
           if (rng == null) return;
           return handleRename(rng.key);
-        // Tree.startRenaming(rng.key);
-        // return;
         case "link": {
           if (rng == null) return;
+          if (!rng.persisted) {
+            console.error("Cannot copy link for local range.");
+            return;
+          }
           const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
           void navigator.clipboard.writeText(toCopy);
           return;
@@ -209,6 +209,7 @@ export const List = (): ReactElement => {
 interface ListItemProps extends Core.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
+  const dispatch = useDispatch();
   const { entry } = props;
   const client = Synnax.use();
   const [labels, setLabels] = useState<label.Label[]>([]);
@@ -217,14 +218,15 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
-  // const dispatch = useDispatch();
-
-  const rang = useSelect(entry.key);
-  console.log(rang?.name, rang?.variant);
 
   const onRename = (name: string): void => {
     if (name.length === 0) return;
     console.log(entry.key, name);
+    dispatch(rename({ key: entry.key, name }));
+    if (!entry.persisted) return;
+    void (async () => {
+      await client?.ranges.rename(entry.key, name);
+    })();
   };
 
   return (
@@ -243,11 +245,13 @@ const ListItem = (props: ListItemProps): ReactElement => {
           </Text.Text>
         </Tooltip.Dialog>
       )}
-
-      <Text.WithIcon level="p" weight={500}>
-        {entry.name}
-      </Text.WithIcon>
-      <Text.Editable level="p" value={entry.name} onChange={onRename} />
+      <Text.MaybeEditable
+        id={`text-${entry.key}`}
+        level="p"
+        value={entry.name}
+        onChange={onRename}
+        allowDoubleClick={false}
+      />
       <Ranger.TimeRangeChip timeRange={entry.timeRange} />
       {labels.length > 0 && (
         <Align.Space
