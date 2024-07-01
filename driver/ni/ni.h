@@ -191,7 +191,7 @@ public:
         std::vector<std::uint8_t> digital_data;
         uint64_t t0; // initial timestamp
         uint64_t tf; // final timestamp
-        int32 samplesReadPerChannel;
+        int32 samples_read_per_channel;
     };
     TSQueue<DataPacket> data_queue;
     std::thread sample_thread;
@@ -199,9 +199,9 @@ public:
     /// @brief NI related resources
     TaskHandle task_handle = 0;
     ReaderConfig reader_config;
-    int numSamplesPerChannel = 0;
-    int bufferSize = 0;
-    uint64_t numChannels = 0;
+    int num_samples_per_channel = 0;
+    int buffer_size = 0;
+    uint64_t num_channels = 0;
     bool ok_state = true;
     
     /// @brief Synnax related resources
@@ -365,12 +365,12 @@ private:
 
     int check_ni_error(int32 error);
 
-    uint8_t *writeBuffer = nullptr;
-    int bufferSize = 0;
-    int numSamplesPerChannel = 0;
+    uint8_t *write_buffer = nullptr;
+    int buffer_size = 0;
+    int num_samples_per_channel = 0;
     TaskHandle task_handle = 0;
 
-    uint64_t numChannels = 0;
+    uint64_t num_channels = 0;
 
     json err_info;
 

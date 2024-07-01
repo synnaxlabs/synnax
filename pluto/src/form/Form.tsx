@@ -79,10 +79,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     setState(get<I>(path, { optional }));
     return bind({
       path,
-      onChange: (p) => {
-        console.log(path, p);
-        setState(p);
-      },
+      onChange: setState,
       listenToChildren: false,
     });
   }, [path, onChange, bind, get]);

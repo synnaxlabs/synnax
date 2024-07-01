@@ -55,7 +55,7 @@ int ni::DigitalReadSource::create_channels() {
                                                    "", DAQmx_Val_ChanPerLine));
             VLOG(1) << "Channel name: " << channel.name;
         }
-        this->numChannels++;
+        this->num_channels++;
         if (err < 0) {
             LOG(ERROR) << "[ni.reader] failed while configuring channel " << channel.
                     name;
@@ -69,7 +69,7 @@ int ni::DigitalReadSource::create_channels() {
 int ni::DigitalReadSource::configure_timing() {
     if (this->reader_config.timing_source == "none") {
         // if timing is not enabled, implement timing in software, reading one sample at a time
-        this->numSamplesPerChannel = 1;
+        this->num_samples_per_channel = 1;
     } else {
         if (this->check_ni_error(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
             this->reader_config.timing_source.c_str(),
@@ -82,11 +82,11 @@ int ni::DigitalReadSource::configure_timing() {
             this->ok_state = false;
             return -1;
         }
-        this->numSamplesPerChannel = std::floor(
+        this->num_samples_per_channel = std::floor(
             this->reader_config.sample_rate.value / this->reader_config.stream_rate.
             value);
     }
-    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    this->buffer_size = this->num_channels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
     return 0;
 }
@@ -96,7 +96,7 @@ void ni::DigitalReadSource::acquire_data() {
     while (this->breaker.running()) {
         int32 numBytesPerSamp;
         DataPacket data_packet;
-        data_packet.digital_data.resize(this->bufferSize);
+        data_packet.digital_data.resize(this->buffer_size);
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
         // sleep per sample rate
         auto samp_period = this->reader_config.sample_rate.period().chrono();
@@ -104,12 +104,12 @@ void ni::DigitalReadSource::acquire_data() {
         if (this->check_ni_error(
             ni::NiDAQmxInterface::ReadDigitalLines(
                 this->task_handle, // task handle
-                this->numSamplesPerChannel, // numSampsPerChan
+                this->num_samples_per_channel, // numSampsPerChan
                 -1, // timeout
                 DAQmx_Val_GroupByChannel, // dataLayout
                 data_packet.digital_data.data(),// readArray
                 data_packet.digital_data.size(), // arraySizeInSamps
-                &data_packet.samplesReadPerChannel, // sampsPerChanRead
+                &data_packet.samples_read_per_channel, // sampsPerChanRead
                 &numBytesPerSamp, // numBytesPerSamp
                 NULL))) {
             this->log_error(
@@ -123,7 +123,7 @@ void ni::DigitalReadSource::acquire_data() {
 
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
-    synnax::Frame f = synnax::Frame(numChannels);
+    synnax::Frame f = synnax::Frame(num_channels);
 
     // sleep per stream rate
     timer.wait(breaker);
@@ -133,24 +133,24 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
-    uint64_t incr = ((d.tf - d.t0) / this->numSamplesPerChannel);
+    uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
     // Construct and populate index channel
-    std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < d.samplesReadPerChannel; ++i)
-        time_index[i] = d.t0 + (std::uint64_t) (incr * i);
-
-    auto s = d.samplesReadPerChannel;
+    
+    auto s = d.samples_read_per_channel;
     // Construct and populate synnax frame
     uint64_t data_index = 0;
-    for (int i = 0; i < numChannels; i++) {
+    for (int i = 0; i < num_channels; i++) {
         if (this->reader_config.channels[i].channel_type == "index") {
-            f.add(this->reader_config.channels[i].channel_key,
-                  synnax::Series(time_index, synnax::TIMESTAMP));
+            auto t = synnax::Series(synnax::TIMESTAMP, this->num_samples_per_channel);
+            for (uint64_t i = 0; i < d.samples_read_per_channel; ++i)
+                t.write(d.t0 + i * incr);
+
+            f.add(this->reader_config.channels[i].channel_key, std::move(t));
             continue;
         }
         auto series = synnax::Series(synnax::UINT8,s);
         // copy data into vector
-        for (int j = 0; j < d.samplesReadPerChannel; j++) 
+        for (int j = 0; j < d.samples_read_per_channel; j++) 
             series.write((uint8_t) d.digital_data[data_index + j]);
 
         f.add(this->reader_config.channels[i].channel_key, std::move(series));

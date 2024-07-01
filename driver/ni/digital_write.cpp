@@ -143,7 +143,7 @@ int ni::DigitalWriteSink::init() {
                 this->task_handle, channel.name.c_str(), "",
                 DAQmx_Val_ChanPerLine));
         }
-        this->numChannels++;
+        this->num_channels++;
         if (err < 0) {
             this->log_error("failed to create channel " + channel.name);
             return -1;
@@ -151,11 +151,11 @@ int ni::DigitalWriteSink::init() {
     }
 
     // Configure buffer size and read resources
-    this->bufferSize = this->numChannels;
-    this->writeBuffer = new uint8_t[this->bufferSize];
+    this->buffer_size = this->num_channels;
+    this->write_buffer = new uint8_t[this->buffer_size];
     
-    for (int i = 0; i < this->bufferSize; i++) {
-        writeBuffer[i] = 0;
+    for (int i = 0; i < this->buffer_size; i++) {
+        write_buffer[i] = 0;
     }
     return 0;
 }
@@ -231,7 +231,7 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
         1, // auto start
         10.0, // timeout
         DAQmx_Val_GroupByChannel, // data layout
-        writeBuffer, // data
+        write_buffer, // data
         &samplesWritten, // samples written
         NULL))) {
         this->log_error("failed while writing digital data");
@@ -255,14 +255,14 @@ freighter::Error ni::DigitalWriteSink::format_data(synnax::Frame frame) {
         auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(),
                             this->writer_config.drive_cmd_channel_keys.end(), key);
         if (it != this->writer_config.drive_cmd_channel_keys.end()) {
-            // if so, now find which index it is in the vector (i.e. which channel it is in the writeBuffer)
+            // if so, now find which index it is in the vector (i.e. which channel it is in the write_buffer)
             cmd_channel_index = std::distance(
                 this->writer_config.drive_cmd_channel_keys.begin(),
                 it);
             // this corressponds to where in the order its NI channel was created
             // now we grab the level we'd like to write and put it into that location in the write_buffer
             auto series = frame.series->at(frame_index).uint8();
-            writeBuffer[cmd_channel_index] = series[0];
+            write_buffer[cmd_channel_index] = series[0];
             this->writer_config.modified_state_keys.push(
                 this->writer_config.drive_state_channel_keys[cmd_channel_index]);
             this->writer_config.modified_state_values.push(series[0]);
@@ -274,7 +274,7 @@ freighter::Error ni::DigitalWriteSink::format_data(synnax::Frame frame) {
 
 ni::DigitalWriteSink::~DigitalWriteSink() {
     this->clear_task();
-    if (this->writeBuffer) delete[] this->writeBuffer;
+    if (this->write_buffer) delete[] this->write_buffer;
 }
 
 void ni::DigitalWriteSink::clear_task() {

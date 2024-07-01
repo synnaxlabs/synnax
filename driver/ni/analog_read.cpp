@@ -152,12 +152,12 @@ int ni::AnalogReadSource::configure_timing() {
             return -1;
         }
     }
-    // we read data in chunks of numSamplesPerChannel such that we can send frames of data of size numSamplesPerChannel at the stream rate
+    // we read data in chunks of num_samples_per_channel such that we can send frames of data of size num_samples_per_channel at the stream rate
     // e.g. if we have 4 channels and we want to stream at 100Hz at a 1000hz sample rate
     // make a make a call to read 10 samples at 100hz
-    this->numSamplesPerChannel = std::floor(
+    this->num_samples_per_channel = std::floor(
         this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
-    this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
+    this->buffer_size = this->numAIChannels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
     return 0;
 }
@@ -165,16 +165,16 @@ int ni::AnalogReadSource::configure_timing() {
 void ni::AnalogReadSource::acquire_data() {
      while (this->breaker.running() && this->ok()) {
         DataPacket data_packet;
-        data_packet.analog_data.resize(this->bufferSize);
+        data_packet.analog_data.resize(this->buffer_size);
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
         if (this->check_ni_error(ni::NiDAQmxInterface::ReadAnalogF64(
             this->task_handle,
-            this->numSamplesPerChannel,
+            this->num_samples_per_channel,
             -1,
             DAQmx_Val_GroupByChannel,
             data_packet.analog_data.data(),
             data_packet.analog_data.size(),
-            &data_packet.samplesReadPerChannel,
+            &data_packet.samples_read_per_channel,
             NULL))) {
             this->log_error(
                 "failed while reading analog data for task " + this->reader_config.
@@ -187,7 +187,7 @@ void ni::AnalogReadSource::acquire_data() {
 
 std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
-    synnax::Frame f = synnax::Frame(numChannels);
+    auto f = synnax::Frame(num_channels);
 
     // sleep per streaming period
     // timer.wait(breaker);
@@ -198,19 +198,18 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
                                   "Failed to read data from queue"));
 
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
-    uint64_t incr = ((d.tf - d.t0) / this->numSamplesPerChannel);
+    uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
     // Construct and populate index channel
-    std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < d.samplesReadPerChannel; ++i)
-        time_index[i] = d.t0 + (std::uint64_t) (incr * i);
-
-    size_t s = d.samplesReadPerChannel;
+    
+    size_t s = d.samples_read_per_channel;
     // Construct and populate synnax frame
     size_t data_index = 0;
-    for (int ch = 0; ch < numChannels; ch++) {
+    for (int ch = 0; ch < num_channels; ch++) {
         if (this->reader_config.channels[ch].channel_type == "index") {
-            f.add(this->reader_config.channels[ch].channel_key,
-                  synnax::Series(time_index, synnax::TIMESTAMP));
+            auto t = synnax::Series(synnax::TIMESTAMP, d.samples_read_per_channel);
+            for (uint64_t i = 0; i < d.samples_read_per_channel; ++i)
+                t.write(d.t0 + i * incr);
+            f.add(this->reader_config.channels[ch].channel_key, std::move(t));
             continue;
         }
         auto series = synnax::Series(synnax::FLOAT32, s);
@@ -227,12 +226,11 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
 int ni::AnalogReadSource::create_channels() {
     auto channels = this->reader_config.channels;
     for (auto &channel: channels) {
-        this->numChannels++;
+        this->num_channels++;
         if (channel.channel_type == "index" || !channel.enabled || !channel.ni_channel) continue;
         this->numAIChannels++;
         this->check_ni_error(channel.ni_channel->create_ni_scale());
         this->check_ni_error(channel.ni_channel->create_ni_channel());
-        LOG(INFO) << "[ni.reader] created scale for " << channel.name;
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;

@@ -29,7 +29,7 @@ using json = nlohmann::json;
 TEST(read_tests, multiple_analog_channels) {
     // setup synnax test infrustructure
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    // create all the necessary channels in the synnax client
+    
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
@@ -48,12 +48,11 @@ TEST(read_tests, multiple_analog_channels) {
                                                   false);
     ASSERT_FALSE(dErr4) << dErr.message();
 
-    // Create NI readerconfig
     auto config = json{
         {"sample_rate", 100},
         {"stream_rate", 20},
         {"device_location", "Dev1"},
-        {"type", "ni_analog_read"}, //TODO: change to analog_read
+        {"type", "ni_analog_read"}, 
         {"test", true},
         {"device", ""}
     };
@@ -70,29 +69,25 @@ TEST(read_tests, multiple_analog_channels) {
     add_AI_channel_JSON(config, "a4", data3.key, 3, -10.0, 10.0, "Default",
                         scale_config);
 
-
-    // create synnax task (name, type, config)
     auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    // Now construct NI reader
     TaskHandle taskHandle;
     ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); // analog reader
+    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start();
 
     for (int i = 0; i < 2; i++) {
-        // test for 50 read cycles
         std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
         auto [frame, err] = reader.read(b);
         std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
-        LOG(INFO) << frame << "\n";
+        VLOG(1) << frame << "\n";
     }
     reader.stop();
 }
@@ -106,10 +101,8 @@ TEST(read_tests, multiple_analog_channels) {
 //                          LINEAR                               //
 ///////////////////////////////////////////////////////////////////
 TEST(read_tests, analog_linear_scaling) {
-    // create synnax client
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    // create all the necessary channels in the synnax client
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
@@ -117,7 +110,6 @@ TEST(read_tests, analog_linear_scaling) {
                                                 false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    // Create NI readerconfig
     auto config = json{
         {"sample_rate", 100},
         {"stream_rate", 20},
@@ -135,12 +127,10 @@ TEST(read_tests, analog_linear_scaling) {
     };
     add_AI_channel_JSON(config, "a1", data.key, 0, 0, 10.0, "Default", scale_config);
 
-    // create synnax task
     auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    // Now construct NI reader
     TaskHandle taskHandle;
     ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
@@ -155,7 +145,7 @@ TEST(read_tests, analog_linear_scaling) {
     auto [frame, err] = reader.read(b);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
-    LOG(INFO) << frame;
+    VLOG(1) << frame;
     reader.stop();
 }
 
@@ -163,10 +153,8 @@ TEST(read_tests, analog_linear_scaling) {
 //                          MAP                                  //
 ///////////////////////////////////////////////////////////////////
 TEST(read_tests, analog_map_scaling) {
-    // create synnax client
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    // create all the necessary channels in the synnax client
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
@@ -174,7 +162,6 @@ TEST(read_tests, analog_map_scaling) {
                                                 false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    // Create NI readerconfig
     auto config = json{
         {"sample_rate", 100},
         {"stream_rate", 20},
@@ -195,12 +182,10 @@ TEST(read_tests, analog_map_scaling) {
 
     add_AI_channel_JSON(config, "a1", data.key, 0, 0, 100, "Default", scale_config);
 
-    // create synnax task
     auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    // Now construct NI reader
     TaskHandle taskHandle;
     ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
@@ -213,7 +198,7 @@ TEST(read_tests, analog_map_scaling) {
     auto [frame, err] = reader.read(b);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
-    LOG(INFO) << frame;
+    VLOG(1) << frame;
     reader.stop();
 }
 
@@ -229,7 +214,6 @@ TEST(read_tests, analog_map_scaling) {
 void analog_channel_helper(json config, json scale_config, json channel_config) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    // create all the necessary channels in the synnax client
     auto [time, tErr] = client->channels.create(
         "idx",
         synnax::TIMESTAMP,
@@ -253,7 +237,6 @@ void analog_channel_helper(json config, json scale_config, json channel_config) 
     config["channels"] = json::array();
     config["channels"].push_back(channel_config);
 
-    // create synnax task
     auto task = synnax::Task(
         "my_task",
         "ni_analog_read",
@@ -262,14 +245,13 @@ void analog_channel_helper(json config, json scale_config, json channel_config) 
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    // Now construct NI reader
     TaskHandle taskHandle;
     ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
     auto reader = ni::AnalogReadSource(
         taskHandle,
         mockCtx,
-        task); // analog reader
+        task); 
 
     auto b = breaker::Breaker(
         breaker::Config{
@@ -286,8 +268,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config) 
     auto [frame, err] = reader.read(b);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
-    //iterate through each series and print the data
-    LOG(INFO) << frame << "\n";
+    VLOG(1) << frame << "\n";
     reader.stop();
 }
 
@@ -323,7 +304,6 @@ TEST(read_tests, one_analog_voltage_channel) {
 
 ///@brief Temperature Built in sensor : NI USB-6289
 TEST(read_tests, one_analog_temp_built_in_sensor_channel) {
-    // Create NI readerconfig json
     auto config = json{
         {"sample_rate", 5},
         {"stream_rate", 1},
@@ -370,8 +350,8 @@ TEST(read_tests, one_torque_linear_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1}, 
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "VoltsPerVolt"},
@@ -406,8 +386,8 @@ TEST(read_tests, one_torque_table_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1}, 
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "NewtonMeters"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
@@ -446,8 +426,8 @@ TEST(read_tests, one_torque_polynomial_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1},
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "NewtonMeters"},
         {"forward_coeffs", {1, 3, 2}},
@@ -482,7 +462,7 @@ TEST(read_tests, one_velocity_channel) {
         {"units", "MetersPerSecond"},
         {"enabled", true},
         {"key", "key"},
-        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"terminal_config", "Default"}, 
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0},
         {"sensitivity", 50},
@@ -518,8 +498,8 @@ TEST(read_tests, one_force_polynomial_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1}, 
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Newtons"},
         {"forward_coeffs", {1, 3, 2}},
@@ -553,8 +533,8 @@ TEST(read_tests, one_force_table_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1}, 
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Newtons"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
@@ -592,8 +572,8 @@ TEST(read_tests, one_force_linear_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1}, 
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "VoltsPerVolt"},
@@ -626,7 +606,7 @@ TEST(read_tests, one_force_iepe_channel) {
         {"units", "Newtons"},
         {"enabled", true},
         {"key", "key"},
-        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"terminal_config", "Default"},
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0},
         {"sensitivity", 50},
@@ -662,8 +642,8 @@ TEST(read_tests, one_pressure_polynomial_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1}, 
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Pascals"},
         {"forward_coeffs", {1, 3, 2}},
@@ -698,8 +678,8 @@ TEST(read_tests, one_pressure_table_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1}, 
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Pascals"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
@@ -738,8 +718,8 @@ TEST(read_tests, one_pressure_linear_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1}, 
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "Volts"},
@@ -841,7 +821,7 @@ TEST(read_tests, one_acceleration_channel) {
         {"units", "AccelUnit_g"},
         {"enabled", true},
         {"key", "key"},
-        {"terminal_config", "Default"}, // TODO try pseudo differential
+        {"terminal_config", "Default"},
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0},
         {"sensitivity", 50},
@@ -998,8 +978,8 @@ TEST(read_tests, one_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, // same as below
-        {"nominal_bridge_resistance", 1}, // TODO: figure out what a relistic val is
+        {"voltage_excit_val", 2.5}, 
+        {"nominal_bridge_resistance", 1}, 
     };
     auto scale_config = json{
         {"type", "none"}

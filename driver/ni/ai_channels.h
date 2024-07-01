@@ -452,7 +452,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class RTD final : public Analog {
 public:
-    static int32_t getRTDType(std::string type) {
+    static int32_t get_rtd_type(std::string type) {
         if (type == "Pt3750") return DAQmx_Val_Pt3750;
         if (type == "PT3851") return DAQmx_Val_Pt3851;
         if (type == "PT3911") return DAQmx_Val_Pt3911;
@@ -466,7 +466,7 @@ public:
     explicit RTD(config::Parser &parser, TaskHandle task_handle,
                  const std::string &name)
         : Analog(parser, task_handle, name),
-          rtdType(getRTDType(parser.required<std::string>("rtd_type"))),
+          rtd_type(get_rtd_type(parser.required<std::string>("rtd_type"))),
           resistance_config(
               get_resistance_config(parser.required<std::string>("resistance_config"))),
           excitation_config(parser),
@@ -481,7 +481,7 @@ public:
             this->min_val,
             this->max_val,
             this->units,
-            this->rtdType,
+            this->rtd_type,
             this->resistance_config,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
@@ -489,7 +489,7 @@ public:
         );
     }
 private:
-    int32_t rtdType;
+    int32_t rtd_type;
     int32_t resistance_config;
     CurrentExcitationConfig excitation_config;
     double r0;
@@ -501,7 +501,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class Thermocouple final : public Analog {
 public:
-    int32_t getType(const std::string &type, config::Parser &parser) {
+    int32_t get_type(const std::string &type, config::Parser &parser) {
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
         if (type == "N") return DAQmx_Val_N_Type_TC;
@@ -516,7 +516,7 @@ public:
         return DAQmx_Val_J_Type_TC;
     }
 
-    int32_t getCJCSource(const std::string &source, config::Parser &parser) {
+    int32_t get_cjc_source(const std::string &source, config::Parser &parser) {
         if (source == "BuiltIn") return DAQmx_Val_BuiltIn;
         if (source == "ConstVal") return DAQmx_Val_ConstVal;
         if (source == "Chan") return DAQmx_Val_Chan;
@@ -529,10 +529,10 @@ public:
     explicit Thermocouple(config::Parser &parser, TaskHandle task_handle,
                           const std::string &name, std::map<std::int32_t, std::string> &cjc_sources)
         : Analog(parser, task_handle, name),
-          thermocoupleType(getType(parser.required<std::string>("thermocouple_type"),
+          thermocouple_type(get_type(parser.required<std::string>("thermocouple_type"),
                                    parser)),
-          cjcSource(getCJCSource(parser.required<std::string>("cjc_source"), parser)),
-          cjcVal(parser.optional<double>("cjc_val",0)) {
+          cjc_source(get_cjc_source(parser.required<std::string>("cjc_source"), parser)),
+          cjc_val(parser.optional<double>("cjc_val",0)) {
         LOG(INFO) << "Thermocouple created with name: " << name;
 
         auto source = parser.required<std::int32_t>("cjc_port"); 
@@ -551,19 +551,17 @@ public:
             this->min_val,
             this->max_val,
             this->units,
-            this->thermocoupleType,
-            this->cjcSource,
-            this->cjcVal,
+            this->thermocouple_type,
+            this->cjc_source,
+            this->cjc_val,
             this->cjcPort.c_str()
         );
     }
 private:
-    int32_t thermocoupleType;
-    int32_t cjcSource;
+    int32_t thermocouple_type;
+    int32_t cjc_source;
     std::string cjcPort;
-    double cjcVal;
-    std::string cjcChannel;
-
+    double cjc_val;
 };
 
 class TemperatureBuiltInSensor final : public Analog {
@@ -848,7 +846,7 @@ public:
               get_strain_config(parser.required<std::string>("strain_config"))),
           excitation_config(parser),
           gage_factor(parser.required<double>("gage_factor")),
-          initialBridgeVoltage(parser.required<double>("initial_bridge_voltage")),
+          initial_bridge_voltage(parser.required<double>("initial_bridge_voltage")),
           nominal_gage_resistance(parser.required<double>("nominal_gage_resistance")),
           poisson_ratio(parser.required<double>("poisson_ratio")),
           lead_wire_resistance(parser.required<double>("lead_wire_resistance")) {
@@ -866,7 +864,7 @@ public:
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
             this->gage_factor,
-            this->initialBridgeVoltage,
+            this->initial_bridge_voltage,
             this->nominal_gage_resistance,
             this->poisson_ratio,
             this->lead_wire_resistance,
@@ -877,7 +875,7 @@ private:
     int32_t strain_config;
     VoltageExcitationConfig excitation_config;
     double gage_factor;
-    double initialBridgeVoltage;
+    double initial_bridge_voltage;
     double nominal_gage_resistance;
     double poisson_ratio;
     double lead_wire_resistance;
