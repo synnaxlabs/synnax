@@ -680,6 +680,8 @@ void ni::Source::clearTask() {
 
 ni::Source::~Source() {
     this->clearTask();
+    if(this->sample_thread.joinable()) this->sample_thread.join();
+    LOG(INFO) << "[NI Reader] joined sample thread";
 }
 
 int ni::Source::checkNIError(int32 error) {
@@ -723,13 +725,18 @@ void ni::Source::logError(std::string err_msg) {
 }
 
 void ni::Source::stoppedWithErr(const freighter::Error &err) {
-    this->stop();
     this->logError("stopped with error: " + err.message());
+    json j = json(err.message());
     this->ctx->setState({
         .task = this->reader_config.task_key,
         .variant = "error",
-        .details = err.message()
+        .details = {
+            {"running", false},
+            {"message", j}
+        }
     });
+    this->stop();
+    this->clearTask();
 }
 
 void ni::Source::jsonifyError(std::string s) {

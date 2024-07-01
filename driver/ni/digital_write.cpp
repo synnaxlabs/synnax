@@ -331,10 +331,14 @@ void ni::DigitalWriteSink::logError(std::string err_msg) {
 void ni::DigitalWriteSink::stoppedWithErr(const freighter::Error &err) {
     this->stop();
     this->logError("stopped with error: " + err.message());
+    json j = json(err.message());
     this->ctx->setState({
         .task = this->task.key,
         .variant = "error",
-        .details = err.message()
+        .details = {
+            {"running", false},
+            {"message", j}
+        }
     });
 }
 

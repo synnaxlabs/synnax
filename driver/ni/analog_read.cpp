@@ -188,7 +188,7 @@ int ni::AnalogReadSource::configureTiming() {
 }
 
 void ni::AnalogReadSource::acquireData() {
-     while (this->breaker.running()) {
+     while (this->breaker.running() && this->ok()) {
         DataPacket data_packet;
         data_packet.analog_data.resize(this->bufferSize);
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
@@ -219,7 +219,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     auto [d, err] = data_queue.dequeue();
     if (!err)
         return std::make_pair(std::move(f), freighter::Error(
-                                  driver::TEMPORARY_HARDWARE_ERROR,
+                                  driver::CRITICAL_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
 
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
