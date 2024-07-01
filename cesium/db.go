@@ -103,11 +103,13 @@ func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
+
+	c := errors.NewCatcher(errors.WithAggregation())
+	// Shut down before locking mutex to allow existing goroutines to exit.
+	c.Exec(db.shutdown.Close)
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	c := errors.NewCatcher(errors.WithAggregation())
 	db.closeControlDigests()
-	c.Exec(db.shutdown.Close)
 	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
