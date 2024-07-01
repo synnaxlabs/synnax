@@ -125,14 +125,14 @@ struct PolynomialConfig {
         auto pu = parser.required<std::string>("physical_units");
 
         if (ni::UNITS_MAP.find(eu) == ni::UNITS_MAP.end()) {
-            LOG(ERROR) << "Invalid units: " << eu << ". Defaulting to Volts.";
+            LOG(WARNING) << "Invalid units: " << eu << ". Defaulting to Volts.";
             electrical_units = DAQmx_Val_Volts;
         } else {
             electrical_units = ni::UNITS_MAP.at(eu);
         }
 
         if (ni::UNITS_MAP.find(pu) == ni::UNITS_MAP.end()) {
-            LOG(ERROR) << "Invalid units: " << pu << ". Defaulting to Volts.";
+            LOG(WARNING) << "Invalid units: " << pu << ". Defaulting to Volts.";
             physical_units = DAQmx_Val_Volts;
         } else {
             physical_units = ni::UNITS_MAP.at(pu);
