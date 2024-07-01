@@ -20,7 +20,7 @@
 
 using json = nlohmann::json;
 
-void ni::DigitalReadSource::parseChannels(config::Parser &parser) {
+void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
     VLOG(1) << "[ni.reader] Parsing Channels for task " << this->reader_config.
             task_name;
     // now parse the channels
@@ -45,12 +45,12 @@ void ni::DigitalReadSource::parseChannels(config::Parser &parser) {
                       reader_config.task_name;
 }
 
-int ni::DigitalReadSource::createChannels() {
+int ni::DigitalReadSource::create_channels() {
     int err = 0;
     auto channels = this->reader_config.channels;
     for (auto &channel: channels) {
         if (channel.channel_type != "index") {
-            err = this->checkNIError(
+            err = this->check_ni_error(
                 ni::NiDAQmxInterface::CreateDIChan(task_handle, channel.name.c_str(),
                                                    "", DAQmx_Val_ChanPerLine));
             VLOG(1) << "Channel name: " << channel.name;
@@ -66,12 +66,12 @@ int ni::DigitalReadSource::createChannels() {
     return 0;
 }
 
-int ni::DigitalReadSource::configureTiming() {
+int ni::DigitalReadSource::configure_timing() {
     if (this->reader_config.timing_source == "none") {
         // if timing is not enabled, implement timing in software, reading one sample at a time
         this->numSamplesPerChannel = 1;
     } else {
-        if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+        if (this->check_ni_error(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
             this->reader_config.timing_source.c_str(),
             this->reader_config.sample_rate.value,
             DAQmx_Val_Rising,
@@ -92,7 +92,7 @@ int ni::DigitalReadSource::configureTiming() {
 }
 
 
-void ni::DigitalReadSource::acquireData() {
+void ni::DigitalReadSource::acquire_dataa() {
     while (this->breaker.running()) {
         int32 numBytesPerSamp;
         DataPacket data_packet;
@@ -101,7 +101,7 @@ void ni::DigitalReadSource::acquireData() {
         // sleep per sample rate
         auto samp_period = this->reader_config.sample_rate.period().chrono();
         std::this_thread::sleep_for(samp_period);
-        if (this->checkNIError(
+        if (this->check_ni_error(
             ni::NiDAQmxInterface::ReadDigitalLines(
                 this->task_handle, // task handle
                 this->numSamplesPerChannel, // numSampsPerChan
@@ -112,7 +112,7 @@ void ni::DigitalReadSource::acquireData() {
                 &data_packet.samplesReadPerChannel, // sampsPerChanRead
                 &numBytesPerSamp, // numBytesPerSamp
                 NULL))) {
-            this->logError(
+            this->log_error(
                 "failed while reading digital data for task " + this->reader_config.
                 task_name);
         }
@@ -159,7 +159,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
-int ni::DigitalReadSource::validateChannels() {
+int ni::DigitalReadSource::validate_channels() {
     LOG(INFO) << "[NI Reader] Validating channels for task " << this->reader_config.
             task_name;
     for (auto &channel: this->reader_config.channels) {

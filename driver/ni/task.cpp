@@ -47,7 +47,7 @@ void ni::ScannerTask::stop() {
 void ni::ScannerTask::exec(task::Command &cmd) {
     if (cmd.type == "scan") {
         scanner.scan();
-        scanner.createDevices();
+        scanner.create_devices();
         if (!scanner.ok()) {
             ctx->setState({
                 .task = task.key,
@@ -56,7 +56,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
             });
             LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
         } else {
-            auto devices = scanner.getDevices(); // TODO remove and dont send in details
+            auto devices = scanner.get_devices(); // TODO remove and dont send in details
             ctx->setState({
                 .task = task.key,
                 .variant = "success",
@@ -269,8 +269,8 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     auto daq_writer = std::make_shared<ni::DigitalWriteSink>(task_handle, ctx, task);
 
     // construct writer config
-    std::vector<synnax::ChannelKey> cmd_keys = daq_writer->getCmdChannelKeys();
-    std::vector<synnax::ChannelKey> state_keys = daq_writer->getStateChannelKeys();
+    std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys();
+    std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys();
 
     // create a writer config to write state channels
     auto writer_config = synnax::WriterConfig{

@@ -89,13 +89,13 @@ void ni::Scanner::scan() {
                this->resources_handle,
                &resource
            ) == NISysCfg_OK) {
-        auto device = getDeviceProperties(resource);
+        auto device = get_device_properties(resource);
         devices["devices"].push_back(device);
     }
 }
 
 
-json ni::Scanner::getDeviceProperties(NISysCfgResourceHandle resource) {
+json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     json device;
 
     char propertyValue[1024] = "";
@@ -158,7 +158,7 @@ json ni::Scanner::getDeviceProperties(NISysCfgResourceHandle resource) {
     return device;
 }
 
-void ni::Scanner::createDevices() {
+void ni::Scanner::create_devices() {
     for (auto &device: devices["devices"]) {
         // first  try to rereive the device and if found, do not create a new device, simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(
@@ -191,6 +191,6 @@ bool ni::Scanner::ok() {
     return ok_state;
 }
 
-json ni::Scanner::getDevices() {
+json ni::Scanner::get_devices() {
     return devices;
 }

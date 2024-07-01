@@ -483,14 +483,14 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
 // Also verify data type of channel
-void ni::Source::getIndexKeys() {
+void ni::Source::get_index_keys() {
     std::set<std::uint32_t> index_keys;
     //iterate through channels in reader config
     for (auto &channel: this->reader_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
         if (err) {
-            this->logError(
+            this->log_error(
                 "failed to retrieve channel " + std::to_string(channel.channel_key));
             return;
         } else {
@@ -502,7 +502,7 @@ void ni::Source::getIndexKeys() {
         auto index_key = *it;
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
         if (err != freighter::NIL) {
-            this->logError("failed to retrieve channel " + std::to_string(index_key));
+            this->log_error("failed to retrieve channel " + std::to_string(index_key));
             return;
         } else {
             ni::ChannelConfig index_channel;
@@ -522,7 +522,7 @@ ni::Source::Source(
     const synnax::Task task) : task_handle(task_handle), ctx(ctx), task(task) {
 }
 
-void ni::Source::parseConfig(config::Parser &parser) {
+void ni::Source::parse_config(config::Parser &parser) {
     // Get Acquisition Rate and Stream Rates
     this->reader_config.sample_rate.value = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate.value = parser.required<uint64_t>("stream_rate");
@@ -536,13 +536,13 @@ void ni::Source::parseConfig(config::Parser &parser) {
         auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
             this->reader_config.device_key);
         if (err != freighter::NIL) {
-            this->logError(
+            this->log_error(
                 "failed to retrieve device " + this->reader_config.device_name);
             return;
         }
         this->reader_config.device_name = dev.location;
     }
-    this->parseChannels(parser);
+    this->parse_channels(parser);
 }
 
 int ni::Source::init() {
@@ -551,12 +551,12 @@ int ni::Source::init() {
     this->reader_config.task_name = this->task.name;
     this->reader_config.task_key = this->task.key;
     // Parse configuration and make sure it is valid
-    this->parseConfig(config_parser);
+    this->parse_config(config_parser);
     if (!config_parser.ok()) {
         json error_json = config_parser.error_json();
         error_json["running"] = false;
         // Log error
-        this->logError(
+        this->log_error(
             "failed to parse configuration for " + this->reader_config.task_name +
             " Parser Error: " +
             config_parser.error_json().dump());
@@ -567,8 +567,8 @@ int ni::Source::init() {
         });
         return -1;
     }
-    this->getIndexKeys();
-    this->validateChannels();
+    this->get_index_keys();
+    this->validate_channels();
     // Create breaker
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -577,15 +577,15 @@ int ni::Source::init() {
         .scale = 1.2,
     };
     this->breaker = breaker::Breaker(breaker_config);
-    int err = this->createChannels();
+    int err = this->create_channels();
     if (err) {
-        this->logError(
+        this->log_error(
             "failed to create channels for " + this->reader_config.task_name);
         return -1;
     }
     // Configure buffer size and read resources
     if (this->reader_config.sample_rate < this->reader_config.stream_rate) {
-        this->logError(
+        this->log_error(
             "Failed while configuring timing for NI hardware for task " + this->
             reader_config.task_name);
         this->err_info["error type"] = "Configuration Error";
@@ -599,8 +599,8 @@ int ni::Source::init() {
         });
         return -1;
     }
-    if (this->configureTiming())
-        this->logError(
+    if (this->configure_timing())
+        this->log_error(
             "[NI Reader] Failed while configuring timing for NI hardware for task " +
             this->reader_config.task_name);
 
@@ -609,15 +609,15 @@ int ni::Source::init() {
 
 freighter::Error  ni::Source::cycle(){
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
-    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
-        this->logError(
+    if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
+        this->log_error(
             "failed while starting reader for task " + this->reader_config.task_name +
             " requires reconfigure");
-        // this->clearTask();
+        // this->clear_task();
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
-    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
-        this->logError(
+    if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
+        this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
@@ -627,14 +627,14 @@ freighter::Error  ni::Source::cycle(){
 freighter::Error ni::Source::start() {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
-    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
-        this->logError(
+    if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
+        this->log_error(
             "failed while starting reader for task " + this->reader_config.task_name +
             " requires reconfigure");
-        this->clearTask();
+        this->clear_task();
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
-    this->sample_thread = std::thread(&ni::Source::acquireData, this);
+    this->sample_thread = std::thread(&ni::Source::acquire_data, this);
     ctx->setState({
         .task = task.key,
         .variant = "success",
@@ -650,8 +650,8 @@ freighter::Error ni::Source::stop() {
     if (!this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.stop();
     if (this->sample_thread.joinable()) this->sample_thread.join();
-    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
-        this->logError(
+    if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
+        this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
@@ -670,28 +670,28 @@ freighter::Error ni::Source::stop() {
 }
 
 
-void ni::Source::clearTask() {
-    if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))) {
-        this->logError(
+void ni::Source::clear_task() {
+    if (this->check_ni_error(ni::NiDAQmxInterface::ClearTask(this->task_handle))) {
+        this->log_error(
             "failed while clearing reader for task " + this->reader_config.task_name);
     }
 }
 
 
 ni::Source::~Source() {
-    this->clearTask();
+    this->clear_task();
     if(this->sample_thread.joinable()) this->sample_thread.join();
     LOG(INFO) << "[NI Reader] joined sample thread";
 }
 
-int ni::Source::checkNIError(int32 error) {
+int ni::Source::check_ni_error(int32 error) {
     if (error < 0) {
         char errBuff[4096] = {'\0'};
 
         ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 4096);
 
         std::string s(errBuff);
-        jsonifyError(errBuff);
+        jsonify_error(errBuff);
 
         this->ctx->setState({
             .task = this->task.key,
@@ -718,14 +718,14 @@ std::vector<synnax::ChannelKey> ni::Source::getChannelKeys() {
     return keys;
 }
 
-void ni::Source::logError(std::string err_msg) {
+void ni::Source::log_error(std::string err_msg) {
     LOG(ERROR) << "[NI Reader] " << err_msg;
     this->ok_state = false;
     return;
 }
 
 void ni::Source::stoppedWithErr(const freighter::Error &err) {
-    this->logError("stopped with error: " + err.message());
+    this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
     this->ctx->setState({
         .task = this->reader_config.task_key,
@@ -736,10 +736,10 @@ void ni::Source::stoppedWithErr(const freighter::Error &err) {
         }
     });
     this->stop();
-    this->clearTask();
+    this->clear_task();
 }
 
-void ni::Source::jsonifyError(std::string s) {
+void ni::Source::jsonify_error(std::string s) {
     // TODO get rid of the fields outside of the errors array
     this->err_info["running"] = false;
 

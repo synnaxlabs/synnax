@@ -126,6 +126,9 @@ struct ReaderConfig {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
+
+/// @brief an interface for a source that abstracts the common pattern of configuring and acquiring data
+/// from a National Instruments device. Serves as base class for special purpose readers.
 class Source : public pipeline::Source {
 public:
     explicit Source(TaskHandle task_handle,
@@ -136,43 +139,52 @@ public:
 
     ~Source();
 
-    void clearTask();
 
-    int checkNIError(int32 error);
+    /// @brief performs type checking for synnax channels
+    virtual int validate_channels() = 0;
 
-    void logError(std::string err_msg);
+    /// @brief quickly starts and stops task to check for immediate errors
+    freighter::Error cycle();
 
-    void jsonifyError(std::string);
 
+    /// @brief wrapper which goes around any NI function calls and checks for errors
+    /// @param error the error code returned by the NI function
+    int check_ni_error(int32 error);
+
+    /// @brief formats NI error into parseable format for console display
+    void jsonify_error(std::string);
+
+
+    void log_error(std::string err_msg);
+    
     std::vector<synnax::ChannelKey> getChannelKeys();
 
-    virtual void parseConfig(config::Parser &parser);
+    virtual void parse_config(config::Parser &parser);
 
     virtual freighter::Error start();
 
     virtual freighter::Error stop();
 
+    void clear_task();
+    
     virtual void stoppedWithErr(const freighter::Error &err) override;
 
     virtual bool ok();
 
-    virtual void getIndexKeys();
+    virtual void get_index_keys();
 
-    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) =
-    0;
+    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) =0;
 
-    virtual void parseChannels(config::Parser &parser) = 0;
+    virtual void parse_channels(config::Parser &parser) = 0;
 
-    virtual int configureTiming() = 0;
+    virtual int configure_timing() = 0;
 
-    virtual void acquireData() = 0;
+    virtual void acquire_data() = 0;
 
-    virtual int createChannels() = 0;
-
-    virtual int validateChannels() = 0;
-
-    freighter::Error cycle();
-
+    virtual int create_channels() = 0;
+    
+    
+    /// @brief shared resources between daq sampling thread and acquisition thread
     struct DataPacket {
         // void *data; // actual data
         std::vector<double> analog_data;
@@ -181,26 +193,25 @@ public:
         uint64_t tf; // final timestamp
         int32 samplesReadPerChannel;
     };
-
     TSQueue<DataPacket> data_queue;
+    std::thread sample_thread;
 
+    /// @brief NI related resources
     TaskHandle task_handle = 0;
     ReaderConfig reader_config;
     int numSamplesPerChannel = 0;
     int bufferSize = 0;
-
+    uint64_t numChannels = 0;
     bool ok_state = true;
+    
+    /// @brief Synnax related resources
     json err_info;
     std::shared_ptr<task::Context> ctx;
     breaker::Breaker breaker;
-    uint64_t numChannels = 0;
-    std::thread sample_thread;
     synnax::Task task;
     loop::Timer timer;
-    uint32_t buffered_frames = 0;
-    uint64_t start_time = 0;
-    uint64_t next_start_time = 0;
-    // maps ni channel name to path
+
+    /// @brief maps ni channel name to path in task configuration json
     std::map<std::string, std::string> channel_map;
 
 };
@@ -219,21 +230,21 @@ public:
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
-    void acquireData() override;
+    void acquire_data() override;
 
-    int configureTiming() override;
+    int configure_timing() override;
 
-    int createChannels() override;
+    int create_channels() override;
 
-    std::shared_ptr<ni::Analog> parseChannel(config::Parser &parser,
+    std::shared_ptr<ni::Analog> parse_channel(config::Parser &parser,
                                              std::string channel_type,
                                              std::string channel_name);
 
-    void parseChannels(config::Parser &parser) override;
+    void parse_channels(config::Parser &parser) override;
 
-    int createChannel(ChannelConfig &channel);
+    int create_channel(ChannelConfig &channel);
 
-    int validateChannels() override;
+    int validate_channels() override;
 
     // NI related resources
     uint64_t numAIChannels = 0;
@@ -253,15 +264,15 @@ public:
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
-    void acquireData() override;
+    void acquire_data() override;
 
-    int configureTiming() override;
+    int configure_timing() override;
 
-    int validateChannels() override;
+    int validate_channels() override;
 
-    int createChannels() override;
+    int create_channels() override;
 
-    void parseChannels(config::Parser &parser) override;
+    void parse_channels(config::Parser &parser) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -277,9 +288,9 @@ public:
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker);
 
-    synnax::Frame getDriveState();
+    synnax::Frame get_drive_state();
 
-    void updateState(std::queue<synnax::ChannelKey> &modified_state_keys,
+    void update_state(std::queue<synnax::ChannelKey> &modified_state_keys,
                      std::queue<std::uint8_t> &modified_state_values);
 
 private:
@@ -316,6 +327,8 @@ public:
                               const std::shared_ptr<task::Context> &ctx,
                               const synnax::Task task);
 
+    ~DigitalWriteSink();
+
     int init();
 
     freighter::Error write(synnax::Frame frame) override;
@@ -326,32 +339,30 @@ public:
 
     freighter::Error cycle();
     
-    std::vector<synnax::ChannelKey> getCmdChannelKeys();
+    std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 
-    std::vector<synnax::ChannelKey> getStateChannelKeys();
+    std::vector<synnax::ChannelKey> get_state_channel_keys();
 
-    void getIndexKeys();
+    void get_index_keys();
 
     bool ok();
 
-    void jsonifyError(std::string);
-
-    ~DigitalWriteSink();
+    void jsonify_error(std::string);
 
     void stoppedWithErr(const freighter::Error &err) override;
 
-    void logError(std::string err_msg);
+    void log_error(std::string err_msg);
 
-    void clearTask();
+    void clear_task();
 
     std::shared_ptr<ni::StateSource> writer_state_source;
 
 private:
-    freighter::Error formatData(synnax::Frame frame);
+    freighter::Error format_data(synnax::Frame frame);
 
-    void parseConfig(config::Parser &parser);
+    void parse_config(config::Parser &parser);
 
-    int checkNIError(int32 error);
+    int check_ni_error(int32 error);
 
     uint8_t *writeBuffer = nullptr;
     int bufferSize = 0;
@@ -387,12 +398,12 @@ public:
 
     bool ok();
 
-    json getDevices();
+    json get_devices();
 
-    void createDevices();
+    void create_devices();
 
 private:
-    json getDeviceProperties(NISysCfgResourceHandle resource);
+    json get_device_properties(NISysCfgResourceHandle resource);
 
 
     json devices;

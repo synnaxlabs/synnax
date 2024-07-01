@@ -33,7 +33,7 @@ TEST(NiScannerTests, test_valid_scan) {
     scanner.scan();
 
     if (scanner.ok()) {
-        nlohmann::json devices = scanner.getDevices();
+        nlohmann::json devices = scanner.get_devices();
         // print size of devices
         std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
         std::cout << devices.dump(4) << std::endl;
@@ -44,7 +44,7 @@ TEST(NiScannerTests, test_valid_scan) {
     // scan a second time
     scanner.scan();
     if (scanner.ok()) {
-        nlohmann::json devices = scanner.getDevices();
+        nlohmann::json devices = scanner.get_devices();
         // print size of devices
         std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
         std::cout << devices.dump(4) << std::endl;
