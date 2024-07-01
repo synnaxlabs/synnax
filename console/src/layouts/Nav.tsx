@@ -170,7 +170,7 @@ interface MemoryUsage {
   total: Size;
 }
 
-const MemoryBadge = (): ReactElement => {
+const MemoryBadge = (): ReactElement | null => {
   const [memory, setMemory] = useState<MemoryUsage>({
     used: Size.ZERO,
     total: Size.ZERO,
@@ -188,13 +188,15 @@ const MemoryBadge = (): ReactElement => {
     }, 1000);
     return (): void => clearInterval(interval);
   });
-
+  if (displayMemory === false) return null;
   return (
-    <Text.Text level="p" style={{ padding: "0 2rem" }}>
-      {displayMemory
-        ? `${memory.used.truncate(Size.MEGABYTE).toString()} / ${memory.total.truncate(Size.MEGABYTE).toString()}`
-        : "N/A"}
-    </Text.Text>
+    <>
+      <Divider.Divider />
+      <Text.Text level="p" style={{ padding: "0 2rem" }}>
+        {memory.used.truncate(Size.MEGABYTE).toString()} /
+        {memory.total.truncate(Size.MEGABYTE).toString()}
+      </Text.Text>
+    </>
   );
 };
 
@@ -209,9 +211,6 @@ export const NavBottom = (): ReactElement => {
         <Vis.NavControls />
       </Nav.Bar.Start>
       <Nav.Bar.End className="console-main-nav-bottom__end" empty>
-        <Divider.Divider />
-        <Memory.Usage />
-        <Divider.Divider />
         <MemoryBadge />
         <Divider.Divider />
         <Version.Badge />

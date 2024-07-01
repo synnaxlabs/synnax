@@ -83,11 +83,7 @@ interface InternalProps {
   initialValues: DigitalWritePayload;
 }
 
-const Internal = ({
-  task: initialTask,
-  initialValues,
-  layoutKey,
-}: InternalProps): ReactElement => {
+const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -97,7 +93,6 @@ const Internal = ({
     }),
   });
 
-  const [task, setTask] = useState(initialTask);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
@@ -235,13 +230,12 @@ const Internal = ({
       });
       methods.set("config", config);
 
-      const t = await createTask({
+      await createTask({
         key: task?.key,
         name,
         type: DIGITAL_WRITE_TYPE,
         config,
       });
-      setTask(t);
     },
   });
 

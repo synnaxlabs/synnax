@@ -21,7 +21,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
     const args = Layout.useSelectArgs<{ create: boolean }>(layoutKey);
     const altKey = Layout.useSelectAltKey(layoutKey);
     const fetchTask = useQuery<WrappedProps<T, P>>({
-      queryKey: [layoutKey, client?.key],
+      queryKey: [layoutKey, client?.key, altKey],
       queryFn: async () => {
         if (client == null || args.create)
           return { initialValues: deep.copy(zeroPayload), layoutKey };
