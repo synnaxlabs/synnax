@@ -187,13 +187,17 @@ I can successfully:
 ### National Instruments
 
 #### Configuration
+
 I can successfully:
 - [ ] Recognize and connect to a National Instruments device available on local machine.
 - [ ] Recognize and connect to a National Instruments devices available on network.
 - [ ] Recognize and connect to physcial and simulated devices.
 - [ ] Save device configuration.
+- [ ] Not see chassis devices connected to the machine
+- [ ] see devices connected to a chassis
 
 #### Read Task
+
 I can successfully:
 
 - [ ] Plot live data from an analog read task.
@@ -201,28 +205,57 @@ I can successfully:
 - [ ] Stop, start and reconfigure task at will.
 - [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
 - [ ] Begin several tasks at different times and see them all plotting live data.
-
+- [ ] Enable and disable data saving at will.
 
 ##### Special Purpose Channels
-- [ ] Configure Ther
+
+- [ ] Succesfully configure and run an analog read task for each of the following channels
+     - [ ] Acceleration
+     - [ ] Acceleration 4 wire 
+     - [ ] Bridge
+     - [ ] Charge
+     - [ ] Current
+     - [ ] Force bridge polynomial
+     - [ ] Force bridge table
+     - [ ] Force bridge two point linear
+     - [ ] Force iepe
+     - [ ] Microphone
+     - [ ] Pressure bridge polynomial
+     - [ ] Pressure bridge table
+     - [ ] Pressure bridge two point linear
+     - [ ] Resistance
+     - [ ] RTD
+          - [ ] All RTD types.
+          - [ ] All resistance configs.
+     - [ ] Strain gauge
+     - [ ] Built in temperature sensor
+     - [ ] Thermocouple
+          - [ ] All thermocouple types.
+          - [ ] All cjc options.
+     - [ ] Torque bridge polynomial
+     - [ ] Torque bridge table
+     - [ ] Torque bridge two point linear
+     - [ ] Velocity iepe
+     - [ ] Voltage
+
 
 #### Write Task
-I can succesfully:
+
+I can successfully:
 
 - [ ] Begin a digital write task and perform control actions with a schematic.
 - [ ] Stop, start and reconfigure task at will.
 - [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
 
 #### General Usage
+
 I can successfully:
 
 - [ ] Run multiple types of tasks on a single device
 - [ ] Run multiple tasks across multiple devices simultaneously
 
-
-
-
 #### Error Handling
+
 I can successfully:
 
 - [ ] Pass in an invalid device configuration and receive meaningful feedback.

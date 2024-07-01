@@ -169,7 +169,7 @@ struct PolynomialConfig {
 struct TableConfig {
     float64 *electrical_vals;
     uint32_t num_eletrical_vals;
-    float64 *physicalVals;
+    float64 *physical_vals;
     uint32_t num_physical_vals;
     int32_t electrical_units;
     int32_t physical_units;
@@ -195,10 +195,15 @@ struct TableConfig {
             electrical_vals[i] = e[i];
 
         //get physical vals
-        physicalVals = new double[num_physical_vals];
+        physical_vals = new double[num_physical_vals];
         auto p = parser.required_array<double>("physical_vals");
         for (uint32_t i = 0; i < num_physical_vals; i++)
-            physicalVals[i] = p[i];
+            physical_vals[i] = p[i];
+    }
+    
+    ~TableConfig() {
+        if (electrical_vals != nullptr) delete[] electrical_vals;
+        if (physical_vals != nullptr) delete[] physical_vals;
     }
 };
 
@@ -1096,7 +1101,7 @@ public:
             this->table_config.electrical_vals,
             this->table_config.num_eletrical_vals,
             this->table_config.electrical_units,
-            this->table_config.physicalVals,
+            this->table_config.physical_vals,
             this->table_config.num_physical_vals,
             this->table_config.physical_units,
             this->scale_name.c_str()
@@ -1207,7 +1212,7 @@ public:
             this->table_config.electrical_vals,
             this->table_config.num_eletrical_vals,
             this->table_config.electrical_units,
-            this->table_config.physicalVals,
+            this->table_config.physical_vals,
             this->table_config.num_physical_vals,
             this->table_config.physical_units,
             this->scale_name.c_str()
@@ -1396,7 +1401,7 @@ public:
             this->table_config.electrical_vals,
             this->table_config.num_eletrical_vals,
             this->table_config.electrical_units,
-            this->table_config.physicalVals,
+            this->table_config.physical_vals,
             this->table_config.num_physical_vals,
             this->table_config.physical_units,
             this->scale_name.c_str()
