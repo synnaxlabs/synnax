@@ -258,7 +258,7 @@ public:
 
     int32 get_units(const std::string &s, config::Parser &parser) {
         if (ni::UNITS_MAP.find(s) == ni::UNITS_MAP.end()) {
-            LOG(ERROR) << "Invalid units: " << s << ". Defaulting to Volts.";
+            LOG(WARNING) << "Invalid units: " << s << ". Defaulting to Volts.";
             return DAQmx_Val_Volts;
         }
 
@@ -543,7 +543,6 @@ public:
         }
     }
 
-    //cjcChannel(parser.required<std::string>("cjc_channel")) {} FIXME: this property should be take form console
     int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIThrmcplChan(
             this->task_handle,
@@ -1013,7 +1012,7 @@ public:
         : Analog(parser, task_handle, name),
           threshold_level(parser.required<double>("threshold_level")),
           hysteresis(parser.required<double>("hysteresis")) {
-        // get the device name by reading up to delimitn /
+        // get the device name by reading up to delimiter
         size_t pos = name.find("/");
         this->name = name.substr(0, pos) + "/ctr" + std::to_string(
                          parser.required<std::uint64_t>("port"));

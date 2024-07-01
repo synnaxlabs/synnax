@@ -23,7 +23,6 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     std::uint64_t c_count = 0;
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
-                    // LOG(INFO) << channel_builder.get_json().dump(4);
                     ni::ChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
                     std::string port = std::to_string(
@@ -43,9 +42,8 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
                     this->port_to_channel[channel_builder.required<std::uint64_t>("port")] = config.name;
                     
                     LOG(INFO) << "Channel name: " << config.name;
-                    if (channel_builder.required<bool>("enabled") == true) {
-                        config.enabled = true;
-                    }
+
+                    config.enabled = channel_builder.optional<bool>("enabled", true);
 
                     this->reader_config.channels.push_back(config);
 
