@@ -92,7 +92,7 @@ int ni::DigitalReadSource::configure_timing() {
 }
 
 
-void ni::DigitalReadSource::acquire_dataa() {
+void ni::DigitalReadSource::acquire_data() {
     while (this->breaker.running()) {
         int32 numBytesPerSamp;
         DataPacket data_packet;

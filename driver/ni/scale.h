@@ -230,7 +230,7 @@ struct ScaleConfig {
     // move constructor
     ScaleConfig(ScaleConfig &&other) = delete;
 
-    int32 createNIScale() {
+    int32 create_ni_scale() {
         if (type == "linear") {
             return ni::NiDAQmxInterface::CreateLinScale(
                 name.c_str(),

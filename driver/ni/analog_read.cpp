@@ -230,8 +230,8 @@ int ni::AnalogReadSource::create_channels() {
         this->numChannels++;
         if (channel.channel_type == "index" || !channel.enabled) continue;
         this->numAIChannels++;
-        this->check_ni_error(channel.ni_channel->createNIScale());
-        this->check_ni_error(channel.ni_channel->createNIChannel());
+        this->check_ni_error(channel.ni_channel->create_ni_scale());
+        this->check_ni_error(channel.ni_channel->create_ni_channel());
         LOG(INFO) << "[ni.reader] created scale for " << channel.name;
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);

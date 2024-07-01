@@ -237,7 +237,7 @@ public:
 
     ~Analog() = default;
 
-    virtual int32 createNIChannel() {
+    virtual int32 create_ni_channel() {
         return 0;
     }
 
@@ -252,9 +252,9 @@ public:
         return std::make_unique<ScaleConfig>(scale_parser, this->scale_name);
     }
 
-    int32 createNIScale() {
+    int32 create_ni_scale() {
         if (this->scale_name == "") return 0;
-        return this->scale_config->createNIScale();
+        return this->scale_config->create_ni_scale();
     }
 
     int32 get_units(const std::string &s, config::Parser &parser) {
@@ -307,7 +307,7 @@ public:
 
     ~Voltage() = default;
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         std::string s = "";
         return ni::NiDAQmxInterface::CreateAIVoltageChan(
             this->task_handle,
@@ -334,7 +334,7 @@ public:
 
     ~VoltageRMS() = default;
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
             this->task_handle,
             this->name.c_str(),
@@ -364,7 +364,7 @@ public:
 
     ~VoltageWithExcit() = default;
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIVoltageChanWithExcit(
             this->task_handle,
             this->name.c_str(),
@@ -404,7 +404,7 @@ public:
           ext_shunt_resistor_val(parser.required<double>("ext_shunt_resistor_val")) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAICurrentChan(
             this->task_handle,
             this->name.c_str(),
@@ -432,7 +432,7 @@ public:
         : Current(parser, task_handle, name) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAICurrentRMSChan(
             this->task_handle,
             this->name.c_str(),
@@ -474,7 +474,7 @@ public:
           r0(parser.required<double>("r0")) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIRTDChan(
             this->task_handle,
             this->name.c_str(),
@@ -538,7 +538,7 @@ public:
     }
 
     //cjcChannel(parser.required<std::string>("cjc_channel")) {} FIXME: this property should be take form console
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIThrmcplChan(
             this->task_handle,
             this->name.c_str(),
@@ -570,7 +570,7 @@ public:
         this->name = name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAITempBuiltInSensorChan(
             this->task_handle,
             this->name.c_str(),
@@ -593,7 +593,7 @@ public:
           c(parser.required<double>("c")) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIThrmstrChanIex(
             this->task_handle,
             this->name.c_str(),
@@ -631,7 +631,7 @@ public:
           r1(parser.required<double>("r1")) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIThrmstrChanVex(
             this->task_handle,
             this->name.c_str(),
@@ -676,7 +676,7 @@ public:
         this->sensitivity_units = ni::UNITS_MAP.at(su);
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIAccelChan(
             this->task_handle,
             this->name.c_str(),
@@ -707,7 +707,7 @@ public:
         : Acceleration(parser, task_handle, name) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIAccel4WireDCVoltageChan(
             this->task_handle,
             this->name.c_str(),
@@ -737,7 +737,7 @@ public:
           sensitivity(parser.required<double>("sensitivity")) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIAccelChargeChan(
             this->task_handle,
             this->name.c_str(),
@@ -770,7 +770,7 @@ public:
           excitation_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIResistanceChan(
             this->task_handle,
             this->name.c_str(),
@@ -800,7 +800,7 @@ public:
           bridge_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIBridgeChan(
             this->task_handle,
             this->name.c_str(),
@@ -848,7 +848,7 @@ public:
           lead_wire_resistance(parser.required<double>("lead_wire_resistance")) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIStrainGageChan(
             this->task_handle,
             this->name.c_str(),
@@ -928,7 +928,7 @@ public:
           lead_wire_resistance(parser.required<double>("lead_wire_resistance")) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIRosetteStrainGageChan(
             this->task_handle,
             this->name.c_str(),
@@ -975,7 +975,7 @@ public:
           excitation_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIMicrophoneChan(
             this->task_handle,
             this->name.c_str(),
@@ -1012,7 +1012,7 @@ public:
                          parser.required<std::uint64_t>("port"));
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIFreqVoltageChan(
             this->task_handle,
             this->name.c_str(),
@@ -1042,7 +1042,7 @@ public:
           two_point_lin_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIPressureBridgeTwoPointLinChan(
             this->task_handle,
             this->name.c_str(),
@@ -1077,7 +1077,7 @@ public:
           table_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIPressureBridgeTableChan(
             this->task_handle,
             this->name.c_str(),
@@ -1112,7 +1112,7 @@ public:
           polynomial_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIPressureBridgePolynomialChan(
             this->task_handle,
             this->name.c_str(),
@@ -1152,7 +1152,7 @@ public:
           polynomial_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIForceBridgePolynomialChan(
             this->task_handle,
             this->name.c_str(),
@@ -1188,7 +1188,7 @@ public:
           table_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIForceBridgeTableChan(
             this->task_handle,
             this->name.c_str(),
@@ -1226,7 +1226,7 @@ public:
           two_point_lin_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIForceBridgeTwoPointLinChan(
             this->task_handle,
             this->name.c_str(),
@@ -1269,7 +1269,7 @@ public:
                                       parser)) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
             this->task_handle,
             this->name.c_str(),
@@ -1305,7 +1305,7 @@ public:
           two_point_lin_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAITorqueBridgeTwoPointLinChan(
             this->task_handle,
             this->name.c_str(),
@@ -1340,7 +1340,7 @@ public:
           polynomial_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAITorqueBridgePolynomialChan(
             this->task_handle,
             this->name.c_str(),
@@ -1377,7 +1377,7 @@ public:
           table_config(parser) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAITorqueBridgeTableChan(
             this->task_handle,
             this->name.c_str(),
@@ -1417,7 +1417,7 @@ public:
                                       parser)) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIForceIEPEChan(
             this->task_handle,
             this->name.c_str(),
@@ -1453,7 +1453,7 @@ public:
                   parser.required<std::string>("terminal_config"))) {
     }
 
-    int32 createNIChannel() override {
+    int32 create_ni_channel() override {
         return ni::NiDAQmxInterface::CreateAIChargeChan(
             this->task_handle,
             this->name.c_str(),
