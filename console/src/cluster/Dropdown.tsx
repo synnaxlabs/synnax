@@ -181,8 +181,8 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   }
 
   const handleChange = (value: string) => {
+    if (value.length === 0) return;
     dispatch(rename({ key: props.entry.key, name: value }));
-    // TODO: Error messages still have the old names of the cluster
   };
   const handleClick: MouseEventHandler = (e): void => {
     e.stopPropagation();

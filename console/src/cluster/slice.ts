@@ -132,9 +132,9 @@ export const {
     },
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       const cluster = state.clusters[key];
-      if (cluster != null) {
-        state.clusters[key].name = name;
-      }
+      if (cluster == null) return;
+      cluster.name = name;
+      if (cluster.props != null) cluster.props.name = name;
     },
   },
 });
