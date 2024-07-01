@@ -38,6 +38,9 @@ export const List = (): ReactElement => {
   const data = Object.values(useSelectMany());
   const active = useSelect();
   const openWindow = Layout.usePlacer();
+  // const client = Synnax.use();
+  // client?.key
+  // client?.props.name = "test";
 
   const selected = active?.key ?? null;
 
@@ -47,6 +50,15 @@ export const List = (): ReactElement => {
 
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
+  };
+
+  // const handleChange = (key: string): void => {
+  //   console.log(key);
+  // }
+
+  const handleRename = (key: string): void => {
+    console.log(key);
+    Text.edit("text-1234");
   };
 
   const contextMenu = useCallback(
@@ -64,6 +76,8 @@ export const List = (): ReactElement => {
           case "link":
             void navigator.clipboard.writeText(`synnax://cluster/${key}`);
             return;
+          case "rename":
+            return handleRename(key);
         }
       };
 
@@ -88,6 +102,7 @@ export const List = (): ReactElement => {
             </PMenu.Item>
           )}
           {key !== null && <Link.CopyMenuItem />}
+          <Menu.RenameItem />
           <Menu.HardReloadItem />
         </PMenu.Menu>
       );
@@ -163,6 +178,20 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
         break;
     }
   }
+
+  // const itemKey = props.entry.key;
+  // props.
+
+  // const foo = (value: string) => {
+  //   try {
+  //     await client.chan
+  //   }
+
+  //   console.log(value);
+  // };
+  const foo = (value: string) => {
+    console.log(value);
+  };
   const handleClick: MouseEventHandler = (e): void => {
     e.stopPropagation();
     if (!isLocal) return;
@@ -177,9 +206,15 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
       {...props}
     >
       <Align.Space direction="y" justify="spaceBetween" size={0.5} grow>
-        <Text.Text level="p" weight={450}>
-          {props.entry.name}
-        </Text.Text>
+        <Text.MaybeEditable
+          level="p"
+          id={`text-1234`}
+          weight={450}
+          value={props.entry.name}
+          onChange={foo}
+          allowDoubleClick={false}
+        />
+        {/* </Text.Editable> */}
         <Text.Text level="p" shade={6}>
           {props.entry.props.host}:{props.entry.props.port}
         </Text.Text>

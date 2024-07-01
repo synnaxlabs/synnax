@@ -11,7 +11,7 @@ import "@/cluster/Connect.css";
 
 import type { connection, SynnaxProps } from "@synnaxlabs/client";
 import { synnaxPropsZ } from "@synnaxlabs/client";
-import { componentRenderProp, Form,Nav, Status } from "@synnaxlabs/pluto";
+import { componentRenderProp, Form, Nav, Status } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -22,7 +22,7 @@ import { z } from "zod";
 
 import { statusVariants } from "@/cluster/Badges";
 import { useSelectMany } from "@/cluster/selectors";
-import { set,setActive } from "@/cluster/slice";
+import { set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -123,11 +123,11 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             </Form.Field>
           </Align.Space>
           <Form.Field<string> path="username">
-            {(p) => <Input.Text placeholder="Harry" {...p} />}
+            {(p) => <Input.Text placeholder="synnax" {...p} />}
           </Form.Field>
           <Align.Space direction="x">
             <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
-              {(p) => <Input.Text {...p} placeholder="Seldon" type="password" />}
+              {(p) => <Input.Text {...p} placeholder="seldon" type="password" />}
             </Form.Field>
             <Form.Field<boolean> path="secure">
               {componentRenderProp(Input.Switch)}
