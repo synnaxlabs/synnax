@@ -60,9 +60,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_accel_4_wire_dc_voltage")
         return std::make_shared<
             Acceleration4WireDCVoltage>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_accel_charge")
-        return std::make_shared<AccelerationCharge>(
-            parser, this->task_handle, channel_name);
     if (channel_type == "ai_bridge")
         return std::make_shared<Bridge>(
             parser, this->task_handle, channel_name);
@@ -71,9 +68,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_current")
         return std::make_shared<Current>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_current_rms")
-        return std::make_shared<CurrentRMS>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_bridge_polynomial")
         return std::make_shared<
@@ -86,9 +80,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
             ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_iepe")
         return std::make_shared<ForceIEPE>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_freq_voltage")
-        return std::make_shared<FrequencyVoltage>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_microphone")
         return std::make_shared<Microphone>(
@@ -105,9 +96,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_resistance")
         return std::make_shared<Resistance>(
             parser, this->task_handle, channel_name);
-    if (channel_type == "ai_rosette_strain_gage")
-        return std::make_shared<
-            RosetteStrainGage>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_rtd")
         return std::make_shared<RTD>(
             parser, this->task_handle, channel_name);
@@ -119,12 +107,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
             TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_thermocouple")
         return std::make_shared<Thermocouple>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_thrmstr_iex")
-        return std::make_shared<ThermistorIEX>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_thrmstr_vex")
-        return std::make_shared<ThermistorVex>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_torque_bridge_polynomial")
         return std::make_shared<
@@ -141,12 +123,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(
     if (channel_type == "ai_voltage")
         return std::make_shared<Voltage>(
             parser, this->task_handle, channel_name);
-    if (channel_type == "ai_voltage_rms")
-        return std::make_shared<VoltageRMS>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_voltage_with_excit")
-        return std::make_shared<
-            VoltageWithExcit>(parser, this->task_handle, channel_name);
     return std::make_shared<Voltage>(parser, this->task_handle, channel_name);
 }
 
