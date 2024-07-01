@@ -34,6 +34,7 @@ type Config struct {
 	ClientKeyFile  string          `json:"client_key_file"`
 	Username       string          `json:"username"`
 	Password       string          `json:"password"`
+	Debug          *bool           `json:"debug"`
 }
 
 func (c Config) format() map[string]interface{} {
@@ -56,6 +57,7 @@ func (c Config) format() map[string]interface{} {
 			"name": c.RackName,
 		},
 		"integrations": c.Integrations,
+		"debug":        *c.Debug,
 	}
 }
 
@@ -64,6 +66,7 @@ var (
 	DefaultConfig                       = Config{
 		Integrations: make([]string, 0),
 		Enabled:      config.Bool(true),
+		Debug:        config.False(),
 	}
 )
 
@@ -79,6 +82,7 @@ func (c Config) Override(other Config) Config {
 	c.ClientKeyFile = override.String(c.ClientKeyFile, other.ClientKeyFile)
 	c.Username = override.String(c.Username, other.Username)
 	c.Password = override.String(c.Password, other.Password)
+	c.Debug = override.Nil(c.Debug, other.Debug)
 	return c
 }
 
@@ -93,6 +97,7 @@ func (c Config) Validate() error {
 		return nil
 	}
 	validate.NotEmptyString(v, "address", c.Address)
+	validate.NotNil(v, "debug", c.Debug)
 	return v.Error()
 }
 

@@ -23,6 +23,7 @@ struct Config {
     synnax::Config client_config;
     breaker::Config breaker_config;
     std::vector<std::string> integrations;
+    bool debug;
 };
 
 std::pair<Config, freighter::Error> parse(const json &content);

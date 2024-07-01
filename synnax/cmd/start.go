@@ -372,6 +372,7 @@ func buildEmbeddedDriverConfig(
 		RackName:        rackName,
 		Username:        viper.GetString("username"),
 		Password:        viper.GetString("password"),
+		Debug:           config.Bool(viper.GetBool("debug")),
 	}
 	if insecure {
 		return cfg
