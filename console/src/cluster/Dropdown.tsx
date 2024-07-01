@@ -26,7 +26,13 @@ import { useDispatch } from "react-redux";
 import { connectWindowLayout } from "@/cluster/Connect";
 import { type Cluster } from "@/cluster/core";
 import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selectors";
-import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/slice";
+import {
+  LOCAL_CLUSTER_KEY,
+  remove,
+  rename,
+  setActive,
+  setLocalState,
+} from "@/cluster/slice";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -35,7 +41,7 @@ import { Link } from "@/link";
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
-  const data = Object.values(useSelectMany());
+  const clusters = Object.values(useSelectMany());
   const active = useSelect();
   const openWindow = Layout.usePlacer();
 
@@ -130,7 +136,10 @@ export const List = (): ReactElement => {
         menu={contextMenu}
         {...menuProps}
       >
-        <CoreList.List<string, Cluster> data={data} emptyContent={<NoneConnected />}>
+        <CoreList.List<string, Cluster>
+          data={clusters}
+          emptyContent={<NoneConnected />}
+        >
           <CoreList.Selector
             value={selected}
             allowMultiple={false}
@@ -170,13 +179,10 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
         break;
     }
   }
-  const foo = Synnax.use();
-  console.log(foo);
 
   const handleChange = (value: string) => {
-    // TODO: Add logic here to rename the client
-    console.log(value);
-    foo?.rename(value);
+    dispatch(rename({ key: props.entry.key, name: value }));
+    // TODO: Error messages still have the old names of the cluster
   };
   const handleClick: MouseEventHandler = (e): void => {
     e.stopPropagation();
