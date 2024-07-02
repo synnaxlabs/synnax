@@ -112,7 +112,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Group.GroupMenuItem selection={selection} />
       {singleResource && (
         <>
-          <Ontology.RenameMenuItem />
+          <Menu.RenameItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>

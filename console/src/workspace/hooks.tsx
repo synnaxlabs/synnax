@@ -31,7 +31,7 @@ export const useSyncComponent = <P extends unknown>(
       let message = `Failed to save layout ${name}`;
       if (layoutKey != null) {
         const data = Layout.select(store.getState(), layoutKey);
-        if (data != null) message = `Failed to save layout ${data.name}`;
+        if (data != null) message = `Failed to save ${data.name}`;
       }
       addStatus({
         key: layoutKey,

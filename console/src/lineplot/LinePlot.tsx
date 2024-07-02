@@ -96,6 +96,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     async (ws, store, client) => {
       const s = store.getState();
       const data = select(s, layoutKey);
+      if (data == null) return;
       const la = Layout.selectRequired(s, layoutKey);
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await client.workspaces.linePlot.create(ws, {

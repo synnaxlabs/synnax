@@ -108,7 +108,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Group.GroupMenuItem selection={selection} />
       {singleResource && (
         <>
-          <Ontology.RenameMenuItem />
+          <Menu.RenameItem />
           <PMenu.Divider />
           <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
             Configure
