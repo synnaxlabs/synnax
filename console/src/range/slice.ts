@@ -99,6 +99,9 @@ export const { actions, reducer } = createSlice({
         state.ranges[range.key] = range;
       });
     },
+    clearBuffer: (state) => {
+      state.buffer = null;
+    },
     remove: (state, { payload: { keys } }: PA<RemovePayload>) => {
       keys.forEach((k) => delete state.ranges[k]);
     },
@@ -112,9 +115,6 @@ export const { actions, reducer } = createSlice({
       const range = state.ranges[key];
       if (range == null) return;
       range.name = name;
-    },
-    clearBuffer: (state) => {
-      state.buffer = null;
     },
   },
 });

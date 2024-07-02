@@ -211,7 +211,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {resources[0].id.key !== activeRange?.key && (
             <PMenu.Item itemKey="activate">Set as Active Range</PMenu.Item>
           )}
-          <Ontology.RenameMenuItem />
+          <Menu.RenameItem />
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
           </PMenu.Item>
