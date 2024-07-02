@@ -166,23 +166,23 @@ created in the database.
 <Video client:only="react" id="device-drivers/opcua/configure/remove-channels"
 />
 
-The namespace and the numeric identifier of the OPCUA node associated with the Synnax
-channel is displayed below the name labeled as `NS` and `I` respectively. 
+The namespace and the numeric identifier of the OPCUA node associated with the
+Synnax channel is displayed below the name labeled as `NS` and `I` respectively. 
 
 ### <StepText level="h3" step={3.3}>Edit Channel Properties</StepText>
 
 To edit the properties of a channel, simply select it and it's properties will
 appear in the bottom panel. Feel free to adjust the name, data type, and
-corresponding node as needed.  
+corresponding node as needed.
 
 <Video client:only="react" id="device-drivers/opcua/configure/channel-props" />
 
-<Note variant="warning"> Be careful when changing the data type of the channel.
-Some data types will not have the sufficient precision to store the data from
-your node. If you're ok with the loss of precision, Synnax will automatically
-convert the data to the new type when it reads from the OPC UA server. </Note>
-
-
+<Note variant="warning">
+Be careful when changing the data type of the channel. Some data types will not
+have the sufficient precision to store the data from your node. If you're ok
+with the loss of precision, Synnax will automatically convert the data to the
+new type when it reads from the OPC UA server.
+</Note>
 
 ### <StepText level="h3" step={3.4}>Correctly Configure Indexes</StepText>
 
@@ -218,7 +218,7 @@ For higher data rates, we recommend configuring your server to expose data in
 arrays. Synnax can then read these arrays in as 'chunks', reading many samples
 with a single request. We've successfully tested this configuration up to 10
 kHz. Correctly setting up your PLC to record data in an array based
-configuration is more complicated. Here's how to do it.
+configuration is more complicated. Here's how to do it:
 
 ### <StepText level="h3" step={3.5}>Configure Channels for Array Nodes</StepText>
 
