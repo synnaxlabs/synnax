@@ -15,6 +15,7 @@ import {
   componentRenderProp,
   Header,
   Ranger,
+  Status,
   Synnax,
   Tag,
   Tooltip,
@@ -24,6 +25,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { List as Core } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
+import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -34,9 +36,9 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
-import type { StaticRange } from "@/range/range";
+import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
-import { add, remove, setActive } from "@/range/slice";
+import { add, remove, rename, setActive } from "@/range/slice";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -47,7 +49,7 @@ export const List = (): ReactElement => {
   const selectedRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
-    const layout = createEditLayout(key == null ? "Create Range" : "Edit Range");
+    const layout = createEditLayout(key == null ? "Range.Create" : "Range.Edit");
     newLayout({
       ...layout,
       key: key ?? layout.key,
@@ -62,12 +64,24 @@ export const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const handleDelete = (key: string): undefined => {
-    void (async () => {
-      await client?.ranges.delete(key);
+  const addStatus = Status.useAggregator();
+
+  const del = useMutation<void, Error, string, Range | undefined>({
+    onMutate: (key: string) => {
+      const rng = ranges.find((r) => r.key === key);
       handleRemove([key]);
-    })();
-  };
+      return rng;
+    },
+    mutationFn: async (key: string) => await client?.ranges.delete(key),
+    onError: ({ message }, _, range) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to rename range",
+        description: message,
+      });
+      dispatch(add({ ranges: [range as Range] }));
+    },
+  });
 
   const handleSave = (key: string): undefined => {
     void (async () => {
@@ -112,11 +126,13 @@ export const List = (): ReactElement => {
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
     const rng = ranges.find((r) => r.key === key);
+
     const handleSelect = {
+      rename: (): void => Text.edit(`text-${key}`),
       create: () => handleAddOrEdit(),
       edit: () => handleAddOrEdit(rng?.key),
       remove: () => rng != null && handleRemove([rng.key]),
-      delete: () => rng != null && handleDelete(rng.key),
+      delete: () => rng != null && del.mutate(rng.key),
       save: () => rng != null && handleSave(rng.key),
       setActive: () => rng != null && handleSetActive(rng.key),
       link: () => {
@@ -133,6 +149,7 @@ export const List = (): ReactElement => {
         <PMenu.Divider />
         {rng != null && (
           <>
+            <Menu.RenameItem />
             <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
               Edit
             </PMenu.Item>
@@ -193,12 +210,21 @@ interface ListItemProps extends Core.ItemProps<string, StaticRange> {}
 const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
   const client = Synnax.use();
+  const dispatch = useDispatch();
   const [labels, setLabels] = useState<label.Label[]>([]);
   useAsyncEffect(async () => {
     if (client == null || labels.length > 0 || !entry.persisted) return;
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
+  const onRename = (name: string): void => {
+    if (name.length === 0) return;
+    dispatch(rename({ key: entry.key, name }));
+    if (!entry.persisted) return;
+    void (async () => {
+      await client?.ranges.rename(entry.key, name);
+    })();
+  };
   return (
     <Core.ItemFrame
       className={CSS.B("range-list-item")}
@@ -215,10 +241,13 @@ const ListItem = (props: ListItemProps): ReactElement => {
           </Text.Text>
         </Tooltip.Dialog>
       )}
-
-      <Text.WithIcon level="p" weight={500}>
-        {entry.name}
-      </Text.WithIcon>
+      <Text.MaybeEditable
+        id={`text-${entry.key}`}
+        level="p"
+        value={entry.name}
+        onChange={onRename}
+        allowDoubleClick={false}
+      />
       <Ranger.TimeRangeChip timeRange={entry.timeRange} />
       {labels.length > 0 && (
         <Align.Space
@@ -251,7 +280,7 @@ const Content = (): ReactElement => {
           {[
             {
               children: <Icon.Add />,
-              onClick: () => p(createEditLayout("Create Range")),
+              onClick: () => p(createEditLayout("Range.Create")),
             },
           ]}
         </Header.Actions>

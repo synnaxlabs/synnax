@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {type StreamClient, UnaryClient } from "@synnaxlabs/freighter";
+import { type StreamClient, UnaryClient } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
   type CrudeTimeRange,
@@ -17,13 +17,13 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { type Key, type KeyOrName, KeysOrNames, type Params} from "@/channel/payload";
-import { analyzeChannelParams,type Retriever } from "@/channel/retriever";
-import { Frame } from "@/framer/frame";
-import {Iterator, IteratorConfig } from "@/framer/iterator";
-import { Streamer, type StreamerConfig } from "@/framer/streamer";
-import { Writer, type WriterConfig,WriterMode } from "@/framer/writer";
+import { type Key, type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";
+import { analyzeChannelParams, type Retriever } from "@/channel/retriever";
 import { Deleter } from "@/framer/deleter";
+import { Frame } from "@/framer/frame";
+import { Iterator, IteratorConfig } from "@/framer/iterator";
+import { Streamer, type StreamerConfig } from "@/framer/streamer";
+import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 
 export class Client {
   private readonly streamClient: StreamClient;
@@ -46,14 +46,12 @@ export class Client {
    * @param opts - see {@link IteratorConfig}
    * @returns a new {@link Iterator}.
    */
-  async openIterator(tr: CrudeTimeRange, channels: Params, opts?: IteratorConfig): Promise<Iterator> {
-    return await Iterator._open(
-      tr,
-      channels,
-      this.retriever,
-      this.streamClient,
-      opts,
-    );
+  async openIterator(
+    tr: CrudeTimeRange,
+    channels: Params,
+    opts?: IteratorConfig,
+  ): Promise<Iterator> {
+    return await Iterator._open(tr, channels, this.retriever, this.streamClient, opts);
   }
 
   /**
@@ -182,14 +180,16 @@ export class Client {
     return frame;
   }
 
-  async delete(
-    channels: Params,
-    timeRange : TimeRange,
-  ): Promise<void> {
-
+  async delete(channels: Params, timeRange: TimeRange): Promise<void> {
     const { normalized, variant } = analyzeChannelParams(channels);
     if (variant === "keys")
-      return await this.deleter.delete({ keys: normalized as Key[], bounds: timeRange });
-    return await this.deleter.delete({ names: normalized as string[], bounds: timeRange });
+      return await this.deleter.delete({
+        keys: normalized as Key[],
+        bounds: timeRange,
+      });
+    return await this.deleter.delete({
+      names: normalized as string[],
+      bounds: timeRange,
+    });
   }
 }

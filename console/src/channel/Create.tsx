@@ -35,7 +35,8 @@ export const createLayout: Layout.State = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
   windowKey: CREATE_LAYOUT_TYPE,
-  name: "Create a Channel",
+  name: "Channel.Create",
+  icon: "Channel",
   location: "modal",
   window: {
     resizable: false,

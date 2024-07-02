@@ -1,10 +1,11 @@
 import "@/hardware/task/common/common.css";
 
-import { task } from "@synnaxlabs/client";
+import { task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Eraser,
   Form,
   Header,
   Menu,
@@ -15,7 +16,8 @@ import {
   Triggers,
 } from "@synnaxlabs/pluto";
 import { deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { FC, ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -137,6 +139,7 @@ interface ParserErrorsDetails extends UnknownRecord {
 
 export const useObserveState = <T extends ParserErrorsDetails>(
   setStatus: Form.UseReturn<any>["setStatus"],
+  clearStatuses: Form.UseReturn<any>["clearStatuses"],
   taskKey?: string,
   initialState?: task.State<T>,
 ): task.State<T> | undefined => {
@@ -148,14 +151,11 @@ export const useObserveState = <T extends ParserErrorsDetails>(
     onChange: (state) => {
       if (state.task !== taskKey) return;
       setTaskState(state);
-      if (state.details != null && state.details.errors != null) {
+      if (state.variant !== "error") clearStatuses();
+      else if (state.details != null && state.details.errors != null) {
         state.details.errors.forEach((e) => {
           const path = `config.${deep.pathToCamel(e.path)}`;
-          console.log(path, e.message);
-          setStatus(path, {
-            variant: "error",
-            message: e.message,
-          });
+          setStatus(path, { variant: "error", message: "" });
         });
       }
     },
@@ -295,4 +295,55 @@ export const useCreate = <
     },
     [client, layoutKey],
   );
+};
+
+export interface WrappedTaskLayoutProps<T extends task.Task, P extends task.Payload> {
+  layoutKey: string;
+  task?: T;
+  initialValues: P;
+}
+
+export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
+  Wrapped: FC<WrappedTaskLayoutProps<T, P>>,
+  zeroPayload: P,
+): Layout.Renderer => {
+  const Wrapper: Layout.Renderer = ({ layoutKey }) => {
+    const client = Synnax.use();
+    const args = Layout.useSelectArgs<{ create: boolean }>(layoutKey);
+    const altKey = Layout.useSelectAltKey(layoutKey);
+    const fetchTask = useQuery<WrappedTaskLayoutProps<T, P>>({
+      queryKey: [layoutKey, client?.key, altKey],
+      queryFn: async () => {
+        if (client == null || args.create)
+          return { initialValues: deep.copy(zeroPayload), layoutKey };
+        // try to parse the key as a big int. If the parse fails, set the lat key as a key
+        let key: string = layoutKey;
+        try {
+          BigInt(layoutKey);
+        } catch (e) {
+          if (altKey == undefined)
+            throw new UnexpectedError(
+              `Task has non-bigint layout key ${layoutKey} with no alternate key`,
+            );
+          if (e instanceof SyntaxError) key = altKey;
+        }
+        const t = await client.hardware.tasks.retrieve(key, { includeState: true });
+        return { initialValues: t as unknown as P, task: t as T, layoutKey };
+      },
+    });
+    let content: ReactElement | null = null;
+    if (fetchTask.isError)
+      content = (
+        <Align.Space direction="y" grow style={{ height: "100%" }}>
+          <Status.Text.Centered variant="error">
+            {fetchTask.error.message}
+          </Status.Text.Centered>
+        </Align.Space>
+      );
+    else if (!fetchTask.isPending)
+      content = <Wrapped {...fetchTask.data} layoutKey={layoutKey} />;
+    return <Eraser.Eraser>{content}</Eraser.Eraser>;
+  };
+  Wrapper.displayName = `TaskWrapper(${Wrapped.displayName ?? Wrapped.name})`;
+  return Wrapper;
 };

@@ -97,10 +97,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     },
     rename: () => Tree.startRenaming(nodes[0].key),
   };
-  console.log(selection.resources);
   const make = selection.resources[0].data?.make;
   let customMenuItems: ReactElement | null = null;
-  console.log(make);
   if (make != null) {
     const C = CONTEXT_MENUS[make as string];
     if (C != null) customMenuItems = <C {...props} />;
@@ -110,7 +108,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Group.GroupMenuItem selection={selection} />
       {singleResource && (
         <>
-          <Ontology.RenameMenuItem />
+          <Menu.RenameItem />
           <PMenu.Divider />
           <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
             Configure

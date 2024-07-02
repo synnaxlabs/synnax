@@ -14,12 +14,14 @@ import { forwardRef, useRef } from "react";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
+import { Status } from "@/status";
 import { Text as CoreText } from "@/text";
 
 export interface TextExtraProps {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
+  status?: Status.Variant;
 }
 
 export interface TextProps extends BaseProps<string>, TextExtraProps {}
@@ -56,6 +58,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       onBlur,
       disabled,
       resetOnBlurIfEmpty = false,
+      status,
       ...props
     },
     ref,
@@ -77,6 +80,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           level == null && CSS.size(size),
           CSS.BM("input", variant),
           CSS.sharp(sharp),
+          status != null && CSS.M(status),
           className,
         )}
         align="center"

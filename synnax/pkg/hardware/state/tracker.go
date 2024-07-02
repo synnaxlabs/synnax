@@ -113,7 +113,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		}
 		t.mu.Racks[r.Key] = r
 	}
-	if err := cfg.Channels.CreateManyIfNamesDontExist(
+	if err = cfg.Channels.CreateManyIfNamesDontExist(
 		ctx,
 		&[]channel.Channel{
 			{
@@ -212,7 +212,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		decoder := &binaryx.JSONEncoderDecoder{}
 		for _, ch := range changes {
 			var taskState task.State
-			if err := decoder.Decode(ctx, ch.Key, &taskState); err != nil {
+			if err = decoder.Decode(ctx, ch.Key, &taskState); err != nil {
 				cfg.L.Warn("failed to decode task state", zap.Error(err))
 			}
 			rackKey := taskState.Task.Rack()

@@ -11,7 +11,6 @@ import "@/layouts/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
-import { Memory } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
@@ -26,14 +25,11 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/constants";
-import { LinePlot } from "@/lineplot";
 import { LinePlotServices } from "@/lineplot/services";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
 import { Persist } from "@/persist";
-import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
-import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { Version } from "@/version";
@@ -170,6 +166,15 @@ interface MemoryUsage {
   total: Size;
 }
 
+interface PerformanceAPI {
+  memory: MemoryInfo;
+}
+
+interface MemoryInfo {
+  usedJSHeapSize: number;
+  jsHeapSizeLimit: number;
+}
+
 const MemoryBadge = (): ReactElement | null => {
   const [memory, setMemory] = useState<MemoryUsage>({
     used: Size.ZERO,
@@ -179,7 +184,7 @@ const MemoryBadge = (): ReactElement | null => {
   useEffect(() => {
     const interval = setInterval(() => {
       if ("memory" in performance) {
-        const { memory } = performance;
+        const { memory } = performance as PerformanceAPI;
         setMemory({
           used: Size.bytes(memory.usedJSHeapSize),
           total: Size.bytes(memory.jsHeapSizeLimit),

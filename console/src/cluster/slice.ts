@@ -87,6 +87,11 @@ export interface RemovePayload {
   keys: string[];
 }
 
+export interface RenamePayload {
+  key: string;
+  name: string;
+}
+
 export const MIGRATIONS: migrate.Migrations = {};
 
 export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
@@ -113,7 +118,6 @@ export const {
       { payload: { keys } }: PayloadAction<RemovePayload>,
     ) => {
       for (const key of keys) {
-         
         delete clusters[key];
       }
     },
@@ -125,6 +129,12 @@ export const {
       { payload: localState }: PayloadAction<SetLocalStatePayload>,
     ) => {
       state.localState = { ...state.localState, ...localState };
+    },
+    rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
+      const cluster = state.clusters[key];
+      if (cluster == null) return;
+      cluster.name = name;
+      if (cluster.props != null) cluster.props.name = name;
     },
   },
 });
@@ -142,6 +152,7 @@ export const {
   setActive,
   setLocalState,
   remove,
+  rename,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

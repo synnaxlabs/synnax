@@ -12,6 +12,7 @@ import {
 } from "@/form/Form";
 import { Input } from "@/input";
 import { Select } from "@/select";
+import { Status } from "@/status";
 import { componentRenderProp, RenderProp } from "@/util/renderProp";
 
 export type FieldProps<
@@ -66,7 +67,11 @@ export const Field = <
       helpTextVariant={field.status.variant}
       label={label}
       required={field.required}
-      className={CSS(className, CSS.BE("field", path.split(".").join("-")))}
+      className={CSS(
+        className,
+        CSS.BE("field", path.split(".").join("-")),
+        CSS.M(field.status.variant),
+      )}
       {...props}
     >
       {children({ onChange: fieldOnChange, value })}
