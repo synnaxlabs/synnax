@@ -9,20 +9,20 @@
 
 import "@/range/accordionEntry.css";
 
-import { type label, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { type label, TimeRange } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   componentRenderProp,
+  List as Core,
+  Menu as PMenu,
   Ranger,
   Synnax,
   Tag,
+  Text,
   Tooltip,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { List as Core } from "@synnaxlabs/pluto/list";
-import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
-import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -34,7 +34,7 @@ import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
 import type { StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
-import { add, remove, setActive } from "@/range/slice";
+import { add, remove, rename, setActive } from "@/range/slice";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -104,6 +104,8 @@ export const List = (): ReactElement => {
     );
   };
 
+  const handleRename = (key: string): void => Text.edit(`text-${key}`);
+
   const clusterKey = Cluster.useSelectActiveKey();
 
   const ContextMenu = ({
@@ -129,14 +131,22 @@ export const List = (): ReactElement => {
         case "setActive":
           if (rng == null) return;
           return handleSetActive(rng.key);
+        case "rename":
+          if (rng == null) return;
+          return handleRename(rng.key);
         case "link": {
           if (rng == null) return;
+          if (!rng.persisted) {
+            console.error("Cannot copy link for local range.");
+            return;
+          }
           const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
           void navigator.clipboard.writeText(toCopy);
           return;
         }
       }
     };
+
     return (
       <PMenu.Menu onChange={handleClick}>
         {rng != null && (
@@ -158,6 +168,7 @@ export const List = (): ReactElement => {
                 </PMenu.Item>
               )
             )}
+            <Menu.RenameItem />
           </>
         )}
         <PMenu.Item startIcon={<Icon.Add />} size="small" itemKey="create">
@@ -196,6 +207,7 @@ export const List = (): ReactElement => {
 interface ListItemProps extends Core.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
+  const dispatch = useDispatch();
   const { entry } = props;
   const client = Synnax.use();
   const [labels, setLabels] = useState<label.Label[]>([]);
@@ -204,6 +216,17 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
+
+  const onRename = (name: string): void => {
+    if (name.length === 0) return;
+    console.log(entry.key, name);
+    dispatch(rename({ key: entry.key, name }));
+    if (!entry.persisted) return;
+    void (async () => {
+      await client?.ranges.rename(entry.key, name);
+    })();
+  };
+
   return (
     <Core.ItemFrame
       className={CSS.B("range-list-item")}
@@ -220,10 +243,13 @@ const ListItem = (props: ListItemProps): ReactElement => {
           </Text.Text>
         </Tooltip.Dialog>
       )}
-
-      <Text.WithIcon level="p" weight={500}>
-        {entry.name}
-      </Text.WithIcon>
+      <Text.MaybeEditable
+        id={`text-${entry.key}`}
+        level="p"
+        value={entry.name}
+        onChange={onRename}
+        allowDoubleClick={false}
+      />
       <Ranger.TimeRangeChip timeRange={entry.timeRange} />
       {labels.length > 0 && (
         <Align.Space
