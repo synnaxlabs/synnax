@@ -593,13 +593,25 @@ int ni::Source::init() {
 }
 
 freighter::Error  ni::Source::cycle(){
-    if (this->breaker.running() || !this->ok()) return freighter::NIL;
+    auto err = this->start_ni();
+    if(err) return err;
+    err = this->stop_ni();
+    if(err) return err;
+    return freighter::NIL;
+}
+
+freighter::Error ni::Source::start_ni(){
     if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->log_error(
             "failed while starting reader for task " + this->reader_config.task_name +
             " requires reconfigure");
+        this->clear_task();
         return driver::CRITICAL_HARDWARE_ERROR;
     }
+    return freighter::NIL;
+}
+
+freighter::Error ni::Source::stop_ni(){
     if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
         this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
@@ -611,13 +623,7 @@ freighter::Error  ni::Source::cycle(){
 freighter::Error ni::Source::start() {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
-    if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
-        this->log_error(
-            "failed while starting reader for task " + this->reader_config.task_name +
-            " requires reconfigure");
-        this->clear_task();
-        return driver::CRITICAL_HARDWARE_ERROR;
-    }
+    this->start_ni(); 
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
     ctx->setState({
         .task = task.key,
@@ -634,14 +640,8 @@ freighter::Error ni::Source::stop() {
     if (!this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.stop();
     if (this->sample_thread.joinable()) this->sample_thread.join();
-    if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
-        this->log_error(
-            "failed while stopping reader for task " + this->reader_config.task_name);
-        return driver::CRITICAL_HARDWARE_ERROR;
-    }
+    this->stop_ni();
     data_queue.reset();
-    LOG(INFO) << "[ni.reader] stopped reader for task " << this->reader_config.
-            task_name;
     ctx->setState({
         .task = task.key,
         .variant = "success",

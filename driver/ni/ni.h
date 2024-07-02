@@ -166,6 +166,10 @@ public:
 
     virtual freighter::Error stop();
 
+    virtual freighter::Error start_ni();
+
+    virtual freighter::Error stop_ni();
+
     void clear_task();
     
     virtual void stoppedWithErr(const freighter::Error &err) override;
