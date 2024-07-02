@@ -23,7 +23,7 @@ type options struct {
 	alamos.Instrumentation
 	dirname  string
 	fs       xfs.FS
-	metaECD  binary.EncoderDecoder
+	metaECD  binary.Codec
 	gcCfg    *GCConfig
 	fileSize telem.Size
 }
@@ -44,7 +44,7 @@ func newOptions(dirname string, opts ...Option) *options {
 }
 
 func mergeDefaultOptions(o *options) {
-	o.metaECD = override.Nil[binary.EncoderDecoder](&binary.JSONEncoderDecoder{}, o.metaECD)
+	o.metaECD = override.Nil[binary.Codec](&binary.JSONEncoderDecoder{}, o.metaECD)
 	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
 	o.gcCfg = override.Nil[*GCConfig](&DefaultGCConfig, o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)

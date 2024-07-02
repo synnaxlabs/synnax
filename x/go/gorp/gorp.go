@@ -100,7 +100,7 @@ var _ Tx = (*tx)(nil)
 // Tools provides the tools that gorp needs to translate key-value operations
 // to strongly-typed requests. It doesn't provide any functionality itself,
 // and is instead designed to be passed to the various other types that gorp uses.
-type Tools interface{ binary.EncoderDecoder }
+type Tools interface{ binary.Codec }
 
 // BaseReader is a simple extension of the kv.Reader interface that adds
 // gorp-required tooling. For semantic purposes, it can be considered as

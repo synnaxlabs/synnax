@@ -105,7 +105,7 @@ func Open(configs ...Config) (db *DB, err error) {
 	}, nil
 }
 
-func (db *DB) CheckMigration(ecd binary.EncoderDecoder) error {
+func (db *DB) CheckMigration(ecd binary.Codec) error {
 	if db.Channel.Version != version.Current {
 		db.Channel.Version = version.Current
 		return meta.Create(db.FS, ecd, db.Channel)
