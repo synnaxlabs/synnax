@@ -11,6 +11,7 @@ import "@/cluster/Dropdown.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Dropdown as Core, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/pluto";
 import { List as CoreList } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -38,6 +39,7 @@ export const List = (): ReactElement => {
   const data = Object.values(useSelectMany());
   const active = useSelect();
   const openWindow = Layout.usePlacer();
+  const addStatus = Status.useAggregator();
 
   const selected = active?.key ?? null;
 
@@ -47,6 +49,10 @@ export const List = (): ReactElement => {
 
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
+  };
+
+  const handleLink = (key: string): void => {
+    Link.CopyLinkToClipboard({ clusterKey: key, addStatus });
   };
 
   const contextMenu = useCallback(
@@ -62,8 +68,7 @@ export const List = (): ReactElement => {
           case "disconnect":
             return handleConnect(null);
           case "link":
-            void navigator.clipboard.writeText(`synnax://cluster/${key}`);
-            return;
+            return handleLink(key);
         }
       };
 

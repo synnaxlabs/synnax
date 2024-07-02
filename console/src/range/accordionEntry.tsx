@@ -9,11 +9,12 @@
 
 import "@/range/accordionEntry.css";
 
-import { type label, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { type label, TimeRange } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   componentRenderProp,
   Ranger,
+  Status,
   Synnax,
   Tag,
   Tooltip,
@@ -26,7 +27,6 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -43,6 +43,7 @@ export const List = (): ReactElement => {
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const selectedRange = useSelect();
+  const addStatus = Status.useAggregator();
 
   const handleAddOrEdit = (key?: string): void => {
     const layout = createEditLayout(key == null ? "Create Range" : "Edit Range");
@@ -104,8 +105,6 @@ export const List = (): ReactElement => {
     );
   };
 
-  const clusterKey = Cluster.useSelectActiveKey();
-
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -131,9 +130,15 @@ export const List = (): ReactElement => {
           return handleSetActive(rng.key);
         case "link": {
           if (rng == null) return;
-          const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
-          void navigator.clipboard.writeText(toCopy);
-          return;
+          if (client == null) return;
+          return Link.CopyLinkToClipboard({
+            clusterKey: client.key,
+            resource: {
+              type: "range",
+              key: rng.key,
+            },
+            addStatus,
+          });
         }
       }
     };

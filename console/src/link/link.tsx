@@ -20,6 +20,7 @@ import {
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { nanoid } from "nanoid";
 import { ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -136,3 +137,23 @@ export const CopyMenuItem = (): ReactElement => (
     Copy link
   </Menu.Item>
 );
+
+export interface CopyLinkToClipboardProps {
+  resource?: {
+    type: string;
+    key: string;
+  };
+  clusterKey: string;
+  addStatus: (status: Status.CrudeSpec) => void;
+}
+
+export const CopyLinkToClipboard = (props: CopyLinkToClipboardProps): void => {
+  let url = `synnax://cluster/${props.clusterKey}`;
+  if (props.resource != null) url += `/${props.resource.type}/${props.resource.key}`;
+  void navigator.clipboard.writeText(url);
+  props.addStatus({
+    variant: "info",
+    key: nanoid(),
+    message: `${url} copied to clipboard`,
+  });
+};

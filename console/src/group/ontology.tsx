@@ -9,17 +9,18 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
+import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components/menu";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { nodes, parent, resources },
+    client,
   } = props;
   const onSelect = (key: string): void => {
     switch (key) {
@@ -32,6 +33,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       case "group":
         void newGroup(props);
         return;
+      case "link":
+        return Link.CopyLinkToClipboard({
+          clusterKey: client.key,
+          resource: {
+            type: "group",
+            key: resources[0].id.key,
+          },
+          ...props,
+        });
     }
   };
 
@@ -51,6 +61,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </PMenu.Item>
       )}
       {singleResource && <Ontology.RenameMenuItem />}
+      {singleResource && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

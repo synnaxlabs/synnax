@@ -11,7 +11,6 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
 import { create, type State } from "@/lineplot/slice";
@@ -23,6 +22,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   removeLayout,
   selection: { resources },
   state: { nodes, setNodes },
+  addStatus,
 }) => {
   const ids = resources.map((res) => new ontology.ID(res.key));
   const keys = ids.map((id) => id.key);
@@ -38,13 +38,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
     })();
   };
 
-  const clusterKey = Cluster.useSelectActiveKey();
-
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
   const handleCopyLink = (): void => {
-    const toCopy = `synnax://cluster/${clusterKey}/lineplot/${resources[0].id.key}`;
-    void navigator.clipboard.writeText(toCopy);
+    Link.CopyLinkToClipboard({
+      clusterKey: client.key,
+      addStatus,
+      resource: {
+        type: "lineplot",
+        key: resources[0].id.key,
+      },
+    });
   };
 
   const f: Record<string, () => void> = {

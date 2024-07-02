@@ -11,7 +11,6 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -26,6 +25,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   services,
   selection: { resources, parent },
   state,
+  addStatus,
 }) => {
   const ids = resources.map((res) => new ontology.ID(res.key));
   const keys = ids.map((id) => id.key);
@@ -98,10 +98,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
-  const clusterKey = Cluster.useSelectActiveKey();
   const handleCopyUrl = (): void => {
-    const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`;
-    void navigator.clipboard.writeText(url);
+    Link.CopyLinkToClipboard({
+      clusterKey: client.key,
+      resource: {
+        type: "schematic",
+        key: resources[0].id.key,
+      },
+      addStatus,
+    });
   };
 
   const f: Record<string, () => void> = {
