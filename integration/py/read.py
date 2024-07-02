@@ -94,7 +94,8 @@ Expected error: {self._tc.expected_error}; Actual error: {str(e)}: {"PASS!!" if 
 
     def generate_test_report(self, samples: int, time: sy.TimeSpan, err_assertion: str) -> str:
         samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
-        assertion_passed = "PASS!!" if self._tc.expected_samples == samples else "FAIL!!"
+        assertion_passed = "PASS!!" if (self._tc.expected_samples == 0 
+                                        or self._tc.expected_samples == samples) else "FAIL!!"
         assertion_result = f'''
 Expected samples: {self._tc.expected_samples}; Actual samples: {samples}: {assertion_passed}
 ''' if self._tc.expected_samples != 0 else ""
