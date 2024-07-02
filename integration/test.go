@@ -125,7 +125,6 @@ func runNode(ctx context.Context, node TestNode, identifier string) error {
 	cmd.Env = os.Environ()
 
 	err := cmd.Start()
-	fmt.Println(cmd.String())
 	if err != nil {
 		return errors.Wrapf(
 			err,
