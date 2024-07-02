@@ -149,9 +149,7 @@ int ni::AnalogReadSource::configure_timing() {
                                     + this->reader_config.task_name);
                 return -1;
         }
-    } 
-
-    if (this->check_ni_error(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+    }else if(this->check_ni_error(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
         this->reader_config.timing_source.c_str(),
         this->reader_config.sample_rate.value,
         DAQmx_Val_Rising,
@@ -226,14 +224,20 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
         }
         auto series = synnax::Series(synnax::FLOAT32, s);
         // copy data from start to end into series
-        for(int i = 0; i < s; i++) 
-            series.write((float)(d.analog_data[data_index*s + i]));
+        for(int i = 0; i < d.samples_read_per_channel; i++) 
+            this->write_to_series(series, d.analog_data[data_index*d.samples_read_per_channel + i], this->reader_config.channels[ch].data_type);
         
         f.add(this->reader_config.channels[ch].channel_key, std::move(series));
         data_index++;
     }
     return std::make_pair(std::move(f), freighter::NIL);
 }
+
+void ni::AnalogReadSource::write_to_series(synnax::Series &series, double &data, synnax::DataType data_type) {
+    if(data_type == synnax::FLOAT32) series.write((float)(data));
+    else if(data_type == synnax::FLOAT64) series.write((double)(data)); 
+}
+
 
 int ni::AnalogReadSource::create_channels() {
     auto channels = this->reader_config.channels;
@@ -267,6 +271,7 @@ int ni::AnalogReadSource::validate_channels() {
             this->log_error("Channel " + channel.name + " is not of type float32 or float64");
             return -1;
         }
+        channel.data_type = channel_info.data_type;
     }
     return 0;
 }

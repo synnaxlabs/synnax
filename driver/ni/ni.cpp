@@ -574,12 +574,11 @@ int ni::Source::init() {
             "failed to create channels for " + this->reader_config.task_name);
         return -1;
     }
-    if (this->reader_config.sample_rate < this->reader_config.stream_rate) {
+    if (this->reader_config.sample_rate < this->reader_config.stream_rate || this->reader_config.sample_rate.value < 1) {
         this->log_error(
             "Failed while configuring timing for NI hardware for task " + this->
             reader_config.task_name);
-        this->err_info["type"] = "Configuration Error";
-        this->err_info["message"] = "Stream rate is greater than sample rate";
+        this->err_info["message"] = "sample rate must be greater than or equal to 1 and greater than or equal to the stream rate";
         this->err_info["running"] = false;
 
         this->ctx->setState({
@@ -603,12 +602,12 @@ freighter::Error  ni::Source::cycle(){
         this->log_error(
             "failed while starting reader for task " + this->reader_config.task_name +
             " requires reconfigure");
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+        return driver::CRITICAL_HARDWARE_ERROR;
     }
     if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
         this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+        return driver::CRITICAL_HARDWARE_ERROR;
     }
     return freighter::NIL;
 }
@@ -621,7 +620,7 @@ freighter::Error ni::Source::start() {
             "failed while starting reader for task " + this->reader_config.task_name +
             " requires reconfigure");
         this->clear_task();
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+        return driver::CRITICAL_HARDWARE_ERROR;
     }
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
     ctx->setState({
@@ -642,7 +641,7 @@ freighter::Error ni::Source::stop() {
     if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
         this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+        return driver::CRITICAL_HARDWARE_ERROR;
     }
     data_queue.reset();
     LOG(INFO) << "[ni.reader] stopped reader for task " << this->reader_config.
@@ -848,7 +847,6 @@ void ni::Source::jsonify_error(std::string s) {
         return;
     }
 
-    this->err_info["type"] = "field error";
     this->err_info["path"] = this->err_info["path"].get<std::string>() + FIELD_MAP.at(p);
 
     // Update the message with possible values, max value, and min value if they exist

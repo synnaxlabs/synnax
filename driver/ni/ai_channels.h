@@ -185,6 +185,8 @@ struct TableConfig {
         electrical_units = ni::UNITS_MAP.at(eu);
         physical_units = ni::UNITS_MAP.at(pu);
 
+        // TODO: figure out why using vector and .data() throws exception when passed to
+        // NI function
         electrical_vals = new double[num_eletrical_vals];
         auto e = parser.required_vector<double>("electrical_vals");
         for (uint32_t i = 0; i < num_eletrical_vals; i++)

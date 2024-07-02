@@ -103,6 +103,7 @@ struct ChannelConfig {
     std::string channel_type;
     std::shared_ptr<ni::Analog> ni_channel;
     bool enabled = false;
+    synnax::DataType data_type;
 };
 
 struct ReaderConfig {
@@ -246,6 +247,7 @@ public:
 
     int validate_channels() override;
 
+    void write_to_series(synnax::Series &series, double &data, synnax::DataType data_type);
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
     uint64_t numAIChannels = 0;
