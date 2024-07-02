@@ -461,9 +461,8 @@ synnax::Frame ni::StateSource::get_state() {
     auto state_frame = synnax::Frame(this->state_map.size() + 1);
     state_frame.add(this->state_index_key,
                           synnax::Series(synnax::TimeStamp::now().value, synnax::TIMESTAMP));
-    for (auto &state: this->state_map)
-        state_frame.add(state.first,
-                              synnax::Series(state.second));
+    for (auto &[key,  value] : this->state_map)
+        state_frame.add(key, synnax::Series(value));
     return state_frame;
 }
 
