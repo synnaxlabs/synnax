@@ -61,7 +61,6 @@ export const List = (): ReactElement => {
   };
 
   const handleRename = (key: string): void => {
-    console.log("EDIT", key);
     Text.edit(`text-${key}`);
   };
 
@@ -74,7 +73,6 @@ export const List = (): ReactElement => {
       if (key == null) return <Layout.DefaultContextMenu />;
       const handleSelect = (menuKey: string): void => {
         if (key == null) return;
-        console.log(menuKey);
         switch (menuKey) {
           case "remove":
             return handleRemove([key]);
