@@ -185,7 +185,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void Group.fromSelection(props);
         break;
       case "link": {
-        if (clusterKey == null) return;
+        if (clusterKey == null) break;
         Link.CopyToClipboard({
           clusterKey,
           resource: {
