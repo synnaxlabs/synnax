@@ -99,6 +99,9 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 
 // Close closes the database.
 // Close is not safe to call with any other DB methods concurrently.
+// Note that if this method is called while writers are still open on channels in the
+// database, a deadlock is caused since the signal context is closed while the writers
+// attempt to send to relay.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
@@ -110,8 +113,8 @@ func (db *DB) Close() error {
 	db.mu.Lock()
 	db.closeControlDigests()
 	db.mu.Unlock()
-	// Shut down without locking mutex to allow existing goroutines (GC) that require
-	// a mutex lock to exit.
+	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
+	// require a mutex lock to exit.
 	c.Exec(db.shutdown.Close)
 	db.mu.Lock()
 	defer db.mu.Unlock()
