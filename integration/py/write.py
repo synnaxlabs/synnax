@@ -3,7 +3,7 @@ from typing import NamedTuple, List
 
 import numpy as np
 import synnax as sy
-from integration import FILE_NAME, NO_ERROR
+from integration import FILE_NAME
 
 
 class IndexWriterGroup(NamedTuple):
@@ -67,9 +67,6 @@ class Write_Test():
         writer_mode = sy.WriterMode(int(argv[argv_counter]))
         argv_counter += 1
         expected_error = argv[argv_counter]
-        if expected_error == "none":
-            # Obfuscate to avoid false positive error matches
-            expected_error = NO_ERROR
         argv_counter += 1
         number_of_channel_groups = int(argv[argv_counter])
         argv_counter += 1
@@ -112,11 +109,11 @@ class Write_Test():
             self.test()
         except Exception as e:
             actual_error = str(e)
-            if self._tc.expected_error != NO_ERROR and self._tc.expected_error in str(e):
+            if self._tc.expected_error != "no_error" and self._tc.expected_error in str(e):
                 error_assertion_passed = True
         else:
-            actual_error = NO_ERROR
-            if self._tc.expected_error == NO_ERROR:
+            actual_error = "no_error"
+            if self._tc.expected_error == "no_error":
                 error_assertion_passed = True
         end = sy.TimeStamp.now()
 

@@ -5,6 +5,7 @@ import { argv, exit } from "process";
 
 class TestConfig {
     identifier: string = "";
+    expectedError: string = "";
     channels: string[] = [];
     timeRange: TimeRange = TimeRange.ZERO;
 }
@@ -24,6 +25,7 @@ class DeleteTest {
         const identifier = argv[argvCounter++];
         const timeRangeStart = BigInt(argv[argvCounter++]);
         const timeRangeEnd = BigInt(argv[argvCounter++]);
+        const expectedError = argv[argvCounter++];
         const number_of_channels = parseInt(argv[argvCounter++]);
         const channels = [];
         for (let i = 0; i < number_of_channels; i++) {
@@ -32,6 +34,7 @@ class DeleteTest {
 
         this.tc = {
             identifier,
+            expectedError: expectedError,
             timeRange: new TimeRange(timeRangeStart, timeRangeEnd),
             channels,
         };
@@ -39,7 +42,28 @@ class DeleteTest {
 
     async testWithTiming(): Promise<void> {
         const start = TimeStamp.now();
-        await this.test();
+        let errorAssertion = false;
+        let actualError = "";
+        let caught = false;
+        try {
+            await this.test();
+        } catch (e: unknown) {
+            if (e instanceof Error) {
+                caught = true;
+                actualError = e.message;
+                if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
+                    errorAssertion = true;
+                }
+            }else{
+                throw(e);
+            }
+        }
+        if (!caught) {
+            if (this.tc.expectedError == "no_error") {
+                errorAssertion = true;
+            }
+            actualError = "no_error";
+        }
         const end = TimeStamp.now();
 
         const time: TimeSpan = start.span(end);
@@ -49,6 +73,7 @@ Time taken: ${time.isZero ? 0 : time}
 Configuration:
 \tNumber of channels: ${this.tc.channels.length}
 
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion? "PASS!!": "FAIL!!"}
 `;
 
         fs.appendFileSync("../../timing.log", s);

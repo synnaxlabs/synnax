@@ -26,6 +26,7 @@ class TestConfig {
 	autoCommit: boolean = false;
 	indexPersistInterval: TimeSpan = TimeSpan.seconds(1);
 	writerMode: framer.WriterMode = framer.WriterMode.PersistStream;
+	expectedError: string;
 	channels: IndexWriterGroup[] = [];
 
 	numChannels: () => number = () => {
@@ -42,6 +43,7 @@ class TestConfig {
 		autoCommit: boolean,
 		indexPersistInterval: TimeSpan,
 		writerMode: framer.WriterMode,
+		expectedError: string,
 		channels: IndexWriterGroup[],
 	) {
 		this.identifier = identifier;
@@ -52,6 +54,7 @@ class TestConfig {
 		this.autoCommit = autoCommit;
 		this.indexPersistInterval = indexPersistInterval;
 		this.writerMode = writerMode;
+		this.expectedError = expectedError;
 		this.channels = channels;
 	};
 }
@@ -78,6 +81,7 @@ class WriteTest {
 		const autoCommit = argv[argvCounter++] === "true";
 		const indexPersistInterval = new TimeSpan(BigInt(argv[argvCounter++]));
 		const writerMode = parseInt(argv[argvCounter++]) as framer.WriterMode;
+		const expectedError = argv[argvCounter++];
 		const numberOfChannelGroups = parseInt(argv[argvCounter++]);
 		const channelGroups: IndexWriterGroup[] = [];
 
@@ -101,13 +105,36 @@ class WriteTest {
 			autoCommit,
 			indexPersistInterval,
 			writerMode,
+			expectedError,
 			channelGroups,
 		);
 	}
 
 	async testWithTiming(): Promise<void> {
 		const start = TimeStamp.now();
-		await this.test();
+		let errorAssertion = false;
+		let actualError = "";
+		let caught = false;
+		try {
+			await this.test();
+		}catch (e: unknown){
+			if (e instanceof Error){
+				caught = true;
+				actualError = e.message;
+				if(this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)){
+					errorAssertion = true;
+				}
+			}else{
+				throw(e);
+			}
+		}
+		if(!caught){
+			if(this.tc.expectedError == "no_error"){
+				errorAssertion = true;
+			}
+			actualError = "no_error";
+		}
+
 		const end = TimeStamp.now();
 
 		const time: TimeSpan = start.span(end);
@@ -127,6 +154,7 @@ Configuration:
 \tIndex persist interval: ${this.tc.indexPersistInterval}
 \tWriter mode: ${framer.WriterMode[this.tc.writerMode]}
 
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion? "PASS!!": "FAIL!!"}
 `;
 
 		fs.appendFileSync("../../timing.log", s);

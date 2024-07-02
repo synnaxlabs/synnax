@@ -3,7 +3,7 @@ from typing import NamedTuple, List
 
 import synnax as sy
 from timing import time_read
-from integration import FILE_NAME, NO_ERROR
+from integration import FILE_NAME
 
 # length of channels must = num_iterators
 class TestConfig(NamedTuple):
@@ -45,9 +45,6 @@ class Read_Test():
         expected_samples = int(argv[argv_counter])
         argv_counter += 1
         expected_error = argv[argv_counter]
-        if expected_error == "none":
-            # Obfuscate to avoid false positive error matches
-            expected_error = NO_ERROR
         argv_counter += 1
         number_of_channel_groups = int(argv[argv_counter])
         argv_counter += 1
@@ -78,10 +75,10 @@ class Read_Test():
         try:
             samples = self.test()
         except Exception as e:
-            if self._tc.expected_error != NO_ERROR and self._tc.expected_error in str(e):
+            if self._tc.expected_error != "no_error" and self._tc.expected_error in str(e):
                 error_assertion_passed = True
         else:
-            if self._tc.expected_error == NO_ERROR:
+            if self._tc.expected_error == "no_error":
                 error_assertion_passed = True
         end = sy.TimeStamp.now()
 

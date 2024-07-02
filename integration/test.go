@@ -11,6 +11,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -87,6 +88,7 @@ func runStep(i int, step TestStep) error {
 		n, node := n, node
 		sCtx.Go(func(ctx context.Context) error {
 			defer func() { sem.Release(1) }()
+			time.Sleep((telem.TimeSpan(n * 10) * telem.Millisecond).Duration())
 			if err := runNode(ctx, node, fmt.Sprintf("%d-%d", i, n)); err != nil {
 				return err
 			}

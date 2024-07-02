@@ -6,12 +6,14 @@ class TestConfig {
     identifier: string;
     startTimeStamp: TimeStamp;
     samplesExpected: number;
+    expectedError: string;
     channels: string[];
 
-    constructor(identifier: string, startTimeStamp: bigint, samplesExpected: number, channels: string[]) {
+    constructor(identifier: string, startTimeStamp: bigint, samplesExpected: number, expectedError: string, channels: string[]) {
         this.identifier = identifier;
         this.startTimeStamp = new TimeStamp(startTimeStamp);
         this.samplesExpected = samplesExpected;
+        this.expectedError = expectedError;
         this.channels = channels;
     }
 }
@@ -32,6 +34,7 @@ class StreamTest {
         const identifier = argv[argvCounter++];
         const startTimeStamp = BigInt(argv[argvCounter++]);
         const samplesExpected = parseInt(argv[argvCounter++]);
+        const expectedError = argv[argvCounter++];
         const numberOfChannels = parseInt(argv[argvCounter++]);
 
         const channels: string[] = [];
@@ -39,12 +42,35 @@ class StreamTest {
             channels.push(argv[argvCounter++]);
         }
 
-        this.tc = new TestConfig(identifier, startTimeStamp, samplesExpected, channels);
+        this.tc = new TestConfig(identifier, startTimeStamp, samplesExpected, expectedError, channels);
     }
 
     async testWithTiming(): Promise<void> {
         const start = TimeStamp.now();
-        const samples = await this.test();
+        let errorAssertion = false;
+        let actualError = "";
+        let samples = 0;
+        let caught = false;
+        try {
+            samples = await this.test();
+        }catch (e: unknown){
+            if (e instanceof Error){
+                caught = true;
+                actualError = e.message;
+                if(this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)){
+                    errorAssertion = true;
+                }
+            }else{
+                throw(e);
+            }
+        }
+        if(!caught){
+            if(this.tc.expectedError == "no_error"){
+                errorAssertion = true;
+            }
+            actualError = "no_error";
+        }
+
         const end = TimeStamp.now();
 
         const time: TimeSpan = start.span(end);
@@ -59,6 +85,7 @@ Configuration:
 \tNumber of channels: ${this.tc.channels.length}
 \tSamples expected: ${this.tc.samplesExpected}
 
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion? "PASS!!": "FAIL!!"}
 `;
 
         fs.appendFileSync("../../timing.log", s);

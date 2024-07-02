@@ -2,7 +2,7 @@ import sys
 from typing import NamedTuple, List
 
 import synnax as sy
-from integration import FILE_NAME, NO_ERROR
+from integration import FILE_NAME
 
 # Each python process opens one streamer
 class TestConfig(NamedTuple):
@@ -34,9 +34,6 @@ class Stream_Test():
         samples_expected = int(argv[argv_counter])
         argv_counter += 1
         expected_error = argv[argv_counter]
-        if expected_error == "none":
-            # Obfuscate to avoid false positive error matches
-            expected_error = NO_ERROR
         argv_counter += 1
         number_of_channels = int(argv[argv_counter])
         argv_counter += 1
@@ -62,11 +59,11 @@ class Stream_Test():
             samples = self.test()
         except Exception as e:
             actual_error = str(e)
-            if self._tc.expected_error != NO_ERROR and self._tc.expected_error in str(e):
+            if self._tc.expected_error != "no_error" and self._tc.expected_error in str(e):
                 error_assertion_passed = True
         else:
-            actual_error = NO_ERROR
-            if self._tc.expected_error == NO_ERROR:
+            actual_error = "no_error"
+            if self._tc.expected_error == "no_error":
                 error_assertion_passed = True
         end = sy.TimeStamp.now()
         time = start.span(end)

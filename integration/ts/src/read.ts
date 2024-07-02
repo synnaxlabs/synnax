@@ -4,12 +4,15 @@ import { CrudeTimeStamp, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x"
 import * as fs from 'fs'
 import { argv, exit } from 'process';
 
+const FILE_NAME = "../../timing.log"
+
 class TestConfig {
     identifier: string = "";
     numIterators: number = 0;
     chunkSize: number = 1e5;
     bounds: TimeRange = TimeRange.ZERO;
     expectedSamples: number = 0;
+    expectedError: string;
     channels: string[][] = [];
 
     constructor(
@@ -19,6 +22,7 @@ class TestConfig {
         boundStart: CrudeTimeStamp,
         boundEnd: CrudeTimeStamp,
         expectedSamples: number,
+        expectedError: string,
         channels: string[][],
     ) {
         this.identifier = identifier;
@@ -26,6 +30,7 @@ class TestConfig {
         this.chunkSize = chunkSize;
         this.bounds = new TimeRange(boundStart, boundEnd);
         this.expectedSamples = expectedSamples;
+        this.expectedError = expectedError;
         this.channels = channels;
     }
 
@@ -51,6 +56,7 @@ class ReadTest {
         const boundStart = BigInt(argv[argvCounter++]);
         const boundEnd = BigInt(argv[argvCounter++]);
         const expectedSamples = parseInt(argv[argvCounter++]);
+        const expectedError = argv[argvCounter++];
         const number_of_channel_groups = parseInt(argv[argvCounter++]);
         const channels = [];
         for (let i = 0; i < number_of_channel_groups; i++) {
@@ -61,12 +67,34 @@ class ReadTest {
             }
             channels.push(group);
         }
-        this.tc = new TestConfig(identifier, numIterators, chunkSize, boundStart, boundEnd, expectedSamples, channels);
+        this.tc = new TestConfig(identifier, numIterators, chunkSize, boundStart, boundEnd, expectedSamples, expectedError, channels);
     }
 
     async testWithTiming(): Promise<void> {
         const start = TimeStamp.now();
-        const samples = await this.test();
+        let samples = 0;
+        let errorAssertion = false;
+        let actualError = "";
+        let caught = false;
+        try {
+            samples = await this.test();
+        } catch (e: unknown){
+            if (e instanceof Error){
+                caught = true;
+                actualError = e.message
+                if(this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)){
+                    errorAssertion = true;
+                }
+            }else{
+                throw(e)
+            }
+        }
+        if(!caught){
+            if(this.tc.expectedError == "no_error"){
+                errorAssertion = true;
+            }
+            actualError = "no_error"
+        }
         const end = TimeStamp.now();
 
         const time: TimeSpan = start.span(end);
@@ -83,10 +111,10 @@ Configuration:
 \tNumber of channels: ${this.tc.numChannels()}
 \tChunk size: ${this.tc.chunkSize}
 ${assertionResult}: ${assertionPassed ? "PASS!!" : "FAIL!!"}
-
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion? "PASS!!": "FAIL!!"}
 `;
 
-        fs.appendFileSync("../../timing.log", s);
+        fs.appendFileSync(FILE_NAME, s);
     };
 
     async test(): Promise<number> {
