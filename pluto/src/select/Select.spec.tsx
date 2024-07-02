@@ -125,30 +125,27 @@ describe("Select", () => {
   describe("Select.Multiple", () => {
     it("should render a search input", () => {
       const c = render(<SelectMultiple />);
-      expect(c.getByText(DEFAULT_PLACEHOLDER)).toBeTruthy();
+      expect(c.getByPlaceholderText(DEFAULT_PLACEHOLDER)).toBeTruthy();
     });
     it("should render a list of options when the input area is selected", () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       expect(c.getByText("John")).toBeTruthy();
     });
     it("should not render a list of options when the input area is not selected", () => {
       const c = render(<SelectMultiple />);
-      const el = c.getByText("John");
-      expect(
-        el.parentElement?.parentElement?.parentElement?.parentElement?.className,
-      ).toContain("hidden");
+      expect(c.queryByText("John")).toBeFalsy();
     });
     it("should allow the user to select an item", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const j = c.queryAllByText("John");
       expect(j.length).toBe(2);
     });
     it("should allow the user to remove a selected item", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const j = await c.findAllByText("John");
       fireEvent.click(j[1]);
@@ -157,7 +154,7 @@ describe("Select", () => {
     });
     it("should allow the user to clear all selections", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("James"));
       fireEvent.click(c.getByText("Javier"));
@@ -172,7 +169,7 @@ describe("Select", () => {
     it("should call the onChange handler when the user selects an item", async () => {
       const onChange = vi.fn();
       const c = render(<SelectMultiple onChange={onChange} />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       expect(onChange).toHaveBeenCalledWith(["1"], {
         clicked: mockOptions[0].key,
@@ -183,7 +180,7 @@ describe("Select", () => {
     it("should call the onChange handler when the clears the selection", async () => {
       const onChange = vi.fn();
       const c = render(<SelectMultiple onChange={onChange} />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByLabelText("clear"));
       expect(onChange).toHaveBeenCalledWith([], {
@@ -196,30 +193,27 @@ describe("Select", () => {
   describe("Select.Single", () => {
     it("should render a search input", () => {
       const c = render(<SelectSingle />);
-      expect(c.getByText(DEFAULT_PLACEHOLDER)).toBeTruthy();
+      expect(c.getByPlaceholderText(DEFAULT_PLACEHOLDER)).toBeTruthy();
     });
     it("should render a list of options when the input area is selected", () => {
       const c = render(<SelectSingle />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       expect(c.getByText("John")).toBeTruthy();
     });
     it("should not render a list of options when the input area is not selected", () => {
       const c = render(<SelectSingle />);
-      const el = c.getByText("John");
-      expect(
-        el.parentElement?.parentElement?.parentElement?.parentElement?.className,
-      ).toContain("hidden");
+      expect(c.queryByText("John")).toBeFalsy();
     });
     it("should allow the user to select an item", async () => {
       const c = render(<SelectSingle />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const input = await c.findByDisplayValue("John");
       expect(input).toBeTruthy();
     });
     it("should allow the user to clear the selected item", async () => {
       const c = render(<SelectSingle />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByLabelText("clear"));
       const input = c.queryByDisplayValue("John");
@@ -228,14 +222,14 @@ describe("Select", () => {
     it("should call the onChange handler when the user selects an item", async () => {
       const onChange = vi.fn();
       const c = render(<SelectSingle onChange={onChange} />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       expect(onChange).toHaveBeenCalled();
     });
     it("should call the onChange handler when the user clears the input", async () => {
       const onChange = vi.fn();
       const c = render(<SelectSingle onChange={onChange} />);
-      fireEvent.click(c.getByText(DEFAULT_PLACEHOLDER));
+      fireEvent.click(c.getByPlaceholderText(DEFAULT_PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByLabelText("clear"));
       expect(onChange).toHaveBeenCalledTimes(2);

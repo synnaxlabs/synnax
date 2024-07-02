@@ -674,7 +674,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							AutoChunkSize: 3,
 						})
 						defer func() {
-							defer GinkgoRecover()
 							Expect(iter.Close()).To(Succeed())
 						}()
 						Expect(iter.SeekFirst(ctx)).To(BeTrue())

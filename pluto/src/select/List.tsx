@@ -32,8 +32,6 @@ export type SelectListProps<
 
 const DEFAULT_COLUMNS: CoreList.ColumnSpec[] = [];
 
-const defaultListItem = componentRenderProp(CoreList.Column.Item);
-
 export const Core = <K extends Key, E extends Keyed<K>>({
   data,
   emptyContent,
@@ -46,7 +44,10 @@ export const Core = <K extends Key, E extends Keyed<K>>({
   columns = DEFAULT_COLUMNS,
   visible,
   itemHeight = CoreList.Column.itemHeight,
-  listItem = defaultListItem as CoreList.VirtualCoreProps<K, E>["children"],
+  listItem = componentRenderProp(CoreList.Column.Item) as CoreList.VirtualCoreProps<
+    K,
+    E
+  >["children"],
   replaceOnSingle,
   omit,
   autoSelectOnNone,

@@ -41,6 +41,7 @@ import {
 } from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
+import { DEFAULT_PLACEHOLDER } from "@/select/Single";
 import { Tag } from "@/tag";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
@@ -201,7 +202,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
   visible,
   entryRenderKey,
   renderTag = componentRenderProp(MultipleTag<K, E>),
-  placeholder = "Select...",
+  placeholder = DEFAULT_PLACEHOLDER,
   onTagDragStart,
   onTagDragEnd,
   value,
