@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
@@ -30,9 +28,3 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
     </PMenu.Menu>
   );
 };
-
-export const RenameMenuItem = (): ReactElement => (
-  <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
-    Rename
-  </PMenu.Item>
-);
