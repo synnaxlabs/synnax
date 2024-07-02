@@ -68,6 +68,7 @@ class TestIterator:
 
             assert not i.next(sy.framer.AUTO_SPAN)
 
+
 @pytest.mark.framer
 @pytest.mark.writer
 class TestWriter:

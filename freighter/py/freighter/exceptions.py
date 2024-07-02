@@ -102,6 +102,7 @@ class Unreachable(Exception):
     """
     Raise when a target is unreachable.
     """
+
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "unreachable"
 
     target: str
@@ -120,6 +121,7 @@ class StreamClosed(Exception):
     """
     Raised when a stream is closed.
     """
+
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "stream_closed"
 
     def __str__(self):
@@ -130,6 +132,7 @@ class EOF(Exception):
     """
     Raised when a stream is closed.
     """
+
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "eof"
 
     def __str__(self):
