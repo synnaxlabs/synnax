@@ -52,7 +52,13 @@ export const List = (): ReactElement => {
   };
 
   const handleLink = (key: string): void => {
-    Link.CopyLinkToClipboard({ clusterKey: key, addStatus });
+    const name = data.find((c) => c.key === key)?.name;
+    if (name == undefined) return;
+    Link.CopyLinkToClipboard({
+      clusterKey: key,
+      addStatus,
+      name,
+    });
   };
 
   const contextMenu = useCallback(

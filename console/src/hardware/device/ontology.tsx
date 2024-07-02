@@ -84,6 +84,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             type: "device",
             key: selection.resources[0].id.key,
           },
+          name: selection.resources[0].name,
         });
         break;
       }

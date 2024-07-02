@@ -137,6 +137,7 @@ export const List = (): ReactElement => {
               type: "range",
               key: rng.key,
             },
+            name: rng.name,
             addStatus,
           });
         }

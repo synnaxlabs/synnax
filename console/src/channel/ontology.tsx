@@ -190,6 +190,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             key: resources[0].id.key,
           },
           addStatus,
+          name: resources[0].name,
         });
       }
     }

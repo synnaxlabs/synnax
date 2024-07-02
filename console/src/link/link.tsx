@@ -145,6 +145,7 @@ export interface CopyLinkToClipboardProps {
   };
   clusterKey: string;
   addStatus: (status: Status.CrudeSpec) => void;
+  name: string;
 }
 
 export const CopyLinkToClipboard = (props: CopyLinkToClipboardProps): void => {
@@ -154,6 +155,6 @@ export const CopyLinkToClipboard = (props: CopyLinkToClipboardProps): void => {
   props.addStatus({
     variant: "info",
     key: nanoid(),
-    message: `${url} copied to clipboard`,
+    message: `Link to ${props.name} copied to clipboard`,
   });
 };

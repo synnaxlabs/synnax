@@ -48,6 +48,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
         type: "lineplot",
         key: resources[0].id.key,
       },
+      name: resources[0].name,
     });
   };
 

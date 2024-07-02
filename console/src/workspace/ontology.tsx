@@ -123,6 +123,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         key: selection.resources[0].id.key,
       },
       addStatus,
+      name: selection.resources[0].name,
     });
   };
 
