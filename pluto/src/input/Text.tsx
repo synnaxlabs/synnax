@@ -118,6 +118,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             onBlur={handleBlur}
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}
+            placeholder={typeof placeholder === "string" ? placeholder : undefined}
             {...props}
           />
         </div>

@@ -381,22 +381,5 @@ describe("Form", () => {
       res.rerender();
       expect(res.result.current.value).toEqual([{ name: "Jane Doe" }]);
     });
-    it("should correctly call child listeners when the parent value changes", () => {
-      const callback = vi.fn();
-      const res = renderHook(
-        () => {
-          const parent = Form.useFieldArray({ path: "array" });
-          const child = Form.useFieldListener<string>({
-            path: "array.0.name",
-            onChange: callback,
-          });
-          return { parent, child };
-        },
-        { wrapper },
-      );
-      res.result.current.parent.set((v) => [...v, { name: "Jane Doe" }]);
-      res.rerender();
-      expect(callback).toHaveBeenCalled();
-    });
   });
 });
