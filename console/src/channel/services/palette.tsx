@@ -14,7 +14,7 @@ import { type Command, type CommandSelectionContext } from "@/palette/Palette";
 
 export const createChannelCommand: Command = {
   icon: <Icon.Channel />,
-  name: createLayout.name,
+  name: "Create Channel",
   key: "create-channel",
   onSelect: (ctx: CommandSelectionContext) => {
     ctx.placeLayout(createLayout);

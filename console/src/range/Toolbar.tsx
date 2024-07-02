@@ -49,7 +49,7 @@ export const List = (): ReactElement => {
   const selectedRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
-    const layout = createEditLayout(key == null ? "Create Range" : "Edit Range");
+    const layout = createEditLayout(key == null ? "Range.Create" : "Range.Edit");
     newLayout({
       ...layout,
       key: key ?? layout.key,
@@ -280,7 +280,7 @@ const Content = (): ReactElement => {
           {[
             {
               children: <Icon.Add />,
-              onClick: () => p(createEditLayout("Create Range")),
+              onClick: () => p(createEditLayout("Range.Create")),
             },
           ]}
         </Header.Actions>

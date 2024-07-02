@@ -37,7 +37,7 @@ export const EDIT_LAYOUT_TYPE = "editRange";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const createEditLayout = (name: string = "Create Range"): Layout.State => ({
+export const createEditLayout = (name: string = "Range.Create"): Layout.State => ({
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
   windowKey: EDIT_LAYOUT_TYPE,

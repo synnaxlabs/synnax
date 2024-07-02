@@ -172,7 +172,10 @@ const handleEdit = ({
   selection: { resources },
   placeLayout,
 }: Ontology.TreeContextMenuProps): void => {
-  placeLayout({ ...createEditLayout("Edit Range"), key: resources[0].id.key });
+  placeLayout({
+    ...createEditLayout("Range.Edit"),
+    key: resources[0].id.key,
+  });
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
