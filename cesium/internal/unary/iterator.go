@@ -350,16 +350,16 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 // range and the start of the current iterator view. If the start of the current view is
 // before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (
-	startApprox index.DistanceApproximation,
-	domain uint32,
-	err error,
+	index.DistanceApproximation,
+	uint32,
+	error,
 ) {
 	target := i.internal.TimeRange().Start.SpanRange(0)
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target.End = i.view.Start
 	}
-	sa, da, err := i.idx.Distance(ctx, target, true)
-	return sa, da.Lower, err
+	startApprox, domainApprox, err := i.idx.Distance(ctx, target, true)
+	return startApprox, domainApprox.Lower, err
 }
 
 // approximateEnd approximates the number of samples between the start of the current

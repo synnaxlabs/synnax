@@ -33,7 +33,7 @@ func (i *Domain) Distance(
 	ctx context.Context,
 	tr telem.TimeRange,
 	continuous bool,
-) (approx DistanceApproximation, bounds DomainBounds, err error) {
+) (approx DistanceApproximation, domainBounds DomainBounds, err error) {
 	var startApprox, endApprox DistanceApproximation
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
@@ -53,7 +53,7 @@ func (i *Domain) Distance(
 
 	// If the time range is zero, then the distance is zero.
 	if tr.IsZero() {
-		bounds = ExactDomainBounds(iter.Position())
+		domainBounds = ExactDomainBounds(iter.Position())
 		return
 	}
 
@@ -77,7 +77,7 @@ func (i *Domain) Distance(
 			endApprox.Lower-startApprox.Upper,
 			endApprox.Upper-startApprox.Lower,
 		)
-		bounds = ExactDomainBounds(iter.Position())
+		domainBounds = ExactDomainBounds(iter.Position())
 		return
 	} else if continuous {
 		err = NewErrDiscontinuousTR(tr)
@@ -95,7 +95,7 @@ func (i *Domain) Distance(
 			l-startApprox.Lower,
 		)
 	)
-	bounds.Lower = iter.Position()
+	domainBounds.Lower = iter.Position()
 
 	for {
 		if !iter.Next() {
@@ -107,10 +107,10 @@ func (i *Domain) Distance(
 				startToFirstEnd.Lower+gap,
 				startToFirstEnd.Upper+gap,
 			)
-			bounds.Upper = iter.Position()
+			domainBounds.Upper = iter.Position()
 			return
 		}
-		bounds.Upper = iter.Position()
+		domainBounds.Upper = iter.Position()
 		if iter.TimeRange().ContainsStamp(tr.End) {
 			if err = r.Close(); err != nil {
 				return
@@ -308,12 +308,4 @@ func readStamp(r io.ReaderAt, offset int64, buf []byte) (telem.TimeStamp, error)
 
 func (i *Domain) Info() string {
 	return fmt.Sprintf("domain index: %v", i.Channel)
-}
-
-func (i *Domain) Domain(ctx context.Context, ref telem.TimeStamp) (DomainBounds, error) {
-	iter := i.DB.NewIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
-	if !iter.SeekFirst(ctx) {
-		return DomainBounds{}, errors.Wrapf(domain.ErrRangeNotFound, "cannot find domain for timestamp %s", ref)
-	}
-	return ExactDomainBounds(iter.Position()), nil
 }
