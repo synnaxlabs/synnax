@@ -38,7 +38,7 @@ export const createWindowLayout = (
 });
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Workspace must hav a name" }),
+  name: z.string().min(1, { message: "Workspace must have a name" }),
 });
 
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {

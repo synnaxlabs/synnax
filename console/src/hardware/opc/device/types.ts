@@ -47,6 +47,7 @@ export const nodeProperties = z.object({
   name: z.string(),
   nodeId: z.string(),
   isArray: z.boolean(),
+  synnaxChannel: z.number().optional(),
 });
 
 export type NodeProperties = z.infer<typeof nodeProperties>;

@@ -74,7 +74,7 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
         {
             option: "--verbose/-v",
             default: "false",
-            description: "Enables verbose logging for diagnostic purposes.",
+            description: "Enables human-readable logging.",
         },
         {
             option: "--insecure/-i",
@@ -134,6 +134,11 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
             default: "\"\"",
             description: "License key to use Synnax outside of demo mode.",
         },
+        {
+            option: "--debug",
+            default: "false",
+            description: "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
+        }
     ]}
 />
 

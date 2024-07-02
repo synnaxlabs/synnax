@@ -19,7 +19,6 @@ import (
 	"io/fs"
 	"math/rand"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -272,14 +271,12 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	var (
 		sem     = semaphore.NewWeighted(maxGoRoutine)
 		sCtx, _ = signal.Isolated()
-		wg      = &sync.WaitGroup{}
 	)
 	for _, udb := range db.unaryDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {
 			db.mu.RUnlock()
 			return err
 		}
-		wg.Add(1)
 		udb := udb
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
