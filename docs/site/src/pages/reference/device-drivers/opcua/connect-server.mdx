@@ -166,8 +166,8 @@ created in the database.
 <Video client:only="react" id="device-drivers/opcua/configure/remove-channels"
 />
 
-The namespace and the numeric identifier of the OPCUA node associated with the Synnax
-channel is displayed below the name labeled as `NS` and `I` respectively. 
+The namespace and the numeric identifier of the OPCUA node associated with the
+Synnax channel is displayed below the name labeled as `NS` and `I` respectively. 
 
 ### <StepText level="h3" step={3.3}>Edit Channel Properties</StepText>
 
@@ -178,10 +178,10 @@ corresponding node as needed.
 <Video client:only="react" id="device-drivers/opcua/configure/channel-props" />
 
 <Note variant="warning">
-Be careful when changing the data type of the channel.
-Some data types will not have the sufficient precision to store the data from
-your node. If you're ok with the loss of precision, Synnax will automatically
-convert the data to the new type when it reads from the OPC UA server.
+Be careful when changing the data type of the channel. Some data types will not
+have the sufficient precision to store the data from your node. If you're ok
+with the loss of precision, Synnax will automatically convert the data to the
+new type when it reads from the OPC UA server.
 </Note>
 
 ### <StepText level="h3" step={3.4}>Correctly Configure Indexes</StepText>
@@ -238,7 +238,7 @@ must be array nodes, and all nodes in the group must have the same length**.
 When using array based sampling, we highly recommend reading the timestamps from
 the OPC UA server. Synnax cannot determine the correct timestamps for each
 sample in the array, and will interpolate based on the time of the request and
-the data rate. 
+the data rate.
 
 We recommend setting up a node containing an array of `DateTime` values, and
 marking that as your index for the sampling group. Here's an example
