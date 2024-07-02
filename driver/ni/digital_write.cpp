@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <cassert>
 #include <regex>
-#include <ranges>
 
 #include "client/cpp/telem/telem.h"
 #include "driver/ni/ni.h"
@@ -240,7 +239,8 @@ freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
     for (auto key: *(frame.channels)) {
         // the order the keys were pushed into the vector is the order the data is written
         // first see if the key is in the drive_cmd_channel_keys
-        auto it = std::ranges::find(this->writer_config.drive_cmd_channel_keys, key);
+        auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(),
+                            this->writer_config.drive_cmd_channel_keys.end(), key);
         if (it != this->writer_config.drive_cmd_channel_keys.end()) {
             // if so, now find which index it is in the vector (i.e. which channel it is in the write_buffer)
             cmd_channel_index = std::distance(
