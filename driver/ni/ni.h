@@ -290,7 +290,7 @@ class StateSource final : public pipeline::Source {
 public:
     explicit StateSource() = default;
 
-    explicit StateSource(std::uint64_t state_rate,
+    explicit StateSource(float state_rate,
                          synnax::ChannelKey &state_index_key,
                          std::vector<synnax::ChannelKey> &state_channel_keys);
 
@@ -315,7 +315,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 struct WriterConfig {
     std::vector<ChannelConfig> channels;
-    std::uint64_t state_rate = 0;
+    float state_rate = 0;
     std::string device_name;
     std::string device_key;
     std::string task_name;

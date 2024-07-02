@@ -77,7 +77,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
 
 
 void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
-    this->writer_config.state_rate = parser.required<uint64_t>("state_rate");
+    this->writer_config.state_rate = parser.required<float>("state_rate");
     this->writer_config.device_key = parser.required<std::string>("device");
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
@@ -423,7 +423,7 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 ni::StateSource::StateSource(
-    std::uint64_t state_rate,
+    float state_rate,
     synnax::ChannelKey &state_index_key,
     std::vector<synnax::ChannelKey> &
     state_channel_keys
