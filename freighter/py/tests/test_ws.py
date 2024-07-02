@@ -47,8 +47,9 @@ class TestWS:
         msg, err = await stream.receive()
         assert err is not None
 
-    async def test_receive_message_after_close(self,
-                                               async_client: AsyncWebsocketClient):
+    async def test_receive_message_after_close(
+        self, async_client: AsyncWebsocketClient
+    ):
         """Should receive a message and EOF error after the server closes the
         connection."""
         stream = await async_client.stream(

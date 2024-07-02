@@ -13,8 +13,10 @@ from typing import Any, Generic, Literal, Type, MutableMapping
 from pydantic import BaseModel
 from websockets.client import WebSocketClientProtocol, connect
 from websockets.exceptions import ConnectionClosedOK
-from websockets.sync.client import ClientConnection as SyncClientProtocol, \
-    connect as sync_connect
+from websockets.sync.client import (
+    ClientConnection as SyncClientProtocol,
+    connect as sync_connect,
+)
 
 from freighter.context import Context
 from freighter.encoder import EncoderDecoder
@@ -118,7 +120,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             await self.__internal.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
 class SyncWebsocketStream(Stream[RQ, RS]):
@@ -188,7 +190,6 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             assert exc_pld is not None
             self.__server_closed = decode_exception(exc_pld)
         finally:
-
             self.__internal.close()
 
 
