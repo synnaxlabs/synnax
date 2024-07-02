@@ -12,7 +12,7 @@ type ReadParams struct {
 	ChunkSize       int             `json:"chunk_size"`
 	Bounds          telem.TimeRange `json:"bounds"`
 	ChannelGroups   [][]string      `json:"channel_groups"`
-	ExpectedSamples int             `json:"expected_samples"`
+	SamplesExpected int             `json:"samples_expected"`
 	ExpectedError   string          `json:"expected_error"`
 }
 
@@ -24,7 +24,7 @@ func (p ReadParams) serialize() []string {
 		strconv.Itoa(p.ChunkSize),
 		strconv.FormatInt(int64(p.Bounds.Start), 10),
 		strconv.FormatInt(int64(p.Bounds.End), 10),
-		strconv.FormatInt(int64(p.ExpectedSamples), 10),
+		strconv.FormatInt(int64(p.SamplesExpected), 10),
 		p.ExpectedError,
 		strconv.Itoa(len(p.ChannelGroups)),
 	)

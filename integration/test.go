@@ -11,7 +11,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -37,7 +36,7 @@ func readTestConfig(fileName string) TestSequence {
 	return seq
 }
 
-func runTest(testConfigFile string) (exitCode int) {
+func runTest(testConfigFile string, verbose bool) (exitCode int) {
 	ctx, cancel := context.WithCancel(context.Background())
 	test := readTestConfig(testConfigFile)
 	writeTestStart("timing.log", testConfigFile, test.Cluster, test.Setup)
@@ -52,19 +51,19 @@ func runTest(testConfigFile string) (exitCode int) {
 			fmt.Printf("PANIC RECOVERED FOR CLEANUP FROM ERROR\n-----\n%s\n------\n", r)
 			exitCode = 1
 		}
-		if err := runCleanUp(test.Cleanup); err != nil {
+		if err := runCleanUp(test.Cleanup, verbose); err != nil {
 			panic(err)
 		}
 
 		cancel()
 	}()
 
-	if err := runSetUp(test.Setup); err != nil {
+	if err := runSetUp(test.Setup, verbose); err != nil {
 		panic(err)
 	}
 
 	for i, step := range test.Steps {
-		if err := runStep(i, step); err != nil {
+		if err := runStep(i, step, verbose); err != nil {
 			panic(err)
 		}
 	}
@@ -72,7 +71,7 @@ func runTest(testConfigFile string) (exitCode int) {
 	return
 }
 
-func runStep(i int, step TestStep) error {
+func runStep(i int, step TestStep, verbose bool) error {
 	var (
 		sem     = semaphore.NewWeighted(int64(len(step)))
 		sCtx, _ = signal.Isolated()
@@ -88,8 +87,7 @@ func runStep(i int, step TestStep) error {
 		n, node := n, node
 		sCtx.Go(func(ctx context.Context) error {
 			defer func() { sem.Release(1) }()
-			time.Sleep((telem.TimeSpan(n * 10) * telem.Millisecond).Duration())
-			if err := runNode(ctx, node, fmt.Sprintf("%d-%d", i, n)); err != nil {
+			if err := runNode(ctx, node, fmt.Sprintf("%d-%d", i, n), verbose); err != nil {
 				return err
 			}
 
@@ -100,7 +98,7 @@ func runStep(i int, step TestStep) error {
 	return sCtx.Wait()
 }
 
-func runNode(ctx context.Context, node TestNode, identifier string) error {
+func runNode(ctx context.Context, node TestNode, identifier string, verbose bool) error {
 	var (
 		stdErr, stdOut bytes.Buffer
 		cmd            *exec.Cmd
@@ -124,6 +122,11 @@ func runNode(ctx context.Context, node TestNode, identifier string) error {
 	cmd.Dir = dir
 	cmd.Env = os.Environ()
 
+	if verbose {
+		fmt.Printf("[%s] - %s\n", identifier, cmd.String())
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+	}
 	err := cmd.Start()
 	if err != nil {
 		return errors.Wrapf(

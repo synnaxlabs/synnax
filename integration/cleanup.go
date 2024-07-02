@@ -28,12 +28,17 @@ func (p CleanUpParam) ToTSCommand(_ string) string {
 
 var _ NodeParams = &CleanUpParam{}
 
-func runCleanUp(p CleanUpParam) error {
+func runCleanUp(p CleanUpParam, verbose bool) error {
 	if p == (CleanUpParam{}) {
 		fmt.Printf("--cannot find cleanup configuration, skipping\n")
 		return nil
 	}
 	fmt.Printf("--cleaning up\n")
 
-	return runNode(context.Background(), TestNode{Client: p.Client, Params: p}, "cleanup")
+	return runNode(
+		context.Background(),
+		TestNode{Client: p.Client, Params: p},
+		"cleanup",
+		verbose,
+	)
 }

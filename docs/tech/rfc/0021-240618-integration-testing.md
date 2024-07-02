@@ -132,9 +132,7 @@ integration test. For example, a test may ressemble this:
 In the above example, there are 5 nodes organized in 2 steps, with the first two operations
 running in parallel and the the last three running in parallel. Tests written this way
 have high customizability and portability, even for when we may have more platforms and
-more operations in the future. Note that nodes from the same step are programmed to
-start running in the order they are defined – this is done by artificially delaying the
-execution of each node by 1ms before the previous one.
+more operations in the future.
 
 In addition to the body, the test suite may also accept `cluster`, `setup`, and `cleanup`
 customizations. The `cluster` option allows the test to start a customized cluster (e.g.

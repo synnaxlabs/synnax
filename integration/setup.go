@@ -41,13 +41,18 @@ func (p SetUpParam) ToTSCommand(_ string) string {
 
 var _ NodeParams = &SetUpParam{}
 
-func runSetUp(p SetUpParam) error {
+func runSetUp(p SetUpParam, verbose bool) error {
 	if p == (SetUpParam{}) {
 		fmt.Printf("--cannot find setup configuration, skipping\n")
 		return nil
 	}
 
 	fmt.Printf("--setting up\n")
-	return runNode(context.Background(), TestNode{Client: p.Client, Params: p}, "cleanup")
+	return runNode(
+		context.Background(),
+		TestNode{Client: p.Client, Params: p},
+		"setup",
+		verbose,
+	)
 
 }

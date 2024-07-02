@@ -59,6 +59,8 @@ class StreamTest {
                 actualError = e.message;
                 if(this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)){
                     errorAssertion = true;
+                }else{
+                    throw(e)
                 }
             }else{
                 throw(e);
@@ -102,7 +104,6 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorA
         try {
             for await (const frame of streamer) {
                 samplesStreamed += frame.series.reduce((total, s) => total + s.length, 0);
-                console.log(samplesStreamed)
                 if (samplesStreamed >= this.tc.samplesExpected) {
                     return samplesStreamed;
                 }

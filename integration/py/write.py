@@ -111,6 +111,8 @@ class Write_Test():
             actual_error = str(e)
             if self._tc.expected_error != "no_error" and self._tc.expected_error in str(e):
                 error_assertion_passed = True
+            else:
+                raise(e)
         else:
             actual_error = "no_error"
             if self._tc.expected_error == "no_error":

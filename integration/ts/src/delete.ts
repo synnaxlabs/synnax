@@ -53,6 +53,8 @@ class DeleteTest {
                 actualError = e.message;
                 if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
                     errorAssertion = true;
+                }else{
+                    throw(e)
                 }
             }else{
                 throw(e);

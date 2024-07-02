@@ -61,6 +61,8 @@ class Stream_Test():
             actual_error = str(e)
             if self._tc.expected_error != "no_error" and self._tc.expected_error in str(e):
                 error_assertion_passed = True
+            else:
+                raise(e)
         else:
             actual_error = "no_error"
             if self._tc.expected_error == "no_error":
@@ -95,9 +97,6 @@ Configuration:
                 samples_streamed += sum([len(s) for s in f.series])
                 if samples_streamed >= self._tc.samples_expected:
                     return samples_streamed
-
-
-
 
 
 def main():

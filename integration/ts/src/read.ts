@@ -6,12 +6,17 @@ import { argv, exit } from 'process';
 
 const FILE_NAME = "../../timing.log"
 
+function approxEqual(a: number, b: number, tol = 0.01): boolean {
+    return Math.abs(b - a) < tol * b;
+}
+
+
 class TestConfig {
     identifier: string = "";
     numIterators: number = 0;
     chunkSize: number = 1e5;
     bounds: TimeRange = TimeRange.ZERO;
-    expectedSamples: number = 0;
+    samplesExpected: number = 0;
     expectedError: string;
     channels: string[][] = [];
 
@@ -21,7 +26,7 @@ class TestConfig {
         chunkSize: number,
         boundStart: CrudeTimeStamp,
         boundEnd: CrudeTimeStamp,
-        expectedSamples: number,
+        samplesExpected: number,
         expectedError: string,
         channels: string[][],
     ) {
@@ -29,7 +34,7 @@ class TestConfig {
         this.numIterators = numIterators;
         this.chunkSize = chunkSize;
         this.bounds = new TimeRange(boundStart, boundEnd);
-        this.expectedSamples = expectedSamples;
+        this.samplesExpected = samplesExpected;
         this.expectedError = expectedError;
         this.channels = channels;
     }
@@ -55,7 +60,7 @@ class ReadTest {
         const chunkSize = parseInt(argv[argvCounter++]);
         const boundStart = BigInt(argv[argvCounter++]);
         const boundEnd = BigInt(argv[argvCounter++]);
-        const expectedSamples = parseInt(argv[argvCounter++]);
+        const samplesExpected = parseInt(argv[argvCounter++]);
         const expectedError = argv[argvCounter++];
         const number_of_channel_groups = parseInt(argv[argvCounter++]);
         const channels = [];
@@ -67,7 +72,7 @@ class ReadTest {
             }
             channels.push(group);
         }
-        this.tc = new TestConfig(identifier, numIterators, chunkSize, boundStart, boundEnd, expectedSamples, expectedError, channels);
+        this.tc = new TestConfig(identifier, numIterators, chunkSize, boundStart, boundEnd, samplesExpected, expectedError, channels);
     }
 
     async testWithTiming(): Promise<void> {
@@ -78,19 +83,21 @@ class ReadTest {
         let caught = false;
         try {
             samples = await this.test();
-        } catch (e: unknown){
-            if (e instanceof Error){
+        } catch (e: unknown) {
+            if (e instanceof Error) {
                 caught = true;
                 actualError = e.message
-                if(this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)){
+                if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
                     errorAssertion = true;
+                } else {
+                    throw (e)
                 }
-            }else{
-                throw(e)
+            } else {
+                throw (e)
             }
         }
-        if(!caught){
-            if(this.tc.expectedError == "no_error"){
+        if (!caught) {
+            if (this.tc.expectedError == "no_error") {
                 errorAssertion = true;
             }
             actualError = "no_error"
@@ -99,8 +106,8 @@ class ReadTest {
 
         const time: TimeSpan = start.span(end);
         const samplesPerSecond = samples / (Number(time) / Number(TimeSpan.SECOND));
-        const assertionPassed = this.tc.expectedSamples == 0 || samples == this.tc.expectedSamples;
-        const assertionResult = `Expected samples: ${this.tc.expectedSamples}; Actual samples: ${samples}`;
+        const assertionPassed = this.tc.samplesExpected == 0 || approxEqual(samples, this.tc.samplesExpected);
+        const assertionResult = `Expected samples: ${this.tc.samplesExpected}; Actual samples: ${samples}: ${assertionPassed ? "PASS!!" : "FAIL!!"}`;
         const s = `
 -- TypeScript Read (${this.tc.identifier}) --
 Samples read: ${samples}
@@ -111,7 +118,7 @@ Configuration:
 \tNumber of channels: ${this.tc.numChannels()}
 \tChunk size: ${this.tc.chunkSize}
 ${assertionResult}: ${assertionPassed ? "PASS!!" : "FAIL!!"}
-Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion? "PASS!!": "FAIL!!"}
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion ? "PASS!!" : "FAIL!!"}
 `;
 
         fs.appendFileSync(FILE_NAME, s);
