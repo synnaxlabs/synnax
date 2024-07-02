@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, ranger, type Synnax } from "@synnaxlabs/client";
+import type { ontology, ranger, Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { toArray } from "@synnaxlabs/x";
@@ -20,12 +20,12 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createEditLayout } from "@/range/EditLayout";
-import { Range } from "@/range/range";
+import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
 import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 
-const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] => {
-  return toArray(ranges).map((range) => ({
+const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
+  toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
     name: range.name,
@@ -35,7 +35,6 @@ const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] => {
     },
     persisted: true,
   }));
-};
 
 const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
   void (async () => {
@@ -152,7 +151,7 @@ const handleEdit = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { selection, store, client } = props;
+  const { client, selection, store } = props;
   const state = store.getState();
   const activeRange = select(state);
   const layout = Layout.selectActiveMosaicTab(state);
