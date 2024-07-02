@@ -30,6 +30,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const ids = resources.map((res) => new ontology.ID(res.key));
   const keys = ids.map((id) => id.key);
   const activeRange = Range.select(store.getState());
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleDelete = (): void => {
     void (async () => {
@@ -98,7 +99,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
-  const clusterKey = Cluster.useSelectActiveKey();
   const handleCopyUrl = (): void => {
     const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`;
     void navigator.clipboard.writeText(url);
@@ -117,7 +117,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Ontology.RenameMenuItem />
+      <Menu.RenameItem />
       {resources.every((r) => r.data?.snapshot === false) && (
         <Range.SnapshotMenuItem range={activeRange} />
       )}

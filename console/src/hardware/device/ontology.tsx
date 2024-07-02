@@ -65,10 +65,10 @@ const handleDelete = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
+  const clusterKey = Cluster.useSelectActiveKey();
   const { selection } = props;
   if (selection.nodes.length === 0) return null;
   const singleResource = selection.nodes.length === 1;
-  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
