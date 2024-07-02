@@ -30,6 +30,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const ids = resources.map((res) => new ontology.ID(res.key));
   const keys = ids.map((id) => id.key);
   const activeRange = Range.select(store.getState());
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleDelete = (): void => {
     void (async () => {
@@ -123,7 +124,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Ontology.RenameMenuItem />
+      <Menu.RenameItem />
       {resources.every((r) => r.data?.snapshot === false) && (
         <Range.SnapshotMenuItem range={activeRange} />
       )}

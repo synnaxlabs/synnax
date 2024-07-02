@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
@@ -64,7 +65,8 @@ const handleDelete = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { client, selection } = props;
+  const clusterKey = Cluster.useSelectActiveKey();
+  const { selection } = props;
   if (selection.nodes.length === 0) return null;
   const singleResource = selection.nodes.length === 1;
 
@@ -77,8 +79,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         handleDelete(props);
         break;
       case "link": {
+        if (clusterKey == null) return;
         Link.CopyToClipboard({
-          clusterKey: client.key,
+          clusterKey,
           addStatus: props.addStatus,
           resource: {
             type: "device",

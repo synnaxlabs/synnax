@@ -97,6 +97,7 @@ I can successfully:
 - [ ] Create a range from a line plot selection.
 - [ ] Delete a range in the resources view.
 - [ ] Delete multiple ranges in the resources view.
+- [ ] Rename a range from the range toolbar.
 
 ### Line Plots
 

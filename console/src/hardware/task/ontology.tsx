@@ -44,6 +44,7 @@ const handleSelect: Ontology.HandleSelect = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
+  const clusterKey = Cluster.useSelectActiveKey();
   const { store, selection, client, addStatus } = props;
   const { resources } = selection;
 

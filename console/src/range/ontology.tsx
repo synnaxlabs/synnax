@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
+import type { ontology, ranger, Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { toArray } from "@synnaxlabs/x";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -22,7 +23,7 @@ import { Ontology } from "@/ontology";
 import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
-import { add, remove, setActive, type StoreState } from "@/range/slice";
+import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 
 const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
   toArray(ranges).map((range) => ({
@@ -73,10 +74,13 @@ const handleRename: Ontology.HandleTreeRename = ({
       }),
     });
     state.setNodes([...next]);
-    const existing = select(store.getState(), id.key);
-    if (existing == null) return;
     const range = await client.ranges.retrieve(id.key);
-    store.dispatch(add({ ranges: fromClientRange(range) }));
+    const existing = select(store.getState(), id.key);
+    if (existing == null) {
+      store.dispatch(add({ ranges: fromClientRange(range) }));
+      return;
+    }
+    store.dispatch(rename({ key: id.key, name }));
   })();
 };
 
@@ -148,7 +152,8 @@ const handleEdit = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { addStatus, client, selection, store } = props;
+  const clusterKey = Cluster.useSelectActiveKey();
+  const { addStatus, selection, store } = props;
   const state = store.getState();
   const activeRange = select(state);
   const layout = Layout.selectActiveMosaicTab(state);
@@ -178,8 +183,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void Group.fromSelection(props);
         return;
       case "link": {
+        if (clusterKey == null) return;
         Link.CopyToClipboard({
-          clusterKey: client.key,
+          clusterKey,
           resource: {
             type: "range",
             key: resources[0].id.key,
@@ -202,7 +208,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {resources[0].id.key !== activeRange?.key && (
             <PMenu.Item itemKey="activate">Set as Active Range</PMenu.Item>
           )}
-          <Ontology.RenameMenuItem />
+          <Menu.RenameItem />
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
           </PMenu.Item>

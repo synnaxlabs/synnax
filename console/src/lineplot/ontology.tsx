@@ -40,6 +40,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
+  const clusterKey = Cluster.useSelectActiveKey();
   const handleCopyLink = (): void => {
     Link.CopyToClipboard({
       clusterKey: client.key,
@@ -61,9 +62,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const onSelect = (key: string): void => f[key]();
 
   const isSingle = resources.length === 1;
+
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      {isSingle && <Ontology.RenameMenuItem />}
+      {isSingle && <Menu.RenameItem />}
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>

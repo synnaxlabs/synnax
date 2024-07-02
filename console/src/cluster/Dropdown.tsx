@@ -32,7 +32,13 @@ import { useDispatch } from "react-redux";
 import { connectWindowLayout } from "@/cluster/Connect";
 import { type Cluster } from "@/cluster/core";
 import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selectors";
-import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/slice";
+import {
+  LOCAL_CLUSTER_KEY,
+  remove,
+  rename,
+  setActive,
+  setLocalState,
+} from "@/cluster/slice";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -41,7 +47,7 @@ import { Link } from "@/link";
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
-  const data = Object.values(useSelectMany());
+  const allClusters = useSelectMany();
   const active = useSelect();
   const openWindow = Layout.usePlacer();
   const addStatus = Status.useAggregator();
@@ -57,13 +63,17 @@ export const List = (): ReactElement => {
   };
 
   const handleLink = (key: string): void => {
-    const name = data.find((c) => c.key === key)?.name;
+    const name = allClusters.find((c) => c.key === key)?.name;
     if (name == undefined) return;
     Link.CopyToClipboard({
       clusterKey: key,
       addStatus,
       name,
     });
+  };
+
+  const handleRename = (key: string): void => {
+    Text.edit(`text-${key}`);
   };
 
   const contextMenu = useCallback(
@@ -80,16 +90,16 @@ export const List = (): ReactElement => {
             return handleConnect(null);
           case "link":
             return handleLink(key);
+          case "rename":
+            return handleRename(key);
         }
       };
 
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
-          {key !== null && (
-            <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
-              Remove
-            </PMenu.Item>
-          )}
+          <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
+            Remove
+          </PMenu.Item>
           {key === active?.key ? (
             <PMenu.Item
               startIcon={<Icon.Disconnect />}
@@ -103,7 +113,8 @@ export const List = (): ReactElement => {
               Connect
             </PMenu.Item>
           )}
-          {key !== null && <Link.CopyMenuItem />}
+          <Link.CopyMenuItem />
+          <Menu.RenameItem />
           <Menu.HardReloadItem />
         </PMenu.Menu>
       );
@@ -139,7 +150,10 @@ export const List = (): ReactElement => {
         menu={contextMenu}
         {...menuProps}
       >
-        <CoreList.List<string, Cluster> data={data} emptyContent={<NoneConnected />}>
+        <CoreList.List<string, Cluster>
+          data={allClusters}
+          emptyContent={<NoneConnected />}
+        >
           <CoreList.Selector
             value={selected}
             allowMultiple={false}
@@ -179,12 +193,18 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
         break;
     }
   }
+
+  const handleChange = (value: string) => {
+    dispatch(rename({ key: props.entry.key, name: value }));
+  };
+
   const handleClick: MouseEventHandler = (e): void => {
     e.stopPropagation();
     if (!isLocal) return;
     if (status === "running") dispatch(setLocalState({ command: "stop" }));
     if (status === "stopped") dispatch(setLocalState({ command: "start" }));
   };
+
   return (
     <CoreList.ItemFrame
       className={CSS(CSS.B("cluster-list-item"), isLocal && "local")}
@@ -193,9 +213,14 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
       {...props}
     >
       <Align.Space direction="y" justify="spaceBetween" size={0.5} grow>
-        <Text.Text level="p" weight={450}>
-          {props.entry.name}
-        </Text.Text>
+        <Text.MaybeEditable
+          level="p"
+          id={`text-${props.entry.key}`}
+          weight={450}
+          value={props.entry.name}
+          onChange={handleChange}
+          allowDoubleClick={false}
+        />
         <Text.Text level="p" shade={6}>
           {props.entry.props.host}:{props.entry.props.port}
         </Text.Text>

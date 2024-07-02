@@ -41,6 +41,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             key: resources[0].id.key,
           },
           ...props,
+          name: resources[0].name,
         });
     }
   };
@@ -60,7 +61,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {isDelete ? "Delete" : "Ungroup"}
         </PMenu.Item>
       )}
-      {singleResource && <Ontology.RenameMenuItem />}
+      {singleResource && <Menu.RenameItem />}
       {singleResource && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>

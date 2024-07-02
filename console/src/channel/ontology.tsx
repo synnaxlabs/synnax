@@ -202,7 +202,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       <Group.GroupMenuItem selection={selection} />
-      {singleResource && <Ontology.RenameMenuItem />}
+      {singleResource && <Menu.RenameItem />}
       {activeRange != null && activeRange.persisted && (
         <>
           {singleResource && (
