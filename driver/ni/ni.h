@@ -408,7 +408,6 @@ public:
 private:
     json get_device_properties(NISysCfgResourceHandle resource);
 
-
     json devices;
     bool ok_state = true;
     NISysCfgSessionHandle session;
@@ -439,8 +438,6 @@ public:
 
     void run();
 
-    void start();
-
     void stop() override;
 
     bool ok();
@@ -448,7 +445,7 @@ public:
     ~ScannerTask();
 
 private:
-    std::atomic<bool> running;
+    breaker::Breaker breaker;
     ni::Scanner scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;

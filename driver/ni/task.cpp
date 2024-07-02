@@ -20,7 +20,16 @@
 ni::ScannerTask::ScannerTask(
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task
-) : running(true), scanner(ctx, task), ctx(ctx), task(task) {
+) :  scanner(ctx, task), ctx(ctx), task(task) {
+    
+    this->breaker = breaker::Breaker(breaker::Config{
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+    });
+
+    this->breaker.start();
     thread = std::thread(&ni::ScannerTask::run, this);
 }
 
@@ -31,16 +40,10 @@ std::unique_ptr<task::Task> ni::ScannerTask::configure(
     return std::make_unique<ni::ScannerTask>(ctx, task);
 }
 
-void ni::ScannerTask::start() {
-    LOG(INFO) << "[ni.task] start function of scanner task " << this->task.name;
-    this->running = true;
-    // this->thread = std::thread(&ni::ScannerTask::run, this);
-}
 
 void ni::ScannerTask::stop() {
-    this->running = false;
+    this->breaker.stop();   
     this->thread.join();
-    LOG(INFO) << "[ni.task] stopped scanner task " << this->task.name;
 }
 
 
@@ -56,7 +59,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
             });
             LOG(ERROR) << "[ni.task] failed to scan for task " << this->task.name;
         } else {
-            auto devices = scanner.get_devices(); // TODO remove and dont send in details
+            auto devices = scanner.get_devices(); 
             ctx->setState({
                 .task = task.key,
                 .variant = "success",
@@ -64,7 +67,6 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                     {"devices", devices.dump(4)}
                 }
             });
-            // LOG(INFO) << "[ni.task] successfully scanned for task " << this->task.name;
         }
     } else if (cmd.type == "stop") {
         this->stop();
@@ -74,17 +76,12 @@ void ni::ScannerTask::exec(task::Command &cmd) {
 }
 
 void ni::ScannerTask::run() {
-    // LOG(INFO) << "[ni.task] Scanner task running " << this->task.name;
     auto scan_cmd = task::Command{task.key, "scan", {}};
 
     // perform a scan
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-        if (this->running) {
-            this->exec(scan_cmd);
-        } else {
-            break;
-        }
+    while (this->breaker.running()) {
+        this->breaker.waitFor(std::chrono::nanoseconds(5000000000));
+        this->exec(scan_cmd);
     }
 }
 
