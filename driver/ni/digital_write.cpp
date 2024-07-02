@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <cassert>
 #include <regex>
+#include <ranges>
 
 #include "client/cpp/telem/telem.h"
 #include "driver/ni/ni.h"
@@ -23,20 +24,12 @@
 //                             Helper Functions                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::DigitalWriteSink::get_index_keys() {
-    if(this->writer_config.state_channel_keys.size() == 0) {
-        // this->log_error("no state channels found for task " + this->writer_config.task_name);
-        return;
-    }
+    if(this->writer_config.state_channel_keys.empty()) return;
     auto state_channel = this->writer_config.state_channel_keys[0];
     auto [state_channel_info, err] = this->ctx->client->channels.
             retrieve(state_channel);
-    if (err) {
-        this->log_error("failed to retrieve channel " + state_channel);
-        return;
-    } 
-
+    if (err) return this->log_error("failed to retrieve channel " + state_channel);
     this->writer_config.state_index_key = state_channel_info.index;
-    
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -45,10 +38,11 @@ void ni::DigitalWriteSink::get_index_keys() {
 ni::DigitalWriteSink::DigitalWriteSink(
     TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task)
+    const synnax::Task &task)
     : task_handle(task_handle),
       ctx(ctx),
-      task(task) {
+      task(task),
+      err_info({}){
 
     auto config_parser = config::Parser(task.config);
     this->writer_config.task_name = task.name;
@@ -98,10 +92,10 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
                 [&](config::Parser &channel_builder) {
                     ni::ChannelConfig config;
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    std::string port = "port" + std::to_string(
+                    auto port = "port" + std::to_string(
                                            channel_builder.required<std::uint64_t>(
                                                "port"));
-                    std::string line = "line" + std::to_string(
+                    auto line = "line" + std::to_string(
                                            channel_builder.required<std::uint64_t>(
                                                "line"));
 
@@ -113,7 +107,7 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
                     this->writer_config.drive_cmd_channel_keys.push_back(
                         config.channel_key);
 
-                    uint32_t state_key = channel_builder.required<uint32_t>(
+                    auto state_key = channel_builder.required<uint32_t>(
                         "state_channel");
                     this->writer_config.state_channel_keys.push_back(
                         state_key);
@@ -241,16 +235,15 @@ freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
     for (auto key: *(frame.channels)) {
         // the order the keys were pushed into the vector is the order the data is written
         // first see if the key is in the drive_cmd_channel_keys
-        auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(),
-                            this->writer_config.drive_cmd_channel_keys.end(), key);
+        auto it = std::ranges::find(this->writer_config.drive_cmd_channel_keys, key);
         if (it != this->writer_config.drive_cmd_channel_keys.end()) {
             // if so, now find which index it is in the vector (i.e. which channel it is in the write_buffer)
             cmd_channel_index = std::distance(
                 this->writer_config.drive_cmd_channel_keys.begin(),
                 it);
-            // this corressponds to where in the order its NI channel was created
+            // this corresponds to where in the order its NI channel was created
             // now we grab the level we'd like to write and put it into that location in the write_buffer
-            auto series = frame.series->at(frame_index).uint8();
+            auto series = frame.series->at(frame_index).values<uint8_t>();
             write_buffer[cmd_channel_index] = series[0];
             this->writer_config.modified_state_keys.push(
                 this->writer_config.state_channel_keys[cmd_channel_index]);
@@ -448,12 +441,9 @@ synnax::Frame ni::StateSource::get_state() {
     auto state_frame = synnax::Frame(this->state_map.size() + 1);
     state_frame.add(this->state_index_key,
                           synnax::Series(synnax::TimeStamp::now().value, synnax::TIMESTAMP));
-
-    // Iterate through map and add each state to frame
     for (auto &state: this->state_map)
         state_frame.add(state.first,
                               synnax::Series(state.second));
-
     return state_frame;
 }
 

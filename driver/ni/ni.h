@@ -226,7 +226,7 @@ public:
     explicit AnalogReadSource(
         TaskHandle task_handle,
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task task
+        const synnax::Task &task
     ) : Source(task_handle, ctx, task) {
     }
 
@@ -262,7 +262,7 @@ public:
     explicit DigitalReadSource(
         TaskHandle task_handle,
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task task
+        const synnax::Task &task
     ) : Source(task_handle, ctx, task) {
     }
 
@@ -329,7 +329,7 @@ class DigitalWriteSink final : public pipeline::Sink {
 public:
     explicit DigitalWriteSink(TaskHandle task_handle,
                               const std::shared_ptr<task::Context> &ctx,
-                              const synnax::Task task);
+                              const synnax::Task &task);
 
     ~DigitalWriteSink();
 

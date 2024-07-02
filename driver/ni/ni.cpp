@@ -487,26 +487,19 @@ void ni::Source::get_index_keys() {
     for (auto &channel: this->reader_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (err) {
-            this->log_error(
-                "failed to retrieve channel " + std::to_string(channel.channel_key));
-            return;
-        } 
+        if (err) return this->log_error(
+                    "failed to retrieve channel " + std::to_string(channel.channel_key));
         index_keys.insert(channel_info.index);
     }
-    for (auto it = index_keys.begin(); it != index_keys.end(); ++it) {
-        auto index_key = *it;
+    for(auto &index_key : index_keys) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
-        if (err != freighter::NIL) {
-            this->log_error("failed to retrieve channel " + std::to_string(index_key));
-            return;
-        } else {
-            ni::ChannelConfig index_channel;
-            index_channel.channel_key = channel_info.key;
-            index_channel.channel_type = "index";
-            index_channel.name = channel_info.name;
-            this->reader_config.channels.push_back(index_channel);
-        }
+        if (err) return this->log_error(
+                    "failed to retrieve channel " + std::to_string(index_key));        
+        ni::ChannelConfig index_channel;
+        index_channel.channel_key = channel_info.key;
+        index_channel.channel_type = "index";
+        index_channel.name = channel_info.name;
+        this->reader_config.channels.push_back(index_channel);
     }
 }
 
@@ -514,11 +507,14 @@ void ni::Source::get_index_keys() {
 ni::Source::Source(
     TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task) : task_handle(task_handle), ctx(ctx), task(task) {
+    const synnax::Task task) : 
+    task_handle(task_handle), 
+    ctx(ctx), 
+    task(task),
+    err_info({}){
 }
 
 void ni::Source::parse_config(config::Parser &parser) {
-    // Get Acquisition Rate and Stream Rates
     this->reader_config.sample_rate.value = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate.value = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.required<std::string>("device");
@@ -530,7 +526,7 @@ void ni::Source::parse_config(config::Parser &parser) {
     else {
         auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
             this->reader_config.device_key);
-        if (err != freighter::NIL) {
+        if (err) {
             this->log_error(
                 "failed to retrieve device " + this->reader_config.device_name);
             return;
@@ -667,7 +663,7 @@ void ni::Source::clear_task() {
 ni::Source::~Source() {
     this->clear_task();
     if(this->sample_thread.joinable()) this->sample_thread.join();
-    LOG(INFO) << "[ni.reader] joined sample thread";
+    VLOG(1) << "[ni.reader] joined sample thread";
 }
 
 int ni::Source::check_ni_error(int32 error) {

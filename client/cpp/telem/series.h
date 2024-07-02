@@ -279,15 +279,6 @@ public:
         pb->set_data(data.get(), byteSize());
     }
 
-    [[nodiscard]] std::vector<uint8_t> uint8() const {
-        if (data_type != synnax::UINT8) {
-            throw std::runtime_error("invalid data type");
-        }
-        std::vector<uint8_t> v(size);
-        memcpy(v.data(), data.get(), size);
-        return v;
-    }
-
     /// @brief returns the data as a vector of strings. This method can only be used
     /// if the data type is STRING or JSON.
     [[nodiscard]] std::vector<std::string> strings() const {

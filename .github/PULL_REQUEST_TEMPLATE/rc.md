@@ -194,7 +194,7 @@ I can successfully:
 - [ ] Recognize and connect to physcial and simulated devices.
 - [ ] Save device configuration.
 - [ ] Not see chassis devices connected to the machine
-- [ ] see devices connected to a chassis
+- [ ] See devices connected to a chassis
 
 #### Read Task
 
@@ -262,7 +262,7 @@ I can successfully:
 
 - [ ] Run multiple types of tasks on a single device
 - [ ] Run multiple tasks across multiple devices simultaneously
-- [ ] I can reliable stream data at the following sample rates
+- [ ] I can reliably stream data at the following sample rates
      = [ ] 1 Hz
      - [ ] 10 Hz
      - [ ] 50 Hz

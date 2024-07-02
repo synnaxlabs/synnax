@@ -168,7 +168,7 @@ void ni::Scanner::create_devices() {
         // first  try to rereive the device and if found, do not create a new device, simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(
             device["key"]);
-        if (err == freighter::NIL) {
+        if (!err) {
             VLOG(1) << "[ni.scanner] device " << device["model"] << " and key " <<
                     device["key"] << "at location: " << device["location"] <<
                     " found for task " << this->task.name;
