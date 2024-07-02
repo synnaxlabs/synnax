@@ -10,8 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
+import { type Haul, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { toArray } from "@synnaxlabs/x";
 
 import { Menu } from "@/components/menu";

@@ -12,18 +12,18 @@ import "@/range/accordionEntry.css";
 import { type label, TimeRange } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   componentRenderProp,
+  List as Core,
+  Menu as PMenu,
   Ranger,
   Status,
   Synnax,
   Tag,
+  Text,
   Tooltip,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { List as Core } from "@synnaxlabs/pluto/list";
-import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
-import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
