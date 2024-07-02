@@ -104,9 +104,7 @@ export const List = (): ReactElement => {
     );
   };
 
-  const handleRename = (key: string): void => {
-    Text.edit(`text-${key}`);
-  };
+  const handleRename = (key: string): void => Text.edit(`text-${key}`);
 
   const clusterKey = Cluster.useSelectActiveKey();
 

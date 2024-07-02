@@ -106,9 +106,8 @@ export const { actions, reducer } = createSlice({
     },
     rename: (state, { payload: { key, name } }: PA<RenamePayload>) => {
       const range = state.ranges[key];
-      if (range != null) {
-        state.ranges[range.key].name = name;
-      }
+      if (range == null) return;
+      state.ranges[range.key].name = name;
     },
     setActive: (state, { payload }: PA<SetActivePayload>) => {
       state.activeRange = payload;

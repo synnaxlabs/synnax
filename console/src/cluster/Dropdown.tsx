@@ -187,7 +187,6 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   }
 
   const handleChange = (value: string) => {
-    if (value.length === 0) return;
     dispatch(rename({ key: props.entry.key, name: value }));
   };
 

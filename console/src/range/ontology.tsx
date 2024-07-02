@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { toArray } from "@synnaxlabs/x";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -151,7 +152,8 @@ const handleEdit = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { client, selection, store } = props;
+  const clusterKey = Cluster.useSelectActiveKey();
+  const { selection, store } = props;
   const state = store.getState();
   const activeRange = select(state);
   const layout = Layout.selectActiveMosaicTab(state);
@@ -181,7 +183,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void Group.fromSelection(props);
         return;
       case "link": {
-        const toCopy = `synnax://cluster/${client.key}/range/${resources[0].id.key}`;
+        const toCopy = `synnax://cluster/${clusterKey}/range/${resources[0].id.key}`;
         void navigator.clipboard.writeText(toCopy);
         return;
       }
