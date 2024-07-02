@@ -40,7 +40,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
-				It("Should recycle properly for a deletion on a rate channel", func() {
+				It("Should recycle properly for deletion on a rate channel", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
