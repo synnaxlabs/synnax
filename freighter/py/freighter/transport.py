@@ -85,14 +85,14 @@ It is used to finalize the request and return the response."""
 class MiddlewareCollector:
     """MiddlewareCollector collects and executes middleware in order."""
 
-    __middleware: list[Middleware]
+    _middleware: list[Middleware]
 
     def __init__(self):
-        self.__middleware = []
+        self._middleware = []
 
     def use(self, *args: Middleware) -> None:
         """Use implements the Transport protocol."""
-        self.__middleware.extend(args)
+        self._middleware.extend(args)
 
     def exec(
         self,
@@ -106,7 +106,7 @@ class MiddlewareCollector:
         :param ctx: the context to pass to the middleware.
         :param finalizer: the finalizer to call at the end of the chain.
         """
-        middleware = self.__middleware.copy()
+        middleware = self._middleware.copy()
 
         def __next(ctx_: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
@@ -119,14 +119,14 @@ class MiddlewareCollector:
 class AsyncMiddlewareCollector:
     """AsyncMiddlewareCollector collects and executes middleware in order."""
 
-    __middleware: list[AsyncMiddleware]
+    _middleware: list[AsyncMiddleware]
 
     def __init__(self):
-        self.__middleware = []
+        self._middleware = []
 
     def use(self, *args: AsyncMiddleware) -> None:
         """Use implements the Transport protocol."""
-        self.__middleware.extend(args)
+        self._middleware.extend(args)
 
     async def exec(
         self,
@@ -140,7 +140,7 @@ class AsyncMiddlewareCollector:
         :param md: the metadata to pass to the middleware
         :param finalizer: the finalizer to call at the end of the chain
         """
-        middleware = self.__middleware.copy()
+        middleware = self._middleware.copy()
 
         async def __next(_md: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
