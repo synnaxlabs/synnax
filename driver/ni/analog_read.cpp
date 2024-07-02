@@ -121,7 +121,17 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
         return std::make_shared<Voltage>(
             parser, this->task_handle, channel_name);
 
-    LOG(ERROR) << "[ni.reader] unknown channel type " << channel_type;
+    // If channel type not recognized update task state
+    std::string msg = "unknown channel type " + channel_type;
+    this->ctx->setState({
+            .task = task.key,
+            .variant = "error",
+            .details = {
+                {"running", false},
+                {"message", msg}
+            }
+        });
+    this->log_error(msg);
     return nullptr;
 }
 
@@ -134,29 +144,32 @@ int ni::AnalogReadSource::configure_timing() {
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
             this->reader_config.sample_rate.value))) {
-            LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
-                    this->reader_config.task_name;
-            this->ok_state = false;
-            return -1;
+
+                this->log_error("failed while configuring timing for task " 
+                                    + this->reader_config.task_name);
+                return -1;
         }
-    } else {
-        if (this->check_ni_error(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-            this->reader_config.timing_source.c_str(),
-            this->reader_config.sample_rate.value,
-            DAQmx_Val_Rising,
-            DAQmx_Val_ContSamps,
-            this->reader_config.sample_rate.value))) {
-            LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
-                    this->reader_config.task_name;
-            this->ok_state = false;
+    } 
+
+    if (this->check_ni_error(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+        this->reader_config.timing_source.c_str(),
+        this->reader_config.sample_rate.value,
+        DAQmx_Val_Rising,
+        DAQmx_Val_ContSamps,
+        this->reader_config.sample_rate.value))) {
+
+            this->log_error("failed while configuring timing for task "
+                                 + this->reader_config.task_name);
             return -1;
-        }
     }
-    // we read data in chunks of num_samples_per_channel such that we can send frames of data of size num_samples_per_channel at the stream rate
+    
+    // we read data in chunks of num_samples_per_channel such that we can send frames of
+    // this->log data of size num_samples_per_channel at the stream rate
     // e.g. if we have 4 channels and we want to stream at 100Hz at a 1000hz sample rate
     // make a make a call to read 10 samples at 100hz
     this->num_samples_per_channel = std::floor(
         this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
+
     this->buffer_size = this->numAIChannels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
     return 0;
@@ -166,7 +179,7 @@ void ni::AnalogReadSource::acquire_data() {
      while (this->breaker.running() && this->ok()) {
         DataPacket data_packet;
         data_packet.analog_data.resize(this->buffer_size);
-        data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
+        data_packet.t0 = synnax::TimeStamp::now().value;
         if (this->check_ni_error(ni::NiDAQmxInterface::ReadAnalogF64(
             this->task_handle,
             this->num_samples_per_channel,
@@ -180,7 +193,7 @@ void ni::AnalogReadSource::acquire_data() {
                 "failed while reading analog data for task " + this->reader_config.
                 task_name);
         }
-        data_packet.tf = (uint64_t) ((synnax::TimeStamp::now()).value);
+        data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
 }
@@ -189,15 +202,14 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
     auto f = synnax::Frame(num_channels);
 
-    // sleep per streaming period
-    // timer.wait(breaker);
     auto [d, err] = data_queue.dequeue();
     if (!err)
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::CRITICAL_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
 
-    // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
+    // interpolate  timestamps between the initial and final timestamp to ensure 
+    // non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
     // Construct and populate index channel
     
@@ -243,7 +255,7 @@ int ni::AnalogReadSource::validate_channels() {
     for (auto &channel: this->reader_config.channels) {
         if (channel.channel_type == "index") {
             if (channel.channel_key == 0) {
-                LOG(ERROR) << "[NI Reader] Index channel key is 0";
+                LOG(ERROR) << "[ni.reader] Index channel key is 0";
                 return -1;
             }
             continue;
@@ -252,7 +264,7 @@ int ni::AnalogReadSource::validate_channels() {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
         if(channel_info.data_type != synnax::FLOAT32 && channel_info.data_type != synnax::FLOAT64) {
-            this->log_error("Channel " + channel.name + " is not of type FLOAT32 or FLOAT64");
+            this->log_error("Channel " + channel.name + " is not of type float32 or float64");
             return -1;
         }
     }

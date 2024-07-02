@@ -73,9 +73,9 @@ public:
     
     /// @brief gets the array field at the given path and returns a vector. If the field is not found,
     /// accumulates an error in the builder.
-    /// @param path The JSON path to the array.
+    /// @param path The JSON path to the vector.
     template<typename T>
-    std::vector<T>  required_array(const std::string &path) {
+    std::vector<T>  required_vector(const std::string &path) {
         if (noop) return std::vector<T>();
         const auto iter = config.find(path);
         if (iter == config.end()) {

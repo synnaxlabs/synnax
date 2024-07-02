@@ -139,16 +139,8 @@ struct TableScale {
             return;
         }
 
-        prescaled.resize(num_points);
-        scaled.resize(num_points);
-
-        auto ps = json(parser.required<std::string>("pre_scaled_vals"));
-        auto s = json(parser.required<std::string>("scaled_vals"));
-
-        for (int i = 0; i < num_points; i++) {
-            prescaled[i] = ps[i];
-            scaled[i] = s[i];
-        }
+        prescaled = parser.required_vector<double>("pre_scaled_vals");
+        scaled = parser.required_vector<double>("scaled_vals"); 
     }
 };
 
@@ -178,7 +170,6 @@ struct ScaleConfig {
 
     ScaleConfig() = default;
 
-    // Constructor
     ScaleConfig(config::Parser &parser, std::string &name)
         : name(name),
           type(parser.required<std::string>("type")),
@@ -196,7 +187,6 @@ struct ScaleConfig {
         else if (type == "table") scale.table = TableScale(parser);
     }
 
-    // copy constructor
     ScaleConfig(const ScaleConfig &other)
         : name(other.name),
           type(other.type),
@@ -209,7 +199,6 @@ struct ScaleConfig {
         else if (type == "table") scale.table = TableScale(parser);
     }
 
-    // copy assignment operator
     ScaleConfig &operator=(const ScaleConfig &other) {
         if (this == &other) return *this;
 
@@ -227,11 +216,10 @@ struct ScaleConfig {
         return *this;
     }
 
-    // move constructor
     ScaleConfig(ScaleConfig &&other) = delete;
 
     int32 create_ni_scale() {
-        if (type == "linear") {
+        if (type == "linear") 
             return ni::NiDAQmxInterface::CreateLinScale(
                 name.c_str(),
                 scale.linear.slope,
@@ -239,7 +227,7 @@ struct ScaleConfig {
                 ni::UNITS_MAP.at(prescaled_units),
                 scaled_units.c_str()
             );
-        } else if (type == "map")
+        else if (type == "map")
             return ni::NiDAQmxInterface::CreateMapScale(
                 name.c_str(),
                 scale.map.prescaled_min,

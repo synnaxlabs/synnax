@@ -482,10 +482,8 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-// Also verify data type of channel
 void ni::Source::get_index_keys() {
     std::set<std::uint32_t> index_keys;
-    //iterate through channels in reader config
     for (auto &channel: this->reader_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
@@ -493,11 +491,9 @@ void ni::Source::get_index_keys() {
             this->log_error(
                 "failed to retrieve channel " + std::to_string(channel.channel_key));
             return;
-        } else {
-            index_keys.insert(channel_info.index);
-        }
+        } 
+        index_keys.insert(channel_info.index);
     }
-    // now iterate through the set and add all the index channels as configs
     for (auto it = index_keys.begin(); it != index_keys.end(); ++it) {
         auto index_key = *it;
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
@@ -522,8 +518,6 @@ ni::Source::Source(
 }
 
 void ni::Source::parse_config(config::Parser &parser) {
-
-    LOG(INFO) << "CONFIG: " << parser.get_json().dump(4);
     // Get Acquisition Rate and Stream Rates
     this->reader_config.sample_rate.value = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate.value = parser.required<uint64_t>("stream_rate");
@@ -710,7 +704,7 @@ std::vector<synnax::ChannelKey> ni::Source::getChannelKeys() {
 }
 
 void ni::Source::log_error(std::string err_msg) {
-    LOG(ERROR) << "[NI Reader] " << err_msg;
+    LOG(ERROR) << "[ni.reader] " << err_msg;
     this->ok_state = false;
     return;
 }

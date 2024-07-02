@@ -49,10 +49,9 @@ ni::DigitalWriteSink::DigitalWriteSink(
     : task_handle(task_handle),
       ctx(ctx),
       task(task) {
-    // Create parser
+
     auto config_parser = config::Parser(task.config);
     this->writer_config.task_name = task.name;
-    // Parse configuration and make sure it is valid
     this->parse_config(config_parser);
     if (!config_parser.ok()) {
         this->log_error(
@@ -64,8 +63,6 @@ ni::DigitalWriteSink::DigitalWriteSink(
         });
         return;
     }
-        writer_config.task_name;
-    // Create breaker
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
@@ -73,14 +70,11 @@ ni::DigitalWriteSink::DigitalWriteSink(
         .scale = 1.2,
     };
     this->breaker = breaker::Breaker(breaker_config);
-    // Now configure the actual NI hardware
     if (this->init()) 
         this->log_error("failed to configure NI hardware for task " + this->
                        writer_config.task_name);
 
-    LOG(INFO) << "retrieving index keys";
     this->get_index_keys();
-    LOG(INFO) << "Retreived index keys"; 
     this->writer_state_source = std::make_shared<ni::StateSource>(
         this->writer_config.state_rate,
         this->writer_config.state_index_key,
@@ -158,7 +152,6 @@ int ni::DigitalWriteSink::init() {
 
 freighter::Error ni::DigitalWriteSink::cycle(){
     if(this->breaker.running() || !this->ok()) return freighter::NIL;
-    LOG(INFO) << "cycling task " << this->writer_config.task_name;
     if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->log_error(
             "failed while starting reader for task " + this->writer_config.task_name +
@@ -232,7 +225,7 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
         NULL))) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
-                                "Error reading digital data");
+                                "Error writing digital data");
     }
     this->writer_state_source->update_state(this->writer_config.modified_state_keys,
                                            this->writer_config.modified_state_values);
@@ -241,7 +234,7 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
 }
 
 
-freighter::Error ni::DigitalWriteSink::format_data(synnax::Frame frame) {
+freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
 
@@ -336,13 +329,14 @@ void ni::DigitalWriteSink::stoppedWithErr(const freighter::Error &err) {
     });
 }
 
+
 void ni::DigitalWriteSink::jsonify_error(std::string s) {
     this->err_info["running"] = false;
 
-    std::regex statusCodeRegex(R"(Status Code:\s*(-?\d+))");
-    std::regex channelRegex(R"(Channel Name:\s*(\S+))");
-    std::regex physicalChannelRegex(R"(Physical Channel Name:\s*(\S+))");
-    std::regex deviceRegex(R"(Device:\s*(\S+))");
+    std::regex status_code_regex(R"(Status Code:\s*(-?\d+))");
+    std::regex channel_regex(R"(Channel Name:\s*(\S+))");
+    std::regex physical_channel_regex(R"(Physical Channel Name:\s*(\S+))");
+    std::regex device_regex(R"(Device:\s*(\S+))");
 
     // Extract the entire message
     std::string message = s; // Start with the entire string
@@ -354,67 +348,74 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     };
 
     // Find the position of the first occurrence of any field
-    size_t firstFieldPos = std::string::npos;
+    size_t first_field_pos = std::string::npos;
     for (const auto& field : fields) {
         size_t pos = s.find("\n" + field);
-        if (pos != std::string::npos && (firstFieldPos == std::string::npos || pos < firstFieldPos)) firstFieldPos = pos;
-        
+        if (pos != std::string::npos && (first_field_pos == std::string::npos || pos < first_field_pos)) {
+            first_field_pos = pos;
+        }
     }
 
     // If we found a field, extract the message up to that point
-    if (firstFieldPos != std::string::npos) {
-        message = s.substr(0, firstFieldPos);
+    if (first_field_pos != std::string::npos) {
+        message = s.substr(0, first_field_pos);
     }
 
     // Trim trailing whitespace and newlines
     message = std::regex_replace(message, std::regex("\\s+$"), "");
 
     // Extract status code
-    std::smatch statusCodeMatch;
-    std::regex_search(s, statusCodeMatch, statusCodeRegex);
-    std::string sc = (!statusCodeMatch.empty()) ? statusCodeMatch[1].str() : "";
+    std::smatch status_code_match;
+    std::regex_search(s, status_code_match, status_code_regex);
+    std::string sc = (!status_code_match.empty()) ? status_code_match[1].str() : "";
 
     // Check if the status code is -200170
-    bool isPortError = (sc == "-200170");
+    bool is_port_error = (sc == "-200170");
 
     // Extract device name
     std::string device = "";
-    std::smatch deviceMatch;
-    if (std::regex_search(s, deviceMatch, deviceRegex)) {
-        device = deviceMatch[1].str();
+    std::smatch device_match;
+    if (std::regex_search(s, device_match, device_regex)) {
+        device = device_match[1].str();
     }
 
     // Extract physical channel name or channel name
     std::string cn = "";
-    std::smatch physicalChannelMatch;
-    std::smatch channelMatch;
-    if (std::regex_search(s, physicalChannelMatch, physicalChannelRegex)) {
-        cn = physicalChannelMatch[1].str();
-        if (!device.empty())  cn = device + "/" + cn; // Combine device and physical channel name
-        
-    } else 
-         if (std::regex_search(s, channelMatch, channelRegex)) cn = channelMatch[1].str();
+    std::smatch physical_channel_match;
+    std::smatch channel_match;
+    if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
+        cn = physical_channel_match[1].str();
+        if (!device.empty()) {
+            cn = device + "/" + cn; // Combine device and physical channel name
+        }
+    } else if (std::regex_search(s, channel_match, channel_regex)) {
+        cn = channel_match[1].str();
+    }
 
     // Check if the channel name is in the channel map
-    this->err_info["path"] = channel_map.count(cn) != 0 
-                            ? channel_map[cn] : !cn.empty() 
+    this->err_info["path"] = channel_map.count(cn) != 0
+                            ? channel_map[cn] : !cn.empty()
                             ? cn : "";
 
     // Handle the special case for -200170 error
-    if (isPortError)  this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
-    
+    if (is_port_error) {
+        this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
+    }
 
     // Update the message with the extracted information
-    std::string errorMessage = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>();
+    std::string error_message = "NI Error " + sc + ": " + message + " Path: " + this->err_info["path"].get<std::string>();
 
-    if (!cn.empty()) errorMessage += " Channel: " + cn;
-    
-    this->err_info["message"] = errorMessage;
+    if (!cn.empty()) {
+        error_message += " Channel: " + cn;
+    }
+
+    this->err_info["message"] = error_message;
 
     json j = json::array();
     j.push_back(this->err_info);
     this->err_info["errors"] = j;
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
@@ -459,7 +460,6 @@ synnax::Frame ni::StateSource::get_state() {
 void ni::StateSource::update_state(std::queue<synnax::ChannelKey> &modified_state_keys,
                                   std::queue<std::uint8_t> &modified_state_values) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
-    // update state map
     while (!modified_state_keys.empty()) {
         this->state_map[modified_state_keys.front()] = modified_state_values.front();
         modified_state_keys.pop();

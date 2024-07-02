@@ -143,7 +143,7 @@ struct PolynomialConfig {
         forward_coeffs = new double[num_forward_coeffs];
         reverse_coeffs = new double[num_reverse_coeffs];
 
-        auto f = parser.required_array<double>("forward_coeffs");
+        auto f = parser.required_vector<double>("forward_coeffs");
 
         //get forward coeffs (prescale -> scale)
         for (uint32_t i = 0; i < num_forward_coeffs; i++)
@@ -185,18 +185,13 @@ struct TableConfig {
         electrical_units = ni::UNITS_MAP.at(eu);
         physical_units = ni::UNITS_MAP.at(pu);
 
-        json j = parser.get_json();
-
-            
-        //get electrical vals
         electrical_vals = new double[num_eletrical_vals];
-        auto e = parser.required_array<double>("electrical_vals");
+        auto e = parser.required_vector<double>("electrical_vals");
         for (uint32_t i = 0; i < num_eletrical_vals; i++)
             electrical_vals[i] = e[i];
 
-        //get physical vals
         physical_vals = new double[num_physical_vals];
-        auto p = parser.required_array<double>("physical_vals");
+        auto p = parser.required_vector<double>("physical_vals");
         for (uint32_t i = 0; i < num_physical_vals; i++)
             physical_vals[i] = p[i];
     }
@@ -426,7 +421,6 @@ public:
     int32_t shunt_resistor_loc;
     double ext_shunt_resistor_val;
     int32 terminal_config = 0;
-
 };
 
 class CurrentRMS final : public Current {
@@ -498,7 +492,6 @@ private:
     int32_t resistance_config;
     CurrentExcitationConfig excitation_config;
     double r0;
-
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -538,14 +531,11 @@ public:
                                    parser)),
           cjc_source(get_cjc_source(parser.required<std::string>("cjc_source"), parser)),
           cjc_val(parser.optional<double>("cjc_val",0)) {
-        LOG(INFO) << "Thermocouple created with name: " << name;
 
         auto source = parser.required<std::int32_t>("cjc_port"); 
-        if (cjc_sources.find(source) == cjc_sources.end()) {
-            this->cjcPort = "";
-        } else{
-            this->cjcPort =cjc_sources.at(source);
-        }
+        if (cjc_sources.find(source) == cjc_sources.end()) this->cjcPort = ""; 
+        else this->cjcPort =cjc_sources.at(source);
+        
     }
 
     int32 create_ni_channel() override {
@@ -1145,7 +1135,6 @@ public:
 private:
     BridgeConfig bridge_config;
     PolynomialConfig polynomial_config;
-
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1153,7 +1142,6 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class ForceBridgePolynomial final : public Analog {
 public:
-    
     explicit ForceBridgePolynomial(config::Parser &parser, TaskHandle task_handle,
                                    const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1185,7 +1173,6 @@ public:
 private:
     BridgeConfig bridge_config;
     PolynomialConfig polynomial_config;
-
 };
 
 class ForceBridgeTable final : public Analog {
@@ -1221,13 +1208,10 @@ public:
 private:
     BridgeConfig bridge_config;
     TableConfig table_config;
-
-
 };
 
 class ForceBridgeTwoPointLin final : public Analog {
 public:
-    
     explicit ForceBridgeTwoPointLin(config::Parser &parser, TaskHandle task_handle,
                                     const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1259,7 +1243,6 @@ public:
 private:
     BridgeConfig bridge_config;
     TwoPointLinConfig two_point_lin_config;
-
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1299,7 +1282,6 @@ private:
     double sensitivity;
     CurrentExcitationConfig excitation_config;
     int32_t terminal_config = 0;
-
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1373,12 +1355,10 @@ public:
 private:
     BridgeConfig bridge_config;
     PolynomialConfig polynomial_config;
-
 };
 
 class TorqueBridgeTable final : public Analog {
 public:
-    
     explicit TorqueBridgeTable(config::Parser &parser, TaskHandle task_handle,
                                const std::string &name)
         : Analog(parser, task_handle, name),
@@ -1410,7 +1390,6 @@ public:
 private:
     BridgeConfig bridge_config;
     TableConfig table_config;
-
 };
 
 class ForceIEPE final : public Analog {

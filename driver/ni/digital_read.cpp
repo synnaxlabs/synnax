@@ -23,7 +23,6 @@ using json = nlohmann::json;
 void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
     VLOG(1) << "[ni.reader] Parsing Channels for task " << this->reader_config.
             task_name;
-    // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
                     ni::ChannelConfig config;
@@ -96,26 +95,27 @@ void ni::DigitalReadSource::acquire_data() {
         int32 numBytesPerSamp;
         DataPacket data_packet;
         data_packet.digital_data.resize(this->buffer_size);
-        data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
+        data_packet.t0 = synnax::TimeStamp::now().value;
+
         // sleep per sample rate
         auto samp_period = this->reader_config.sample_rate.period().chrono();
         std::this_thread::sleep_for(samp_period);
         if (this->check_ni_error(
             ni::NiDAQmxInterface::ReadDigitalLines(
-                this->task_handle, // task handle
-                this->num_samples_per_channel, // numSampsPerChan
-                -1, // timeout
-                DAQmx_Val_GroupByChannel, // dataLayout
-                data_packet.digital_data.data(),// readArray
-                data_packet.digital_data.size(), // arraySizeInSamps
-                &data_packet.samples_read_per_channel, // sampsPerChanRead
-                &numBytesPerSamp, // numBytesPerSamp
+                this->task_handle, 
+                this->num_samples_per_channel, 
+                -1, 
+                DAQmx_Val_GroupByChannel, 
+                data_packet.digital_data.data(),
+                data_packet.digital_data.size(), 
+                &data_packet.samples_read_per_channel, 
+                &numBytesPerSamp, 
                 NULL))) {
             this->log_error(
                 "failed while reading digital data for task " + this->reader_config.
                 task_name);
         }
-        data_packet.tf = (synnax::TimeStamp::now()).value;
+        data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
 }
@@ -133,11 +133,9 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
                                   "Failed to read data from queue"));
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
-    // Construct and populate index channel
     
-    auto s = d.samples_read_per_channel;
-    // Construct and populate synnax frame
     uint64_t data_index = 0;
+
     for (int i = 0; i < num_channels; i++) {
         if (this->reader_config.channels[i].channel_type == "index") {
             auto t = synnax::Series(synnax::TIMESTAMP, this->num_samples_per_channel);
@@ -147,8 +145,8 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
             f.add(this->reader_config.channels[i].channel_key, std::move(t));
             continue;
         }
-        auto series = synnax::Series(synnax::UINT8,s);
-        // copy data into vector
+        auto series = synnax::Series(synnax::UINT8, d.samples_read_per_channel);
+
         for (int j = 0; j < d.samples_read_per_channel; j++) 
             series.write((uint8_t) d.digital_data[data_index + j]);
 
@@ -159,21 +157,25 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
 }
 
 int ni::DigitalReadSource::validate_channels() {
-    LOG(INFO) << "[NI Reader] Validating channels for task " << this->reader_config.
-            task_name;
     for (auto &channel: this->reader_config.channels) {
         if (channel.channel_type == "index") {
             if (channel.channel_key == 0) {
-                LOG(ERROR) << "[NI Reader] Index channel key is 0";
+                LOG(ERROR) << "[ni.reader] Index channel key is 0";
                 return -1;
             }
             continue;
         }
-        // if not index, make sure channel type is valid
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if(channel_info.data_type != synnax::FLOAT32 || channel_info.data_type != synnax::FLOAT64) {
-            LOG(ERROR) << "[NI Reader] Channel " << channel.name << " is not of type FLOAT32";
+        if(channel_info.data_type != synnax::UINT8) {
+            this->log_error("Channel " + channel.name + " is not of type UINT8");
+            this->ctx->setState({
+                .task = task.key,
+                .variant = "error",
+                .details = {
+                    {"running", "false"},
+                    {"message", "Channel " + channel.name + " is not of type UINT8"}
+                }});
             return -1;
         }
     }

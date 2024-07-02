@@ -311,7 +311,7 @@ TEST(testConfig, testArray){
         {"array", {1, 2, 3, 4, 5}}
     };
     config::Parser parser(j);
-    auto values = parser.required_array<int>("array");
+    auto values = parser.required_vector<int>("array");
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(values.size(), 5);
     ASSERT_EQ(values[0], 1);
@@ -324,7 +324,7 @@ TEST(testConfig, testArray){
 TEST(testConfig, testArrayDoesNotExist){
     json j = {};
     config::Parser parser(j);
-    auto values = parser.required_array<int>("array");
+    auto values = parser.required_vector<int>("array");
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -337,7 +337,7 @@ TEST(testConfig, testArrayIsNotArray){
         {"array", 1}
     };
     config::Parser parser(j);
-    auto values = parser.required_array<int>("array");
+    auto values = parser.required_vector<int>("array");
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);

@@ -359,7 +359,7 @@ public:
     std::shared_ptr<ni::StateSource> writer_state_source;
 
 private:
-    freighter::Error format_data(synnax::Frame frame);
+    freighter::Error format_data(const synnax::Frame &frame);
 
     void parse_config(config::Parser &parser);
 
@@ -378,7 +378,6 @@ private:
     std::shared_ptr<task::Context> ctx;
     WriterConfig writer_config;
     breaker::Breaker breaker;
-    std::atomic<bool> running = false;
     synnax::Task task;
     std::map<std::string, std::string> channel_map;
 };
@@ -540,8 +539,7 @@ public:
     configureInitialTasks(const std::shared_ptr<task::Context> &ctx,
                           const synnax::Rack &rack) override;
 
-    ~Factory() = default;
-
+private:
     bool dlls_present = false;
 };
 }
