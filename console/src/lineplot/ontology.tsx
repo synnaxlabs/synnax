@@ -24,7 +24,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   selection: { resources },
   state: { nodes, setNodes },
 }) => {
-  const clusterKey = Cluster.useSelectActiveKey();
   const ids = resources.map((res) => new ontology.ID(res.key));
   const keys = ids.map((id) => id.key);
   const handleDelete = (): void => {
@@ -41,6 +40,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
+  const clusterKey = Cluster.useSelectActiveKey();
   const handleCopyLink = (): void => {
     const toCopy = `synnax://cluster/${clusterKey}/lineplot/${resources[0].id.key}`;
     void navigator.clipboard.writeText(toCopy);
@@ -55,6 +55,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const onSelect = (key: string): void => f[key]();
 
   const isSingle = resources.length === 1;
+
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       {isSingle && <Menu.RenameItem />}
