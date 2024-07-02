@@ -336,16 +336,13 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     std::regex physical_channel_regex(R"(Physical Channel Name:\s*(\S+))");
     std::regex device_regex(R"(Device:\s*(\S+))");
 
-    // Extract the entire message
-    std::string message = s; // Start with the entire string
+    std::string message = s; 
 
-    // Define a vector of field names to look for
     std::vector<std::string> fields = {
         "Status Code:", "Channel Name:", "Physical Channel Name:",
         "Device:", "Task Name:"
     };
 
-    // Find the position of the first occurrence of any field
     size_t first_field_pos = std::string::npos;
     for (const auto &field: fields) {
         size_t pos = s.find("\n" + field);
@@ -353,28 +350,20 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
                 first_field_pos == std::string::npos || pos < first_field_pos))  first_field_pos = pos;
     }
 
-    // If we found a field, extract the message up to that point
     if (first_field_pos != std::string::npos) message = s.substr(0, first_field_pos);
     
-
-    // Trim trailing whitespace and newlines
     message = std::regex_replace(message, std::regex("\\s+$"), "");
 
-    // Extract status code
     std::smatch status_code_match;
     std::regex_search(s, status_code_match, status_code_regex);
     std::string sc = (!status_code_match.empty()) ? status_code_match[1].str() : "";
 
-    // Check if the status code is -200170
     bool is_port_error = (sc == "-200170");
 
-    // Extract device name
     std::string device = "";
     std::smatch device_match;
     if (std::regex_search(s, device_match, device_regex)) device = device_match[1].str();
-    
 
-    // Extract physical channel name or channel name
     std::string cn = "";
     std::smatch physical_channel_match;
     std::smatch channel_match;
@@ -383,19 +372,15 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
         if (!device.empty())  cn = device + "/" + cn; // Combine device and physical channel name 
     } else if (std::regex_search(s, channel_match, channel_regex)) cn = channel_match[1].str();
     
-
     // Check if the channel name is in the channel map
     this->err_info["path"] = channel_map.count(cn) != 0
                                  ? channel_map[cn]
                                  : !cn.empty()
                                        ? cn
                                        : "";
-
     // Handle the special case for -200170 error
     if (is_port_error) this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
 
-
-    // Update the message with the extracted information
     std::string error_message = "NI Error " + sc + ": " + message + " Path: " + this->
                                 err_info["path"].get<std::string>();
 
@@ -407,7 +392,6 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     j.push_back(this->err_info);
     this->err_info["errors"] = j;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
@@ -436,7 +420,6 @@ std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
     waiting_reader.wait_for(lock, this->state_rate.period().chrono());
     return std::make_pair(this->get_state(), freighter::NIL);
 }
-
 
 synnax::Frame ni::StateSource::get_state() {
     auto state_frame = synnax::Frame(this->state_map.size() + 1);
