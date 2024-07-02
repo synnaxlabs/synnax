@@ -139,6 +139,7 @@ interface ParserErrorsDetails extends UnknownRecord {
 
 export const useObserveState = <T extends ParserErrorsDetails>(
   setStatus: Form.UseReturn<any>["setStatus"],
+  clearStatuses: Form.UseReturn<any>["clearStatuses"],
   taskKey?: string,
   initialState?: task.State<T>,
 ): task.State<T> | undefined => {
@@ -150,10 +151,10 @@ export const useObserveState = <T extends ParserErrorsDetails>(
     onChange: (state) => {
       if (state.task !== taskKey) return;
       setTaskState(state);
-      if (state.details != null && state.details.errors != null) {
+      if (state.variant !== "error") clearStatuses();
+      else if (state.details != null && state.details.errors != null) {
         state.details.errors.forEach((e) => {
           const path = `config.${deep.pathToCamel(e.path)}`;
-          console.log(path, e.message);
           setStatus(path, { variant: "error", message: "" });
         });
       }

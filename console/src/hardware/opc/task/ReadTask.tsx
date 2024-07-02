@@ -156,6 +156,7 @@ const Wrapped = ({
 
   const taskState = useObserveState<DigitalWriteStateDetails>(
     methods.setStatus,
+    methods.clearStatuses,
     task?.key,
     task?.state,
   );

@@ -92,6 +92,7 @@ const Wrapped = ({
 
   const taskState = useObserveState<AnalogReadStateDetails>(
     methods.setStatus,
+    methods.clearStatuses,
     task?.key,
     task?.state,
   );

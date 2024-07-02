@@ -97,6 +97,7 @@ const Wrapped = ({
 
   const taskState = useObserveState<DigitalWriteStateDetails>(
     methods.setStatus,
+    methods.clearStatuses,
     task?.key,
     task?.state,
   );
@@ -152,7 +153,6 @@ const Wrapped = ({
       for (const channel of config.channels) {
         const key = `${channel.port}l${channel.line}`;
         const exPair = dev.properties.digitalOutput.channels[key];
-        console.log(exPair, key, dev.properties.digitalOutput.channels);
         if (exPair == null) {
           commandsToCreate.push(channel);
           statesToCreate.push(channel);

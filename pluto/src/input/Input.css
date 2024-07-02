@@ -10,11 +10,11 @@
  */
 
 .pluto--warning .pluto-input__internal {
-    border-color: var(--pluto-warning-z-50) !important;
+    border-color: var(--pluto-warning-z-65) !important;
 }
 
 .pluto--error .pluto-input__internal {
-    border-color: var(--pluto-error-z-45) !important;
+    border-color: var(--pluto-error-z-65) !important;
 }
 
 .pluto-input {

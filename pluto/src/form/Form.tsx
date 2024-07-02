@@ -348,6 +348,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
   setStatus: (path: string, status: status.CrudeSpec) => void;
+  clearStatuses: () => void;
 }
 
 export const Context = createContext<ContextValue>({
@@ -364,6 +365,7 @@ export const Context = createContext<ContextValue>({
   value: () => ({}),
   has: () => false,
   setStatus: () => {},
+  clearStatuses: () => {},
 });
 
 export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
@@ -593,6 +595,12 @@ export const use = <Z extends z.ZodTypeAny>({
     updateFieldState(path);
   }, []);
 
+  const clearStatuses = useCallback(() => {
+    const { statuses } = ref.current;
+    statuses.clear();
+    statuses.forEach((_, path) => updateFieldState(path));
+  }, []);
+
   useEffect(() => {
     if (!sync) return;
     const { listeners } = ref.current;
@@ -614,6 +622,7 @@ export const use = <Z extends z.ZodTypeAny>({
       value: () => ref.current.state,
       has,
       setStatus,
+      clearStatuses,
     }),
     [],
   );
