@@ -162,9 +162,7 @@ freighter::Error ni::DigitalWriteSink::cycle() {
     return freighter::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::start() {
-    if (this->breaker.running() || !this->ok()) return freighter::NIL;
-    this->breaker.start();
+freighter::Error ni::DigitalWriteSink::start_ni(){
     if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->log_error(
             "failed to start writer for task " + this->writer_config.task_name);
@@ -173,6 +171,26 @@ freighter::Error ni::DigitalWriteSink::start() {
     }
     LOG(INFO) << "[ni.writer] successfully started writer for task " << this->
             writer_config.task_name;
+    return freighter::NIL;
+}
+
+
+freighter::Error ni::DigitalWriteSink::stop_ni(){
+    if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(task_handle))) {
+        this->log_error(
+            "failed to stop writer for task " + this->writer_config.task_name);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+    }
+    LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->
+            writer_config.task_name;
+    return freighter::NIL;
+}
+
+freighter::Error ni::DigitalWriteSink::start() {
+    if (this->breaker.running() || !this->ok()) return freighter::NIL;
+    this->breaker.start();
+    freighter::Error err = this->start_ni();
+    if(err) return err;
     ctx->setState({
         .task = this->task.key,
         .variant = "success",
@@ -188,13 +206,8 @@ freighter::Error ni::DigitalWriteSink::start() {
 freighter::Error ni::DigitalWriteSink::stop() {
     if (!this->breaker.running()) return freighter::NIL;
     this->breaker.stop();
-    if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(task_handle))) {
-        this->log_error(
-            "failed to stop writer for task " + this->writer_config.task_name);
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
-    }
-    LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->
-            writer_config.task_name;
+    freighter::Error err = this->stop_ni();
+    if(err) return err;
     ctx->setState({
         .task = this->task.key,
         .variant = "success",

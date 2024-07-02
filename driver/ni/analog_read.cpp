@@ -234,8 +234,8 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
 }
 
 void ni::AnalogReadSource::write_to_series(synnax::Series &series, double &data, synnax::DataType data_type) {
-    if(data_type == synnax::FLOAT32) series.write((float)(data));
-    else if(data_type == synnax::FLOAT64) series.write((double)(data)); 
+    if(data_type == synnax::FLOAT32) series.write(static_cast<float>(data));
+    else if(data_type == synnax::FLOAT64) series.write(static_cast<double>(data)); 
 }
 
 

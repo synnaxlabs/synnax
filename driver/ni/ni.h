@@ -341,6 +341,10 @@ public:
 
     freighter::Error start();
 
+    freighter::Error start_ni();
+
+    freighter::Error stop_ni();
+
     freighter::Error cycle();
     
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
