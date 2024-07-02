@@ -131,7 +131,8 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
-    // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
+    // interpolate  timestamps between the initial and final timestamp to ensure
+    // non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
     
     uint64_t data_index = 0;

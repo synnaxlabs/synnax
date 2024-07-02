@@ -37,7 +37,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       {singleResource && (
         <>
-          <Ontology.RenameMenuItem />
+          <Menu.RenameItem />
           <PMenu.Divider />
         </>
       )}

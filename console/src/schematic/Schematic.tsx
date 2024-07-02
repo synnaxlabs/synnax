@@ -81,7 +81,7 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     async (ws, store, client) => {
       const s = store.getState();
       const data = select(s, layoutKey);
-      if (data.snapshot) return;
+      if (data == null || data.snapshot) return;
       const la = Layout.selectRequired(s, layoutKey);
       const setData = {
         ...data,

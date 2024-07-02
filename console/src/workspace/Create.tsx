@@ -23,7 +23,7 @@ import { add } from "@/workspace/slice";
 export const CREATE_LAYOUT_TYPE = "createWorkspace";
 
 export const createWindowLayout = (
-  name: string = "Create Workspace",
+  name: string = "Workspace.Create",
 ): Layout.State => ({
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
@@ -101,7 +101,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             To Save
           </Text.Text>
         </Nav.Bar.Start>
-        <Nav.Bar.End style={{ padding: "1rem" }}>
+        <Nav.Bar.End style={{ padding: "1rem", paddingRight: "1.5rem" }}>
           <Button.Button
             type="submit"
             form="create-workspace"

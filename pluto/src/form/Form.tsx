@@ -348,6 +348,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
   setStatus: (path: string, status: status.CrudeSpec) => void;
+  clearStatuses: () => void;
 }
 
 export const Context = createContext<ContextValue>({
@@ -364,6 +365,7 @@ export const Context = createContext<ContextValue>({
   value: () => ({}),
   has: () => false,
   setStatus: () => {},
+  clearStatuses: () => {},
 });
 
 export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
@@ -461,7 +463,6 @@ export const use = <Z extends z.ZodTypeAny>({
   const updateFieldState = useCallback((path: string) => {
     const { listeners } = ref.current;
     const fs = get(path, { optional: true });
-    console.log(fs, path, listeners.get(path));
     if (fs == null) return;
     listeners.get(path)?.forEach((l) => l(fs));
   }, []);
@@ -478,10 +479,8 @@ export const use = <Z extends z.ZodTypeAny>({
           l(fs);
         });
     }
-
     parentListeners.forEach((lis, lisPath) => {
       const equalOrChild = deep.pathsMatch(path, lisPath);
-      // const equalOrParent = deep.pathsMatch(lisPath, path);
       if (equalOrChild) {
         const v = get(lisPath, { optional: true });
         if (v != null)
@@ -491,7 +490,6 @@ export const use = <Z extends z.ZodTypeAny>({
           });
       }
     });
-    // console.log("Fired", fired);
   }, []);
 
   const processValidationResult = useCallback(
@@ -593,7 +591,14 @@ export const use = <Z extends z.ZodTypeAny>({
 
   const setStatus = useCallback((path: string, status: status.CrudeSpec): void => {
     ref.current.statuses.set(path, status);
+    ref.current.touched.add(path);
     updateFieldState(path);
+  }, []);
+
+  const clearStatuses = useCallback(() => {
+    const { statuses } = ref.current;
+    statuses.clear();
+    statuses.forEach((_, path) => updateFieldState(path));
   }, []);
 
   useEffect(() => {
@@ -617,6 +622,7 @@ export const use = <Z extends z.ZodTypeAny>({
       value: () => ref.current.state,
       has,
       setStatus,
+      clearStatuses,
     }),
     [],
   );

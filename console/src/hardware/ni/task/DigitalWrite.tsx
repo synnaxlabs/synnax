@@ -51,8 +51,9 @@ import {
   Controls,
   useCreate,
   useObserveState,
+  WrappedTaskLayoutProps,
+  wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
 
 interface ConfigureDigitalWriteArgs {
@@ -77,13 +78,11 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureDigitalWriteLayout(true), key: layoutKey }),
 };
 
-interface InternalProps {
-  layoutKey: string;
-  task?: DigitalWrite;
-  initialValues: DigitalWritePayload;
-}
-
-const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactElement => {
+const Wrapped = ({
+  task,
+  initialValues,
+  layoutKey,
+}: WrappedTaskLayoutProps<DigitalWrite, DigitalWritePayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -98,6 +97,7 @@ const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactEleme
 
   const taskState = useObserveState<DigitalWriteStateDetails>(
     methods.setStatus,
+    methods.clearStatuses,
     task?.key,
     task?.state,
   );
@@ -153,7 +153,6 @@ const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactEleme
       for (const channel of config.channels) {
         const key = `${channel.port}l${channel.line}`;
         const exPair = dev.properties.digitalOutput.channels[key];
-        console.log(exPair, key, dev.properties.digitalOutput.channels);
         if (exPair == null) {
           commandsToCreate.push(channel);
           statesToCreate.push(channel);
@@ -510,7 +509,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalWrite = wrapTaskLayout<DigitalWrite, DigitalWritePayload>(
-  Internal,
+export const ConfigureDigitalWrite = wrapTaskLayout(
+  Wrapped,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 );

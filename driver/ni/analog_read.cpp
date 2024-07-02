@@ -163,8 +163,8 @@ int ni::AnalogReadSource::configure_timing() {
     
     // we read data in chunks of num_samples_per_channel such that we can send frames of
     // this->log data of size num_samples_per_channel at the stream rate
-    // e.g. if we have 4 channels and we want to stream at 100Hz at a 1000hz sample rate
-    // make a make a call to read 10 samples at 100hz
+    // e.g. if we have 4 channels and want to stream at 100Hz at a 1000hz sample rate
+    // make a call to read 10 samples at 100hz
     this->num_samples_per_channel = std::floor(
         this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
 

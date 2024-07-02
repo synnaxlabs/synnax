@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Divider, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
@@ -172,7 +172,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && (
         <>
-          <Ontology.RenameMenuItem />
+          <Menu.RenameItem />
           <PMenu.Divider />
         </>
       )}
