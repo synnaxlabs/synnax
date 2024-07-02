@@ -13,6 +13,7 @@ import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
@@ -20,8 +21,8 @@ import { Ontology } from "@/ontology";
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { nodes, parent, resources },
-    client,
   } = props;
+  const clusterKey = Cluster.useSelectActiveKey();
   const onSelect = (key: string): void => {
     switch (key) {
       case "ungroup":
@@ -34,8 +35,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void newGroup(props);
         return;
       case "link":
+        if (clusterKey == null) return;
         return Link.CopyToClipboard({
-          clusterKey: client.key,
+          clusterKey,
           resource: {
             type: "group",
             key: resources[0].id.key,
@@ -61,8 +63,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {isDelete ? "Delete" : "Ungroup"}
         </PMenu.Item>
       )}
-      {singleResource && <Menu.RenameItem />}
-      {singleResource && <Link.CopyMenuItem />}
+      {singleResource && (
+        <>
+          <Menu.RenameItem />
+          <Link.CopyMenuItem />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

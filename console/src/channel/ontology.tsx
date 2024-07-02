@@ -20,6 +20,7 @@ import { Tree } from "@synnaxlabs/pluto/tree";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -146,6 +147,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus } = props;
   const activeRange = Range.select(store.getState());
   const { nodes, resources } = selection;
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -183,8 +185,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void Group.fromSelection(props);
         break;
       case "link": {
+        if (clusterKey == null) return;
         Link.CopyToClipboard({
-          clusterKey: client.key,
+          clusterKey,
           resource: {
             type: "channel",
             key: resources[0].id.key,

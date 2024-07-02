@@ -11,6 +11,7 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -100,8 +101,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
   const handleCopyUrl = (): void => {
+    if (clusterKey == null) return;
     Link.CopyToClipboard({
-      clusterKey: client.key,
+      clusterKey,
       resource: {
         type: "schematic",
         key: resources[0].id.key,

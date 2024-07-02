@@ -11,6 +11,7 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
 import { create, type State } from "@/lineplot/slice";
@@ -42,8 +43,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const clusterKey = Cluster.useSelectActiveKey();
   const handleCopyLink = (): void => {
+    if (clusterKey == null) return;
     Link.CopyToClipboard({
-      clusterKey: client.key,
+      clusterKey,
       addStatus,
       resource: {
         type: "lineplot",
