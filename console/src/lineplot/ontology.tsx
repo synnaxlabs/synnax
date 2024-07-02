@@ -41,7 +41,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
   const handleCopyLink = (): void => {
-    Link.CopyLinkToClipboard({
+    Link.CopyToClipboard({
       clusterKey: client.key,
       addStatus,
       resource: {

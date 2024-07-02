@@ -72,7 +72,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         });
         break;
       case "link": {
-        Link.CopyLinkToClipboard({
+        Link.CopyToClipboard({
           clusterKey: client.key,
           resource: {
             type: "task",

@@ -99,7 +99,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
   const handleCopyUrl = (): void => {
-    Link.CopyLinkToClipboard({
+    Link.CopyToClipboard({
       clusterKey: client.key,
       resource: {
         type: "schematic",

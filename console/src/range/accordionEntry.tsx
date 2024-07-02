@@ -131,7 +131,7 @@ export const List = (): ReactElement => {
         case "link": {
           if (rng == null) return;
           if (client == null) return;
-          return Link.CopyLinkToClipboard({
+          return Link.CopyToClipboard({
             clusterKey: client.key,
             resource: {
               type: "range",

@@ -183,7 +183,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void Group.fromSelection(props);
         break;
       case "link": {
-        Link.CopyLinkToClipboard({
+        Link.CopyToClipboard({
           clusterKey: client.key,
           resource: {
             type: "channel",
@@ -192,6 +192,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           addStatus,
           name: resources[0].name,
         });
+        break;
       }
     }
   };

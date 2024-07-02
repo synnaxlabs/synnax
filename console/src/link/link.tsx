@@ -148,7 +148,7 @@ export interface CopyLinkToClipboardProps {
   name: string;
 }
 
-export const CopyLinkToClipboard = (props: CopyLinkToClipboardProps): void => {
+export const CopyToClipboard = (props: CopyLinkToClipboardProps): void => {
   let url = `synnax://cluster/${props.clusterKey}`;
   if (props.resource != null) url += `/${props.resource.type}/${props.resource.key}`;
   void navigator.clipboard.writeText(url);

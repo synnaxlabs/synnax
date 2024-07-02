@@ -116,7 +116,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   };
 
   const handleLink = (): void => {
-    Link.CopyLinkToClipboard({
+    Link.CopyToClipboard({
       clusterKey: client.key,
       resource: {
         type: "workspace",

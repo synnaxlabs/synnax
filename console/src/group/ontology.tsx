@@ -34,7 +34,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void newGroup(props);
         return;
       case "link":
-        return Link.CopyLinkToClipboard({
+        return Link.CopyToClipboard({
           clusterKey: client.key,
           resource: {
             type: "group",

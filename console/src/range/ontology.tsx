@@ -179,7 +179,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void Group.fromSelection(props);
         return;
       case "link": {
-        Link.CopyLinkToClipboard({
+        Link.CopyToClipboard({
           clusterKey: client.key,
           resource: {
             type: "range",

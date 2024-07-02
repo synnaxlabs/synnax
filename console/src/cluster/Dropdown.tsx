@@ -10,11 +10,16 @@
 import "@/cluster/Dropdown.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Dropdown as Core, Synnax } from "@synnaxlabs/pluto";
-import { Status } from "@synnaxlabs/pluto";
-import { List as CoreList } from "@synnaxlabs/pluto/list";
-import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
-import { Text } from "@synnaxlabs/pluto/text";
+import {
+  Align,
+  Button,
+  Dropdown as Core,
+  List as CoreList,
+  Menu as PMenu,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import {
   type MouseEvent,
   type MouseEventHandler,
@@ -54,7 +59,7 @@ export const List = (): ReactElement => {
   const handleLink = (key: string): void => {
     const name = data.find((c) => c.key === key)?.name;
     if (name == undefined) return;
-    Link.CopyLinkToClipboard({
+    Link.CopyToClipboard({
       clusterKey: key,
       addStatus,
       name,
