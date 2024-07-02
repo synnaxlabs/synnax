@@ -2,7 +2,6 @@ import sys
 from typing import NamedTuple, List
 
 import synnax as sy
-from timing import time_read
 from integration import FILE_NAME
 
 # length of channels must = num_iterators
@@ -72,9 +71,11 @@ class Read_Test():
     def test_with_timing(self):
         start = sy.TimeStamp.now()
         error_assertion_passed = False
+        actual_err = "no_error"
         try:
             samples = self.test()
         except Exception as e:
+            actual_err = str(e)
             if self._tc.expected_error != "no_error" and self._tc.expected_error in str(e):
                 error_assertion_passed = True
         else:
@@ -82,17 +83,17 @@ class Read_Test():
                 error_assertion_passed = True
         end = sy.TimeStamp.now()
 
-        err_assertion = f'''
-Expected error: {self._tc.expected_error}; Actual error: {str(e)}: {"PASS!!" if error_assertion_passed else "FAIL!!"}
+        error_assertion = f'''
+Expected error: {self._tc.expected_error}; Actual error: {actual_err}: {"PASS!!" if error_assertion_passed else "FAIL!!"}
 '''
 
-        s = self.generate_test_report(samples, start.span(end), err_assertion)
+        s = self.generate_test_report(samples, start.span(end), error_assertion)
         
         with open(FILE_NAME, "a") as f:
             f.write(s)
 
 
-    def generate_test_report(self, samples: int, time: sy.TimeSpan, err_assertion: str) -> str:
+    def generate_test_report(self, samples: int, time: sy.TimeSpan, error_assertion: str) -> str:
         samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
         assertion_passed = "PASS!!" if (self._tc.expected_samples == 0 
                                         or self._tc.expected_samples == samples) else "FAIL!!"

@@ -104,7 +104,7 @@ class Write_Test():
     def test_with_timing(self):
         start = sy.TimeStamp.now()
         error_assertion_passed = False
-        actual_error = ""
+        actual_error = "no_error"
         try:
             self.test()
         except Exception as e:

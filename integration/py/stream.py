@@ -53,7 +53,7 @@ class Stream_Test():
     def test_with_timing(self):
         start = sy.TimeStamp.now()
         error_assertion_passed = False
-        actual_error = ""
+        actual_error = "no_error"
         samples = 0
         try:
             samples = self.test()
