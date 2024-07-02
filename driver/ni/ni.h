@@ -211,6 +211,7 @@ public:
     breaker::Breaker breaker;
     synnax::Task task;
     loop::Timer timer;
+    loop::Timer sample_timer;
 
     /// @brief maps ni channel name to path in task configuration json
     std::map<std::string, std::string> channel_map;

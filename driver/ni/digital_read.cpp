@@ -86,6 +86,7 @@ int ni::DigitalReadSource::configure_timing() {
     }
     this->buffer_size = this->num_channels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
+    this->sample_timer = loop::Timer(this->reader_config.sample_rate);
     return 0;
 }
 
@@ -98,8 +99,7 @@ void ni::DigitalReadSource::acquire_data() {
         data_packet.t0 = synnax::TimeStamp::now().value;
 
         // sleep per sample rate
-        auto samp_period = this->reader_config.sample_rate.period().chrono();
-        std::this_thread::sleep_for(samp_period);
+        this->sample_timer.wait();
         if (this->check_ni_error(
             ni::NiDAQmxInterface::ReadDigitalLines(
                 this->task_handle, 
