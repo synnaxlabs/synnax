@@ -154,10 +154,7 @@ export const useObserveState = <T extends ParserErrorsDetails>(
         state.details.errors.forEach((e) => {
           const path = `config.${deep.pathToCamel(e.path)}`;
           console.log(path, e.message);
-          setStatus(path, {
-            variant: "error",
-            message: e.message,
-          });
+          setStatus(path, { variant: "error", message: "" });
         });
       }
     },

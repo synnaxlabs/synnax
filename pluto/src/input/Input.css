@@ -9,6 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto--warning .pluto-input__internal {
+    border-color: var(--pluto-warning-z-50) !important;
+}
+
+.pluto--error .pluto-input__internal {
+    border-color: var(--pluto-error-z-45) !important;
+}
+
 .pluto-input {
     color: var(--pluto-text-color);
     margin: 0;
