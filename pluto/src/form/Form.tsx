@@ -79,10 +79,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     setState(get<I>(path, { optional }));
     return bind({
       path,
-      onChange: (p) => {
-        console.log(path, p);
-        setState(p);
-      },
+      onChange: setState,
       listenToChildren: false,
     });
   }, [path, onChange, bind, get]);
@@ -464,7 +461,6 @@ export const use = <Z extends z.ZodTypeAny>({
   const updateFieldState = useCallback((path: string) => {
     const { listeners } = ref.current;
     const fs = get(path, { optional: true });
-    console.log(fs, path, listeners.get(path));
     if (fs == null) return;
     listeners.get(path)?.forEach((l) => l(fs));
   }, []);
@@ -481,10 +477,8 @@ export const use = <Z extends z.ZodTypeAny>({
           l(fs);
         });
     }
-
     parentListeners.forEach((lis, lisPath) => {
       const equalOrChild = deep.pathsMatch(path, lisPath);
-      // const equalOrParent = deep.pathsMatch(lisPath, path);
       if (equalOrChild) {
         const v = get(lisPath, { optional: true });
         if (v != null)
@@ -494,7 +488,6 @@ export const use = <Z extends z.ZodTypeAny>({
           });
       }
     });
-    // console.log("Fired", fired);
   }, []);
 
   const processValidationResult = useCallback(
@@ -596,6 +589,7 @@ export const use = <Z extends z.ZodTypeAny>({
 
   const setStatus = useCallback((path: string, status: status.CrudeSpec): void => {
     ref.current.statuses.set(path, status);
+    ref.current.touched.add(path);
     updateFieldState(path);
   }, []);
 

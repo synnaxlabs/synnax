@@ -52,8 +52,9 @@ import {
   Controls,
   useCreate,
   useObserveState,
+  WrappedTaskLayoutProps,
+  wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { type Layout } from "@/layout";
 
 export const configureReadLayout = (create: boolean = false): Layout.State => ({
@@ -77,13 +78,11 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
 };
 
-interface InternalProps {
-  layoutKey: string;
-  task?: Read;
-  initialValues: ReadPayload;
-}
-
-const Internal = ({ layoutKey, initialValues, task }: InternalProps): ReactElement => {
+const Wrapped = ({
+  layoutKey,
+  initialValues,
+  task,
+}: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
   const [device, setDevice] = useState<device.Device<Device.Properties> | null>(null);
 
@@ -495,7 +494,4 @@ const ChannelForm = ({
   );
 };
 
-export const ReadTask: Layout.Renderer = wrapTaskLayout<Read, ReadPayload>(
-  Internal,
-  ZERO_READ_PAYLOAD,
-);
+export const ReadTask: Layout.Renderer = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);

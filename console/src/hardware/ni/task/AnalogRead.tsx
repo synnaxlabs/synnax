@@ -46,8 +46,9 @@ import {
   Controls,
   useCreate,
   useObserveState,
+  WrappedTaskLayoutProps,
+  wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
@@ -68,13 +69,11 @@ export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureAnalogReadLayout(true), key: layoutKey }),
 };
 
-interface InternalProps {
-  layoutKey: string;
-  task?: AnalogRead;
-  initialValues: AnalogReadPayload;
-}
-
-const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactElement => {
+const Wrapped = ({
+  task,
+  initialValues,
+  layoutKey,
+}: WrappedTaskLayoutProps<AnalogRead, AnalogReadPayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -425,7 +424,4 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureAnalogRead = wrapTaskLayout<AnalogRead, AnalogReadPayload>(
-  Internal,
-  ZERO_ANALOG_READ_PAYLOAD,
-);
+export const ConfigureAnalogRead = wrapTaskLayout(Wrapped, ZERO_ANALOG_READ_PAYLOAD);

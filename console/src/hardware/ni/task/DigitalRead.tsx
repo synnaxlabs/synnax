@@ -52,8 +52,9 @@ import {
   EnableDisableButton,
   useCreate,
   useObserveState,
+  WrappedTaskLayoutProps,
+  wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
 
 interface ConfigureDigitalReadArgs {
@@ -78,13 +79,11 @@ export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureDigitalReadLayout(true), key: layoutKey }),
 };
 
-interface InternalProps {
-  layoutKey: string;
-  task?: DigitalRead;
-  initialValues: DigitalReadPayload;
-}
-
-const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactElement => {
+const Wrapped = ({
+  task,
+  initialValues,
+  layoutKey,
+}: WrappedTaskLayoutProps<DigitalRead, DigitalReadPayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -413,7 +412,4 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalRead = wrapTaskLayout<DigitalRead, DigitalReadPayload>(
-  Internal,
-  ZERO_DIGITAL_READ_PAYLOAD,
-);
+export const ConfigureDigitalRead = wrapTaskLayout(Wrapped, ZERO_DIGITAL_READ_PAYLOAD);

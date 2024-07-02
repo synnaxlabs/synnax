@@ -51,8 +51,9 @@ import {
   Controls,
   useCreate,
   useObserveState,
+  WrappedTaskLayoutProps,
+  wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { wrapTaskLayout } from "@/hardware/task/TaskWrapper";
 import { Layout } from "@/layout";
 
 interface ConfigureDigitalWriteArgs {
@@ -77,13 +78,11 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureDigitalWriteLayout(true), key: layoutKey }),
 };
 
-interface InternalProps {
-  layoutKey: string;
-  task?: DigitalWrite;
-  initialValues: DigitalWritePayload;
-}
-
-const Internal = ({ task, initialValues, layoutKey }: InternalProps): ReactElement => {
+const Wrapped = ({
+  task,
+  initialValues,
+  layoutKey,
+}: WrappedTaskLayoutProps<DigitalWrite, DigitalWritePayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -510,7 +509,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalWrite = wrapTaskLayout<DigitalWrite, DigitalWritePayload>(
-  Internal,
+export const ConfigureDigitalWrite = wrapTaskLayout(
+  Wrapped,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 );
