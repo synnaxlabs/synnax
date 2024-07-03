@@ -114,15 +114,22 @@ func runNode(
 		cmd            *exec.Cmd
 		process        = make(chan error, 1)
 		dir            string
+		shell          []string
 	)
 	time.Sleep(time.Duration(node.Delay) * time.Second)
 
+	if runtime.GOOS == "windows" {
+		shell = []string{"cmd.exe", "/C"}
+	} else {
+		shell = []string{"sh", "-c"}
+	}
+
 	switch node.Client {
 	case "py":
-		cmd = exec.Command("sh", "-c", node.Params.ToPythonCommand(identifier))
+		cmd = exec.Command(shell[0], shell[1], node.Params.ToPythonCommand(identifier))
 		dir = "./py"
 	case "ts":
-		cmd = exec.Command("sh", "-c", node.Params.ToTSCommand(identifier))
+		cmd = exec.Command(shell[0], shell[1], node.Params.ToTSCommand(identifier))
 		dir = "./ts/src"
 	default:
 		return errors.Newf("Unrecognized client in %s: %s", identifier, node.Client)

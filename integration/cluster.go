@@ -51,6 +51,7 @@ func startCluster(ctx context.Context, p ClusterParam) (error, func() error) {
 
 	time.Sleep(5 * telem.Second.Duration())
 	return nil, func() error {
+		// FIXME: This only kills the cluster process and not any processes it started.
 		return cmd.Process.Kill()
 	}
 }

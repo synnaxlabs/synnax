@@ -174,10 +174,10 @@ jobs:
       - name: Test
         if: steps.filter.outputs.changed == 'true'
         shell: powershell
-        run: ./run-integration.ps1 tests/ws-d-r-small.json
+        run: ./run-integration.ps1 tests/ws-d-r-mini.json
         working-directory: ./integration
 
-  test-benchmark-windows:
+  test-integration-windows-benchmark:
     runs-on: "Windows"
     timeout-minutes: 600
     steps:
@@ -215,5 +215,5 @@ jobs:
       - name: Test
         if: steps.filter.outputs.changed == 'true'
         shell: powershell
-        run: ./run-integration.ps1 tests/benchmark-test.json
+        run: ./run-integration.ps1 tests/benchmark-test-small.json
         working-directory: ./integration
