@@ -16,10 +16,10 @@ type ClusterParam struct {
 	MemFS    bool `json:"mem_fs"`
 }
 
-func startCluster(ctx context.Context, p ClusterParam) error {
+func startCluster(ctx context.Context, p ClusterParam) (error, func() error) {
 	if p == (ClusterParam{}) {
 		fmt.Printf("--cannot find cluster startup configration, skipping\n")
-		return nil
+		return nil, func() error { return nil }
 	}
 
 	fmt.Printf("--starting cluster\n")
@@ -46,9 +46,11 @@ func startCluster(ctx context.Context, p ClusterParam) error {
 			"error in starting cluster.\nstdout: %s\nstderr: %s\n",
 			stdOut.String(),
 			stdErr.String(),
-		)
+		), func() error { return nil }
 	}
 
 	time.Sleep(5 * telem.Second.Duration())
-	return nil
+	return nil, func() error {
+		return cmd.Process.Kill()
+	}
 }

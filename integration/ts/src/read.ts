@@ -116,7 +116,7 @@ Configuration:
 \tNumber of iterators: ${this.tc.numIterators}
 \tNumber of channels: ${this.tc.numChannels()}
 \tChunk size: ${this.tc.chunkSize}
-${assertionResult}: ${assertionPassed ? "PASS!!" : "FAIL!!"}
+${assertionResult}\n${assertionPassed ? "PASS!!" : "FAIL!!"}
 Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!"}
 `;
 

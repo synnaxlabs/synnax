@@ -180,6 +180,62 @@ simulate more performant machines that our users may run Synnax on. In addition 
 that there are no errors in running different parts of the system in tandem, relevant
 timing metrics are also provided for each opeartion in the testing report.
 
+### 2.3.3 Test Cases
+
+Integration testing allows us to test scenarios unachievable in unit tests: concurrent
+and cross-OS operations that are very possible in production but hard to achieve in
+debugging. To this end, I propose these tests to attempt to expose unexposed errors in
+the system:
+
+1. Load / "Everything" test
+
+This is a test that comprises of everything – writing giant amounts of data while trying
+to delete, open errant writers on channels in use, etc. The test asserts on disallowing
+creating writers on channels already being written to, deleting from channels being
+written to, the correctness of streaming, and the correctness of deletes and reads.
+
+The structure of this test is as follows:
+```
+{
+    0-0: write with py
+    0-1: write with py
+    0-2: write with ts (errant)
+    0-3: write with ts
+    0-4: delete with py (errant)
+    0-5: read with ts (undetermined behaviour)
+    0-6: stream with ts (assert streaming enough samples)
+    0-7: stream with py (assert streaming enough samples)
+    1-0: delete with py
+    1-1: delete with ts
+    2-0: read with py (assert reading correct # of samples)
+    2-1: read with ts (assert reading correct # of samples)
+}
+```
+
+2. Delete integration test
+
+This test asserts that delete is correct with multiple processes and multiple
+clients running in parallel. The goal is to test that the correct number of samples
+remain after deletion.
+
+```
+{
+    0-0: write with py
+    1-0: delete with ts
+    1-1: delete with py
+    1-2: delete with ts
+    2-0: read with ts
+}
+```
+
+3. Benchmark comparison test
+
+This test asserts that operations on both clients have the same effect, and serves as
+a means to understand the throughput for each operation on the two different clients and
+allows for comparison.
+
+
+
 ## 2.4 Future work
 
 #### Smart-closing streamers

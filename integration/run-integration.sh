@@ -8,11 +8,11 @@ fi
 # Run the Go program with the provided arguments
 go run . "$1"
 
-# Delete the data used during the test
-rm -rf ./synnax-data
-
 # Capture the exit code of the Go program
 exit_code=$?
+
+# Delete the data used during the test
+rm -rf ./synnax-data
 
 # Check if the exit code is not 0
 if [ $exit_code -ne 0 ]; then
