@@ -14,13 +14,13 @@ import { type location } from "@synnaxlabs/x";
 import type { ComponentType } from "react";
 
 /** The location options for placing a layout */
-export type PlacementLocation = "window" | "mosaic";
+export type PlacementLocation = "window" | "mosaic" | "modal";
 
 /**
  * Layout represents the properties of a layout currently rendered in the mosaic or in
  * an external window. The key of a layout must be unique.
  */
-export interface State {
+export interface State<A = any | undefined> {
   windowKey: string;
   /** A unique key for the layout */
   key: string;
@@ -36,6 +36,8 @@ export interface State {
    * this point.
    */
   name: string;
+  /** */
+  icon?: string;
   /**
    * Location defines the placement location of the layout. If the location is 'mosaic',
    * the layout will be placed in the central mosaic. If the location is 'window', the
@@ -52,6 +54,10 @@ export interface State {
    * these properties are ignored.
    */
   tab?: Partial<LayoutTabProps>;
+  /**
+   * A typically optional set of arguments to pass to the layout
+   */
+  args?: A;
 }
 
 export type RenderableLayout = Omit<State, "window">;

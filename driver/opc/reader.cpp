@@ -280,97 +280,140 @@ public:
         }
         if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
             const auto value = *static_cast<UA_Float *>(val->data);
-            if (s.data_type == synnax::FLOAT32) return s.write( value);
-            if (s.data_type == synnax::FLOAT64) return s.write( static_cast<double>(value));
-            if (s.data_type == synnax::INT32) return s.write( static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write( static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT32) return s.write(value);
+            if (s.data_type == synnax::FLOAT64) return s.write(
+                static_cast<double>(value));
+            if (s.data_type == synnax::INT32) return s.write(
+                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64) return s.write(
+                static_cast<int64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
             const auto value = *static_cast<UA_Double *>(val->data);
-            if (s.data_type == synnax::FLOAT32) return s.write( static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write( value);
-            if (s.data_type == synnax::INT32) return s.write( static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write( static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT32) return s.write(
+                static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64) return s.write(value);
+            if (s.data_type == synnax::INT32) return s.write(
+                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64) return s.write(
+                static_cast<int64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
             const auto value = *static_cast<UA_Int32 *>(val->data);
-            if (s.data_type == synnax::INT32) return s.write( value);
-            if (s.data_type == synnax::INT64) return s.write( static_cast<int64_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write( static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write( static_cast<uint64_t>(value));
+            if (s.data_type == synnax::INT32) return s.write(value);
+            if (s.data_type == synnax::INT64) return s.write(
+                static_cast<int64_t>(value));
+            if (s.data_type == synnax::UINT32) return s.write(
+                static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64) return s.write(
+                static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
             const auto value = *static_cast<UA_Int64 *>(val->data);
-            if (s.data_type == synnax::INT32) return s.write( static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write( value);
-            if (s.data_type == synnax::UINT32) return s.write( static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write( static_cast<uint64_t>(value));
+            if (s.data_type == synnax::INT32) return s.write(
+                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64) return s.write(value);
+            if (s.data_type == synnax::UINT32) return s.write(
+                static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64) return s.write(
+                static_cast<uint64_t>(value));
             if (s.data_type == synnax::TIMESTAMP)
                 return s.write(static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
             const auto value = *static_cast<UA_UInt32 *>(val->data);
-            if (s.data_type == synnax::INT32) return s.write( static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT32) return s.write(
+                static_cast<int32_t>(value));
             // Potential data loss
-            if (s.data_type == synnax::INT64) return s.write( static_cast<int64_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write( value);
-            if (s.data_type == synnax::UINT64) return s.write( static_cast<uint64_t>(value));
+            if (s.data_type == synnax::INT64) return s.write(
+                static_cast<int64_t>(value));
+            if (s.data_type == synnax::UINT32) return s.write(value);
+            if (s.data_type == synnax::UINT64) return s.write(
+                static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
             const auto value = *static_cast<UA_UInt64 *>(val->data);
-            if (s.data_type == synnax::UINT64) return s.write( value);
-            if (s.data_type == synnax::INT32) return s.write( static_cast<int32_t>(value));
+            if (s.data_type == synnax::UINT64) return s.write(value);
+            if (s.data_type == synnax::INT32) return s.write(
+                static_cast<int32_t>(value));
             // Potential data loss
-            if (s.data_type == synnax::INT64) return s.write( static_cast<int64_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write( static_cast<uint32_t>(value));
+            if (s.data_type == synnax::INT64) return s.write(
+                static_cast<int64_t>(value));
+            if (s.data_type == synnax::UINT32) return s.write(
+                static_cast<uint32_t>(value));
             // Potential data loss
             if (s.data_type == synnax::TIMESTAMP)
                 s.write(static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
             const auto value = *static_cast<UA_Byte *>(val->data);
-            if (s.data_type == synnax::UINT8) return s.write( value);
-            if (s.data_type == synnax::UINT16) return s.write( static_cast<uint16_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write( static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write( static_cast<uint64_t>(value));
-            if (s.data_type == synnax::INT8) return s.write( static_cast<int8_t>(value));
-            if (s.data_type == synnax::INT16) return s.write( static_cast<int16_t>(value));
-            if (s.data_type == synnax::INT32) return s.write( static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write( static_cast<int64_t>(value));
-            if (s.data_type == synnax::FLOAT32) return s.write( static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write( static_cast<double>(value));
+            if (s.data_type == synnax::UINT8) return s.write(value);
+            if (s.data_type == synnax::UINT16) return s.write(
+                static_cast<uint16_t>(value));
+            if (s.data_type == synnax::UINT32) return s.write(
+                static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64) return s.write(
+                static_cast<uint64_t>(value));
+            if (s.data_type == synnax::INT8) return s.write(static_cast<int8_t>(value));
+            if (s.data_type == synnax::INT16) return s.write(
+                static_cast<int16_t>(value));
+            if (s.data_type == synnax::INT32) return s.write(
+                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64) return s.write(
+                static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT32) return s.write(
+                static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64) return s.write(
+                static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
             const auto value = *static_cast<UA_SByte *>(val->data);
-            if (s.data_type == synnax::INT8) return s.write( value);
-            if (s.data_type == synnax::INT16) return s.write( static_cast<int16_t>(value));
-            if (s.data_type == synnax::INT32) return s.write( static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write( static_cast<int64_t>(value));
-            if (s.data_type == synnax::FLOAT32) return s.write( static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write( static_cast<double>(value));
+            if (s.data_type == synnax::INT8) return s.write(value);
+            if (s.data_type == synnax::INT16) return s.write(
+                static_cast<int16_t>(value));
+            if (s.data_type == synnax::INT32) return s.write(
+                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64) return s.write(
+                static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT32) return s.write(
+                static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64) return s.write(
+                static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
             const auto value = *static_cast<UA_Boolean *>(val->data);
-            if (s.data_type == synnax::UINT8) return s.write( static_cast<uint8_t>(value));
-            if (s.data_type == synnax::UINT16) return s.write( static_cast<uint16_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write( static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write( static_cast<uint64_t>(value));
-            if (s.data_type == synnax::INT8) return s.write( static_cast<int8_t>(value));
-            if (s.data_type == synnax::INT16) return s.write( static_cast<int16_t>(value));
-            if (s.data_type == synnax::INT32) return s.write( static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write( static_cast<int64_t>(value));
-            if (s.data_type == synnax::FLOAT32) return s.write( static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write( static_cast<double>(value));
+            if (s.data_type == synnax::UINT8) return s.write(
+                static_cast<uint8_t>(value));
+            if (s.data_type == synnax::UINT16) return s.write(
+                static_cast<uint16_t>(value));
+            if (s.data_type == synnax::UINT32) return s.write(
+                static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64) return s.write(
+                static_cast<uint64_t>(value));
+            if (s.data_type == synnax::INT8) return s.write(static_cast<int8_t>(value));
+            if (s.data_type == synnax::INT16) return s.write(
+                static_cast<int16_t>(value));
+            if (s.data_type == synnax::INT32) return s.write(
+                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64) return s.write(
+                static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT32) return s.write(
+                static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64) return s.write(
+                static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
             const auto value = *static_cast<UA_DateTime *>(val->data);
-            if (s.data_type == synnax::INT64) return s.write( ua_datetime_to_unix_nano(value));
+            if (s.data_type == synnax::INT64) return s.write(
+                ua_datetime_to_unix_nano(value));
             if (s.data_type == synnax::TIMESTAMP)
                 s.write(ua_datetime_to_unix_nano(value));
             if (s.data_type == synnax::UINT64)
                 s.write(static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
-            if (s.data_type == synnax::FLOAT32) return s.write( static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write( static_cast<double>(value));
+            if (s.data_type == synnax::FLOAT32) return s.write(
+                static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64) return s.write(
+                static_cast<double>(value));
         }
     }
 
@@ -414,20 +457,23 @@ public:
                     UA_ReadResponse_clear(&res);
                     return std::make_pair(std::move(fr), err);
                 }
-                const auto next_arr_size = write_to_series(value, i * cfg.array_size, fr.series->at(j));
+                const auto next_arr_size = write_to_series(
+                    value, i * cfg.array_size, fr.series->at(j));
                 if (j != 0 && curr_arr_size != next_arr_size) {
                     curr_state.variant = "warning";
                     curr_state.details = json{
                         {
                             "message",
-                            "Received array of length " + std::to_string(next_arr_size) +
+                            "Received array of length " + std::to_string(next_arr_size)
+                            +
                             " from OPC UA server, which is different from the previous array length of "
                             + std::to_string(curr_arr_size) + ". Skipping write."
                         },
                         {"running", true}
                     };
                     UA_ReadResponse_clear(&res);
-                    return std::make_pair(std::move(fr), driver::TEMPORARY_HARDWARE_ERROR);
+                    return std::make_pair(std::move(fr),
+                                          driver::TEMPORARY_HARDWARE_ERROR);
                 }
                 curr_arr_size = next_arr_size;
             }

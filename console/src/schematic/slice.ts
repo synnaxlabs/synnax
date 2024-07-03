@@ -19,9 +19,6 @@ import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, deep, migrate, scale, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
-import { v4 as uuidV4 } from "uuid";
-
-import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
   key: Schematic.Variant;
@@ -557,22 +554,3 @@ export const {
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
-
-export type LayoutType = "schematic";
-export const LAYOUT_TYPE = "schematic";
-
-export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? uuidV4();
-    dispatch(actions.create({ ...deep.copy(ZERO_STATE), key, ...rest }));
-    return {
-      key,
-      location,
-      name,
-      type: LAYOUT_TYPE,
-      window,
-      tab,
-    };
-  };

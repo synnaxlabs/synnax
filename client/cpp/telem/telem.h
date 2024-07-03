@@ -17,6 +17,7 @@
 #include <unordered_map>
 
 namespace synnax {
+// private namespace for internal constants
 namespace _priv {
 const uint64_t NANOSECOND = 1;
 const uint64_t MICROSECOND = NANOSECOND * 1e3;
@@ -174,7 +175,9 @@ public:
     explicit TimeSpan(const std::uint64_t i) : value(i) {
     }
 
-    explicit TimeSpan(const std::chrono::duration<std::int64_t, std::nano> &duration) : value(duration.count()) {
+    explicit TimeSpan(
+        const std::chrono::duration<std::int64_t, std::nano> &duration) : value(
+        duration.count()) {
     }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
@@ -246,13 +249,17 @@ public:
 
     TimeSpan operator*(const int &other) const { return TimeSpan(value * other); }
 
-    TimeSpan operator*(const unsigned int &other) const { return TimeSpan(value * other); }
+    TimeSpan operator*(const unsigned int &other) const {
+        return TimeSpan(value * other);
+    }
 
     TimeSpan operator*(const double &other) const { return TimeSpan(value * other); }
 
     TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
 
-    TimeSpan operator*(const unsigned long &other) const { return TimeSpan(value * other); }
+    TimeSpan operator*(const unsigned long &other) const {
+        return TimeSpan(value * other);
+    }
 
     TimeSpan operator*(const long long &other) const { return TimeSpan(value * other); }
 
@@ -453,8 +460,6 @@ public:
     TimeStamp operator%=(const TimeStamp &other) {
         return TimeStamp(value %= other.value);
     }
-
-
 };
 
 class TimeRange {
@@ -468,7 +473,8 @@ public:
     TimeRange(const TimeStamp start, const TimeStamp end) : start(start), end(end) {
     }
 
-    TimeRange(const std::uint64_t start, const std::uint64_t end) : start(start), end(end) {
+    TimeRange(const std::uint64_t start, const std::uint64_t end) : start(start),
+        end(end) {
     }
 
     /// @brief returns true if the given timestamp is within the range, start inclusive,

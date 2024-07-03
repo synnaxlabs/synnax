@@ -20,7 +20,6 @@
 #include "driver/breaker/breaker.h"
 
 namespace pipeline {
-
 /// @brief an object that reads data from an acquisition computer or another source,
 /// returning data as frames.
 class Source {
@@ -32,7 +31,7 @@ public:
     /// trigger a breaker (temporary backoff), and then retry the read operation. Any
     /// other error type will be considered a permanent error and the pipeline will
     /// exit.
-    virtual std::pair<Frame, freighter::Error> read(breaker::Breaker& breaker) = 0;
+    virtual std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that caused
     /// it to shut down or occurred during commanded shutdown.
@@ -41,7 +40,7 @@ public:
     /// source (read, stoppedWithErr) until the pipeline is restarted.
     ///
     /// This method may be called even if stop() was called on the pipeline.
-    virtual void stoppedWithErr(const freighter::Error &_) {
+    virtual void stoppedWithErr(const freighter::Error &err) {
     }
 
     virtual ~Source() = default;

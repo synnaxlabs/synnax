@@ -6,17 +6,9 @@ import numpy as np
 from scipy.signal import find_peaks
 
 client = sy.Synnax()
+
 from common import (
-    SENSORS,
-    VALVES,
-    SUPPLY_PT,
-    PNEUMATICS_PT,
-    PRESS_ISO_STATE,
-    DAQ_TIME,
-    OX_TPC_CMD,
-    OX_TPC_ACK,
     OX_MPV_CMD,
-    OX_MPV_ACK,
     OX_PRESS_CMD,
     GAS_BOOSTER_ISO_CMD,
     OX_VENT_CMD,

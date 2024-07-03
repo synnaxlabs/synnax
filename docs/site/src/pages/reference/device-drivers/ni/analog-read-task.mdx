@@ -1,0 +1,120 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "NI | Analog Read Task"
+heading: "NI Analog Read Task"
+description: "Learn how to create an analog read task for NI hardware."   
+---
+import { Divider } from "@synnaxlabs/pluto";
+import { StepText } from "@/components/StepText";
+
+The analog read task is used for acquiring data from analog inputs on your NI devices. 
+In this guide, we'll walk you through the steps for creating an analog read task using
+the Synnax Console.
+
+<Divider.Divider direction="x" />
+
+## Prerequisites
+
+Before configuring the task, you'll need to have connected and configured an NI device
+and created the relevant channels in Synnax. Check out the [Configure Device](/reference/device-drivers/ni/configure-device) 
+guide for more information.
+
+<Divider.Divider direction="x" />
+
+## A Short Primer on Tasks
+
+Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
+can be used for both control and data acquisition purposes. In the context of the NI
+Driver, an analog read task defines a background process that reads data from the 
+analog inputs on a particular DAQ card.
+
+An analog read task can be started, stopped, and re-configured at any time. We 
+permanently store the configuration of the task in Synnax, so it's easy to set up 
+multiple tasks for different purposes.
+
+<Divider.Divider direction="x" />
+
+## Important Rules for Analog Read Tasks
+
+There are a few important rules to keep in mind when creating an analog read task.
+
+### Sample Rates 
+
+All channels in the task are sampled at the same rate. If you'd like to sample
+different channels at different rates, create a separate task to do so.
+
+### One Running Task Per Channel
+
+Synnax can only accept live data from a channel from one source at a time. If you have 
+a task running that reads from a `pressure` channel, you cannot start another task that
+reads from the same channel.
+
+### One Running Task per Index Channel
+
+[Index channels](/reference/concepts/channels#channel-types) are use to store
+the timestamps for your data channels. When you configure a task to read from a
+data channel, Synnax will automatically generate timestamps for the
+corresponding index channel, regardless of whether you've explicitly added it to
+the task.
+
+For example, imaging we two channels, `pressure` and `temperature` that share
+the same index channel, `time`. If you configure a task to read from `pressure`,
+Synnax will automatically generate timestamps for the `time` channel. If you
+then configure a task to read from `temperature`, Synnax will not allow you to
+start the task, as the `time` channel is already in use.
+
+<Divider.Divider direction="x" />
+
+## Open the Task Configuration Dialog
+
+To configure an analog read task, open the Synnax Console and click on the 
+Quick Search & Command Palette at the top. You can also open this palette with 
+`Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
+
+In command mode (enabled when the first character in the input is ">"), type
+"NI". You'll see an option called "Create a New Analog Read Task". Select this
+option to open the read task configuration dialog.
+
+INSERT VIDEO HERE
+
+<Divider.Divider direction="x" />
+
+## Configuring the Task
+
+### <StepText level="h3" step={1}>Select your NI Device</StepText>
+
+The first step is to select the NI device you'd like to read data from. Use the dropdown
+menu in the top left corner to do so.
+
+### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
+
+Next, you'll need to add channels to read data from. Click on the "+" button in the
+channels section. Then, click on the new channel in the list to configure it.
+
+### <StepText level="h3" step={3}>Configure Timing</StepText>
+
+There are two parameters to control the timing of the task: the sample rate and the 
+stream rate. The sample rate defines at how many samples per second the task will read
+from the device. The stream rate defines how often the task will stream data into Synnax.
+
+For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax will
+read a batch of 10 samples every second, and then forward the entire batch to the server.
+
+For very low rate tasks (&lt; 50Hz), we recommend setting the stream rate to the same value
+as the sample rate. For higher rate tasks, lowering the stream rate can significantly 
+improve performance. It's typically best to keep the stream rate below 50Hz unless you need
+to quickly process incoming data in real-time.
+
+### <StepText level="h3" step={4}>Enable/Disable Data Saving</StepText>
+
+Data saving defines whether acquired data will be permanently stored in Synnax. When
+enabled, Synnax will both stream and store data. When disabled, Synnax will only
+stream data for real-time visualization. Historical data will not be available for review.
+
+### <StepText level="h3" step={6}>Configure and Start the Task</StepText>
+
+Once you'd added all of the channels you need and have configured sampling rates, hit
+the "Configure" button. If there are no errors, Synnax will acknowledge the configured 
+task and enable the "Play" button in the dialog. Click this button to start the task.
+
+<Divider.Divider direction="x" />

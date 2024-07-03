@@ -44,7 +44,9 @@ cc_test(
 
 cc_binary(
     name = "driver_main",
-    srcs = ["main.cpp"],
+    srcs = select({
+        "//conditions:default":["main.cpp"],
+    }),
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "@platforms//os:linux": ["-std=c++20"],
@@ -63,7 +65,7 @@ cc_binary(
             "//driver",
             "//driver/breaker",
             "//driver/meminfo",
-            #            "//driver/ni",
+            "//driver/ni",
             "//driver/opc",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",
@@ -74,7 +76,7 @@ cc_binary(
             "//driver",
             "//driver/breaker",
             "//driver/meminfo",
-            #            "//driver/ni",
+            "//driver/ni",
             "//driver/opc",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",
@@ -85,7 +87,7 @@ cc_binary(
             "//driver",
             "//driver/breaker",
             "//driver/meminfo",
-            #            "//driver/ni",
+            "//driver/ni",
             "//driver/opc",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",

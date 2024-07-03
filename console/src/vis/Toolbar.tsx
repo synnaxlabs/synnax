@@ -13,9 +13,9 @@ import { type FC, type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Schematic } from "@/schematic";
-import { createLayoutSelector, LayoutSelector } from "@/vis/LayoutSelector";
 import { type LayoutType } from "@/vis/types";
 
 export const VisToolbarTitle = (): ReactElement => (
@@ -31,7 +31,7 @@ const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
-    <LayoutSelector layoutKey={layoutKey} />
+    {/* <LayoutSelector layoutKey={layoutKey} /> */}
   </Align.Space>
 );
 
@@ -52,7 +52,7 @@ const NoVis = (): ReactElement => {
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
-        <Text.Link level="p" onClick={() => placer(createLayoutSelector({}))}>
+        <Text.Link level="p" onClick={() => placer(Layouts.createSelector({}))}>
           create a new one.
         </Text.Link>
       </Align.Center>

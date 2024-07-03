@@ -37,4 +37,3 @@ TEST(HeartbeatTests, testNominal) {
     done.wait(false);
     ASSERT_TRUE(done);
 }
-

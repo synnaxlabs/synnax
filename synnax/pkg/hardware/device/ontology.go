@@ -38,8 +38,13 @@ func KeysFromOntologyIDs(ids []ontology.ID) []string {
 var _schema = &ontology.Schema{
 	Type: OntologyType,
 	Fields: map[string]schema.Field{
-		"key":  {Type: schema.String},
-		"name": {Type: schema.String},
+		"key":        {Type: schema.String},
+		"name":       {Type: schema.String},
+		"make":       {Type: schema.String},
+		"model":      {Type: schema.String},
+		"configured": {Type: schema.Bool},
+		"location":   {Type: schema.String},
+		"rack":       {Type: schema.Uint32},
 	},
 }
 
@@ -47,6 +52,11 @@ func newResource(r Device) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(r.Key), r.Name)
 	schema.Set(e, "key", r.Key)
 	schema.Set(e, "name", r.Name)
+	schema.Set(e, "make", r.Make)
+	schema.Set(e, "model", r.Model)
+	schema.Set(e, "configured", r.Configured)
+	schema.Set(e, "location", r.Location)
+	schema.Set(e, "rack", uint32(r.Rack))
 	return e
 }
 

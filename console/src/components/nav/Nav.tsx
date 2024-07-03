@@ -13,6 +13,7 @@ import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
@@ -22,6 +23,7 @@ export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Ontology.Toolbar,
   Range.Toolbar,
   Vis.Toolbar,
+  Task.Toolbar,
 ];
 
 export const NavMenu = ({

@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot/LinePlot";
-import { LAYOUT_TYPE } from "@/lineplot/slice";
+import { type Layout } from "@/layout";
+import { LAYOUT_TYPE, LinePlot } from "@/lineplot/LinePlot";
 
 export * from "@/lineplot/LinePlot";
-export * from "@/lineplot/link";
 export * from "@/lineplot/middleware";
 export * from "@/lineplot/NavControls";
-export * from "@/lineplot/ontology";
-export * from "@/lineplot/palette";
 export * from "@/lineplot/selectors";
 export * from "@/lineplot/slice";
 export * from "@/lineplot/toolbar";

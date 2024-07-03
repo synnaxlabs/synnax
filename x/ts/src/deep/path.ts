@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@/caseconv";
 import { type Join } from "@/join";
 import { type UnknownRecord } from "@/record";
 
@@ -46,29 +47,28 @@ export type Key<T, D extends number = 5> = [D] extends [never]
       }[keyof T]
     : "";
 
-export interface GetOptions {
-  getter?: (obj: unknown, key: string) => unknown;
+export interface GetOptions<O extends boolean | undefined = boolean | undefined> {
+  optional: O;
+  getter?: (obj: UnknownRecord, key: string) => unknown;
 }
 
-export type Get = (<V = unknown, T = UnknownRecord>(
-  obj: T,
-  path: string,
-  allowNull: true,
-  options?: GetOptions,
-) => V | null) &
-  (<V = unknown, T = UnknownRecord>(
+export interface Get {
+  <V = unknown, T = UnknownRecord>(
     obj: T,
     path: string,
-    allowNull?: boolean,
-    options?: GetOptions,
-  ) => V);
+    options?: GetOptions<false>,
+  ): V;
+  <V = unknown, T = UnknownRecord>(
+    obj: T,
+    path: string,
+    options?: GetOptions<boolean | undefined>,
+  ): V | null;
+}
 
-export type TypedGet<V = unknown, T = UnknownRecord> = ((
-  obj: T,
-  path: string,
-  allowNull: true,
-) => V | null) &
-  ((obj: T, path: string, allowNull?: boolean) => V);
+export interface TypedGet<V = unknown, T = UnknownRecord> {
+  (obj: T, path: string, options?: GetOptions<false>): V;
+  (obj: T, path: string, options?: GetOptions<boolean | undefined>): V | null;
+}
 
 export const transformPath = (
   path: string,
@@ -90,19 +90,25 @@ export const transformPath = (
   return result.join(".");
 };
 
+export const pathToSnake = (path: string): string =>
+  transformPath(path, caseconv.stringToSnake);
+
+export const pathToCamel = (path: string): string =>
+  transformPath(path, caseconv.stringToCamel);
+
 export const get = (<V = unknown, T = UnknownRecord>(
   obj: T,
   path: string,
-  allowNull: boolean = false,
-  { getter = (obj, key) => (obj as UnknownRecord)[key] }: GetOptions = {},
+  opts: GetOptions = { optional: false },
 ): V | null => {
+  const { optional, getter = (obj, key) => (obj as UnknownRecord)[key] } = opts;
   const parts = path.split(".");
   if (parts.length === 1 && parts[0] === "") return obj as unknown as V;
   let result: UnknownRecord = obj as UnknownRecord;
   for (const part of parts) {
     const v = getter(result, part);
     if (v == null) {
-      if (allowNull) return null;
+      if (optional) return null;
       throw new Error(`Path ${path} does not exist. ${part} is null`);
     }
     result = v as UnknownRecord;

@@ -14,16 +14,14 @@
 using namespace synnax;
 
 /// @brief - it should initialize a timestamp from a long.
-TEST(TimeStampTests, testContructor)
-{
+TEST(TimeStampTests, testContructor) {
     auto ts = TimeStamp(5);
     ASSERT_EQ(ts.value, 5);
 }
 
-TEST(TimeSpanTests, testPeriod)
-{
+TEST(TimeSpanTests, testPeriod) {
     auto r = Rate(1);
     ASSERT_EQ(r.period().value, synnax::SECOND.value);
-    auto r2  = Rate(2);
+    auto r2 = Rate(2);
     ASSERT_EQ(r2.period().value, synnax::SECOND.value / 2);
 }

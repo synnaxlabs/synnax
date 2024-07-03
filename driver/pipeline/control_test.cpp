@@ -66,8 +66,8 @@ public:
             idx = this->configs->size() - 1;
         // try to grab the first error. if not, freighter nil
         auto err = this->streamer_opens > this->open_errors.size()
-            ? freighter::NIL
-            : this->open_errors.at(this->streamer_opens - 1);
+                       ? freighter::NIL
+                       : this->open_errors.at(this->streamer_opens - 1);
         if (err) return {nullptr, err};
         return {
             std::make_unique<MockStreamer>((*this->configs)[idx]),
@@ -142,7 +142,7 @@ TEST(ControlPipeline, testHappyPath) {
 TEST(ControlPipeline, testUnknownErrOnOpen) {
     auto streamer_factory = std::make_shared<MockStreamerFactory>(
         std::vector<freighter::Error>{
-                freighter::UNKNOWN
+            freighter::UNKNOWN
         },
         std::make_shared<std::vector<MockStreamerConfig> >()
     );
@@ -176,9 +176,9 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     auto streamer_config = synnax::StreamerConfig{.channels = {1}};
     auto streamer_factory = std::make_shared<MockStreamerFactory>(
         std::vector<freighter::Error>{
-                freighter::UNREACHABLE,
-                freighter::UNREACHABLE,
-                freighter::NIL
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::NIL
         },
         std::make_shared<std::vector<MockStreamerConfig> >(
             std::vector<MockStreamerConfig>{

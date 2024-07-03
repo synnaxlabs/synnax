@@ -60,8 +60,8 @@ describe("zodutil", () => {
         expect(zodutil.getFieldSchema(schema, path)).not.toBeNull();
       });
     });
-    it("should return null for invalid path and allowNull is true", () => {
-      expect(zodutil.getFieldSchema(schema, "a.b.c.d", true)).toBeNull();
+    it("should return null for invalid path and optional is true", () => {
+      expect(zodutil.getFieldSchema(schema, "a.b.c.d", { optional: true })).toBeNull();
     });
     describe("with a refinement", () => {
       const schema = z.object({

@@ -40,3 +40,7 @@ func (r Rate) Stamp(_ context.Context, ref telem.TimeStamp, distance int64, _ bo
 func (r Rate) Info() string {
 	return fmt.Sprintf("rate index: %v", r.Channel)
 }
+
+func (r Rate) Domain(_ context.Context, ref telem.TimeStamp) (DomainBounds, error) {
+	return ExactDomainBounds(0), nil
+}

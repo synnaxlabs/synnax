@@ -162,19 +162,19 @@ Transport::Transport(
         v1::HardwareCreateDeviceRequest,
         v1::HardwareCreateDeviceResponse,
         v1::HardwareCreateDeviceService
-    >> (pool, base_target);
+    > >(pool, base_target);
 
     device_retrieve = std::make_unique<fgrpc::UnaryClient<
         v1::HardwareRetrieveDeviceRequest,
         v1::HardwareRetrieveDeviceResponse,
         v1::HardwareRetrieveDeviceService
-    >> (pool, base_target);
+    > >(pool, base_target);
 
     device_delete = std::make_unique<fgrpc::UnaryClient<
         v1::HardwareDeleteDeviceRequest,
         google::protobuf::Empty,
         v1::HardwareDeleteDeviceService
-    >> (pool, base_target);
+    > >(pool, base_target);
 }
 
 void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {

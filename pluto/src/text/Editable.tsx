@@ -31,17 +31,39 @@ const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
 
 const BASE_CLASS = CSS.BM("text", "editable");
 
-export const edit = (id: string, onChange?: (value: string) => void): void => {
-  const d = document.getElementById(id);
-  if (d == null || !d.classList.contains(BASE_CLASS))
-    return console.error(`Element with id ${id} is not an instance of Text.Editable`);
-  d.setAttribute("contenteditable", "true");
-  if (onChange == null) return;
-  d.addEventListener("change", (e) => {
-    const t = e.target as HTMLElement;
-    onChange(t.innerText.trim());
-  });
+const MAX_EDIT_RETRIES = 10;
+
+export const edit = (
+  id: string,
+  onChange?: (value: string, renamed: boolean) => void,
+): void => {
+  let currRetry = 0;
+  const tryEdit = (): void => {
+    currRetry++;
+    const d = document.getElementById(id);
+    if (d == null || !d.classList.contains(BASE_CLASS)) {
+      if (currRetry < MAX_EDIT_RETRIES) setTimeout(() => tryEdit(), 100);
+      else throw new Error(`Could not find element with id ${id}`);
+      return;
+    }
+    d.setAttribute("contenteditable", "true");
+    if (onChange == null) return;
+    d.addEventListener("renamed", (e) =>
+      onChange((e.target as HTMLElement).innerText.trim(), true),
+    );
+    d.addEventListener("change", (e) =>
+      onChange((e.target as HTMLElement).innerText.trim(), false),
+    );
+  };
+  tryEdit();
 };
+
+export const asyncEdit = (id: string): Promise<[string, boolean]> =>
+  new Promise((resolve) => {
+    const onChange = (value: string, renamed: boolean): void =>
+      resolve([value, renamed]);
+    edit(id, onChange);
+  });
 
 export const Editable = <L extends text.Level = text.Level>({
   onChange,
@@ -67,10 +89,15 @@ export const Editable = <L extends text.Level = text.Level>({
     e.preventDefault();
     const el = ref.current;
     setEditable(false);
-    if (e.key === "Enter") onChange?.(el.innerText.trim());
-    else el.innerText = value;
+    const trimmed = el.innerText.trim();
+    if (e.key === "Enter" && trimmed.length > 0) {
+      onChange?.(trimmed);
+      el.dispatchEvent(new Event("renamed"));
+    } else {
+      el.innerText = value;
+      el.dispatchEvent(new Event("escaped"));
+    }
     el.blur();
-    el.dispatchEvent(new Event("change"));
   };
 
   useLayoutEffect(() => {

@@ -14,13 +14,10 @@ import { Group } from "@/group";
 import { type TreeContextMenu } from "@/ontology/service";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
-  const handleSelect: PMenu.MenuProps["onChange"] = (key) => {
-    switch (key) {
-      case "group":
-        void Group.fromSelection(props);
-    }
+  const group = Group.useCreateFromSelection();
+  const handleSelect = {
+    group: () => group(props),
   };
-
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={props.selection} />

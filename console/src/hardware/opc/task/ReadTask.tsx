@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/task/ReadTask.css";
-
-import { channel, device, type task } from "@synnaxlabs/client";
+import { channel, device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -21,20 +19,20 @@ import {
   Input,
   List,
   Menu,
-  Nav,
   Status,
   Synnax,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
 import { DataType } from "@synnaxlabs/x/telem";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
 import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
 import {
@@ -44,57 +42,48 @@ import {
   type ReadConfig,
   readConfigZ,
   ReadPayload,
-  type ReadState,
   type ReadStateDetails,
   ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
+import {
+  ChannelListEmptyContent,
+  ChannelListHeader,
+  Controls,
+  useCreate,
+  useObserveState,
+  WrappedTaskLayoutProps,
+  wrapTaskLayout,
+} from "@/hardware/task/common/common";
 import { type Layout } from "@/layout";
 
-export const configureReadLayout: Layout.State = {
+export const configureReadLayout = (create: boolean = false): Layout.State => ({
   name: "Configure OPC UA Read Task",
-  key: READ_TYPE,
+  key: uuid(),
   type: READ_TYPE,
   windowKey: READ_TYPE,
-  location: "window",
+  location: "mosaic",
   window: {
     resizable: true,
     size: { width: 1200, height: 900 },
     navTop: true,
   },
+  args: { create },
+});
+
+export const READ_SELECTABLE: Layout.Selectable = {
+  key: READ_TYPE,
+  title: "OPC UA Read Task",
+  icon: <Icon.Logo.OPC />,
+  create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
 };
 
-export const ReadTask: Layout.Renderer = ({ layoutKey }) => {
+const Wrapped = ({
+  layoutKey,
+  initialValues,
+  task,
+}: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
-  const fetchTask = useQuery<InternalProps>({
-    queryKey: [client?.key, "task", layoutKey],
-    queryFn: async () => {
-      if (client == null || layoutKey == configureReadLayout.key)
-        return { initialValues: deep.copy(ZERO_READ_PAYLOAD) };
-      const t = await client.hardware.tasks.retrieve<
-        ReadConfig,
-        ReadStateDetails,
-        ReadType
-      >(layoutKey, { includeState: true });
-      return { initialValues: t, task: t };
-    },
-  });
-  if (fetchTask.isLoading) return <></>;
-  if (fetchTask.isError) return <></>;
-  return <Internal {...(fetchTask.data as InternalProps)} />;
-};
-
-interface InternalProps {
-  task?: Read;
-  initialValues: ReadPayload;
-}
-
-const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement => {
-  const client = Synnax.use();
-  const [task, setTask] = useState(pTask);
-  const [taskState, setTaskState] = useState<ReadState | null>(
-    initialValues.state ?? null,
-  );
   const [device, setDevice] = useState<device.Device<Device.Properties> | null>(null);
 
   const schema = useMemo(
@@ -165,27 +154,24 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const stateObserverRef = useRef<task.StateObservable<ReadStateDetails> | null>(null);
-
-  useAsyncEffect(async () => {
-    if (client == null || task == null) return;
-    stateObserverRef.current = await task.openStateObserver<ReadStateDetails>();
-    stateObserverRef.current.onChange((s) => setTaskState(s));
-    return async () => await stateObserverRef.current?.close().catch(console.error);
-  }, [client?.key, task?.key, setTaskState]);
+  const taskState = useObserveState<DigitalWriteStateDetails>(
+    methods.setStatus,
+    methods.clearStatuses,
+    task?.key,
+    task?.state,
+  );
+  const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
 
   const configure = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      const t = await rack.createTask<ReadConfig, ReadStateDetails, ReadType>({
+      createTask({
         key: task?.key,
         name: methods.value().name,
         type: READ_TYPE,
         config: readConfigZ.parse(methods.value().config),
       });
-      setTask(t);
     },
   });
 
@@ -200,16 +186,20 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
   return (
-    <Align.Space className={CSS.B("opc-read-task")} direction="y" grow empty>
-      <Align.Space className={CSS.B("content")} direction="y" grow>
+    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
+      <Align.Space direction="y" grow>
         <Form.Form {...methods}>
           <Align.Space direction="x">
             <Form.Field<string> path="name" label="Name">
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
           </Align.Space>
-          <Align.Space direction="x">
-            <Form.Field<string> path="config.device" label="Device" grow>
+          <Align.Space direction="x" className={CSS.B("task-properties")}>
+            <Form.Field<string>
+              path="config.device"
+              label="Device"
+              style={{ width: "100%" }}
+            >
               {(p) => (
                 <PDevice.SelectSingle
                   {...p}
@@ -218,19 +208,25 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
                 />
               )}
             </Form.Field>
-            <Form.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
-              {(p) => <Input.Switch {...p} />}
-            </Form.Field>
-            <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-              {(p) => <Input.Numeric {...p} />}
-            </Form.Field>
-            <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
-            <Form.Field<number>
-              label={arrayMode ? "Array Size" : "Stream Rate"}
-              path={arrayMode ? "config.arraySize" : "config.streamRate"}
-            >
-              {(p) => <Input.Numeric {...p} />}
-            </Form.Field>
+            <Align.Space direction="x">
+              <Form.Field<boolean>
+                label="Data Saving"
+                path="config.dataSaving"
+                optional
+              >
+                {(p) => <Input.Switch {...p} />}
+              </Form.Field>
+              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
+              <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
+              <Form.Field<number>
+                label={arrayMode ? "Array Size" : "Stream Rate"}
+                path={arrayMode ? "config.arraySize" : "config.streamRate"}
+              >
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
+            </Align.Space>
           </Align.Space>
           <Align.Space
             className={CSS.B("channel-form-container")}
@@ -253,10 +249,10 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
               )}
             />
             <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h3">
-                <Header.Title weight={500}>Channel Details</Header.Title>
+              <Header.Header level="h4">
+                <Header.Title weight={500}>Details</Header.Title>
               </Header.Header>
-              <Align.Space direction="y" className={CSS.B("channel-form-content")} grow>
+              <Align.Space direction="y" className={CSS.B("details")} grow>
                 {selectedChannelIndex != null && (
                   <ChannelForm
                     key={selectedChannelIndex}
@@ -268,36 +264,14 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
             </Align.Space>
           </Align.Space>
         </Form.Form>
+        <Controls
+          state={taskState}
+          startingOrStopping={start.isPending}
+          configuring={configure.isPending}
+          onStartStop={start.mutate}
+          onConfigure={configure.mutate}
+        />
       </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          {taskState?.details?.message != null && taskState.variant != null && (
-            <Status.Text
-              variant={(taskState?.variant ?? "error") as Status.Variant}
-              level="p"
-            >
-              {taskState?.details?.message}
-            </Status.Text>
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
-          <Button.ToggleIcon
-            loading={start.isPending}
-            disabled={start.isPending || taskState == null}
-            value={taskState?.details?.running ?? false}
-            onChange={() => start.mutate()}
-          >
-            {taskState?.details?.running ? <Icon.Pause /> : <Icon.Play />}
-          </Button.ToggleIcon>
-          <Button.Button
-            loading={configure.isPending}
-            disabled={configure.isPending}
-            onClick={() => configure.mutate()}
-          >
-            Configure
-          </Button.Button>
-        </Nav.Bar.End>
-      </Nav.Bar>
     </Align.Space>
   );
 };
@@ -328,19 +302,7 @@ export const ChannelList = ({
 
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h3">
-        <Header.Title weight={500}>Channels</Header.Title>
-        <Header.Actions>
-          {[
-            {
-              key: "add",
-              onClick: handleAdd,
-              children: <Icon.Add />,
-              size: "large",
-            },
-          ]}
-        </Header.Actions>
-      </Header.Header>
+      <ChannelListHeader onAdd={handleAdd} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string): void => {
@@ -366,7 +328,10 @@ export const ChannelList = ({
         }}
         {...menuProps}
       >
-        <List.List<string, ReadChannelConfig> data={value}>
+        <List.List<string, ReadChannelConfig>
+          data={value}
+          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+        >
           <List.Selector<string, ReadChannelConfig>
             value={selected}
             allowNone
@@ -400,6 +365,7 @@ export const ChannelList = ({
 
 export const ChannelListItem = ({
   path,
+  remove,
   ...props
 }: List.ItemProps<string, ReadChannelConfig> & {
   path: string;
@@ -426,7 +392,7 @@ export const ChannelListItem = ({
       entry={childValues}
       justify="spaceBetween"
       align="center"
-      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && props.remove?.()}
+      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && remove?.()}
     >
       <Align.Space direction="y" size="small">
         <Text.Text level="p" weight={500} shade={9} color={channelColor}>
@@ -442,7 +408,7 @@ export const ChannelListItem = ({
         value={entry.enabled}
         size="small"
         onClick={(e) => e.stopPropagation()}
-        onChange={(v) => ctx.set({ path: `${path}.${props.index}.enabled`, value: v })}
+        onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>
             Data acquisition for this channel is{" "}
@@ -508,7 +474,7 @@ const ChannelForm = ({
           <Button.Icon
             variant="text"
             size="small"
-            onClick={() => ctx.set({ path: channelPath, value: channelRec })}
+            onClick={() => ctx.set(channelPath, channelRec)}
             tooltip={"Apply recommended channel"}
           >
             <Icon.Bolt style={{ color: "var(--pluto-gray-l6)" }} />
@@ -518,7 +484,7 @@ const ChannelForm = ({
             size="small"
             style={{ width: "fit-content" }}
             startIcon={<Icon.Channel />}
-            onClick={() => ctx.set({ path: channelPath, value: channelRec })}
+            onClick={() => ctx.set(channelPath, channelRec)}
             tooltip={"Apply recommended channel"}
           >
             {channelRecName}
@@ -528,3 +494,5 @@ const ChannelForm = ({
     </>
   );
 };
+
+export const ReadTask: Layout.Renderer = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);

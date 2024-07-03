@@ -13,17 +13,17 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   Color,
+  Legend,
   Menu as PMenu,
-  Status,
   Synnax,
   useAsyncEffect,
   useDebouncedCallback,
   usePrevious,
   Viewport,
-  Legend
 } from "@synnaxlabs/pluto";
 import {
   box,
+  deep,
   getEntries,
   location,
   scale,
@@ -32,11 +32,10 @@ import {
   type UnknownRecord,
 } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
+import { v4 as uuidv4 } from "uuid";
 
 import { Menu } from "@/components/menu";
-import { UseSyncerArgs, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
   AxisKey,
@@ -72,9 +71,9 @@ import {
   setYChannels,
   shouldDisplayAxis,
   type State,
-  type StoreState,
   storeViewport,
   typedLineKeyToString,
+  ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { Workspace } from "@/workspace";
@@ -90,52 +89,24 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
-
-  const syncLayout = useMutation<
-    void,
-    Error,
-    UseSyncerArgs<Layout.StoreState & StoreState & Workspace.StoreState, SyncPayload>
-  >({
-    retry: 3,
-    mutationFn: async ({ client, action: { key }, store }) => {
-      if (key == null) return;
+  const dispatch = useDispatch();
+  const syncDispatch = Workspace.useSyncComponent<SyncPayload>(
+    "Line Plot",
+    layoutKey,
+    async (ws, store, client) => {
       const s = store.getState();
-      const ws = Workspace.selectActiveKey(s);
-      if (ws == null) return;
-      const data = select(s, key);
-      const la = Layout.selectRequired(s, key);
-      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+      const data = select(s, layoutKey);
+      if (data == null) return;
+      const la = Layout.selectRequired(s, layoutKey);
+      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await client.workspaces.linePlot.create(ws, {
-        key,
+        key: layoutKey,
         name: la.name,
         data: data as unknown as UnknownRecord,
       });
     },
-    onError: (e, { store, action: { key } }) => {
-      let message = "Failed to save line plot";
-      if (key != null) {
-        const data = Layout.select(store.getState(), key);
-        if (data?.name != null) message += ` ${data.name}`;
-      }
-      addStatus({
-        key: layoutKey,
-        variant: "error",
-        message,
-        description: e.message,
-      });
-    },
-  });
-
-  const syncDispatch = useSyncerDispatch<
-    Layout.StoreState & Workspace.StoreState & StoreState,
-    SyncPayload
-  >(syncLayout.mutate, 500);
-
-  const dispatch = useDispatch();
-
+  );
   const lines = buildLines(vis, ranges);
-
   const prevName = usePrevious(name);
 
   useEffect(() => {
@@ -153,12 +124,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       key: l.key,
       label: fetched.find((f) => f.key === l.channels.y)?.name,
     }));
-    syncDispatch(
-      setLine({
-        key: layoutKey,
-        line: update,
-      }),
-    );
+    syncDispatch(setLine({ key: layoutKey, line: update }));
   }, [layoutKey, client, lines]);
 
   const handleTitleChange = (name: string): void => {
@@ -497,24 +463,15 @@ const buildLines = (
               xAxis: xAxis as XAxisKey,
               yAxis: yAxis as YAxisKey,
               range: range.key,
-              channels: {
-                x: xChannel,
-                y: channel,
-              },
+              channels: { x: xChannel, y: channel },
             });
             const line = vis.lines.find((l) => l.key === key);
             if (line == null) throw new Error("Line not found");
             const v: Channel.LineProps = {
               ...line,
               key,
-              axes: {
-                x: xAxis,
-                y: yAxis,
-              },
-              channels: {
-                x: xChannel,
-                y: channel,
-              },
+              axes: { x: xAxis, y: yAxis },
+              channels: { x: xChannel, y: channel },
               ...variantArg,
             } as unknown as Channel.LineProps;
             return v;
@@ -522,6 +479,26 @@ const buildLines = (
         }),
     ),
   );
+
+export type LayoutType = "lineplot";
+export const LAYOUT_TYPE = "lineplot";
+
+export const create =
+  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  ({ dispatch }) => {
+    const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
+    const key = initial.key ?? uuidv4();
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
+    return {
+      key,
+      name,
+      location,
+      type: LAYOUT_TYPE,
+      icon: "Visualize",
+      window,
+      tab,
+    };
+  };
 
 export const LinePlot: Layout.Renderer = ({
   layoutKey,
@@ -537,4 +514,11 @@ export const LinePlot: Layout.Renderer = ({
   }, [client, linePlot]);
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
+};
+
+export const SELECTABLE: Layout.Selectable = {
+  key: LAYOUT_TYPE,
+  title: "Line Plot",
+  icon: <Icon.Visualize />,
+  create: (layoutKey: string) => create({ key: layoutKey }),
 };

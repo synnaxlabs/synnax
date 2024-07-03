@@ -9,16 +9,13 @@
 
 #pragma once
 
-/// std
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 
-/// external
 #include "glog/logging.h"
 #include "client/cpp/synnax.h"
 #include "freighter/cpp/freighter.h"
-
 
 
 namespace breaker {
@@ -85,7 +82,6 @@ public:
                                             std::make_unique<
                                                 std::condition_variable>()) {
         std::cout << "move constructor called" << std::endl;
-
     }
 
     // copy assignment
@@ -126,11 +122,14 @@ public:
         }
         retries++;
         if (retries > config.max_retries) {
-            LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
+            LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of "
+                    << config.max_retries << ". Exiting." << "Error: " << message <<
+                    ".";
             reset();
             return false;
         }
-        LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.max_retries
+        LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
+                max_retries
                 << " times. " << "Retrying in " << interval / SECOND << " seconds. " <<
                 "Error: " << message << "."; {
             std::unique_lock lock(shutdown_mutex);

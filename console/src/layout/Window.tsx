@@ -15,7 +15,7 @@ import { Logo } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useLayoutEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls } from "@/components";

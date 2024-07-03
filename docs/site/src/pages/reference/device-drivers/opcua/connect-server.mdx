@@ -121,14 +121,14 @@ and browseable names.
 ### <StepText level="h3" step={3.1}>Identify Sampling Groups</StepText>
 
 Channels in the configuration dialog are organized into **sampling groups**.
-Each group has a special Index channel that is used to store the timestamps for
+Each group has a special "Index" channel that is used to store the timestamps for
 the samples recorded by each channel in the group. Indexes are identified by a
 green <span style={{color: "var(--pluto-secondary-z)"}}>Index</span> badge
 underneath their data type.
 
 The important rule to remember is that **all channels in a group must be sampled
 together**. For example, if you have a `temperature` and a `pressure` channel in
-the same group, both channels must be sample at the same rate. It's not possible
+the same group, both channels must be samples at the same rate. It's not possible
 to sample `temperature` at 1 kHz and `pressure` at 10 Hz in the same group.
 
 It is possible, however, to disable sampling for a channel when configuring a
@@ -153,8 +153,7 @@ Although it incurs a performance and storage overhead to store the timestamps
 for each group, it provides a higher degree of flexibility in the future.
 </Note>
 
-<Video client:only="react" id="device-drivers/opcua/configure/sampling-groups"
-/>
+<Video client:only="react" id="device-drivers/opcua/configure/sampling-groups" />
 
 ### <StepText level="h3" step={3.2}>Remove Undesired Channels</StepText>
 
@@ -252,7 +251,7 @@ id="device-drivers/opcua/configure/high-rate-example-config" />
 ## <StepText level="h2" step={4}>Confirm</StepText>
 
 After you've defined your sampling groups, hit "Next" to move to the
-configuration dialog. Once you're ready to proceed, hit "Configure" and Synnax
+confirmation dialog. Once you're ready to proceed, hit "Configure" and Synnax
 will create the channels in the database. Once that process completes, press
 "Done" to close the dialog.
 

@@ -152,7 +152,7 @@ export const Container = memo(
       );
       const newDecimalPos = xy.translate(
         xy.construct(positionRef.current),
-        box.signedDims(drag),
+        box.signedDims(decimalScale.box(drag)),
       );
       const clamped = clampScale.pos(newDecimalPos);
       return calcStickyPos(clamped, ref);

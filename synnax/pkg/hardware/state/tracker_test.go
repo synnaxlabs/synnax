@@ -152,7 +152,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
 			b := MustSucceed((&binary.JSONEncoderDecoder{}).Encode(ctx, task.State{
-				Variant: task.StatusRunning,
+				Variant: task.StatusError,
 				Task:    taskKey,
 			}))
 			Expect(w.Write(framer.Frame{
@@ -166,7 +166,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				t, ok := tracker.GetTask(ctx, taskKey)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(t.Variant).To(Equal(task.StatusRunning))
+				g.Expect(t.Variant).To(Equal(task.StatusError))
 			}).Should(Succeed())
 		})
 	})

@@ -35,11 +35,10 @@ const sourceTypeGetter = (obj: unknown, key: string): z.ZodAny | null => {
 export const getFieldSchema: deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny> = ((
   schema: z.ZodTypeAny,
   path: string,
-  allowNull?: boolean,
+  options?: Omit<deep.GetOptions, "getter">,
 ): z.ZodTypeAny | null =>
   deep.get<z.ZodTypeAny, z.ZodTypeAny>(
     sourceTypeGetter(schema, "shape") as unknown as z.AnyZodObject,
     getFieldSchemaPath(path),
-    allowNull,
-    { getter: sourceTypeGetter },
+    { ...options, getter: sourceTypeGetter } as deep.GetOptions<boolean | undefined>,
   ) as z.ZodTypeAny | null) as deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny>;

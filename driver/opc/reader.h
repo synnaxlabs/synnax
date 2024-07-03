@@ -31,10 +31,10 @@ struct ReaderChannelConfig {
 
     explicit ReaderChannelConfig(
         config::Parser &parser
-    ): node_id(parser.required<std::string>("node_id")),
-       node(parseNodeId("node_id", parser)),
-       channel(parser.required<ChannelKey>("channel")),
-       enabled(parser.optional<bool>("enabled", true)) {
+    ) : node_id(parser.required<std::string>("node_id")),
+        node(parseNodeId("node_id", parser)),
+        channel(parser.required<ChannelKey>("channel")),
+        enabled(parser.optional<bool>("enabled", true)) {
     }
 };
 
@@ -96,6 +96,7 @@ public:
     void exec(task::Command &cmd) override;
 
     void stop() override;
+
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;

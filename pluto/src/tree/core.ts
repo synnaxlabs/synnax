@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { toArray } from "@synnaxlabs/x";
+import { compare, toArray } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Haul } from "@/haul";
@@ -49,7 +49,7 @@ export interface FlattenProps {
 
 export const sortAndSplice = (nodes: Node[], sort: boolean): Node[] => {
   if (sort) {
-    nodes.sort((a, b) => a.name.localeCompare(b.name));
+    nodes.sort((a, b) => compare.stringsWithNumbers(a.name, b.name));
   }
   let found = false;
   for (let i = 0; i < nodes.length; i++) {
@@ -256,3 +256,6 @@ export const findNodeParent = ({ tree, key }: FindNodeParentProps): Node | null 
   }
   return null;
 };
+
+export const deepCopy = (nodes: Node[]): Node[] =>
+  nodes.map((node) => ({ ...node, children: deepCopy(node.children ?? []) }));

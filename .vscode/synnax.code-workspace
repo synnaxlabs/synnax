@@ -240,10 +240,12 @@
       "renderable",
       "Swatinem",
       "syncer",
+      "Syncer",
       "Synnax",
       "tauri",
       "Tauri",
-      "telem"
+      "telem",
+      "zodutil"
     ],
     "cSpell.enableFiletypes": [
       "mdx"

@@ -16,7 +16,7 @@ export const ONTOLOGY_SERVICE: Service = {
   icon: <Icon.Cluster />,
   hasChildren: true,
   allowRename: () => false,
-  onRename: () => {},
+  onRename: undefined,
   canDrop: () => false,
   onMosaicDrop: () => {},
   TreeContextMenu: () => <></>,
