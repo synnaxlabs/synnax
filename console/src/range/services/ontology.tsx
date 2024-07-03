@@ -12,7 +12,7 @@ import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { toArray } from "@synnaxlabs/x";
+import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 
@@ -23,6 +23,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
@@ -136,9 +137,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
   }).mutate;
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes, setNodes }, selection: { resources } }) => {
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = useConfirmDelete({ type: "Range" });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+      if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
@@ -155,6 +158,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       { addStatus, selection: { resources }, state: { setNodes } },
       prevNodes,
     ) => {
+      if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       let message = "Failed to delete ranges";
       if (resources.length === 1)
@@ -167,6 +171,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       });
     },
   }).mutate;
+};
 
 const handleEdit = ({
   selection: { resources },

@@ -23,12 +23,12 @@ import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
-import { Confirm } from "@/confirm";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
@@ -114,27 +114,13 @@ const allowRename: Ontology.AllowRename = (res) => {
 };
 
 export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = Confirm.useModal();
-
+  const confirm = useConfirmDelete({
+    type: "Channel",
+  });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      let message = `Are you sure you want to delete ${resources.length} channels?`;
-      if (resources.length === 1)
-        message = `Are you sure you want to delete ${resources[0].name}?`;
-      if (
-        !(await confirm(
-          {
-            message,
-            description:
-              "Deleting channels will also delete all of their associated data. This action cannot be undone.",
-            confirm: { variant: "error", label: "Delete" },
-            cancel: { label: "Cancel" },
-          },
-          { name: "Channel.Delete", icon: "Channel" },
-        ))
-      )
-        throw errors.CANCELED;
+      if (!(await confirm(resources))) throw errors.CANCELED;
       setNodes([
         ...Tree.removeNode({
           tree: nodes,

@@ -114,15 +114,19 @@ export const useModal = (): ((
 ) => Promise<boolean>) => {
   const placer = Layout.usePlacer();
   const store = useStore<RootState>();
-  return async (args, layoutOverrides) =>
-    await new Promise((resolve) => {
+  return async (args, layoutOverrides) => {
+    let unsubscribe: ReturnType<typeof store.subscribe> | null = null;
+    return await new Promise((resolve) => {
       const layout = configureLayout(args, layoutOverrides);
       placer(layout);
-      store.subscribe(() => {
+      unsubscribe = store.subscribe(() => {
         const l = Layout.select(store.getState(), layout.key);
         if (l == null) resolve(false);
         const args = selectArgs<ConfirmLayoutArgs>(store.getState(), layout.key);
-        if (args.result != null) resolve(args.result);
+        if (args.result == null) return;
+        resolve(args.result);
+        unsubscribe?.();
       });
     });
+  };
 };

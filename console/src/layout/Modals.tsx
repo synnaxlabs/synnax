@@ -34,14 +34,14 @@ const BreadCrumb = ({ name, icon }: Pick<State, "name" | "icon">): ReactElement 
         key={`${name}-${index}`}
         style={{
           transform: "scale(0.8) translateY(1px)",
-          color: "var(--pluto-gray-l5)",
+          color: "var(--pluto-gray-l6)",
         }}
       />,
       name,
     ])
     .flat();
   return (
-    <Text.WithIcon level="p" shade={6} weight={450} size={0.5}>
+    <Text.WithIcon level="p" shade={7} weight={450} size={0.5}>
       {iconC}
       {...content}
     </Text.WithIcon>
@@ -77,13 +77,9 @@ const Modal = ({ state, remove }: ModalProps) => {
 export const Modals = () => {
   const layouts = useSelectModals();
   const remove = useRemover();
-  console.log(layouts);
   return (
     <>
-      {layouts.map(
-        (layout) =>
-          layout.window && <Modal key={layout.key} state={layout} remove={remove} />,
-      )}
+      {layouts.map((l) => l.window && <Modal key={l.key} state={l} remove={remove} />)}
     </>
   );
 };
