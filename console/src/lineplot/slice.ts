@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
-import { Legend, type Text, type Viewport } from "@synnaxlabs/pluto";
+import { axis, Legend, type Text, type Viewport } from "@synnaxlabs/pluto";
 import {
   bounds,
   box,
@@ -23,12 +23,14 @@ import {
 } from "@synnaxlabs/x";
 
 import {
+  AXIS_KEYS,
   AxisKey,
   MultiXAxisRecord,
   MultiYAxisRecord,
   X_AXIS_KEYS,
   XAxisKey,
   XAxisRecord,
+  Y_AXIS_KEYS,
   YAxisKey,
 } from "@/lineplot/axis";
 
@@ -85,6 +87,7 @@ export const ZERO_SELECTION_STATE: SelectionState = {
 export interface AxisState {
   key: AxisKey;
   label: string;
+  type: axis.TickType;
   labelDirection: direction.Direction;
   bounds: bounds.Bounds;
   autoBounds: { lower: boolean; upper: boolean };
@@ -193,6 +196,7 @@ export interface State extends migrate.Migratable {
 export const ZERO_AXIS_STATE: AxisState = {
   key: "x1",
   label: "",
+  type: "linear",
   labelDirection: "x",
   labelLevel: "small",
   bounds: bounds.ZERO,
@@ -208,8 +212,8 @@ export const ZERO_AXES_STATE: AxesState = {
     y2: { ...ZERO_AXIS_STATE, key: "y2" },
     y3: { ...ZERO_AXIS_STATE, key: "y3" },
     y4: { ...ZERO_AXIS_STATE, key: "y4" },
-    x1: { ...ZERO_AXIS_STATE, key: "x1" },
-    x2: { ...ZERO_AXIS_STATE, key: "x2" },
+    x1: { ...ZERO_AXIS_STATE, key: "x1", type: "time" },
+    x2: { ...ZERO_AXIS_STATE, key: "x2", type: "time" },
   },
 };
 
@@ -429,7 +433,30 @@ const updateLines = (state: State): LineState[] => {
   return lines;
 };
 
-const MIGRATIONS: migrate.Migrations = {};
+const STATE_MIGRATIONS: migrate.Migrations = {
+  "0.0.0": (state: State) => {
+    state.version = "0.0.1";
+    state.axes.axes = Object.fromEntries(
+      Object.entries(state.axes.axes).map(([key, axis]) => {
+        const type = Y_AXIS_KEYS.includes(key as YAxisKey) ? "linear" : "time";
+        return [key, { ...axis, type }];
+      }),
+    );
+    return state;
+  },
+};
+
+const migrateState = migrate.migrator<State, State>(STATE_MIGRATIONS);
+
+const MIGRATIONS: migrate.Migrations = {
+  "0.0.0": (state: SliceState) => {
+    state.plots = Object.fromEntries(
+      Object.entries(state.plots).map(([key, plot]) => [key, migrateState(plot)]),
+    ) as Record<string, State>;
+    state.version = "0.0.1";
+    return state;
+  },
+};
 
 export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
 
