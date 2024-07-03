@@ -17,7 +17,7 @@ import {
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { UnknownRecord } from "@synnaxlabs/x";
+import { errors, UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
@@ -122,28 +122,19 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       let message = `Are you sure you want to delete ${resources.length} channels?`;
       if (resources.length === 1)
         message = `Are you sure you want to delete ${resources[0].name}?`;
-      try {
-        await confirm(
+      if (
+        !(await confirm(
           {
             message,
             description:
               "Deleting channels will also delete all of their associated data. This action cannot be undone.",
-            confirm: {
-              variant: "error",
-              label: "Delete",
-            },
-            cancel: {
-              label: "Cancel",
-            },
+            confirm: { variant: "error", label: "Delete" },
+            cancel: { label: "Cancel" },
           },
-          {
-            name: "Channel.Delete",
-            icon: "Channel",
-          },
-        );
-      } catch (e) {
-        console.error(e);
-      }
+          { name: "Channel.Delete", icon: "Channel" },
+        ))
+      )
+        throw errors.CANCELED;
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -155,10 +146,11 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     mutationFn: async ({ client, selection: { resources } }) =>
       await client.channels.delete(resources.map(({ id }) => Number(id.key))),
     onError: (
-      e: Error,
+      e,
       { selection: { resources }, addStatus, state: { setNodes } },
       prevNodes,
     ) => {
+      if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       let message = "Failed to delete channels";
       if (resources.length === 1)
