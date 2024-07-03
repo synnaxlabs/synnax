@@ -1,7 +1,7 @@
 import { Synnax } from "@synnaxlabs/client";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import * as fs from 'fs';
-import { argv, exit } from "process";
+import { argv } from "process";
 
 class TestConfig {
     identifier: string = "";
@@ -45,21 +45,20 @@ class DeleteTest {
         let errorAssertion = false;
         let actualError = "";
         let caught = false;
-        try {
-            await this.test();
-        } catch (e: unknown) {
+        await this.test().catch((e: unknown) => {
+            console.log("CAUGHT: ", e)
             if (e instanceof Error) {
                 caught = true;
                 actualError = e.message;
                 if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
                     errorAssertion = true;
-                }else{
-                    throw(e)
+                } else {
+                    throw e;
                 }
-            }else{
-                throw(e);
+            } else {
+                throw e;
             }
-        }
+        });
         if (!caught) {
             if (this.tc.expectedError == "no_error") {
                 errorAssertion = true;
@@ -75,7 +74,7 @@ Time taken: ${time.isZero ? 0 : time}
 Configuration:
 \tNumber of channels: ${this.tc.channels.length}
 
-Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion? "PASS!!": "FAIL!!"}
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion ? "PASS!!" : "FAIL!!"}
 `;
 
         fs.appendFileSync("../../timing.log", s);
@@ -88,12 +87,11 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorA
 
 
 async function main() {
-    await new DeleteTest(argv).testWithTiming().catch(e => {
-        console.error(e)
+    try {
+        await new DeleteTest(argv).testWithTiming()
+    } finally {
         client.close()
-        exit(1)
-    })
-    client.close()
+    }
 }
 
 await main()

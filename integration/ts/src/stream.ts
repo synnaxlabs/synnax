@@ -1,6 +1,6 @@
 import { Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import * as fs from 'fs';
-import { argv, exit } from 'process';
+import { argv } from 'process';
 
 class TestConfig {
     identifier: string;
@@ -51,23 +51,21 @@ class StreamTest {
         let actualError = "";
         let samples = 0;
         let caught = false;
-        try {
-            samples = await this.test();
-        }catch (e: unknown){
-            if (e instanceof Error){
+        await this.test().then(result => { samples = result }).catch((e: unknown) => {
+            if (e instanceof Error) {
                 caught = true;
                 actualError = e.message;
-                if(this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)){
+                if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
                     errorAssertion = true;
-                }else{
-                    throw(e)
+                } else {
+                    throw e;
                 }
-            }else{
-                throw(e);
+            } else {
+                throw e;
             }
-        }
-        if(!caught){
-            if(this.tc.expectedError == "no_error"){
+        });
+        if (!caught) {
+            if (this.tc.expectedError == "no_error") {
                 errorAssertion = true;
             }
             actualError = "no_error";
@@ -87,7 +85,7 @@ Configuration:
 \tNumber of channels: ${this.tc.channels.length}
 \tSamples expected: ${this.tc.samplesExpected}
 
-Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion? "PASS!!": "FAIL!!"}
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!"}
 `;
 
         fs.appendFileSync("../../timing.log", s);
@@ -104,7 +102,6 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorA
         try {
             for await (const frame of streamer) {
                 samplesStreamed += frame.series.reduce((total, s) => total + s.length, 0);
-                console.log(samplesStreamed)
                 if (samplesStreamed >= 0.95 * this.tc.samplesExpected) {
                     return samplesStreamed;
                 }
@@ -118,12 +115,11 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorA
 }
 
 async function main() {
-    await new StreamTest(argv).testWithTiming().catch(e => {
-        console.error(e);
+    try {
+        await new StreamTest(argv).testWithTiming()
+    } finally {
         client.close();
-        exit(1);
-    });
-    client.close();
+    }
 }
 
 await main()

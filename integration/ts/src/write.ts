@@ -1,7 +1,6 @@
 import { framer, Synnax } from "@synnaxlabs/client"
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import * as fs from 'fs';
-import { exit } from "process";
 
 class IndexWriterGroup {
 	indexChannels: string[] = [];
@@ -115,23 +114,23 @@ class WriteTest {
 		let errorAssertion = false;
 		let actualError = "";
 		let caught = false;
-		try {
-			await this.test();
-		}catch (e: unknown){
-			if (e instanceof Error){
+
+		await this.test().catch((e: unknown) => {
+			if (e instanceof Error) {
 				caught = true;
 				actualError = e.message;
-				if(this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)){
+				if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
 					errorAssertion = true;
-				}else{
-					throw(e)
+				} else {
+					throw e;
 				}
-			}else{
-				throw(e);
+			} else {
+				throw e;
 			}
-		}
-		if(!caught){
-			if(this.tc.expectedError == "no_error"){
+		})
+
+		if (!caught) {
+			if (this.tc.expectedError == "no_error") {
 				errorAssertion = true;
 			}
 			actualError = "no_error";
@@ -156,7 +155,7 @@ Configuration:
 \tIndex persist interval: ${this.tc.indexPersistInterval}
 \tWriter mode: ${framer.WriterMode[this.tc.writerMode]}
 
-Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion? "PASS!!": "FAIL!!"}
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!"}
 `;
 
 		fs.appendFileSync("../../timing.log", s);
@@ -217,13 +216,11 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorA
 }
 
 async function main(): Promise<void> {
-	await new WriteTest(process.argv).testWithTiming().catch(error => {
-		console.error(error)
+	try {
+		await new WriteTest(process.argv).testWithTiming()
+	} finally {
 		client.close()
-		exit(1)
-	})
-
-	client.close()
+	}
 }
 
 await main()

@@ -6,7 +6,7 @@ if [ $# -lt 1 ]; then
 fi
 
 # Run the Go program with the provided arguments
-go run . -v "$1"
+go run . "$1"
 
 # Capture the exit code of the Go program
 exit_code=$?

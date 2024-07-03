@@ -110,7 +110,7 @@ class Read_Test:
             else "FAIL!!"
         )
         assertion_result = (
-            f"""Expected samples: {self._tc.samples_expected}; Actual samples: {samples}: {assertion_passed}"""
+            f"""Expected samples: {self._tc.samples_expected}; Actual samples: {samples}\n{assertion_passed}"""
             if self._tc.samples_expected != 0
             else ""
         )

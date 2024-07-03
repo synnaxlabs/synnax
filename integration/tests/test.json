@@ -1,0 +1,76 @@
+{
+  "cluster": {
+    "insecure": true,
+    "mem_fs": true
+  },
+  "setup": {
+    "index_channels": 10,
+    "data_channels": 40,
+    "client": "py"
+  },
+  "steps": [
+    [
+      {
+        "op": "write",
+        "client": "py",
+        "params": {
+          "channel_groups": [
+            {
+              "index_channels": [
+                "int0"
+              ],
+              "data_channels": [
+                "int0-0",
+                "int0-1",
+                "int0-2",
+                "int0-3"
+              ]
+            }
+          ],
+          "num_writers": 1,
+          "domains": 1000,
+          "samples_per_domain": 1000,
+          "time_range": {
+            "start": 0,
+            "end": 1000000000000000
+          },
+          "writer_mode": 1,
+          "expected_error": "no_error"
+        }
+      },
+      {
+        "op": "write",
+        "client": "ts",
+        "delay": 0.5,
+        "params": {
+          "channel_groups": [
+            {
+              "index_channels": [
+                "int0"
+              ],
+              "data_channels": [
+                "int0-0",
+                "int0-1",
+                "int0-2",
+                "int0-3"
+              ]
+            }
+          ],
+          "num_writers": 1,
+          "domains": 1000,
+          "samples_per_domain": 1000,
+          "time_range": {
+            "start": 0,
+            "end": 1000000000000000
+          },
+          "writer_mode": 1,
+          "expected_error": "unauthorized"
+        }
+      }
+    ]
+  ],
+  "cleanup": {
+    "delete_all_channels": true,
+    "client": "py"
+  }
+}

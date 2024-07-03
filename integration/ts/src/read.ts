@@ -2,7 +2,7 @@ import { Synnax } from "@synnaxlabs/client";
 import { Iterator } from "@synnaxlabs/client/dist/framer/iterator";
 import { CrudeTimeStamp, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x"
 import * as fs from 'fs'
-import { argv, exit } from 'process';
+import { argv } from 'process';
 
 const FILE_NAME = "../../timing.log"
 
@@ -81,33 +81,32 @@ class ReadTest {
         let errorAssertion = false;
         let actualError = "";
         let caught = false;
-        try {
-            samples = await this.test();
-        } catch (e: unknown) {
+        await this.test().then(result => samples = result).catch((e: unknown) => {
             if (e instanceof Error) {
                 caught = true;
-                actualError = e.message
+                actualError = e.message;
                 if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
                     errorAssertion = true;
                 } else {
-                    throw (e)
+                    throw e;
                 }
             } else {
-                throw (e)
+                throw e;
             }
-        }
+        });
+
         if (!caught) {
             if (this.tc.expectedError == "no_error") {
                 errorAssertion = true;
             }
-            actualError = "no_error"
+            actualError = "no_error";
         }
         const end = TimeStamp.now();
 
         const time: TimeSpan = start.span(end);
         const samplesPerSecond = samples / (Number(time) / Number(TimeSpan.SECOND));
         const assertionPassed = this.tc.samplesExpected == 0 || approxEqual(samples, this.tc.samplesExpected);
-        const assertionResult = `Expected samples: ${this.tc.samplesExpected}; Actual samples: ${samples}: ${assertionPassed ? "PASS!!" : "FAIL!!"}`;
+        const assertionResult = `Expected samples: ${this.tc.samplesExpected}; Actual samples: ${samples}`;
         const s = `
 -- TypeScript Read (${this.tc.identifier}) --
 Samples read: ${samples}
@@ -118,7 +117,7 @@ Configuration:
 \tNumber of channels: ${this.tc.numChannels()}
 \tChunk size: ${this.tc.chunkSize}
 ${assertionResult}: ${assertionPassed ? "PASS!!" : "FAIL!!"}
-Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion ? "PASS!!" : "FAIL!!"}
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!"}
 `;
 
         fs.appendFileSync(FILE_NAME, s);
@@ -138,29 +137,28 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorA
 
         try {
             for (const i of iterators) {
-                await i.seekFirst()
+                await i.seekFirst();
                 for await (const frame of i) {
                     samples_read += frame.series.reduce((a, s) => a + s.length, 0);
                 }
             }
         } finally {
             for (const i of iterators) {
-                await i.close()
+                await i.close();
             }
         }
 
-        return samples_read
+        return samples_read;
     }
 }
 
 
 async function main() {
-    await new ReadTest(argv).testWithTiming().catch(e => {
-        console.error(e)
-        client.close()
-        exit(1)
-    })
-    client.close()
+    try {
+        await new ReadTest(argv).testWithTiming();
+    } finally {
+        client.close();
+    }
 }
 
 await main()
