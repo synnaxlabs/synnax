@@ -136,46 +136,6 @@ jobs:
           run: ./run-integration.sh tests/benchmark-test.json
           working-directory: ./integration
 
-  test-integration-windows:
-    runs-on: "Windows"
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.integration.yaml"
-
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
-
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
-
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
-
-      - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        shell: powershell
-        run: ./run-integration.ps1 tests/ws-d-r-small.json
-        working-directory: ./integration
-
     test-integration-windows:
       runs-on: "Windows"
       steps:
@@ -213,5 +173,45 @@ jobs:
         - name: Test
           if: steps.filter.outputs.changed == 'true'
           shell: powershell
-          run: ./run-integration.ps1 tests/benchmark-test.json
+          run: ./run-integration.ps1 tests/ws-d-r-small.json
           working-directory: ./integration
+
+      test-integration-windows:
+        runs-on: "Windows"
+        steps:
+          - name: Checkout Repository
+            uses: actions/checkout@v3
+
+          - name: Diff Changes
+            uses: dorny/paths-filter@v3
+            id: filter
+            with:
+              filters: |
+                changed:
+                    - "client/**"
+                    - "freighter/py/**"
+                    - "synnax/**"
+                    - "cesium/**"
+                    - "aspen/**"
+                    - "x/**"
+                    - "freighter/**"
+                    - ".github/workflows/test.integration.yaml"
+
+          - name: Install Dependencies
+            if: steps.filter.outputs.changed == 'true'
+            run: pnpm i
+
+          - name: Build client
+            if: steps.filter.outputs.changed == 'true'
+            run: pnpm build:client
+
+          - name: Poetry install
+            if: steps.filter.outputs.changed == 'true'
+            run: poetry install
+            working-directory: ./integration/py
+
+          - name: Test
+            if: steps.filter.outputs.changed == 'true'
+            shell: powershell
+            run: ./run-integration.ps1 tests/benchmark-test.json
+            working-directory: ./integration
