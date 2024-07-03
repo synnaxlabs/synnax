@@ -82,7 +82,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { selection } = props;
+  const {
+    selection,
+    selection: { resources },
+  } = props;
   const { nodes } = selection;
   if (selection.nodes.length === 0) return null;
   const singleResource = selection.nodes.length === 1;
@@ -97,9 +100,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         clusterKey,
         resource: {
           type: "range",
-          key: selection.resources[0].id.key,
+          key: resources[0].id.key,
         },
-        name: selection.resources[0].name,
+        name: resources[0].name,
         ...props,
       });
     },

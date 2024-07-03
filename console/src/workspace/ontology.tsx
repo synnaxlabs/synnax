@@ -147,7 +147,10 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
-  const { selection } = props;
+  const {
+    selection,
+    selection: { resources },
+  } = props;
 
   const del = useDelete();
   const createSchematic = useCreateSchematic();
@@ -157,7 +160,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
 
   const handleSelect = {
     delete: () => del(props),
-    rename: () => Tree.startRenaming(selection.resources[0].id.toString()),
+    rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
     plot: () => createLinePlot(props),
     schematic: () => createSchematic(props),
@@ -167,15 +170,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         clusterKey,
         resource: {
           type: "workspace",
-          key: selection.resources[0].id.key,
+          key: resources[0].id.key,
         },
-        name: selection.resources[0].name,
+        name: resources[0].name,
         ...props,
       });
     },
   };
 
-  const singleResource = selection.resources.length === 1;
+  const singleResource = resources.length === 1;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && (
@@ -186,7 +189,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       )}
       <Menu.DeleteItem />
 
-      <Group.GroupMenuItem selection={props.selection} />
+      <Group.GroupMenuItem selection={selection} />
       {singleResource && (
         <>
           <PMenu.Divider />
