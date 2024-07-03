@@ -39,9 +39,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         clusterKey,
         resource: {
           type: "group",
-          key: nodes[0].key,
+          key: resources[0].id.key,
         },
-        name: nodes[0].name,
+        name: resources[0].name,
         ...props,
       });
     },
