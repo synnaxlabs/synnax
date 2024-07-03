@@ -84,10 +84,11 @@ func runStep(i int, step TestStep, verbose bool) error {
 			panic("cannot acquire on semaphore")
 		}
 
-		n, node := n, node
+		identifier, node := fmt.Sprintf("%d-%d", i, n), node
 		sCtx.Go(func(ctx context.Context) error {
 			defer func() { sem.Release(1) }()
-			if err := runNode(ctx, node, fmt.Sprintf("%d-%d", i, n), verbose); err != nil {
+
+			if err := runNode(ctx, node, identifier, verbose); err != nil {
 				return err
 			}
 
@@ -98,13 +99,19 @@ func runStep(i int, step TestStep, verbose bool) error {
 	return sCtx.Wait()
 }
 
-func runNode(ctx context.Context, node TestNode, identifier string, verbose bool) error {
+func runNode(
+	ctx context.Context,
+	node TestNode,
+	identifier string,
+	verbose bool,
+) error {
 	var (
 		stdErr, stdOut bytes.Buffer
 		cmd            *exec.Cmd
 		process        = make(chan error, 1)
 		dir            string
 	)
+	time.Sleep(time.Duration(node.Delay) * time.Second)
 
 	switch node.Client {
 	case "py":
@@ -127,6 +134,7 @@ func runNode(ctx context.Context, node TestNode, identifier string, verbose bool
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 	}
+
 	err := cmd.Start()
 	if err != nil {
 		return errors.Wrapf(

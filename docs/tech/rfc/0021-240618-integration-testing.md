@@ -89,6 +89,7 @@ integration test. For example, a test may ressemble this:
         {
             "op": "write",
             "client": "py",
+            "delay": 0.001,
             "params": {
                 channels: [...],
                 auto_commit: false,
@@ -107,6 +108,7 @@ integration test. For example, a test may ressemble this:
         {
             "op": "write",
             "client": "ts",
+            "delay": 0,
             "params": {
                 ...
             }
@@ -114,14 +116,20 @@ integration test. For example, a test may ressemble this:
         {
             "op": "delete",
             "client": "ts",
+            "delay": 0,
             "params": {
+                ...
+                "expected_error": "unauthorized",
                 ...
             }
         },
         {
             "op": "read",
             "client": "py",
+            "delay": 0,
             "params": {
+                ...
+                "samples_expected": 10000,
                 ...
             }
         }
@@ -132,13 +140,38 @@ integration test. For example, a test may ressemble this:
 In the above example, there are 5 nodes organized in 2 steps, with the first two operations
 running in parallel and the the last three running in parallel. Tests written this way
 have high customizability and portability, even for when we may have more platforms and
-more operations in the future.
+more operations in the future. One may also add assertions on the number of
+samples read during a `read` operation or errors that occur by specifying the
+`samples_expected` and/or `expected_error` field. Also note that the `stream` operation
+finishes when the streamer has successfully streamed at least 95% of the specified
+expected sample count. This is because sometimes streamers never stream all the samples
+written due to opening time differences and other factors. 
 
 In addition to the body, the test suite may also accept `cluster`, `setup`, and `cleanup`
 customizations. The `cluster` option allows the test to start a customized cluster (e.g.
 TLS, Mem-backed File System); the `setup` option is run before the test steps begin (and
 can be useful for things such as creating channels); and the `cleanup` option is run after
 the test steps (the only current clean up operation is to delete all channels).
+
+
+
+Consider the scenario where we want to assert that opening a delete on a channel
+currently being written to does indeed produce an `unauthorized` error – simply creating
+two parallel nodes of `write` and `delete` will not work, as it is indeterminate which
+one runs first – if `delete` runs first, no errors will occur and the test would fail.
+
+Our first attempt at resolving this problem is by creating a property named
+`starts_after` – we implemented this using channels that close when a process starts
+running and other dependent nodes listening to this channel. However, this did not work
+as the order that the commands are started is not necessarily the order that the operations
+get run – for example, setting up writers and reading input for writers may take a longer
+time than for deletes, resulting in `delete` running before `write` gets run.
+
+For this reason, we implemented a much less elegant and idiomatic approach – to manually
+introduce a time interval after which a command is run to assert the order of execution.
+Although unsophisticated, this approach works better than the previous one, as most
+operations take at least 10 seconds to run, making timing delays easy. However, one must
+still be extremely careful with this manually-introduceddelay. 
 
 ### 2.3.2 Deployment
 
@@ -149,7 +182,7 @@ timing metrics are also provided for each opeartion in the testing report.
 
 ## 2.4 Future work
 
-#### Smart closing streamers
+#### Smart-closing streamers
 
 Currently, stream operations are only runnable at the same time as write operations, and
 they cannot quit autonomously – the tester must manually configure the number of samples

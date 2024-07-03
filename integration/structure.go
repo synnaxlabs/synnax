@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Operation string
@@ -23,6 +25,7 @@ type NodeParams interface {
 type TestNode struct {
 	Op     Operation  `json:"op"`
 	Client string     `json:"client"`
+	Delay  float32    `json:"delay"`
 	Params NodeParams `json:"params"`
 }
 
@@ -33,10 +36,17 @@ func (tn *TestNode) UnmarshalJSON(data []byte) error {
 	}
 
 	if err := json.Unmarshal(raw["op"], &tn.Op); err != nil {
-		return err
+		return errors.Wrap(err, "op field not set")
 	}
 	if err := json.Unmarshal(raw["client"], &tn.Client); err != nil {
-		return err
+		return errors.Wrap(err, "client field not set")
+	}
+	if delayField, ok := raw["delay"]; ok {
+		if err := json.Unmarshal(delayField, &tn.Delay); err != nil {
+			return errors.Wrap(err, "delay field not set")
+		}
+	} else {
+		tn.Delay = 0
 	}
 
 	switch tn.Op {

@@ -104,7 +104,8 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorA
         try {
             for await (const frame of streamer) {
                 samplesStreamed += frame.series.reduce((total, s) => total + s.length, 0);
-                if (samplesStreamed >= this.tc.samplesExpected) {
+                console.log(samplesStreamed)
+                if (samplesStreamed >= 0.95 * this.tc.samplesExpected) {
                     return samplesStreamed;
                 }
             }

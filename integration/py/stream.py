@@ -95,7 +95,7 @@ Configuration:
         with client.open_streamer(self._tc.channels, self._tc.start_time_stamp) as s:
             for f in s:
                 samples_streamed += sum([len(s) for s in f.series])
-                if samples_streamed >= self._tc.samples_expected:
+                if samples_streamed >= 0.95 * self._tc.samples_expected:
                     return samples_streamed
 
 
