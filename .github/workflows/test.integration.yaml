@@ -132,6 +132,6 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        shell: pwsh
+        shell: powershell
         run: ./run-integration.ps1 tests/ws-d-r-small.json
         working-directory: ./integration

@@ -90,7 +90,7 @@ class Read_Test:
                 error_assertion_passed = True
         end = sy.TimeStamp.now()
 
-        error_assertion = f"""Expected error: {self._tc.expected_error}; Actual error: {actual_err}: {"PASS!!" if error_assertion_passed else "FAIL!!"}"""
+        error_assertion = f"""Expected error: {self._tc.expected_error}; Actual error: {actual_err}\n{"PASS!!" if error_assertion_passed else "FAIL!!"}"""
 
         s = self.generate_test_report(samples, start.span(end), error_assertion)
 
