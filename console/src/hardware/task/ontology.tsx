@@ -102,8 +102,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
     link: () => {
-      const url = `synnax://cluster/${clusterKey}/task/${selection.resources[0].id.key}`;
-      void navigator.clipboard.writeText(url);
+      if (clusterKey == null) return;
+      Link.CopyToClipboard({
+        clusterKey,
+        resource: {
+          type: "range",
+          key: resources[0].id.key,
+        },
+        name: resources[0].name,
+        ...props,
+      });
     },
   };
   const singleResource = resources.length === 1;

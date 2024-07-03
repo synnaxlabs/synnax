@@ -15,8 +15,10 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -25,10 +27,24 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
+  const clusterKey = Cluster.useSelectActiveKey();
+
   const onSelect = useAsyncActionMenu("group.menu", {
     ungroup: () => ungroup(props),
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => createEmptyGroup(props),
+    link: () => {
+      if (clusterKey == null) return;
+      Link.CopyToClipboard({
+        clusterKey,
+        resource: {
+          type: "group",
+          key: nodes[0].key,
+        },
+        name: nodes[0].name,
+        ...props,
+      });
+    },
   });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
@@ -51,6 +67,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {isDelete ? "Delete" : "Ungroup"}
         </PMenu.Item>
       )}
+      <PMenu.Divider />
+      {singleResource && <Link.CopyMenuItem />}
       <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>
@@ -118,8 +136,10 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
     if (selection.parent == null) return;
     // Sort the groups by depth that way deeper nested groups are ungrouped first.
     selection.resources.sort((a, b) => {
-      const a_depth = selection.nodes.find((n) => n.key === a.id.toString())?.depth ?? 0;
-      const b_depth = selection.nodes.find((n) => n.key === b.id.toString())?.depth ?? 0;
+      const a_depth =
+        selection.nodes.find((n) => n.key === a.id.toString())?.depth ?? 0;
+      const b_depth =
+        selection.nodes.find((n) => n.key === b.id.toString())?.depth ?? 0;
       return b_depth - a_depth;
     });
     const prevNodes = Tree.deepCopy(nodes);

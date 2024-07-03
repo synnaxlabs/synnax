@@ -137,8 +137,16 @@ export const List = (): ReactElement => {
       setActive: () => rng != null && handleSetActive(rng.key),
       link: () => {
         if (rng == null) return;
-        const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
-        void navigator.clipboard.writeText(toCopy);
+        if (clusterKey == null) return;
+        Link.CopyToClipboard({
+          clusterKey,
+          resource: {
+            type: "range",
+            key: rng.key,
+          },
+          name: rng.name,
+          addStatus,
+        });
       },
     };
     return (

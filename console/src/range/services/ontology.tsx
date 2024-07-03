@@ -201,8 +201,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     edit: () => handleEdit(props),
     group: () => groupFromSelection(props),
     link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/range/${resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
+      if (clusterKey == null) return;
+      Link.CopyToClipboard({
+        clusterKey,
+        resource: {
+          type: "range",
+          key: resources[0].id.key,
+        },
+        name: resources[0].name,
+        ...props,
+      });
     },
   };
   const isSingle = resources.length === 1;

@@ -128,8 +128,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () => {
-      const url = `synnax://cluster/${activeKey}/schematic/${resources[0].id.key}`;
-      void navigator.clipboard.writeText(url);
+      if (activeKey == null) return;
+      Link.CopyToClipboard({
+        clusterKey: activeKey,
+        resource: {
+          type: "schematic",
+          key: resources[0].id.key,
+        },
+        name: resources[0].name,
+        ...props,
+      });
     },
   });
   const isSingle = resources.length === 1;

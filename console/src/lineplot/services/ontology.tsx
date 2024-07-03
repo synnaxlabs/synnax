@@ -57,8 +57,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () => {
-      const toCopy = `synnax://cluster/${activeKey}/lineplot/${resources[0].id.key}`;
-      navigator.clipboard.writeText(toCopy);
+      if (activeKey == null) return;
+      Link.CopyToClipboard({
+        clusterKey: activeKey,
+        resource: {
+          type: "range",
+          key: resources[0].id.key,
+        },
+        name: resources[0].name,
+        ...props,
+      });
     },
   };
   const isSingle = resources.length === 1;

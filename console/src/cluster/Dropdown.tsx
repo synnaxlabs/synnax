@@ -16,6 +16,7 @@ import {
   Dropdown as Core,
   List as CoreList,
   Menu as PMenu,
+  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
@@ -49,6 +50,7 @@ export const List = (): ReactElement => {
   const allClusters = useSelectMany();
   const active = useSelect();
   const openWindow = Layout.usePlacer();
+  const addStatus = Status.useAggregator();
 
   const selected = active?.key ?? null;
 
@@ -65,7 +67,13 @@ export const List = (): ReactElement => {
   };
 
   const handleLink = (key: string): void => {
-    void navigator.clipboard.writeText(`synnax://cluster/${key}`);
+    const name = allClusters.find((c) => c.key === key)?.name;
+    if (name == null) return;
+    Link.CopyToClipboard({
+      clusterKey: key,
+      addStatus,
+      name,
+    });
   };
 
   const contextMenu = useCallback(

@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-import { FC, ReactElement } from "react";
+import { ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
@@ -92,8 +92,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     configure: () => handleConfigure(props),
     delete: () => del(props),
     link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/device/${selection.resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
+      if (clusterKey == null) return;
+      Link.CopyToClipboard({
+        clusterKey,
+        resource: {
+          type: "range",
+          key: selection.resources[0].id.key,
+        },
+        name: selection.resources[0].name,
+        ...props,
+      });
     },
     rename: () => Tree.startRenaming(nodes[0].key),
   };

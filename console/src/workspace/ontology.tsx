@@ -162,8 +162,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     plot: () => createLinePlot(props),
     schematic: () => createSchematic(props),
     link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/workspace/${selection.resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
+      if (clusterKey == null) return;
+      Link.CopyToClipboard({
+        clusterKey,
+        resource: {
+          type: "workspace",
+          key: selection.resources[0].id.key,
+        },
+        name: selection.resources[0].name,
+        ...props,
+      });
     },
   };
 
