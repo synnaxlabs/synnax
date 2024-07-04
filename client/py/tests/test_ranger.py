@@ -10,6 +10,7 @@
 import numpy as np
 import pytest
 import time
+from uuid import uuid4
 
 import synnax as sy
 
@@ -215,7 +216,6 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             client.ranges.set_active(rng.key)
-
             assert client.ranges.retrieve_active().key == rng.key
 
         def test_clear_active(self, client: sy.Synnax):
@@ -226,5 +226,69 @@ class TestRangeClient:
             )
             client.ranges.set_active(rng.key)
             client.ranges.clear_active()
-
             assert client.ranges.retrieve_active() is None
+
+
+@pytest.mark.ranger
+class TestRangeData:
+    def test_basic_read(self, client: sy.Synnax):
+        """It should correctly read data from a channel on a range"""
+        name = str(uuid4())
+        idx_ch = client.channels.create(
+            name=f"{name}_idx",
+            data_type="timestamp",
+            is_index=True,
+        )
+        data_ch = client.channels.create(
+            name=f"{name}_data",
+            data_type="float32",
+            index=idx_ch.key,
+        )
+        start = sy.TimeStamp.now()
+        end = start + 3 * sy.TimeSpan.SECOND
+        idx_ch.write(start, [
+            start,
+            start + 1 * sy.TimeSpan.SECOND,
+            start + 2 * sy.TimeSpan.SECOND,
+            end
+        ])
+        data_ch.write(start, [1.0, 2.0, 3.0, 4.0])
+        rng = client.ranges.create(
+            name=name,
+            time_range=start.span_range(4 * sy.TimeSpan.SECOND),
+        )
+        assert len(rng[data_ch.name]) == 4
+        assert rng[data_ch.name][0] == 1.0
+        assert rng[data_ch.name][1] == 2.0
+        assert rng[data_ch.name][2] == 3.0
+        assert rng[data_ch.name][3] == 4.0
+
+    @pytest.mark.focus
+    def test_basic_write(self, client: sy.Synnax):
+        """It should correctly write data to the range"""
+        name = str(uuid4())
+        idx_ch = client.channels.create(
+            name=f"{name}_idx",
+            data_type="timestamp",
+            is_index=True,
+        )
+        data_ch = client.channels.create(
+            name=f"{name}_data",
+            data_type="float32",
+            index=idx_ch.key,
+        )
+        start = sy.TimeStamp.now()
+        end = start + 3 * sy.TimeSpan.SECOND
+        rng = client.ranges.create(
+            name=name,
+            time_range=start.span_range(4 * sy.TimeSpan.SECOND),
+        )
+        rng.write({
+            data_ch.name: [1.0, 2.0, 3.0, 4.0],
+            idx_ch.name: [
+                start,
+                start + 1 * sy.TimeSpan.SECOND,
+                start + 2 * sy.TimeSpan.SECOND,
+                end
+            ]
+        })

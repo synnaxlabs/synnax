@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
+from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 
 
@@ -183,7 +183,7 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.TIMESTAMP
 
-    def test_adapation_of_channel_dict(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_channel_dict(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a dict of channels to series."""
         adapter, channel = adapter
         o = adapter.adapt(
@@ -195,3 +195,33 @@ class TestWriteFrameAdapter:
         assert len(o.series) == 1
         assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
+
+    def test_adaptation_of_channel_payload(
+        self, adapter: [WriteFrameAdapter, sy.Channel]
+    ):
+        """It should correctly adapt a FramePayload keyed by channel key."""
+        adapter, channel = adapter
+        o = adapter.adapt(channel, sy.TimeStamp.now())
+        assert o.channels[0] == channel.key
+        assert o.series[0].data_type == sy.DataType.FLOAT64
+
+    def test_adaptation_of_multiple_payloads(
+        self,
+        adapter: [WriteFrameAdapter, sy.Channel],
+    ):
+        adapter, channel = adapter
+        o = adapter.adapt([channel], [1.0])
+        assert o.channels[0] == channel.key
+        assert o.series[0].data_type == sy.DataType.FLOAT64
+        assert o.series[0][0] == 1.0
+
+    @pytest.mark.focus
+    def test_adaptation_of_list(
+        self,
+        adapter: [WriteFrameAdapter, sy.Channel],
+    ):
+        adapter, channel = adapter
+        o = adapter.adapt(channel, [1.0, 2.0, 3.0])
+        assert o.channels[0] == channel.key
+        assert o.series[0].data_type == sy.DataType.FLOAT64
+        assert len(o.series[0]) == 3
