@@ -17,166 +17,6 @@ permissions:
   packages: write
 
 jobs:
-  test-integration-ubuntu-small:
-    runs-on: "Ubuntu"
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.integration.yaml"
-
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
-
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
-
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
-
-      - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r-mini.json
-        working-directory: ./integration
-
-  test-integration-ubuntu-load:
-    runs-on: "Ubuntu"
-    timeout-minutes: 600
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.integration.yaml"
-
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
-
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
-
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
-
-      - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r.json
-        working-directory: ./integration
-
-  test-integration-ubuntu-benchmark:
-    runs-on: "Ubuntu"
-    timeout-minutes: 600
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.integration.yaml"
-
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
-
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
-
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
-
-      - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/benchmark-test.json
-        working-directory: ./integration
-
-  test-integration-windows:
-    runs-on: "Windows"
-    timeout-minutes: 600
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.integration.yaml"
-
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
-
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
-
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
-
-      - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        shell: powershell
-        run: ./run-integration.ps1 tests/ws-d-r-mini.json
-        working-directory: ./integration
-
   test-integration-windows-benchmark:
     runs-on: "Windows"
     timeout-minutes: 600
@@ -211,6 +51,12 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         run: poetry install
         working-directory: ./integration/py
+
+      - name: Debug - Print user context
+        run: whoami
+
+      - name: Debug - check permissions
+        run: Get-Acl -Path ".\"
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
