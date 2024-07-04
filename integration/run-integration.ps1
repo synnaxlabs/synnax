@@ -7,8 +7,6 @@ if (-not $testConfigName) {
     exit 1
 }
 
-mkdir synnax-data
-
 # Run the Go program with the provided arguments
 & go run . $testConfigName
 $exit_code = $LASTEXITCODE

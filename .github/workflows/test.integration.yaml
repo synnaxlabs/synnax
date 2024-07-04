@@ -64,5 +64,5 @@ jobs:
       - name: Test
         if: steps.filter.outputs.changed == 'true'
         shell: powershell
-        run: ./run-integration.ps1 tests/benchmark-test-small.json
+        run: ./run-integration.ps1 tests/test.json
         working-directory: ./integration
