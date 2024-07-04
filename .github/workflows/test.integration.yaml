@@ -58,9 +58,8 @@ jobs:
       - name: Debug - check permissions
         run: Get-Acl -Path ".\"
 
-      - name: Grant additional privilege
-        shell: cmd
-        run: sc config "actions.runner.synnaxlabs-synnax.Windows" obj= "NT AUTHORITY\SYSTEM" type= own
+      - name: TAKEOWN
+        run: TAKEOWN /F ~\synnax-data
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
