@@ -6,11 +6,13 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-import { ontology } from "@synnaxlabs/client";
+import { NotFoundError, ontology, schematic as CSchematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
@@ -103,6 +105,82 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
   }).mutate;
 
+// Two cases: (1) schematic already exists in cluster (2) must create schematic
+const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    mutationFn: async (props) =>
+      // selection: { resources },
+      // placeLayout,
+      // services,
+      // state: { setResources, nodes, setNodes },
+      // client,
+      {
+        const fileResponse = await open({
+          directory: false,
+          multiple: false,
+          title: "Import schematic into Synnax",
+        });
+        if (fileResponse == null) return;
+        const file = await readFile(fileResponse.path);
+        const str = new TextDecoder().decode(file);
+        const importedSchematic = JSON.parse(str);
+        try {
+          CSchematic.schematicZ.parse(importedSchematic);
+        } catch (e) {
+          props.addStatus({
+            key: nanoid(),
+            variant: "error",
+            message: `${fileResponse.name} is not a valid schematic`,
+            description: e as string,
+          });
+        }
+        const key = importedSchematic.key;
+        try {
+          const ret = await props.client.workspaces.schematic.retrieve(key);
+          props.placeLayout(
+            Schematic.create({
+              ...(ret.data as unknown as Schematic.State),
+              key: ret.key,
+              name: ret.name,
+              snapshot: ret.snapshot,
+            }),
+          );
+        } catch (e) {
+          if (e instanceof NotFoundError) {
+            const newSchem = await props.client.workspaces.schematic.create(
+              props.selection.resources[0].id.key,
+              {
+                ...importedSchematic,
+              },
+            );
+            props.placeLayout(
+              Schematic.create({
+                ...(newSchem.data as unknown as Schematic.State),
+                key: newSchem.key,
+                name: newSchem.name,
+                snapshot: newSchem.snapshot,
+              }),
+            );
+          } else {
+            props.addStatus({
+              key: nanoid(),
+              variant: "error",
+              message: "Failed to import schematic.",
+              description: e as string,
+            });
+          }
+        }
+      },
+    onError: (e, { addStatus }) => {
+      addStatus({
+        key: nanoid(),
+        variant: "error",
+        message: "Failed to import schematic.",
+        description: e.message,
+      });
+    },
+  }).mutate;
+
 const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
@@ -154,6 +232,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createLinePlot = useCreateLinePlot();
   const group = Group.useCreateFromSelection();
   const clusterKey = Cluster.useSelectActiveKey();
+  const impSchematic = useImportSchematic();
 
   const handleSelect = {
     delete: () => del(props),
@@ -161,6 +240,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     group: () => group(props),
     plot: () => createLinePlot(props),
     schematic: () => createSchematic(props),
+    openSchematic: () => impSchematic(props),
     link: () => {
       const toCopy = `synnax://cluster/${clusterKey}/workspace/${selection.resources[0].id.key}`;
       void navigator.clipboard.writeText(toCopy);
@@ -190,6 +270,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           </PMenu.Item>
           <PMenu.Divider />
           <Link.CopyMenuItem />
+          <PMenu.Item itemKey="openSchematic" startIcon={<Icon.Download />}>
+            Import Schematic
+          </PMenu.Item>
           <PMenu.Divider />
         </>
       )}
