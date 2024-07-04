@@ -152,7 +152,7 @@ export const Dialog = ({
       >
         {child}
       </Align.Space>,
-      document.body,
+      document.getElementById("root") ?? document.body,
     );
   }
 
