@@ -46,9 +46,11 @@ var _ = Describe("FS", func() {
 			Describe("Open", func() {
 				Describe("Create test CREATE flag", func() {
 					It("Should create a file", func() {
-						file, _ := fs.Open("test_file.txt", os.O_CREATE)
+						file, err := fs.Open("test_file.txt", os.O_CREATE)
+						Expect(err).ToNot(HaveOccurred())
 						fileStats, _ := file.Stat()
 						Expect(fileStats.Name()).To(Equal("test_file.txt"))
+						Expect(file.Close()).To(Succeed())
 					})
 				})
 				Describe("Create test without create flag", func() {
@@ -69,18 +71,21 @@ var _ = Describe("FS", func() {
 				})
 				Describe("Create test with exclusive", func() {
 					It("Should create a file in MemFS", func() {
-						_, err := fs.Open("test_file.txt", os.O_CREATE|os.O_EXCL)
+						f, err := fs.Open("test_file.txt", os.O_CREATE|os.O_EXCL)
 						Expect(err).ToNot(HaveOccurred())
+						Expect(f.Close()).To(Succeed())
 					})
 				})
 				Describe("Read file test", func() {
 					It("Should read a file in MemFS", func() {
-						_, err := fs.Open("test_file.txt", os.O_CREATE)
+						f, err := fs.Open("test_file.txt", os.O_CREATE)
 						Expect(err).ToNot(HaveOccurred())
+						Expect(f.Close()).To(Succeed())
 						file, err := fs.Open("test_file.txt", os.O_RDONLY)
 						Expect(err).ToNot(HaveOccurred())
 						info, _ := file.Stat()
 						Expect(info.Name()).To(Equal("test_file.txt"))
+						Expect(file.Close()).To(Succeed())
 					})
 
 					It("Should read a file even when passed in with create", func() {
@@ -106,14 +111,16 @@ var _ = Describe("FS", func() {
 
 				Describe("Reader/Writer test", func() {
 					It("Should write & read the contents of file in MemFS", func() {
-						_, err := fs.Open("test_file.txt", os.O_CREATE)
+						f, err := fs.Open("test_file.txt", os.O_CREATE)
 						Expect(err).ToNot(HaveOccurred())
+						Expect(f.Close()).To(Succeed())
 
 						file, err := fs.Open("test_file.txt", os.O_RDWR)
 						Expect(err).ToNot(HaveOccurred())
 						n, err := file.Write([]byte("tacocat"))
 						Expect(err).ToNot(HaveOccurred())
 						Expect(n).To(Equal(7))
+						Expect(file.Close()).To(Succeed())
 
 						file, err = fs.Open("test_file.txt", os.O_RDONLY)
 						r := make([]byte, 7)
@@ -121,25 +128,29 @@ var _ = Describe("FS", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(n).To(Equal(7))
 						Expect(r).To(Equal([]byte("tacocat")))
+						Expect(file.Close()).To(Succeed())
 					})
 				})
 
 				Describe("Reader/Writer without permission", func() {
 					It("Should read but not write to file in MemFS", func() {
-						_, err := fs.Open("test_file.txt", os.O_CREATE)
+						f, err := fs.Open("test_file.txt", os.O_CREATE)
 						Expect(err).ToNot(HaveOccurred())
+						Expect(f.Close()).To(Succeed())
 
 						file, err := fs.Open("test_file.txt", os.O_RDONLY)
 						Expect(err).ToNot(HaveOccurred())
 						n, err := file.Write([]byte("tacocat"))
 						Expect(err).ToNot(BeNil())
 						Expect(n).To(Equal(0))
+						Expect(f.Close()).To(Succeed())
 
 						file, err = fs.Open("test_file.txt", os.O_WRONLY)
 						Expect(err).ToNot(HaveOccurred())
 						n, err = file.Write([]byte("tacocat"))
 						Expect(err).ToNot(HaveOccurred())
 						Expect(n).To(Equal(7))
+						Expect(file.Close()).To(Succeed())
 
 						file, err = fs.Open("test_file.txt", os.O_RDONLY)
 						r := make([]byte, 7)
@@ -147,13 +158,15 @@ var _ = Describe("FS", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(n).To(Equal(7))
 						Expect(r).To(Equal([]byte("tacocat")))
+						Expect(file.Close()).To(Succeed())
 					})
 				})
 
 				Describe("ReaderAt/WriterAt test", func() {
 					It("Should write & read the contents of file in MemFS", func() {
-						_, err := fs.Open("test_file.txt", os.O_CREATE)
+						f, err := fs.Open("test_file.txt", os.O_CREATE)
 						Expect(err).ToNot(HaveOccurred())
+						Expect(f.Close()).To(Succeed())
 
 						// WRITE
 						file, err := fs.Open("test_file.txt", os.O_RDWR)
@@ -161,6 +174,7 @@ var _ = Describe("FS", func() {
 						n, err := file.WriteAt([]byte("tacocat"), 3)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(n).To(Equal(7))
+						Expect(file.Close()).To(Succeed())
 
 						// READ
 						file, err = fs.Open("test_file.txt", os.O_RDONLY)
@@ -169,6 +183,7 @@ var _ = Describe("FS", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(n).To(Equal(10))
 						Expect(r).To(Equal([]byte{0, 0, 0, 't', 'a', 'c', 'o', 'c', 'a', 't'}))
+						Expect(file.Close()).To(Succeed())
 
 						// WRITE
 						file, err = fs.Open("test_file.txt", os.O_RDWR)
@@ -176,6 +191,7 @@ var _ = Describe("FS", func() {
 						n, err = file.WriteAt([]byte("ocataco"), 1)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(n).To(Equal(7))
+						Expect(file.Close()).To(Succeed())
 
 						// READ
 						file, err = fs.Open("test_file.txt", os.O_RDONLY)
@@ -184,6 +200,7 @@ var _ = Describe("FS", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(n).To(Equal(10))
 						Expect(r).To(Equal([]byte{0, 'o', 'c', 'a', 't', 'a', 'c', 'o', 'a', 't'}))
+						Expect(file.Close()).To(Succeed())
 					})
 				})
 
@@ -201,6 +218,7 @@ var _ = Describe("FS", func() {
 						Expect(MustSucceed(fs.Stat("test_file.txt")).Size()).To(Equal(int64(9)))
 						Expect(MustSucceed(f.Read(buf))).To(Equal(9))
 						Expect(buf).To(Equal([]byte("oldoldold")))
+						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_RDWR|os.O_APPEND))
 						_, err = f.Write([]byte("newnew"))
@@ -212,6 +230,7 @@ var _ = Describe("FS", func() {
 						Expect(MustSucceed(fs.Stat("test_file.txt")).Size()).To(Equal(int64(15)))
 						Expect(MustSucceed(f.Read(buf))).To(Equal(15))
 						Expect(buf).To(Equal([]byte("oldoldoldnewnew")))
+						Expect(f.Close()).To(Succeed())
 
 						Expect(xfs.Default.Remove("testData")).To(Succeed())
 					})
@@ -226,6 +245,7 @@ var _ = Describe("FS", func() {
 						Expect(MustSucceed(fs.Stat("test_file.txt")).Size()).To(Equal(int64(9)))
 						Expect(MustSucceed(f.Read(buf))).To(Equal(9))
 						Expect(buf).To(Equal([]byte("oldoldold")))
+						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_RDWR))
 						_, err = f.Write([]byte("newnew"))
@@ -236,6 +256,7 @@ var _ = Describe("FS", func() {
 						Expect(MustSucceed(fs.Stat("test_file.txt")).Size()).To(Equal(int64(9)))
 						Expect(MustSucceed(f.Read(buf))).To(Equal(9))
 						Expect(buf).To(Equal([]byte("newnewold")))
+						Expect(f.Close()).To(Succeed())
 					})
 					It("Should work for a combination of APPEND and not APPEND", func() {
 						f := MustSucceed(fs.Open("test_file.txt", os.O_CREATE|os.O_WRONLY))
@@ -248,6 +269,7 @@ var _ = Describe("FS", func() {
 						Expect(MustSucceed(fs.Stat("test_file.txt")).Size()).To(Equal(int64(9)))
 						Expect(MustSucceed(f.Read(buf))).To(Equal(9))
 						Expect(buf).To(Equal([]byte("oldoldold")))
+						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
 						_, err = f.Write([]byte("newnew"))
@@ -330,8 +352,9 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeTrue())
 
-					_, err = sub_FS.Open("yum.txt", os.O_CREATE)
+					f, err := sub_FS.Open("yum.txt", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(f.Close()).To(Succeed())
 					Expect(sub_FS.Exists("yum.txt")).To(BeTrue())
 				})
 
@@ -350,8 +373,9 @@ var _ = Describe("FS", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(e).To(BeFalse())
 
-					_, err = fs.Open("yum.txt", os.O_CREATE)
+					f, err := fs.Open("yum.txt", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(f.Close()).To(Succeed())
 
 					e, err = fs.Exists("yum.txt")
 					Expect(err).ToNot(HaveOccurred())
@@ -380,11 +404,13 @@ var _ = Describe("FS", func() {
 					_, err = fs.Sub("sub2")
 					Expect(err).ToNot(HaveOccurred())
 
-					_, err = fs.Open("file1.json", os.O_CREATE)
+					f, err := fs.Open("file1.json", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(f.Close()).To(Succeed())
 
-					_, err = fs.Open("file2.json", os.O_CREATE)
+					f, err = fs.Open("file2.json", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(f.Close()).To(Succeed())
 
 					l, err := fs.List("")
 					Expect(err).ToNot(HaveOccurred())
@@ -407,18 +433,19 @@ var _ = Describe("FS", func() {
 					Expect(err).ToNot(HaveOccurred())
 					subFS2, err := subFS.Sub("sub2")
 					Expect(err).ToNot(HaveOccurred())
-					MustSucceed(subFS2.Open("file1.json", os.O_CREATE))
+					f := MustSucceed(subFS2.Open("file1.json", os.O_CREATE))
 					l := MustSucceed(subFS2.List(""))
 					Expect(l).To(HaveLen(1))
 					Expect(l[0].Name()).To(Equal("file1.json"))
+					Expect(f.Close()).To(Succeed())
 				})
-
 			})
 
 			Describe("Rename", func() {
 				It("Should rename a file for Mem FS", func() {
-					_, err := fs.Open("a.json", os.O_CREATE)
+					f, err := fs.Open("a.json", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(f.Close()).To(Succeed())
 					err = fs.Rename("a.json", "b.json")
 					Expect(err).ToNot(HaveOccurred())
 					Expect(fs.Exists("a.json")).To(BeFalse())
