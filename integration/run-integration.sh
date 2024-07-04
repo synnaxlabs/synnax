@@ -11,9 +11,6 @@ go run . "$1"
 # Capture the exit code of the Go program
 exit_code=$?
 
-# Delete the data used during the test
-rm -rf ./synnax-data
-
 # Check if the exit code is not 0
 if [ $exit_code -ne 0 ]; then
     echo "Test failed, see stdout for more info"
