@@ -39,7 +39,6 @@ import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
-import { Vis } from "@/vis";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
