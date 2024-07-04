@@ -41,6 +41,6 @@ export const Modal = ({ visible, close, ...props }: ModalProps): ReactElement =>
         {...props}
       />
     </Align.Space>,
-    document.documentElement,
+    document.body,
   );
 };
