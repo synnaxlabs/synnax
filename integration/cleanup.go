@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/synnaxlabs/x/telem"
 )
 
 type CleanUpParam struct {
@@ -34,6 +37,7 @@ func runCleanUp(p CleanUpParam, verbose bool) error {
 		return nil
 	}
 	fmt.Printf("--cleaning up\n")
+	time.Sleep((5 * telem.Second).Duration())
 
 	return runNode(
 		context.Background(),
