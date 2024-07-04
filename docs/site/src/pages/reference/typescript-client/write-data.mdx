@@ -6,6 +6,7 @@ description: "Use the TypeScript client to write to a Synnax cluster."
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 import { Divider } from "@synnaxlabs/pluto"
+import Note from "@/components/Note.astro";
 
 The Synnax TypeScript client supports multiple methods for writing data to a
 cluster. We can write directly to a channel, or we can write to multiple
@@ -35,8 +36,9 @@ const temperatureChannel = await client.channels.create({
 });
 ```
 
-Then, we'll make sure to write timestamps to the index before we write to the data
-channel, note that to write data to an individual channel, you must provide a typed
+We can then write data to `timeChannel` and `temperatureChannel`. We need to write to
+the index channel before writing to the regular channel, so we will write to
+`timeChannel` first. Writing data via the channel's `write` method requires a typed
 array:
 
 ```typescript
@@ -135,9 +137,19 @@ try {
 ```
 
 This example will write 100 batches of 10 samples to the `temperature` channel, each
-roughly 100ms apart, and will commit all writes when finished. Note that instead of
-passing in series to the frame, you may also pass in singular samples if you wish to
-only write one sample.
+roughly 100ms apart, and will commit all writes when finished.
+
+<Note variant="info">
+Instead of passing in series to the frame, you may also pass in singular samples if you
+wish to only write one sample:
+
+```typescript
+await writer.write(new Frame({
+    [timeChannel.key]: TimeStamp.now(),
+    [temperatureChannel.key]: i,
+}));
+```
+</Note>
 
 It's typical to write and commit millions of samples over the course of hours or
 days, intermittently calling commit to ensure that the data is safely stored in
