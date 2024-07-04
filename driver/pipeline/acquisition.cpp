@@ -92,7 +92,7 @@ void Acquisition::ensureThreadJoined() const {
         std::this_thread::get_id() == this->thread->get_id()
     )
         return;
-    this->thread->join();
+    this->thread->detach();
 }
 
 void Acquisition::start() {
@@ -199,4 +199,9 @@ void Acquisition::runInternal() {
         return this->runInternal();
     if (writer_err) this->source->stoppedWithErr(writer_err);
     LOG(INFO) << "[acquisition] acquisition thread stopped";
+}
+
+Acquisition::~Acquisition() {
+    this->stop();
+    this->ensureThreadJoined();
 }
