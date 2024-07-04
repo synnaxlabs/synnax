@@ -467,6 +467,7 @@ var _ = Describe("FS", func() {
 					f, err := fs.Open("a.txt", os.O_CREATE|os.O_RDONLY)
 					Expect(err).ToNot(HaveOccurred())
 					err = f.Truncate(5)
+					Expect(err).To(HaveOccurred())
 					if s := MustSucceed(fs.Stat("")); s.Sys() == nil {
 						Expect(err).To(MatchError(ContainSubstring("fs: file was not created for writing (truncate requires write fd)")))
 					} else {
