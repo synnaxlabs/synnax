@@ -59,7 +59,7 @@ jobs:
         run: Get-Acl -Path ".\"
 
       - name: TAKEOWN
-        run: TAKEOWN /F ~\synnax-data
+        run: TAKEOWN /F "C:\Users\Administrator\synnax-data"
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
