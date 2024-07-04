@@ -242,6 +242,8 @@ public:
         const breaker::Config& breaker
     );
 
+    ~Manager();
+
     freighter::Error start(std::atomic<bool> &done);
 
     freighter::Error stop();
