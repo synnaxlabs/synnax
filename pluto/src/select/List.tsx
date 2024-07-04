@@ -13,6 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { List as CoreList } from "@/list";
+import { componentRenderProp } from "@/util/renderProp";
 
 export type SelectListProps<
   K extends Key = Key,
@@ -43,9 +44,13 @@ export const Core = <K extends Key, E extends Keyed<K>>({
   columns = DEFAULT_COLUMNS,
   visible,
   itemHeight = CoreList.Column.itemHeight,
-  listItem = CoreList.Column.Item<K, E>,
+  listItem = componentRenderProp(CoreList.Column.Item) as CoreList.VirtualCoreProps<
+    K,
+    E
+  >["children"],
   replaceOnSingle,
   omit,
+  autoSelectOnNone,
   ...props
 }: SelectListProps<K, E>): ReactElement => (
   <CoreList.List<K, E> data={data} emptyContent={emptyContent} omit={omit}>
@@ -56,8 +61,14 @@ export const Core = <K extends Key, E extends Keyed<K>>({
       allowMultiple={allowMultiple}
       allowNone={allowNone}
       replaceOnSingle={replaceOnSingle}
+      autoSelectOnNone={autoSelectOnNone}
     >
-      <Dropdown.Dialog visible={visible} className={CSS.B("select")} {...props}>
+      <Dropdown.Dialog
+        visible={visible}
+        className={CSS.B("select")}
+        keepMounted={false}
+        {...props}
+      >
         {children}
         <CoreList.Hover<K, E> disabled={!visible}>
           <CoreList.Column.Header

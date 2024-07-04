@@ -57,18 +57,6 @@ with client.new_streamer([ch_idx.key, ch_data.key]) as s:
     #         }]
     #     })
     for frame in s:
-        print(frame)
-
-with client.new_streamer(["the.answer"]) as s:
-    # with client.new_writer(sy.TimeStamp.now(), ["sy_task_cmd"]) as w:
-    #     w.write({
-    #         "sy_task_cmd": [{
-    #             "task": 281479271677954,
-    #             "type": "scan",
-    #             "args": {
-    #                 "endpoint": "opc.tcp://0.0.0.0:4840/freeopcua/server/",
-    #             }
-    #         }]
-    #     })
-    for frame in s:
-        print(frame)
+        key = frame["sy_task_set"][0]
+        task = client.hardware.retrieve_task(keys=[key])
+        print(task)

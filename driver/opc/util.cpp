@@ -233,7 +233,8 @@ void fetchEndpointDiagnosticInfo(
         // get the client config
         // get config.userIdentityToken.content.decoded.type
         if (ep.securityPolicyUri.data)
-            LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.securityPolicyUri.data;
+            LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.
+                    securityPolicyUri.data;
         auto security_mode = ep.securityMode;
         if (security_mode == UA_MESSAGESECURITYMODE_NONE)
             LOG(INFO) << "[opc.scanner] \t security: unencrypted";
@@ -242,24 +243,24 @@ void fetchEndpointDiagnosticInfo(
         else if (security_mode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT)
             LOG(INFO) << "[opc.scanner] \t security: signed and encrypted";
 
-        const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
+        // const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
 
         for (size_t j = 0; j < ep.userIdentityTokensSize; j++) {
             UA_UserTokenPolicy policy = ep.userIdentityTokens[j];
             if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS)
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
-             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
-                LOG(INFO) << "[opc.scanner] \t supports username/password authentication";
-             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
+            else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
+                LOG(INFO) <<
+                        "[opc.scanner] \t supports username/password authentication";
+            else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
                 LOG(INFO) << "[opc.scanner] \t supports issued token authentication";
-             else if (policy.tokenType == UA_USERTOKENTYPE_CERTIFICATE)
+            else if (policy.tokenType == UA_USERTOKENTYPE_CERTIFICATE)
                 LOG(INFO) << "[opc.scanner] \t supports certificate authentication";
-             else
+            else
                 LOG(INFO) << "[opc.scanner] \t supports unknown authentication type";
         }
     }
 }
-
 
 
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(

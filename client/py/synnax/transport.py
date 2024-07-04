@@ -54,11 +54,13 @@ class Transport:
             "open_timeout": open_timeout.seconds,
             "close_timeout": read_timeout.seconds,
         }
-        self.stream_async = AsyncWebsocketClient(**{
-            **ws_args,
-            "ping_interval": keep_alive.seconds,
-            "ping_timeout": 180,
-        })
+        self.stream_async = AsyncWebsocketClient(
+            **{
+                **ws_args,
+                "ping_interval": keep_alive.seconds,
+                "ping_timeout": 180,
+            }
+        )
         self.stream = WebsocketClient(**ws_args)
         self.unary = HTTPClient(
             url=self.url,

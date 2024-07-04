@@ -27,6 +27,7 @@ export const useSyncLayout = async (): Promise<void> => {
   const addStatus = Status.useAggregator();
   const prevSync = useRef<unknown>();
   const sync = useMutation({
+    mutationKey: ["workspace.save"],
     retry: MAX_RETRY_COUNT,
     mutationFn: useDebouncedCallback(
       async (s: RootState) => {
@@ -59,5 +60,7 @@ export const useSyncLayout = async (): Promise<void> => {
     },
   });
 
-  useEffect(() => store.subscribe(() => sync.mutate(store.getState())), [client]);
+  useEffect(() => {
+    store.subscribe(() => sync.mutate(store.getState()));
+  }, [client]);
 };

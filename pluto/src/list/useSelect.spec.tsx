@@ -98,15 +98,6 @@ describe("useSelect", () => {
       expect(result.current.value).toEqual([]);
     });
     describe("no not allow none", () => {
-      it("should not allow clearing all selections", () => {
-        const { result } = renderHook(() =>
-          useSelectMultipleWrapper({ allowNone: false }),
-        );
-        act(() => result.current.onSelect("1"));
-        act(() => result.current.onSelect("2"));
-        act(() => result.current.clear());
-        expect(result.current.value).toEqual(["1"]);
-      });
       it("should not allow removing the last selection", () => {
         const { result } = renderHook(() =>
           useSelectMultipleWrapper({ allowNone: false }),
@@ -117,7 +108,7 @@ describe("useSelect", () => {
       });
       it("should automatically populate the first item", () => {
         const { result } = renderHook(() =>
-          useSelectMultipleWrapper({ allowNone: false }),
+          useSelectMultipleWrapper({ allowNone: false, autoSelectOnNone: true }),
         );
         expect(result.current.value).toEqual(["1"]);
       });
@@ -158,7 +149,7 @@ describe("useSelect", () => {
       });
       it("should automatically populate the first item", () => {
         const { result } = renderHook(() =>
-          useSelectSingleWrapper({ allowNone: false }),
+          useSelectSingleWrapper({ allowNone: false, autoSelectOnNone: true }),
         );
         expect(result.current.value).toEqual("1");
       });

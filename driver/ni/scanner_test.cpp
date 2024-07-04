@@ -7,26 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Synnax on 4/1/2024.
-//
+#include <stdio.h>
 
-#include <include/gtest/gtest.h>
+#include "driver/testutil/testutil.h"
 #include "driver/ni/ni.h"
 #include "client/cpp/synnax.h"
-#include <stdio.h>
-#include "nlohmann/json.hpp"
-#include "driver/testutil/testutil.h"
 
-//TODO: add asserts to eliminate manual checking of terminal output
+#include "nlohmann/json.hpp"
+#include <include/gtest/gtest.h>
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                          Functional Tests                                                    //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-TEST(NiScannerTests, test_valid_scan){
-    LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
-    // create properties json
-    
+TEST(NiScannerTests, test_valid_scan) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto task = synnax::Task(
         "my_task",
@@ -38,8 +31,9 @@ TEST(NiScannerTests, test_valid_scan){
     //create a scanner
     ni::Scanner scanner = ni::Scanner(mockCtx, task);
     scanner.scan();
-    if(scanner.ok()){
-        nlohmann::json devices = scanner.getDevices();
+
+    if (scanner.ok()) {
+        nlohmann::json devices = scanner.get_devices();
         // print size of devices
         std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
         std::cout << devices.dump(4) << std::endl;
@@ -49,8 +43,8 @@ TEST(NiScannerTests, test_valid_scan){
 
     // scan a second time
     scanner.scan();
-    if(scanner.ok()){
-        nlohmann::json devices = scanner.getDevices();
+    if (scanner.ok()) {
+        nlohmann::json devices = scanner.get_devices();
         // print size of devices
         std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
         std::cout << devices.dump(4) << std::endl;
@@ -58,4 +52,3 @@ TEST(NiScannerTests, test_valid_scan){
         std::cout << "Scanner failed to retreive devices" << std::endl;
     }
 }
-

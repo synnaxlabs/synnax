@@ -97,6 +97,18 @@ I can successfully:
 - [ ] Create a range from a line plot selection.
 - [ ] Delete a range in the resources view.
 - [ ] Delete multiple ranges in the resources view.
+- [ ] Rename a range from the range toolbar.
+
+### Channels
+
+I can successfully:
+
+- [ ] Create a new channel from the search bar.
+- [ ] Rename a channel in the resources view.
+- [ ] Delete a channel in the resources view.
+- [ ] Delete multiple channels in the resources view.
+- [ ] Set the alias for a channel under a range.
+- [ ] Clear the alias for a channel uner a range.
 
 ### Line Plots
 
@@ -173,3 +185,106 @@ I can successfully:
  -[ ] Channel Selection - The read task dialog will recommend synnax channels based on
       the configured OPC UA node.
 
+### National Instruments
+
+#### Configuration
+
+I can successfully:
+- [ ] Recognize and connect to a National Instruments device available on local machine.
+- [ ] Recognize and connect to a National Instruments devices available on network.
+- [ ] Recognize and connect to physcial and simulated devices.
+- [ ] Save device configuration.
+- [ ] Not see chassis devices connected to the machine
+- [ ] See devices connected to a chassis
+
+#### Read Task
+
+I can successfully:
+
+- [ ] Plot live data from an analog read task.
+- [ ] Plot live data from a digital read task.
+- [ ] Stop, start and reconfigure task at will.
+- [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
+- [ ] Begin several tasks at different times and see them all plotting live data.
+- [ ] Enable and disable data saving at will.
+
+##### Special Purpose Channels
+
+- [ ] Succesfully configure and run an analog read task for each of the following channels
+     - [ ] Acceleration
+     - [ ] Acceleration 4 wire 
+     - [ ] Bridge
+          - [ ] All bridge configurations
+     - [ ] Charge
+     - [ ] Current
+     - [ ] Force bridge polynomial
+     - [ ] Force bridge table
+     - [ ] Force bridge two point linear
+     - [ ] Force iepe
+     - [ ] Microphone
+     - [ ] Pressure bridge polynomial
+     - [ ] Pressure bridge table
+     - [ ] Pressure bridge two point linear
+     - [ ] Resistance
+     - [ ] RTD
+          - [ ] All RTD types.
+          - [ ] All resistance configs.
+     - [ ] Strain gauge
+          - [ ] all strain guage configurations.
+     - [ ] Built in temperature sensor
+     - [ ] Thermocouple
+          - [ ] All thermocouple types.
+          - [ ] All cjc options.
+     - [ ] Torque bridge polynomial
+     - [ ] Torque bridge table
+     - [ ] Torque bridge two point linear
+     - [ ] Velocity iepe
+     - [ ] Voltage
+          - [ ] All terminal configurations.
+- [ ] I can sucessfully configure the following scales:
+     - [ ] Linear
+     - [ ] Map
+
+
+#### Write Task
+
+I can successfully:
+
+- [ ] Begin a digital write task and perform control actions with a schematic.
+- [ ] Stop, start and reconfigure task at will.
+- [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
+- [ ] Configure response time based on state rate specified
+     - [ ] 1 Hz (should have visible delay in response)
+     - [ ] 20 Hz (should feel almost immediate)
+
+#### General Usage
+
+I can successfully:
+
+- [ ] Run multiple types of tasks on a single device
+- [ ] Run multiple tasks across multiple devices simultaneously
+- [ ] I can reliably stream data at the following sample rates
+     = [ ] 1 Hz
+     - [ ] 10 Hz
+     - [ ] 50 Hz
+     - [ ] 100 Hz
+     - [ ] 500 Hz
+     - [ ] 1 kHz
+     - [ ] 2 kHz
+     - [ ] 5 kHz
+- [ ] configure the following stream rates
+     - [ ] 1 Hz
+     - [ ] 5 Hz
+     - [ ] 10 Hz
+     - [ ] 20 Hz
+     - [ ] 30 Hz
+
+#### Error Handling
+
+I can successfully:
+
+- [ ] Pass in an invalid device configuration and receive meaningful feedback.
+     - [ ] Invalid ports
+     - [ ] Invalid task type for devices (e.g. analog read on a analog output device)
+     - [ ] Out of range values
+     - [ ] Multiple tasks using the same channel

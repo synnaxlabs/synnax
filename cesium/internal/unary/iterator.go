@@ -175,22 +175,23 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			}
 			continue
 		}
-		startApprox, err := i.approximateStart(ctx)
+		startApprox, domain, err := i.approximateStart(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
-		series, _, err := i.read(
+		series, err := i.read(
 			ctx,
+			domain,
 			startOffset,
 			i.Channel.DataType.Density().Size(nRemaining),
 		)
-		nRemaining -= series.Len()
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
+		nRemaining -= series.Len()
 		i.insert(series)
 		if nRemaining <= 0 || !i.internal.Next() {
 			break
@@ -271,12 +272,12 @@ func (i *Iterator) accumulate(ctx context.Context) bool {
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false
 	}
-	offset, size, err := i.sliceDomain(ctx)
+	offset, domain, size, err := i.sliceDomain(ctx)
 	if err != nil {
 		i.err = err
 		return false
 	}
-	series, _, err := i.read(ctx, offset, size)
+	series, err := i.read(ctx, domain, offset, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
@@ -296,18 +297,23 @@ func (i *Iterator) insert(series telem.Series) {
 	}
 }
 
-func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Size) (series telem.Series, n int, err error) {
+func (i *Iterator) read(
+	ctx context.Context,
+	idxDomain uint32,
+	offset telem.Offset,
+	size telem.Size,
+) (series telem.Series, err error) {
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
 	series.Data = make([]byte, size)
 	inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
-	series.Alignment = telem.AlignmentPair(i.internal.Position())<<32 | telem.AlignmentPair(inDomainAlignment)
+	series.Alignment = telem.AlignmentPair(idxDomain)<<32 | telem.AlignmentPair(inDomainAlignment)
 	r, err := i.internal.NewReader(ctx)
 	if err != nil {
 		return
 	}
-	n, err = r.ReadAt(series.Data, int64(offset))
+	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
 		return
 	}
@@ -318,33 +324,42 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 	if n < len(series.Data) {
 		series.Data = series.Data[:n]
 	}
-
 	return
 }
 
-func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, error) {
-	startApprox, err := i.approximateStart(ctx)
+func (i *Iterator) sliceDomain(ctx context.Context) (
+	telem.Offset,
+	uint32,
+	telem.Size,
+	error,
+) {
+	startApprox, domain, err := i.approximateStart(ctx)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	endApprox, err := i.approximateEnd(ctx)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
 	size := i.Channel.DataType.Density().Size(endApprox.Upper) - startOffset
-	return startOffset, size, nil
+	return startOffset, domain, size, nil
 }
 
 // approximateStart approximates the number of samples between the start of the current
 // range and the start of the current iterator view. If the start of the current view is
 // before the start of the range, the returned value will be zero.
-func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.DistanceApproximation, err error) {
+func (i *Iterator) approximateStart(ctx context.Context) (
+	index.DistanceApproximation,
+	uint32,
+	error,
+) {
+	target := i.internal.TimeRange().Start.SpanRange(0)
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
-		target := i.internal.TimeRange().Start.Range(i.view.Start)
-		startApprox, err = i.idx.Distance(ctx, target, true)
+		target.End = i.view.Start
 	}
-	return
+	startApprox, domainApprox, err := i.idx.Distance(ctx, target, true)
+	return startApprox, domainApprox.Lower, err
 }
 
 // approximateEnd approximates the number of samples between the start of the current
@@ -355,7 +370,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
-		endApprox, err = i.idx.Distance(ctx, target, true)
+		endApprox, _, err = i.idx.Distance(ctx, target, true)
 	}
 	return
 }

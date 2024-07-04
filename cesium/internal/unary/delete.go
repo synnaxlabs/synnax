@@ -20,12 +20,18 @@ import (
 // Delete deletes the specified time range from the database. Note that the start of the
 // time range is inclusive whereas the end is note.
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
 	return db.wrapError(db.delete(ctx, tr))
 }
 
 // GarbageCollect removes unused telemetry data in the unaryDB. It is NOT safe to call
 // concurrently with other GarbageCollect methods.
 func (db *DB) GarbageCollect(ctx context.Context) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
 	db.entityCount.add(1)
 	defer db.entityCount.add(-1)
 	return db.wrapError(db.Domain.GarbageCollect(ctx))
@@ -73,7 +79,7 @@ func (db *DB) calculateStartOffset(
 	domainStart telem.TimeStamp,
 	ts telem.TimeStamp,
 ) (int64, telem.TimeStamp, error) {
-	approxDist, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
+	approxDist, _, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
 	if err != nil {
 		return 0, ts, err
 	}
@@ -104,7 +110,7 @@ func (db *DB) calculateEndOffset(
 	domainStart telem.TimeStamp,
 	ts telem.TimeStamp,
 ) (int64, telem.TimeStamp, error) {
-	approxDist, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
+	approxDist, _, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
 	if err != nil {
 		return 0, ts, err
 	}

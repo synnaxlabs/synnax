@@ -13,8 +13,10 @@ from typing import Any, Generic, Literal, Type, MutableMapping
 from pydantic import BaseModel
 from websockets.client import WebSocketClientProtocol, connect
 from websockets.exceptions import ConnectionClosedOK
-from websockets.sync.client import ClientConnection as SyncClientProtocol, \
-    connect as sync_connect
+from websockets.sync.client import (
+    ClientConnection as SyncClientProtocol,
+    connect as sync_connect,
+)
 
 from freighter.context import Context
 from freighter.encoder import EncoderDecoder
@@ -68,8 +70,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         msg = self.__encoder.decode(data, self.__res_msg_t)
 
         if msg.type == "close":
-            assert msg.error is not None
-            await self.__close_server(decode_exception(msg.error))
+            await self.__close_server(msg.error)
             return None, self.__server_closed
 
         return msg.payload, None
@@ -109,14 +110,14 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             self.__send_closed = True
         return None
 
-    async def __close_server(self, server_err: Exception | None):
+    async def __close_server(self, exc_pld: ExceptionPayload | None):
         if self.__server_closed is not None:
             return
-
-        if server_err is not None:
-            self.__server_closed = server_err
-
-        await self.__internal.close()
+        try:
+            assert exc_pld is not None
+            self.__server_closed = decode_exception(exc_pld)
+        finally:
+            await self.__internal.close()
 
 
 DEFAULT_MAX_SIZE = 2 ** 20
@@ -150,8 +151,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         msg = self.__encoder.decode(data, self.__res_msg_t)
 
         if msg.type == "close":
-            assert msg.error is not None
-            self.__close_server(decode_exception(msg.error))
+            self.__close_server(msg.error)
             return None, self.__server_closed
 
         return msg.payload, None
@@ -183,14 +183,14 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             self.__send_closed = True
         return None
 
-    def __close_server(self, server_err: Exception | None):
+    def __close_server(self, exc_pld: ExceptionPayload | None):
         if self.__server_closed is not None:
             return
-
-        if server_err is not None:
-            self.__server_closed = server_err
-
-        self.__internal.close()
+        try:
+            assert exc_pld is not None
+            self.__server_closed = decode_exception(exc_pld)
+        finally:
+            self.__internal.close()
 
 
 class _Base:

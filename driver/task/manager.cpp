@@ -15,10 +15,10 @@
 #include "task.h"
 
 task::Manager::Manager(
-    const Rack& rack,
+    const Rack &rack,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
-    const breaker::Config& breaker
+    const breaker::Config &breaker
 ) : rack_key(rack.key),
     internal(rack),
     ctx(std::make_shared<task::SynnaxContext>(client)),
@@ -26,12 +26,16 @@ task::Manager::Manager(
     breaker(breaker) {
 }
 
+task::Manager::~Manager() {
+    if (run_thread.joinable()) run_thread.join();
+}
+
 const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
-    if(breaker.running()) return freighter::NIL;
+    if (breaker.running()) return freighter::NIL;
     VLOG(1) << "[driver] starting up";
     const auto err = startGuarded();
     breaker.start();
@@ -94,11 +98,10 @@ void task::Manager::run(std::atomic<bool> &done) {
 }
 
 freighter::Error task::Manager::stop() {
-    if(!breaker.running()) return freighter::NIL;
+    if (!breaker.running()) return freighter::NIL;
     if (!run_thread.joinable()) return freighter::NIL;
     streamer->closeSend();
     breaker.stop();
-    run_thread.join();
     for (auto &[key, task]: tasks) {
         LOG(INFO) << "[driver] stopping task " << task->name();
         task->stop();
@@ -142,7 +145,6 @@ void task::Manager::processTaskSet(const Series &series) {
         // If a module exists with this key, stop and remove it.
         auto task_iter = tasks.find(key);
         if (task_iter != tasks.end()) {
-            VLOG(1) << "[driver] stopping task " << key;
             task_iter->second->stop();
             tasks.erase(task_iter);
         }
@@ -151,10 +153,12 @@ void task::Manager::processTaskSet(const Series &series) {
             std::cerr << err.message() << std::endl;
             continue;
         }
-        LOG(INFO) << "[driver] configuring task " << sy_task.name << " with key: " << key << ".";
+        LOG(INFO) << "[driver] configuring task " << sy_task.name << " with key: " <<
+                key << ".";
         auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
         if (ok && driver_task != nullptr) tasks[key] = std::move(driver_task);
-        else LOG(ERROR) << "[driver] failed to configure task: " << sy_task.name;
+        else
+            LOG(ERROR) << "[driver] failed to configure task: " << sy_task.name;
     }
 }
 
@@ -164,13 +168,16 @@ void task::Manager::processTaskCmd(const Series &series) {
         auto parser = config::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
-            LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().dump();
+            LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().
+                    dump();
             continue;
         }
-        LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.task;
+        LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.
+                task;
         auto it = tasks.find(cmd.task);
         if (it == tasks.end()) {
-            LOG(WARNING) << "[driver] could not find task to execute command: " << cmd.task;
+            LOG(WARNING) << "[driver] could not find task to execute command: " << cmd.
+                    task;
             continue;
         }
         it->second->exec(cmd);

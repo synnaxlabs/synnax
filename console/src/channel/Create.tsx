@@ -18,6 +18,7 @@ import {
   Select,
   Synnax,
   Text,
+  Triggers,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
@@ -28,22 +29,24 @@ import { Layout } from "@/layout";
 
 export const CREATE_LAYOUT_TYPE = "createChannel";
 
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+
 export const createLayout: Layout.State = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
   windowKey: CREATE_LAYOUT_TYPE,
-  name: "Create a Channel",
-  location: "window",
+  name: "Channel.Create",
+  icon: "Channel",
+  location: "modal",
   window: {
     resizable: false,
-    size: { height: 550, width: 700 },
+    size: { height: 375, width: 700 },
     navTop: true,
+    showTitle: true,
   },
 };
 
-export const Create: Layout.Renderer = ({
-  onClose,
-}: Layout.RendererProps): ReactElement => {
+export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     schema: channel.payload
@@ -83,17 +86,14 @@ export const Create: Layout.Renderer = ({
       await client.channels.create(methods.value());
       if (!createMore) onClose();
       else
-        methods.set({
-          path: "",
-          value: {
-            key: 0,
-            name: "",
-            index: 0,
-            dataType: "float32",
-            isIndex: false,
-            leaseholder: 0,
-            rate: Rate.hz(0),
-          },
+        methods.set("", {
+          key: 0,
+          name: "",
+          index: 0,
+          dataType: "float32",
+          isIndex: false,
+          leaseholder: 0,
+          rate: Rate.hz(0),
         });
     },
   });
@@ -101,8 +101,8 @@ export const Create: Layout.Renderer = ({
   const isIndex = Form.useFieldValue("isIndex", false, methods);
 
   return (
-    <Align.Space className={CSS.B("channel-edit-layout")} grow>
-      <Align.Space className="console-form" style={{ padding: "5rem 3rem" }} grow>
+    <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
+      <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
         <Form.Form {...methods}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
@@ -110,7 +110,7 @@ export const Create: Layout.Renderer = ({
                 autoFocus
                 level="h2"
                 variant="natural"
-                placeholder="Channel Name"
+                placeholder="Name"
                 {...p}
               />
             )}
@@ -120,8 +120,10 @@ export const Create: Layout.Renderer = ({
               path="isIndex"
               label="Is Index"
               onChange={(v, ctx) => {
-                if (v)
-                  ctx.set({ path: "dataType", value: DataType.TIMESTAMP.toString() });
+                if (v) {
+                  ctx.set("dataType", DataType.TIMESTAMP.toString());
+                  ctx.set("index", 0);
+                }
               }}
             />
             <Form.Field<DataType> path="dataType" label="Data Type" grow>
@@ -136,6 +138,7 @@ export const Create: Layout.Renderer = ({
                 searchOptions={{ isIndex: true }}
                 disabled={isIndex}
                 maxHeight="small"
+                allowNone={false}
                 {...p}
               />
             )}
@@ -143,6 +146,12 @@ export const Create: Layout.Renderer = ({
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
+          <Text.Text shade={7} level="small">
+            To Save
+          </Text.Text>
+        </Nav.Bar.Start>
         <Nav.Bar.End style={{ padding: "1rem" }} align="center" size="large">
           <Align.Space direction="x" align="center" size="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
@@ -153,9 +162,8 @@ export const Create: Layout.Renderer = ({
           <Button.Button
             disabled={isPending}
             loading={isPending}
-            onClick={() => {
-              mutate(createMore);
-            }}
+            onClick={() => mutate(createMore)}
+            triggers={[SAVE_TRIGGER]}
           >
             Create Channel
           </Button.Button>

@@ -44,6 +44,20 @@ export const selectRequired = (state: StoreState, key: string): State => {
   return layout;
 };
 
+export const selectArgs = <A>(state: StoreState, key: string): A => {
+  const layout = select(state, key);
+  return layout?.args as A;
+};
+
+export const useSelectArgs = <A>(key: string): A =>
+  useMemoSelect((state: StoreState) => selectArgs(state, key), [key]);
+
+export const selectAltKey = (state: StoreState, key: string): string | undefined =>
+  selectSliceState(state).keyToAltKey[key];
+
+export const useSelectAltKey = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectAltKey(state, key), [key]);
+
 /**
  * Selects a layout from the store by key.
  *
@@ -55,6 +69,13 @@ export const useSelect = (key: string): State | undefined =>
 
 export const useSelectRequired = (key: string): State =>
   useMemoSelect((state: StoreState) => selectRequired(state, key), [key]);
+
+export const selectModals = (state: StoreState): State[] =>
+  Object.values(state[SLICE_NAME].layouts).filter(
+    ({ location }) => location === "modal",
+  );
+
+export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
 
 /**
  * Selects the central layout mosaic from the store.

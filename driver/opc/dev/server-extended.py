@@ -21,7 +21,6 @@ async def main():
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
-
     # Populating our address space
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
     ARRAY_COUNT = 50
@@ -62,7 +61,7 @@ async def main():
                 await arr.set_value(values, varianttype=ua.VariantType.Float)
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             duration = (datetime.datetime.utcnow() - start).total_seconds()
-            await asyncio.sleep((1/RATE) - duration)
+            await asyncio.sleep((1 / RATE) - duration)
 
 
 if __name__ == "__main__":

@@ -9,30 +9,30 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { configureAnalogReadLayout } from "@/hardware/ni/task/ConfigureAnalogRead";
-import { configureDigitalReadLayout } from "@/hardware/ni/task/ConfigureDigitalRead";
-import { configureDigitalWriteLayout } from "@/hardware/ni/task/ConfigureDigitalWrite";
+import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
+import { configureDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
+import { configureDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
 import { Command } from "@/palette/Palette";
 
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
-  name: "NI - Create a New Analog Read Task",
+  name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) => placeLayout(configureAnalogReadLayout),
+  onSelect: ({ placeLayout }) => placeLayout(() => configureAnalogReadLayout(true)),
 };
 
 export const createDigitalWriteTaskCommand: Command = {
   key: "ni-create-digital-write-task",
-  name: "NI - Create a New Digital Write Task",
+  name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) => placeLayout(configureDigitalWriteLayout),
+  onSelect: ({ placeLayout }) => placeLayout(configureDigitalWriteLayout(true)),
 };
 
 export const createDigitalReadTaskCommand: Command = {
   key: "ni-create-digital-read-task",
-  name: "NI - Create a New Digital Read Task",
+  name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) => placeLayout(configureDigitalReadLayout),
+  onSelect: ({ placeLayout }) => placeLayout(configureDigitalReadLayout(true)),
 };
 
 export const COMMANDS = [

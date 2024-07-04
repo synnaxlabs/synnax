@@ -9,16 +9,13 @@
 
 #pragma once
 
-/// std
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 
-/// external
 #include "glog/logging.h"
 #include "client/cpp/synnax.h"
 #include "freighter/cpp/freighter.h"
-
 
 
 namespace breaker {
@@ -64,7 +61,6 @@ public:
     }) {
     }
 
-    //copy constructor
     Breaker(
         const Breaker &other
     ) noexcept: config(other.config),
@@ -75,8 +71,6 @@ public:
         std::cout << "copy constructor called" << std::endl;
     }
 
-
-    //move constructor
     Breaker(Breaker &&other) noexcept : config(other.config),
                                         interval(other.interval),
                                         retries(other.retries),
@@ -85,10 +79,8 @@ public:
                                             std::make_unique<
                                                 std::condition_variable>()) {
         std::cout << "move constructor called" << std::endl;
-
     }
 
-    // copy assignment
     Breaker &operator=(const Breaker &other) noexcept {
         if (this == &other) return *this;
         this->config = other.config;
@@ -99,7 +91,6 @@ public:
         return *this;
     }
 
-    // destructor
     ~Breaker() {
         stop();
         // sleep to allow for the breaker to shutdown.
@@ -126,11 +117,14 @@ public:
         }
         retries++;
         if (retries > config.max_retries) {
-            LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
+            LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of "
+                    << config.max_retries << ". Exiting." << "Error: " << message <<
+                    ".";
             reset();
             return false;
         }
-        LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.max_retries
+        LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
+                max_retries
                 << " times. " << "Retrying in " << interval / SECOND << " seconds. " <<
                 "Error: " << message << "."; {
             std::unique_lock lock(shutdown_mutex);

@@ -166,6 +166,7 @@ export interface TreeProps
   nodes: FlattenedNode[];
   children?: RenderProp<ItemProps>;
   virtual?: boolean;
+  showRules?: boolean;
 }
 
 export type Item = FC<ItemProps>;
@@ -233,12 +234,22 @@ export const DefaultItem = memo(
       );
       if (selectedItemKeys.includes(key)) {
         const selectedHaulItems = selectedItems
-          .map(({ key, haulItems }) => [{ type: HAUL_TYPE, key }, ...(haulItems ?? [])])
+          .map(({ key, haulItems, depth }) => [
+            { type: HAUL_TYPE, key, data: { depth } },
+            ...(haulItems?.map((item) => ({
+              ...item,
+              data: { ...item.data, depth },
+            })) ?? []),
+          ])
           .flat();
         return startDrag(selectedHaulItems, (props) => onSuccessfulDrop?.(key, props));
       }
-      startDrag([{ type: HAUL_TYPE, key }, ...haulItems], (props) =>
-        onSuccessfulDrop?.(key, props),
+      startDrag(
+        [
+          { type: HAUL_TYPE, key, data: { depth } },
+          ...haulItems.map((item) => ({ ...item, data: { depth } })),
+        ],
+        (props) => onSuccessfulDrop?.(key, props),
       );
     };
 
@@ -255,6 +266,7 @@ export const DefaultItem = memo(
         selected && CONTEXT_SELECTED,
         CSS.selected(selected),
         actuallyHasChildren && CSS.M("has-children"),
+        CSS.BM("depth", depth.toString()),
       ),
       onDragLeave: () => setDraggingOver(false),
       onDragStart: handleDragStart,
@@ -263,7 +275,9 @@ export const DefaultItem = memo(
         border: "none",
         position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
-        [offsetKey]: `${depth * 1.5 + 1}rem`,
+        [offsetKey]: `${depth * 1.5 + 1.5}rem`,
+        // @ts-expect-error - CSS variable
+        "--pluto-tree-indicator-offset": `${depth * 1.5 + (depth === 0 ? 0 : 0.5)}rem`,
       },
       startIcon: startIcons,
       iconSpacing: "small",
@@ -306,6 +320,7 @@ export const Tree = ({
   children = defaultChild,
   itemHeight = 27,
   useMargin = false,
+  showRules = false,
   virtual = true,
   expand: __,
   contract: _,
@@ -315,10 +330,15 @@ export const Tree = ({
 
   return (
     <List.List<string, FlattenedNode> data={nodes}>
-      <List.Selector value={selected} onChange={onSelect} allowMultiple replaceOnSingle>
+      <List.Selector<string, FlattenedNode>
+        value={selected}
+        onChange={onSelect}
+        allowMultiple
+        replaceOnSingle
+      >
         <Core<string, FlattenedNode>
           itemHeight={itemHeight}
-          className={CSS(className, CSS.B("tree"))}
+          className={CSS(className, CSS.B("tree"), showRules && CSS.M("rules"))}
           {...props}
         >
           {({ key, ...props }) =>
@@ -337,5 +357,10 @@ export const Tree = ({
   );
 };
 
-export const startRenaming = (key: string, onChange?: (value: string) => void): void =>
-  Text.edit(`text-${key}`, onChange);
+export const startRenaming = (
+  key: string,
+  onChange?: (value: string, renamed: boolean) => void,
+): void => Text.edit(`text-${key}`, onChange);
+
+export const asyncRename = (key: string): Promise<[string, boolean]> =>
+  Text.asyncEdit(`text-${key}`);

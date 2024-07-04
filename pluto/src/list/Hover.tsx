@@ -24,7 +24,6 @@ import { useDataContext, useGetTransformedData } from "@/list/Data";
 import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
 
- 
 export interface HoverProps extends PropsWithChildren<{}> {
   disabled?: boolean;
   initialHover?: number;
@@ -56,8 +55,8 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   const getData = useGetTransformedData<K, E>();
   const { transformedData: data } = useDataContext<K, E>();
   const { onSelect } = useSelectionUtils();
-  const [hover, setHover, ref] = useCombinedStateAndRef<number>(initialHover);
-  const beforeDisabledRef = useRef(0);
+  const [hover, setHover, hoverRef] = useCombinedStateAndRef<number>(initialHover);
+  const beforeDisabledRef = useRef(initialHover);
   useEffect(() => {
     if (disabled) beforeDisabledRef.current = hover;
     setHover(disabled ? -1 : beforeDisabledRef.current);
@@ -80,16 +79,16 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
       const data = getData();
       if (Triggers.match(triggers, [SELECT_TRIGGER])) {
-        if (hover === -1) return;
-        onSelect?.(data[ref.current].key);
+        if (hoverRef.current === -1) return;
+        onSelect?.(data[hoverRef.current].key);
         return;
       }
       const move = () => {
         const data = getData();
         if (Triggers.match(triggers, [UP_TRIGGER], true))
-          setHover((pos) => (pos === 0 ? data.length - 1 : pos - 1));
+          setHover((pos) => (pos <= 0 ? data.length - 1 : pos - 1));
         else if (Triggers.match(triggers, [DOWN_TRIGGER], true))
-          setHover((pos) => (pos === data.length - 1 ? 0 : pos + 1));
+          setHover((pos) => (pos >= data.length - 1 ? 0 : pos + 1));
       };
       move();
       intervalRef.current = setTimeout(() => {

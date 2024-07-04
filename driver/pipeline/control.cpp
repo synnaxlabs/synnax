@@ -33,14 +33,19 @@ public:
     freighter::Error close() override {
         return this->internal->close();
     }
+
+    void closeSend() override{
+        this->internal->closeSend();
+    }
 };
 
 class SynnaxStreamerFactory final : public StreamerFactory {
     std::shared_ptr<synnax::Synnax> client;
 
 public:
-    explicit SynnaxStreamerFactory(std::shared_ptr<synnax::Synnax> client): client(
-        std::move(client)) {
+    explicit SynnaxStreamerFactory(
+        std::shared_ptr<synnax::Synnax> client
+    ): client(std::move(client)) {
     }
 
     std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
@@ -103,6 +108,7 @@ void Control::stop() {
     const auto was_running = this->breaker.running();
     // Stop the breaker and join the thread regardless of whether it was running.
     // This ensures that the thread gets joined even in the case of an internal error.
+    if(this->streamer) this->streamer->closeSend();
     this->breaker.stop();
     this->ensureThreadJoined();
     if (was_running) LOG(INFO) << "[control] stopped";
@@ -120,7 +126,8 @@ void Control::run() {
 }
 
 void Control::runInternal() {
-    auto [streamer, open_err] = this->factory->openStreamer(this->config);
+    auto [s, open_err] = this->factory->openStreamer(this->config);
+    this->streamer = std::move(s);
     if (open_err) {
         if (
             open_err.matches(freighter::UNREACHABLE)
@@ -131,7 +138,7 @@ void Control::runInternal() {
     }
 
     while (breaker.running()) {
-        auto [cmd_frame, cmd_err] = streamer->read();
+        auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         const auto sink_err = this->sink->write(std::move(cmd_frame));
         if (sink_err) {
@@ -144,7 +151,7 @@ void Control::runInternal() {
         }
         this->breaker.reset();
     }
-    const auto close_err = streamer->close();
+    const auto close_err = this->streamer->close();
     if (
         close_err.matches(freighter::UNREACHABLE)
         && breaker.wait()

@@ -28,6 +28,7 @@ type Service interface {
 	Readable
 	Writeable
 	ontology.Service
+	Group() group.Group
 }
 
 type Writeable interface {
@@ -51,6 +52,7 @@ type service struct {
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
+	group group.Group
 }
 
 var _ Service = (*service)(nil)
@@ -122,6 +124,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 		DB:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
+		group: mainGroup,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
@@ -133,6 +136,8 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 func (s *service) NewWriter(tx gorp.Tx) Writer {
 	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
+
+func (s *service) Group() group.Group { return s.group }
 
 func (s *service) NewRetrieve() Retrieve {
 	return Retrieve{
