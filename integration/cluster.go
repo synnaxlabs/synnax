@@ -23,7 +23,7 @@ func startCluster(ctx context.Context, p ClusterParam) (error, func() error) {
 	}
 
 	fmt.Printf("--starting cluster\n")
-	args := []string{"run", "main.go", "start"}
+	args := []string{"run", "main.go", "start", "-d", "../integration/synnax-data"}
 	if p.Insecure {
 		args = append(args, "-i")
 	}
