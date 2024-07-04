@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const clamp = (value: number, min?: number, max?: number): number => {
-  if (min != null) value = Math.max(value, min);
-  if (max != null) value = Math.min(value, max);
+import { numeric } from "@/numeric";
+
+export const clamp = <T extends numeric.Numeric>(value: T, min?: T, max?: T): T => {
+  if (min !== undefined && value < min) return min;
+  if (max !== undefined && value > max) return max;
   return value;
 };

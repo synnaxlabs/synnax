@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { math } from "@/math";
+import { type numeric } from "@/numeric";
 import { type Bounds, bounds, type CrudeBounds } from "@/spatial/base";
 
 export { type Bounds, bounds };
 
-export type Crude<T extends number | bigint = number> = CrudeBounds<T>;
+export type Crude<T extends numeric.Numeric = number> = CrudeBounds<T>;
 
 export interface Construct {
   /**
@@ -22,7 +23,7 @@ export interface Construct {
    * with a 'lower' and 'upper' property or an array of length 2. If the bounds are
    * invalid i.e., the lower bound is greater than the upper bound, the bounds are
    * swapped.
-   */ <T extends number | bigint = number>(bounds: Crude<T>): Bounds<T>;
+   */ <T extends numeric.Numeric = number>(bounds: Crude<T>): Bounds<T>;
 
   /**
    * Constructs a bounds object from the given lower and upper bounds.
@@ -33,15 +34,12 @@ export interface Construct {
    * bound is set to 0.
    *
    * If the lower bound is greater than the upper bound, the bounds are swapped.
-   */ <T extends number | bigint = number>(lower: number, upper?: number): Bounds<T>;
+   */ <T extends numeric.Numeric = number>(lower: T, upper?: T): Bounds<T>;
 
-  <T extends number | bigint = number>(
-    lower: number | Crude,
-    upper?: number,
-  ): Bounds<T>;
+  <T extends numeric.Numeric = number>(lower: T | Crude, upper?: T): Bounds<T>;
 }
 
-export const construct = <T extends bigint | number>(
+export const construct = <T extends numeric.Numeric>(
   lower: T | Crude<T>,
   upper?: T,
 ): Bounds<T> => {
@@ -77,7 +75,7 @@ export const CLIP = Object.freeze({ lower: -1, upper: 1 });
  * @param _b - The second bounds to compare.
  * @returns True if the bounds are equal, false otherwise.
  */
-export const equals = <T extends bigint | number = number>(
+export const equals = <T extends numeric.Numeric = number>(
   _a?: Crude<T>,
   _b?: Crude<T>,
 ): boolean => {
@@ -93,7 +91,7 @@ export const equals = <T extends bigint | number = number>(
  * @param a  - The bounds to make valid.
  * @returns The valid bounds.
  */
-export const makeValid = <T extends number | bigint = number>(
+export const makeValid = <T extends numeric.Numeric = number>(
   a: Bounds<T>,
 ): Bounds<T> => {
   if (a.lower > a.upper) return { lower: a.upper, upper: a.lower };
@@ -109,7 +107,7 @@ export const makeValid = <T extends number | bigint = number>(
  * @param target - The target value to clamp.
  * @returns The clamped target value.
  */
-export const clamp = <T extends number | bigint>(bounds: Crude<T>, target: T): T => {
+export const clamp = <T extends numeric.Numeric>(bounds: Crude<T>, target: T): T => {
   const _bounds = construct<T>(bounds);
   if (target < _bounds.lower) return _bounds.lower;
   if (target >= _bounds.upper)
@@ -124,7 +122,7 @@ export const clamp = <T extends number | bigint>(bounds: Crude<T>, target: T): T
  * @param target - The target value to check. Can either be a number or a bounds object.
  * @returns True if the target is within the bounds, false otherwise.
  */
-export const contains = <T extends bigint | number>(
+export const contains = <T extends numeric.Numeric>(
   bounds: Crude<T>,
   target: T | CrudeBounds<T>,
 ): boolean => {
@@ -142,7 +140,7 @@ export const contains = <T extends bigint | number>(
  * @param b - The second bounds to check.
  * @returns True if the bounds overlap, false otherwise.
  */
-export const overlapsWith = <T extends bigint | number>(
+export const overlapsWith = <T extends numeric.Numeric>(
   a: Crude<T>,
   b: Crude<T>,
 ): boolean => {
@@ -159,13 +157,13 @@ export const overlapsWith = <T extends bigint | number>(
 };
 
 /** @returns the span of the given bounds i.e. upper - lower. */
-export const span = <T extends number | bigint>(a: Crude<T>): T => {
+export const span = <T extends numeric.Numeric>(a: Crude<T>): T => {
   const _a = construct<T>(a);
   return (_a.upper - _a.lower) as T;
 };
 
 /** @returns true if both the lower and upper bounds are 0, false otherwise. */
-export const isZero = <T extends number | bigint>(a: Crude<T>): boolean => {
+export const isZero = <T extends numeric.Numeric>(a: Crude<T>): boolean => {
   const _a = construct(a);
   if (typeof _a.lower === "bigint") return _a.lower === 0n && _a.upper === 0n;
   return _a.lower === 0 && _a.upper === 0;
@@ -175,7 +173,10 @@ export const isZero = <T extends number | bigint>(a: Crude<T>): boolean => {
  * @returns true if the difference between the lower and upper bounds is 0,
  * false otherwise.
  */
-export const spanIsZero = (a: Crude): boolean => span(a) === 0;
+export const spanIsZero = <T extends numeric.Numeric>(a: Crude<T>): boolean => {
+  const sp = span<T>(a);
+  return typeof sp === "number" ? sp === 0 : sp === 0n;
+};
 
 /**
  * @returns true if both the upper and lower bounds are not Infinity or -Infinity,
@@ -183,6 +184,8 @@ export const spanIsZero = (a: Crude): boolean => span(a) === 0;
  */
 export const isFinite = (a: Crude): boolean => {
   const _a = construct(a);
+  // By nature, bigints can only be finite.
+  if (typeof _a.lower === "bigint") return true;
   return Number.isFinite(_a.lower) && Number.isFinite(_a.upper);
 };
 
@@ -210,7 +213,7 @@ export const min = (bounds: Crude[]): Bounds => ({
  * @returns an array of integers from the lower bound to the upper bound of the given
  * bounds.
  */
-export const linspace = <T extends bigint | number = number>(bounds: Crude<T>): T[] => {
+export const linspace = <T extends numeric.Numeric = number>(bounds: Crude<T>): T[] => {
   const _bounds = construct(bounds);
   const isBigInt = typeof _bounds.lower === "bigint";
   return Array.from({ length: Number(span(bounds)) }, (_, i) => {
@@ -219,7 +222,7 @@ export const linspace = <T extends bigint | number = number>(bounds: Crude<T>): 
   }) as T[];
 };
 
-export const findInsertPosition = <T extends bigint | number>(
+export const findInsertPosition = <T extends numeric.Numeric>(
   bounds: Array<Crude<T>>,
   target: T,
 ): { index: number; position: number } => {
@@ -273,7 +276,7 @@ const ZERO_PLAN: InsertionPlan = {
  * new bound is entirely contained within an existing bound. See the {@link InsertionPlan}
  * type for more details.
  */
-export const buildInsertionPlan = <T extends number | bigint>(
+export const buildInsertionPlan = <T extends numeric.Numeric>(
   bounds: Array<Crude<T>>,
   value: Crude<T>,
 ): InsertionPlan | null => {
@@ -315,7 +318,7 @@ export const buildInsertionPlan = <T extends number | bigint>(
   };
 };
 
-export const insert = <T extends number | bigint = number>(
+export const insert = <T extends numeric.Numeric = number>(
   bounds: Array<Crude<T>>,
   value: Crude<T>,
 ): Array<Bounds<T>> => {
@@ -329,7 +332,7 @@ export const insert = <T extends number | bigint = number>(
   return out;
 };
 
-export const exposure = <T extends number | bigint = number>(
+export const exposure = <T extends numeric.Numeric = number>(
   background_: Crude<T>,
   filter_: Crude<T>,
 ): number => {
