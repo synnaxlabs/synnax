@@ -328,3 +328,16 @@ export const insert = <T extends number | bigint = number>(
   out.splice(plan.insertInto, plan.deleteInBetween, _target);
   return out;
 };
+
+export const exposure = <T extends number | bigint = number>(
+  background_: Crude<T>,
+  filter_: Crude<T>,
+): number => {
+  const bg = construct(background_);
+  const f = construct(filter_);
+  if (bg.upper <= f.lower || bg.lower >= f.upper) return 0;
+  if (bg.lower >= f.lower && bg.upper <= f.upper) return 1;
+  if (bg.lower <= f.lower && bg.upper >= f.upper) return span(f) / span(bg);
+  if (bg.lower <= f.lower) return (bg.upper - f.lower) / span(bg);
+  return (f.upper - bg.lower) / span(bg);
+};

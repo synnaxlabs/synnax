@@ -11,7 +11,7 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
   bounds,
-  type box,
+  box,
   DataType,
   type direction,
   scale,
@@ -82,6 +82,7 @@ export interface LineProps {
   region: box.Box;
   /** An XY scale that maps from the data space to decimal space. */
   dataToDecimalScale: scale.XY;
+  exposure: number;
 }
 
 interface TranslationBufferCacheEntry {
@@ -102,9 +103,7 @@ export class Context extends render.GLProgram {
     this.translationBufferCache = new Map();
   }
 
-  bindState(
-    { strokeWidth, color }: ParsedState,
-  ): number {
+  bindState({ strokeWidth, color }: ParsedState): number {
     this.uniformColor("u_color", color);
     return this.attrStrokeWidth(strokeWidth);
   }
@@ -114,7 +113,10 @@ export class Context extends render.GLProgram {
     regionTransform: scale.XYTransformT,
   ): void {
     const aggregateScale = xy.scale(dataScaleTransform.scale, regionTransform.scale);
-    const aggregateOffset = xy.translate(xy.scale(regionTransform.scale, dataScaleTransform.offset), regionTransform.offset);
+    const aggregateOffset = xy.translate(
+      xy.scale(regionTransform.scale, dataScaleTransform.offset),
+      regionTransform.offset,
+    );
     this.uniformXY("u_scale_aggregate", aggregateScale);
     this.uniformXY("u_offset_aggregate", aggregateOffset);
   }
@@ -287,14 +289,19 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (this.deleted) return;
     const { downsample } = this.state;
     const { xTelem, yTelem, prog } = this.internal;
-    const { dataToDecimalScale } = props;
+    const { dataToDecimalScale, exposure } = props;
     const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
     xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
     yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
+    const totalLength = xData.reduce((acc, x) => acc + x.length, 0);
+    const autoDownSample = bounds.clamp(
+      [1, 51],
+      Math.round((exposure * totalLength) / (box.area(props.region) * 0.1)),
+    );
     const ops = buildDrawOperations(
       xData,
       yData,
-      downsample,
+      autoDownSample,
       DEFAULT_OVERLAP_THRESHOLD,
     );
     this.internal.instrumentation.L.debug("render", () => ({
@@ -306,9 +313,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     }));
     const clearProg = prog.setAsActive();
     const instances = prog.bindState(this.state);
-    const regionTransform = scale.xyScaleToTransform(prog.ctx.scaleRegion(props.region))
+    const regionTransform = scale.xyScaleToTransform(
+      prog.ctx.scaleRegion(props.region),
+    );
     ops.forEach((op) => {
-      const scaleTransform = scale.xyScaleToTransform(offsetScale(dataToDecimalScale, op));
+      const scaleTransform = scale.xyScaleToTransform(
+        offsetScale(dataToDecimalScale, op),
+      );
       prog.bindScale(scaleTransform, regionTransform);
       prog.draw(op, instances);
     });

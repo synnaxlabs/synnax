@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, type scale,TimeRange } from "@synnaxlabs/x";
+import { type bounds, type scale, TimeRange } from "@synnaxlabs/x";
 
 import { type FindResult } from "@/vis/line/aether/line";
 import {
@@ -20,7 +20,9 @@ import { range } from "@/vis/lineplot/range/aether";
 
 export const xAxisStateZ = coreAxisStateZ;
 
-export interface XAxisRenderProps extends AxisRenderProps {}
+export interface XAxisRenderProps extends AxisRenderProps {
+  exposure: number;
+}
 
 export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";

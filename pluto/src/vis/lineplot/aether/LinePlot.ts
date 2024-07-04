@@ -62,13 +62,21 @@ export class LinePlot extends aether.Composite<
   }
 
   async findByXDecimal(x: number): Promise<FindResult[]> {
-    const props = { ...this.state, plot: this.calculatePlot() };
+    const props = {
+      ...this.state,
+      plot: this.calculatePlot(),
+      exposure: box.area(this.state.viewport),
+    };
     const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXDecimal(props, x));
     return (await Promise.all(p)).flat();
   }
 
   async findByXValue(x: number): Promise<FindResult[]> {
-    const props = { ...this.state, plot: this.calculatePlot() };
+    const props = {
+      ...this.state,
+      plot: this.calculatePlot(),
+      exposure: box.area(this.state.viewport),
+    };
     const p = this.axes.flatMap(async (a) => await a.findByXValue(props, x));
     return (await Promise.all(p)).flat();
   }
@@ -89,7 +97,12 @@ export class LinePlot extends aether.Composite<
     plot: box.Box,
     canvases: render.CanvasVariant[],
   ): Promise<void> {
-    const p = { ...this.state, plot, canvases };
+    const p = {
+      ...this.state,
+      plot,
+      canvases,
+      exposure: box.area(this.state.viewport),
+    };
     await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
   }
 
