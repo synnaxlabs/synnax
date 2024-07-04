@@ -32,7 +32,7 @@
             }
           ],
           "num_writers": 1,
-          "domains": 1000,
+          "domains": 100000,
           "samples_per_domain": 1000,
           "time_range": {
             "start": 0,
@@ -129,7 +129,7 @@
             "end": 1001000000000
           },
           "expected_error": "no_error",
-          "samples_expected": 9000
+          "samples_expected": 900000
         }
       }
     ]

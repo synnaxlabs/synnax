@@ -271,9 +271,9 @@ read are indeed correct.
 
 #### Orphan processes:
 
-When running the cluster with integration tests, we cannot kill the cluster process at the
-end – since killing a process does not kill other processes started by it. In addition,
-we cannot send a `Interrupt` signal as golang does not implement interrupting a Windows
-process (see [issue](https://github.com/golang/go/issues/6720)). Fortunately, the
-GitHub Actions runner cleans up orphan processes by default, but this is something that
-should be addressed.
+When running the cluster with integration tests, we cannot interrupt the cluster process
+as golang does not implement interrupting a Windows process
+(see [issue](https://github.com/golang/go/issues/6720)). Currently, we send a
+KILL signal to the server process to forcibly stop it. This is less ideal than a
+graceful shutdown. In any case, even though the GitHub Actions runner cleans up orphan
+processes by default, but this is something that should be addressed.

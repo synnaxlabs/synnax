@@ -7,6 +7,11 @@ if (-not $testConfigName) {
     exit 1
 }
 
+Set-Location -Path "..\synnax"
+Write-Host "--Compiling with PGO"
+go build -o "..\integration\bin\synnax" -pgo="auto"
+Set-Location -Path "..\integration"
+
 # Run the Go program with the provided arguments
 & go run . $testConfigName
 $exit_code = $LASTEXITCODE

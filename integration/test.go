@@ -38,11 +38,11 @@ func readTestConfig(fileName string) TestSequence {
 }
 
 func runTest(testConfigFile string, verbose bool) (exitCode int) {
-	ctx, cancel := context.WithCancel(context.Background())
 	test := readTestConfig(testConfigFile)
 	writeTestStart("timing.log", testConfigFile, test.Cluster, test.Setup)
 
-	err, killCluster := startCluster(ctx, test.Cluster)
+	// Cluster is automatically killed when ctx is canceled.
+	err, killCluster := startCluster(test.Cluster)
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +59,6 @@ func runTest(testConfigFile string, verbose bool) (exitCode int) {
 		if err := killCluster(); err != nil {
 			panic(err)
 		}
-		cancel()
 	}()
 
 	if err := runSetUp(test.Setup, verbose); err != nil {
@@ -209,21 +208,5 @@ Configuration:
 	}
 	if err := f.Close(); err != nil {
 		panic(err)
-	}
-}
-
-func getShellName() (shellName string) {
-	switch runtime.GOOS {
-	case "windows":
-		shellName = "wsl sh"
-		return
-	case "linux":
-		shellName = "sh"
-		return
-	case "darwin":
-		shellName = "sh"
-		return
-	default:
-		panic("unsupported OS: " + runtime.GOOS)
 	}
 }

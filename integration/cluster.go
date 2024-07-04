@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os/exec"
 	"time"
@@ -16,14 +15,15 @@ type ClusterParam struct {
 	MemFS    bool `json:"mem_fs"`
 }
 
-func startCluster(ctx context.Context, p ClusterParam) (error, func() error) {
+// startcluster starts a cluster that is sent a SIG_KILL when ctx is canceled.
+func startCluster(p ClusterParam) (error, func() error) {
 	if p == (ClusterParam{}) {
 		fmt.Printf("--cannot find cluster startup configration, skipping\n")
 		return nil, func() error { return nil }
 	}
 
 	fmt.Printf("--starting cluster\n")
-	args := []string{"run", "main.go", "start", "-d", "~\\synnax-data"}
+	args := []string{"start", "-v", "--debug"}
 	if p.Insecure {
 		args = append(args, "-i")
 	}
@@ -33,16 +33,17 @@ func startCluster(ctx context.Context, p ClusterParam) (error, func() error) {
 
 	var (
 		stdOut, stdErr = bytes.Buffer{}, bytes.Buffer{}
-		cmd            = exec.CommandContext(ctx, "go", args...)
+		cmd            = exec.Command("./bin/synnax", args...)
+		pgoCmd         *exec.Cmd
 	)
 
-	cmd.Dir = "./../synnax"
 	cmd.Stderr = &stdErr
 	cmd.Stdout = &stdOut
 
 	err := cmd.Start()
 	if err != nil {
-		return errors.Newf(
+		return errors.Wrapf(
+			err,
 			"error in starting cluster.\nstdout: %s\nstderr: %s\n",
 			stdOut.String(),
 			stdErr.String(),
@@ -50,8 +51,24 @@ func startCluster(ctx context.Context, p ClusterParam) (error, func() error) {
 	}
 
 	time.Sleep(5 * telem.Second.Duration())
-	return nil, func() error {
-		// FIXME: This only kills the cluster process and not any processes it started.
-		return cmd.Process.Kill()
+
+	pgoCmd = startPGO()
+	if err := pgoCmd.Start(); err != nil {
+		return errors.Wrap(err, "error in starting PGO"), func() error { return nil }
 	}
+
+	return nil, func() (err error) {
+		if pgoCmd.ProcessState != nil && !pgoCmd.ProcessState.Exited() {
+			err = pgoCmd.Wait()
+		}
+
+		return errors.CombineErrors(err, cmd.Process.Kill())
+	}
+}
+
+func startPGO() *exec.Cmd {
+	// It is important to note that every test must run for > 60s for PGO to have enough
+	// time to gather the profile.
+	url := "http://localhost:9090/debug/pprof/profile?seconds=60"
+	return exec.Command("curl", "-o", "../synnax/default.pgo", url)
 }
