@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import {
   box,
   invert,
@@ -23,6 +32,7 @@ import { Dialog as CoreDialog } from "@/dialog";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { ComponentSize } from "@/util/component";
+import { getRootElement } from "@/util/rootElement";
 
 export type UseProps = CoreDialog.UseProps;
 export type UseReturn = CoreDialog.UseReturn;
@@ -141,7 +151,7 @@ export const Dialog = ({
       {(keepMounted || visible) && children[1]}
     </Align.Space>
   );
-  if (variant === "floating") child = createPortal(child, document.body);
+  if (variant === "floating") child = createPortal(child, getRootElement());
   else if (variant === "modal") {
     child = createPortal(
       <Align.Space
@@ -152,7 +162,7 @@ export const Dialog = ({
       >
         {child}
       </Align.Space>,
-      document.getElementById("root") ?? document.body,
+      getRootElement(),
     );
   }
 
