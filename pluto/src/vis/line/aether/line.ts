@@ -294,7 +294,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
     xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
     yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
-    const ops = buildDrawOperations(xData, yData, exposure, DEFAULT_OVERLAP_THRESHOLD);
+    const ops = buildDrawOperations(
+      xData,
+      yData,
+      exposure,
+      downsample,
+      DEFAULT_OVERLAP_THRESHOLD,
+    );
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
@@ -371,6 +377,7 @@ export const buildDrawOperations = (
   xSeries: Series[],
   ySeries: Series[],
   exposure: number,
+  userSpecifiedDownSampling: number,
   overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
   if (xSeries.length === 0 || ySeries.length === 0) return [];
@@ -386,7 +393,11 @@ export const buildDrawOperations = (
       else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
       const count = Math.min(x.length - xOffset, y.length - yOffset);
       if (count === 0) return;
-      const downsample = clamp(Math.round(exposure * 4 * count), 1, 51);
+      const downsample = clamp(
+        Math.round(exposure * 4 * count),
+        userSpecifiedDownSampling,
+        51,
+      );
       ops.push({ x, y, xOffset, yOffset, count, downsample });
     }),
   );
