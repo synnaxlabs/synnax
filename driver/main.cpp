@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
         std::move(opc_factory),
         // std::move(meminfo_factory),
         std::move(heartbeat_factory),
-//        std::move(ni_factory)
+        std::move(ni_factory)
     };
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
         std::move(factories)
