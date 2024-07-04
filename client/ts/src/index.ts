@@ -9,8 +9,7 @@
 
 export * from "@/channel";
 export { Channel } from "@/channel/client";
-export type { SynnaxProps } from "@/client";
-export { default as Synnax, synnaxPropsZ } from "@/client";
+export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
 export {
@@ -34,6 +33,8 @@ export { ontology } from "@/ontology";
 export { ranger } from "@/ranger";
 export { signals } from "@/signals";
 export { workspace } from "@/workspace";
+export { linePlot } from "@/workspace/lineplot";
+export { schematic } from "@/workspace/schematic";
 export type {
   CrudeDataType,
   CrudeDensity,
