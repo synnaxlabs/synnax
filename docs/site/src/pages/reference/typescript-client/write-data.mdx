@@ -35,7 +35,9 @@ const temperatureChannel = await client.channels.create({
 });
 ```
 
-Then, we'll make sure to write timestamps to the index before we write to the data channel:
+Then, we'll make sure to write timestamps to the index before we write to the data
+channel, note that to write data to an individual channel, you must provide a typed
+array:
 
 ```typescript
 
@@ -43,11 +45,11 @@ import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
 
 const start = TimeStamp.now();
 const timestamps = new BigInt64Array([
-    start.bigInt,
-    start.add(TimeSpan.seconds(1)).bigInt,
-    start.add(TimeSpan.seconds(2)).bigInt,
-    start.add(TimeSpan.seconds(3)).bigInt,
-    start.add(TimeSpan.seconds(4)).bigInt
+    start.valueOf(),    // valueOf() converts a TimeSpan to a bigint.
+    start.add(TimeSpan.seconds(1)).valueOf(),
+    start.add(TimeSpan.seconds(2)).valueOf(),
+    start.add(TimeSpan.seconds(3)).valueOf(),
+    start.add(TimeSpan.seconds(4)).valueOf()
 ]);
 const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
 
@@ -112,9 +114,17 @@ const writer = await client.openWriter({
 
 try {
     for (let i = 0; i < 100; i++) {
+        const start = TimeStamp.now();
+        const timeSeries = BigInt64Array.from({ length: 10 }, (_, i) => (
+            start.add(TimeSpan.milliseconds(i)).valueOf()
+        ))
+        const dataSeries = Float32Array.from({ length: 10 }, (_, i) => (
+            Math.sin(i / 100)
+        ))
+
         await writer.write(new Frame({
-            [timeChannel.key]: TimeStamp.now(),
-            [temperatureChannel.key]: 20.0 + i,
+            [timeChannel.key]: new Series(timeSeries),
+            [temperatureChannel.key]: new Series(dataSeries)
         }));
         await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -124,8 +134,10 @@ try {
 }
 ```
 
-This example will write 100 samples to the `temperature` channel, each roughly
-100ms apart, and will commit all writes when finished.
+This example will write 100 batches of 10 samples to the `temperature` channel, each
+roughly 100ms apart, and will commit all writes when finished. Note that instead of
+passing in series to the frame, you may also pass in singular samples if you wish to
+only write one sample.
 
 It's typical to write and commit millions of samples over the course of hours or
 days, intermittently calling commit to ensure that the data is safely stored in
