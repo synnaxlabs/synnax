@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/observe"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -26,6 +27,12 @@ const ontologyType ontology.Type = "channel"
 // ontology.
 func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
+}
+
+func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
+	return lo.Map(chs, func(item Channel, _ int) ontology.ID {
+		return OntologyID(item.Key())
+	})
 }
 
 var _schema = &ontology.Schema{

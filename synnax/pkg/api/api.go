@@ -200,7 +200,7 @@ type Transport struct {
 type API struct {
 	provider     Provider
 	config       Config
-	Auth         *AuthService
+	Auth         *UserService
 	Telem        *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
@@ -421,7 +421,7 @@ func New(configs ...Config) (API, error) {
 		return API{}, err
 	}
 	api := API{config: cfg, provider: NewProvider(cfg)}
-	api.Auth = NewAuthServer(api.provider)
+	api.Auth = NewUserService(api.provider)
 	api.Telem = NewFrameService(api.provider)
 	api.Channel = NewChannelService(api.provider)
 	api.Connectivity = NewConnectivityService(api.provider)

@@ -11,6 +11,9 @@ package api
 
 import (
 	"context"
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/auth"
@@ -19,29 +22,38 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// AuthService is the core authentication service for the delta API.
-type AuthService struct {
+// UserService is the core authentication service for the delta API.
+type UserService struct {
 	dbProvider
 	authProvider
 	userProvider
+	accessProvider
 }
 
-func NewAuthServer(p Provider) *AuthService {
-	return &AuthService{
-		dbProvider:   p.db,
-		authProvider: p.auth,
-		userProvider: p.user,
+func NewUserService(p Provider) *UserService {
+	return &UserService{
+		dbProvider:     p.db,
+		authProvider:   p.auth,
+		userProvider:   p.user,
+		accessProvider: p.access,
 	}
 }
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
-func (s *AuthService) Login(ctx context.Context, cred auth.InsecureCredentials) (tr TokenResponse, err error) {
+func (s *UserService) Login(ctx context.Context, cred auth.InsecureCredentials) (tr TokenResponse, err error) {
 	if err = s.authenticator.Authenticate(ctx, cred); err != nil {
 		return
 	}
 	u, err := s.user.RetrieveByUsername(ctx, cred.Username)
 	if err != nil {
+		return tr, err
+	}
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Object:  []ontology.ID{user.OntologyID(u.Key)},
+	}); err != nil {
 		return tr, err
 	}
 	return s.tokenResponse(u)
@@ -54,7 +66,14 @@ type RegistrationRequest struct {
 
 // Register registers new user with the provided credentials. If successful, returns a
 // response containing a valid JWT along with the user's details.
-func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, err error) {
+func (s *UserService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, err error) {
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Object:  []ontology.ID{user.OntologyID(uuid.Nil)},
+	}); err != nil {
+		return tr, err
+	}
 	return tr, s.WithTx(ctx, func(txn gorp.Tx) error {
 		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
 			return err
@@ -75,7 +94,18 @@ type ChangePasswordRequest struct {
 }
 
 // ChangePassword changes the password for the user with the provided credentials.
-func (s *AuthService) ChangePassword(ctx context.Context, cpr ChangePasswordRequest) (types.Nil, error) {
+func (s *UserService) ChangePassword(ctx context.Context, cpr ChangePasswordRequest) (types.Nil, error) {
+	u, err := s.user.RetrieveByUsername(ctx, cpr.Username)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  "change_password",
+		Object:  []ontology.ID{user.OntologyID(u.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
 	return types.Nil{}, s.WithTx(ctx, func(txn gorp.Tx) error {
 		return s.authenticator.NewWriter(txn).
 			UpdatePassword(ctx, cpr.InsecureCredentials, cpr.NewPassword)
@@ -89,7 +119,18 @@ type ChangeUsernameRequest struct {
 }
 
 // ChangeUsername changes the username for the user with the provided credentials.
-func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequest) (types.Nil, error) {
+func (s *UserService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequest) (types.Nil, error) {
+	u, err := s.user.RetrieveByUsername(ctx, cur.Username)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  "change_username",
+		Object:  []ontology.ID{user.OntologyID(u.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
 	return types.Nil{}, s.WithTx(ctx, func(txn gorp.Tx) error {
 		u, err := s.user.RetrieveByUsername(ctx, cur.InsecureCredentials.Username)
 		if err != nil {
@@ -116,7 +157,7 @@ type TokenResponse struct {
 	Token string `json:"token"`
 }
 
-func (s *AuthService) tokenResponse(u user.User) (TokenResponse, error) {
+func (s *UserService) tokenResponse(u user.User) (TokenResponse, error) {
 	tk, err := s.token.New(u.Key)
 	return TokenResponse{User: u, Token: tk}, err
 }

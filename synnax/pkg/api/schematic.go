@@ -12,6 +12,8 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
@@ -19,30 +21,39 @@ import (
 
 type SchematicService struct {
 	dbProvider
+	accessProvider
 	internal *schematic.Service
 }
 
 func NewSchematicService(p Provider) *SchematicService {
 	return &SchematicService{
-		dbProvider: p.db,
-		internal:   p.Config.Schematic,
+		dbProvider:     p.db,
+		internal:       p.Config.Schematic,
+		accessProvider: p.access,
 	}
 }
 
-type SchematicCreateRequest struct {
-	Workspace  uuid.UUID             `json:"workspace" msgpack:"workspace"`
-	Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-}
-
-type SchematicCreateResponse struct {
-	Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-}
+type (
+	SchematicCreateRequest struct {
+		Workspace  uuid.UUID             `json:"workspace" msgpack:"workspace"`
+		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
+	}
+	SchematicCreateResponse struct {
+		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
+	}
+)
 
 func (s *SchematicService) Create(ctx context.Context, req SchematicCreateRequest) (res SchematicCreateResponse, err error) {
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Object:  []ontology.ID{schematic.OntologyID(uuid.Nil)},
+	}); err != nil {
+		return res, err
+	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		for _, schematic_ := range req.Schematics {
-			err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schematic_)
-			if err != nil {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schematic_); err != nil {
 				return err
 			}
 			res.Schematics = append(res.Schematics, schematic_)
@@ -57,6 +68,13 @@ type SchematicRenameRequest struct {
 }
 
 func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (res types.Nil, err error) {
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Rename,
+		Object:  []ontology.ID{schematic.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 	})
@@ -68,6 +86,13 @@ type SchematicSetDataRequest struct {
 }
 
 func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Object:  []ontology.ID{schematic.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
 	})
@@ -84,6 +109,16 @@ type SchematicRetrieveResponse struct {
 func (s *SchematicService) Retrieve(ctx context.Context, req SchematicRetrieveRequest) (res SchematicRetrieveResponse, err error) {
 	err = s.internal.NewRetrieve().
 		WhereKeys(req.Keys...).Entries(&res.Schematics).Exec(ctx, nil)
+	if err != nil {
+		return SchematicRetrieveResponse{}, err
+	}
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Object:  schematic.OntologyIDs(req.Keys),
+	}); err != nil {
+		return SchematicRetrieveResponse{}, err
+	}
 	return res, err
 }
 
@@ -92,6 +127,13 @@ type SchematicDeleteRequest struct {
 }
 
 func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteRequest) (res types.Nil, err error) {
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Object:  schematic.OntologyIDs(req.Keys),
+	}); err != nil {
+		return res, err
+	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
@@ -108,6 +150,13 @@ type SchematicCopyResponse struct {
 }
 
 func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (res SchematicCopyResponse, err error) {
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Object:  []ontology.ID{schematic.OntologyID(req.Key)},
+	}); err != nil {
+		return
+	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.Schematic)
 	})

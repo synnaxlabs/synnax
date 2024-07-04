@@ -14,6 +14,6 @@ import (
 )
 
 var (
-	Denied        = errors.New("[access] - forbidden")
+	Denied        = errors.New("access denied")
 	Granted error = nil
 )

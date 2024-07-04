@@ -35,7 +35,7 @@ func NewProvider(cfg Config) Provider {
 	p := Provider{Config: cfg}
 	p.db = dbProvider{DB: gorp.Wrap(cfg.Storage.KV)}
 	p.user = userProvider{user: cfg.User}
-	p.access = AccessProvider{enforcer: cfg.Enforcer}
+	p.access = accessProvider{enforcer: cfg.Enforcer}
 	p.auth = authProvider{token: cfg.Token, authenticator: cfg.Authenticator}
 	p.cluster = clusterProvider{cluster: cfg.Cluster}
 	p.ontology = OntologyProvider{Ontology: cfg.Ontology}
@@ -53,7 +53,7 @@ type userProvider struct {
 }
 
 // AccessProvider provides access control information and utilities to services.
-type AccessProvider struct {
+type accessProvider struct {
 	enforcer access.Enforcer
 }
 

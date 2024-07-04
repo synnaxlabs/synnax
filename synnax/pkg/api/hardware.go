@@ -13,6 +13,8 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/hardware"
 	"github.com/synnaxlabs/synnax/pkg/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
@@ -23,29 +25,41 @@ import (
 
 type HardwareService struct {
 	dbProvider
+	accessProvider
 	internal *hardware.Service
 }
 
 func NewHardwareService(p Provider) *HardwareService {
 	return &HardwareService{
-		dbProvider: p.db,
-		internal:   p.Config.Hardware,
+		dbProvider:     p.db,
+		internal:       p.Config.Hardware,
+		accessProvider: p.access,
 	}
 }
 
-type Rack = rack.Rack
-type Task = task.Task
-type Device = device.Device
+type (
+	Rack   = rack.Rack
+	Task   = task.Task
+	Device = device.Device
+)
 
-type HardwareCreateRackRequest struct {
-	Racks []rack.Rack `json:"racks" msgpack:"racks"`
-}
-
-type HardwareCreateRackResponse struct {
-	Racks []rack.Rack `json:"racks" msgpack:"racks"`
-}
+type (
+	HardwareCreateRackRequest struct {
+		Racks []rack.Rack `json:"racks" msgpack:"racks"`
+	}
+	HardwareCreateRackResponse struct {
+		Racks []rack.Rack `json:"racks" msgpack:"racks"`
+	}
+)
 
 func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRackRequest) (res HardwareCreateRackResponse, _ error) {
+	if err := svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Object:  []ontology.ID{rack.OntologyID(0)},
+	}); err != nil {
+		return res, err
+	}
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Rack.NewWriter(tx)
 		for i, r := range req.Racks {
@@ -59,17 +73,18 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 	})
 }
 
-type HardwareRetrieveRackRequest struct {
-	Keys   []rack.Key `json:"keys" msgpack:"keys"`
-	Names  []string   `json:"names" msgpack:"names"`
-	Search string     `json:"search" msgpack:"search"`
-	Limit  int        `json:"limit" msgpack:"limit"`
-	Offset int        `json:"offset" msgpack:"offset"`
-}
-
-type HardwareRetrieveRackResponse struct {
-	Racks []rack.Rack `json:"racks" msgpack:"racks"`
-}
+type (
+	HardwareRetrieveRackRequest struct {
+		Keys   []rack.Key `json:"keys" msgpack:"keys"`
+		Names  []string   `json:"names" msgpack:"names"`
+		Search string     `json:"search" msgpack:"search"`
+		Limit  int        `json:"limit" msgpack:"limit"`
+		Offset int        `json:"offset" msgpack:"offset"`
+	}
+	HardwareRetrieveRackResponse struct {
+		Racks []rack.Rack `json:"racks" msgpack:"racks"`
+	}
+)
 
 func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrieveRackRequest) (res HardwareRetrieveRackResponse, _ error) {
 	var (
@@ -79,6 +94,7 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 		hasLimit  = req.Limit > 0
 		hasOffset = req.Offset > 0
 	)
+	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
 	q := svc.internal.Rack.NewRetrieve()
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
@@ -95,7 +111,18 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	return res, q.Entries(&res.Racks).Exec(ctx, nil)
+	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
+		return res, err
+	}
+	if err := svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Object:  rack.OntologyIDsFromRacks(resRacks),
+	}); err != nil {
+		return res, err
+	}
+	res.Racks = resRacks
+	return res, nil
 }
 
 type HardwareDeleteRackRequest struct {
@@ -103,6 +130,13 @@ type HardwareDeleteRackRequest struct {
 }
 
 func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRackRequest) (res types.Nil, _ error) {
+	if err := svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Object:  rack.OntologyIDs(req.Keys),
+	}); err != nil {
+		return res, err
+	}
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Rack.NewWriter(tx)
 		for _, k := range req.Keys {
@@ -114,15 +148,23 @@ func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRa
 	})
 }
 
-type HardwareCreateTaskRequest struct {
-	Tasks []task.Task `json:"tasks" msgpack:"tasks"`
-}
-
-type HardwareCreateTaskResponse struct {
-	Tasks []task.Task `json:"tasks" msgpack:"tasks"`
-}
+type (
+	HardwareCreateTaskRequest struct {
+		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+	}
+	HardwareCreateTaskResponse struct {
+		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+	}
+)
 
 func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTaskRequest) (res HardwareCreateTaskResponse, _ error) {
+	if err := svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Object:  []ontology.ID{task.OntologyID(0)},
+	}); err != nil {
+		return res, err
+	}
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Task.NewWriter(tx)
 		for i, m := range req.Tasks {
@@ -136,20 +178,21 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 	})
 }
 
-type HardwareRetrieveTaskRequest struct {
-	Rack         rack.Key
-	Keys         []task.Key `json:"keys" msgpack:"keys"`
-	Names        []string   `json:"names" msgpack:"names"`
-	Types        []string   `json:"types" msgpack:"types"`
-	IncludeState bool       `json:"include_state" msgpack:"include_state"`
-	Search       string     `json:"search" msgpack:"search"`
-	Limit        int        `json:"limit" msgpack:"limit"`
-	Offset       int        `json:"offset" msgpack:"offset"`
-}
-
-type HardwareRetrieveTaskResponse struct {
-	Tasks []task.Task `json:"tasks" msgpack:"tasks"`
-}
+type (
+	HardwareRetrieveTaskRequest struct {
+		Rack         rack.Key
+		Keys         []task.Key `json:"keys" msgpack:"keys"`
+		Names        []string   `json:"names" msgpack:"names"`
+		Types        []string   `json:"types" msgpack:"types"`
+		IncludeState bool       `json:"include_state" msgpack:"include_state"`
+		Search       string     `json:"search" msgpack:"search"`
+		Limit        int        `json:"limit" msgpack:"limit"`
+		Offset       int        `json:"offset" msgpack:"offset"`
+	}
+	HardwareRetrieveTaskResponse struct {
+		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+	}
+)
 
 func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrieveTaskRequest) (res HardwareRetrieveTaskResponse, _ error) {
 	var (
@@ -194,6 +237,13 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 			}
 		}
 	}
+	if err = svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Object:  task.OntologyIDsFromTasks(res.Tasks),
+	}); err != nil {
+		return HardwareRetrieveTaskResponse{}, err
+	}
 	return res, err
 }
 
@@ -202,6 +252,13 @@ type HardwareDeleteTaskRequest struct {
 }
 
 func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTaskRequest) (res types.Nil, _ error) {
+	if err := svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Object:  task.OntologyIDs(req.Keys),
+	}); err != nil {
+		return res, err
+	}
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Task.NewWriter(tx)
 		for _, k := range req.Keys {
@@ -222,6 +279,13 @@ type HardwareCreateDeviceResponse struct {
 }
 
 func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreateDeviceRequest) (res HardwareCreateDeviceResponse, _ error) {
+	if err := svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Object:  []ontology.ID{device.OntologyID("")},
+	}); err != nil {
+		return res, err
+	}
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Device.NewWriter(tx)
 		for _, d := range req.Devices {
@@ -275,6 +339,17 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	if hasMakes {
 		q = q.WhereMakes(req.Makes...)
 	}
+	err := q.Entries(&res.Devices).Exec(ctx, nil)
+	if err != nil {
+		return res, err
+	}
+	if err = svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Object:  device.OntologyIDsFromDevices(res.Devices),
+	}); err != nil {
+		return HardwareRetrieveDeviceResponse{}, err
+	}
 	return res, q.Entries(&res.Devices).Exec(ctx, nil)
 }
 
@@ -283,6 +358,13 @@ type HardwareDeleteDeviceRequest struct {
 }
 
 func (svc *HardwareService) DeleteDevice(ctx context.Context, req HardwareDeleteDeviceRequest) (res types.Nil, _ error) {
+	if err := svc.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Object:  device.OntologyIDs(req.Keys),
+	}); err != nil {
+		return res, err
+	}
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Device.NewWriter(tx)
 		for _, k := range req.Keys {

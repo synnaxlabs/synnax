@@ -16,7 +16,7 @@ import (
 
 type Request struct {
 	Subject ontology.ID
-	Object  ontology.ID
+	Object  []ontology.ID
 	Action  Action
 }
 

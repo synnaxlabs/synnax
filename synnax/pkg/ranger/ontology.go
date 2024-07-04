@@ -12,6 +12,7 @@ package ranger
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	changex "github.com/synnaxlabs/x/change"
@@ -26,6 +27,12 @@ func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
 
+func OntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
+	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID {
+		return OntologyID(k)
+	})
+}
+
 func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -35,6 +42,12 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 		}
 	}
 	return keys, nil
+}
+
+func OntologyIDsFromRanges(ranges []Range) (ids []ontology.ID) {
+	return lo.Map(ranges, func(r Range, _ int) ontology.ID {
+		return OntologyID(r.Key)
+	})
 }
 
 var _schema = &ontology.Schema{

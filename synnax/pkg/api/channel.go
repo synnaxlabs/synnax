@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"go/types"
 
@@ -44,15 +45,17 @@ type Channel struct {
 // ChannelService is the central API for all things Channel related.
 type ChannelService struct {
 	dbProvider
+	accessProvider
 	internal channel.Service
 	ranger   *ranger.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
-		internal:   p.Config.Channel,
-		ranger:     p.Config.Ranger,
-		dbProvider: p.db,
+		accessProvider: p.access,
+		internal:       p.Config.Channel,
+		ranger:         p.Config.Ranger,
+		dbProvider:     p.db,
 	}
 }
 
@@ -208,7 +211,13 @@ func (s *ChannelService) Retrieve(
 			}
 		}
 	}
-
+	if err = s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Object:  channel.OntologyIDsFromChannels(resChannels),
+	}); err != nil {
+		return ChannelRetrieveResponse{}, err
+	}
 	return ChannelRetrieveResponse{Channels: oChannels}, err
 }
 
@@ -266,11 +275,30 @@ func (s *ChannelService) Delete(
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
+				if err := s.enforcer.Enforce(ctx, access.Request{
+					Subject: getSubject(ctx),
+					Action:  access.Delete,
+					Object:  req.Keys.OntologyIDs(),
+				}); err != nil {
+					return err
+				}
 				return w.DeleteMany(ctx, req.Keys, false)
 			})
 		}
 		if len(req.Names) > 0 {
 			c.Exec(func() error {
+				res := make([]channel.Channel, 0, len(req.Names))
+				err := s.internal.NewRetrieve().WhereNames(req.Names...).Entries(&res).Exec(ctx, tx)
+				if err != nil {
+					return err
+				}
+				if err = s.enforcer.Enforce(ctx, access.Request{
+					Subject: getSubject(ctx),
+					Action:  access.Delete,
+					Object:  channel.OntologyIDsFromChannels(res),
+				}); err != nil {
+					return err
+				}
 				return w.DeleteManyByNames(ctx, req.Names, false)
 			})
 		}
