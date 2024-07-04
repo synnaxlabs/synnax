@@ -21,18 +21,18 @@
   },
   "dependencies": {
     "js-convert-case": "^4.2.0",
-    "nanoid": "^3.0.0",
+    "nanoid": "^5.0.7",
     "zod": "3.23.8"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^20.12.7",
-    "@vitest/coverage-v8": "^1.5.0",
+    "@types/node": "^20.14.9",
+    "@vitest/coverage-v8": "^1.6.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "vitest": "^1.5.0",
-    "vite": "5.2.11",
-    "typescript": "^5.4.5"
+    "typescript": "^5.5.3",
+    "vite": "5.3.3",
+    "vitest": "^1.6.0"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
