@@ -3,17 +3,17 @@
   "private": true,
   "scripts": {
     "build": "npx turbo build --cache-dir=./.turbo-cache",
-    "build:pluto": "npx turbo build --filter pluto --cache-dir=.turbo-cache",
-    "build:console": "npx turbo build --filter console --cache-dir=.turbo-cache",
-    "build:freighter": "npx turbo build --filter freighter --cache-dir=.turbo-cache",
-    "build:client": "npx turbo build --filter client --cache-dir=.turbo-cache",
-    "build:drift": "npx turbo build --filter drift --cache-dir=.turbo-cache",
-    "build:alamos": "npx turbo build --filter alamos --cache-dir=.turbo-cache",
-    "build:vite-plugin": "npx turbo build --filter vite-plugin --cache-dir=.turbo-cache",
-    "build:x": "npx turbo build --filter x --cache-dir=.turbo-cache",
-    "build:docs": "npx turbo build --filter docs --cache-dir=.turbo-cache",
-    "build:media": "npx turbo build --filter media --cache-dir=.turbo-cache",
-    "build:landing": "npx turbo build --filter landing --cache-dir=.turbo-cache",
+    "build:pluto": "npx turbo build --filter @synnaxlabs/pluto --cache-dir=.turbo-cache",
+    "build:console": "npx turbo build --filter @synnaxlabs/console --cache-dir=.turbo-cache",
+    "build:freighter": "npx turbo build --filter @synnaxlabs/freighter --cache-dir=.turbo-cache",
+    "build:client": "npx turbo build --filter @synnaxlabs/client --cache-dir=.turbo-cache",
+    "build:drift": "npx turbo build --filter @synnaxlabs/drift --cache-dir=.turbo-cache",
+    "build:alamos": "npx turbo build --filter @synnaxlabs/alamos --cache-dir=.turbo-cache",
+    "build:vite-plugin": "npx turbo build --filter @synnaxlabs/vite-plugin --cache-dir=.turbo-cache",
+    "build:x": "npx turbo build --filter @synnaxlabs/x --cache-dir=.turbo-cache",
+    "build:docs": "npx turbo build --filter @synnaxlabs/docs --cache-dir=.turbo-cache",
+    "build:media": "npx turbo build --filter @synnaxlabs/media --cache-dir=.turbo-cache",
+    "build:landing": "npx turbo build --filter @synnaxlabs/landing --cache-dir=.turbo-cache",
     "watch": "npx turbo watch --parallel",
     "watch:pluto": "npx turbo watch --filter pluto",
     "watch:freighter": "npx turbo watch --filter freighter",
@@ -58,7 +58,7 @@
   },
   "devDependencies": {
     "prettier": "3.2.5",
-    "turbo": "^1.13.3"
+    "turbo": "^2.0.6"
   },
   "engines": {
     "node": ">=18"
@@ -86,5 +86,7 @@
       "@tauri-apps/api": "^2.0.0-beta.14",
       "eslint": "^9.6.0"
     }
-  }
+  },
+  "packageManager": "pnpm@9.4.0",
+  "name": "synnax"
 }
