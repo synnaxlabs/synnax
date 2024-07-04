@@ -143,7 +143,7 @@ var _ = Describe("FS", func() {
 						n, err := file.Write([]byte("tacocat"))
 						Expect(err).ToNot(BeNil())
 						Expect(n).To(Equal(0))
-						Expect(f.Close()).To(Succeed())
+						Expect(file.Close()).To(Succeed())
 
 						file, err = fs.Open("test_file.txt", os.O_WRONLY)
 						Expect(err).ToNot(HaveOccurred())
