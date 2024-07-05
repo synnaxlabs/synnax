@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type { ErrorPayload, TypedError } from "@/errors";
+export type { ErrorPayload, MatchableErrorType, TypedError } from "@/errors";
 export {
   BaseTypedError,
   decodeError,

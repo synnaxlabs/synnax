@@ -29,6 +29,7 @@ export interface Field {
 export class ValidationError extends BaseTypedError {
   static readonly TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation";
   type = ValidationError.TYPE;
+  static readonly matches = errorMatcher(ValidationError.TYPE);
 }
 
 export class FieldError extends ValidationError {
@@ -126,6 +127,7 @@ export class ControlError extends BaseTypedError {
 
 export class UnauthorizedError extends ControlError {
   static readonly TYPE = ControlError.TYPE + ".unauthorized";
+  type = UnauthorizedError.TYPE;
   static readonly matches = errorMatcher(UnauthorizedError.TYPE);
 }
 

@@ -10,6 +10,15 @@
 import { URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
+/** Basic interface for an error or error type that can be matched against a candidate error */
+export interface MatchableErrorType {
+  /**
+   * @returns a function that matches errors of the given type. Returns true if
+   * the provided instance of Error or a string message contains the provided error type.
+   */
+  matches: (e: string | Error | unknown) => boolean;
+}
+
 export interface TypedError extends Error {
   discriminator: "FreighterError";
   /**
@@ -163,8 +172,8 @@ const FREIGHTER_ERROR_TYPE = "freighter.";
 /** Thrown/returned when a stream closed normally. */
 export class EOF extends BaseTypedError implements TypedError {
   static readonly TYPE = FREIGHTER_ERROR_TYPE + "eof";
-  static readonly matches = errorMatcher(EOF.TYPE);
   type = EOF.TYPE;
+  static readonly matches = errorMatcher(EOF.TYPE);
 
   constructor() {
     super("EOF");
@@ -202,7 +211,7 @@ export class Unreachable extends BaseTypedError implements TypedError {
 }
 
 const freighterErrorEncoder: ErrorEncoder = (error: TypedError) => {
-  if (error.type !== FREIGHTER) return null;
+  if (!error.type.startsWith(FREIGHTER)) return null;
   if (EOF.matches(error)) return { type: EOF.TYPE, data: "EOF" };
   if (StreamClosed.matches(error))
     return { type: StreamClosed.TYPE, data: "StreamClosed" };

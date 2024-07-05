@@ -34,7 +34,8 @@ class MyCustomError extends BaseTypedError {
   }
 }
 
-const myCustomErrorEncoder = (error: MyCustomError): ErrorPayload => {
+const myCustomErrorEncoder = (error: MyCustomError): ErrorPayload | null => {
+  if (error.type !== "MyCustomError") return null;
   return { type: "MyCustomError", data: error.message };
 };
 
