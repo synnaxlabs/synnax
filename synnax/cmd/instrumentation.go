@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/cmd/internal/invariants"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -54,6 +55,8 @@ func configureLogger() (logger *alamos.Logger, err error) {
 	} else {
 		cfg = zap.NewProductionConfig()
 	}
+	cfg.Development = invariants.IsDevelopment
+
 	if verbose || debug {
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
