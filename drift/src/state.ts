@@ -240,20 +240,22 @@ const slice = createSlice({
       if (label == null || prerenderLabel == null)
         throw new Error("[drift] - bug - missing label and prerender label");
 
-      // If the window already exists, just focus it
+      const mainWin = s.windows.main;
+      // If the user hasn't explicitly specified a position, we'll center it in the main
+      // window for the nicest experience.
+      payload.position = maybePositionInCenter(mainWin, payload.position, payload.size);
+
+      // If the window already exists, un-minimize and focus it
       if (key in s.keyLabels) {
         const label = s.keyLabels[payload.key];
         s.windows[label].visible = true;
         s.windows[label].focusCount += 1;
+        s.windows[label].minimized = false;
+        s.windows[label].position = payload.position;
         return;
       }
 
-      const mainWin = s.windows.main;
-
-      // If the user hasn't explicitly specified a position, we'll center it in the main
-      // window for the nicest experience.
-      payload = maybePositionInCenter(payload, mainWin);
-
+      
       const [availableLabel, available] = Object.entries(s.windows).find(
         ([, w]) => !w.reserved,
       ) ?? [null, null];
@@ -419,15 +421,16 @@ export const shouldEmit = (emitted: boolean, type: string): boolean =>
   !emitted && !EXCLUDED_ACTIONS.includes(type);
 
 const maybePositionInCenter = (
-  pld: CreateWindowPayload,
   mainWin: WindowState,
-): CreateWindowPayload => {
-  if (mainWin.position != null && mainWin.size != null && pld.position == null)
-    pld.position = box.topLeft(
+  position?: xy.XY,
+  size?: dimensions.Dimensions,
+): xy.XY | undefined => {
+  if (mainWin.position != null && mainWin.size != null && position == null)
+    return box.topLeft(
       box.positionInCenter(
-        box.construct(xy.ZERO, pld.size ?? xy.ZERO),
+        box.construct(xy.ZERO, size ?? xy.ZERO),
         box.construct(mainWin.position, mainWin.size),
       ),
     );
-  return pld;
+  return position;
 };

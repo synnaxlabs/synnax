@@ -152,23 +152,27 @@ export const resize: Resize = (
 /**
  * Checks if a box contains a point or another box.
  *
- * @param value - The point or box to check.
+ * @param container - The container box to check against.
+ * @param value - The point or box to check if it is contained in the container.
+ * @param inclusive - Whether the edges of the box are inclusive or exclusive.
  * @returns true if the box inclusively contains the point or box and false otherwise.
  */
-export const contains = (b: Crude, value: Box | xy.XY): boolean => {
-  const b_ = construct(b);
+export const contains = (container: Crude, value: Box | xy.XY, inclusive: boolean = true): boolean => {
+  const b_ = construct(container);
+  let comp = (a: number, b: number) => a < b;
+  if (inclusive) comp = (a: number, b: number) => a <= b;
   if ("one" in value)
     return (
-      left(value) >= left(b_) &&
-      right(value) <= right(b_) &&
-      top(value) >= top(b_) &&
-      bottom(value) <= bottom(b_)
+      comp(left(b_), left(value)) &&
+      comp(right(value), right(b_)) &&
+      comp(top(b_), top(value)) &&
+      comp(bottom(value), bottom(b_))
     );
   return (
-    value.x >= left(b_) &&
-    value.x <= right(b_) &&
-    value.y >= top(b_) &&
-    value.y <= bottom(b_)
+    comp(left(b_), value.x) &&
+    comp(value.x, right(b_)) &&
+    comp(top(b_), value.y) &&
+    comp(value.y, bottom(b_))
   );
 };
 
