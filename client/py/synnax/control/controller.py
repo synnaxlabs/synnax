@@ -182,10 +182,7 @@ class Controller:
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
         res = retrieve_required(self._retriever, channels)
-        return self.wait_until(
-            lambda c: all(v.key in c.state for v in res),
-            timeout
-        )
+        return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
 
     def release(self):
         """Release control and shuts down the controller. No further control operations
@@ -195,9 +192,7 @@ class Controller:
         self._receiver.close()
 
     def __setitem__(
-        self,
-        ch: ChannelKey | ChannelName | ChannelPayload,
-        value: int | float
+        self, ch: ChannelKey | ChannelName | ChannelPayload, value: int | float
     ):
         self.set(ch, value)
 
@@ -226,9 +221,7 @@ class Controller:
         ...
 
     def get(
-        self,
-        ch: ChannelKey | ChannelName,
-        default: int | float = None
+        self, ch: ChannelKey | ChannelName, default: int | float = None
     ) -> int | float | None:
         """Gets the most recent value for the provided channel, and returns the default
         value if no value has been received yet.
@@ -249,7 +242,8 @@ class Controller:
         try:
             return self._receiver.state[ch.key]
         except KeyError:
-            raise KeyError(f"""
+            raise KeyError(
+                f"""
             Channel {ch} not found in controller state. This is for one of two reasons:
 
             1. The channel was not included in the read_from argument passed to
@@ -258,7 +252,8 @@ class Controller:
             2. No data has been received for the channel yet. If you'd like to block
             until a value exists for the channel in state, use the wait_until_defined
             method.
-            """)
+            """
+            )
 
     def __getattr__(self, item):
         try:

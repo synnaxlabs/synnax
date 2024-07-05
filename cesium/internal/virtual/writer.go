@@ -14,44 +14,54 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var errWriterClosed = core.EntityClosed("virtual.writer")
 
-func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	if db.closed.Load() {
-		return nil, transfer, db.wrapError(dbClosed)
-	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, wrapError: db.wrapError, onClose: func() { db.entityCount.add(-1) }}
-	gateCfg := controller.GateConfig{
-		TimeRange: cfg.domain(),
-		Authority: cfg.Authority,
-		Subject:   cfg.Subject,
-	}
-	var g *controller.Gate[*controlEntity]
-	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlEntity, error) {
-		a := telem.AlignmentPair(0)
-		return &controlEntity{
-			ck:    db.Channel.Key,
-			align: a,
-		}, nil
-	})
-	w.control = g
-	db.entityCount.add(1)
-	return w, transfer, db.wrapError(err)
+type WriterConfig struct {
+	Subject           control.Subject
+	Start             telem.TimeStamp
+	End               telem.TimeStamp
+	Authority         control.Authority
+	ErrOnUnauthorized *bool
 }
 
-type WriterConfig struct {
-	Subject   control.Subject
-	Start     telem.TimeStamp
-	End       telem.TimeStamp
-	Authority control.Authority
+var (
+	_                   config.Config[WriterConfig] = WriterConfig{}
+	DefaultWriterConfig                             = WriterConfig{}
+)
+
+func (cfg WriterConfig) Validate() error {
+	v := validate.New("virtual.WriterConfig")
+	validate.NotEmptyString(v, "Subject.Key", cfg.Subject.Key)
+	validate.NotNil(v, "ErrONUnauthorized", cfg.ErrOnUnauthorized)
+	return v.Error()
+}
+
+func (cfg WriterConfig) Override(other WriterConfig) WriterConfig {
+	cfg.Start = override.Zero(cfg.Start, other.Start)
+	cfg.End = override.Zero(cfg.End, other.End)
+	cfg.Subject = override.If(cfg.Subject, other.Subject, other.Subject.Key != "")
+	cfg.Authority = override.Numeric(cfg.Authority, other.Authority)
+	cfg.ErrOnUnauthorized = override.Nil(cfg.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	return cfg
 }
 
 func (cfg WriterConfig) domain() telem.TimeRange {
 	return telem.TimeRange{Start: cfg.Start, End: lo.Ternary(cfg.End.IsZero(), telem.TimeStampMax, cfg.End)}
+}
+
+func (cfg WriterConfig) gateConfig() controller.GateConfig {
+	return controller.GateConfig{
+		TimeRange: cfg.domain(),
+		Authority: cfg.Authority,
+		Subject:   cfg.Subject,
+	}
 }
 
 type Writer struct {
@@ -63,6 +73,42 @@ type Writer struct {
 	WriterConfig
 }
 
+func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
+	if db.closed.Load() {
+		err = dbClosed
+		return nil, transfer, db.wrapError(err)
+	}
+	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	if err != nil {
+		return nil, transfer, db.wrapError(err)
+	}
+	w = &Writer{
+		WriterConfig: cfg,
+		Channel:      db.Channel,
+		wrapError:    db.wrapError,
+		onClose:      func() { db.entityCount.add(-1) },
+	}
+	var g *controller.Gate[*controlEntity]
+	g, transfer, err = db.controller.OpenGateAndMaybeRegister(
+		cfg.gateConfig(),
+		func() (*controlEntity, error) {
+			return &controlEntity{ck: db.Channel.Key, alignment: 0}, nil
+		},
+	)
+	if err != nil {
+		return nil, transfer, db.wrapError(err)
+	}
+	if *cfg.ErrOnUnauthorized {
+		if _, err = g.Authorize(); err != nil {
+			g.Release()
+			return nil, transfer, db.wrapError(err)
+		}
+	}
+	w.control = g
+	db.entityCount.add(1)
+	return w, transfer, db.wrapError(err)
+}
+
 func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if w.closed {
 		return 0, w.wrapError(errWriterClosed)
@@ -70,13 +116,13 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	e, ok := w.control.Authorize()
-	if !ok {
-		return 0, nil
+	e, err := w.control.Authorize()
+	if err != nil {
+		return 0, w.wrapError(err)
 	}
-	a := e.align
+	a := e.alignment
 	if series.DataType.Density() != telem.DensityUnknown {
-		e.align += telem.AlignmentPair(series.Len())
+		e.alignment += telem.AlignmentPair(series.Len())
 	}
 	return a, nil
 }

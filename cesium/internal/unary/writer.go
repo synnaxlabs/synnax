@@ -54,6 +54,10 @@ type WriterConfig struct {
 	// disk.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
+	// ErrOnUnauthorized controls whether the writer will return an error on open when
+	// attempting to write to a channel that is does not have authority over.
+	// [OPTIONAL] - Defaults to false
+	ErrOnUnauthorized *bool
 }
 
 var (
@@ -62,6 +66,7 @@ var (
 		Persist:                  config.True(),
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
+		ErrOnUnauthorized:        config.False(),
 	}
 	errWriterClosed = core.EntityClosed("unary.writer")
 )
@@ -71,6 +76,7 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
+	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }
@@ -83,6 +89,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Persist = override.Nil(c.Persist, other.Persist)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	return c
 }
 
@@ -122,22 +129,25 @@ type Writer struct {
 	// closed stores whether the writer is closed. Operations like Write and Commit do not
 	// succeed on closed writers.
 	closed bool
+	// virtualAlignment tracks the alignment of the writer when persist is off.
+	virtualAlignment uint32
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	if db.closed.Load() {
 		return nil, transfer, db.wrapError(errDBClosed)
 	}
-
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)
 	if err != nil {
 		return nil, transfer, err
 	}
-	w = &Writer{WriterConfig: cfg,
+	w = &Writer{
+		WriterConfig:     cfg,
 		Channel:          db.Channel,
 		idx:              db.index(),
 		decrementCounter: func() { db.entityCount.add(-1) },
 		wrapError:        db.wrapError,
+		virtualAlignment: 0,
 	}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
@@ -147,16 +157,17 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	var g *controller.Gate[controlledWriter]
 	g, transfer, err = db.Controller.OpenGateAndMaybeRegister(gateCfg, func() (controlledWriter, error) {
 		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
-
-		return controlledWriter{
-			Writer:     dw,
-			channelKey: db.Channel.Key,
-		}, err
+		return controlledWriter{Writer: dw, channelKey: db.Channel.Key}, err
 	})
 	if err != nil {
 		return nil, transfer, w.wrapError(err)
 	}
-
+	if *cfg.ErrOnUnauthorized {
+		if _, err = g.Authorize(); err != nil {
+			g.Release()
+			return nil, transfer, err
+		}
+	}
 	w.control = g
 	db.entityCount.add(1)
 	return w, transfer, w.wrapError(err)
@@ -191,6 +202,8 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 	return w.Channel.DataType.Density().SampleCount(telem.Size(dw.Len()))
 }
 
+const leadingEdge = math.MaxUint32
+
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if w.closed {
@@ -199,22 +212,22 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if err = w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	dw, ok := w.control.Authorize()
-	if !ok {
-		return 0, controller.Unauthorized(w.control.Subject, w.Channel.Key)
+	dw, err := w.control.Authorize()
+	if err != nil {
+		return 0, w.wrapError(err)
 	}
-	a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
-
 	if *w.Persist {
+		a = telem.NewAlignmentPair(leadingEdge, uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
+	} else {
+		a = telem.NewAlignmentPair(leadingEdge, w.virtualAlignment)
+		w.virtualAlignment += uint32(series.Len())
 	}
 	return a, w.wrapError(err)
 }
-
-func (w *Writer) SetPersist(persist bool) { w.Persist = config.Bool(persist) }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 	return w.control.SetAuthority(a)
@@ -250,9 +263,9 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 }
 
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
-	dw, ok := w.control.Authorize()
-	if !ok {
-		return 0, controller.Unauthorized(w.control.Subject, w.Channel.Key)
+	dw, err := w.control.Authorize()
+	if err != nil {
+		return 0, err
 	}
 
 	if end.IsZero() {

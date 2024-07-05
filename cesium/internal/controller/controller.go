@@ -52,12 +52,19 @@ func (g *Gate[E]) State() *State {
 	}
 }
 
-// Authorize authorizes the gates access to the entity. If another gate has precedence,
-// Authorize will return false.
-func (g *Gate[E]) Authorize() (e E, ok bool) {
+// Authorized authorizes the gates access to the entity. If another gate has precedence,
+// Authorized will return false.
+func (g *Gate[E]) Authorized() (e E, ok bool) {
+	e, err := g.Authorize()
+	return e, err == nil
+}
+
+func (g *Gate[E]) Authorize() (e E, err error) {
 	g.r.RLock()
+	defer g.r.RUnlock()
 	// In the case of exclusive concurrency, we only need to check if the gate is the
 	// current gate.
+	var ok bool
 	if g.concurrency == control.Exclusive {
 		ok = g.r.curr == g
 	} else {
@@ -65,11 +72,16 @@ func (g *Gate[E]) Authorize() (e E, ok bool) {
 		// or higher authority than the current gate.
 		ok = g.Authority >= g.r.curr.Authority
 	}
-	g.r.RUnlock()
 	if !ok {
-		return e, false
+		currState := g.r.curr.State()
+		return e, errors.Wrapf(
+			control.Unauthorized,
+			"%s has no control authority - it is currently held by %s",
+			g.Subject,
+			currState.Subject,
+		)
 	}
-	return g.r.entity, ok
+	return g.r.entity, nil
 }
 
 // Release releases the gate's access to the entity. If the gate is the last gate in
@@ -351,7 +363,9 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 			r.Lock()
 			if r.curr != nil {
 				r.Unlock()
-				return nil, t, errors.Wrapf(ErrRegionOverlap, "timerange %v overlaps with a controlled region with bounds %v controlled by %v", tr, r.timeRange, r.curr.Subject)
+				return nil, t, errors.Wrapf(
+					control.Unauthorized,
+					"timerange %v overlaps with a controlled region with bounds %v controlled by %v", tr, r.timeRange, r.curr.Subject)
 			}
 
 			g = &Gate[E]{

@@ -58,44 +58,18 @@ void customLogger(
     const char *msg,
     va_list args
 ) {
-    std::string prefix = "opc.scanner";
-    // try {
-    //     if (!logContext) {
-    //         throw std::runtime_error("logContext is nullptr");
-    //     }
-    //
-    //     std::string* prefixPtr = static_cast<std::string*>(logContext);
-    //     if (!prefixPtr) {
-    //         throw std::runtime_error("logContext is not a valid std::string pointer");
-    //     }
-    //
-    //     prefix = *prefixPtr;
-    //     if (prefix.empty()) {
-    //         prefix = "";
-    //     }
-    // } catch (const std::bad_cast& e) {
-    //     // Handle bad cast exception
-    //     std::cerr << "Bad cast: " << e.what() << std::endl;
-    // } catch (const std::exception& e) {
-    //     // Handle other standard exceptions
-    //     std::cerr << "Exception: " << e.what() << std::endl;
-    // } catch (...) {
-    //     // Handle any other exceptions
-    //     std::cerr << "Unknown exception occurred" << std::endl;
-    // }
+    const std::string prefix = "[opc] ";
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), msg, args);
     switch (level) {
         case UA_LOGLEVEL_TRACE:
         case UA_LOGLEVEL_DEBUG:
         case UA_LOGLEVEL_INFO:
+        case UA_LOGLEVEL_WARNING:
             VLOG(1) << prefix << buffer;
             break;
-        case UA_LOGLEVEL_WARNING:
-            LOG(WARNING) << prefix << buffer;
-            break;
         case UA_LOGLEVEL_ERROR:
-            LOG(ERROR) << prefix << buffer;
+            LOG(WARNING) << prefix << buffer;
             break;
         case UA_LOGLEVEL_FATAL:
             LOG(FATAL) << prefix << buffer;
@@ -139,7 +113,6 @@ UA_ByteString convertStringToUAByteString(const std::string &certString) {
 
 // Function to extract URI from client certificate using mbedtls
 std::string extractApplicationUriFromCert(const std::string &certPath) {
-    std::cout << "extracting application URI" << std::endl;
     mbedtls_x509_crt crt;
     mbedtls_x509_crt_init(&crt);
 
@@ -180,7 +153,6 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
     // Clean up
     UA_ByteString_clear(&certData);
     mbedtls_x509_crt_free(&crt);
-    std::cout << "extracting application URI" << std::endl;
     return applicationUri;
 }
 
@@ -204,10 +176,7 @@ freighter::Error configureEncryption(
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
     else
         client_config->securityMode = UA_MESSAGESECURITYMODE_NONE;
-    if (cfg.security_policy == "None") {
-        LOG(ERROR) << "[opc.scanner] Missing encryption configuration";
-        return freighter::NIL;
-    }
+    if (cfg.security_policy == "None") return freighter::NIL;
     client_config->privateKeyPasswordCallback = privateKeyPasswordCallBack;
     std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
@@ -264,7 +233,8 @@ void fetchEndpointDiagnosticInfo(
         // get the client config
         // get config.userIdentityToken.content.decoded.type
         if (ep.securityPolicyUri.data)
-            LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.securityPolicyUri.data;
+            LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.
+                    securityPolicyUri.data;
         auto security_mode = ep.securityMode;
         if (security_mode == UA_MESSAGESECURITYMODE_NONE)
             LOG(INFO) << "[opc.scanner] \t security: unencrypted";
@@ -273,24 +243,24 @@ void fetchEndpointDiagnosticInfo(
         else if (security_mode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT)
             LOG(INFO) << "[opc.scanner] \t security: signed and encrypted";
 
-        const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
+        // const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
 
         for (size_t j = 0; j < ep.userIdentityTokensSize; j++) {
             UA_UserTokenPolicy policy = ep.userIdentityTokens[j];
             if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS)
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
-             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
-                LOG(INFO) << "[opc.scanner] \t supports username/password authentication";
-             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
+            else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
+                LOG(INFO) <<
+                        "[opc.scanner] \t supports username/password authentication";
+            else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
                 LOG(INFO) << "[opc.scanner] \t supports issued token authentication";
-             else if (policy.tokenType == UA_USERTOKENTYPE_CERTIFICATE)
+            else if (policy.tokenType == UA_USERTOKENTYPE_CERTIFICATE)
                 LOG(INFO) << "[opc.scanner] \t supports certificate authentication";
-             else
+            else
                 LOG(INFO) << "[opc.scanner] \t supports unknown authentication type";
         }
     }
 }
-
 
 
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
@@ -302,7 +272,6 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
     config->logging->context = &log_prefix;
-    LOG(INFO) << "[opc.scanner] Configuring encryption";
     configureEncryption(cfg, client);
     UA_StatusCode status;
     if (!cfg.username.empty() || !cfg.password.empty()) {
@@ -327,10 +296,10 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
 
     const auto status_name = UA_StatusCode_name(status);
-    LOG(ERROR) << "[opc.scanner] Failed to connect: " << std::string(status_name);
+    LOG(WARNING) << "[opc.scanner] failed to connect: " << std::string(status_name);
     return {
         std::move(client),
         freighter::Error(freighter::TYPE_UNREACHABLE,
-                         "Failed to connect: " + std::string(status_name))
+                         "failed to connect: " + std::string(status_name))
     };
 }

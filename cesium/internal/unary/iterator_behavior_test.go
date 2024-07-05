@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -98,6 +99,38 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Prev(ctx, 1*telem.Second)).To(BeFalse())
 						Expect(iter.Close()).To(Succeed())
 					})
+					Specify("Next and Prev", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15))).To(Succeed())
+
+						Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSecondsTSV(16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, db, 16*telem.SecondTS, telem.NewSeriesV[int64](16, 17, 18, 19))).To(Succeed())
+
+						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 23))).To(Succeed())
+						Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 23))).To(Succeed())
+
+						iter := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+						// Iter window: [15*telem.SecondTS, 18*telem.SecondTS)
+						Expect(iter.SeekGE(ctx, 15*telem.SecondTS)).To(BeTrue())
+						Expect(iter.Next(ctx, 3*telem.Second)).To(BeTrue())
+						Expect(iter.Value().Series).To(HaveLen(2))
+						Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{15}))
+						Expect(iter.Value().Series[1].Data).To(EqualUnmarshal([]int64{16, 17}))
+
+						// Iter window: [12*telem.SecondTS, 15*telem.SecondTS)
+						Expect(iter.Prev(ctx, 3*telem.Second)).To(BeTrue())
+						Expect(iter.Value().Series).To(HaveLen(1))
+						Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{12, 13, 14}))
+
+						// Iter window: [15*telem.SecondTS, 22*telem.SecondTS)
+						Expect(iter.Next(ctx, 7*telem.Second)).To(BeTrue())
+						Expect(iter.Value().Series).To(HaveLen(3))
+						Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{15}))
+						Expect(iter.Value().Series[1].Data).To(EqualUnmarshal([]int64{16, 17, 18, 19}))
+						Expect(iter.Value().Series[2].Data).To(EqualUnmarshal([]int64{20}))
+
+						Expect(iter.Close()).To(Succeed())
+					})
 					Specify("Value", func() {
 						// Test case added to fix the bug where immediately contiguous
 						// domains get flipped in order by read.
@@ -164,7 +197,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 					})
 					Describe("Auto Exhaustion", func() {
-						Specify("Single Domain", func() {
+						Specify("Single Domain - Leftover chunk", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							iter := db.OpenIterator(unary.IteratorConfig{
@@ -180,6 +213,25 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Len()).To(Equal(int64(2)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 							Expect(iter.Len()).To(Equal(int64(1)))
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+							Expect(iter.Close()).To(Succeed())
+						})
+						Specify("Single Domain - Full number chunks in domain", func() {
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17))).To(Succeed())
+							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8))).To(Succeed())
+							iter := db.OpenIterator(unary.IteratorConfig{
+								Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
+								AutoChunkSize: 2,
+							})
+							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
@@ -251,6 +303,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								AutoChunkSize: 2,
 							})
 							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							Expect(iter.Valid()).To(BeFalse())
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 							Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(2 * telem.Second)))
 							Expect(iter.Len()).To(Equal(int64(2)))
@@ -285,6 +338,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							})
 							Expect(iter.SeekGE(ctx, 5*telem.SecondTS)).To(BeTrue())
 							Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(0)))
+							Expect(iter.Valid()).To(BeFalse())
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 							Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(3 * telem.Second)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
@@ -365,6 +419,269 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Len()).To(Equal(int64(5)))
 							Expect(iter.Close()).To(Succeed())
 						})
+						Describe("Regression tests: discontinuity", func() {
+							BeforeEach(func() {
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+								Expect(unary.Write(ctx, indexDB, 0, telem.NewSecondsTSV(0, 1, 4, 6))).To(Succeed())
+								Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 4, 6))).To(Succeed())
+								Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12))).To(Succeed())
+								Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12))).To(Succeed())
+								Expect(unary.Write(ctx, indexDB, 13*telem.SecondTS, telem.NewSecondsTSV(13, 15, 17))).To(Succeed())
+								Expect(unary.Write(ctx, db, 13*telem.SecondTS, telem.NewSeriesV[int64](13, 15, 17))).To(Succeed())
+							})
+							Specify("Multiple domain - Forward - View in discontinuity", func() {
+								// This test is to address an error where if an iterator
+								// first moves to a discontinuity in the index (no data),
+								// then moves to a view that overlaps more than one domain,
+								// it is unable to parse the first domain in the second view.
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+								By("Opening an iterator")
+								iter := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+								Expect(iter.SeekFirst(ctx)).To(BeTrue())
+								Expect(iter.Next(ctx, 7*telem.Second)).To(BeTrue())
+								f := iter.Value()
+								Expect(f.Series).To(HaveLen(1))
+								Expect(f.Series[0].Data).To(EqualUnmarshal([]int64{0, 1, 4, 6}))
+								Expect(f.Series[0].TimeRange).To(Equal((0 * telem.SecondTS).Range(6*telem.SecondTS + 1)))
+
+								By("Placing the iterator in the discontinuity")
+								// Iterator now has view [7*telem.SecondTS, 9*telem.SecondTS)
+								Expect(iter.Next(ctx, 2*telem.Second)).To(BeFalse())
+
+								By("Moving it out")
+								// Iterator now has view [9*telem.SecondTS, 15*telem.SecondTS)
+								Expect(iter.Next(ctx, 6*telem.Second)).To(BeTrue())
+								f = iter.Value()
+								Expect(f.Series).To(HaveLen(2))
+								Expect(f.Series[0].Data).To(EqualUnmarshal([]int64{10, 11, 12}))
+								Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+								Expect(f.Series[1].Data).To(EqualUnmarshal([]int64{13}))
+								Expect(f.Series[1].TimeRange).To(Equal((13 * telem.SecondTS).Range(15 * telem.SecondTS)))
+
+								// Iterator now has view [15*telem.SecondTS, 20*telem.SecondTS)
+								Expect(iter.Next(ctx, 5*telem.Second)).To(BeTrue())
+								f = iter.Value()
+								Expect(f.Series).To(HaveLen(1))
+								Expect(f.Series[0].Data).To(EqualUnmarshal([]int64{15, 17}))
+								Expect(f.Series[0].TimeRange).To(Equal((15 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
+
+								Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
+								Expect(iter.Close()).To(Succeed())
+							})
+							Specify("Multiple domain - Forward - uneven crossing", func() {
+								// This test addresses the bug where if an iterator reads
+								// a domain but does not read all of it, the internal
+								// iterator still moves on to the next domain.
+								By("Opening an iterator")
+								i := db.OpenIterator(unary.IterRange((2 * telem.SecondTS).Range(15 * telem.SecondTS)))
+
+								// 0  1  || 4  6 / 10  11  12 / 13  || 15  17
+								// 0  1  || 4  6 / 10  11  12 / 13  || 15  17
+
+								Expect(i.SeekFirst(ctx)).To(BeTrue())
+								Expect(i.Valid()).To(BeFalse())
+
+								// Current iterator view: [2*telem.SecondTS, 11*telem.SecondTS)
+								Expect(i.Next(ctx, 9*telem.Second)).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(2))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{4, 6}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((2 * telem.SecondTS).Range(6*telem.SecondTS + 1)))
+								Expect(i.Value().Series[1].Data).To(EqualUnmarshal([]int64{10}))
+								Expect(i.Value().Series[1].TimeRange).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
+
+								// Current iterator view: [11*telem.SecondTS, 14*telem.SecondTS)
+								Expect(i.Next(ctx, 3*telem.Second)).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(2))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{11, 12}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((11 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+								Expect(i.Value().Series[1].Data).To(EqualUnmarshal([]int64{13}))
+								Expect(i.Value().Series[1].TimeRange).To(Equal((13 * telem.SecondTS).Range(14 * telem.SecondTS)))
+
+								Expect(i.Next(ctx, 5*telem.Second)).To(BeFalse())
+								Expect(i.Valid()).To(BeFalse())
+
+								Expect(i.Close()).To(Succeed())
+							})
+							Specify("View is full domain", func() {
+								// This test tests that if a view is an entire domain, the
+								// iterator will not move on to the next domain unnecessarily.
+								By("Opening an iterator")
+								i := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+
+								Expect(i.SeekFirst(ctx)).To(BeTrue())
+								Expect(i.Valid()).To(BeFalse())
+
+								// Current iterator view: [0*telem.SecondTS, 13*telem.SecondTS)
+								Expect(i.Next(ctx, 13*telem.Second)).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(2))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{0, 1, 4, 6}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((0 * telem.SecondTS).Range(6*telem.SecondTS + 1)))
+								Expect(i.Value().Series[1].Data).To(EqualUnmarshal([]int64{10, 11, 12}))
+								Expect(i.Value().Series[1].TimeRange).To(Equal((10 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+
+								// Current iterator view: [13*telem.SecondTS, 14*telem.SecondTS+1)
+								Expect(i.Next(ctx, 1*telem.Second+1))
+								Expect(i.Value().Series).To(HaveLen(1))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{13}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((13 * telem.SecondTS).Range(14*telem.SecondTS + 1)))
+
+								Expect(i.Next(ctx, 4*telem.Second))
+								Expect(i.Value().Series).To(HaveLen(1))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{15, 17}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((14*telem.SecondTS + 1).Range(17*telem.SecondTS + 1)))
+
+								Expect(i.Next(ctx, 1*telem.Second)).To(BeFalse())
+								Expect(i.Close()).To(Succeed())
+							})
+							Specify("Multiple domain - Backward - view in discontinuity", func() {
+								// This test is to address an error where if an iterator
+								// first moves to a discontinuity in the index (no data),
+								// then moves to a view that overlaps more than one domain,
+								// it is unable to parse the first domain in the second view.
+								By("Opening an iterator")
+								i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+
+								Expect(i.SeekLast(ctx)).To(BeTrue())
+								// New iterator view: [10*telem.SecondTS+1, 17*telem.SecondTS+1)
+								Expect(i.Prev(ctx, 7*telem.Second)).To(BeTrue())
+								Expect(i.Valid()).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(2))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{11, 12}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((10*telem.SecondTS + 1).Range(12*telem.SecondTS + 1)))
+								Expect(i.Value().Series[1].Data).To(EqualUnmarshal([]int64{13, 15, 17}))
+								Expect(i.Value().Series[1].TimeRange).To(Equal((13 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
+								// New iterator view: [9*telem.SecondTS+1, 10*telem.SecondTS+1)
+								Expect(i.Prev(ctx, 1*telem.Second)).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(1))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{10}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(10*telem.SecondTS + 1)))
+								// New iterator view: [7*telem.SecondTS, 9*telem.SecondTS + 1)
+								Expect(i.Prev(ctx, 2*telem.Second+1)).To(BeFalse())
+								// New iterator view: [-1*telem.SecondTS, 7*telem.SecondTS)
+								Expect(i.Prev(ctx, 8*telem.Second)).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(1))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{0, 1, 4, 6}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((0 * telem.SecondTS).Range(6*telem.SecondTS + 1)))
+								Expect(i.Prev(ctx, 1*telem.Nanosecond)).To(BeFalse())
+								Expect(i.Close()).To(Succeed())
+							})
+							Specify("Multiple domain - Backward - uneven crossing", func() {
+								// This test addresses the bug where if an iterator reads
+								// a domain but does not read all of it, the internal
+								// iterator still moves on to the previous domain.
+								By("Opening an iterator")
+								i := db.OpenIterator(unary.IteratorConfig{
+									Bounds: (2 * telem.SecondTS).Range(15 * telem.SecondTS),
+								})
+
+								// 0  1  || 4  6 / 10  11  12 / 13  || 15  17
+								// 0  1  || 4  6 / 10  11  12 / 13  || 15  17
+
+								Expect(i.SeekLast(ctx)).To(BeTrue())
+								Expect(i.Valid()).To(BeFalse())
+
+								// Current iterator view: [11*telem.SecondTS, 15*telem.SecondTS)
+								Expect(i.Prev(ctx, 4*telem.Second)).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(2))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{11, 12}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((11 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+								Expect(i.Value().Series[1].Data).To(EqualUnmarshal([]int64{13}))
+								Expect(i.Value().Series[1].TimeRange).To(Equal((13 * telem.SecondTS).Range(15 * telem.SecondTS)))
+
+								// Current iterator view: [4*telem.SecondTS, 11*telem.SecondTS)
+								Expect(i.Prev(ctx, 7*telem.Second)).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(2))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{4, 6}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((4 * telem.SecondTS).Range(6*telem.SecondTS + 1)))
+								Expect(i.Value().Series[1].Data).To(EqualUnmarshal([]int64{10}))
+								Expect(i.Value().Series[1].TimeRange).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
+
+								Expect(i.Prev(ctx, 1*telem.Second)).To(BeFalse())
+								Expect(i.Valid()).To(BeFalse())
+
+								Expect(i.Close()).To(Succeed())
+							})
+							Specify("View is full domain", func() {
+								// This test tests that if a view is an entire domain, the
+								// iterator will not move on to the next domain unnecessarily.
+								By("Opening an iterator")
+								i := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+								// 0  1  4  6 / 10  11  12 / 13  15  17
+
+								Expect(i.SeekLast(ctx)).To(BeTrue())
+								Expect(i.Valid()).To(BeFalse())
+
+								// Current iterator view: [12*telem.SecondTS + 1, 17*telem.SecondTS + 1)
+								Expect(i.Prev(ctx, 5*telem.Second)).To(BeTrue())
+								Expect(i.Value().Series).To(HaveLen(1))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{13, 15, 17}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((13 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
+
+								// Current iterator view: [10*telem.SecondTS, 12*telem.SecondTS+1)
+								Expect(i.Prev(ctx, 2*telem.Second+1))
+								Expect(i.Value().Series).To(HaveLen(1))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{10, 11, 12}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+
+								Expect(i.Prev(ctx, 10*telem.Second))
+								Expect(i.Value().Series).To(HaveLen(1))
+								Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{0, 1, 4, 6}))
+								Expect(i.Value().Series[0].TimeRange).To(Equal((0 * telem.SecondTS).Range(6*telem.SecondTS + 1)))
+
+								Expect(i.Prev(ctx, 1*telem.Second)).To(BeFalse())
+								Expect(i.Close()).To(Succeed())
+							})
+						})
+					})
+				})
+
+				Describe("Regressions", func() {
+					// This spec was added due to a bug in the line plotting mechanics
+					// due to misalignment between actually-related domains. Let's
+					// say you create an index and write a domain to it
+					//
+					// idx [1, 2, 3, 4]
+					//
+					// this domain will have alignment (0d0p - 0d3p). Now, if you write
+					// another domain to the index
+					//
+					// idx [1, 2, 3, 4] [5, 6, 7, 8]
+					//
+					// the new domain will have alignment (1d0p - 1d3p). Then, we
+					// write to a data channel aligned at the second domain
+					//
+					// idx [1, 2, 3, 4] [5, 6, 7, 8]
+					// data 			[8, 9, 10, 11]
+					//
+					// the data domain will have alignment (0d0p - 0d3p), but it actually
+					// aligns with the index domain at (1d0p - 1d3p). This spec tests
+					// a fix made to ensure that the data domain has the alignment (1d0p - 1d3p)
+					It("Should correctly define the alignment of a series when a domain has already been written to the index channel", func() {
+						Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
+						Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](8, 9, 10, 11, 12, 13, 14))).To(Succeed())
+						iter := db.OpenIterator(unary.IteratorConfig{
+							Bounds:        (20 * telem.SecondTS).SpanRange(15 * telem.Second),
+							AutoChunkSize: 3,
+						})
+						defer func() {
+							Expect(iter.Close()).To(Succeed())
+						}()
+						Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+						fr := iter.Value()
+						Expect(fr.Len()).To(Equal(int64(3)))
+						s := fr.Series[0]
+						Expect(s.Alignment).To(Equal(telem.NewAlignmentPair(1, 0)))
 					})
 				})
 			})

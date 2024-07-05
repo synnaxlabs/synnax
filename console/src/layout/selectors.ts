@@ -14,8 +14,8 @@ import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import { type State } from "@/layout/layout";
 import {
-  type NavdrawerEntryState,
-  type NavdrawerLocation,
+  type NavDrawerEntryState,
+  type NavDrawerLocation,
   SLICE_NAME,
   type SliceState,
   type StoreState,
@@ -44,6 +44,20 @@ export const selectRequired = (state: StoreState, key: string): State => {
   return layout;
 };
 
+export const selectArgs = <A>(state: StoreState, key: string): A => {
+  const layout = select(state, key);
+  return layout?.args as A;
+};
+
+export const useSelectArgs = <A>(key: string): A =>
+  useMemoSelect((state: StoreState) => selectArgs(state, key), [key]);
+
+export const selectAltKey = (state: StoreState, key: string): string | undefined =>
+  selectSliceState(state).keyToAltKey[key];
+
+export const useSelectAltKey = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectAltKey(state, key), [key]);
+
 /**
  * Selects a layout from the store by key.
  *
@@ -55,6 +69,13 @@ export const useSelect = (key: string): State | undefined =>
 
 export const useSelectRequired = (key: string): State =>
   useMemoSelect((state: StoreState) => selectRequired(state, key), [key]);
+
+export const selectModals = (state: StoreState): State[] =>
+  Object.values(state[SLICE_NAME].layouts).filter(
+    ({ location }) => location === "modal",
+  );
+
+export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
 
 /**
  * Selects the central layout mosaic from the store.
@@ -148,8 +169,8 @@ export const useSelectMany = (keys?: string[]): State[] =>
 
 export const selectNavDrawer = (
   state: StoreState & Drift.StoreState,
-  loc: NavdrawerLocation,
-): NavdrawerEntryState | null => {
+  loc: NavDrawerLocation,
+): NavDrawerEntryState | null => {
   const winKey = selectWindowKey(state) as string;
   const navState = selectSliceState(state).nav[winKey];
   if (navState == null) return null;
@@ -157,8 +178,8 @@ export const selectNavDrawer = (
 };
 
 export const useSelectNavDrawer = (
-  loc: NavdrawerLocation,
-): NavdrawerEntryState | null =>
+  loc: NavDrawerLocation,
+): NavDrawerEntryState | null =>
   useMemoSelect(
     (state: StoreState & Drift.StoreState) => selectNavDrawer(state, loc),
     [loc],

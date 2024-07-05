@@ -21,17 +21,17 @@ import {
 import { compare } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { State } from "@/layout/layout";
 import { useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
-  type NavdrawerLocation,
+  type NavDrawerLocation,
   place,
   remove,
-  resizeNavdrawer,
+  resizeNavDrawer,
   setActiveTheme,
-  setNavdrawerVisible,
+  setNavDrawerVisible,
   toggleActiveTheme,
 } from "@/layout/slice";
 
@@ -43,8 +43,10 @@ export interface CreatorProps {
 /** A function that creates a layout given a set of utilities. */
 export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
 
+export type PlacerArgs = Omit<State, "windowKey"> | Creator;
+
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: Omit<State, "windowKey"> | Creator) => {
+export type Placer = (layout: PlacerArgs) => {
   windowKey: string;
   key: string;
 };
@@ -176,7 +178,7 @@ export interface UseNavDrawerReturn {
 }
 
 export const useNavDrawer = (
-  location: NavdrawerLocation,
+  location: NavDrawerLocation,
   items: NavDrawerItem[],
 ): UseNavDrawerReturn => {
   const windowKey = useSelectWindowKey() as string;
@@ -184,7 +186,7 @@ export const useNavDrawer = (
   const dispatch = useDispatch();
   const onResize = useDebouncedCallback(
     (size) => {
-      dispatch(resizeNavdrawer({ windowKey, location, size }));
+      dispatch(resizeNavDrawer({ windowKey, location, size }));
     },
     100,
     [dispatch, windowKey],
@@ -208,7 +210,7 @@ export const useNavDrawer = (
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) => dispatch(setNavdrawerVisible({ windowKey, key })),
+    onSelect: (key: string) => dispatch(setNavDrawerVisible({ windowKey, key })),
     onResize,
   };
 };

@@ -295,3 +295,9 @@ export const mapNodes = <O>(root: Node, fn: (node: Node) => O, acc: O[] = []): O
   if (root.last != null) mapNodes(root.last, fn, acc);
   return acc;
 };
+
+export const forEachNode = (root: Node, fn: (node: Node) => void): void => {
+  fn(root);
+  if (root.first != null) forEachNode(root.first, fn);
+  if (root.last != null) forEachNode(root.last, fn);
+};

@@ -11,14 +11,19 @@
 
 #include <string>
 
+#include "freighter/cpp/freighter.h"
+
 namespace synnax {
-const std::string ERROR_PREFIX = "sy.";
-const std::string VALIDATION_ERROR = ERROR_PREFIX + "validation";
-const std::string QUERY_ERROR = ERROR_PREFIX + "query";
-const std::string MULTIPLE_RESULTS = QUERY_ERROR + ".multiple_results";
-const std::string NOT_FOUND = QUERY_ERROR + ".not_found";
-const std::string AUTH_ERROR = ERROR_PREFIX + "auth";
-const std::string INVALID_TOKEN = AUTH_ERROR + ".invalid-token";
-const std::string INVALID_CREDENTIALS = AUTH_ERROR + ".invalid-credentials";
-const std::string UNEXPECTED_ERROR = ERROR_PREFIX + "unexpected";
+const freighter::Error BASE_ERROR("sy");
+const freighter::Error VALIDATION_ERROR = BASE_ERROR.sub("validation");
+const freighter::Error QUERY_ERROR = BASE_ERROR.sub("query");
+const freighter::Error MULTIPLE_RESULTS = QUERY_ERROR.sub("multiple_results");
+const freighter::Error NOT_FOUND = QUERY_ERROR.sub("not_found");
+const freighter::Error AUTH_ERROR = BASE_ERROR.sub("auth");
+const freighter::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
+const freighter::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
+const freighter::Error INTERNAL_ERROR = BASE_ERROR.sub("internal");
+const freighter::Error UNEXPECTED_ERROR = BASE_ERROR.sub("unexpected");
+const freighter::Error CONTROL_ERROR = BASE_ERROR.sub("control");
+const freighter::Error UNAUTHORIZED_ERROR = CONTROL_ERROR.sub("unauthorized");
 }

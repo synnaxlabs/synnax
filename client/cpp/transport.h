@@ -9,24 +9,23 @@
 
 #pragma once
 
-/// internal
-#include "client/cpp/framer/framer.h"
-#include "client/cpp/channel/channel.h"
-#include "client/cpp/ranger/ranger.h"
 #include "client/cpp/auth/auth.h"
+#include "client/cpp/channel/channel.h"
+#include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
+#include "client/cpp/ranger/ranger.h"
 
 class Transport {
 public:
     Transport(
-            uint16_t port,
-            const std::string &ip,
-            const std::string &ca_cert_file,
-            const std::string &client_cert_file,
-            const std::string &client_key_file
+        uint16_t port,
+        const std::string &ip,
+        const std::string &ca_cert_file,
+        const std::string &client_cert_file,
+        const std::string &client_key_file
     );
 
-    void use(const std::shared_ptr<freighter::Middleware>&) const;
+    void use(const std::shared_ptr<freighter::Middleware> &) const;
 
     std::unique_ptr<AuthLoginClient> auth_login;
     std::unique_ptr<StreamerClient> frame_stream;

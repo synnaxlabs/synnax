@@ -49,6 +49,7 @@ def pure_ingest(
     flow.add("connect_client", _connect_client)
     flow.add("ingest_all", ingest_all)
     flow.add("channels_to_ingest", channels_to_ingest)
+    flow.add("skip_invalid_channels", skip_invalid_channels)
     flow.add("validate_channels_exist", validate_channels_exist)
     flow.add("validate_data_types", validate_data_types)
     flow.add("validate_start_time", validate_start_time)
@@ -86,6 +87,7 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     assert cli.db_channels is not None
     assert cli.client is not None
     assert cli.start is not None
+    filtered_reader = initialize_reader(ctx, cli)
     if cli.reader.type() == ReaderType.Row:
         engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels, cli.start)
     else:
@@ -121,7 +123,7 @@ def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
     assert cli.reader is not None
     if ctx.console.ask("Would you like to ingest all channels?", default=True):
         cli.filtered_channels = cli.reader.channels()
-        return "validate_channels_exist"
+        return "skip_invalid_channels"
     else:
         return "channels_to_ingest"
 
@@ -136,6 +138,24 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
         return None
     all_names = [v for l in grouped.values() for v in l]
     cli.filtered_channels = [ch for ch in channels if ch.name in all_names]
+    return "skip_invalid_channels"
+
+
+def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
+    assert cli.reader is not None
+    data_types = {
+        key: dt
+        for key, dt in read_data_types(ctx, cli).items()
+        if dt == DataType.UNKNOWN
+    }
+    if len(data_types) > 0:
+        ctx.console.info("The following channels have non-numeric data types")
+        channel_name_table(ctx, [ch for ch in data_types.keys()])
+        if not ctx.console.ask("Skip these channels?", default=True):
+            return None
+        cli.filtered_channels = [
+            ch for ch in cli.filtered_channels if ch.name not in data_types.keys()
+        ]
     return "validate_channels_exist"
 
 
@@ -183,7 +203,10 @@ def read_data_types(ctx: Context, cli: IngestionCLI) -> dict[str, DataType]:
         if len(samples) == 0:
             ctx.console.warn(f"Channel {ch.name} has no samples")
             continue
-        data_types[ch.name] = DataType(samples.to_numpy().dtype)
+        try:
+            data_types[ch.name] = DataType(samples.to_numpy().dtype)
+        except TypeError:
+            data_types[ch.name] = DataType.UNKNOWN
     return data_types
 
 

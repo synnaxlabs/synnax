@@ -15,7 +15,7 @@ import { Logo } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useLayoutEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls } from "@/components";
@@ -90,13 +90,15 @@ export const Window = (): ReactElement | null => {
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
   useEffect(() => {
+    if (layout?.key != null)
+      dispatch(setWindowVisible({ key: layout.key, value: true }));
     if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
-  }, [os]);
+  }, [os, layout?.key]);
   const menuProps = PMenu.useContextMenu();
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
-  dispatch(setWindowVisible({ key: layout.key, value: true }));
+
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Align.Space

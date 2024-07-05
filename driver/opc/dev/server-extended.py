@@ -8,13 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
-import logging
 import datetime
 import math
-import time
 
 from asyncua import Server, ua
-from asyncua.common.methods import uamethod
 
 
 async def main():
@@ -24,14 +21,12 @@ async def main():
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
-
     # Populating our address space
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
-
-    # Add different types of variables
-    myval = await myobj.add_variable(idx, "my_var_1", 6.7)
-    myarray = await myobj.add_variable(idx, "my_array", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Float)
-    my_int_array = await myobj.add_variable(idx, "my_int_array", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Int32)
+    ARRAY_COUNT = 50
+    arrays = list()
+    for i in range(ARRAY_COUNT):
+        arrays.append(await myobj.add_variable(idx, f"my_array_{i}", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Float))
     mytimearray = await myobj.add_variable(idx, "my_time_array", [
         datetime.datetime.utcnow(),
         datetime.datetime.utcnow() + datetime.timedelta(milliseconds=1),
@@ -44,13 +39,11 @@ async def main():
         datetime.datetime.utcnow() + datetime.timedelta(milliseconds=8),
     ], ua.VariantType.DateTime)
 
-    myarray.set_writable()
-    mytimearray.set_writable()
+    await mytimearray.set_writable()
 
-    RATE = 36*20*12
-    ARRAY_SIZE = 40*8
-    mytimearray.write_array_dimensions([ARRAY_SIZE])
-    myarray.write_array_dimensions([ARRAY_SIZE])
+    RATE = 500
+    ARRAY_SIZE = 5
+    await mytimearray.write_array_dimensions([ARRAY_SIZE])
 
     for i in range(100):
         # add 30 float variables t OPC
@@ -64,10 +57,11 @@ async def main():
             start = datetime.datetime.utcnow()
             timestamps = [start + datetime.timedelta(seconds=j * ((1 / RATE))) for j in range(ARRAY_SIZE)]
             values = [math.sin((timestamps[j] - start_ref).total_seconds()) for j in range(ARRAY_SIZE)]
-            await myarray.set_value(values, varianttype=ua.VariantType.Float)
+            for arr in arrays:
+                await arr.set_value(values, varianttype=ua.VariantType.Float)
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             duration = (datetime.datetime.utcnow() - start).total_seconds()
-            await asyncio.sleep((1/RATE) - duration)
+            await asyncio.sleep((1 / RATE) - duration)
 
 
 if __name__ == "__main__":

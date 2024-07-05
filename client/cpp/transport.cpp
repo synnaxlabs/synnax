@@ -7,24 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// freighter
-#include "freighter/cpp/fgrpc/fgrpc.h"
-
-/// protos and grpc
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.grpc.pb.h"
-#include "google/protobuf/empty.pb.h"
-
-/// internal
 #include "client/cpp/transport.h"
+
+#include "freighter/cpp/fgrpc/fgrpc.h"
+#include "google/protobuf/empty.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
 using namespace api;
 
@@ -166,19 +162,19 @@ Transport::Transport(
         v1::HardwareCreateDeviceRequest,
         v1::HardwareCreateDeviceResponse,
         v1::HardwareCreateDeviceService
-    >> (pool, base_target);
+    > >(pool, base_target);
 
     device_retrieve = std::make_unique<fgrpc::UnaryClient<
         v1::HardwareRetrieveDeviceRequest,
         v1::HardwareRetrieveDeviceResponse,
         v1::HardwareRetrieveDeviceService
-    >> (pool, base_target);
+    > >(pool, base_target);
 
     device_delete = std::make_unique<fgrpc::UnaryClient<
         v1::HardwareDeleteDeviceRequest,
         google::protobuf::Empty,
         v1::HardwareDeleteDeviceService
-    >> (pool, base_target);
+    > >(pool, base_target);
 }
 
 void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {

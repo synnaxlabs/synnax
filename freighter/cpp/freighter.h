@@ -39,19 +39,28 @@ public:
                                                data(std::move(data)) {
     }
 
+    /// @brief constructs the error from a particular string freighter:Error and data.
+    Error(const freighter::Error err, std::string data): type(err.type),
+                                                         data(std::move(data)) {
+    }
+
     /// @brief constructs the provided error from a string. If the string is of the form
     /// "type---data", the type and data will be extracted from the string. Otherwise,
-    /// the error will be considered of type TYPE_UNKNOWN.
-    explicit Error(const std::string &err): type(TYPE_UNKNOWN), data(err) {
-        const size_t pos = err.find("---");
+    /// the string is assumed to be the type.
+    explicit Error(const std::string &err_or_type): type(err_or_type) {
+        const size_t pos = err_or_type.find("---");
         if (pos == std::string::npos) return;
-        type = err.substr(0, pos);
-        data = err.substr(pos + 3);
+        type = err_or_type.substr(0, pos);
+        data = err_or_type.substr(pos + 3);
     }
 
     /// @brief constructs the error from its protobuf representation.
     explicit Error(const errors::PBPayload &err): type(err.type()),
                                                   data(err.data()) {
+    }
+
+    [[nodiscard]] freighter::Error sub(const std::string &type_extension) const {
+        return freighter::Error(type + "." + type_extension);
     }
 
     /// @brief copy constructor.
@@ -61,7 +70,7 @@ public:
     [[nodiscard]] bool ok() const { return type == TYPE_NIL; }
 
     /// @returns a string formatted error message.
-    [[nodiscard]] std::string message() const { return type + ":" + data; }
+    [[nodiscard]] std::string message() const { return type + ": " + data; }
 
     explicit operator bool() const { return !ok(); }
 
@@ -173,10 +182,12 @@ public:
     }
 
     /// @brief Copy constructor
-    Context(const Context &other): id(other.id),
-                                   protocol(other.protocol),
-                                   target(other.target),
-                                   variant(other.variant) {
+    Context(
+        const Context &other
+    ): id(other.id),
+       protocol(other.protocol),
+       target(other.target),
+       variant(other.variant) {
         for (const auto &[k, v]: other.params) params[k] = v;
     }
 
@@ -191,13 +202,9 @@ public:
     }
 
     /// @brief Gets the parameter with the given key.
-    std::string get(const std::string &key) {
-        return params[key];
-    }
+    std::string get(const std::string &key) { return params[key]; }
 
-    bool has(const std::string &key) {
-        return params.find(key) != params.end();
-    }
+    bool has(const std::string &key) { return params.find(key) != params.end(); }
 
     /// @brief Sets the given parameter to the given value.
     void set(const std::string &key, const std::string &value) { params[key] = value; }
@@ -235,8 +242,7 @@ public:
 class PassthroughMiddleware : public Middleware {
 public:
     /// @brief Constructs the middleware with a nullptr next middleware.
-    PassthroughMiddleware() {
-    }
+    PassthroughMiddleware() = default;
 
     /// @implements Middleware::operator()
     std::pair<Context, freighter::Error> operator()(
@@ -296,7 +302,7 @@ public:
     /// @param finalizer - A finalizer that represents the last middleware in the chain,
     /// and is responsible for executing the request.
     /// @param req - the request to execute.
-    std::pair<RS, freighter::Error>exec(
+    std::pair<RS, freighter::Error> exec(
         const freighter::Context &context,
         freighter::Finalizer<RQ, RS> *finalizer,
         RQ &req
@@ -306,6 +312,7 @@ public:
             const MiddlewareCollector &collector;
             freighter::Finalizer<RQ, RS> *finalizer;
             RQ req;
+
         public:
             RS res;
 

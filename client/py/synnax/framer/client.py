@@ -10,7 +10,7 @@
 from typing import overload
 
 from alamos import NOOP, Instrumentation
-from freighter import AsyncStreamClient, StreamClient
+from freighter import AsyncStreamClient, StreamClient, UnaryClient
 from numpy import ndarray
 
 from synnax.channel.payload import (
@@ -29,7 +29,8 @@ from synnax.framer.frame import Frame
 from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import Writer, WriterMode
-from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeStamp, TimeSpan
+from synnax.framer.deleter import Deleter
+from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeSpan
 from synnax.telem.control import Authority, CrudeAuthority
 
 
@@ -39,21 +40,27 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    __client: StreamClient
+    __stream_client: StreamClient
     __async_client: AsyncStreamClient
+    __unary_client: UnaryClient
     __channels: ChannelRetriever
+    __deleter: Deleter
     instrumentation: Instrumentation
 
     def __init__(
         self,
-        client: StreamClient,
+        stream_client: StreamClient,
         async_client: AsyncStreamClient,
+        unary_client: UnaryClient,
         retriever: ChannelRetriever,
+        deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
     ):
-        self.__client = client
+        self.__stream_client = stream_client
         self.__async_client = async_client
+        self.__unary_client = unary_client
         self.__channels = retriever
+        self.__deleter = deleter
         self.instrumentation = instrumentation
 
     def open_writer(
@@ -66,8 +73,10 @@ class Client:
         strict: bool = False,
         suppress_warnings: bool = False,
         mode: WriterMode = WriterMode.PERSIST_STREAM,
+        err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
-        auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
+        auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
+        err_on_extra_chans: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -88,6 +97,8 @@ class Client:
         by the writer.
         :param mode: sets the persistence and streaming mode of the writer. The default
         mode is WriterModePersistStream. See the WriterMode documentation for more.
+        :param err_on_unauthorized: sets whether the writer should return an error if
+        it attempts to write to a channel it does not have control over.
         :param enable_auto_commit: determines whether the writer will automatically
         commit. If enable_auto_commit is true, then the writer will commit after each
         write, and will flush that commit to index after the specified
@@ -96,30 +107,33 @@ class Client:
         be persisted. To persist every commit to guarantee minimal loss of data, set
         auto_index_persist_interval to AlwaysAutoIndexPersist.
         """
-        adapter = WriteFrameAdapter(self.__channels)
+        adapter = WriteFrameAdapter(self.__channels, err_on_extra_chans)
         adapter.update(channels)
         return Writer(
             start=start,
             adapter=adapter,
-            client=self.__client,
+            client=self.__stream_client,
             strict=strict,
             suppress_warnings=suppress_warnings,
             authorities=authorities,
             name=name,
             mode=mode,
+            err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
-            auto_index_persist_interval=auto_index_persist_interval
+            auto_index_persist_interval=auto_index_persist_interval,
         )
 
     def open_iterator(
         self,
         tr: TimeRange,
         params: ChannelParams,
+        chunk_size: int = 1e5,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
         :param params: A list of channel keys to iterator over.
         :param tr: A time range to iterate over.
+        :param chunk_size: The number of samples to read in a chunk with AutoSpan. Defaults to 500000
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
@@ -128,7 +142,8 @@ class Client:
         return Iterator(
             tr=tr,
             adapter=adapter,
-            client=self.__client,
+            client=self.__stream_client,
+            chunk_size=chunk_size,
             instrumentation=self.instrumentation,
         )
 
@@ -147,10 +162,11 @@ class Client:
         :returns: None.
         """
         with self.open_writer(
-            start=start, 
-            channels=to, 
-            strict=strict, 
+            start=start,
+            channels=to,
+            strict=strict,
             mode=WriterMode.PERSIST_ONLY,
+            err_on_unauthorized=True,
             enable_auto_commit=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
@@ -210,7 +226,7 @@ class Client:
         return Streamer(
             from_=from_,
             adapter=adapter,
-            client=self.__client,
+            client=self.__stream_client,
         )
 
     async def open_async_streamer(
@@ -227,6 +243,17 @@ class Client:
         )
         await s.open()
         return s
+
+    def delete(self, channels: ChannelParams, tr: TimeRange) -> None:
+        """
+        delete deletes data in the specified channels in the specified time range.
+        Note that the time range is start-inclusive and end-exclusive.
+        Also note that deleting all data in a channel does not delete the channel; to
+        delete a channel, use client.channels.delete().
+        :param channels: channels to delete data from.
+        :param tr: time range to delete data from.
+        """
+        self.__deleter.delete(channels, tr)
 
     def __read_frame(
         self,

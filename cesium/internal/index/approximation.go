@@ -25,11 +25,15 @@ type Approximation[T types.Numeric] struct {
 	Upper T
 }
 
-func (a Approximation[T]) Exact() bool { return a.Lower-a.Upper == 0 }
+func (a Approximation[T]) Exact() bool {
+	return a.Lower-a.Upper == 0
+}
 
 func (a Approximation[T]) String() string { return fmt.Sprintf("[%v, %v]", a.Lower, a.Upper) }
 
-func Exactly[T types.Numeric](v T) Approximation[T] { return Between(v, v) }
+func Exactly[T types.Numeric](v T) Approximation[T] {
+	return Between(v, v)
+}
 
 func Between[T types.Numeric](lower, upper T) Approximation[T] {
 	return Approximation[T]{Lower: lower, Upper: upper}

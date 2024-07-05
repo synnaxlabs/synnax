@@ -23,13 +23,13 @@ var _ = Describe("Frame", func() {
 				[]core.ChannelKey{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3, 4),
-					telem.NewSeriesV[float64](0.1, 0.2, 0.3, 0.4),
+					telem.NewSeriesV[uint32](1, 2, 3, 4),
 					telem.NewSecondsTSV(1, 2, 3, 4),
 				})
 			Expect(f.Keys).To(Equal([]core.ChannelKey{1, 2, 3}))
 			Expect(f.Series).To(HaveLen(3))
 			Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4).Data))
-			Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[float64](0.1, 0.2, 0.3, 0.4).Data))
+			Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[uint32](1, 2, 3, 4).Data))
 			Expect(f.Series[2].Data).To(Equal(telem.NewSecondsTSV(1, 2, 3, 4).Data))
 		})
 
@@ -44,7 +44,7 @@ var _ = Describe("Frame", func() {
 				[]core.ChannelKey{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3, 4),
-					telem.NewSeriesV[float64](0.1, 0.2, 0.3, 0.4),
+					telem.NewSeriesV[uint32](1, 2, 3, 4),
 					telem.NewSecondsTSV(1, 2, 3, 4),
 				})
 			Expect(f.Len()).To(Equal(int64(4)))
@@ -55,7 +55,7 @@ var _ = Describe("Frame", func() {
 				[]core.ChannelKey{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3, 4),
-					telem.NewSeriesV[float64](0.1, 0.2, 0.3, 0.4),
+					telem.NewSeriesV[uint32](1, 2, 3, 4),
 					telem.NewSecondsTSV(1, 2, 3, 4, 5),
 				})
 			Expect(func() { f.Len() }).To(Panic())

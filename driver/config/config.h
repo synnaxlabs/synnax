@@ -27,14 +27,15 @@ public:
     std::shared_ptr<std::vector<json> > errors;
 
     /// @brief constructs a parser for accessing values on the given JSON configuration.
-    explicit Parser(json config): errors(std::make_shared<std::vector<json> >()),
-                                  config(std::move(config)) {
+    explicit Parser(json config) : errors(std::make_shared<std::vector<json> >()),
+                                   config(std::move(config)) {
     }
 
     /// @brief constructs a parser for accessing values on the given stringified
     /// JSON configuration. If the string is not valid JSON, immediately binds an error
     /// to the parser.
-    explicit Parser(const std::string &encoded): errors(std::make_shared<std::vector<json> >()) {
+    explicit Parser(const std::string &encoded) : errors(
+        std::make_shared<std::vector<json> >()) {
         try {
             config = json::parse(encoded);
         } catch (const json::parse_error &e) {
@@ -44,7 +45,7 @@ public:
     }
 
     /// @brief default constructor constructs a parser that will fail fast.
-    Parser(): errors(nullptr), noop(true) {
+    Parser() : errors(nullptr), noop(true) {
     }
 
 
@@ -68,6 +69,51 @@ public:
             return value;
         }
         return get<T>(path, iter);
+    }
+    
+    /// @brief gets the array field at the given path and returns a vector. If the field is not found,
+    /// accumulates an error in the builder.
+    /// @param path The JSON path to the vector.
+    template<typename T>
+    std::vector<T>  required_vector(const std::string &path) {
+        if (noop) return std::vector<T>();
+        const auto iter = config.find(path);
+        if (iter == config.end()) {
+            field_err(path, "This field is required");
+            return std::vector<T>();
+        }
+        if (!iter->is_array()) {
+            field_err(path, "Expected an array");
+            return std::vector<T>();
+        }
+        std::vector<T> values;
+        for (size_t i = 0; i < iter->size(); ++i) {
+            const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
+            values.push_back(get<T>(child_path, iter->begin() + i));
+        }
+        return values;
+    }
+    
+    /// @brief attempts to pull the value at the provided path. If that path is not found,
+    /// returns the default. Note that this function will still accumulate an error if the
+    /// path is found but the value is not of the expected type.
+    /// @param path The JSON path to the value.
+    /// @param default_value The default value to return if the path is not found.
+    template<typename T>
+    std::vector<T> optional_array(const std::string &path, std::vector<T> default_value) {
+        if (noop) return default_value;
+        const auto iter = config.find(path);
+        if (iter == config.end()) return default_value;
+        if (!iter->is_array()) {
+            field_err(path, "Expected an array");
+            return default_value;
+        }
+        std::vector<T> values;
+        for (size_t i = 0; i < iter->size(); ++i) {
+            const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
+            values.push_back(get<T>(child_path, iter->begin() + i));
+        }
+        return values;
     }
 
     /// @brief attempts to pull the value at the provided path. If that path is not found,
@@ -160,7 +206,7 @@ public:
         return freighter::Error{synnax::VALIDATION_ERROR, error_json().dump()};
     }
 
-        /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.
+    /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.
     [[nodiscard]] json get_json() const {
         return config;
     }
@@ -177,9 +223,9 @@ private:
         json config,
         std::shared_ptr<std::vector<json> > errors,
         std::string path_prefix
-    ): errors(std::move(errors)),
-       config(std::move(config)),
-       path_prefix(std::move(path_prefix)) {
+    ) : errors(std::move(errors)),
+        config(std::move(config)),
+        path_prefix(std::move(path_prefix)) {
     }
 
     template<typename T>

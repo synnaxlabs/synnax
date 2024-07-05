@@ -49,7 +49,7 @@ func (g *GRPCBranch) Serve(ctx BranchContext) error {
 // Stop implements Branch. Stop is safe to call even if Serve has not been called.
 func (g *GRPCBranch) Stop() {
 	if g.server != nil {
-		g.server.GracefulStop()
+		g.server.Stop()
 	}
 }
 

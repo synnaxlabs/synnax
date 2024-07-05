@@ -52,7 +52,7 @@ type message[P freighter.Payload] struct {
 func newCore[RQ, RS freighter.Payload](
 	ctx context.Context,
 	conn *ws.Conn,
-	ecd binary.EncoderDecoder,
+	ecd binary.Codec,
 	logger *zap.SugaredLogger,
 ) core[RQ, RS] {
 	ctx, cancel := context.WithCancel(ctx)
@@ -73,7 +73,7 @@ type core[I, O freighter.Payload] struct {
 	cancel     context.CancelFunc
 	contextC   chan struct{}
 	conn       *ws.Conn
-	ecd        binary.EncoderDecoder
+	ecd        binary.Codec
 	peerClosed error
 	logger     *zap.SugaredLogger
 }

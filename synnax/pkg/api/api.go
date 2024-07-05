@@ -122,16 +122,18 @@ type Transport struct {
 	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
 	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
 	// CHANNEL
-	ChannelCreate   freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
-	ChannelRetrieve freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
-	ChannelDelete   freighter.UnaryServer[ChannelDeleteRequest, types.Nil]
-	ChannelRename   freighter.UnaryServer[ChannelRenameRequest, types.Nil]
+	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
+	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	ChannelDelete        freighter.UnaryServer[ChannelDeleteRequest, types.Nil]
+	ChannelRename        freighter.UnaryServer[ChannelRenameRequest, types.Nil]
+	ChannelRetrieveGroup freighter.UnaryServer[ChannelRetrieveGroupRequest, ChannelRetrieveGroupResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 	// FRAME
 	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
+	FrameDelete   freighter.UnaryServer[FrameDeleteRequest, types.Nil]
 	// RANGE
 	RangeCreate         freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
 	RangeRetrieve       freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
@@ -242,6 +244,7 @@ func (a *API) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
+		t.ChannelRetrieveGroup,
 
 		// CONNECTIVITY
 		t.ConnectivityCheck,
@@ -250,6 +253,7 @@ func (a *API) BindTo(t Transport) {
 		t.FrameWriter,
 		t.FrameIterator,
 		t.FrameStreamer,
+		t.FrameDelete,
 
 		// CONNECTIVITY
 		t.ConnectivityCheck,
@@ -333,11 +337,13 @@ func (a *API) BindTo(t Transport) {
 	t.ConnectivityCheck.BindHandler(a.Connectivity.Check)
 	t.ChannelDelete.BindHandler(a.Channel.Delete)
 	t.ChannelRename.BindHandler(a.Channel.Rename)
+	t.ChannelRetrieveGroup.BindHandler(a.Channel.RetrieveGroup)
 
 	// FRAME
 	t.FrameWriter.BindHandler(a.Telem.Write)
 	t.FrameIterator.BindHandler(a.Telem.Iterate)
 	t.FrameStreamer.BindHandler(a.Telem.Stream)
+	t.FrameDelete.BindHandler(a.Telem.FrameDelete)
 
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(a.Ontology.Retrieve)

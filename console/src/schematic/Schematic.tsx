@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction } from "@reduxjs/toolkit";
+import { Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -15,21 +15,30 @@ import {
   Control,
   Diagram,
   Haul,
+  Legend,
   Schematic as Core,
   Synnax,
   Text,
   Theming,
   useAsyncEffect,
+  usePrevious,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
-import { box, type UnknownRecord } from "@synnaxlabs/x";
+import { box, deep, type UnknownRecord } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
+import { v4 as uuidv4 } from "uuid";
 
-import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
   select,
@@ -49,46 +58,45 @@ import {
   setEditable,
   setElementProps,
   setFitViewOnResize,
+  setLegend,
   setNodes,
   setRemoteCreated,
   setViewport,
   type State,
-  type StoreState,
   toggleControl,
+  ZERO_STATE,
 } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
-  layoutKey?: string;
+  key?: string;
 }
 
-const syncer: Syncer<
-  Layout.StoreState & StoreState & Workspace.StoreState,
-  SyncPayload
-> = async (client, { layoutKey }, store) => {
-  if (layoutKey == null) return;
-  const s = store.getState();
-  const ws = Workspace.selectActiveKey(s);
-  if (ws == null) return;
-  const data = select(s, layoutKey);
-  if (data.snapshot) return;
-  const la = Layout.selectRequired(s, layoutKey);
-  const setData = {
-    ...data,
-    key: undefined,
-    snapshot: undefined,
-  } as unknown as UnknownRecord;
-  if (!data.remoteCreated) {
-    await client.workspaces.schematic.create(ws, {
-      key: layoutKey,
-      name: la.name,
-      data: setData,
-    });
-    store.dispatch(setRemoteCreated({ layoutKey }));
-  } else await client.workspaces.schematic.setData(layoutKey, setData);
-};
-
 export const HAUL_TYPE = "schematic-element";
+
+const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
+  Workspace.useSyncComponent<SyncPayload>(
+    "Schematic",
+    layoutKey,
+    async (ws, store, client) => {
+      const s = store.getState();
+      const data = select(s, layoutKey);
+      if (data == null || data.snapshot) return;
+      const la = Layout.selectRequired(s, layoutKey);
+      const setData = {
+        ...data,
+        key: undefined,
+        snapshot: undefined,
+      } as unknown as UnknownRecord;
+      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
+      await new Promise((r) => setTimeout(r, 1000));
+      await client.workspaces.schematic.create(ws, {
+        key: layoutKey,
+        name: la.name,
+        data: setData,
+      });
+    },
+  );
 
 const SymbolRenderer = ({
   symbolKey,
@@ -97,10 +105,8 @@ const SymbolRenderer = ({
   layoutKey,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
   const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
-  const dispatch = useSyncerDispatch<
-    Layout.StoreState & Workspace.StoreState & StoreState,
-    SyncPayload
-  >(syncer, 1000);
+
+  const dispatch = useSyncComponent(layoutKey);
 
   const handleChange = useCallback(
     (props: object) => {
@@ -139,52 +145,53 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const schematic = useSelect(layoutKey);
 
-  const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
-    // @ts-expect-error - typescript can't identify property keys set as constants.
-    syncer,
-    1000,
-  );
+  const dispatch = useSyncComponent(layoutKey);
   const theme = Theming.use();
   const viewportRef = useSyncedRef(schematic.viewport);
 
+  const prevName = usePrevious(name);
+  useEffect(() => {
+    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
+  }, [name, prevName, layoutKey]);
+
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => {
-      dispatch(setEdges({ layoutKey, edges }));
+      dispatch(setEdges({ key: layoutKey, edges }));
     },
     [dispatch, layoutKey],
   );
 
   const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
     (nodes) => {
-      dispatch(setNodes({ layoutKey, nodes }));
+      dispatch(setNodes({ key: layoutKey, nodes }));
     },
     [dispatch, layoutKey],
   );
 
   const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
     (vp) => {
-      dispatch(setViewport({ layoutKey, viewport: vp }));
+      dispatch(setViewport({ key: layoutKey, viewport: vp }));
     },
     [layoutKey],
   );
 
   const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
     (cbk) => {
-      dispatch(setEditable({ layoutKey, editable: cbk }));
+      dispatch(setEditable({ key: layoutKey, editable: cbk }));
     },
     [layoutKey],
   );
 
   const handleSetFitViewOnResize = useCallback(
     (v: boolean) => {
-      dispatch(setFitViewOnResize({ layoutKey, fitViewOnResize: v }));
+      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v }));
     },
     [layoutKey, dispatch],
   );
 
   const handleControlStatusChange = useCallback(
     (control: Control.Status) => {
-      dispatch(setControlStatus({ layoutKey, control }));
+      dispatch(setControlStatus({ key: layoutKey, control }));
     },
     [layoutKey],
   );
@@ -193,7 +200,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     (v: boolean) => {
       dispatch(
         toggleControl({
-          layoutKey,
+          key: layoutKey,
           status: v ? "acquired" : "released",
         }),
       );
@@ -225,8 +232,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         );
         dispatch(
           addElement({
-            layoutKey,
-            key: nanoid(),
+            key: layoutKey,
+            elKey: nanoid(),
             node: {
               position: pos,
               zIndex: spec.zIndex,
@@ -267,7 +274,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         const copy = triggers.some((t) => t.includes("C"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
-        else dispatch(pasteSelection({ pos, layoutKey }));
+        else dispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [dispatch, layoutKey, viewportRef],
     ),
@@ -276,13 +283,37 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const handleDoubleClick = useCallback(() => {
     if (!schematic.editable) return;
     dispatch(
-      Layout.setNavdrawerVisible({
+      Layout.setNavDrawerVisible({
         windowKey,
         key: "visualization",
         value: true,
       }) as PayloadAction<SyncPayload>,
     );
   }, [windowKey, dispatch, schematic.editable]);
+
+  const [legendPosition, setLegendPosition] = useState<Legend.StickyXY>(
+    schematic.legend.position,
+  );
+
+  const storeLegendPosition = useCallback(
+    (position: Legend.StickyXY) => {
+      dispatch(
+        setLegend({
+          key: layoutKey,
+          legend: { position },
+        }),
+      );
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleLegendPositionChange = useCallback(
+    (position: Legend.StickyXY) => {
+      setLegendPosition(position);
+      storeLegendPosition(position);
+    },
+    [storeLegendPosition],
+  );
 
   return (
     <div
@@ -337,7 +368,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
             )}
           </Diagram.Controls>
         </Diagram.Diagram>
-        <Control.Legend />
+        <Control.Legend
+          position={legendPosition}
+          onPositionChange={handleLegendPositionChange}
+        />
       </Control.Controller>
     </div>
   );
@@ -358,3 +392,29 @@ export const Schematic: Layout.Renderer = ({
   if (schematic == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };
+
+export type LayoutType = "schematic";
+export const LAYOUT_TYPE = "schematic";
+
+export const SELECTABLE: Layout.Selectable = {
+  key: LAYOUT_TYPE,
+  title: "Schematic",
+  icon: <Icon.Schematic />,
+  create: (layoutKey: string) => create({ key: layoutKey }),
+};
+
+export const create =
+  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  ({ dispatch }) => {
+    const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
+    const key = initial.key ?? uuidv4();
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
+    return {
+      key,
+      location,
+      name,
+      type: LAYOUT_TYPE,
+      window,
+      tab,
+    };
+  };

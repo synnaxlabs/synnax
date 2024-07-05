@@ -68,11 +68,17 @@ def normalize_channel_params(
         return NormalizedChannelKeyResult(single=False, variant="keys", params=[])
     single = isinstance(params, (ChannelKey, ChannelName))
     if isinstance(normalized[0], str):
-        return NormalizedChannelNameResult(
-            single=single,
-            variant="names",
-            params=cast(ChannelNames, normalized),
-        )
+        try:
+            numeric_strings = [ChannelKey(s) for s in normalized]
+            return NormalizedChannelKeyResult(
+                single=single, variant="keys", params=cast(ChannelKeys, numeric_strings)
+            )
+        except ValueError:
+            return NormalizedChannelNameResult(
+                single=single,
+                variant="names",
+                params=cast(ChannelNames, normalized),
+            )
     if isinstance(normalized[0], ChannelPayload):
         return NormalizedChannelNameResult(
             single=single,

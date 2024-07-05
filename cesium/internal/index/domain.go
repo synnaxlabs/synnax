@@ -29,7 +29,11 @@ type Domain struct {
 var _ Index = (*Domain)(nil)
 
 // Distance implements Index.
-func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
+func (i *Domain) Distance(
+	ctx context.Context,
+	tr telem.TimeRange,
+	continuous bool,
+) (approx DistanceApproximation, domainBounds DomainBounds, err error) {
 	var startApprox, endApprox DistanceApproximation
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
@@ -37,15 +41,23 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	iter := i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
+	// Case 1 - If the domain with the given time range doesn't exist in the database, then
+	// there's nothing we can do.
+	// Case 2 - If the domain exists, but it doesn't contain the entire time range,
+	// then it's discontinuous, and we return early if the user doesn't want discontinuous
+	// results.
 	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
 		err = NewErrDiscontinuousTR(tr)
 		return
 	}
 
+	// If the time range is zero, then the distance is zero.
 	if tr.IsZero() {
+		domainBounds = ExactDomainBounds(iter.Position())
 		return
 	}
 
+	// Open a new reader on the domain at the start of the range.
 	r, err := iter.NewReader(ctx)
 	if err != nil {
 		return
@@ -57,12 +69,15 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 		return
 	}
 
+	// If the current domain contains the end of the time range, then everything
+	// is continuous and within the current domain.
 	if iter.TimeRange().ContainsStamp(tr.End) || tr.End == iter.TimeRange().End {
 		endApprox, err = i.search(tr.End, r)
 		approx = Between(
 			endApprox.Lower-startApprox.Upper,
 			endApprox.Upper-startApprox.Lower,
 		)
+		domainBounds = ExactDomainBounds(iter.Position())
 		return
 	} else if continuous {
 		err = NewErrDiscontinuousTR(tr)
@@ -70,10 +85,17 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	}
 
 	var (
-		l                     = r.Len() / 8
-		gap             int64 = 0
-		startToFirstEnd       = Between(l-startApprox.Upper, l-startApprox.Lower)
+		// Length of the current domain
+		l = r.Len() / int64(telem.TimeStampT.Density())
+		// The accumulated gap as we move through domains
+		gap int64 = 0
+		// Distance from the end of the domain to the start approximation.
+		startToFirstEnd = Between(
+			l-startApprox.Upper,
+			l-startApprox.Lower,
+		)
 	)
+	domainBounds.Lower = iter.Position()
 
 	for {
 		if !iter.Next() {
@@ -82,11 +104,13 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 				return
 			}
 			approx = Between(
-				startToFirstEnd.Lower+(iter.Len()/8)+gap,
-				startToFirstEnd.Upper+(iter.Len()/8)+gap,
+				startToFirstEnd.Lower+gap,
+				startToFirstEnd.Upper+gap,
 			)
+			domainBounds.Upper = iter.Position()
 			return
 		}
+		domainBounds.Upper = iter.Position()
 		if iter.TimeRange().ContainsStamp(tr.End) {
 			if err = r.Close(); err != nil {
 				return
@@ -105,7 +129,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 			)
 			return
 		}
-		gap += iter.Len()
+		gap += iter.Len() / 8
 	}
 }
 

@@ -18,6 +18,7 @@ import {
   type Payload,
   payload,
 } from "@/channel/payload";
+import { CacheRetriever } from "@/channel/retriever";
 
 const createReqZ = z.object({ channels: newPayload.array() });
 const createResZ = z.object({ channels: payload.array() });
@@ -43,21 +44,20 @@ export type RenameProps = z.input<typeof renameReqZ>;
 
 export class Writer {
   private readonly client: UnaryClient;
+  private readonly cache: CacheRetriever;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, cache: CacheRetriever) {
     this.client = client;
+    this.cache = cache;
   }
 
   async create(channels: NewPayload[]): Promise<Payload[]> {
-    return (
-      await sendRequired<typeof createReqZ, typeof createResZ>(
-        this.client,
-        CREATE_ENDPOINT,
-        { channels },
-        createReqZ,
-        createResZ,
-      )
-    ).channels;
+    const { channels: created } = await sendRequired<
+      typeof createReqZ,
+      typeof createResZ
+    >(this.client, CREATE_ENDPOINT, { channels }, createReqZ, createResZ);
+    this.cache.set(created);
+    return created;
   }
 
   async delete(props: DeleteProps): Promise<void> {
@@ -68,6 +68,8 @@ export class Writer {
       deleteReqZ,
       deleteResZ,
     );
+    if (props.keys != null) this.cache.delete(props.keys);
+    if (props.names != null) this.cache.delete(props.names);
   }
 
   async rename(keys: Key[], names: string[]): Promise<void> {
@@ -78,5 +80,6 @@ export class Writer {
       renameReqZ,
       renameResZ,
     );
+    this.cache.rename(keys, names);
   }
 }

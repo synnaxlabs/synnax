@@ -26,19 +26,19 @@ func NewRelayNetwork() *FramerRelayNetwork {
 }
 
 func (r *FramerRelayNetwork) New(addr address.Address, buffers ...int) relay.Transport {
-	return &RelayTransport{
+	return &FramerRelayTransport{
 		client: r.internal.StreamClient(buffers...),
 		server: r.internal.StreamServer(addr, buffers...),
 	}
 }
 
-type RelayTransport struct {
+type FramerRelayTransport struct {
 	client relay.TransportClient
 	server relay.TransportServer
 }
 
-var _ relay.Transport = (*RelayTransport)(nil)
+var _ relay.Transport = (*FramerRelayTransport)(nil)
 
-func (r RelayTransport) Client() relay.TransportClient { return r.client }
+func (r FramerRelayTransport) Client() relay.TransportClient { return r.client }
 
-func (r RelayTransport) Server() relay.TransportServer { return r.server }
+func (r FramerRelayTransport) Server() relay.TransportServer { return r.server }

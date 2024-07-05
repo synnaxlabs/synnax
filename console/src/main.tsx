@@ -21,12 +21,11 @@ import { useDispatch } from "react-redux";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { ErrorOverlay } from "@/error/Overlay";
+import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
-import { LayoutMain } from "@/layouts/LayoutMain";
-import { Mosaic } from "@/layouts/mosaic";
+import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
@@ -39,11 +38,8 @@ import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
-  main: LayoutMain,
-  mosaic: Mosaic.Window,
+  ...Layouts.LAYOUTS,
   ...Docs.LAYOUTS,
-  ...Layout.LAYOUTS,
-  ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...LinePlot.LAYOUTS,
@@ -109,15 +105,17 @@ const MainUnderContext = (): ReactElement => {
 };
 
 const Main = (): ReactElement => (
-  <Provider store={store}>
-    <ErrorOverlay>
-      <Layout.RendererProvider value={layoutRenderers}>
-        <Ontology.ServicesProvider services={SERVICES}>
-          <MainUnderContext />
-        </Ontology.ServicesProvider>
-      </Layout.RendererProvider>
-    </ErrorOverlay>
-  </Provider>
+  <ErrorOverlayWithoutStore>
+    <Provider store={store}>
+      <ErrorOverlayWithStore>
+        <Layout.RendererProvider value={layoutRenderers}>
+          <Ontology.ServicesProvider services={SERVICES}>
+            <MainUnderContext />
+          </Ontology.ServicesProvider>
+        </Layout.RendererProvider>
+      </ErrorOverlayWithStore>
+    </Provider>
+  </ErrorOverlayWithoutStore>
 );
 
 const rootEl = document.getElementById("root") as HTMLElement;

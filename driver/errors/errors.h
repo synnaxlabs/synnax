@@ -10,10 +10,13 @@
 #pragma once
 
 #include <string>
+#include "client/cpp/errors/errors.h"
+#include "freighter/cpp/freighter.h"
 
 namespace driver {
-    const std::string ERROR_PREFIX = "sy.driver.";
-    const std::string TYPE_CRITICAL_HARDWARE_ERROR = ERROR_PREFIX + "hardware.critical";
-    const std::string TYPE_TEMPORARY_HARDWARE_ERROR = ERROR_PREFIX + "hardware.temporary";
-    const std::string TYPE_CONFIGURATION_ERROR = ERROR_PREFIX + "configuration";
+const freighter::Error BASE_ERROR = synnax::BASE_ERROR.sub("driver");
+const freighter::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
+const freighter::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
+const freighter::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
+const freighter::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
 }

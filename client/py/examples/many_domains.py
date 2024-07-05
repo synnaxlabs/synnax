@@ -18,11 +18,11 @@ data_ch = client.channels.create(
 )
 
 start = sy.TimeStamp.now()
-count = int(1)
+count = int(100)
 
-for i in range(5):
-    print(start)
-    stamps = np.linspace(start, start + 30 * sy.TimeSpan.MINUTE, count, dtype=np.int64)
+for i in range(100):
+    # Every write, we will write 100 sample points over 1 second.
+    stamps = np.linspace(start, start + 1 * sy.TimeSpan.SECOND, count, dtype=np.int64)
     data = np.sin(np.linspace(0, 2 * np.pi, count))
     time_ch.write(
         start=start,
@@ -32,14 +32,12 @@ for i in range(5):
         start=start,
         data=data,
     )
-    start = start + sy.TimeSpan.HOUR * 1
 
-tr = sy.TimeRange.MAX
+    # The next domain starts 2 seconds after the previous one finishes.
+    start = start + 2 * sy.TimeSpan.SECOND
 
-with client.open_iterator(tr, [data_ch.key]) as it:
-    i = 0
-    for frame in it:
-        print(len(frame.get(data_ch.key)))
-        i+=1
-
-
+# We can read all the domains together. Note that since we are only passing in one channel
+# to read, we have a resulting series for data in this particular channel, instead of a frame
+# for data in many channels.
+series = client.read(sy.TimeRange.MAX, data_ch.key)
+print("samples read:", len(series))

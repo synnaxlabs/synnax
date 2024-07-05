@@ -15,20 +15,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	tsv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
+	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var (
-	_ fgrpc.Translator[writer.Request, *tsv1.WriterRequest]       = (*writerRequestTranslator)(nil)
-	_ fgrpc.Translator[writer.Response, *tsv1.WriterResponse]     = (*writerResponseTranslator)(nil)
-	_ fgrpc.Translator[iterator.Request, *tsv1.IteratorRequest]   = (*iteratorRequestTranslator)(nil)
-	_ fgrpc.Translator[iterator.Response, *tsv1.IteratorResponse] = (*iteratorResponseTranslator)(nil)
-	_ fgrpc.Translator[relay.Request, *tsv1.RelayRequest]         = (*relayRequestTranslator)(nil)
-	_ fgrpc.Translator[relay.Response, *tsv1.RelayResponse]       = (*relayResponseTranslator)(nil)
+	_ fgrpc.Translator[writer.Request, *framerv1.WriterRequest]       = (*writerRequestTranslator)(nil)
+	_ fgrpc.Translator[writer.Response, *framerv1.WriterResponse]     = (*writerResponseTranslator)(nil)
+	_ fgrpc.Translator[iterator.Request, *framerv1.IteratorRequest]   = (*iteratorRequestTranslator)(nil)
+	_ fgrpc.Translator[iterator.Response, *framerv1.IteratorResponse] = (*iteratorResponseTranslator)(nil)
+	_ fgrpc.Translator[relay.Request, *framerv1.RelayRequest]         = (*relayRequestTranslator)(nil)
+	_ fgrpc.Translator[relay.Response, *framerv1.RelayResponse]       = (*relayResponseTranslator)(nil)
+	_ fgrpc.Translator[deleter.Request, *framerv1.DeleteRequest]      = (*deleteRequestTranslator)(nil)
 )
 
 type writerRequestTranslator struct{}
@@ -36,7 +38,7 @@ type writerRequestTranslator struct{}
 // Backward implements the fgrpc.Translator interface.
 func (writerRequestTranslator) Backward(
 	_ context.Context,
-	req *tsv1.WriterRequest,
+	req *framerv1.WriterRequest,
 ) (writer.Request, error) {
 	return writer.Request{
 		Command: writer.Command(req.Command),
@@ -52,10 +54,10 @@ func (writerRequestTranslator) Backward(
 func (writerRequestTranslator) Forward(
 	_ context.Context,
 	req writer.Request,
-) (*tsv1.WriterRequest, error) {
-	return &tsv1.WriterRequest{
+) (*framerv1.WriterRequest, error) {
+	return &framerv1.WriterRequest{
 		Command: int32(req.Command),
-		Config: &tsv1.WriterConfig{
+		Config: &framerv1.WriterConfig{
 			Keys:  req.Config.Keys.Uint32(),
 			Start: int64(req.Config.Start),
 		},
@@ -68,7 +70,7 @@ type writerResponseTranslator struct{}
 // Backward implements the fgrpc.Translator interface.
 func (writerResponseTranslator) Backward(
 	ctx context.Context,
-	res *tsv1.WriterResponse,
+	res *framerv1.WriterResponse,
 ) (writer.Response, error) {
 	return writer.Response{
 		Command: writer.Command(res.Command),
@@ -82,8 +84,8 @@ func (writerResponseTranslator) Backward(
 func (writerResponseTranslator) Forward(
 	ctx context.Context,
 	res writer.Response,
-) (*tsv1.WriterResponse, error) {
-	return &tsv1.WriterResponse{
+) (*framerv1.WriterResponse, error) {
+	return &framerv1.WriterResponse{
 		Command: int32(res.Command),
 		SeqNum:  int32(res.SeqNum),
 		Ack:     res.Ack,
@@ -96,14 +98,15 @@ type iteratorRequestTranslator struct{}
 // Backward implements the fgrpc.Translator interface.
 func (iteratorRequestTranslator) Backward(
 	_ context.Context,
-	req *tsv1.IteratorRequest,
+	req *framerv1.IteratorRequest,
 ) (iterator.Request, error) {
 	return iterator.Request{
-		Command: iterator.Command(req.Command),
-		Span:    telem.TimeSpan(req.Span),
-		Bounds:  telem.TranslateTimeRangeBackward(req.Bounds),
-		Stamp:   telem.TimeStamp(req.Stamp),
-		Keys:    channel.KeysFromUint32(req.Keys),
+		Command:   iterator.Command(req.Command),
+		Span:      telem.TimeSpan(req.Span),
+		Bounds:    telem.TranslateTimeRangeBackward(req.Bounds),
+		Stamp:     telem.TimeStamp(req.Stamp),
+		Keys:      channel.KeysFromUint32(req.Keys),
+		ChunkSize: req.ChunkSize,
 	}, nil
 }
 
@@ -111,13 +114,14 @@ func (iteratorRequestTranslator) Backward(
 func (iteratorRequestTranslator) Forward(
 	_ context.Context,
 	req iterator.Request,
-) (*tsv1.IteratorRequest, error) {
-	return &tsv1.IteratorRequest{
-		Command: int32(req.Command),
-		Span:    int64(req.Span),
-		Bounds:  telem.TranslateTimeRangeForward(req.Bounds),
-		Stamp:   int64(req.Stamp),
-		Keys:    req.Keys.Uint32(),
+) (*framerv1.IteratorRequest, error) {
+	return &framerv1.IteratorRequest{
+		Command:   int32(req.Command),
+		Span:      int64(req.Span),
+		Bounds:    telem.TranslateTimeRangeForward(req.Bounds),
+		Stamp:     int64(req.Stamp),
+		Keys:      req.Keys.Uint32(),
+		ChunkSize: req.ChunkSize,
 	}, nil
 }
 
@@ -126,7 +130,7 @@ type iteratorResponseTranslator struct{}
 // Backward implements the fgrpc.Translator interface.
 func (iteratorResponseTranslator) Backward(
 	ctx context.Context,
-	res *tsv1.IteratorResponse,
+	res *framerv1.IteratorResponse,
 ) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
@@ -143,8 +147,8 @@ func (iteratorResponseTranslator) Backward(
 func (iteratorResponseTranslator) Forward(
 	ctx context.Context,
 	res iterator.Response,
-) (*tsv1.IteratorResponse, error) {
-	return &tsv1.IteratorResponse{
+) (*framerv1.IteratorResponse, error) {
+	return &framerv1.IteratorResponse{
 		Variant: int32(res.Variant),
 		NodeKey: int32(res.NodeKey),
 		Ack:     res.Ack,
@@ -159,7 +163,7 @@ type relayRequestTranslator struct{}
 
 func (w relayRequestTranslator) Backward(
 	_ context.Context,
-	req *tsv1.RelayRequest,
+	req *framerv1.RelayRequest,
 ) (relay.Request, error) {
 	return relay.Request{Keys: channel.KeysFromUint32(req.Keys)}, nil
 }
@@ -167,15 +171,15 @@ func (w relayRequestTranslator) Backward(
 func (w relayRequestTranslator) Forward(
 	_ context.Context,
 	req relay.Request,
-) (*tsv1.RelayRequest, error) {
-	return &tsv1.RelayRequest{Keys: req.Keys.Uint32()}, nil
+) (*framerv1.RelayRequest, error) {
+	return &framerv1.RelayRequest{Keys: req.Keys.Uint32()}, nil
 }
 
 type relayResponseTranslator struct{}
 
 func (w relayResponseTranslator) Backward(
 	ctx context.Context,
-	res *tsv1.RelayResponse,
+	res *framerv1.RelayResponse,
 ) (relay.Response, error) {
 	return relay.Response{
 		Frame: translateFrameForward(res.Frame),
@@ -186,22 +190,46 @@ func (w relayResponseTranslator) Backward(
 func (w relayResponseTranslator) Forward(
 	ctx context.Context,
 	res relay.Response,
-) (*tsv1.RelayResponse, error) {
-	return &tsv1.RelayResponse{
+) (*framerv1.RelayResponse, error) {
+	return &framerv1.RelayResponse{
 		Frame: translateFrameBackward(res.Frame),
 		Error: fgrpc.EncodeError(ctx, res.Error, true),
 	}, nil
 }
 
-func translateFrameForward(frame *tsv1.Frame) framer.Frame {
+func translateFrameForward(frame *framerv1.Frame) framer.Frame {
 	keys := channel.KeysFromUint32(frame.Keys)
 	series := telem.TranslateManySeriesBackward(frame.Series)
 	return framer.Frame{Keys: keys, Series: series}
 }
 
-func translateFrameBackward(frame framer.Frame) *tsv1.Frame {
-	return &tsv1.Frame{
+func translateFrameBackward(frame framer.Frame) *framerv1.Frame {
+	return &framerv1.Frame{
 		Keys:   frame.Keys.Uint32(),
 		Series: telem.TranslateManySeriesForward(frame.Series),
 	}
+}
+
+type deleteRequestTranslator struct{}
+
+func (r deleteRequestTranslator) Forward(
+	_ context.Context,
+	msg deleter.Request,
+) (*framerv1.DeleteRequest, error) {
+	return &framerv1.DeleteRequest{
+		Keys:   msg.Keys.Uint32(),
+		Names:  msg.Names,
+		Bounds: telem.TranslateTimeRangeForward(msg.Bounds),
+	}, nil
+}
+
+func (r deleteRequestTranslator) Backward(
+	_ context.Context,
+	msg *framerv1.DeleteRequest,
+) (deleter.Request, error) {
+	return deleter.Request{
+		Keys:   channel.KeysFromUint32(msg.Keys),
+		Names:  msg.Names,
+		Bounds: telem.TranslateTimeRangeBackward(msg.Bounds),
+	}, nil
 }

@@ -10,6 +10,7 @@
 package control
 
 import (
+	"context"
 	"github.com/synnaxlabs/x/errors"
 	"math"
 )
@@ -17,10 +18,15 @@ import (
 type Authority uint8
 
 const (
-	Absolute Authority = math.MaxUint8
+	errorPrefix            = "sy.control"
+	unauthorized           = errorPrefix + ".unauthorized"
+	Absolute     Authority = math.MaxUint8
 )
 
-var Unauthorized = errors.New("unauthorized")
+var (
+	Error        = errors.New("control")
+	Unauthorized = errors.Wrap(Error, "unauthorized")
+)
 
 type Concurrency uint8
 
@@ -28,3 +34,23 @@ const (
 	Exclusive Concurrency = iota
 	Shared
 )
+
+func encode(_ context.Context, err error) (errors.Payload, bool) {
+	if errors.Is(err, Unauthorized) {
+		return errors.Payload{Type: unauthorized, Data: err.Error()}, true
+	}
+	return errors.Payload{}, false
+}
+
+func decode(_ context.Context, p errors.Payload) (error, bool) {
+	switch p.Type {
+	case "sy.control.unauthorized":
+		return errors.Wrap(Unauthorized, p.Data), true
+	default:
+		return nil, false
+	}
+}
+
+func init() {
+	errors.Register(encode, decode)
+}

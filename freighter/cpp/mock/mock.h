@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Emiliano Bonilla on 3/31/24.
-//
 
 #pragma once
 
@@ -17,7 +14,7 @@
 
 template<typename RQ, typename RS>
 class MockUnaryClient final : public freighter::UnaryClient<RQ, RS>,
-                              freighter::Finalizer {
+                              freighter::Finalizer<RQ, RS> {
 public:
     std::vector<RQ> requests{};
     std::vector<RS> responses{};
@@ -41,19 +38,19 @@ public:
     std::pair<RS, freighter::Error> send(const std::string &target, RQ &request) override {
         requests.push_back(request);
         if (responses.empty()) throw std::runtime_error("mock unary client has no responses left!");
-        const auto ctx = freighter::Context("mock", target);
-        auto [_, err] = mw.exec(ctx, this);
-        auto res = responses.front();
-        responses.erase(responses.begin());
+        const auto ctx = freighter::Context("mock", target, freighter::TransportVariant::STREAM);
+        auto [res, err] = mw.exec(ctx, this, request);
         return {res, err};
     }
 
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context outboundContext) override {
+    freighter::FinalizerReturn<RS> operator()(freighter::Context outboundContext, RQ &req) override {
         auto response_error = response_errors.front();
         response_errors.erase(response_errors.begin());
-        return {outboundContext, response_error};
+        auto res = responses.front();
+        responses.erase(responses.begin());
+        return {outboundContext, response_error, res};
     }
 
 private:
-    freighter::MiddlewareCollector mw;
+    freighter::MiddlewareCollector<RQ, RS> mw;
 };

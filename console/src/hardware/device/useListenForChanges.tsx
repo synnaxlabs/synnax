@@ -8,13 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Button, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/media";
+import { Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type change } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { createConfigureLayout } from "@/hardware/ni/device/Configure";
 import { Layout } from "@/layout";
-import { type NotificationAdapter } from "@/notifications/Notifications";
+import {
+  type NotificationAdapter,
+  SugaredNotification,
+} from "@/notifications/Notifications";
 
 export const useListenForChanges = (): void => {
   const client = Synnax.use();
@@ -43,14 +47,26 @@ export const useListenForChanges = (): void => {
   }, [client, addStatus]);
 };
 
+const MAKE_ICONS: Record<string, ReactElement> = {
+  NI: <Icon.Logo.NI />,
+  opcua: <Icon.Logo.OPC />,
+};
+
 export const notificationAdapter: NotificationAdapter = (status) => {
   if (!status.key.startsWith("new-device-")) return null;
   // grab the device key from the status key
   const deviceKey = status.key.slice("new-device-".length);
-  return {
+  const sugared: SugaredNotification = {
     ...status,
     actions: [<ConfigureButton deviceKey={deviceKey} key="configure" />],
   };
+  const icon = MAKE_ICONS[status?.data?.make as string] ?? <Icon.Device />;
+  sugared.content = (
+    <Text.WithIcon level="p" startIcon={icon}>
+      {status.message}
+    </Text.WithIcon>
+  );
+  return sugared;
 };
 
 interface ConfigureButtonProps {

@@ -29,3 +29,17 @@ export const HardReloadItem = (
     </Menu.Item>
   );
 };
+
+export const RenameItem = (): ReactElement => (
+  <Menu.Item itemKey="rename" size="small" startIcon={<Icon.Rename />}>
+    Rename
+  </Menu.Item>
+);
+
+export const DeleteItem = (): ReactElement => {
+  return (
+    <Menu.Item itemKey="delete" startIcon={<Icon.Delete />} size="small">
+      Delete
+    </Menu.Item>
+  );
+};

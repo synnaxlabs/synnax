@@ -8,26 +8,37 @@
 // included in the file licenses/APL.txt.
 
 import {
+  ANALOG_READ_SELECTABLE,
   ConfigureAnalogRead,
-  configureAnalogReadLayout,
-} from "@/hardware/ni/task/ConfigureAnalogRead";
+} from "@/hardware/ni/task/AnalogRead";
 import {
   ConfigureDigitalRead,
-  configureDigitalReadLayout,
-} from "@/hardware/ni/task/ConfigureDigitalRead";
+  DIGITAL_READ_SELECTABLE,
+} from "@/hardware/ni/task/DigitalRead";
 import {
   ConfigureDigitalWrite,
-  configureDigitalWriteLayout,
-} from "@/hardware/ni/task/ConfigureDigitalWrite";
+  DIGITAL_WRITE_SELECTABLE,
+} from "@/hardware/ni/task/DigitalWrite";
+import {
+  ANALOG_READ_TYPE,
+  DIGITAL_READ_TYPE,
+  DIGITAL_WRITE_TYPE,
+} from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
-export * from "@/hardware/ni/task/ConfigureAnalogRead";
-export * from "@/hardware/ni/task/ConfigureDigitalRead";
-export * from "@/hardware/ni/task/ConfigureDigitalWrite";
+export * from "@/hardware/ni/task/AnalogRead";
+export * from "@/hardware/ni/task/DigitalRead";
+export * from "@/hardware/ni/task/DigitalWrite";
 export * from "@/hardware/ni/task/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [configureAnalogReadLayout.type]: ConfigureAnalogRead,
-  [configureDigitalWriteLayout.type]: ConfigureDigitalWrite,
-  [configureDigitalReadLayout.type]: ConfigureDigitalRead,
+  [ANALOG_READ_TYPE]: ConfigureAnalogRead,
+  [DIGITAL_WRITE_TYPE]: ConfigureDigitalWrite,
+  [DIGITAL_READ_TYPE]: ConfigureDigitalRead,
 };
+
+export const SELECTABLES: Layout.Selectable[] = [
+  DIGITAL_READ_SELECTABLE,
+  DIGITAL_WRITE_SELECTABLE,
+  ANALOG_READ_SELECTABLE,
+];

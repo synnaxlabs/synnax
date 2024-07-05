@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.21.1"
+version = "0.23.2"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -53,7 +53,8 @@ plugins = ["numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
 
 [tool.poetry.scripts]
-synnax= "synnax.cli.synnax:synnax"
+synnax = "synnax.cli.synnax:synnax"
+synnaxkit = "synnax.cli.synnax:synnax"
 
 [tool.pytest.ini_options]
 markers = [
@@ -68,8 +69,10 @@ markers = [
     "tdms: mark test as a tdms test",
     "focus: focus on a set of tests",
     "control: mark test as a control test",
+    "io: mark test as an io test",
     "auth: mark test as an auth test",
     "internal: mark test as an internal test",
+    "tsconvert: mark test as a tsconvert test",
     "cli"
 ]
 

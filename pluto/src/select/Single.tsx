@@ -28,7 +28,7 @@ import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
-import { List as CoreList } from "@/list";
+import { List as CoreList, List } from "@/list";
 import {
   selectValueIsZero,
   type UseSelectOnChangeExtra,
@@ -36,6 +36,7 @@ import {
 } from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
+import { Triggers } from "@/triggers";
 
 export interface SingleProps<K extends Key, E extends Keyed<K>>
   extends Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
@@ -44,13 +45,15 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
       "onChange" | "visible" | "children" | "variant" | "close"
     >,
     Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<Input.TextProps, "variant" | "disabled"> {
+    Pick<Input.TextProps, "variant" | "disabled">,
+    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
   entryRenderKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
   searcher?: AsyncTermSearcher<string, K, E>;
   hideColumnHeader?: boolean;
   omit?: Array<K>;
+  children?: List.VirtualCoreProps<K, E>["children"];
 }
 
 /**
@@ -85,6 +88,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   hideColumnHeader = false,
   disabled,
   omit,
+  children,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close } = Dropdown.use();
@@ -138,6 +142,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       onChange={handleChange}
       allowNone={allowNone}
       columns={columns}
+      listItem={children}
       {...props}
     >
       <InputWrapper<K, E> searcher={searcher}>
@@ -169,6 +174,8 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   onFocus: () => void;
 }
 
+export const DEFAULT_PLACEHOLDER = "Select";
+
 const SingleInput = <K extends Key, E extends Keyed<K>>({
   entryRenderKey,
   selected,
@@ -176,8 +183,9 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   onChange,
   onFocus,
   allowNone = true,
-  placeholder = "Select...",
+  placeholder = DEFAULT_PLACEHOLDER,
   className,
+  disabled,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
   const { clear } = CoreList.useSelectionUtils();
@@ -230,12 +238,18 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
       value={internalValue}
       onChange={handleChange}
       onFocus={handleFocus}
+      onKeyDown={Triggers.matchCallback([["Enter"]], (e) => {
+        e.preventDefault();
+        if (visible) return;
+        onFocus?.();
+      })}
       style={{ flexGrow: 1 }}
       onClick={handleClick}
       placeholder={placeholder}
+      disabled={disabled}
       {...props}
     >
-      {allowNone && <ClearButton onClick={handleClear} />}
+      {allowNone && <ClearButton onClick={handleClear} disabled={disabled} />}
     </Input.Text>
   );
 };

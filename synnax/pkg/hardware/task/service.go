@@ -13,6 +13,8 @@ package task
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
+	"go.uber.org/zap"
 	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -30,6 +32,7 @@ import (
 
 // Config is the configuration for creating a Service.
 type Config struct {
+	alamos.Instrumentation
 	DB           *gorp.DB
 	Ontology     *ontology.Ontology
 	Group        *group.Service
@@ -46,6 +49,7 @@ var (
 
 // Override implements config.Properties.
 func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -85,6 +89,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	s = &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
+	s.cleanupInternalOntologyResources(ctx)
 	if cfg.Signals == nil {
 		return
 	}
@@ -95,6 +100,22 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	s.shutdownSignals = cdcS
 
 	return
+}
+
+// cleanupInternalOntologyResources purges existing internal task resources from the ontology.
+// we want ot hide internal tasks from the user.
+func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
+	var tasks []Task
+	if err := s.NewRetrieve().WhereInternal(true).Entries(&tasks).Exec(ctx, nil); err != nil {
+		s.L.Warn("unable to retrieve internal tasks for cleanup", zap.Error(err))
+	}
+	ids := make([]ontology.ID, 0, len(tasks))
+	for _, t := range tasks {
+		ids = append(ids, OntologyID(t.Key))
+	}
+	if err := s.Ontology.NewWriter(nil).DeleteManyResources(ctx, ids); err != nil {
+		s.L.Warn("unable to delete internal task resources", zap.Error(err))
+	}
 }
 
 func (s *Service) Close() error {

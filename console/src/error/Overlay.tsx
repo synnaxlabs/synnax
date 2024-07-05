@@ -23,11 +23,16 @@ import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Theming } from "@synnaxlabs/pluto/theming";
 import { getCurrent } from "@tauri-apps/api/window";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
-import { ErrorBoundary, type ErrorBoundaryProps } from "react-error-boundary";
+import {
+  ErrorBoundary,
+  type ErrorBoundaryProps,
+  FallbackProps,
+} from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { NAV_SIZES } from "@/layouts/LayoutMain";
+import { NAV_SIZES } from "@/layouts/constants";
+import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 
 export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
@@ -37,9 +42,41 @@ const messageTranslation: Record<string, string> = {
     "It seems like you have Synnax open from multiple windows. Please close all other windows and reopen Synnax.",
 };
 
-const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({ error }) => {
-  const d = useDispatch();
+const FallbackRenderWithStore: ErrorBoundaryProps["fallbackRender"] = ({ error }) => {
+  const dispatch = useDispatch();
+  const handleTryAgain = (): void => {
+    dispatch(REVERT_STATE);
+  };
 
+  const handleClear = (): void => {
+    dispatch(CLEAR_STATE);
+  };
+
+  return (
+    <FallBackRenderContent
+      onClear={handleClear}
+      onTryAgain={handleTryAgain}
+      error={error}
+    />
+  );
+};
+const FallbackRenderWithoutStore: ErrorBoundaryProps["fallbackRender"] = ({
+  error,
+}) => {
+  return <FallBackRenderContent onClear={Persist.hardClearAndReload} error={error} />;
+};
+
+type FallbackRenderContentProps = Pick<FallbackProps, "error"> & {
+  onTryAgain?: () => void;
+  onClear?: () => void;
+};
+
+const FallBackRenderContent = ({
+  onTryAgain,
+  onClear,
+  error,
+}: FallbackRenderContentProps): ReactElement => {
+  const os = OS.use();
   useEffect(() => {
     // grab the prefers-color-scheme media query
     try {
@@ -52,18 +89,8 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({ error }) => {
     } catch (e) {
       console.error(e);
     }
+    void getCurrent().show();
   }, []);
-
-  const os = OS.use();
-
-  const handleTryAgain = (): void => {
-    d(REVERT_STATE);
-  };
-
-  const handleClear = (): void => {
-    d(CLEAR_STATE);
-  };
-
   return (
     <Align.Space direction="y" className={CSS.B("error-overlay")}>
       <Nav.Bar location="top" size={NAV_SIZES.top} className="console-main-nav-top">
@@ -114,10 +141,14 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({ error }) => {
               {error.stack}
             </Text.Text>
             <Align.Space direction="x">
-              <Button.Button onClick={handleTryAgain}>Try again</Button.Button>
-              <Button.Button onClick={handleClear} variant="outlined">
-                Clear Storage and Hard Reset
-              </Button.Button>
+              {onTryAgain && (
+                <Button.Button onClick={onTryAgain}>Try again</Button.Button>
+              )}
+              {onClear && (
+                <Button.Button onClick={onClear} variant="outlined">
+                  Clear Storage and Hard Reset
+                </Button.Button>
+              )}
             </Align.Space>
           </Align.Space>
         </Align.Space>
@@ -126,8 +157,17 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({ error }) => {
   );
 };
 
-const fallbackRender = componentRenderProp(FallbackRender);
+const fallbackRenderWithStore = componentRenderProp(FallbackRenderWithStore);
+const fallbackRenderWithoutStore = componentRenderProp(FallbackRenderWithoutStore);
 
-export const ErrorOverlay = ({ children }: ErrorOverlayProps): ReactElement => (
-  <ErrorBoundary fallbackRender={fallbackRender}>{children}</ErrorBoundary>
+export const ErrorOverlayWithStore = ({
+  children,
+}: ErrorOverlayProps): ReactElement => (
+  <ErrorBoundary fallbackRender={fallbackRenderWithStore}>{children}</ErrorBoundary>
+);
+
+export const ErrorOverlayWithoutStore = ({
+  children,
+}: ErrorOverlayProps): ReactElement => (
+  <ErrorBoundary fallbackRender={fallbackRenderWithoutStore}>{children}</ErrorBoundary>
 );

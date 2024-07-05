@@ -2,10 +2,9 @@ cc_library(
     name = "driver",
     srcs = [
         "config.cpp",
-        "driver.cpp",
     ],
     hdrs = [
-        "driver.h",
+        "config.h",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
@@ -45,9 +44,12 @@ cc_test(
 
 cc_binary(
     name = "driver_main",
-    srcs = ["main.cpp"],
+    srcs = select({
+        "//conditions:default":["main.cpp"],
+    }),
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:linux": ["-std=c++20"],
         "//conditions:default": [],
     }),
     linkopts = select({

@@ -7,255 +7,267 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Synnax on 2/4/2024.
-//
-
-/// std
-#include <stdio.h>
-#include <thread>
-
 /// GTest
-#include <include/gtest/gtest.h>
+#include "gtest/gtest.h"
 
-/// Internal
-#include "client/cpp/synnax.h"
-#include "driver/ni/ni.h"
-#include "Acquisition.h"
-#include "driver/testutil/testutil.h"
-#include "nlohmann/json.hpp"
-#include "driver/breaker/breaker.h"
+#include "driver/pipeline/acquisition.h"
 
-using json = nlohmann::json;
+class MockWriter final : public pipeline::Writer {
+public:
+    std::shared_ptr<std::vector<synnax::Frame> > writes;
+    freighter::Error close_err;
+    int return_false_ok_on;
 
-/// @brief it should use niReader and perform a acuisition workflow which
-/// includes init, start, stop, and read functions and commits a frame to synnax
-TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
-        LOG(INFO) << "Test Acquisition Pipeline with NI Analog Read:" << std::endl;
+    explicit MockWriter(
+        std::shared_ptr<std::vector<synnax::Frame> > writes,
+        freighter::Error close_err = freighter::NIL,
+        int return_false_ok_on = -1
+    ): writes(std::move(writes)),
+       close_err(close_err),
+       return_false_ok_on(return_false_ok_on) {
+    }
 
-        // create synnax client
-        auto client_config = synnax::Config{
-                "localhost",
-                9090,
-                "synnax",
-                "seldon"};
-        auto client = std::make_shared<synnax::Synnax>(client_config);
-        
-        // create all the necessary channels in the synnax client
-        auto [time, tErr] = client->channels.create( // index channel for analog input channels
-                "time",
-                synnax::TIMESTAMP,
-                0,
-                true
-        );
-        ASSERT_FALSE(tErr) << tErr.message();
-        auto [data, dErr] = client->channels.create( // analog input channel
-                "acq_data",
-                synnax::FLOAT32,
-                time.key,
-                false
-        );
-        ASSERT_FALSE(dErr) << dErr.message();
+    bool write(synnax::Frame &fr) override {
+        if (this->writes->size() == this->return_false_ok_on) return false;
+        this->writes->push_back(std::move(fr));
+        return true;
+    }
 
-        // create reader config json
-        auto config = json{
-            {"acq_rate", 2000}, // dont actually need these here
-            {"stream_rate", 20}, // same as above
-            {"device_name", "Dev1"},
-            {"reader_type", "analogReader"}
-        };
-        add_index_channel_JSON(config, "time", time.key);
-        add_AI_channel_JSON(config, "acq_data", data.key, 0, -10.0, 10.0, "Default");
+    freighter::Error close() override {
+        return this->close_err;
+    }
+};
 
-        // create synnax task
-        auto task = synnax::Task(
-                "my_task",
-                "NI_analogReader",
-                to_string(config)
-        );
+class MockWriterFactory final : public pipeline::WriterFactory {
+public:
+    std::shared_ptr<std::vector<synnax::Frame> > writes;
+    std::vector<freighter::Error> open_errors;
+    std::vector<freighter::Error> close_errors;
+    std::vector<int> return_false_ok_on;
+    WriterConfig config;
+    size_t writer_opens;
 
-        auto mockCtx = std::make_shared<task::MockContext>(client);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    explicit MockWriterFactory(
+        std::shared_ptr<std::vector<synnax::Frame> > writes,
+        std::vector<freighter::Error> open_errors = {},
+        std::vector<freighter::Error> close_errors = {},
+        std::vector<int> return_false_ok_on = {}
+    ): writes(
+           std::move(writes)), open_errors(std::move(open_errors)),
+       close_errors(std::move(close_errors)),
+       return_false_ok_on(std::move(return_false_ok_on)),
+       config(),
+       writer_opens(0) {
+    }
 
-        // now create a daqReader
-        TaskHandle taskHandle;
-        ni::NiDAQmxInterface::CreateTask("",&taskHandle);
+    std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
+        const WriterConfig &config) override {
+        this->writer_opens++;
+        this->config = config;
+        auto err = this->open_errors.empty()
+                       ? freighter::NIL
+                       : this->open_errors.front();
+        if (!this->open_errors.empty())
+            this->open_errors.erase(
+                this->open_errors.begin());
+        auto close_err = this->close_errors.empty()
+                             ? freighter::NIL
+                             : this->close_errors.front();
+        if (!this->close_errors.empty())
+            this->close_errors.erase(
+                this->close_errors.begin());
+        auto return_false_ok_on = this->return_false_ok_on.empty()
+                                      ? -1
+                                      : this->return_false_ok_on.front();
+        if (!this->return_false_ok_on.empty())
+            this->return_false_ok_on.erase(
+                this->return_false_ok_on.begin());
+        auto writer = std::make_unique<MockWriter>(
+            this->writes, close_err, return_false_ok_on);
+        return {std::move(writer), err};
+    }
+};
 
-        auto reader = std::make_shared<ni::daqReader>(taskHandle, mockCtx, task);
+class MockSource : public pipeline::Source {
+public:
+    synnax::TimeStamp start_ts;
 
-        auto writerConfig = synnax::WriterConfig{
-                .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-                .start = TimeStamp::now(),
-                .mode = synnax::WriterStreamOnly};
+    explicit MockSource(synnax::TimeStamp start_ts): start_ts(start_ts) {
+    }
 
-        // create breaker config     
-        auto breaker_config = breaker::Config{
-                .name = task.name,
-                .base_interval = 1 * SECOND,
-                .max_retries = 20,
-                .scale = 1.2,
-        };
-
-
-        // instantiate the acquisition pipe
-        auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, reader, breaker_config); 
-
-        // create a streamer to read the frames that the pipe writes to the server
-        auto streamer_config = synnax::StreamerConfig{
-                .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-                .start = TimeStamp::now(),
-        };
-
-        auto [streamer, sErr] = mockCtx->client->telem.openStreamer(streamer_config);
+    std::pair<Frame, freighter::Error> read() override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        auto fr = Frame(1);
+        fr.add(1, synnax::Series(start_ts));
+        return {std::move(fr), freighter::Error()};
+    }
+};
 
 
-        
-        acquisition_pipe.start();
-
-        for(int i = 0; i < 100; i++){
-                auto [frame, err] = streamer.read();
-                std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-
-                uint32_t ai_count = 0;
-                for(int i = 0; i < frame.series->size(); i++){
-                        std::cout << "\n\n Series " << i << ": \n";
-                        // check series type before casting
-                        if (frame.series->at(i).data_type == synnax::FLOAT32){
-                                auto s =  frame.series->at(i).float32();
-                                for (int j = 0; j < s.size(); j++){
-                                        std::cout << s[j] << ", ";
-                                        ASSERT_NEAR(s[j], 0, 10); // can be any value of a sign wave from -10 to 10
-                                }
-                                ai_count++;
-                        }
-                        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
-                                auto s =  frame.series->at(i).uint64();
-                                for (int j = 0; j < s.size(); j++){
-                                        std::cout << s[j] << ", ";
-                                        ASSERT_TRUE((s[j] <= final_timestamp));
-                                }
-                        }
-                }
-                std::cout << std::endl;
-        }
-        // std::this_thread::sleep_for(std::chrono::seconds(10));
-        acquisition_pipe.stop();
+/// @brief it should correctly resolve the start timestamp for the pipeline from the
+/// first frame written.
+TEST(AcquisitionPipeline, testStartResolution) {
+    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto mock_factory = std::make_shared<MockWriterFactory>(writes);
+    auto start_ts = synnax::TimeStamp::now();
+    auto source = std::make_shared<MockSource>(start_ts);
+    synnax::WriterConfig writer_config{.channels = {1}};
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        WriterConfig(),
+        source,
+        breaker::Config()
+    );
+    pipeline.start();
+    std::this_thread::sleep_for(std::chrono::microseconds(600));
+    pipeline.stop();
+    ASSERT_GE(writes->size(), 5);
+    ASSERT_LE(writes->size(), 7);
+    ASSERT_EQ(writes->at(0).at<std::uint64_t>(1, 0), start_ts.value);
+    ASSERT_EQ(mock_factory->config.start.value, start_ts.value);
 }
 
-
-
-/// @brief it should use niReader and perform a acuisition workflow which
-/// includes init, start, stop, and read functions and commits a frame to synnax
-TEST(AcquisitionPipelineTests, test_acquisition_NI_digital_reader){
-        LOG(INFO) << "Test Acq Digital Read:" << std::endl;
-
-
-        // create synnax client
-        auto client_config = synnax::Config{
-                "localhost",
-                9090,
-                "synnax",
-                "seldon"};
-        auto client = std::make_shared<synnax::Synnax>(client_config);
-        // create all the necessary channels in the synnax client
-        auto [time, tErr] = client->channels.create( // index channel for analog input channels
-                "time",
-                synnax::TIMESTAMP,
-                0,
-                true
-        );
-        ASSERT_FALSE(tErr) << tErr.message();
-
-        auto [data, dErr] = client->channels.create( // analog input channel
-                "acq_data",
-                synnax::UINT8,
-                time.key,
-                false
-        );
-        ASSERT_FALSE(dErr) << dErr.message();
-
-        // create reader config json
-        auto config = json{
-            {"acq_rate", 2000}, // dont actually need these here
-            {"stream_rate", 20}, // same as above
-            {"device_name", "PXI1Slot2_2"},
-            {"reader_type", "digitalReader"}
-        };
-        add_index_channel_JSON(config, "time", time.key);
-        add_DI_channel_JSON(config, "acq_data", data.key, 0, 0);
-
-        // create synnax task
-        auto task = synnax::Task(
-                "my_task",
-                "NI_digitalReader",
-                to_string(config)
-        );
-
-        auto mockCtx = std::make_shared<task::MockContext>(client);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-        // now create a daqReader
-        TaskHandle taskHandle;
-        ni::NiDAQmxInterface::CreateTask("",&taskHandle);
-
-        auto reader = std::make_shared<ni::daqReader>(taskHandle, mockCtx, task);
-
-        auto writerConfig = synnax::WriterConfig{
-                .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-                .start = TimeStamp::now(),
-                .mode = synnax::WriterStreamOnly};
-
-        // create breaker config     
-        auto breaker_config = breaker::Config{
-                .name = task.name,
-                .base_interval = 1 * SECOND,
-                .max_retries = 20,
-                .scale = 1.2,
-        };
-
-
-        // instantiate the acquisition pipe
-        auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, reader, breaker_config); 
-
-        // create a streamer to read the frames that the pipe writes to the server
-        auto streamer_config = synnax::StreamerConfig{
-                .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-                .start = TimeStamp::now(),
-        };
-
-        auto [streamer, sErr] = mockCtx->client->telem.openStreamer(streamer_config);
-
-
-        
-        acquisition_pipe.start();
-
-        for(int i = 0; i < 100; i++){
-                auto [frame, err] = streamer.read();
-                std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-
-                uint32_t ai_count = 0;
-                for(int i = 0; i < frame.series->size(); i++){
-                        std::cout << "\n\n Series " << i << ": \n";
-                        // check series type before casting
-                        if (frame.series->at(i).data_type == synnax::UINT8){
-                                auto s =  frame.series->at(i).uint8();
-                                for (int j = 0; j < s.size(); j++){
-                                        std::cout << (uint32_t)s[j] << ", ";
-                                        ASSERT_TRUE((s[j] == 1) || (s[j] == 0));   
-                                }
-                                ai_count++;
-                        }
-                        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
-                                auto s =  frame.series->at(i).uint64();
-                                for (int j = 0; j < s.size(); j++){
-                                        std::cout << s[j] << ", ";
-                                        ASSERT_TRUE((s[j] <= final_timestamp));
-                                }
-                        }
-                }
-                std::cout << std::endl;
+/// @brief it should correclty retry opening the writer when an unreachable error occurs.
+TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
+    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto mock_factory = std::make_shared<MockWriterFactory>(
+        writes,
+        std::vector<freighter::Error>{
+            freighter::UNREACHABLE, freighter::UNREACHABLE, freighter::NIL
+        });
+    auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        WriterConfig(),
+        source,
+        breaker::Config{
+            .max_retries = 3,
+            .scale = 0,
+            .base_interval = synnax::MICROSECOND * 10
         }
-        // std::this_thread::sleep_for(std::chrono::seconds(10));
-        acquisition_pipe.stop();
+    );
+    pipeline.start();
+    std::this_thread::sleep_for(std::chrono::microseconds(550));
+    pipeline.stop();
+    ASSERT_GE(writes->size(), 1);
 }
 
+/// @brief it should not retry when a non-unreachable error occurs.
+TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
+    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto mock_factory = std::make_shared<MockWriterFactory>(
+        writes,
+        std::vector<freighter::Error>{
+            freighter::Error(synnax::UNAUTHORIZED_ERROR), freighter::NIL
+        }
+    );
+    auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        WriterConfig(),
+        source,
+        breaker::Config{
+            .max_retries = 3,
+            .scale = 0,
+            .base_interval = synnax::MICROSECOND * 10
+        }
+    );
+    pipeline.start();
+    std::this_thread::sleep_for(std::chrono::microseconds(550));
+    pipeline.stop();
+    ASSERT_EQ(writes->size(), 0);
+}
+
+/// @brief it should retry opening the writer when write returns false and the
+/// error is unreachable.
+TEST(AcquisitionPipeline, testWriteRetrySuccess) {
+    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto mock_factory = std::make_shared<MockWriterFactory>(
+        writes,
+        std::vector<freighter::Error>{},
+        std::vector{freighter::UNREACHABLE},
+        std::vector<int>{1}
+    );
+    auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        WriterConfig(),
+        source,
+        breaker::Config{
+            .max_retries = 1,
+            .scale = 0,
+            .base_interval = synnax::MICROSECOND * 10
+        }
+    );
+    pipeline.start();
+    std::this_thread::sleep_for(std::chrono::microseconds(500));
+    pipeline.stop();
+    ASSERT_EQ(mock_factory->writer_opens, 2);
+    ASSERT_GE(writes->size(), 3);
+}
+
+/// @brief it should not retry opening the writer when write returns false and the
+/// error is not unreachable.
+TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
+    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto mock_factory = std::make_shared<MockWriterFactory>(
+        writes,
+        std::vector<freighter::Error>{},
+        std::vector{freighter::Error(synnax::UNAUTHORIZED_ERROR)},
+        std::vector<int>{0}
+    );
+    auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        WriterConfig(),
+        source,
+        breaker::Config{
+            .max_retries = 1,
+            .scale = 0,
+            .base_interval = synnax::MICROSECOND * 10
+        }
+    );
+    pipeline.start();
+    std::this_thread::sleep_for(std::chrono::microseconds(500));
+    pipeline.stop();
+    ASSERT_EQ(mock_factory->writer_opens, 1);
+    ASSERT_EQ(writes->size(), 0);
+}
+
+/// @brief it should not restart the pipeline if it has already been started.
+TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
+    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto mock_factory = std::make_shared<MockWriterFactory>(writes);
+    auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        WriterConfig(),
+        source,
+        breaker::Config()
+    );
+    pipeline.start();
+    pipeline.start();
+    std::this_thread::sleep_for(std::chrono::microseconds(550));
+    pipeline.stop();
+    ASSERT_GE(writes->size(), 5);
+    ASSERT_LE(writes->size(), 7);
+}
+
+/// @brief it should not stop the pipeline if it has already been stopped.
+TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
+    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto mock_factory = std::make_shared<MockWriterFactory>(writes);
+    auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        WriterConfig(),
+        source,
+        breaker::Config()
+    );
+    pipeline.start();
+    std::this_thread::sleep_for(std::chrono::microseconds(550));
+    pipeline.stop();
+    pipeline.stop();
+    ASSERT_GE(writes->size(), 5);
+    ASSERT_LE(writes->size(), 7);
+}

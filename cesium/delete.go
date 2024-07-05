@@ -16,17 +16,19 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
+	"io/fs"
 	"math/rand"
 	"strconv"
-	"sync"
 	"time"
 )
 
 type GCConfig struct {
-	// MaxGoroutine is the maximum number of GoRoutines that can be launched for each try of garbage collection
+	// MaxGoroutine is the maximum number of GoRoutines that can be launched for
+	// each try of garbage collection.
 	MaxGoroutine int64
 
-	// GCTryInterval is the interval of time between two tries of garbage collection are started
+	// GCTryInterval is the interval of time between two tries of garbage collection
+	// are started.
 	GCTryInterval time.Duration
 
 	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
@@ -43,7 +45,7 @@ var DefaultGCConfig = GCConfig{
 	GCThreshold:   0.2,
 }
 
-func channelDirName(ch ChannelKey) string {
+func keyToDirName(ch ChannelKey) string {
 	return strconv.Itoa(int(ch))
 }
 
@@ -55,41 +57,41 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-
-	db.mu.Lock()
-	err := db.removeChannel(ch)
-	if err != nil {
-		db.mu.Unlock()
-		return err
-	}
-
-	// Rename the file first, so we can avoid hogging the mutex while deleting the directory
-	// may take a longer time.
+	// Rename the file first, so we can avoid hogging the mutex while deleting the
+	// directory, which may take a longer time.
 	// Rename the file to have a random suffix in case the channel is repeatedly created
 	// and deleted.
-	oldName := channelDirName(ch)
+	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	err = db.fs.Rename(oldName, newName)
-	if err != nil {
-		db.mu.Unlock()
-		return nil
+	if err := (func() error {
+		db.mu.Lock()
+		defer db.mu.Unlock()
+		if err := db.removeChannel(ch); err != nil {
+			return err
+		}
+		err := db.fs.Rename(oldName, newName)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	})(); err != nil {
+		return err
 	}
-
-	db.mu.Unlock()
 	return db.fs.Remove(newName)
 }
 
+// DeleteChannels deletes many channels by their keys.
+// This operation is not guaranteed to be atomic: it is possible some channels in chs
+// are deleted and some are not.
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-
-	db.mu.Lock()
 	var (
-		indexChannels       = make([]ChannelKey, 0)
-		directoriesToRemove = make([]string, 0)
+		indexChannels       = make([]ChannelKey, 0, len(chs))
+		directoriesToRemove = make([]string, 0, len(chs))
 	)
-
+	db.mu.Lock()
 	// This 'defer' statement does a best-effort removal of all renamed directories
 	// to ensure that all DBs deleted from db.unaryDBs and db.virtualDBs are also deleted
 	// on FS.
@@ -118,9 +120,9 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 			return
 		}
 
-		// Rename the files first, so we can avoid hogging the mutex while deleting the directory
-		// may take a longer time.
-		oldName := channelDirName(ch)
+		// Rename the files first, so we can avoid hogging the mutex while deleting
+		// the directory, which may take a longer time.
+		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
@@ -137,7 +139,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 			return
 		}
 
-		oldName := channelDirName(ch)
+		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
@@ -162,7 +164,12 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
-					return errors.Newf("cannot delete channel %v because it indexes data in channel %v", udb.Channel, otherDB.Channel)
+					return errors.Newf(
+						"cannot delete channel %v "+
+							"because it indexes data in channel %v",
+						udb.Channel,
+						otherDB.Channel,
+					)
 				}
 			}
 		}
@@ -188,17 +195,28 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 // DeleteTimeRange deletes a timerange of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
 // there are other channels depending on it in the timerange.
-// DeleteTimeRange is idempotent.
-func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.TimeRange) error {
+// DeleteTimeRange is idempotent, but when the channel does not exist, it returns
+// ErrChannelNotFound.
+func (db *DB) DeleteTimeRange(
+	ctx context.Context,
+	chs []ChannelKey,
+	tr telem.TimeRange,
+) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	indexChannels := make([]ChannelKey, 0)
+	var (
+		indexChannels = make([]ChannelKey, 0, len(chs))
+		dataChannels  = make([]ChannelKey, 0, len(chs))
+	)
 
 	for _, ch := range chs {
 		udb, uok := db.unaryDBs[ch]
 		if !uok {
 			if _, vok := db.virtualDBs[ch]; vok {
-				return errors.Newf("cannot delete time range from virtual channel %v", db.virtualDBs[ch].Channel)
+				return errors.Newf(
+					"cannot delete time range from virtual channel %v",
+					db.virtualDBs[ch].Channel,
+				)
 			}
 			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
 		}
@@ -209,6 +227,11 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 			continue
 		}
 
+		dataChannels = append(dataChannels, ch)
+	}
+
+	for _, ch := range dataChannels {
+		udb := db.unaryDBs[ch]
 		if err := udb.Delete(ctx, tr); err != nil {
 			return err
 		}
@@ -217,14 +240,19 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 	for _, ch := range indexChannels {
 		udb := db.unaryDBs[ch]
 		// Cannot delete an index channel that other channels rely on.
-		for otherDBKey := range db.unaryDBs {
-			if otherDBKey == ch || db.unaryDBs[otherDBKey].Channel.Index != udb.Config.Channel.Key {
+		for otherDBKey, otherDB := range db.unaryDBs {
+			if otherDBKey == ch || otherDB.Channel.Index != ch {
 				continue
 			}
-			otherDB := db.unaryDBs[otherDBKey]
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf("cannot delete index channel %v with channel %v depending on it from timerange %s", db.unaryDBs[ch].Channel, db.unaryDBs[otherDBKey].Channel, tr)
+				return errors.Newf(
+					"cannot delete index channel %v "+
+						"with channel %v depending on it on the time range %s",
+					db.unaryDBs[ch].Channel,
+					db.unaryDBs[otherDBKey].Channel,
+					tr,
+				)
 			}
 		}
 
@@ -243,21 +271,18 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	var (
 		sem     = semaphore.NewWeighted(maxGoRoutine)
 		sCtx, _ = signal.Isolated()
-		wg      = &sync.WaitGroup{}
 	)
-
 	for _, udb := range db.unaryDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {
+			db.mu.RUnlock()
 			return err
 		}
-		wg.Add(1)
 		udb := udb
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
 			return udb.GarbageCollect(_ctx)
 		})
 	}
-
 	db.mu.RUnlock()
 	return sCtx.Wait()
 }

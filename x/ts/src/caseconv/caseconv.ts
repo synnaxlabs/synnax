@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { camelKeys as _camelKeys, snakeKeys as _snakeKeys } from "js-convert-case";
+import {
+  camelKeys as _camelKeys,
+  snakeKeys as _snakeKeys,
+  toCamelCase as _toCamelCase,
+  toSnakeCase as _toSnakeCase,
+} from "js-convert-case";
 
 const options = {
   recursive: true,
@@ -20,3 +25,7 @@ export const toSnake = <T>(entity: T): T => _snakeKeys(entity, options) as T;
 export const toCamel = <T>(entity: T): T => _camelKeys(entity, options) as T;
 
 export const capitalize = (str: string): string => str[0].toUpperCase() + str.slice(1);
+
+export const stringToSnake = (str: string): string => _toSnakeCase(str);
+
+export const stringToCamel = (str: string): string => _toCamelCase(str);

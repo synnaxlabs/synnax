@@ -13,11 +13,13 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
+
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/types"
-	"strconv"
 )
 
 type Key types.StringParseableUint64
@@ -58,19 +60,28 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 }
 
 type Task struct {
-	Key    Key    `json:"key" msgpack:"key"`
-	Name   string `json:"name" msgpack:"name"`
-	Type   string `json:"type" msgpack:"type"`
-	Config string `json:"config" msgpack:"config"`
-	State  *State `json:"state" msgpack:"state"`
+	Key      Key    `json:"key" msgpack:"key"`
+	Name     string `json:"name" msgpack:"name"`
+	Type     string `json:"type" msgpack:"type"`
+	Config   string `json:"config" msgpack:"config"`
+	State    *State `json:"state" msgpack:"state"`
+	Internal bool   `json:"internal" msgpack:"internal"`
+}
+
+func (t Task) String() string {
+	if t.Name != "" {
+		return fmt.Sprintf("[%s]<%s>", t.Name, t.Key)
+	}
+	return t.Key.String()
 }
 
 type Status string
 
 const (
-	StatusStopped Status = "stopped"
-	StatusRunning Status = "running"
-	StatusFailed  Status = "failed"
+	StatusInfo    Status = "info"
+	StatusSuccess Status = "success"
+	StatusError   Status = "error"
+	StatusWarning Status = "warning"
 )
 
 // Details is a custom type based on string
@@ -113,8 +124,8 @@ type State struct {
 
 var _ gorp.Entry[Key] = Task{}
 
-func (m Task) GorpKey() Key { return m.Key }
+func (t Task) GorpKey() Key { return t.Key }
 
-func (m Task) SetOptions() []interface{} { return []interface{}{m.Key.Rack().Node()} }
+func (t Task) SetOptions() []interface{} { return []interface{}{t.Key.Rack().Node()} }
 
-func (m Task) Rack() rack.Key { return m.Key.Rack() }
+func (t Task) Rack() rack.Key { return t.Key.Rack() }

@@ -19,10 +19,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"strconv"
-	"sync"
 	"sync/atomic"
 )
 
+// Open opens a Cesium database on the specified directory. If the directory is not
+// empty, Open attempts to parse its subdirectories into Cesium channels. If any of
+// the subdirectories are not in the Cesium format, an error is logged and Open continues
+// execution.
 func Open(dirname string, opts ...Option) (*DB, error) {
 	o := newOptions(dirname, opts...)
 	if err := openFS(o); err != nil {
@@ -39,7 +42,6 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	}
 	db := &DB{
 		options:    o,
-		mu:         sync.RWMutex{},
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
 		relay:      newRelay(sCtx),
@@ -50,7 +52,11 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		if i.IsDir() {
 			key, err := strconv.Atoi(i.Name())
 			if err != nil {
-				db.options.L.Error(fmt.Sprintf("failed parsing existing folder <%s> to channel key", i.Name()), zap.Error(err))
+				db.options.L.Error(fmt.Sprintf(
+					"failed parsing existing folder <%s> to channel key",
+					i.Name()),
+					zap.Error(err),
+				)
 				continue
 			}
 
@@ -58,7 +64,10 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 				return nil, err
 			}
 		} else {
-			db.options.L.Warn(fmt.Sprintf("Found unknown file %s in database root directory", i.Name()))
+			db.options.L.Warn(fmt.Sprintf(
+				"Found unknown file %s in database root directory",
+				i.Name(),
+			))
 		}
 	}
 
@@ -68,15 +77,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
-	if db.closed.Load() {
-		return errDBClosed
-	}
-
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
-	l, _ := fs.List("")
-	l = l
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,11 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		v, err := virtual.Open(virtual.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation})
+		v, err := virtual.Open(virtual.Config{
+			FS:              fs,
+			Channel:         ch,
+			Instrumentation: db.options.Instrumentation,
+		})
 		if err != nil {
 			return err
 		}
@@ -103,7 +108,13 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation, FileSize: db.options.fileSize, GCThreshold: db.options.gcCfg.GCThreshold})
+		u, err := unary.Open(unary.Config{
+			FS:              fs,
+			Channel:         ch,
+			Instrumentation: db.options.Instrumentation,
+			FileSize:        db.options.fileSize,
+			GCThreshold:     db.options.gcCfg.GCThreshold,
+		})
 		if err != nil {
 			return err
 		}
@@ -116,17 +127,17 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		// is self-indexing.
 		if u.Channel.Index != 0 && !u.Channel.IsIndex {
 			idxDB, ok := db.unaryDBs[u.Channel.Index]
-			if !ok {
-				err = db.openVirtualOrUnary(Channel{Key: u.Channel.Index})
-				if err != nil {
-					return err
-				}
-				idxDB, ok = db.unaryDBs[u.Channel.Index]
-				if !ok {
-					return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel.Index)}
-				}
+			if ok {
+				u.SetIndex(idxDB.Index())
 			}
-			u.SetIndex((&idxDB).Index())
+			err = db.openVirtualOrUnary(Channel{Key: u.Channel.Index})
+			if err != nil {
+				return err
+			}
+			idxDB, ok = db.unaryDBs[u.Channel.Index]
+			if !ok {
+				return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel.Index)}
+			}
 		}
 		db.unaryDBs[ch.Key] = *u
 	}

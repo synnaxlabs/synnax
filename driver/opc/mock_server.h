@@ -31,10 +31,10 @@ struct MockServerConfig {
 class MockServer {
 public:
     MockServerConfig cfg;
-    volatile bool* running = new bool(false);
+    volatile bool *running = new bool(false);
     std::thread thread;
 
-    explicit MockServer(const MockServerConfig& cfg): cfg(cfg) {
+    explicit MockServer(const MockServerConfig &cfg) : cfg(cfg) {
     }
 
     void start() {
@@ -48,16 +48,18 @@ public:
     }
 
     void run() const {
-        UA_Server* server = UA_Server_new();
+        UA_Server *server = UA_Server_new();
 
-        for (auto& ch : cfg.channels) {
+        for (auto &ch: cfg.channels) {
             UA_VariableAttributes attr = UA_VariableAttributes_default;
             UA_Int32 myInteger = 42;
-            UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
-            attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer");
-            attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer");
+            UA_Variant_setScalarCopy(&attr.value, &myInteger,
+                                     &UA_TYPES[UA_TYPES_INT32]);
+            attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer");
+            attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer");
             UA_NodeId myIntegerNodeId = UA_NODEID_STRING_ALLOC(ch.ns, ch.node.c_str());
-            UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(ch.ns, ch.node.c_str());
+            UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(
+                ch.ns, ch.node.c_str());
             UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
             UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
             UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,

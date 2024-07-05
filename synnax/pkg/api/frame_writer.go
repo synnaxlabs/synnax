@@ -29,13 +29,40 @@ type FrameWriterConfig struct {
 	// Authorities is the authority to use when writing to the channels. We set this
 	// as an int and not control.Authorities because msgpack has a tough time decoding
 	// lists of uint8.
-	Authorities              []uint32        `json:"authorities" msgpack:"authorities"`
-	ControlSubject           control.Subject `json:"control_subject" msgpack:"control_subject"`
-	Start                    telem.TimeStamp `json:"start" msgpack:"start"`
-	Keys                     channel.Keys    `json:"keys" msgpack:"keys"`
-	Mode                     writer.Mode     `json:"mode" msgpack:"mode"`
-	EnableAutoCommit         bool            `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
-	AutoIndexPersistInterval telem.TimeSpan  `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
+	Authorities []uint32 `json:"authorities" msgpack:"authorities"`
+	// ControlSubject is an identifier for the writer.
+	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
+	// Start marks the starting timestamp of the first sample in the first frame. If
+	// telemetry occupying the given timestamp already exists for the provided keys,
+	// the writer will fail to open.
+	// [REQUIRED]
+	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	// Keys is keys to write to. At least one key must be provided. All keys must
+	// have the same data rate OR the same index. All Frames written to the Writer must
+	// have an array specified for each key, and all series must be the same length (i.e.
+	// calls to Frame.Even must return true).
+	// [REQUIRED]
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Mode sets the persistence and streaming mode for the writer. The default mode is
+	// WriterModePersistStream. See the ts.WriterMode documentation for more.
+	// [OPTIONAL]
+	Mode writer.Mode `json:"mode" msgpack:"mode"`
+	// ErrOnUnauthorized controls whether the writer will return an error when
+	// attempting to write to a channel that it does not have authority over.
+	// In non-control scenarios, this value should be set to true. In scenarios
+	// that require control handoff, this value should be set to false.
+	// [OPTIONAL] - Defaults to false.
+	ErrOnUnauthorized bool `json:"err_on_unauthorized" msgpack:"err_on_unauthorized"`
+	// EnableAutoCommit determines whether the writer will automatically commit after each write.
+	// If EnableAutoCommit is true, then the writer will commit after each write, and will
+	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// [OPTIONAL] - Defaults to false.
+	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
+	// to AlwaysAutoPersist.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 }
 
 // FrameWriterRequest represents a request to write CreateNet data for a set of channels.
@@ -92,7 +119,6 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		Receiver: stream,
 		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-
 			if r.Command == writer.SetAuthority {
 				// We decode like this because msgpack has a tough time decoding slices of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
@@ -101,11 +127,6 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 				}
 				r.Config.Keys = req.Config.Keys
 			}
-
-			if r.Command == writer.SetMode {
-				r.Config.Mode = req.Config.Mode
-			}
-
 			return r, true, nil
 		},
 	}
@@ -149,6 +170,7 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (f
 		Keys:                     req.Config.Keys,
 		Authorities:              authorities,
 		Mode:                     req.Config.Mode,
+		ErrOnUnauthorized:        config.Bool(req.Config.ErrOnUnauthorized),
 		EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
 		AutoIndexPersistInterval: req.Config.AutoIndexPersistInterval,
 	})

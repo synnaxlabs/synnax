@@ -20,9 +20,19 @@ from synnax.exceptions import (
     RouteError,
     UnexpectedError,
     ValidationError,
+    ControlError,
+    UnauthorizedError,
     FieldError,
 )
-from synnax.framer import BufferedWriter, Frame, Iterator, Streamer, Writer, WriterMode
+from synnax.framer import (
+    BufferedWriter,
+    Frame,
+    Iterator,
+    Streamer,
+    Writer,
+    WriterMode,
+    AUTO_SPAN,
+)
 from synnax.hardware import Device, Rack, Task
 from synnax.options import SynnaxOptions
 from synnax.ranger import Range

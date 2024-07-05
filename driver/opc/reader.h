@@ -31,9 +31,9 @@ struct ReaderChannelConfig {
 
     explicit ReaderChannelConfig(
         config::Parser &parser
-    ): node_id(parser.required<std::string>("node_id")),
-       node(parseNodeId("node_id", parser)),
-       channel(parser.required<ChannelKey>("channel")),
+    ) : node_id(parser.required<std::string>("node_id")),
+        node(parseNodeId("node_id", parser)),
+        channel(parser.required<ChannelKey>("channel")),
         enabled(parser.optional<bool>("enabled", true)) {
     }
 };
@@ -47,6 +47,8 @@ struct ReaderConfig {
     Rate stream_rate;
     /// @brief array_size;
     size_t array_size;
+    /// @brief whether to enable data saving for this task.
+    bool data_saving;
 
     /// @brief the list of channels to read from the server.
     std::vector<ReaderChannelConfig> channels;
@@ -55,7 +57,7 @@ struct ReaderConfig {
 
     explicit ReaderConfig(config::Parser &parser);
 
-    std::vector<ChannelKey> channelKeys() const {
+    [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
         auto keys = std::vector<ChannelKey>(channels.size());
         for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
         return keys;
@@ -75,9 +77,16 @@ public:
     ): ctx(ctx),
        task(std::move(task)),
        cfg(std::move(cfg)),
-       breaker(breaker::Breaker(breaker)),
-       pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)) {
+       breaker(breaker::Breaker(breaker_config)),
+       pipe(pipeline::Acquisition(
+           ctx->client,
+           std::move(writer_config),
+           std::move(source),
+           breaker_config
+       )) {
     }
+
+    std::string name() override { return task.name; }
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
@@ -85,11 +94,8 @@ public:
     );
 
     void exec(task::Command &cmd) override;
-    
-    void stop();
 
-    void start();
-
+    void stop() override;
 
 private:
     std::shared_ptr<task::Context> ctx;

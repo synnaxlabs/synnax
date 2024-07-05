@@ -17,8 +17,8 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { SelectModel } from "@/hardware/ni/device/enrich/SelectModel";
 
-const MIN_IDENTIFIER_LENGTH = 3;
-const MAX_IDENTIFIER_LENGTH = 5;
+const MIN_IDENTIFIER_LENGTH = 4;
+const MAX_IDENTIFIER_LENGTH = 7;
 
 export const extrapolateIdentifier = (identifier: string): string => {
   const words = identifier.split(" ");
@@ -27,7 +27,7 @@ export const extrapolateIdentifier = (identifier: string): string => {
   return words
     .map((word, i) => (i === 0 ? word.slice(0, toGrabFromFirst) : word[0]))
     .join("")
-    .toUpperCase()
+    .toLowerCase()
     .slice(0, MAX_IDENTIFIER_LENGTH);
 };
 
@@ -35,12 +35,8 @@ export const PropertiesForm = (): ReactElement => {
   Form.useFieldListener<string>({
     path: "properties.name",
     onChange: (state, { set, get }) => {
-      const id = get({ path: "properties.identifier" });
-      if (!id.touched)
-        set({
-          path: "properties.identifier",
-          value: extrapolateIdentifier(state.value),
-        });
+      const id = get("properties.identifier");
+      if (!id.touched) set("properties.identifier", extrapolateIdentifier(state.value));
     },
   });
 
@@ -74,9 +70,6 @@ export const PropertiesForm = (): ReactElement => {
         </Text.Text>
       </Align.Space>
       <Align.Space grow direction="y" align="stretch" className={CSS.B("form")}>
-        {/* <Form.Field<Vendor> path="properties.vendor" label="Vendor">
-          {(p) => <SelectVendor {...p} />}
-        </Form.Field> */}
         <Form.Field<string> path="properties.key" label="Serial Number" />
         <Form.Field<string> path="properties.model" label="Model">
           {(props) => <SelectModel {...props} />}

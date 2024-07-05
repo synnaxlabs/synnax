@@ -28,6 +28,7 @@ type Service interface {
 	Readable
 	Writeable
 	ontology.Service
+	Group() group.Group
 }
 
 type Writeable interface {
@@ -123,6 +124,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 		DB:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
+		group: mainGroup,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
@@ -134,6 +136,8 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 func (s *service) NewWriter(tx gorp.Tx) Writer {
 	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
+
+func (s *service) Group() group.Group { return s.group }
 
 func (s *service) NewRetrieve() Retrieve {
 	return Retrieve{
@@ -147,12 +151,9 @@ func (s *service) NewRetrieve() Retrieve {
 func (s *service) validateChannels(ctx context.Context, channels []Channel) (res []Channel, err error) {
 	res = make([]Channel, 0, len(channels))
 	for i, key := range KeysFromChannels(channels) {
-		deletedCount := s.proxy.deleted.NumLessThan(key.LocalKey())
-		internalCount := s.proxy.internal.NumLessThan(key.LocalKey())
-		keyNumber := key.LocalKey() - deletedCount - internalCount
-
-		if !s.proxy.internal.Contains(key.LocalKey()) {
-			if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(keyNumber)); err != nil {
+		if s.proxy.external.Contains(key.LocalKey()) {
+			channelNumber := s.proxy.external.NumLessThan(key.LocalKey()) + 1
+			if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(channelNumber)); err != nil {
 				return
 			}
 		}

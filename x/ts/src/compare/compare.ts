@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { isStringer,type Primitive } from "@/primitive";
+import { isStringer, type Primitive } from "@/primitive";
 import { type spatial } from "@/spatial";
 
 export type CompareF<T> = (a: T, b: T) => number;
@@ -40,8 +40,11 @@ export const newF = <T>(v: T, reverse: boolean = false): CompareF<T> => {
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);
       break;
+    case "undefined":
+      f = () => 0;
+      break;
     default:
-      console.warn("sortFunc: unknown type");
+      console.warn(`sortFunc: unknown type ${t}`);
       return () => -1;
   }
   return reverse ? reverseF(f) : f;
@@ -117,3 +120,30 @@ export const isLessThan = (n: number): boolean => n < EQUAL;
 export const isGreaterThan = (n: number): boolean => n > EQUAL;
 
 export const isGreaterThanEqual = (n: number): boolean => n >= EQUAL;
+
+export const stringsWithNumbers = (a: string, b: string): number => {
+  const alphaNumericRegex = /([a-zA-Z]+)|(\d+)/g;
+
+  // Remove separators and split into parts
+  const aParts = a.replace(/[\s_.\-]+/g, "").match(alphaNumericRegex);
+  const bParts = b.replace(/[\s_.\-]+/g, "").match(alphaNumericRegex);
+
+  if (!aParts || !bParts) return 0;
+
+  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+    const aPart = aParts[i];
+    const bPart = bParts[i];
+
+    if (isNaN(Number(aPart)) && isNaN(Number(bPart))) {
+      const localeComparison = aPart.localeCompare(bPart);
+      if (localeComparison !== 0) return localeComparison;
+    } else if (!isNaN(Number(aPart)) && !isNaN(Number(bPart))) {
+      const numComparison = Number(aPart) - Number(bPart);
+      if (numComparison !== 0) return numComparison;
+    } else {
+      return isNaN(Number(aPart)) ? -1 : 1;
+    }
+  }
+
+  return aParts.length - bParts.length;
+};

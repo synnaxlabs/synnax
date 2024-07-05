@@ -20,11 +20,24 @@ import (
 var ErrDiscontinuous = errors.New("discontinuous")
 
 func NewErrDiscontinuousTR(tr telem.TimeRange) error {
-	return errors.Wrapf(ErrDiscontinuous, "the index has discontinuities across the time range %s", tr)
+	return errors.Wrapf(ErrDiscontinuous, "the time range %s does not exist in the index", tr)
 }
 
 func NewErrDiscontinuousStamp(offset int64, domainLen int64) error {
 	return errors.Wrapf(ErrDiscontinuous, "failed to resolve position %d in continuous index of length %d", offset, domainLen)
+}
+
+type DomainBounds struct {
+	Lower uint32
+	Upper uint32
+}
+
+func ExactDomainBounds(pos uint32) DomainBounds {
+	return DomainBounds{Lower: pos, Upper: pos}
+}
+
+func BetweenDomains(lower, upper uint32) DomainBounds {
+	return DomainBounds{Lower: lower, Upper: upper}
 }
 
 // Index implements an index over a time series.
@@ -44,11 +57,17 @@ type Index interface {
 	// timestamp less than or equal to the start timestamp). Naturally, a time range
 	// whose start timestamp and end timestamps are both known will have an equal lower
 	// and upper bound.
-	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, error)
+	//
+	// The distance method also returns a set of DomainBonds, where the lower bound
+	// represents the domain containing the starting timestamp and the upper bound
+	// represents the domain containing the ending timestamp. In the case where
+	// continuous is true, the lower and upper bounds will always be the same.
+	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, DomainBounds, error)
 	// Stamp calculates an approximate ending timestamp for a range given a known distance
-	// (the inverse of Distance). Stamp assumes the caller is aware of discontinuities
-	// in the underlying time series, and will calculate the ending timestamp even
-	// across discontinuous ranges.
+	// in the number of samples. This operation may be understood as the
+	// opposite of Distance.
+	// Stamp assumes the caller is aware of discontinuities in the underlying time
+	// series, and will calculate the ending timestamp even across discontinuous ranges.
 	Stamp(ctx context.Context, ref telem.TimeStamp, distance int64, continuous bool) (TimeStampApproximation, error)
 	// Info returns the key and name of the channel of the index. If the database is
 	// domain-indexed, the information of the domain channel is returned. If the database

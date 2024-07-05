@@ -9,7 +9,7 @@
 
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
-import { migrate,TimeSpan } from "@synnaxlabs/x";
+import { migrate, TimeSpan } from "@synnaxlabs/x";
 
 import { type Range, type StaticRange } from "@/range/range";
 
@@ -80,6 +80,11 @@ interface RemovePayload {
   keys: string[];
 }
 
+interface RenamePayload {
+  key: string;
+  name: string;
+}
+
 type SetActivePayload = string | null;
 
 type PA<P> = PayloadAction<P>;
@@ -94,8 +99,10 @@ export const { actions, reducer } = createSlice({
         state.ranges[range.key] = range;
       });
     },
+    clearBuffer: (state) => {
+      state.buffer = null;
+    },
     remove: (state, { payload: { keys } }: PA<RemovePayload>) => {
-       
       keys.forEach((k) => delete state.ranges[k]);
     },
     setActive: (state, { payload }: PA<SetActivePayload>) => {
@@ -104,12 +111,14 @@ export const { actions, reducer } = createSlice({
     setBuffer: (state, { payload }: PA<Partial<StaticRange>>) => {
       state.buffer = payload;
     },
-    clearBuffer: (state) => {
-      state.buffer = null;
+    rename: (state, { payload: { key, name } }: PA<RenamePayload>) => {
+      const range = state.ranges[key];
+      if (range == null) return;
+      range.name = name;
     },
   },
 });
-export const { add, remove, setActive, setBuffer, clearBuffer } = actions;
+export const { add, remove, setActive, setBuffer, clearBuffer, rename } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

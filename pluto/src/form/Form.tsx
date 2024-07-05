@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
-import { type Destructor, Key, Keyed, shallowCopy, toArray } from "@synnaxlabs/x";
-import { caseconv } from "@synnaxlabs/x/caseconv";
+import { type Destructor, shallowCopy, toArray } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
 import { zodutil } from "@synnaxlabs/x/zodutil";
 import {
   createContext,
-  FC,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
@@ -27,19 +25,16 @@ import {
 } from "react";
 import { z } from "zod";
 
-import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks/ref";
 import { Input } from "@/input";
-import { Select } from "@/select";
+import { state } from "@/state";
 import { type status } from "@/status/aether";
-import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 /** Props for the @see useField hook */
 export interface UseFieldProps<I, O = I> {
   path: string;
   optional?: false;
   onChange?: (value: O, extra: ContextValue & { path: string }) => void;
-  defaultValue?: O;
 }
 
 export interface UseNullableFieldProps<I, O = I>
@@ -51,6 +46,7 @@ export interface UseNullableFieldProps<I, O = I>
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
   extends FieldState<I> {
   onChange: (value: O) => void;
+  setStatus: (status: status.CrudeSpec) => void;
   status: status.CrudeSpec;
 }
 
@@ -71,36 +67,42 @@ interface UseField {
  */
 export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   path,
-  optional: propsOptional,
+  optional = false,
   onChange,
-  defaultValue,
 }: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
   const ctx = useContext();
-  const { get, bind, set } = ctx;
-  const optional = defaultValue != null || (propsOptional ?? false);
+  const { get, bind, set, setStatus } = ctx;
 
-  const [state, setState] = useState<FieldState<I> | null>(get<I>({ path, optional }));
+  const [state, setState] = useState<FieldState<I> | null>(get<I>(path, { optional }));
 
-  useLayoutEffect(() => {
-    setState(get<I>({ path, optional }));
-    return bind({ path, onChange: setState, listenToChildren: false });
-  }, [path, bind, setState]);
+  useEffect(() => {
+    setState(get<I>(path, { optional }));
+    return bind({
+      path,
+      onChange: setState,
+      listenToChildren: false,
+    });
+  }, [path, onChange, bind, get]);
 
   const handleChange = useCallback(
     (value: O) => {
       onChange?.(value, { ...ctx, path });
-      set({ path, value });
+      set(path, value);
     },
     [path, set, onChange],
   );
 
+  const handleSetStatus = useCallback(
+    (status: status.CrudeSpec) => setStatus(path, status),
+    [path, setStatus],
+  );
+
   if (state == null) {
-    if (defaultValue != null) set({ path, value: defaultValue });
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
   }
 
-  return { onChange: handleChange, ...state };
+  return { onChange: handleChange, setStatus: handleSetStatus, ...state };
 }) as UseField;
 
 export type UseFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
@@ -136,7 +138,7 @@ export const useFieldState = <I extends Input.Value, O extends Input.Value = I>(
     setChangeTrigger((prev) => prev + 1);
     return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
   }, [path, bind]);
-  return get<O>({ path, optional }) ?? null;
+  return get<O>(path, { optional }) ?? null;
 };
 
 export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
@@ -150,7 +152,7 @@ export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>
     setChangeTrigger((prev) => prev + 1);
     return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
   }, [path, bind]);
-  return get<O>({ path, optional })?.value ?? null;
+  return get<O>(path, { optional })?.value ?? null;
 }) as UseFieldValue;
 
 export const useFieldValid = (path: string): boolean =>
@@ -205,9 +207,9 @@ export const useChildFieldValues = (<V extends unknown = unknown>({
   optional = false,
 }: UseChildFieldValuesProps): V | null => {
   const { bind, get } = useContext();
-  const [state, setState] = useState<FieldState<V> | null>(get<V>({ path, optional }));
+  const [state, setState] = useState<FieldState<V> | null>(get<V>(path, { optional }));
   useLayoutEffect(() => {
-    setState(get<V>({ path, optional }));
+    setState(get<V>(path, { optional }));
     return bind<V>({
       path,
       onChange: (fs) => setState({ ...fs, value: shallowCopy(fs.value) }),
@@ -226,8 +228,10 @@ export interface UseFieldArrayProps {
 export interface UseFieldArrayReturn<V extends unknown> {
   value: V[];
   push: (value: V | V[]) => void;
+  add: (value: V | V[], start: number) => void;
   remove: (index: number | number[]) => void;
   keepOnly: (indices: number | number[]) => void;
+  set: (values: state.SetArg<V[]>) => void;
 }
 
 export const useFieldArray = <V extends unknown = unknown>({
@@ -235,190 +239,68 @@ export const useFieldArray = <V extends unknown = unknown>({
   updateOnChildren = false,
 }: UseFieldArrayProps): UseFieldArrayReturn<V> => {
   const { bind, get, set } = useContext();
-  const [state, setState] = useState<V[]>(get<V[]>({ path, optional: false }).value);
+  const [fState, setFState] = useState<V[]>(get<V[]>(path).value);
 
   useLayoutEffect(() => {
-    setState(get<V[]>({ path, optional: false }).value);
+    setFState(get<V[]>(path).value);
     return bind<V[]>({
       path,
-      onChange: (fs) => setState(shallowCopy<V[]>(fs.value)),
+      onChange: (fs) => setFState(shallowCopy<V[]>(fs.value)),
       listenToChildren: updateOnChildren,
     });
-  }, [path, bind, get, setState]);
+  }, [path, bind, get, setFState]);
 
   const push = useCallback(
     (value: V | V[]) => {
-      const copy = shallowCopy(get<V[]>({ path }).value);
+      const copy = shallowCopy(get<V[]>(path).value);
       copy.push(...toArray(value));
-      set({ path, value: copy });
+      set(path, copy);
+    },
+    [path, get, set],
+  );
+
+  const add = useCallback(
+    (value: V | V[], start: number) => {
+      const copy = shallowCopy(get<V[]>(path).value);
+      copy.splice(start, 0, ...toArray(value));
+      set(path, copy);
     },
     [path, get, set],
   );
 
   const remove = useCallback(
     (index: number | number[]) => {
-      const val = get<V[]>({ path, optional: false }).value;
+      const val = get<V[]>(path).value;
       const indices = new Set(toArray(index));
-      set({ path, value: val.filter((_, i) => !indices.has(i)) });
+      set(
+        path,
+        val.filter((_, i) => !indices.has(i)),
+      );
     },
     [path, state, get],
   );
 
   const keepOnly = useCallback(
     (index: number | number[]) => {
-      const val = get<V[]>({ path, optional: false }).value;
+      const val = get<V[]>(path).value;
       const indices = new Set(toArray(index));
-      set({ path, value: val.filter((_, i) => indices.has(i)) });
+      set(
+        path,
+        val.filter((_, i) => indices.has(i)),
+      );
     },
-    [path, state, get],
+    [path, fState, get],
   );
 
-  return { value: state, push, remove, keepOnly };
-};
-
-export type FieldProps<
-  I extends Input.Value = string | number,
-  O extends Input.Value = I,
-> = (UseFieldProps<I, O> | UseNullableFieldProps<I, O>) &
-  Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
-    children?: RenderProp<Input.Control<I, O>>;
-    padHelpText?: boolean;
-    visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
-    hideIfNull?: boolean;
-  };
-
-const defaultInput = componentRenderProp(Input.Text);
-
-export type FieldT<I extends Input.Value, O extends Input.Value = I> = (
-  props: FieldProps<I, O>,
-) => ReactElement | null;
-
-export const Field = <
-  I extends Input.Value = string | number,
-  O extends Input.Value = I,
->({
-  path,
-  children = defaultInput as unknown as RenderProp<Input.Control<I, O>>,
-  label,
-  padHelpText = true,
-  visible = true,
-  hideIfNull = false,
-  optional,
-  defaultValue,
-  onChange,
-  className,
-  ...props
-}: FieldProps<I, O>): ReactElement | null => {
-  const field = useField<I, O>({
-    path,
-    optional: (optional as true) ?? (hideIfNull as true),
-    onChange,
-    defaultValue,
-  });
-  const ctx = useContext();
-  if (field == null) return null;
-  if (path == null) throw new Error("No path provided to Form Field");
-  if (label == null) label = caseconv.capitalize(deep.element(path, -1));
-  visible = typeof visible === "function" ? visible(field, ctx) : visible;
-  if (!visible) return null;
-  const helpText = field.touched ? field.status.message : "";
-  const { onChange: fieldOnChange, value } = field;
-  return (
-    <Input.Item
-      padHelpText={padHelpText}
-      helpText={helpText}
-      helpTextVariant={field.status.variant}
-      label={label}
-      required={field.required}
-      className={CSS(className, CSS.BE("field", path.split(".").join("-")))}
-      {...props}
-    >
-      {children({ onChange: fieldOnChange, value })}
-    </Input.Item>
+  const handleSet = useCallback(
+    (setter: state.SetArg<V[]>) => {
+      set(path, state.executeSetter(setter, get<V[]>(path).value));
+    },
+    [path, set],
   );
+
+  return { value: fState, push, remove, keepOnly, set: handleSet, add };
 };
-
-export interface FieldBuilderProps<
-  I extends Input.Value,
-  O extends Input.Value,
-  P extends {},
-> {
-  fieldKey?: string;
-  fieldProps?: Partial<FieldProps<I, O>>;
-  inputProps?: Partial<P>;
-}
-
-export type BuiltFieldProps<
-  I extends Input.Value,
-  O extends Input.Value,
-  P extends {},
-> = FieldProps<I, O> & {
-  inputProps?: Partial<P>;
-  fieldKey?: string;
-};
-
-export const fieldBuilder =
-  <I extends Input.Value, O extends Input.Value, P extends {}>(
-    Component: FC<P & Input.Control<I, O>>,
-  ) =>
-  ({
-    fieldKey: baseFieldKey,
-    fieldProps,
-    inputProps: baseInputProps,
-  }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P>> => {
-    const C = ({
-      inputProps,
-      path,
-      fieldKey = baseFieldKey,
-      ...props
-    }: BuiltFieldProps<I, O, P>) => (
-      <Field<I, O>
-        {...fieldProps}
-        {...props}
-        path={fieldKey ? `${path}.${fieldKey}` : path}
-      >
-        {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
-      </Field>
-    );
-    C.displayName = Component.displayName;
-    return C;
-  };
-
-export const buildNumericField = fieldBuilder(Input.Numeric);
-export const NumericField = buildNumericField({});
-export const buildTextField = fieldBuilder(Input.Text);
-export const TextField = buildTextField({});
-export const buildSwitchField = fieldBuilder(Input.Switch);
-export const SwitchField = buildSwitchField({});
-export const buildSelectSingleField = fieldBuilder(Select.Single) as <
-  K extends Key,
-  E extends Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.SingleProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.SingleProps<K, E>>
->;
-
-export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
-  K extends Key,
-  E extends Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.MultipleProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.MultipleProps<K, E>>
->;
-
-export const buildButtonSelectField = fieldBuilder(Select.DropdownButton) as <
-  K extends Key,
-  E extends Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.DropdownButtonProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>
->;
 
 export type Listener<V = unknown> = (state: FieldState<V>) => void;
 
@@ -429,29 +311,25 @@ export interface FieldState<V = unknown> {
   required: boolean;
 }
 
-interface RequiredGetProps {
-  path: string;
-  optional?: boolean;
+interface GetOptions<O extends boolean | undefined = boolean | undefined> {
+  optional?: O;
 }
 
-interface OptionalGetProps {
-  path: string;
-  optional: true;
+interface OptionalGetOptions {
+  optional?: true;
 }
 
-type GetProps = RequiredGetProps | OptionalGetProps;
+type GetProps = GetOptions | OptionalGetOptions;
 
 interface GetFunc {
-  <V extends Input.Value>(props: RequiredGetProps): FieldState<V>;
-  <V extends Input.Value>(props: OptionalGetProps): FieldState<V> | null;
+  <V extends Input.Value>(path: string, opts: GetOptions<true>): FieldState<V> | null;
+  <V extends Input.Value>(
+    path: string,
+    opts?: GetOptions<boolean | undefined>,
+  ): FieldState<V>;
 }
 
-interface SetProps {
-  path: string;
-  value: unknown;
-}
-
-type SetFunc = (props: SetProps) => void;
+type SetFunc = (path: string, value: unknown) => void;
 
 interface BindProps<V = unknown> {
   path: string;
@@ -469,6 +347,8 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
+  setStatus: (path: string, status: status.CrudeSpec) => void;
+  clearStatuses: () => void;
 }
 
 export const Context = createContext<ContextValue>({
@@ -484,6 +364,8 @@ export const Context = createContext<ContextValue>({
   validateAsync: () => Promise.resolve(false),
   value: () => ({}),
   has: () => false,
+  setStatus: () => {},
+  clearStatuses: () => {},
 });
 
 export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
@@ -501,7 +383,7 @@ const NO_ERROR_STATUS = (path: string): status.CrudeSpec => ({
 
 interface UseRef<Z extends z.ZodTypeAny> {
   state: z.output<Z>;
-  status: Map<string, status.CrudeSpec>;
+  statuses: Map<string, status.CrudeSpec>;
   touched: Set<string>;
   listeners: Map<string, Set<Listener>>;
   parentListeners: Map<string, Set<Listener>>;
@@ -531,7 +413,7 @@ export const use = <Z extends z.ZodTypeAny>({
 }: UseProps<Z>): UseReturn<Z> => {
   const ref = useRef<UseRef<Z>>({
     state: values,
-    status: new Map(),
+    statuses: new Map(),
     touched: new Set(),
     listeners: new Map(),
     parentListeners: new Map(),
@@ -555,19 +437,22 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 
   const get: GetFunc = useCallback(
-    <V extends any = unknown>({ path, optional }: GetProps): FieldState<V> | null => {
-      const { state, status, touched } = ref.current;
-      const value = deep.get(state, path, optional);
+    <V extends any = unknown>(
+      path: string,
+      { optional }: GetProps = { optional: false },
+    ): FieldState<V> | null => {
+      const { state, statuses, touched } = ref.current;
+      const value = deep.get(state, path, { optional });
       if (value == null) return null;
       const fs = {
         value: value as V,
-        status: status.get(path) ?? NO_ERROR_STATUS(path),
+        status: statuses.get(path) ?? NO_ERROR_STATUS(path),
         touched: touched.has(path),
         required: false,
       };
       if (schemaRef.current == null) return fs;
       const schema = schemaRef.current;
-      const zField = zodutil.getFieldSchema(schema, path, true);
+      const zField = zodutil.getFieldSchema(schema, path, { optional: true });
       if (zField == null) return fs;
       fs.required = !zField.isOptional();
       return fs;
@@ -575,55 +460,91 @@ export const use = <Z extends z.ZodTypeAny>({
     [],
   ) as GetFunc;
 
+  const updateFieldState = useCallback((path: string) => {
+    const { listeners } = ref.current;
+    const fs = get(path, { optional: true });
+    if (fs == null) return;
+    listeners.get(path)?.forEach((l) => l(fs));
+  }, []);
+
+  const updateFieldValues = useCallback((path: string) => {
+    const { listeners, parentListeners } = ref.current;
+    const fired: string[] = [];
+    const lis = listeners.get(path);
+    if (lis != null) {
+      const fs = get(path, { optional: true });
+      if (fs != null)
+        lis.forEach((l) => {
+          fired.push(path);
+          l(fs);
+        });
+    }
+    parentListeners.forEach((lis, lisPath) => {
+      const equalOrChild = deep.pathsMatch(path, lisPath);
+      if (equalOrChild) {
+        const v = get(lisPath, { optional: true });
+        if (v != null)
+          lis.forEach((l) => {
+            fired.push(`parent->${lisPath}`);
+            l(v);
+          });
+      }
+    });
+  }, []);
+
   const processValidationResult = useCallback(
     (
       result: z.SafeParseReturnType<z.input<Z>, z.output<Z>>,
-      path: string = "",
+      validationPath: string = "",
     ): boolean => {
-      const { status, listeners, touched } = ref.current;
+      const { statuses, listeners, touched } = ref.current;
+
+      // Parse was a complete success. No errors encountered.
       if (result.success) {
-        const keys = Array.from(status.keys());
-        status.clear();
-        keys.forEach((p) => {
-          const fs = get({ path: p });
-          if (fs == null) return;
-          listeners.get(p)?.forEach((l) => l(fs));
-        });
+        /// Clear statuses for all fields and update relevant listeners.
+        statuses.clear();
+        statuses.forEach((_, path) => updateFieldState(path));
         return true;
       }
+
+      // The validation may still be a success if all errors are warnings.
       let success = true;
       const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
       result.error.issues.forEach((issue) => {
+        const { message } = issue;
         const issuePath = issue.path.join(".");
-        if (!deep.pathsMatch(issuePath, path)) return;
+
+        // If we're only validating a sub-path and it doesn't match a particular issue,
+        // skip it.
+        if (!deep.pathsMatch(issuePath, validationPath)) return;
+
         const variant = getVariant(issue);
         if (variant !== "warning") success = false;
-        status.set(issuePath, {
-          key: issuePath,
-          variant: getVariant(issue),
-          message: issue.message,
-        });
+
+        statuses.set(issuePath, { key: issuePath, variant, message });
         touched.add(issuePath);
-        let fs = get({ path: issuePath, optional: true });
-        // If we can't find the field value, this means the user never set it, so instead
-        // we just to a best effort construction of the field state. This means that if
-        // the user has a field rendered for this path, the error will be displayed.
+
+        let fs = get(issuePath, { optional: true });
+        // If we can't find the field value, this means the user never set it, so
+        // instead we just to a best effort construction of the field state. This means
+        // that if the user has a field rendered for this path, the error will be displayed.
         if (fs == null)
           fs = {
             value: undefined,
-            status: status.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
+            status: statuses.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
             touched: false,
             required: false,
           };
         listeners.get(issuePath)?.forEach((l) => l(fs));
       });
-      status.forEach((_, subPath) => {
-        if (!issueKeys.has(subPath)) {
-          status.delete(subPath);
-          const fs = get({ path: subPath });
-          listeners.get(subPath)?.forEach((l) => l(fs));
-        }
+
+      // Clear any statuses that had previous validation errors, but no longer do.
+      statuses.forEach((_, subPath) => {
+        if (issueKeys.has(subPath)) return;
+        statuses.delete(subPath);
+        updateFieldState(subPath);
       });
+
       return success;
     },
     [],
@@ -649,29 +570,35 @@ export const use = <Z extends z.ZodTypeAny>({
     [processValidationResult],
   );
 
-  const set: SetFunc = useCallback(({ path, value }): void => {
-    const { state, touched, listeners, parentListeners } = ref.current;
+  const set: SetFunc = useCallback((path, value): void => {
+    const { state, touched } = ref.current;
     touched.add(path);
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
     try {
-      validate();
+      validate(path);
     } catch {
-      validateAsync();
+      validateAsync(path);
     }
-    listeners.get(path)?.forEach((l) => l(get({ path })));
-    parentListeners.forEach((lis, lisPath) => {
-      if (deep.pathsMatch(path, lisPath)) {
-        const v = get({ path: lisPath });
-        lis.forEach((l) => l(v));
-      }
-    });
+    updateFieldValues(path);
     onChangeRef.current?.(ref.current.state);
   }, []);
 
-  const has = useCallback((path: string): boolean => {
-    const { state } = ref.current;
-    return deep.has(state, path);
+  const has = useCallback(
+    (path: string): boolean => deep.has(ref.current.state, path),
+    [],
+  );
+
+  const setStatus = useCallback((path: string, status: status.CrudeSpec): void => {
+    ref.current.statuses.set(path, status);
+    ref.current.touched.add(path);
+    updateFieldState(path);
+  }, []);
+
+  const clearStatuses = useCallback(() => {
+    const { statuses } = ref.current;
+    statuses.clear();
+    statuses.forEach((_, path) => updateFieldState(path));
   }, []);
 
   useEffect(() => {
@@ -679,7 +606,7 @@ export const use = <Z extends z.ZodTypeAny>({
     const { listeners } = ref.current;
     ref.current.state = values;
     listeners.forEach((lis, p) => {
-      const v = get({ path: p });
+      const v = get(p, { optional: true });
       if (v == null) return;
       lis.forEach((l) => l(v));
     });
@@ -694,8 +621,10 @@ export const use = <Z extends z.ZodTypeAny>({
       validateAsync,
       value: () => ref.current.state,
       has,
+      setStatus,
+      clearStatuses,
     }),
-    [bind, set, get, validate],
+    [],
   );
 };
 

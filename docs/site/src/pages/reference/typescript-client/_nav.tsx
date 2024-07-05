@@ -39,6 +39,11 @@ export const typescriptClientNav: PageNavNode = {
       name: "Stream Data",
     },
     {
+      key: "/reference/typescript-client/delete-data",
+      href: "/reference/typescript-client/delete-data",
+      name: "Delete Data",
+    },
+    {
       key: "/reference/typescript-client/series-and-frames",
       href: "/reference/typescript-client/series-and-frames",
       name: "Series and Frames",

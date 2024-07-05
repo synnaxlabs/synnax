@@ -9,7 +9,14 @@
 
 import "@/haul/Haul.css";
 
-import { box, Destructor, type Key, type Optional, xy } from "@synnaxlabs/x";
+import {
+  box,
+  Destructor,
+  type Key,
+  type Optional,
+  UnknownRecord,
+  xy,
+} from "@synnaxlabs/x";
 import React, {
   createContext,
   type DragEvent,
@@ -31,7 +38,7 @@ export interface Item {
   key: Key;
   type: string;
   elementID?: string;
-  data?: unknown;
+  data?: UnknownRecord;
 }
 
 export interface DraggingState {

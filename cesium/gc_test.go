@@ -40,24 +40,24 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
-				It("Should recycle properly for a deletion on a rate channel", func() {
+				It("Should recycle properly for deletion on a rate channel", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: rate, DataType: telem.TimeStampT, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: rate, DataType: telem.Uint64T, Rate: 1 * telem.Hz},
 					)).To(Succeed())
 
 					By("Writing data to the channel")
 					for i := 1; i <= 9; i++ {
-						var data []int64
+						var data []uint64
 						for j := 0; j <= 9; j++ {
-							data = append(data, int64(i*100+j*10))
+							data = append(data, uint64(i*100+j*10))
 						}
 
 						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, cesium.NewFrame(
 							[]cesium.ChannelKey{rate},
 							[]telem.Series{
-								telem.NewSeriesV[int64](data...),
+								telem.NewSeriesV[uint64](data...),
 							},
 						))).To(Succeed())
 					}
@@ -83,7 +83,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						i, err := fs.Stat(channelKeyToPath(rate) + "/1.domain")
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
-					}).Should(Equal(uint32(42 * telem.Int64T.Density())))
+					}).Should(Equal(uint32(42 * telem.Uint64T.Density())))
 				})
 
 				It("Should recycle properly for deletion on an indexed channel", func() {

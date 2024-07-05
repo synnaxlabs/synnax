@@ -11,6 +11,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type Control,
   type Diagram,
+  Legend,
   type Schematic,
   type Viewport,
 } from "@synnaxlabs/pluto";
@@ -18,9 +19,6 @@ import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, deep, migrate, scale, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
-import { v4 as uuidV4 } from "uuid";
-
-import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
   key: Schematic.Variant;
@@ -38,6 +36,7 @@ export interface State extends migrate.Migratable {
   props: Record<string, NodeProps>;
   control: Control.Status;
   controlAcquireTrigger: number;
+  legend: LegendState;
 }
 
 interface CopyBuffer {
@@ -46,6 +45,16 @@ interface CopyBuffer {
   edges: Diagram.Edge[];
   props: Record<string, NodeProps>;
 }
+
+export interface LegendState {
+  visible: boolean;
+  position: Legend.StickyXY;
+}
+
+const ZERO_LEGEND_STATE: LegendState = {
+  visible: false,
+  position: xy.ZERO,
+};
 
 const ZERO_COPY_BUFFER: CopyBuffer = {
   pos: xy.ZERO,
@@ -88,6 +97,7 @@ export const ZERO_STATE: State = {
   control: "released",
   controlAcquireTrigger: 0,
   fitViewOnResize: false,
+  legend: ZERO_LEGEND_STATE,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {
@@ -99,13 +109,13 @@ export const ZERO_SLICE_STATE: SliceState = {
 };
 
 export interface SetViewportPayload {
-  layoutKey: string;
+  key: string;
   viewport: Diagram.Viewport;
 }
 
 export interface AddElementPayload {
-  layoutKey: string;
   key: string;
+  elKey: string;
   props: NodeProps;
   node?: Partial<Diagram.Node>;
 }
@@ -121,18 +131,18 @@ export interface FixThemeContrastPayload {
 }
 
 export interface SetNodesPayload {
-  layoutKey: string;
+  key: string;
   mode?: "replace" | "update";
   nodes: Diagram.Node[];
 }
 
 export interface SetNodePositionsPayload {
-  layoutKey: string;
+  key: string;
   positions: Record<string, xy.XY>;
 }
 
 export interface SetEdgesPayload {
-  layoutKey: string;
+  key: string;
   edges: Diagram.Edge[];
 }
 
@@ -141,26 +151,26 @@ export interface CreatePayload extends State {
 }
 
 export interface RemovePayload {
-  layoutKeys: string[];
+  keys: string[];
 }
 
 export interface SetEditablePayload {
-  layoutKey: string;
+  key: string;
   editable: boolean;
 }
 
 export interface SetFitViewOnResizePayload {
-  layoutKey: string;
+  key: string;
   fitViewOnResize: boolean;
 }
 
 export interface SetControlStatusPayload {
-  layoutKey: string;
+  key: string;
   control: Control.Status;
 }
 
 export interface ToggleControlPayload {
-  layoutKey: string;
+  key: string;
   status: Control.Status;
 }
 
@@ -171,12 +181,12 @@ export interface SetActiveToolbarTabPayload {
 export interface CopySelectionPayload {}
 
 export interface PasteSelectionPayload {
-  layoutKey: string;
+  key: string;
   pos: xy.XY;
 }
 
 export interface ClearSelectionPayload {
-  layoutKey: string;
+  key: string;
 }
 
 export interface SetViewportModePayload {
@@ -184,7 +194,12 @@ export interface SetViewportModePayload {
 }
 
 export interface SetRemoteCreatedPayload {
-  layoutKey: string;
+  key: string;
+}
+
+export interface SetLegendPayload {
+  key: string;
+  legend: Partial<LegendState>;
 }
 
 export const calculatePos = (
@@ -202,9 +217,25 @@ export const calculatePos = (
   return s.pos(cursor);
 };
 
-const MIGRATIONS: migrate.Migrations = {};
+export const STATE_MIGRATIONS: migrate.Migrations = {
+  "0.0.0": (state: State): State => {
+    if (state.legend == null) state.legend = deep.copy(ZERO_LEGEND_STATE);
+    state.version = "0.0.1";
+    return state;
+  },
+};
 
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+const migrateState = migrate.migrator<State, State>(STATE_MIGRATIONS);
+
+const SLICE_MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = (v: SliceState) => {
+  const mig = migrate.migrator<SliceState, SliceState>(SLICE_MIGRATIONS)(v);
+  mig.schematics = Object.fromEntries(
+    Object.entries(mig.schematics).map(([key, value]) => [key, migrateState(value)]),
+  );
+  return mig;
+};
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -245,7 +276,7 @@ export const { actions, reducer } = createSlice({
       state.copy = copyBuffer;
     },
     pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
-      const { pos, layoutKey } = payload;
+      const { pos, key: layoutKey } = payload;
       const console = xy.translation(state.copy.pos, pos);
       const schematic = state.schematics[layoutKey];
       const keys: Record<string, string> = {};
@@ -281,7 +312,7 @@ export const { actions, reducer } = createSlice({
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      const schematic = { ...ZERO_STATE, ...payload };
+      const schematic = { ...ZERO_STATE, ...migrateState(payload) };
       if (schematic.snapshot) {
         schematic.editable = false;
         clearSelections(schematic);
@@ -290,7 +321,7 @@ export const { actions, reducer } = createSlice({
       state.toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
-      const { layoutKey } = payload;
+      const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.nodes.forEach((node) => {
         node.selected = false;
@@ -301,7 +332,7 @@ export const { actions, reducer } = createSlice({
       state.toolbar.activeTab = "symbols";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
-      const { layoutKeys } = payload;
+      const { keys: layoutKeys } = payload;
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
@@ -310,7 +341,7 @@ export const { actions, reducer } = createSlice({
       });
     },
     addElement: (state, { payload }: PayloadAction<AddElementPayload>) => {
-      const { layoutKey, key, props, node } = payload;
+      const { key: layoutKey, elKey: key, props, node } = payload;
       const schematic = state.schematics[layoutKey];
       if (!schematic.editable) return;
       schematic.nodes.push({
@@ -335,7 +366,7 @@ export const { actions, reducer } = createSlice({
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
-      const { layoutKey, nodes, mode = "replace" } = payload;
+      const { key: layoutKey, nodes, mode = "replace" } = payload;
       const schematic = state.schematics[layoutKey];
       if (mode === "replace") schematic.nodes = nodes;
       else {
@@ -355,7 +386,7 @@ export const { actions, reducer } = createSlice({
       } else state.toolbar.activeTab = "symbols";
     },
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
-      const { layoutKey, positions } = payload;
+      const { key: layoutKey, positions } = payload;
       const schematic = state.schematics[layoutKey];
       Object.entries(positions).forEach(([key, position]) => {
         const node = schematic.nodes.find((node) => node.key === key);
@@ -364,7 +395,7 @@ export const { actions, reducer } = createSlice({
       });
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
-      const { layoutKey, edges } = payload;
+      const { key: layoutKey, edges } = payload;
       const schematic = state.schematics[layoutKey];
       // check for new edges
       const prevKeys = schematic.edges.map((edge) => edge.key);
@@ -396,12 +427,12 @@ export const { actions, reducer } = createSlice({
       state.toolbar.activeTab = tab;
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
-      const { layoutKey, viewport } = payload;
+      const { key: layoutKey, viewport } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.viewport = viewport;
     },
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
-      const { layoutKey, editable } = payload;
+      const { key: layoutKey, editable } = payload;
       const schematic = state.schematics[layoutKey];
       clearSelections(schematic);
       if (schematic.control === "acquired") {
@@ -414,12 +445,12 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<SetFitViewOnResizePayload>,
     ) => {
-      const { layoutKey, fitViewOnResize } = payload;
+      const { key: layoutKey, fitViewOnResize } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.fitViewOnResize = fitViewOnResize;
     },
     toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
-      const { layoutKey } = payload;
+      const { key: layoutKey } = payload;
       let { status } = payload;
       const schematic = state.schematics[layoutKey];
       if (status == null)
@@ -428,7 +459,7 @@ export const { actions, reducer } = createSlice({
       else schematic.controlAcquireTrigger += 1;
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
-      const { layoutKey, control } = payload;
+      const { key: layoutKey, control } = payload;
       const schematic = state.schematics[layoutKey];
       if (schematic == null) return;
       schematic.control = control;
@@ -441,7 +472,7 @@ export const { actions, reducer } = createSlice({
       state.mode = mode;
     },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
-      const { layoutKey } = payload;
+      const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.remoteCreated = true;
     },
@@ -473,6 +504,11 @@ export const { actions, reducer } = createSlice({
         });
       });
     },
+    setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
+      const { key: layoutKey, legend } = payload;
+      const schematic = state.schematics[layoutKey];
+      schematic.legend = { ...schematic.legend, ...legend };
+    },
   },
 });
 
@@ -494,6 +530,7 @@ const clearSelections = (state: State): void => {
 };
 
 export const {
+  setLegend,
   setNodePositions,
   toggleControl,
   setControlStatus,
@@ -517,22 +554,3 @@ export const {
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
-
-export type LayoutType = "schematic";
-export const LAYOUT_TYPE = "schematic";
-
-export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? uuidV4();
-    dispatch(actions.create({ ...deep.copy(ZERO_STATE), key, ...rest }));
-    return {
-      key,
-      location,
-      name,
-      type: LAYOUT_TYPE,
-      window,
-      tab,
-    };
-  };

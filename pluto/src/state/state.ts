@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Primitive, type UnknownRecord } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 export type State = Primitive | UnknownRecord;
 export type SetFunc<S, PS = S> = (prev: PS) => S;
@@ -66,4 +66,22 @@ export const usePurePassthrough = <S extends State>({
   const [internal, setInternal] = useState<S>(executeInitialSetter(value ?? initial));
   if (value != null && onChange != null) return [value, onChange];
   return [internal, setInternal];
+};
+
+export const usePersisted = <S extends State>(
+  initial: Initial<S>,
+  key: string,
+): UseReturn<S> => {
+  const [internal, setInternal] = useState<S>(() => {
+    const stored = localStorage.getItem(key);
+    if (stored == null) return executeInitialSetter(initial);
+    return JSON.parse(stored);
+  });
+  return [
+    internal,
+    (value) => {
+      setInternal(value);
+      localStorage.setItem(key, JSON.stringify(value));
+    },
+  ];
 };

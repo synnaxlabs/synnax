@@ -18,6 +18,7 @@ class Client:
     """Central client for control related tasks in the Synnax client, primarily used for
     acquiring control to run sequences.
     """
+
     framer: FrameClient
     retriever: ChannelRetriever
 

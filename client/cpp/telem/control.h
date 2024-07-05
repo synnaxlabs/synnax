@@ -9,17 +9,14 @@
 
 #pragma once
 
-/// std
-// #include <cstdint>
 #include <string>
 
-/// api protos
 #include "x/go/control/x/go/control/control.pb.h"
 
 namespace synnax {
 typedef std::uint8_t Authority;
 
-const Authority ABSOLUTTE = 255;
+const Authority AUTH_ABSOLUTE = 255;
 
 struct ControlSubject {
     std::string name;
@@ -31,6 +28,3 @@ struct ControlSubject {
     }
 };
 }
-
-
-

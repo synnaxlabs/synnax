@@ -83,6 +83,7 @@ func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 	return domain.IteratorConfig{Bounds: i.Bounds}
 }
 
+// LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *controller.State {
 	return db.Controller.LeadingState()
 }
@@ -121,13 +122,13 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 		})
 
 	if err != nil {
-		if errors.Is(err, controller.ErrRegionOverlap) {
+		if errors.Is(err, control.Unauthorized) {
 			return true, nil
 		}
 		return true, err
 	}
 
-	_, ok := g.Authorize()
+	_, ok := g.Authorized()
 	if !ok {
 		return true, nil
 	}
