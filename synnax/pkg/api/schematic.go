@@ -47,7 +47,7 @@ func (s *SchematicService) Create(ctx context.Context, req SchematicCreateReques
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{schematic.OntologyID(uuid.Nil)},
+		Objects: []ontology.ID{schematic.OntologyID(uuid.Nil)},
 	}); err != nil {
 		return res, err
 	}
@@ -71,7 +71,7 @@ func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameReques
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Rename,
-		Object:  []ontology.ID{schematic.OntologyID(req.Key)},
+		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -89,7 +89,7 @@ func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequ
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{schematic.OntologyID(req.Key)},
+		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -98,13 +98,14 @@ func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequ
 	})
 }
 
-type SchematicRetrieveRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
-}
-
-type SchematicRetrieveResponse struct {
-	Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-}
+type (
+	SchematicRetrieveRequest struct {
+		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	}
+	SchematicRetrieveResponse struct {
+		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
+	}
+)
 
 func (s *SchematicService) Retrieve(ctx context.Context, req SchematicRetrieveRequest) (res SchematicRetrieveResponse, err error) {
 	err = s.internal.NewRetrieve().
@@ -115,7 +116,7 @@ func (s *SchematicService) Retrieve(ctx context.Context, req SchematicRetrieveRe
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Object:  schematic.OntologyIDs(req.Keys),
+		Objects: schematic.OntologyIDs(req.Keys),
 	}); err != nil {
 		return SchematicRetrieveResponse{}, err
 	}
@@ -130,7 +131,7 @@ func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteReques
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Object:  schematic.OntologyIDs(req.Keys),
+		Objects: schematic.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -139,21 +140,22 @@ func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteReques
 	})
 }
 
-type SchematicCopyRequest struct {
-	Key      uuid.UUID `json:"key" msgpack:"key"`
-	Name     string    `json:"name" msgpack:"name"`
-	Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
-}
-
-type SchematicCopyResponse struct {
-	Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
-}
+type (
+	SchematicCopyRequest struct {
+		Key      uuid.UUID `json:"key" msgpack:"key"`
+		Name     string    `json:"name" msgpack:"name"`
+		Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
+	}
+	SchematicCopyResponse struct {
+		Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
+	}
+)
 
 func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (res SchematicCopyResponse, err error) {
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{schematic.OntologyID(req.Key)},
+		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return
 	}

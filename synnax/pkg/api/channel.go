@@ -12,6 +12,7 @@ package api
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"go/types"
 
@@ -76,6 +77,13 @@ func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ error) {
+	if err := s.enforcer.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{{Type: channel.OntologyType}},
+	}); err != nil {
+		return res, err
+	}
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
 		return res, err
@@ -84,7 +92,7 @@ func (s *ChannelService) Create(
 		translated[i].Internal = false
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
+		err = s.internal.NewWriter(tx).CreateMany(ctx, &translated)
 		res.Channels = translateChannelsForward(translated)
 		return err
 	})
@@ -214,7 +222,7 @@ func (s *ChannelService) Retrieve(
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Object:  channel.OntologyIDsFromChannels(resChannels),
+		Objects: channel.OntologyIDsFromChannels(resChannels),
 	}); err != nil {
 		return ChannelRetrieveResponse{}, err
 	}
@@ -278,7 +286,7 @@ func (s *ChannelService) Delete(
 				if err := s.enforcer.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
 					Action:  access.Delete,
-					Object:  req.Keys.OntologyIDs(),
+					Objects: req.Keys.OntologyIDs(),
 				}); err != nil {
 					return err
 				}
@@ -295,7 +303,7 @@ func (s *ChannelService) Delete(
 				if err = s.enforcer.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
 					Action:  access.Delete,
-					Object:  channel.OntologyIDsFromChannels(res),
+					Objects: channel.OntologyIDsFromChannels(res),
 				}); err != nil {
 					return err
 				}

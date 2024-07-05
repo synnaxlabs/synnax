@@ -56,6 +56,8 @@ func (id ID) String() string { return string(id.Type) + ":" + id.Key }
 // IsZero true if the ID is the zero value for its type.
 func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
 
+func (id ID) IsType() bool { return id.Type != "" && id.Key == "" }
+
 // ParseID parses the given string into an ID.
 func ParseID(s string) (ID, error) {
 	split := strings.Split(s, ":")

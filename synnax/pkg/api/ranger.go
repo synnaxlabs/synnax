@@ -53,7 +53,7 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 	if err := s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{ranger.OntologyID(uuid.Nil)},
+		Objects: []ontology.ID{{Type: ranger.OntologyType}},
 	}); err != nil {
 		return res, err
 	}
@@ -104,7 +104,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Object:  ranger.OntologyIDsFromRanges(resRanges),
+		Objects: ranger.OntologyIDsFromRanges(resRanges),
 	}); err != nil {
 		return RangeRetrieveResponse{}, err
 	}
@@ -120,7 +120,7 @@ func (s *RangeService) Rename(ctx context.Context, req RangeRenameRequest) (res 
 	if err := s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Rename,
-		Object:  []ontology.ID{ranger.OntologyID(req.Key)},
+		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -137,7 +137,7 @@ func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res 
 	if err := s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Object:  ranger.OntologyIDs(req.Keys),
+		Objects: ranger.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -254,14 +254,15 @@ func (s *RangeService) AliasSet(ctx context.Context, req RangeAliasSetRequest) (
 	})
 }
 
-type RangeAliasResolveRequest struct {
-	Range   uuid.UUID `json:"range" msgpack:"range"`
-	Aliases []string  `json:"aliases" msgpack:"aliases"`
-}
-
-type RangeAliasResolveResponse struct {
-	Aliases map[string]channel.Key `json:"aliases" msgpack:"aliases"`
-}
+type (
+	RangeAliasResolveRequest struct {
+		Range   uuid.UUID `json:"range" msgpack:"range"`
+		Aliases []string  `json:"aliases" msgpack:"aliases"`
+	}
+	RangeAliasResolveResponse struct {
+		Aliases map[string]channel.Key `json:"aliases" msgpack:"aliases"`
+	}
+)
 
 func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRequest) (res RangeAliasResolveResponse, _ error) {
 	var r ranger.Range

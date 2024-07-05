@@ -52,7 +52,7 @@ func (s *UserService) Login(ctx context.Context, cred auth.InsecureCredentials) 
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Object:  []ontology.ID{user.OntologyID(u.Key)},
+		Objects: []ontology.ID{user.OntologyID(u.Key)},
 	}); err != nil {
 		return tr, err
 	}
@@ -70,7 +70,7 @@ func (s *UserService) Register(ctx context.Context, req RegistrationRequest) (tr
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{user.OntologyID(uuid.Nil)},
+		Objects: []ontology.ID{user.OntologyID(uuid.Nil)},
 	}); err != nil {
 		return tr, err
 	}
@@ -102,7 +102,7 @@ func (s *UserService) ChangePassword(ctx context.Context, cpr ChangePasswordRequ
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  "change_password",
-		Object:  []ontology.ID{user.OntologyID(u.Key)},
+		Objects: []ontology.ID{user.OntologyID(u.Key)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -127,7 +127,7 @@ func (s *UserService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  "change_username",
-		Object:  []ontology.ID{user.OntologyID(u.Key)},
+		Objects: []ontology.ID{user.OntologyID(u.Key)},
 	}); err != nil {
 		return types.Nil{}, err
 	}

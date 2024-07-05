@@ -33,20 +33,21 @@ func NewOntologyService(p Provider) *OntologyService {
 	}
 }
 
-type OntologyRetrieveRequest struct {
-	IDs              []ontology.ID `json:"ids" msgpack:"ids" validate:"required"`
-	Children         bool          `json:"children" msgpack:"children"`
-	Parents          bool          `json:"parents" msgpack:"parents"`
-	IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema"`
-	ExcludeFieldData bool          `json:"exclude_field_data" msgpack:"exclude_field_data"`
-	Term             string        `json:"term" msgpack:"term"`
-	Limit            int           `json:"limit" msgpack:"limit"`
-	Offset           int           `json:"offset" msgpack:"offset"`
-}
-
-type OntologyRetrieveResponse struct {
-	Resources []ontology.Resource `json:"resources" msgpack:"resources"`
-}
+type (
+	OntologyRetrieveRequest struct {
+		IDs              []ontology.ID `json:"ids" msgpack:"ids" validate:"required"`
+		Children         bool          `json:"children" msgpack:"children"`
+		Parents          bool          `json:"parents" msgpack:"parents"`
+		IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema"`
+		ExcludeFieldData bool          `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		Term             string        `json:"term" msgpack:"term"`
+		Limit            int           `json:"limit" msgpack:"limit"`
+		Offset           int           `json:"offset" msgpack:"offset"`
+	}
+	OntologyRetrieveResponse struct {
+		Resources []ontology.Resource `json:"resources" msgpack:"resources"`
+	}
+)
 
 func (o *OntologyService) Retrieve(
 	ctx context.Context,
@@ -77,15 +78,16 @@ func (o *OntologyService) Retrieve(
 	return res, q.Entries(&res.Resources).Exec(ctx, nil)
 }
 
-type OntologyCreateGroupRequest struct {
-	Name   string      `json:"name" msgpack:"name" validate:"required"`
-	Key    uuid.UUID   `json:"key" msgpack:"key"`
-	Parent ontology.ID `json:"parent" msgpack:"parent"`
-}
-
-type OntologyCreateGroupResponse struct {
-	Group group.Group `json:"group" msgpack:"group"`
-}
+type (
+	OntologyCreateGroupRequest struct {
+		Name   string      `json:"name" msgpack:"name" validate:"required"`
+		Key    uuid.UUID   `json:"key" msgpack:"key"`
+		Parent ontology.ID `json:"parent" msgpack:"parent"`
+	}
+	OntologyCreateGroupResponse struct {
+		Group group.Group `json:"group" msgpack:"group"`
+	}
+)
 
 func (o *OntologyService) CreateGroup(
 	ctx context.Context,

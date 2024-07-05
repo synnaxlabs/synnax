@@ -12,25 +12,18 @@ package rbac
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
-type Enforcer struct {
-	DefaultEffect access.Effect
-	Legislator    *Legislator
-}
-
-var _ access.Enforcer = (*Enforcer)(nil)
+var _ access.Enforcer = (*Service)(nil)
 
 // Enforce implements the access.Enforcer interface.
-func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
-	policies, err := e.Legislator.Retrieve(ctx, req.Subject, req.Object)
-	if err != nil {
-		if errors.Is(err, query.NotFound) {
-			return e.defaultErr()
-		}
+func (s *Service) Enforce(ctx context.Context, req access.Request) error {
+	var policies []Policy
+	if err := s.NewRetrieve().WhereSubject(req.Subject).Exec(ctx, s.DB); err != nil {
 		return err
+	}
+	if len(policies) == 0 {
+		return access.Denied
 	}
 	for _, p := range policies {
 		if p.Matches(req) {
@@ -40,12 +33,5 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 			return access.Granted
 		}
 	}
-	return e.defaultErr()
-}
-
-func (e *Enforcer) defaultErr() error {
-	if e.DefaultEffect == access.Deny {
-		return access.Denied
-	}
-	return access.Granted
+	return access.Denied
 }

@@ -164,7 +164,7 @@ type Transport struct {
 	WorkspaceDelete    freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
 	WorkspaceRename    freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
 	WorkspaceSetLayout freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
-	// Schematic
+	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[SchematicCreateRequest, SchematicCreateResponse]
 	SchematicRetrieve freighter.UnaryServer[SchematicRetrieveRequest, SchematicRetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[SchematicDeleteRequest, types.Nil]
@@ -193,6 +193,10 @@ type Transport struct {
 	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
 	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
 	HardwareDeleteDevice   freighter.UnaryServer[HardwareDeleteDeviceRequest, types.Nil]
+	// ACCESS
+	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
+	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
+	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -211,6 +215,7 @@ type API struct {
 	LinePlot     *LinePlotService
 	Label        *LabelService
 	Hardware     *HardwareService
+	Access       *AccessService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -323,6 +328,11 @@ func (a *API) BindTo(t Transport) {
 		t.HardwareCreateDevice,
 		t.HardwareRetrieveDevice,
 		t.HardwareDeleteDevice,
+
+		// ACCESS
+		t.AccessCreatePolicy,
+		t.AccessDeletePolicy,
+		t.AccessRetrievePolicy,
 	)
 
 	// AUTH
@@ -411,6 +421,11 @@ func (a *API) BindTo(t Transport) {
 	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
 	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
 	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)
+
+	// ACCESS
+	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
+	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
+	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 }
 
 // New instantiates the delta API using the provided Config. This should probably

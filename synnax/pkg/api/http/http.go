@@ -107,5 +107,10 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.HardwareRetrieveDevice = fhttp.UnaryServer[api.HardwareRetrieveDeviceRequest, api.HardwareRetrieveDeviceResponse](router, false, "/api/v1/hardware/device/retrieve")
 	t.HardwareDeleteDevice = fhttp.UnaryServer[api.HardwareDeleteDeviceRequest, types.Nil](router, false, "/api/v1/hardware/device/delete")
 
+	// ACCESS
+	t.AccessCreatePolicy = fhttp.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse](router, false, "/api/v1/access/policy/create")
+	t.AccessDeletePolicy = fhttp.UnaryServer[api.AccessDeletePolicyRequest, types.Nil](router, false, "/api/v1/access/policy/delete")
+	t.AccessRetrievePolicy = fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, false, "/api/v1/access/policy/retrieve")
+
 	return t
 }

@@ -56,7 +56,7 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 	if err := svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{rack.OntologyID(0)},
+		Objects: []ontology.ID{rack.OntologyID(0)},
 	}); err != nil {
 		return res, err
 	}
@@ -117,7 +117,7 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if err := svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Object:  rack.OntologyIDsFromRacks(resRacks),
+		Objects: rack.OntologyIDsFromRacks(resRacks),
 	}); err != nil {
 		return res, err
 	}
@@ -133,7 +133,7 @@ func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRa
 	if err := svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Object:  rack.OntologyIDs(req.Keys),
+		Objects: rack.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -161,7 +161,7 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 	if err := svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{task.OntologyID(0)},
+		Objects: []ontology.ID{task.OntologyID(0)},
 	}); err != nil {
 		return res, err
 	}
@@ -240,7 +240,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	if err = svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Object:  task.OntologyIDsFromTasks(res.Tasks),
+		Objects: task.OntologyIDsFromTasks(res.Tasks),
 	}); err != nil {
 		return HardwareRetrieveTaskResponse{}, err
 	}
@@ -255,7 +255,7 @@ func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTa
 	if err := svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Object:  task.OntologyIDs(req.Keys),
+		Objects: task.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -282,7 +282,7 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 	if err := svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{device.OntologyID("")},
+		Objects: []ontology.ID{device.OntologyID("")},
 	}); err != nil {
 		return res, err
 	}
@@ -346,7 +346,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	if err = svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Object:  device.OntologyIDsFromDevices(res.Devices),
+		Objects: device.OntologyIDsFromDevices(res.Devices),
 	}); err != nil {
 		return HardwareRetrieveDeviceResponse{}, err
 	}
@@ -361,7 +361,7 @@ func (svc *HardwareService) DeleteDevice(ctx context.Context, req HardwareDelete
 	if err := svc.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Object:  device.OntologyIDs(req.Keys),
+		Objects: device.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}

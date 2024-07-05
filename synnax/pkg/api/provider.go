@@ -25,7 +25,7 @@ type Provider struct {
 	Config
 	db       dbProvider
 	user     userProvider
-	access   AccessProvider
+	access   accessProvider
 	auth     authProvider
 	cluster  clusterProvider
 	ontology OntologyProvider

@@ -46,14 +46,13 @@ func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest)
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{lineplot.OntologyID(uuid.Nil)},
+		Objects: []ontology.ID{lineplot.OntologyID(uuid.Nil)},
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		for _, lp := range req.LinePlots {
-			err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &lp)
-			if err != nil {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &lp); err != nil {
 				return err
 			}
 			res.LinePlots = append(res.LinePlots, lp)
@@ -71,7 +70,7 @@ func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest)
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Rename,
-		Object:  []ontology.ID{lineplot.OntologyID(req.Key)},
+		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -89,7 +88,7 @@ func (s *LinePlotService) SetData(ctx context.Context, req LinePlotSetDataReques
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Object:  []ontology.ID{lineplot.OntologyID(req.Key)},
+		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -111,7 +110,7 @@ func (s *LinePlotService) Retrieve(ctx context.Context, req LinePlotRetrieveRequ
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Object:  lineplot.OntologyIDs(req.Keys),
+		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -128,7 +127,7 @@ func (s *LinePlotService) Delete(ctx context.Context, req LinePlotDeleteRequest)
 	if err = s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Object:  lineplot.OntologyIDs(req.Keys),
+		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}

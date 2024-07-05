@@ -21,10 +21,10 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
-const ontologyType ontology.Type = "range"
+const OntologyType ontology.Type = "range"
 
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 func OntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
@@ -51,7 +51,7 @@ func OntologyIDsFromRanges(ranges []Range) (ids []ontology.ID) {
 }
 
 var _schema = &ontology.Schema{
-	Type: ontologyType,
+	Type: OntologyType,
 	Fields: map[string]schema.Field{
 		"key":  {Type: schema.String},
 		"name": {Type: schema.String},

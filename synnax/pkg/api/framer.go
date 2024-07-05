@@ -62,7 +62,7 @@ func (s *FrameService) FrameDelete(
 	if err := s.enforcer.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Object:  req.Keys.OntologyIDs(),
+		Objects: req.Keys.OntologyIDs(),
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -303,8 +303,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
 	pipe.Flow(ctx, confluence.CloseInletsOnExit())
-	err = ctx.Wait()
-	return err
+	return ctx.Wait()
 }
 
 func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, error) {

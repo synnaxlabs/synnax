@@ -102,7 +102,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys Keys, err error) {
 	keys = make(Keys, 0, len(ids))
 	var key Key
 	for _, id := range ids {
-		if id.Type == ontologyType {
+		if id.Type == OntologyType {
 			key, err = ParseKey(id.Key)
 			if err != nil {
 				return
@@ -155,7 +155,7 @@ func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, othe
 
 // OntologyIDs returns the ontology.ID for each key.
 func (k Keys) OntologyIDs() []ontology.ID {
-	return lo.Map(k, func(key Key, _ int) ontology.ID { return ontology.ID{Type: ontologyType, Key: key.String()} })
+	return lo.Map(k, func(key Key, _ int) ontology.ID { return ontology.ID{Type: OntologyType, Key: key.String()} })
 }
 
 // Channel is a collection is a container representing a collection of samples across

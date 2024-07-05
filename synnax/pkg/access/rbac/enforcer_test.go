@@ -43,21 +43,21 @@ var _ = Describe("enforcer", func() {
 	It("Should allow access when a valid policy exists", func() {
 		Expect(enforcer.Enforce(ctx, access.Request{
 			Subject: userID,
-			Object:  userID,
+			Objects: userID,
 			Action:  "changePassword",
 		})).To(BeNil())
 	})
 	It("Should return the default effect when a policy can't be found", func() {
 		Expect(enforcer.Enforce(ctx, access.Request{
 			Subject: user.OntologyID(uuid.New()),
-			Object:  userID,
+			Objects: userID,
 			Action:  "changePassword",
 		})).To(Equal(access.Denied))
 	})
 	It("Should return the default effect when no policy applies to the request", func() {
 		Expect(enforcer.Enforce(ctx, access.Request{
 			Subject: userID,
-			Object:  userID,
+			Objects: userID,
 			Action:  "retrieve",
 		})).To(Equal(access.Denied))
 	})

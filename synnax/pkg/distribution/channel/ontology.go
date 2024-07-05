@@ -21,12 +21,12 @@ import (
 	"github.com/synnaxlabs/x/iter"
 )
 
-const ontologyType ontology.Type = "channel"
+const OntologyType ontology.Type = "channel"
 
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
@@ -36,7 +36,7 @@ func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 }
 
 var _schema = &ontology.Schema{
-	Type: ontologyType,
+	Type: OntologyType,
 	Fields: map[string]schema.Field{
 		"key":       {Type: schema.Uint32},
 		"name":      {Type: schema.String},
