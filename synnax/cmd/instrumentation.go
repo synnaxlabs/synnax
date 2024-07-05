@@ -45,7 +45,7 @@ func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 	}
 }
 
-func configureLogger() (*alamos.Logger, error) {
+func configureLogger() (logger *alamos.Logger, err error) {
 	verbose := viper.GetBool("verbose")
 	debug := viper.GetBool("debug")
 	var cfg zap.Config
@@ -65,7 +65,13 @@ func configureLogger() (*alamos.Logger, error) {
 		cfg.DisableStacktrace = true
 		cfg.DisableCaller = true
 	}
-	return alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg})
+	logger, err = alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg})
+	if err != nil {
+		return
+	}
+
+	zap.ReplaceGlobals(logger.Zap())
+	return
 }
 
 func newPrettyLogger() *zap.Logger {
