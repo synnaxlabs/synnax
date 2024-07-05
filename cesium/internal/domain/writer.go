@@ -252,12 +252,13 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
-	if err := f(ctx, ptr, persist); err != nil {
+	err := span.Error(f(ctx, ptr, persist))
+	if err != nil {
 		return span.Error(err)
 	}
 
 	if switchingFile {
-		err := w.internal.Close()
+		err = w.internal.Close()
 		if err != nil {
 			return span.Error(err)
 		}

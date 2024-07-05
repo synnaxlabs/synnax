@@ -10,8 +10,6 @@
 package cesium_test
 
 import (
-	"math"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -26,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"math"
 )
 
 var _ = Describe("Control", func() {

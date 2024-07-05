@@ -123,7 +123,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 	for fileKey, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
-			return 0, 0, nil, span.Error(err)
+			return 0, 0, nil, err
 		}
 
 		size := s.Size()
@@ -139,7 +139,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 	if !fc.atDescriptorLimit() {
 		w, size, err := fc.newWriter(ctx)
 		if err != nil {
-			return 0, size, nil, span.Error(err)
+			return 0, size, nil, err
 		}
 		return w.fileKey, size, w, span.Error(err)
 	}

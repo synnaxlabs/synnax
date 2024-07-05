@@ -119,14 +119,15 @@ func (r *region[E]) open(c GateConfig, con control.Concurrency) (*Gate[E], Trans
 	if err != nil {
 		return g, t, err
 	}
+	r.gates[g] = struct{}{}
 	return g, t, err
 }
 
 // release a gate from the region.
 func (r *region[E]) release(g *Gate[E]) (e E, transfer Transfer) {
 	r.Lock()
-	defer r.Unlock()
 	e, transfer = r.unprotectedRelease(g)
+	r.Unlock()
 	if transfer.IsRelease() {
 		r.controller.remove(r)
 	}
@@ -380,6 +381,7 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 				r.Unlock()
 				return nil, t, err
 			}
+			r.gates[g] = struct{}{}
 
 			r.Unlock()
 			exists = true
@@ -487,6 +489,6 @@ func (c *Controller[E]) remove(r *region[E]) {
 	c.mu.Unlock()
 }
 
-func Unauthorized(s control.Subject, ch core.ChannelKey) error {
-	return errors.Wrapf(control.Unauthorized, "writer %v does not have control authority over channel %v", s, ch)
+func Unauthorized(name string, ch core.ChannelKey) error {
+	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority over channel %v", name, ch)
 }
