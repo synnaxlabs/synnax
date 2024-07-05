@@ -61,7 +61,7 @@ export interface PaletteProps {
 type Entry = Command | ontology.Resource;
 type Key = string;
 
-const macosUseDropOutside = ({ onDrop, canDrop, key, type }: Haul.UseDropOutsideProps) => {
+const useDropOutsideMacOS = ({ onDrop, canDrop, key, type }: Haul.UseDropOutsideProps) => {
   const ctx = Haul.useContext();
   if (ctx == null) return;
   const { drop } = ctx;
@@ -96,7 +96,7 @@ const macosUseDropOutside = ({ onDrop, canDrop, key, type }: Haul.UseDropOutside
   );
 };
 
-const useDropOutside = runtime.getOS() === "MacOS" ? macosUseDropOutside : Haul.useDropOutside;
+const useDropOutside = runtime.getOS() === "MacOS" ? useDropOutsideMacOS : Haul.useDropOutside;
 
 export const Palette = ({
   commands,

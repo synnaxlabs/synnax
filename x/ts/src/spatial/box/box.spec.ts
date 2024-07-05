@@ -308,7 +308,7 @@ describe("Box", () => {
     });
   });
   describe("contains", () => {
-    describe("inclusive", () => {
+    describe("inclusive of border", () => {
       it("should return true if the box completely contains the other box", () => {
         const b = box.construct(0, 0, 20, 20);
         const b2 = box.construct(5, 5, 15, 15);
@@ -338,8 +338,13 @@ describe("Box", () => {
         const p = { x: 15, y: 15 };
         expect(box.contains(b, p)).toBe(false);
       });
+      it("should return true if the point is on the border", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const p = { x: 10, y: 10 };
+        expect(box.contains(b, p)).toBe(true);
+      });
     });
-    describe("borser - exclusive", () => {
+    describe("exclusive of border", () => {
       it("should return false if the box completely contains the other box", () => {
         const b = box.construct(0, 0, 20, 20);
         const b2 = box.construct(5, 5, 15, 15);
