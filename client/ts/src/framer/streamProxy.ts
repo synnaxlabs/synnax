@@ -39,7 +39,7 @@ export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
         Please report this error to the Synnax team. ${JSON.stringify(res)}`,
         );
       if (err != null) {
-        if (err instanceof EOF) return;
+        if (EOF.matches(err)) return;
         throw err;
       }
     }
