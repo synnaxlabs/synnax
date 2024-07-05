@@ -23,6 +23,7 @@ export { Device } from "@/hardware/device";
 export { Haul } from "@/haul";
 export { Header } from "@/header";
 export * from "@/hooks";
+export { Icon } from "@/icon";
 export { Input } from "@/input";
 export { List } from "@/list";
 export * from "@/memo";

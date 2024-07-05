@@ -1,0 +1,33 @@
+.pluto-icon {
+    width: fit-content;
+    height: fit-content;
+    position: relative;
+    .pluto--bottomLeft {
+        transform: translate(-50%, 25%) scale(0.7);
+        position: absolute;
+        backdrop-filter: blur(100px);
+        bottom: 0;
+        left: 0;
+    }
+    .pluto--bottomRight {
+        transform: translate(50%, 35%) scale(0.7);
+        position: absolute;
+        backdrop-filter: blur(100px);
+        bottom: 0;
+        right: 0;
+    }
+    .pluto--topLeft {
+        transform: translate(-50%, -30%) scale(0.7);
+        position: absolute;
+        backdrop-filter: blur(100px);
+        top: 0;
+        left: 0;
+    }
+    .pluto--topRight {
+        transform: translate(50%, -35%) scale(0.7);
+        position: absolute;
+        backdrop-filter: blur(100px);
+        top: 0;
+        right: 0;
+    }
+}
