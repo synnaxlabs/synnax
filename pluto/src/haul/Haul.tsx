@@ -123,6 +123,7 @@ export const Provider = ({
       let dropped: DropProps | null = null;
       interceptors.current.forEach((interceptor) => {
         if (dropped != null) return;
+        console.log("interceptor", interceptor);
         dropped = interceptor(ref.current, cursor);
       });
       if (dropped != null) drop(dropped);
@@ -295,6 +296,7 @@ export const useDropOutside = ({ type, key, ...rest }: UseDropOutsideProps): voi
   useEffect(() => {
     const release = bind((state, cursor) => {
       const { canDrop, onDrop } = propsRef.current;
+      console.log("state", state, isOutside.current, canDrop(state));
       if (!canDrop(state) || !isOutside.current) return null;
       const dropped = onDrop({ ...state }, cursor);
       return { target, dropped };
@@ -307,7 +309,8 @@ export const useDropOutside = ({ type, key, ...rest }: UseDropOutsideProps): voi
     const handleMouseLeave = (e: globalThis.DragEvent) => {
       const { onDragOver, canDrop } = propsRef.current;
       const windowBox = box.construct(window.document.documentElement);
-      if (box.contains(windowBox, xy.construct(e.clientX, e.clientY))) return;
+      console.log("box", windowBox, e.clientX, e.clientY);
+      if (box.contains(windowBox, xy.construct(e.clientX, e.clientY)), false) return;
       isOutside.current = true;
       if (!canDrop(dragging.current)) return;
       onDragOver?.(dragging.current);
