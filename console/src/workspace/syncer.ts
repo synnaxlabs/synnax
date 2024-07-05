@@ -42,7 +42,7 @@ export const useSyncLayout = async (): Promise<void> => {
       [client],
     ),
     onError: (e) => {
-      if (e instanceof QueryError) {
+      if (QueryError.matches(e)) {
         addStatus({
           key: "workspace.save",
           variant: "error",

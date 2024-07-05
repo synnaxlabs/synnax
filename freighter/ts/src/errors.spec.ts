@@ -28,8 +28,9 @@ import {
 } from "@/errors";
 
 class MyCustomError extends BaseTypedError {
+  type = "MyCustomError";
   constructor(message: string) {
-    super(message, "MyCustomError");
+    super(message);
   }
 }
 

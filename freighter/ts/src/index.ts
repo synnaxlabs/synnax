@@ -13,6 +13,7 @@ export {
   decodeError,
   encodeError,
   EOF,
+  errorMatcher,
   errorZ,
   registerError,
   StreamClosed,
