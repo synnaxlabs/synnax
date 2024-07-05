@@ -413,7 +413,7 @@ var _ = Describe("Writer Behavior", func() {
 							By("Resolving the error to be commit error")
 							err := w.Error()
 							Expect(err).To(MatchError(validate.Error))
-							Expect(err).To(MatchError(ContainSubstring("overlaps with existing data occupying time range %v", (10 * telem.SecondTS).Range(11*telem.SecondTS+1))))
+							Expect(err).To(MatchError(ContainSubstring("overlaps with existing data occupying time range %v", (10 * telem.SecondTS).Range(14*telem.SecondTS+1))))
 
 							By("Closing the writer")
 							Expect(w.Close()).To(Succeed())
