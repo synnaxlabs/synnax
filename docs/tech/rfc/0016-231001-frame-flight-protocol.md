@@ -20,10 +20,8 @@ array that can be unpacked at the receiver, and thus recreate the frame.
 
 **Frame** - Data structure for wrapping primitive arrays with identifying
 metadata into aligned arrays that streamline the telemetry transfer process. </b>
-
 **Telemetry** - Data samples received from sensors and sent to actuators; typically
 stored on Synnax server. More details available [here](../../../pluto). </b>
-
 **Series** - A strongly typed collection of telemetry samples over a time range. The
 fundamental unit of data transfer in Synnax server. </b>
 
@@ -51,12 +49,12 @@ Therefore, the important things to test for are
 - All data arrays are the same length
 - Whether partial keys or all keys are being sent
 - Whether the time range is strongly/weakly aligned
-Based on flags which check for each of these, we can reduce the amount of data sent at any
-period in time. For example, if you know that all the data arrays will have the same length,
-we can send the length at the start of the byte array, and apply it to all the series. Similarly,
-for partial keys and time range, if we know that all the series share a similarity, we can send
-this data at the beginning of the packet, instead of having to include it as part of every series
-sent.
+  Based on flags which check for each of these, we can reduce the amount of data sent at any
+  period in time. For example, if you know that all the data arrays will have the same length,
+  we can send the length at the start of the byte array, and apply it to all the series. Similarly,
+  for partial keys and time range, if we know that all the series share a similarity, we can send
+  this data at the beginning of the packet, instead of having to include it as part of every series
+  sent.
 ```json
 {
     "keys": [1, 2, 3, 4],
@@ -113,12 +111,12 @@ include the **Equal Data Size**, then the following 16 bytes would include times
 For the rest of the byte array, the following rules apply </br>
 - Iterate through series sequential (0, 1, 2, ... n)
 - If **Equal Data Size Flag** is not set, then the first four bytes should include the size
-of the data array
+  of the data array
 - If **All Channels Flag** is not set, then the next four bytes include the uint32 key for
-the designated series
+  the designated series
 - Then, all values within the data array should be sent
 - If **Strongly Aligned Timestamp Flag** is not set, then the next 16 bytes should include
-timestamp information
+  timestamp information
 
 ### 5.0.1 - Decoding
 

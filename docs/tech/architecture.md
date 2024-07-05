@@ -64,7 +64,7 @@ Luckily, there are many great open-source key-value databases available. Synnax 
 go-embedded [pebble](https://github.com/cockroachdb/pebble) which is the backing store
 for
 [cockroachdb](https://www.cockroachlabs.com/). On startup, Synnax opens the database and
-lets pebble handle the rest. We'll return to this topic in the
+let's pebble handle the rest. We'll return to this topic in the
 [distribution layer](#12---layer-2---distribution).
 
 #### 1.2.2 - Cesium - Time-Series Engine
@@ -76,7 +76,7 @@ component arrays, and finds the optimal location to store them on disk. To retri
 frames as quickly as possible, cesium builds several indexing structures to reduce the
 amount of disk seeks required to locate a specific data set.
 
-As its interface, cesium exposes two essential types: `Writer` and `Iterator`. A
+As it's interface, cesium exposes two essential types: `Writer` and `Iterator`. A
 `Writer` is a transactional object that accepts frames and writes them to disk, only
 committing them when explicitly told to do so. If multiple frames are written that
 have overlapping time ranges, the `Writer` will fail to commit. This ensures that data
