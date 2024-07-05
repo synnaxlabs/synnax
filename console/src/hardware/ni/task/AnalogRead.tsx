@@ -83,8 +83,6 @@ const Wrapped = ({
     }),
   });
 
-  console.log(initialValues);
-
   const [selectedChannels, setSelectedChannels] = useState<string[]>(
     initialValues.config.channels.length ? [initialValues.config.channels[0].key] : [],
   );
