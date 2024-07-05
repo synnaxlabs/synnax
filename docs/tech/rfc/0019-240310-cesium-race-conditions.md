@@ -92,7 +92,7 @@ it would not be desirable.
 
 ## 3- Analysis
 
-### 3.0 Primer on the structure of Cesium
+### 3.0 Primer on the Structure of Cesium
 
 As a primer for analyzing race conditions in Cesium, we will first analyze how Cesium
 is structured and how it stores data. While all the actual telemetry data is stored on
@@ -143,7 +143,7 @@ Each layer has their own entities and methods of reads, writes, deletions, and g
 collection. All interactions are passed down to the `domainDB` to interact with the
 domain index and the file system.
 
-### 3.1 High-level view of race conditions in Cesium
+### 3.1 High-Level View of Race Conditions in Cesium
 
 #### 3.1.0 Types of possible race conditions
 
@@ -409,7 +409,7 @@ The following diagram summarizes possible conflicts between these entities:
     <h6>Cesium entities' interaction</h6>
 </div>
 
-### 3.2 domainDB race conditions
+### 3.2 domainDB Race Conditions
 
 We will now inspect, from the bottom up, how the various entities interact with the
 domain data and the domain index in memory. The `domainDB` is responsible for managing the
@@ -680,7 +680,7 @@ there cannot be `Write` operations on the pointers affected by garbage collectio
 To this end, race condition occurs when there are two garbage collection processes running concurrently.
 A fix could be to ensure that this never happens.
 
-### 3.3 unaryDB race conditions
+### 3.3 unaryDB Race Conditions
 
 In a `unaryDB`, the previously index-agnostic `domainDB` is paired with an index, allowing
 us to match a time stamp to each sample. Therefore, contrary to a `domainDB`,
@@ -803,7 +803,7 @@ delete duration.
 
 Garbage collection in a `unaryDB` is a direct forward of garbage collection from `domainDB`.
 
-### 3.4 cesiumDB race conditions
+### 3.4 cesiumDB Race Conditions
 
 In a `cesiumDB`, multiple `unaryDB`s are stored to represent multiple channels. Therefore,
 reads and writes at this level culminate in **frames** (series from different channels).
