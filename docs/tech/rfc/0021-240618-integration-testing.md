@@ -277,3 +277,6 @@ as golang does not implement interrupting a Windows process
 KILL signal to the server process to forcibly stop it. This is less ideal than a
 graceful shutdown. In any case, even though the GitHub Actions runner cleans up orphan
 processes by default, but this is something that should be addressed.
+
+In addition, Synnax server may also be shut down via a close keyword currently configured
+to `stop`. This may be another way to tackle this problem.
