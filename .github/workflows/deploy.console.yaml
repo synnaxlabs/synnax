@@ -248,7 +248,7 @@ jobs:
             fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2));
 
       - name: Commit & Push Auto Update JSON File on RC
-        id: commit-auto-update-json-file
+        id: commit-auto-update-json-file-rc
         if: github.ref == 'refs/heads/rc'
         uses: EndBug/add-and-commit@v9
         with:
@@ -259,7 +259,7 @@ jobs:
           push: "origin rc --force"
 
       - name: Commit & Push Auto Update JSON File on Main
-        id: commit-auto-update-json-file
+        id: commit-auto-update-json-file-main
         if: github.ref == 'refs/heads/main'
         uses: EndBug/add-and-commit@v9
         with:
