@@ -246,7 +246,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   }
 
   return (
-    <Align.Space className={CSS.B("configure")} align="stretch" grow empty>
+    <Align.Space className={CSS.B("opc-configure")} align="stretch" grow empty>
       <Form.Form {...methods}>
         <Align.Space className={CSS.B("content")} grow>
           {content}
