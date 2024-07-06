@@ -941,37 +941,16 @@ export const PistonPumpPreview = (props: PistonPumpProps): ReactElement => (
   <Primitives.PistonPump {...props} />
 );
 
-export interface StaticMixerProps
-  extends Primitives.StaticMixerProps,
-    Omit<Toggle.UseProps, "aetherKey"> {
+export interface StaticMixerProps extends Primitives.StaticMixerProps {
   label?: LabelExtensionProps;
-  control?: ControlStateProps;
 }
 
 export const StaticMixer = Aether.wrap<SymbolProps<StaticMixerProps>>(
   "statixMixer",
-  ({
-    aetherKey,
-    label,
-    control,
-    onChange,
-    orientation,
-    color,
-    source,
-    sink,
-  }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+  ({ label, onChange, orientation, color }): ReactElement => {
     return (
       <Labeled {...label} onChange={onChange}>
-        <ControlState {...control} orientation={orientation}>
-          <Primitives.StaticMixer
-            enabled={enabled}
-            triggered={triggered}
-            onClick={toggle}
-            orientation={orientation}
-            color={color}
-          />
-        </ControlState>
+        <Primitives.StaticMixer orientation={orientation} color={color} />
       </Labeled>
     );
   },
@@ -1019,4 +998,50 @@ export const RotaryMixer = Aether.wrap<SymbolProps<RotaryMixerProps>>(
 
 export const RotaryMixerPreview = (props: RotaryMixerProps): ReactElement => (
   <Primitives.RotaryMixer {...props} />
+);
+
+export interface LightProps
+  extends Primitives.LightProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  position?: xy.XY;
+  label?: LabelExtensionProps;
+  color?: Color.Crude;
+  textColor?: Color.Crude;
+  tooltip?: string[];
+}
+
+export const Light = Aether.wrap<SymbolProps<LightProps>>(
+  "Light",
+  ({
+    aetherKey,
+    label,
+    // level = "p",
+    // position,
+    className,
+    // textColor,
+    color,
+    source,
+    // telem,
+    onChange,
+    // tooltip,
+  }): ReactElement => {
+    const { enabled } = Toggle.use({ aetherKey, source });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <Primitives.Light
+          color={color}
+          enabled={enabled}
+          onChange={onChange}
+          // level={level}
+          className={className}
+          // telem={telem}
+          // tooltip={tooltip}
+        />
+      </Labeled>
+    );
+  },
+);
+
+export const LightPreview = (props: LightProps): ReactElement => (
+  <Primitives.Light {...props} />
 );

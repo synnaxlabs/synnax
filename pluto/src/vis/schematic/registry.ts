@@ -46,6 +46,9 @@ import {
   type FilterProps,
   FourWayValve,
   FourWayValvePreview,
+  Light,
+  LightPreview,
+  type LightProps,
   ManualValve,
   ManualValvePreview,
   type ManualValveProps,
@@ -123,6 +126,7 @@ const VARIANTS = [
   "checkValve",
   "filter",
   "fourWayValve",
+  "light",
   "manualValve",
   "needleValve",
   "orifice",
@@ -213,14 +217,14 @@ const valve: Spec<ValveProps> = {
 };
 
 const solenoidValve: Spec<SolenoidValveProps> = {
-  name: "Pneumatic Valve",
+  name: "Solenoid Valve",
   key: "solenoidValve",
   Form: SolenoidValveForm,
   Symbol: SolenoidValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     label: {
-      label: "Pneumatic Valve",
+      label: "Solenoid Valve",
       level: "p",
       orientation: "top",
     },
@@ -656,7 +660,7 @@ const staticMixer: Spec<StaticMixerProps> = {
   name: "Static Mixer",
   key: "staticMixer",
   Symbol: StaticMixer,
-  Form: CommonToggleForm,
+  Form: CommonNonToggleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     label: {
@@ -665,7 +669,6 @@ const staticMixer: Spec<StaticMixerProps> = {
       orientation: "top",
     },
     orientation: "left",
-    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: StaticMixerPreview,
   zIndex: Z_INDEX_UPPER,
@@ -690,6 +693,24 @@ const rotaryMixer: Spec<RotaryMixerProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const light: Spec<LightProps> = {
+  name: "Light",
+  key: "light",
+  Symbol: Light,
+  Form: ValueForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Light",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+  }),
+  Preview: LightPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   switch: switch_,
@@ -700,6 +721,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   solenoidValve,
   fourWayValve,
   angledValve,
+  light,
   manualValve,
   needleValve,
   reliefValve,

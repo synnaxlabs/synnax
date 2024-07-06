@@ -881,11 +881,15 @@ export const Value = ({
 }: ValueProps): ReactElement => {
   const borderColor = Color.cssString(color);
   const theme = Theming.use();
-  let textColor: string | undefined = "var(--pluto-gray-l0)";
-  if (color != null)
-    textColor = Color.cssString(
-      new Color.Color(color).pickByContrast(theme.colors.gray.l0, theme.colors.gray.l9),
-    );
+  const textColor: string | undefined =
+    color == null
+      ? "var(--pluto-gray-l0)"
+      : Color.cssString(
+          new Color.Color(color).pickByContrast(
+            theme.colors.gray.l0,
+            theme.colors.gray.l9,
+          ),
+        );
   return (
     <Div
       className={CSS(CSS.B("value"), className)}
@@ -1098,7 +1102,7 @@ export const PistonPump = ({
   </Toggle>
 );
 
-export interface StaticMixerProps extends ToggleProps, SVGBasedPrimitiveProps {}
+export interface StaticMixerProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const StaticMixer = ({
   color,
@@ -1107,7 +1111,7 @@ export const StaticMixer = ({
   scale,
   ...props
 }: StaticMixerProps): ReactElement => (
-  <Toggle
+  <Div
     {...props}
     className={CSS(CSS.B("static-mixer"), className)}
     orientation={orientation}
@@ -1126,7 +1130,7 @@ export const StaticMixer = ({
       <Path d="M17 10C23 10 27 20 33 20C39 20 43 10 49 10" strokeLinecap="round" />
       <Path d="M17 20C23 20 27 10 33 10C39 10 43 20 49 20" strokeLinecap="round" />
     </InternalSVG>
-  </Toggle>
+  </Div>
 );
 
 export interface RotaryMixerProps extends ToggleProps, SVGBasedPrimitiveProps {}
@@ -1161,7 +1165,27 @@ export const RotaryMixer = ({
   </Toggle>
 );
 
-export interface StatusProps extends DivProps, SVGBasedPrimitiveProps {
+export interface LightProps extends ToggleProps, SVGBasedPrimitiveProps {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
 }
+
+export const Light = ({
+  className,
+  color,
+  orientation = "left",
+  scale,
+  ...props
+}: LightProps): ReactElement => (
+  <Toggle {...props} className={CSS(CSS.B("light"), className)}>
+    <InternalSVG
+      dimensions={{ width: 50, height: 50 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="25" cy="25" r="24" />
+      {/* <Circle cx="25" cy="25" r="22" fill={Color.cssString(color)} /> */}
+    </InternalSVG>
+  </Toggle>
+);
