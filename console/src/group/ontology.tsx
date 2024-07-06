@@ -310,7 +310,7 @@ const handleRename: Ontology.HandleTreeRename = {
       // We check for this because the rename might be a side effect of creating
       // a new group, in which case the group might not exist yet. This is fine
       // and we don't want to throw an error.
-      if (!(e instanceof NotFoundError)) throw e;
+      if (!NotFoundError.matches(e)) throw e;
     }
   },
 };

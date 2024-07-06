@@ -182,8 +182,12 @@ export const List = (): ReactElement => {
                 </>
               )
             )}
-            <PMenu.Divider />
-            {rng.persisted && <Link.CopyMenuItem />}
+            {rng.persisted && (
+              <>
+                <PMenu.Divider />
+                <Link.CopyMenuItem />
+              </>
+            )}
             <PMenu.Divider />
           </>
         )}

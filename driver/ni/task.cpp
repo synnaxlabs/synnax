@@ -43,7 +43,6 @@ std::unique_ptr<task::Task> ni::ScannerTask::configure(
 
 void ni::ScannerTask::stop() {
     this->breaker.stop();   
-    this->thread.join();
 }
 
 
@@ -77,10 +76,9 @@ void ni::ScannerTask::exec(task::Command &cmd) {
 
 void ni::ScannerTask::run() {
     auto scan_cmd = task::Command{task.key, "scan", {}};
-
     // perform a scan
     while (this->breaker.running()) {
-        this->breaker.waitFor(std::chrono::nanoseconds(5000000000));
+        this->breaker.waitFor(this->scan_rate.period().chrono());
         this->exec(scan_cmd);
     }
 }
@@ -91,7 +89,9 @@ bool ni::ScannerTask::ok() {
 }
 
 ni::ScannerTask::~ScannerTask() {
-    LOG(INFO) << "[ni.task] destructing scanner task " << this->task.name;
+    if(this->thread.joinable() && (this->thread.get_id() != std::this_thread::get_id())) {
+        this->thread.detach();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

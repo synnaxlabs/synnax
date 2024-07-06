@@ -200,3 +200,8 @@ void Acquisition::runInternal() {
     if (writer_err) this->source->stoppedWithErr(writer_err);
     LOG(INFO) << "[acquisition] acquisition thread stopped";
 }
+
+Acquisition::~Acquisition() {
+    this->stop();
+    this->ensureThreadJoined();
+}

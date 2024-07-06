@@ -9,13 +9,13 @@
 
 import "@/layout/Window.css";
 
-import { setWindowDecorations, setWindowVisible } from "@synnaxlabs/drift";
+import { setWindowDecorations, setWindowMinimized, setWindowVisible } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
-import { type ReactElement, useEffect, useLayoutEffect } from "react";
+import { type ReactElement, useEffect, } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls } from "@/components";
@@ -90,8 +90,10 @@ export const Window = (): ReactElement | null => {
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
   useEffect(() => {
-    if (layout?.key != null)
+    if (layout?.key != null) {
       dispatch(setWindowVisible({ key: layout.key, value: true }));
+      dispatch(setWindowMinimized({ key: layout.key, value: false }));
+    }
     if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
   }, [os, layout?.key]);
   const menuProps = PMenu.useContextMenu();
