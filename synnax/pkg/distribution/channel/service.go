@@ -99,14 +99,14 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	var mainGroup group.Group
+	var group group.Group
 	if cfg.Group != nil {
-		mainGroup, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+		group, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 		if err != nil {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(cfg, mainGroup)
+	proxy, err := newLeaseProxy(cfg, group)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 		DB:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
-		group: mainGroup,
+		group: group,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
