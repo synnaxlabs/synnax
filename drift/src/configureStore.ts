@@ -110,7 +110,7 @@ const receivePreloadedState = async <
  * be chosen based on the platform you are running on (Tauri, Electron, etc.).
  * @param options.debug - If true, drift will log debug information to the
  * console. @default false
- * @param props.enablePrerender - If true, drift will create an invisible, prerendered
+ * @param props.enablePrerender - If true, drift will create an invisible, pre-rendered
  * window before it is needed. While it adds an additional process to your application,
  * it also dramatically reduces the time it takes to open a new window. @default true
  * @param props.defaultWindowProps - A partial set of window props to merge with

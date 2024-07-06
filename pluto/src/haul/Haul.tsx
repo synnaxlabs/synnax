@@ -307,7 +307,7 @@ export const useDropOutside = ({ type, key, ...rest }: UseDropOutsideProps): voi
     const handleMouseLeave = (e: globalThis.DragEvent) => {
       const { onDragOver, canDrop } = propsRef.current;
       const windowBox = box.construct(window.document.documentElement);
-      if (box.contains(windowBox, xy.construct(e.clientX, e.clientY))) return;
+      if (box.contains(windowBox, xy.construct(e.clientX, e.clientY)), false) return;
       isOutside.current = true;
       if (!canDrop(dragging.current)) return;
       onDragOver?.(dragging.current);

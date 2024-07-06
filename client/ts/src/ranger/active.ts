@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import { type Key, keyZ,type Payload, payloadZ } from "@/ranger/payload";
+import { type Key, keyZ, type Payload, payloadZ } from "@/ranger/payload";
 
 const setActiveResZ = z.object({});
 
@@ -57,7 +57,7 @@ export class Active {
       z.object({}),
       retrieveActiveResZ,
     );
-    if (err instanceof QueryError) return null;
+    if (QueryError.matches(err)) return null;
     if (err != null) throw err;
     return res.range;
   }
