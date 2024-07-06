@@ -22,8 +22,9 @@ export const Windows = ({
   onMinimize,
   onMaximize,
   onClose,
-  // no-op on windows
+  // no-ops on windows
   onFullscreen: _,
+  focused: __,
   ...props
 }: InternalControlsProps): ReactElement => (
   <Align.Pack {...props}>

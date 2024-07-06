@@ -63,13 +63,13 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
-      selection: { resources },
+      selection,
       placeLayout,
       services,
-      state: { setResources, nodes, setNodes },
+      state: { resources, setResources, nodes, setNodes },
       client,
     }) => {
-      const workspace = resources[0].id.key;
+      const workspace = selection.resources[0].id.key;
       const schematic = await client.workspaces.schematic.create(workspace, {
         name: "New Schematic",
         snapshot: false,
@@ -89,7 +89,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
         tree: nodes,
-        destination: resources[0].key,
+        destination: selection.resources[0].key,
         additions: Ontology.toTreeNodes(services, [otg]),
       });
       setNodes([...nextNodes]);
@@ -171,13 +171,13 @@ const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
 const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
-      selection: { resources },
+      selection,
       placeLayout,
       services,
-      state: { setResources, nodes, setNodes },
+      state: { setResources, resources, nodes, setNodes },
       client,
     }) => {
-      const workspace = resources[0].id.key;
+      const workspace = selection.resources[0].id.key;
       const linePlot = await client.workspaces.linePlot.create(workspace, {
         name: "New Line Plot",
         data: deep.copy(LinePlot.ZERO_SLICE_STATE) as unknown as UnknownRecord,
@@ -195,7 +195,7 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
         tree: nodes,
-        destination: resources[0].key,
+        destination: selection.resources[0].key,
         additions: Ontology.toTreeNodes(services, [otg]),
       });
       setNodes([...nextNodes]);

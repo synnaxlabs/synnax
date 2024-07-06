@@ -67,7 +67,6 @@ ni::Scanner::~Scanner() {
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->resources_handle);
     ni::NiSysCfgInterface::CloseHandle(this->session);
-    VLOG(1) << "[ni.scanner] successfully closed scanner for task " << this->task.name;
 }
 
 void ni::Scanner::scan() {
