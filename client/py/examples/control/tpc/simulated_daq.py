@@ -139,11 +139,12 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
         while True:
             try:
                 time.sleep(rate)
-                if streamer.received:
-                    while streamer.received:
-                        f = streamer.read()
-                        for k in f.channels:
-                            DAQ_STATE[k] = f[k][0]
+                while True:
+                    f = streamer.read(0)
+                    if f is None:
+                        break
+                    for k in f.channels:
+                        DAQ_STATE[k] = f[k][0]
 
                 if DAQ_STATE[OX_MPV_CMD] == 1 and OX_MPV_LAST_OPEN is None:
                     OX_MPV_LAST_OPEN = sy.TimeStamp.now()
