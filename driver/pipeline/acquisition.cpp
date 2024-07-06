@@ -92,7 +92,7 @@ void Acquisition::ensureThreadJoined() const {
         std::this_thread::get_id() == this->thread->get_id()
     )
         return;
-    this->thread->detach();
+    this->thread->join();
 }
 
 void Acquisition::start() {
