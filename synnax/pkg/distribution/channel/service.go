@@ -92,18 +92,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-const (
-	groupName = "Channels"
-)
+const groupName = "Channels"
 
 func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		mainGroup group.Group
-	)
+	var mainGroup group.Group
 	if cfg.Group != nil {
 		mainGroup, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 		if err != nil {
