@@ -224,7 +224,6 @@ inline std::string guidToString(const UA_Guid &guid) {
 inline UA_NodeId parseNodeId(const std::string &path, config::Parser &parser) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
-
     const std::string nodeIdStr = parser.required<std::string>(path);
     if (!parser.ok()) return UA_NODEID_NULL;
 
@@ -249,7 +248,7 @@ inline UA_NodeId parseNodeId(const std::string &path, config::Parser &parser) {
     } else if (type == "B") {
         // Allocate memory for ByteString
         size_t len = identifier.length() / 2;
-        UA_Byte *data = (UA_Byte *) UA_malloc(len);
+        auto *data = (UA_Byte *) UA_malloc(len);
         for (size_t i = 0; i < len; ++i) {
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
         }

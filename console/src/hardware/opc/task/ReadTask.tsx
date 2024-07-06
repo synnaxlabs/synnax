@@ -35,6 +35,7 @@ import { CSS } from "@/css";
 import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
 import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
+import { Base } from "@/hardware/opc/device/Tree";
 import {
   Read,
   READ_TYPE,
@@ -78,7 +79,11 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
 };
 
-const Wrapped = ({
+const Wrapped = () => {
+  return <Base />;
+};
+
+const Wrapped_ = ({
   layoutKey,
   initialValues,
   task,

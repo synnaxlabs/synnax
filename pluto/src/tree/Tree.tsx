@@ -344,6 +344,7 @@ export const Tree = ({
           {({ key, ...props }) =>
             children({
               ...props,
+              key,
               useMargin,
               onDrop,
               onRename,

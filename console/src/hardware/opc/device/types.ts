@@ -61,6 +61,12 @@ export type Properties = z.infer<typeof propertiesZ>;
 
 export type Device = device.Device<Properties>;
 
+export const scannerScanCommandResult = z.object({
+  channels: nodeProperties.array(),
+});
+
+export type ScannerScanCommandResult = z.infer<typeof scannerScanCommandResult>;
+
 export const channelConfigZ = nodeProperties
   .extend({
     key: z.string(),
