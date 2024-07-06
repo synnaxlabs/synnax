@@ -41,7 +41,7 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: go test -v ./... -tags development --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
+        run: go test -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
         working-directory: ./cesium
 
       - name: Upload Coverage
