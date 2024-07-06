@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -51,6 +52,7 @@ var _ = Describe("OperationSender", func() {
 			gossipCtx, cancel = signal.WithCancel(ctx)
 			var err error
 			g1, err = gossip.New(gossip.Config{
+				Instrumentation: PanicLogger(),
 				Store:           sOne,
 				TransportClient: net.UnaryClient(),
 				TransportServer: t1,
@@ -58,6 +60,7 @@ var _ = Describe("OperationSender", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			_, err = gossip.New(gossip.Config{
+				Instrumentation: PanicLogger(),
 				Store:           sTwo,
 				TransportClient: net.UnaryClient(),
 				TransportServer: t2,
