@@ -41,7 +41,7 @@ const externalCounterSuffix = ".distribution.channel.externalCounter"
 
 func newLeaseProxy(
 	cfg ServiceConfig,
-	mainGroup group.Group,
+	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
 	c, err := openCounter(context.TODO(), cfg.ClusterDB, leasedCounterKey)
@@ -58,7 +58,7 @@ func newLeaseProxy(
 		createRouter:    proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:       proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
 		leasedCounter:   c,
-		group:           mainGroup,
+		group:           group,
 		externalCounter: extCtr,
 		external:        &set.Integer[LocalKey]{},
 	}
