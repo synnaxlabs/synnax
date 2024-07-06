@@ -139,6 +139,7 @@ export const use = (props: UseProps): UseReturn => {
 };
 
 export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
+  key?: string;
   onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
   onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
   onRename?: (key: string, name: string) => void;
@@ -162,7 +163,8 @@ type TreePropsInheritedFromList = Omit<
 export interface TreeProps
   extends TreePropsInheritedFromItem,
     TreePropsInheritedFromList,
-    Optional<UseReturn, "selected" | "expand" | "contract"> {
+    Optional<UseReturn, "selected" | "expand" | "contract">,
+    Pick<List.ListProps, "emptyContent"> {
   nodes: FlattenedNode[];
   children?: RenderProp<ItemProps>;
   virtual?: boolean;
@@ -324,12 +326,13 @@ export const Tree = ({
   virtual = true,
   expand: __,
   contract: _,
+  emptyContent,
   ...props
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
 
   return (
-    <List.List<string, FlattenedNode> data={nodes}>
+    <List.List<string, FlattenedNode> data={nodes} emptyContent={emptyContent}>
       <List.Selector<string, FlattenedNode>
         value={selected}
         onChange={onSelect}

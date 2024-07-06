@@ -15,6 +15,7 @@ import {
   Channel,
   Device as PDevice,
   Form,
+  Haul,
   Header,
   Input,
   List,
@@ -34,8 +35,8 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
+import { Browser } from "@/hardware/opc/device/Browser";
 import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
-import { Base } from "@/hardware/opc/device/Tree";
 import {
   Read,
   READ_TYPE,
@@ -79,17 +80,15 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
 };
 
-const Wrapped = () => {
-  return <Base />;
-};
-
-const Wrapped_ = ({
+const Wrapped = ({
   layoutKey,
   initialValues,
   task,
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
-  const [device, setDevice] = useState<device.Device<Device.Properties> | null>(null);
+  const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
+    undefined,
+  );
 
   const schema = useMemo(
     () =>
@@ -101,30 +100,28 @@ const Wrapped_ = ({
             const { channel, nodeId } = cfg.channels[i];
             if (channel === 0 || nodeId.length === 0) continue;
             const ch = await client.channels.retrieve(channel);
-            const node = device.properties.channels.find((c) => c.nodeId === nodeId);
+            const node = device.properties.channels?.find((c) => c.nodeId === nodeId);
             if (node == null) return;
             const nodeDt = new DataType(node.dataType);
-            if (!nodeDt.canCastTo(ch.dataType)) {
+            if (!nodeDt.canCastTo(ch.dataType))
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ["channels", i, "nodeId"],
                 message: `Node data type ${node.dataType} cannot be cast to channel data type ${ch.dataType}`,
               });
-            } else if (!nodeDt.canSafelyCastTo(ch.dataType)) {
+            else if (!nodeDt.canSafelyCastTo(ch.dataType))
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ["channels", i, "nodeId"],
                 message: `Node data type ${node.dataType} may not be safely cast to channel data type ${ch.dataType}`,
                 params: { variant: "warning" },
               });
-            }
-            if (cfg.arrayMode && !node.isArray) {
+            if (cfg.arrayMode && !node.isArray)
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ["channels", i, "nodeId"],
                 message: `Cannot sample from a non-array node in array mode`,
               });
-            }
           }
         }),
       }),
@@ -240,13 +237,23 @@ const Wrapped_ = ({
             </Align.Space>
           </Align.Space>
           <Align.Space
-            className={CSS.B("channel-form-container")}
             direction="x"
-            bordered
-            rounded
             grow
-            empty
+            style={{ overflow: "hidden", height: "500px" }}
           >
+            <Align.Space
+              className={CSS.B("channel-form")}
+              direction="y"
+              grow
+              bordered
+              rounded
+              style={{ overflow: "hidden", height: "100%" }}
+            >
+              <Header.Header level="h4">
+                <Header.Title weight={500}>Browser</Header.Title>
+              </Header.Header>
+              <Browser device={device} />
+            </Align.Space>
             <ChannelList
               path="config.channels"
               selected={selectedChannels}
@@ -259,20 +266,6 @@ const Wrapped_ = ({
                 [setSelectedChannels, setSelectedChannelIndex],
               )}
             />
-            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h4">
-                <Header.Title weight={500}>Details</Header.Title>
-              </Header.Header>
-              <Align.Space direction="y" className={CSS.B("details")} grow>
-                {selectedChannelIndex != null && (
-                  <ChannelForm
-                    key={selectedChannelIndex}
-                    deviceProperties={device?.properties}
-                    selectedChannelIndex={selectedChannelIndex}
-                  />
-                )}
-              </Align.Space>
-            </Align.Space>
           </Align.Space>
         </Form.Form>
         <Controls
@@ -311,8 +304,30 @@ export const ChannelList = ({
     });
   };
 
+  const onDrop = useCallback(({ source, items }: Haul.OnDropProps): Haul.Item[] => {
+    const dropped = items.filter(
+      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+    );
+    push(
+      dropped.map((i) => ({ key: nanoid(), channel: 0, nodeId: i.data?.nodeId ?? "" })),
+    );
+  }, []);
+
+  const canDrop = useCallback((state: Haul.DraggingState): boolean => {
+    const v = state.items.some(
+      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+    );
+    return v;
+  }, []);
+
+  const props = Haul.useDrop({
+    type: "opc.ReadTask",
+    canDrop,
+    onDrop,
+  });
+
   return (
-    <Align.Space className={CSS.B("channels")} grow empty>
+    <Align.Space className={CSS.B("channels")} grow empty bordered rounded {...props}>
       <ChannelListHeader onAdd={handleAdd} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {

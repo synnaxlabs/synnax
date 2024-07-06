@@ -52,6 +52,7 @@ import {
   MdAlignVerticalTop,
   MdAreaChart,
   MdAutoAwesome,
+  MdDataObject,
   MdEdit,
   MdEditOff,
   MdFiberManualRecord,
@@ -85,6 +86,7 @@ import {
   MdSaveAlt,
   MdSensors,
   MdSquareFoot,
+  MdTypeSpecimen,
   MdWorkspacesFilled,
 } from "react-icons/md";
 import {
@@ -113,6 +115,7 @@ import {
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
+  TbVariable,
 } from "react-icons/tb";
 
 export type IconProps = React.SVGProps<SVGSVGElement>;
@@ -318,6 +321,9 @@ export const Icon: IconType = {
   Dynamic: wrapIcon(TbLivePhoto),
   Enable: wrapIcon(MdOutlineMotionPhotosOn),
   Disable: wrapIcon(MdOutlineMotionPhotosOff),
+  Variable: wrapIcon(TbVariable),
+  Object: wrapIcon(MdDataObject),
+  Type: wrapIcon(MdTypeSpecimen),
 };
 
 export interface IconType {
@@ -433,4 +439,7 @@ export interface IconType {
   Disable: IconFC;
   Enable: IconFC;
   Dynamic: IconFC;
+  Variable: IconFC;
+  Object: IconFC;
+  Type: IconFC;
 }

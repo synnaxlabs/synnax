@@ -138,7 +138,7 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
     return Series(1);
 }
 
-inline std::pair<synnax::DataType, bool> variant_data_type(UA_Variant &val) {
+inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val) {
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT])) return {
         synnax::FLOAT32, true
     };

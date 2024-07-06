@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device } from "@synnaxlabs/client";
+import { device, task } from "@synnaxlabs/client";
+import { UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const securityModeZ = z.union([
@@ -46,7 +47,8 @@ export const nodeProperties = z.object({
   dataType: z.string(),
   name: z.string(),
   nodeId: z.string(),
-  isArray: z.boolean(),
+  nodeClass: z.string(),
+  isArray: z.string(),
   synnaxChannel: z.number().optional(),
 });
 
@@ -54,7 +56,7 @@ export type NodeProperties = z.infer<typeof nodeProperties>;
 
 export const propertiesZ = z.object({
   connection: connectionConfigZ,
-  channels: nodeProperties.array(),
+  channels: nodeProperties.array().optional(),
 });
 
 export type Properties = z.infer<typeof propertiesZ>;
@@ -131,3 +133,9 @@ export const groupConfigZ = z
   });
 
 export type GroupConfig = z.infer<typeof groupConfigZ>;
+
+export interface TestConnCommandResponse extends UnknownRecord {
+  message: string;
+}
+
+export type TestConnCommandState = task.State<TestConnCommandResponse>;
