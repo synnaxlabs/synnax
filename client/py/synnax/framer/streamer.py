@@ -22,6 +22,7 @@ from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import CrudeTimeStamp, TimeStamp
+from typing import overload
 
 
 class _Request(Payload):
@@ -56,15 +57,22 @@ class Streamer:
     def __open(self):
         self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
 
-    @property
-    def received(self) -> bool:
-        return self.__stream.received()
+    @overload
+    def read(self, timeout: float) -> Frame | None:
+        ...
 
+    @overload
     def read(self) -> Frame:
-        res, err = self.__stream.receive()
-        if err is not None:
-            raise err
-        return self.__adapter.adapt(Frame(res.frame))
+        ...
+
+    def read(self, timeout: float | None = None) -> Frame | None:
+        try:
+            res, err = self.__stream.receive(timeout)
+            if err is not None:
+                raise err
+            return self.__adapter.adapt(Frame(res.frame))
+        except TimeoutError:
+            return None
 
     def close(self):
         exc = self.__stream.close_send()
