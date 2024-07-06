@@ -34,7 +34,6 @@ func main() {
 	s := igrp.New()
 	s.BindTo(g)
 	configureInstrumentation()
-	zap.L().DPanic("HEHEHE")
 
 	err := func() error {
 		sCtx, cancel := xsig.Isolated()
