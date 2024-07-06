@@ -33,7 +33,7 @@ func startCluster(p ClusterParam) (error, func() error) {
 
 	var (
 		stdOut, stdErr = bytes.Buffer{}, bytes.Buffer{}
-		cmd            = exec.Command("./bin/synnax", args...)
+		cmd            = exec.Command("./bin/synnax.exe", args...)
 		pgoCmd         *exec.Cmd
 	)
 

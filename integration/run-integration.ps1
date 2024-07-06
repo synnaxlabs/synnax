@@ -9,7 +9,7 @@ if (-not $testConfigName) {
 
 Set-Location -Path "..\synnax"
 Write-Host "--Compiling with PGO"
-go build -o "..\integration\bin\synnax" -pgo="auto"
+go build -o "..\integration\bin\synnax.exe" -pgo="auto" -buildvcs=false
 Set-Location -Path "..\integration"
 
 # Run the Go program with the provided arguments

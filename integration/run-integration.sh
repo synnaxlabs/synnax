@@ -8,7 +8,7 @@ fi
 
 # Build the server binary
 echo "--Compiling with PGO"
-(cd ../synnax && go build -o ../integration/bin/synnax -pgo=auto)
+(cd ../synnax && go build -o ../integration/bin/synnax.exe -pgo=auto)
 
 # Run the Go program with the provided arguments
 go run . "$1"
