@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type Range } from "@/range/range";
+import { type Range } from "@/range/slice";
 
 export interface SnapshotMenuItemProps {
   range?: Range | null;

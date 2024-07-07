@@ -9,7 +9,7 @@
 
 import { createContext, useContext } from "react";
 
-import { type Renderer } from "@/layout/layout";
+import { type Renderer } from "@/layout/slice";
 
 export type Renderers = Record<string, Renderer>;
 
