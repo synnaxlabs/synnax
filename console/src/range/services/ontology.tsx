@@ -24,7 +24,7 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createEditLayout } from "@/range/EditLayout";
-import { type Range } from "@/range/range";
+import { type Range } from "@/range/slice";
 import { select } from "@/range/selectors";
 import { add, rename, setActive, type StoreState } from "@/range/slice";
 

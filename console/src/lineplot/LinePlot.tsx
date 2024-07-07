@@ -56,6 +56,7 @@ import {
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
+  AxesState,
   type AxisState,
   internalCreate,
   type LineState,
@@ -427,7 +428,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 };
 
 const buildAxes = (vis: State): Channel.AxisProps[] =>
-  getEntries(vis.axes.axes)
+  getEntries<AxesState["axes"]>(vis.axes.axes)
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(([key, axis]): Channel.AxisProps => {
       return {
