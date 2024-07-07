@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
 import { create } from "@/lineplot/LinePlot";
@@ -52,14 +51,15 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { resources } = props.selection;
   const del = useDelete();
-  const activeKey = Cluster.useSelectActiveKey();
+  const handleLink = Link.useCopyToClipboard();
   const onSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    link: () => {
-      const toCopy = `synnax://cluster/${activeKey}/lineplot/${resources[0].id.key}`;
-      navigator.clipboard.writeText(toCopy);
-    },
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   };
   const isSingle = resources.length === 1;
   return (
@@ -74,8 +74,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         Delete
       </PMenu.Item>
       <PMenu.Divider />
-      {isSingle && <Link.CopyMenuItem />}
-      <PMenu.Divider />
+      {isSingle && (
+        <>
+          <Link.CopyMenuItem />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

@@ -10,17 +10,27 @@
 from __future__ import annotations
 
 from uuid import UUID
+from typing import overload
 
 import numpy as np
 from pydantic import PrivateAttr
 
-from synnax.channel import ChannelKey, ChannelName, ChannelPayload, ChannelRetriever
+from synnax.channel import (
+    ChannelKey,
+    ChannelName,
+    ChannelKeys,
+    ChannelNames,
+    ChannelParams,
+    ChannelPayload,
+    ChannelRetriever,
+)
 from synnax.exceptions import QueryError
 from synnax.framer import Client
+from synnax.framer.frame import CrudeFrame
 from synnax.ranger.alias import Aliaser
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import RangePayload
-from synnax.telem import DataType, Rate, SampleValue, Series, TimeRange
+from synnax.telem import DataType, Rate, SampleValue, Series, TimeRange, CrudeSeries
 from synnax.util.interop import overload_comparison_operators
 
 
@@ -81,6 +91,9 @@ class _InternalScopedChannel(ChannelPayload):
 
     def __str__(self) -> str:
         return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
+
+    def __len__(self):
+        return len(self.read())
 
 
 class ScopedChannel:
@@ -175,6 +188,9 @@ class ScopedChannel:
 
     def __iter__(self):
         return iter(self.__internal)
+
+    def __len__(self):
+        return sum(len(ch) for ch in self.__internal)
 
 
 _RANGE_NOT_CREATED = QueryError(
@@ -322,3 +338,26 @@ class Range(RangePayload):
 
     def to_payload(self) -> RangePayload:
         return RangePayload(name=self.name, time_range=self.time_range, key=self.key)
+
+    @overload
+    def write(self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries):
+        ...
+
+    @overload
+    def write(
+        self,
+        to: ChannelKeys | ChannelNames | list[ChannelPayload],
+        series: list[CrudeSeries],
+    ):
+        ...
+
+    @overload
+    def write(self, frame: CrudeFrame):
+        ...
+
+    def write(
+        self,
+        to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        series: CrudeSeries | list[CrudeSeries] | None = None,
+    ):
+        self.__frame_client.write(self.time_range.start, to, series)

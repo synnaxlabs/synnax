@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { z } from "zod";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -71,6 +72,7 @@ type StringLiteral<T> = T extends string ? (string extends T ? never : T) : neve
 
 const TRIGGER_MODES = ["zoom", "pan", "select", "zoomReset"] as const;
 export const MODES = [...TRIGGER_MODES, "click"] as const;
+export const modeZ = z.enum(MODES);
 export type Mode = StringLiteral<(typeof MODES)[number]>;
 type TriggerMode = StringLiteral<(typeof TRIGGER_MODES)[number]>;
 export const MASK_MODES: Mode[] = ["zoom", "select"];

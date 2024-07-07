@@ -49,7 +49,6 @@ export const List = (): ReactElement => {
   const allClusters = useSelectMany();
   const active = useSelect();
   const openWindow = Layout.usePlacer();
-
   const selected = active?.key ?? null;
 
   const handleConnect = (key: string | null): void => {
@@ -64,15 +63,12 @@ export const List = (): ReactElement => {
     Text.edit(`text-${key}`);
   };
 
-  const handleLink = (key: string): void => {
-    void navigator.clipboard.writeText(`synnax://cluster/${key}`);
-  };
+  const handleLink = Link.useCopyToClipboard();
 
   const contextMenu = useCallback(
     ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
       if (key == null) return <Layout.DefaultContextMenu />;
       const handleSelect = (menuKey: string): void => {
-        if (key == null) return;
         switch (menuKey) {
           case "remove":
             return handleRemove([key]);
@@ -80,13 +76,15 @@ export const List = (): ReactElement => {
             return handleConnect(key);
           case "disconnect":
             return handleConnect(null);
-          case "link":
-            return handleLink(key);
+          case "link": {
+            const name = allClusters.find((c) => c.key === key)?.name;
+            if (name == null) return;
+            return handleLink({ name });
+          }
           case "rename":
             return handleRename(key);
         }
       };
-
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
           <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">

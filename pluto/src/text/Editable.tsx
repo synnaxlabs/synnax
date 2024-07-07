@@ -28,10 +28,10 @@ export type EditableProps<L extends text.Level = "h1"> = Omit<
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
-
 const BASE_CLASS = CSS.BM("text", "editable");
-
 const MAX_EDIT_RETRIES = 10;
+const RENAMED_EVENT_NAME = "renamed";
+const ESCAPED_EVENT_NAME = "escaped";
 
 export const edit = (
   id: string,
@@ -48,11 +48,11 @@ export const edit = (
     }
     d.setAttribute("contenteditable", "true");
     if (onChange == null) return;
-    d.addEventListener("renamed", (e) =>
-      onChange((e.target as HTMLElement).innerText.trim(), true),
+    d.addEventListener(RENAMED_EVENT_NAME, (e) =>
+      onChange(getInnerText((e.target as HTMLElement)), true),
     );
-    d.addEventListener("change", (e) =>
-      onChange((e.target as HTMLElement).innerText.trim(), false),
+    d.addEventListener(ESCAPED_EVENT_NAME, (e) =>
+      onChange(getInnerText((e.target as HTMLElement)), false),
     );
   };
   tryEdit();
@@ -64,6 +64,9 @@ export const asyncEdit = (id: string): Promise<[string, boolean]> =>
       resolve([value, renamed]);
     edit(id, onChange);
   });
+
+const getInnerText = (el: HTMLElement): string => el.innerText.trim();
+
 
 export const Editable = <L extends text.Level = text.Level>({
   onChange,
@@ -83,20 +86,25 @@ export const Editable = <L extends text.Level = text.Level>({
     onDoubleClick?.(e);
   };
 
+  const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
+    const innerText = getInnerText(el);
+    if (forceEscape || innerText.length === 0) {
+      el.innerText = value;
+      el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
+    } else {
+      onChange?.(innerText);
+      el.dispatchEvent(new Event(RENAMED_EVENT_NAME));
+    }
+  }
+
   const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {
     if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key) || ref.current == null) return;
     e.stopPropagation();
     e.preventDefault();
     const el = ref.current;
+    if (ref.current == null) return;
     setEditable(false);
-    const trimmed = el.innerText.trim();
-    if (e.key === "Enter" && trimmed.length > 0) {
-      onChange?.(trimmed);
-      el.dispatchEvent(new Event("renamed"));
-    } else {
-      el.innerText = value;
-      el.dispatchEvent(new Event("escaped"));
-    }
+    handleUpdate(el, e.key === "Escape");
     el.blur();
   };
 
@@ -134,7 +142,7 @@ export const Editable = <L extends text.Level = text.Level>({
         setEditable(false);
         const el = ref.current;
         if (el == null) return;
-        el.dispatchEvent(new Event("change"));
+        handleUpdate(el);
       }}
       onKeyDown={handleKeyDown}
       onKeyUp={(e: KeyboardEvent<HTMLParagraphElement>) => {

@@ -1,13 +1,14 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.24.0",
+  "version": "0.25.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
     "build": "tsc --noEmit && tauri build",
     "dev-vite": "vite --force",
+    "test": "vitest",
     "build-vite": "vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.ts*\"",
@@ -53,6 +54,7 @@
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.4.5",
     "vite": "5.2.11",
-    "vite-tsconfig-paths": "4.3.2"
+    "vite-tsconfig-paths": "4.3.2",
+    "vitest": "^1.5.0"
   }
 }

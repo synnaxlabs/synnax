@@ -38,7 +38,9 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
+import { u } from "vitest/dist/reporters-LqC_WI4d.js";
 
+import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
   select,
@@ -381,14 +383,17 @@ export const Schematic: Layout.Renderer = ({
   layoutKey,
   ...props
 }): ReactElement | null => {
-  const schematic = useSelect(layoutKey);
-  const dispatch = useDispatch();
-  const client = Synnax.use();
-  useAsyncEffect(async () => {
-    if (client == null || schematic != null) return;
-    const { data } = await client.workspaces.schematic.retrieve(layoutKey);
-    dispatch(internalCreate({ key: layoutKey, ...(data as unknown as State) }));
-  }, [client, schematic]);
+  const schematic = useLoadRemote({
+    name: "Schematic",
+    targetVersion: ZERO_STATE.version,
+    layoutKey,
+    useSelect: useSelect,
+    fetcher: async (client, layoutKey) => {
+      const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
+      return { key, ...data } as unknown as State;
+    },
+    actionCreator: internalCreate,
+  });
   if (schematic == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };
@@ -409,12 +414,5 @@ export const create =
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? uuidv4();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
-    return {
-      key,
-      location,
-      name,
-      type: LAYOUT_TYPE,
-      window,
-      tab,
-    };
+    return { key, location, name, type: LAYOUT_TYPE, window, tab };
   };

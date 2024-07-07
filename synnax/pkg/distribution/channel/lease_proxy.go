@@ -32,7 +32,6 @@ type leaseProxy struct {
 	freeCounter     *counter
 	externalCounter *counter
 	group           group.Group
-	internalGroup   group.Group
 	external        *set.Integer[LocalKey]
 }
 
@@ -42,8 +41,7 @@ const externalCounterSuffix = ".distribution.channel.externalCounter"
 
 func newLeaseProxy(
 	cfg ServiceConfig,
-	mainGroup group.Group,
-	internalGroup group.Group,
+	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
 	c, err := openCounter(context.TODO(), cfg.ClusterDB, leasedCounterKey)
@@ -60,9 +58,8 @@ func newLeaseProxy(
 		createRouter:    proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:       proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
 		leasedCounter:   c,
-		group:           mainGroup,
+		group:           group,
 		externalCounter: extCtr,
-		internalGroup:   internalGroup,
 		external:        &set.Integer[LocalKey]{},
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
@@ -242,32 +239,18 @@ func (lp *leaseProxy) maybeSetResources(
 	if lp.Ontology == nil || lp.Group == nil {
 		return nil
 	}
-	externIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
+	externalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
 		return OntologyID(ch.Key()), !ch.Internal
 	})
-	internalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
-		return OntologyID(ch.Key()), ch.Internal
-	})
 	w := lp.Ontology.NewWriter(txn)
-	if err := w.DefineManyResources(ctx, externIds); err != nil {
-		return err
-	}
-	if err := w.DefineManyResources(ctx, internalIds); err != nil {
-		return err
-	}
-	if err := w.DefineFromOneToManyRelationships(
-		ctx,
-		group.OntologyID(lp.group.Key),
-		ontology.ParentOf,
-		externIds,
-	); err != nil {
+	if err := w.DefineManyResources(ctx, externalIds); err != nil {
 		return err
 	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
-		group.OntologyID(lp.internalGroup.Key),
+		group.OntologyID(lp.group.Key),
 		ontology.ParentOf,
-		internalIds,
+		externalIds,
 	)
 }
 
