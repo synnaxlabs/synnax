@@ -466,7 +466,7 @@ export const ValueForm = (): ReactElement => {
 };
 
 export const LightForm = (): ReactElement => {
-  const content: TabRenderProp = useCallback(({ tabKey }) => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telemetry":
         return <ToggleControlForm path="" />;
