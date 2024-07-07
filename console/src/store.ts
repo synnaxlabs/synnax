@@ -72,6 +72,8 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 };
 
 export const migrateState = (prev: RootState): RootState => {
+  console.log("--------------- Migrating State ---------------");
+  console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
   const layout = Layout.migrateSlice(prev.layout);
   const schematic = Schematic.migrateSlice(prev.schematic);
   const line = LinePlot.migrateSlice(prev.line);
@@ -80,6 +82,7 @@ export const migrateState = (prev: RootState): RootState => {
   const range = Range.migrateSlice(prev.range);
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
+  console.log("--------------- Migrated State ---------------");
   return {
     ...prev,
     layout,

@@ -57,26 +57,18 @@ export const ZERO_SLICE_STATE: SliceState = {
   plots: {},
 };
 
-export const stateMigration: migrate.Migration<typeof v0.stateZ, typeof stateZ> = {
-  input: v0.stateZ,
-  output: stateZ,
+export const stateMigration = migrate.createMigration<v0.State, State>({
+  name: "lineplot.state",
   migrate: (s) => ({ ...s, version: "1.0.0", legend: ZERO_LEGEND_STATE }),
-};
+});
 
-export const sliceMigration: migrate.Migration<
-  typeof v0.sliceStateZ,
-  typeof sliceStateZ
-> = {
-  input: v0.sliceStateZ,
-  output: sliceStateZ,
-  migrate: (s) => {
-    console.log("Migrating slice state from", s.version, s.plots);
-    return {
-      ...s,
-      version: "1.0.0",
-      plots: Object.fromEntries(
-        Object.keys(s.plots).map((k) => [k, stateMigration.migrate(s.plots[k])]),
-      ),
-    };
-  },
-};
+export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({
+  name: "lineplot.slice",
+  migrate: (s) => ({
+    ...s,
+    version: "1.0.0",
+    plots: Object.fromEntries(
+      Object.keys(s.plots).map((k) => [k, stateMigration(s.plots[k])]),
+    ),
+  }),
+});

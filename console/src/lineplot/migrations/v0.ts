@@ -201,7 +201,8 @@ export const ZERO_RANGES_STATE: RangesState = {
 
 export type SugaredRangesState = MultiXAxisRecord<Range>;
 
-export const stateZ = migrate.migratable("0.0.0").extend({
+export const stateZ = z.object({
+  version: z.literal("0.0.0"),
   key: z.string(),
   remoteCreated: z.boolean(),
   title: titleStateZ,
@@ -293,7 +294,8 @@ export const ZERO_CONTROL_SATE: ControlState = {
   enableTooltip: true,
 };
 
-export const sliceStateZ = migrate.migratable("0.0.0").extend({
+export const sliceStateZ = z.object({
+  version: z.literal("0.0.0"),
   mode: Viewport.modeZ,
   control: controlStateZ,
   toolbar: toolbarStateZ,

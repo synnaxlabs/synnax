@@ -95,10 +95,9 @@ export interface RenamePayload {
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<z.ZodAny>({
+export const migrateSlice = migrate.migrator<SliceState>({
   name: "cluster.slice",
   migrations: MIGRATIONS,
-  target: z.any(),
   def: ZERO_SLICE_STATE,
 });
 

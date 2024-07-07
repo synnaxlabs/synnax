@@ -48,10 +48,9 @@ export type SetLocationPayload = Location;
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<z.ZodTypeAny>({
+export const migrateSlice = migrate.migrator<SliceState>({
   name: "docs.slice",
   migrations: MIGRATIONS,
-  target: z.any(),
   def: ZERO_SLICE_STATE,
 });
 

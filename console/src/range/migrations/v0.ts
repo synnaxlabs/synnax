@@ -37,7 +37,8 @@ export type DynamicRange = z.infer<typeof dynamicRangeZ>;
 
 export type Range = StaticRange | DynamicRange;
 
-export const sliceStateZ = migrate.migratable("0.0.0").extend({
+export const sliceStateZ = z.object({
+  version: z.literal("0.0.0"),
   activeRange: z.string().nullable(),
   ranges: z.record(rangeZ),
   buffer: staticRangeZ.partial().nullable(),

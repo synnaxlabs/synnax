@@ -33,7 +33,6 @@ export const MIGRATIONS: migrate.Migrations = {};
 export const migrateSlice = migrate.migrator({
   name: "version.slice",
   migrations: MIGRATIONS,
-  target: z.any(),
   def: ZERO_SLICE_STATE,
 });
 

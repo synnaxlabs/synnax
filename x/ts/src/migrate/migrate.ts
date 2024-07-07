@@ -15,6 +15,15 @@ export const semVerZ = z.string().regex(/^\d+\.\d+\.\d+$/);
 
 export type SemVer = z.infer<typeof semVerZ>;
 
+/**
+ * Compares the two semantic versions.
+ *
+ * @param a  The first semantic version.
+ * @param b  The second semantic version.
+ * @returns a number, where the the number is compare.LESS_THAN (negative) if a is OLDER
+ * than B, compare.EQUAL (0) if a is the same as b, and compare.GREATER_THAN (positive)
+ * if a is NEWER than b.
+ */
 const compareSemVer: compare.CompareF<string> = (a, b) => {
   const semA = semVerZ.parse(a);
   const semB = semVerZ.parse(b);
@@ -25,25 +34,51 @@ const compareSemVer: compare.CompareF<string> = (a, b) => {
   return aPatch - bPatch;
 };
 
+/**
+ * @returns true if the first semantic version is newer than the second.
+ * @param a The first semantic version.
+ * @param b The second semantic version.
+ */
 const semVerNewer = (a: SemVer, b: SemVer): boolean =>
   compare.isGreaterThan(compareSemVer(a, b));
 
-export const migratable = (version?: SemVer) =>
-  z.object({
-    version: version ? z.literal(version) : semVerZ,
-  });
-
 export type Migratable<V extends string = string> = { version: V };
 
-export type MigrationFunc<I extends z.ZodTypeAny, O extends z.ZodTypeAny> = (
-  input: z.infer<I>,
-) => z.infer<O>;
+export type Migration<I extends Migratable, O extends Migratable> = (input: I) => O;
 
-export interface Migration<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
-  input: I;
-  output: O;
-  migrate: MigrationFunc<I, O>;
+export interface MigrationProps<
+  I extends Migratable,
+  O extends Migratable,
+  ZI extends z.ZodTypeAny,
+  ZO extends z.ZodTypeAny,
+> {
+  name: string;
+  inputSchema?: ZI;
+  outputSchema?: ZO;
+  migrate: Migration<I, O>;
 }
+
+export const createMigration =
+  <
+    I extends Migratable,
+    O extends Migratable,
+    ZI extends z.ZodTypeAny = z.ZodTypeAny,
+    ZO extends z.ZodTypeAny = z.ZodTypeAny,
+  >({
+    name,
+    migrate,
+  }: MigrationProps<I, O, ZI, ZO>): Migration<I, O> =>
+  (input: I): O => {
+    try {
+      const out = migrate(input);
+      console.log(`${name} migrated: ${input.version} -> ${out.version}`);
+      return out;
+    } catch (e) {
+      console.log(`${name} failed to migrate from ${input.version}`);
+      console.error(e);
+      throw e;
+    }
+  };
 
 /**
  * A record of migrations to be applied, where the key of the record is the
@@ -51,70 +86,67 @@ export interface Migration<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
  */
 export type Migrations = Record<string, Migration<any, any>>;
 
-interface MigratorProps<O extends z.ZodTypeAny> {
+interface MigratorProps<O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string;
   migrations: Migrations;
-  target: O;
-  def: z.output<O>;
+  def: O;
+  targetSchema?: ZO;
 }
 
-export const migrator = <O extends z.ZodTypeAny>({
+export const migrator = <O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTypeAny>({
   name,
   migrations,
-  target,
+  targetSchema,
   def,
-}: MigratorProps<O>): ((v: Migratable) => z.output<O>) => {
-  const latestVersion = Object.keys(migrations).sort(compareSemVer).pop();
-  if (latestVersion == null)
-    return ((v: Migratable) => target.parse(v)) as unknown as (
-      v: Migratable,
-    ) => z.output<O>;
+}: MigratorProps<O, ZO>): ((v: Migratable) => O) => {
+  const latestMigrationVersion = Object.keys(migrations).sort(compareSemVer).pop();
+  if (latestMigrationVersion == null)
+    return (v: Migratable) => {
+      if (v.version !== def.version) {
+        console.log(
+          `${name} version ${v.version} is newer than latest version of ${def.version}. 
+          Returning default instead.
+          `,
+        );
+        return def;
+      }
+      try {
+        if (targetSchema != null) return targetSchema.parse(v);
+        return v;
+      } catch (e) {
+        console.log(`${name} failed to parse default. Exiting with default`);
+        console.error(e);
+        return def;
+      }
+    };
   const migLength = Object.keys(migrations).length;
+  let migrationApplied = false;
   const f = (old: Migratable): Migratable => {
     try {
-      if (migLength === 0 || semVerNewer(old.version, latestVersion)) {
-        console.log(
-          `${name} version ${old.version} is newer than latest migration of ${latestVersion}`,
-        );
+      if (migLength === 0 || semVerNewer(old.version, latestMigrationVersion)) {
+        if (migrationApplied) console.log(`${name} ${old.version} now up to date`);
+        else
+          console.log(
+            `${name} version ${old.version} is up to date with target version ${def.version}`,
+          );
         return old;
       }
-      console.log(`${name} migrating from ${old.version}`);
       const version = old.version;
-      const migration = migrations[version];
-      // migration.input.parse(old);
-      // if (!oldRes.success) {
-      //   log?.(
-      //     `${name} failed to parse old version ${old.version}. Trying to migrate anyway`,
-      //   );
-      //   log?.(oldRes.error.format());
-      // }
-      const new_: Migratable = migration.migrate(old);
-      console.log(`${name} migrated to ${new_.version}`);
-      // migration.output.parse(new_);
-      // if (!newRes.success) {
-      //   log?.(
-      //     `${name} failed to parse new version ${latestVersion}. Exiting with default`,
-      //   );
-      //   log?.(newRes.error.format());
-      //   return def;
-      // }
+      const migrate = migrations[version];
+      const new_: Migratable = migrate(old);
+      migrationApplied = true;
       return f(new_);
     } catch (e) {
-      console.log(`${name} failed to migrate from ${old.version} to ${latestVersion}`);
+      console.log(
+        `${name} failed to migrate from ${old.version} to ${latestMigrationVersion}`,
+      );
       console.error(e);
       return def;
     }
   };
-  return (v: Migratable): z.output<O> => {
+  return (v: Migratable): O => {
     try {
-      return f(v) as z.output<O>;
-      // return target.parse(f(v, opts));
-      // if (!res.success) {
-      //   log?.(`${name} failed to parse final result. Exiting with default`);
-      //   log?.(res.error.format());
-      //   return def;
-      // }
-      // return res.data;
+      return f(v) as O;
     } catch (e) {
       console.log(`${name} failed to parse final result. Exiting with default`);
       console.error(e);

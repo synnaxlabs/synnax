@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import * as v0 from "@/schematic/migrations/v0";
 import * as v1 from "@/schematic/migrations/v1";
@@ -34,16 +33,14 @@ export const SLICE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.sliceMigration,
 };
 
-export const migrateState = migrate.migrator<typeof v1.stateZ>({
+export const migrateState = migrate.migrator<v1.State>({
   name: "schematic.state",
   migrations: STATE_MIGRATIONS,
-  target: v1.stateZ,
   def: v1.ZERO_STATE,
 });
 
-export const migrateSlice = migrate.migrator<typeof v1.sliceStateZ>({
+export const migrateSlice = migrate.migrator<v1.SliceState>({
   name: "schematic.slice",
   migrations: SLICE_MIGRATIONS,
-  target: v1.sliceStateZ,
-  def: ZERO_SLICE_STATE as unknown as z.output<typeof v1.sliceStateZ>,
-}) as unknown as (state: AnySliceState) => v1.SliceState;
+  def: ZERO_SLICE_STATE,
+});

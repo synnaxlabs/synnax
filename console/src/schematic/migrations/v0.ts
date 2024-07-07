@@ -23,7 +23,8 @@ export type NodeProps = object & {
   color?: Color.Crude;
 };
 
-export const stateZ = migrate.migratable("0.0.0").extend({
+export const stateZ = z.object({
+  version: z.literal("0.0.0"),
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
   snapshot: z.boolean(),
@@ -84,7 +85,8 @@ export const toolbarStateZ = z.object({
 });
 export type ToolbarState = z.infer<typeof toolbarStateZ>;
 
-export const sliceStateZ = migrate.migratable("0.0.0").extend({
+export const sliceStateZ = z.object({
+  version: z.literal("0.0.0"),
   mode: Viewport.modeZ,
   copy: copyBufferZ,
   toolbar: toolbarStateZ,

@@ -216,7 +216,7 @@ export const { actions, reducer } = createSlice({
       const migrated = migrateState(payload);
       const { key: layoutKey } = migrated;
       const existing = state.plots[layoutKey];
-      if (existing != null) return;
+      if (existing != null && existing.version === migrated.version) return;
       state.plots[layoutKey] = migrated;
       state.plots[layoutKey].lines = updateLines(migrated);
     },

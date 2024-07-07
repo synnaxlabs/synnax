@@ -22,6 +22,5 @@ export const MAIN_LAYOUT = v0.MAIN_LAYOUT;
 export const migrateSlice = migrate.migrator({
   name: "layout.slice",
   migrations: SLICE_MIGRATIONS,
-  target: v3.sliceStateZ,
   def: ZERO_SLICE_STATE,
 });

@@ -57,30 +57,25 @@ export interface SliceState extends Omit<v0.SliceState, "version" | "schematics"
   schematics: Record<string, State>;
 }
 
-export const stateMigration: migrate.Migration<typeof v0.stateZ, typeof stateZ> = {
-  input: v0.stateZ,
-  output: stateZ,
+export const stateMigration = migrate.createMigration<v0.State, State>({
+  name: "schematic.state",
   migrate: (input) => ({
     ...input,
     legend: ZERO_LEGEND_STATE,
     version: "1.0.0",
   }),
-};
+});
 
-export const sliceMigration: migrate.Migration<
-  typeof v0.sliceStateZ,
-  typeof sliceStateZ
-> = {
-  input: v0.sliceStateZ,
-  output: sliceStateZ,
+export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({
+  name: "schematic.slice",
   migrate: (input) => ({
     ...input,
     schematics: Object.fromEntries(
-      Object.entries(input.schematics).map(([k, v]) => [k, stateMigration.migrate(v)]),
+      Object.entries(input.schematics).map(([k, v]) => [k, stateMigration(v)]),
     ),
     version: "1.0.0",
   }),
-};
+});
 
 export const ZERO_SLICE_STATE: SliceState = {
   ...v0.ZERO_SLICE_STATE,

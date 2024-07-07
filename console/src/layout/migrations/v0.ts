@@ -166,7 +166,7 @@ export const navStateZ = z.record(z.string(), partialNavState).and(
   }),
 );
 
-export const sliceStateZ = migrate.migratable().extend({
+export const sliceStateZ = z.object({
   version: z.union([z.literal("0.0.0"), z.literal("0.1.0"), z.literal("0.2.0")]),
   activeTheme: z.string(),
   themes: z.record(z.string(), theming.specZ),

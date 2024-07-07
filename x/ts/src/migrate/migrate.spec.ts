@@ -1,88 +1,90 @@
-// // Copyright 2024 Synnax Labs, Inc.
-// //
-// // Use of this software is governed by the Business Source License included in the file
-// // licenses/BSL.txt.
-// //
-// // As of the Change Date specified in that file, in accordance with the Business Source
-// // License, use of this software will be governed by the Apache License, Version 2.0,
-// // included in the file licenses/APL.txt.
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-// import { describe, expect, it } from "vitest";
-// import { z } from "zod";
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
-// import {
-//   migratable,
-//   type Migration,
-//   type Migrations,
-//   migrator,
-// } from "@/migrate/migrate";
+import { migrate } from "@/migrate";
 
-// const entityV0_0_0 = migratable.extend({
-//   name: z.string(),
-// });
+const entityV0 = z.object({
+  version: z.literal("0.0.0"),
+  name: z.string(),
+});
 
-// type EntityV0_0_0 = z.infer<typeof entityV0_0_0>;
+type EntityV0 = z.infer<typeof entityV0>;
 
-// const entityV0_0_1 = migratable.extend({
-//   title: z.string(),
-// });
+const entityV1 = z.object({
+  version: z.literal("1.0.0"),
+  title: z.string(),
+});
 
-// type EntityV0_0_1 = z.infer<typeof entityV0_0_1>;
+const migrateV1 = migrate.createMigration<EntityV0, EntityV1>({
+  name: "entity",
+  inputSchema: entityV0,
+  outputSchema: entityV1,
+  migrate: (entity) => {
+    const { name, ...rest } = entity;
+    return { ...rest, version: "1.0.0", title: entity.name };
+  },
+});
 
-// const entityV0_0_2 = migratable.extend({
-//   title: z.string(),
-//   description: z.string(),
-// });
+type EntityV1 = z.infer<typeof entityV1>;
 
-// type EntityV0_0_2 = z.infer<typeof entityV0_0_2>;
+const entityV2 = z.object({
+  version: z.literal("2.0.0"),
+  title: z.string(),
+  description: z.string(),
+});
 
-// const migrations: Migrations = {
-//   "0.0.0": ((entity: EntityV0_0_0): EntityV0_0_1 => {
-//     const { name, ...rest } = entity;
-//     return {
-//       ...rest,
-//       version: "0.0.1",
-//       title: entity.name,
-//     };
-//   }) as Migration<EntityV0_0_0, EntityV0_0_1>,
-//   "0.0.1": (entity: EntityV0_0_1): EntityV0_0_2 => {
-//     return {
-//       ...entity,
-//       version: "0.0.2",
-//       description: "",
-//     };
-//   },
-// };
+type EntityV2 = z.infer<typeof entityV2>;
 
-// describe("migrator", () => {
-//   it("should migrate an entity from v0.0.0 to v0.0.2", () => {
-//     const entity: EntityV0_0_0 = {
-//       version: "0.0.0",
-//       name: "foo",
-//     };
-//     const migrated = migrator({ name: "example", migrations })(entity);
-//     expect(migrated).toEqual({
-//       version: "0.0.2",
-//       title: "foo",
-//       description: "",
-//     });
-//   });
-//   it("should not migrate an entity from v0.0.2", () => {
-//     const entity: EntityV0_0_2 = {
-//       version: "0.0.2",
-//       title: "foo",
-//       description: "bar",
-//     };
-//     const migrated = migrator({ name: "example", migrations })(entity);
-//     expect(migrated).toEqual(entity);
-//   });
-//   it("should not migrate an entity from v0.0.3", () => {
-//     const entity = {
-//       version: "0.0.3",
-//       title: "foo",
-//       description: "bar",
-//     };
-//     const migrated = migrator({ name: "example", migrations })(entity);
-//     expect(migrated).toEqual(entity);
-//   });
-// });
+const migrateV2 = migrate.createMigration<EntityV1, EntityV2>({
+  name: "entity",
+  inputSchema: entityV1,
+  outputSchema: entityV2,
+  migrate: (entity) => ({ ...entity, version: "2.0.0", description: "" }),
+});
+
+const migrations: migrate.Migrations = {
+  "0.0.0": migrateV1,
+  "1.0.0": migrateV2,
+};
+
+describe("migrator", () => {
+  it("should migrate an entity from v0 to v2", () => {
+    const entity: EntityV0 = { version: "0.0.0", name: "foo" };
+    const DEFAULT: EntityV2 = { version: "2.0.0", title: "", description: "" };
+    const migrated = migrate.migrator({
+      name: "entity",
+      migrations,
+      def: DEFAULT,
+    })(entity);
+    expect(migrated).toEqual({ version: "2.0.0", title: "foo", description: "" });
+  });
+  it("should migrate an entity from v1 to v2", () => {
+    const entity: EntityV1 = { version: "1.0.0", title: "foo" };
+    const DEFAULT: EntityV2 = { version: "2.0.0", title: "", description: "" };
+    const migrated = migrate.migrator({
+      name: "entity",
+      migrations,
+      def: DEFAULT,
+    })(entity);
+    expect(migrated).toEqual({ version: "2.0.0", title: "foo", description: "" });
+  });
+  it("should not migrate an entity from v2 to v2", () => {
+    const entity: EntityV2 = { version: "2.0.0", title: "foo", description: "bar" };
+    const DEFAULT: EntityV2 = { version: "2.0.0", title: "", description: "" };
+    const migrated = migrate.migrator({
+      name: "entity",
+      migrations,
+      def: DEFAULT,
+    })(entity);
+    expect(migrated).toEqual(entity);
+  });
+});
