@@ -136,7 +136,7 @@ class Channel(ChannelPayload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self.__frame_client.write(start, data, self.key)
+        self.__frame_client.write(start, self.key, data)
 
     def rename(self, name: ChannelName) -> None:
         """Renames the channel.
