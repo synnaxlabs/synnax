@@ -145,11 +145,24 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
+
+      - name: Build Pluto
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:pluto
+    
+      - name: Build Drift
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:drift
+
+      # We need to build the console separately WITHOUT turbo repo because of strange
+      # incompatibility issues with rust builds.
+    
       - name: Build Console
         if: needs.setup.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
-        run: pnpm build:console
+        working-directory: ./console
+        run: pnpm build
 
       - name: Upload MacOS Release Asset
         if: github.event_name == 'push' &&  matrix.platform == 'macos-12'
