@@ -56,6 +56,7 @@ export { Triggers } from "@/triggers";
 export * from "@/util/renderProp";
 export { Video } from "@/video";
 export { Viewport } from "@/viewport";
+export { axis } from "@/vis/axis";
 export { Canvas } from "@/vis/canvas";
 export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
