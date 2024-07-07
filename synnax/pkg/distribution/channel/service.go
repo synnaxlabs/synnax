@@ -101,8 +101,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	}
 	var group group.Group
 	if cfg.Group != nil {
-		group, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-		if err != nil {
+		if group, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID); err != nil {
 			return nil, err
 		}
 	}
