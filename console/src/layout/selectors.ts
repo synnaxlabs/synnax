@@ -12,7 +12,7 @@ import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
-import { type State } from "@/layout/layout";
+import { type State } from "@/layout/slice";
 import {
   type NavDrawerEntryState,
   type NavDrawerLocation,

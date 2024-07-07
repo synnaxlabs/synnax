@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { PlacerArgs, usePlacer } from "@/layout/hooks";
-import { RendererProps } from "@/layout/layout";
+import { RendererProps } from "@/layout/slice";
 
 export interface Selectable {
   key: string;
