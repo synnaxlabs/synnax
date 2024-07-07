@@ -92,31 +92,20 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-const (
-	groupName         = "Channels"
-	internalGroupName = "Internal"
-)
+const groupName = "Channels"
 
 func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		mainGroup     group.Group
-		internalGroup group.Group
-	)
+	var group group.Group
 	if cfg.Group != nil {
-		mainGroup, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-		if err != nil {
-			return nil, err
-		}
-		internalGroup, err = cfg.Group.CreateOrRetrieve(ctx, internalGroupName, mainGroup.OntologyID())
-		if err != nil {
+		if group, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID); err != nil {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(cfg, mainGroup, internalGroup)
+	proxy, err := newLeaseProxy(cfg, group)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +113,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 		DB:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
-		group: mainGroup,
+		group: group,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
