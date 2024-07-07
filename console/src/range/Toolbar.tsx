@@ -30,7 +30,6 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
@@ -38,9 +37,15 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
-import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
-import { add, remove, rename, setActive } from "@/range/slice";
+import {
+  add,
+  type Range,
+  remove,
+  rename,
+  setActive,
+  type StaticRange,
+} from "@/range/slice";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -114,6 +119,8 @@ export const List = (): ReactElement => {
     },
   });
 
+  const handleLink = Link.useCopyToClipboard();
+
   const NoRanges = (): ReactElement => {
     const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
       e.stopPropagation();
@@ -132,8 +139,6 @@ export const List = (): ReactElement => {
     );
   };
 
-  const clusterKey = Cluster.useSelectActiveKey();
-
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -146,12 +151,17 @@ export const List = (): ReactElement => {
       remove: () => rng != null && handleRemove([rng.key]),
       delete: () => rng != null && del.mutate(rng.key),
       save: () => rng != null && save.mutate(rng.key),
-      link: () => {
-        if (rng == null) return;
-        const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
-        void navigator.clipboard.writeText(toCopy);
-      },
+      link: () =>
+        rng != null &&
+        handleLink({
+          name: rng.name,
+          resource: {
+            key: rng.key,
+            type: "range",
+          },
+        }),
     };
+
     return (
       <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
         <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
@@ -182,8 +192,12 @@ export const List = (): ReactElement => {
                 </>
               )
             )}
-            <PMenu.Divider />
-            {rng.persisted && <Link.CopyMenuItem />}
+            {rng.persisted && (
+              <>
+                <PMenu.Divider />
+                <Link.CopyMenuItem />
+              </>
+            )}
             <PMenu.Divider />
           </>
         )}

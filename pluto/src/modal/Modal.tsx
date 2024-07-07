@@ -17,6 +17,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { useClickOutside } from "@/hooks";
 import { Triggers } from "@/triggers";
+import { getRootElement } from "@/util/rootElement";
 
 export interface ModalProps
   extends Pick<Dialog.UseReturn, "visible" | "close">,
@@ -41,6 +42,6 @@ export const Modal = ({ visible, close, ...props }: ModalProps): ReactElement =>
         {...props}
       />
     </Align.Space>,
-    document.documentElement,
+    getRootElement(),
   );
 };

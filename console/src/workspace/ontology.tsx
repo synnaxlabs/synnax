@@ -14,7 +14,6 @@ import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -66,13 +65,13 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
-      selection: { resources },
+      selection,
       placeLayout,
       services,
-      state: { setResources, nodes, setNodes },
+      state: { resources, setResources, nodes, setNodes },
       client,
     }) => {
-      const workspace = resources[0].id.key;
+      const workspace = selection.resources[0].id.key;
       const schematic = await client.workspaces.schematic.create(workspace, {
         name: "New Schematic",
         snapshot: false,
@@ -92,7 +91,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
         tree: nodes,
-        destination: resources[0].key,
+        destination: selection.resources[0].key,
         additions: Ontology.toTreeNodes(services, [otg]),
       });
       setNodes([...nextNodes]);
@@ -111,13 +110,13 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
 const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
-      selection: { resources },
+      selection,
       placeLayout,
       services,
-      state: { setResources, nodes, setNodes },
+      state: { setResources, resources, nodes, setNodes },
       client,
     }) => {
-      const workspace = resources[0].id.key;
+      const workspace = selection.resources[0].id.key;
       const linePlot = await client.workspaces.linePlot.create(workspace, {
         name: "New Line Plot",
         data: deep.copy(LinePlot.ZERO_SLICE_STATE) as unknown as UnknownRecord,
@@ -135,7 +134,7 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
         tree: nodes,
-        destination: resources[0].key,
+        destination: selection.resources[0].key,
         additions: Ontology.toTreeNodes(services, [otg]),
       });
       setNodes([...nextNodes]);
@@ -152,27 +151,28 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
-  const { selection } = props;
-
+  const {
+    selection,
+    selection: { resources },
+  } = props;
   const del = useDelete();
   const createSchematic = useCreateSchematic();
   const createLinePlot = useCreateLinePlot();
   const group = Group.useCreateFromSelection();
-  const clusterKey = Cluster.useSelectActiveKey();
-
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
     delete: () => del(props),
-    rename: () => Tree.startRenaming(selection.resources[0].id.toString()),
+    rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
     plot: () => createLinePlot(props),
     schematic: () => createSchematic(props),
-    link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/workspace/${selection.resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
-    },
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   };
-
-  const singleResource = selection.resources.length === 1;
+  const singleResource = resources.length === 1;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && (
@@ -182,11 +182,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-
-      <Group.GroupMenuItem selection={props.selection} />
+      <Group.GroupMenuItem selection={selection} />
+      <PMenu.Divider />
       {singleResource && (
         <>
-          <PMenu.Divider />
           <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
             New Line Plot
           </PMenu.Item>

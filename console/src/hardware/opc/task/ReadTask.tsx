@@ -151,8 +151,14 @@ const Wrapped = ({
     ),
   });
 
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    initialValues.config.channels.length > 0
+      ? [initialValues.config.channels[0].key]
+      : [],
+  );
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+    initialValues.config.channels.length > 0 ? 0 : null,
+  );
 
   const taskState = useObserveState<DigitalWriteStateDetails>(
     methods.setStatus,

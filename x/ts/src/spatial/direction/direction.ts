@@ -12,7 +12,7 @@ import {
   crudeDirection,
   type Dimension,
   type Direction,
-  type direction,
+  direction,
   DIRECTIONS,
   type Location,
   type SignedDimension,
@@ -20,7 +20,7 @@ import {
   type YLocation,
 } from "@/spatial/base";
 
-export type { Direction, direction };
+export { Direction, direction };
 
 export const crude = crudeDirection;
 

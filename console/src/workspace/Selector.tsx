@@ -122,7 +122,7 @@ export const Selector = (): ReactElement => {
                       startIcon={<Icon.Add />}
                       variant="outlined"
                       onClick={() => {
-                        close();
+                        dProps.close();
                         place(createWindowLayout());
                       }}
                       iconSpacing="small"

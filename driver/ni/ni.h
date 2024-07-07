@@ -459,6 +459,7 @@ private:
     synnax::Task task;
     std::thread thread;
     bool ok_state = true;
+    synnax::Rate scan_rate = synnax::Rate(100);
 };
 
 ///////////////////////////////////////////////////////////////////////////////////

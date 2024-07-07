@@ -91,7 +91,6 @@ class TestAllStringFirstCol:
         d = valid_file.read()
         assert d["thermoCouple01"].to_numpy()[0] == 1.0
 
-    @pytest.mark.focus
     def test_read(self, valid_file: RowFileReader):
         """It should correctly iterate over the samples in the file"""
         valid_file.set_chunk_size(1)

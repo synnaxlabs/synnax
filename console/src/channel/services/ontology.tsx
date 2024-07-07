@@ -40,7 +40,7 @@ const handleSelect: Ontology.HandleSelect = ({
   selection,
 }): void => {
   const state = store.getState();
-  const layout = Layout.selectActiveMosaicTab(state);
+  const layout = Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
   // If no layout is selected, create a new line plot and add the selected channels
@@ -228,21 +228,30 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection } = props;
-  const activeRange = Range.select(store.getState());
+  const {
+    selection,
+    selection: { resources },
+  } = props;
+  const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
   const delAlias = useDeleteAlias();
   const del = useDelete();
   const handleRename = useRename();
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
     group: () => groupFromSelection(props),
     delete: () => del(props),
     deleteAlias: () => delAlias(props),
     alias: () => setAlias(props),
     rename: () => handleRename(props),
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   };
-  const singleResource = selection.resources.length === 1;
+  const singleResource = resources.length === 1;
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
