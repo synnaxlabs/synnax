@@ -1003,26 +1003,28 @@ export const RotaryMixerPreview = (props: RotaryMixerProps): ReactElement => (
 export interface LightProps
   extends Primitives.LightProps,
     Omit<Toggle.UseProps, "aetherKey"> {
-  position?: xy.XY;
+  // position?: xy.XY;
   label?: LabelExtensionProps;
-  color?: Color.Crude;
-  textColor?: Color.Crude;
-  tooltip?: string[];
+  // color?: Color.Crude;
+  // textColor?: Color.Crude;
+  // tooltip?: string[];
 }
 
 export const Light = Aether.wrap<SymbolProps<LightProps>>(
-  "Light",
+  "light",
   ({
     aetherKey,
     label,
     // level = "p",
     // position,
     className,
+    orientation = "left",
     // textColor,
     color,
     source,
     // telem,
     onChange,
+    // units,
     // tooltip,
   }): ReactElement => {
     const { enabled } = Toggle.use({ aetherKey, source });
@@ -1031,12 +1033,14 @@ export const Light = Aether.wrap<SymbolProps<LightProps>>(
         <Primitives.Light
           color={color}
           enabled={enabled}
-          onChange={onChange}
           // level={level}
           className={className}
           // telem={telem}
           // tooltip={tooltip}
+          orientation={orientation}
+          // units={units}
         />
+        {/* units={units} */}
       </Labeled>
     );
   },

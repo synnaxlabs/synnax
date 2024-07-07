@@ -1158,16 +1158,17 @@ export const RotaryMixer = ({
       scale={scale}
     >
       <Path d="M1 30V2C1 1.44772 1.44772 1 2 1H35.4545C35.7434 1 36.0181 1.12487 36.208 1.34247L48.4262 15.3425C48.7549 15.7192 48.7549 16.2808 48.4262 16.6575L36.208 30.6575C36.0181 30.8751 35.7434 31 35.4545 31H2C1.44772 31 1 30.5523 1 30Z" />
-      <Line x1="32" y1="16" x2="40" y2="16" stroke-linecap="round" />
-      <Line x1="32" y1="16" x2="28" y2="22.9282" stroke-linecap="round" />
-      <Line x1="32" y1="16" x2="28" y2="9.0717" stroke-linecap="round" />
+      <Line x1="32" y1="16" x2="40" y2="16" strokeLinecap="round" />
+      <Line x1="32" y1="16" x2="28" y2="22.9282" strokeLinecap="round" />
+      <Line x1="32" y1="16" x2="28" y2="9.0717" strokeLinecap="round" />
     </InternalSVG>
   </Toggle>
 );
 
 export interface LightProps extends ToggleProps, SVGBasedPrimitiveProps {
-  dimensions?: dimensions.Dimensions;
+  // dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
+  // units: string;
 }
 
 export const Light = ({

@@ -17,6 +17,7 @@ import {
   ButtonForm,
   CommonNonToggleForm,
   CommonToggleForm,
+  LightForm,
   SolenoidValveForm,
   type SymbolFormProps,
   TankForm,
@@ -697,7 +698,7 @@ const light: Spec<LightProps> = {
   name: "Light",
   key: "light",
   Symbol: Light,
-  Form: ValueForm,
+  Form: LightForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     label: {
@@ -706,6 +707,7 @@ const light: Spec<LightProps> = {
       orientation: "top",
     },
     orientation: "left",
+    units: "psi",
   }),
   Preview: LightPreview,
   zIndex: Z_INDEX_UPPER,

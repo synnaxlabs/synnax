@@ -316,6 +316,7 @@ const VALUE_FORM_TABS: Tabs.Tab[] = [
     name: "Telemetry",
   },
 ];
+
 interface ValueTelemFormT {
   telem: telem.StringSourceSpec;
   tooltip: string[];
@@ -438,6 +439,38 @@ export const ValueForm = (): ReactElement => {
     switch (tabKey) {
       case "telemetry":
         return <ValueTelemForm path="" />;
+      default: {
+        return (
+          <FormWrapper direction="x">
+            <Align.Space direction="y" grow>
+              <LabelControls path="label" />
+              <Align.Space direction="x">
+                <ColorControl path="color" />
+                <Form.Field<string>
+                  path="units"
+                  label="Units"
+                  align="start"
+                  padHelpText={false}
+                >
+                  {(p) => <Input.Text {...p} />}
+                </Form.Field>
+              </Align.Space>
+            </Align.Space>
+            <OrientationControl path="" />
+          </FormWrapper>
+        );
+      }
+    }
+  }, []);
+  const props = Tabs.useStatic({ tabs: VALUE_FORM_TABS, content });
+  return <Tabs.Tabs {...props} />;
+};
+
+export const LightForm = (): ReactElement => {
+  const content: TabRenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "telemetry":
+        return <ToggleControlForm path="" />;
       default: {
         return (
           <FormWrapper direction="x">
