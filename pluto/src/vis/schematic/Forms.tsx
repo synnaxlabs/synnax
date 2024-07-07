@@ -20,7 +20,6 @@ import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Tabs } from "@/tabs";
-import { type TabRenderProp } from "@/tabs/Tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
@@ -203,7 +202,7 @@ export const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
 };
 
 export const CommonToggleForm = (): ReactElement => {
-  const content: TabRenderProp = useCallback(({ tabKey }) => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "control":
         return <ToggleControlForm path="" />;
@@ -226,7 +225,7 @@ export const CommonToggleForm = (): ReactElement => {
 };
 
 export const SolenoidValveForm = (): ReactElement => {
-  const content: TabRenderProp = useCallback(({ tabKey }) => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "control":
         return <ToggleControlForm path="" />;
@@ -434,7 +433,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
 };
 
 export const ValueForm = (): ReactElement => {
-  const content: TabRenderProp = useCallback(({ tabKey }) => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telemetry":
         return <ValueTelemForm path="" />;
@@ -527,7 +526,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
 };
 
 export const ButtonForm = (): ReactElement => {
-  const content: TabRenderProp = useCallback(({ tabKey }) => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "control":
         return <ButtonTelemForm path="" />;

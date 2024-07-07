@@ -9,14 +9,13 @@
 
 import "@/layout/Selector.css";
 
-import { Logo } from "@synnaxlabs/media";
 import { Button, Eraser, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { PlacerArgs, usePlacer } from "@/layout/hooks";
-import { RendererProps } from "@/layout/layout";
+import { RendererProps } from "@/layout/slice";
 
 export interface Selectable {
   key: string;

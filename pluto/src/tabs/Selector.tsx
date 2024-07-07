@@ -19,16 +19,9 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useTabsContext } from "@/tabs/Tabs";
+import { Spec } from "@/tabs/types";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
-
-export interface TabSpec {
-  tabKey: string;
-  name: string;
-  closable?: boolean;
-  icon?: ReactElement;
-  editable?: boolean;
-}
 
 export interface SelectorProps extends Omit<Align.SpaceProps, "children"> {
   size?: ComponentSize;
@@ -155,7 +148,7 @@ const SelectorButton = ({
         name={name}
         tabKey={tabKey}
         onRename={onRename}
-        icon={icon}
+        icon={icon as ReactElement}
         editable={editable}
         level={Text.ComponentSizeLevels[size]}
       />
@@ -168,11 +161,11 @@ const SelectorButton = ({
   );
 };
 
-export interface SelectorButtonProps extends TabSpec {
+export interface SelectorButtonProps extends Spec {
   selected?: string;
   altColor?: boolean;
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;

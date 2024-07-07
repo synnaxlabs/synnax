@@ -7,66 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { PayloadAction } from "@reduxjs/toolkit";
+import type { Dispatch, PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
-import { type deep, type location, migrate } from "@synnaxlabs/x";
+import { Haul, Mosaic } from "@synnaxlabs/pluto";
+import { type deep, type location } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
+import { ComponentType } from "react";
 
-import { type State, WindowProps } from "@/layout/layout";
+import * as latest from "@/layout/migrations";
 
-interface NavState extends Record<string, PartialNavState> {
-  main: MainNavState;
-}
-
-/** The state of the layout slice */
-export interface SliceState extends migrate.Migratable {
-  /** The current theme. */
-  activeTheme: string;
-  /**
-   * A record of theme keys to themes. The active theme is guaranteed to be present
-   * in this record. */
-  themes: Record<string, Theming.ThemeSpec>;
-  /**
-   * A record of layout keys to layouts. These represent the properties of all layouts
-   * currently rendered in the mosaic or in external windows.
-   */
-  layouts: Record<string, State>;
-  altKeyToKey: Record<string, string>;
-  keyToAltKey: Record<string, string>;
-  hauling: Haul.DraggingState;
-  mosaics: Record<string, MosaicState>;
-  nav: NavState;
-  alreadyCheckedGetStarted: boolean;
-}
-
-export interface MosaicState {
-  activeTab: string | null;
-  root: Mosaic.Node;
-}
-
-export interface MainNavState {
-  drawers: NavDrawerState;
-}
-
-export interface PartialNavState {
-  drawers: Partial<NavDrawerState>;
-}
-
-export type NavDrawerLocation = "right" | "left" | "bottom";
-
-export interface NavDrawerState {
-  left: NavDrawerEntryState;
-  right: NavDrawerEntryState;
-  bottom: NavDrawerEntryState;
-}
-
-export interface NavDrawerEntryState {
-  activeItem: string | null;
-  menuItems: string[];
-  size?: number;
-}
+export type State<A = any> = latest.State<A>;
+export type SliceState = latest.SliceState;
+export type NavDrawerLocation = latest.NavDrawerLocation;
+export type NavDrawerEntryState = latest.NavDrawerEntryState;
+export type WindowProps = latest.WindowProps;
+export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const ZERO_MOSAIC_STATE = latest.ZERO_MOSAIC_STATE;
+export const MAIN_LAYOUT = latest.MAIN_LAYOUT;
+export const migrateSlice = latest.migrateSlice;
 
 /**
  * The name of the layout slice in a larger store.
@@ -82,86 +41,6 @@ export const SLICE_NAME = "layout";
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
-
-export const MAIN_LAYOUT: State = {
-  name: "Main",
-  key: "main",
-  type: "main",
-  location: "window",
-  windowKey: MAIN_WINDOW,
-  window: {
-    navTop: false,
-  },
-};
-
-const ZERO_MOSAIC_STATE: MosaicState = {
-  activeTab: null,
-  root: {
-    key: 1,
-    tabs: [],
-  },
-};
-
-const MIGRATIONS: migrate.Migrations = {
-  "0.0.0": (state: SliceState): SliceState => ({
-    ...state,
-    themes: {
-      synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
-      synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
-    },
-    version: "0.1.0",
-  }),
-  "0.1.0": (state: SliceState): SliceState => ({
-    ...state,
-    themes: {
-      synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
-      synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
-    },
-    version: "0.2.0",
-  }),
-  "0.2.0": (state: Omit<SliceState, "altKeyToKey" | "keyToAltKey">): SliceState => ({
-    altKeyToKey: {},
-    keyToAltKey: {},
-    ...state,
-    version: "0.3.0",
-  }),
-};
-
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
-
-export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.3.0",
-  activeTheme: "synnaxDark",
-  themes: Theming.SYNNAX_THEMES,
-  alreadyCheckedGetStarted: false,
-  layouts: {
-    main: MAIN_LAYOUT,
-  },
-  mosaics: {
-    main: ZERO_MOSAIC_STATE,
-  },
-  altKeyToKey: {},
-  keyToAltKey: {},
-  hauling: Haul.ZERO_DRAGGING_STATE,
-  nav: {
-    main: {
-      drawers: {
-        left: {
-          activeItem: null,
-          menuItems: ["resources"],
-        },
-        right: {
-          activeItem: null,
-          menuItems: ["range", "task"],
-        },
-        bottom: {
-          activeItem: null,
-          menuItems: ["visualization"],
-        },
-      },
-    },
-  },
-};
 
 export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
   (key) => `${SLICE_NAME}.${key}`,
@@ -567,3 +446,36 @@ export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey
     showTitle: false,
   },
 });
+
+/**
+ * The props passed to a LayoutRenderer. Note that these props are minimal and only focus
+ * on providing information that either allows the renderer to perform more data selections
+ * from other locations in state OR allows the renderer to perform actions that may have
+ * polymorphic behavior depending the layout location (i.e. closing a layout might remove
+ * it from the mosaic or close the window, depending on the location).
+ *
+ * The goal here is to separate the rendering logic for a particular layout from its location
+ * allowing us to mix and move layouts around the UI with ease.
+ */
+export interface RendererProps {
+  /** The unique key of the layout. */
+  layoutKey: string;
+  /**
+   * onClose should be called when the layout is ready to be closed. This function is
+   * polymorphic and may have different behavior depending on the location of the layout.
+   * For example, if the layout is in a window, onClose will close the window. If the
+   * layout is in the mosaic, onClose will remove the layout from the mosaic.
+   */
+  onClose: () => void;
+}
+
+export interface OnCloseProps {
+  dispatch: Dispatch<UnknownAction>;
+  layoutKey: string;
+}
+
+/**
+ * A React component that renders a layout for a given type. All layouts in state are
+ * rendered by a layout renderer of a specific type.
+ */
+export type Renderer = ComponentType<RendererProps>;

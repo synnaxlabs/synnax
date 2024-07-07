@@ -39,7 +39,7 @@ export interface MosaicProps
   onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
-  children: Tabs.TabRenderProp;
+  children: Tabs.RenderProp;
   activeTab?: string;
 }
 
