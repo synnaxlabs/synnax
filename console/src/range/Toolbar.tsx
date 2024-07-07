@@ -36,7 +36,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
-import type { Range, StaticRange } from "@/range/range";
+import type { Range, StaticRange } from "@/range/slice";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, rename, setActive } from "@/range/slice";
 
@@ -174,8 +174,12 @@ export const List = (): ReactElement => {
                 </>
               )
             )}
-            <PMenu.Divider />
-            {rng.persisted && <Link.CopyMenuItem />}
+            {rng.persisted && (
+              <>
+                <PMenu.Divider />
+                <Link.CopyMenuItem />
+              </>
+            )}
             <PMenu.Divider />
           </>
         )}

@@ -11,6 +11,7 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 import { type SynnaxProps } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type Cluster, type LocalState } from "@/cluster/core";
 
@@ -61,7 +62,7 @@ export const LOCAL: Cluster = {
   props: LOCAL_PROPS,
 };
 
-export const ZERO_STATE: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
   version: "0.0.1",
   activeCluster: null,
   clusters: {
@@ -94,7 +95,11 @@ export interface RenamePayload {
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+export const migrateSlice = migrate.migrator<SliceState>({
+  name: "cluster.slice",
+  migrations: MIGRATIONS,
+  def: ZERO_SLICE_STATE,
+});
 
 export const {
   actions,
@@ -104,7 +109,7 @@ export const {
   reducer,
 } = createSlice({
   name: SLICE_NAME,
-  initialState: ZERO_STATE,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (
       { activeCluster, clusters: clusters },

@@ -73,7 +73,7 @@ export class Client {
       }
       reqCtx.params.Authorization = `Bearer ${this.token}`;
       const [resCtx, err] = await next(reqCtx);
-      if (err instanceof InvalidTokenError && this.retryCount < MAX_RETRIES) {
+      if (InvalidTokenError.matches(err) && this.retryCount < MAX_RETRIES) {
         this.authenticated = false;
         this.authenticating = undefined;
         this.retryCount += 1;
