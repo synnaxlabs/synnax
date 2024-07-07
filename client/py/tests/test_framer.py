@@ -196,7 +196,6 @@ class TestWriter:
                     async with asyncio.timeout(0.2):
                         await s.read()
 
-    @pytest.mark.focus
     def test_write_persist_stream_regression(self, client: sy.Synnax):
         """Should work"""
         idx = client.channels.create(
@@ -212,16 +211,15 @@ class TestWriter:
         # Write some data
         start = sy.TimeStamp.now()
         with client.open_writer(
-            start,
-            [idx.key, data.key],
-            enable_auto_commit=True
+            start, [idx.key, data.key], enable_auto_commit=True
         ) as w:
-            w.write({ idx.key: [start], data.key: [1] })
+            w.write({idx.key: [start], data.key: [1]})
 
         # Read the data
         next_start = start + 5 * sy.TimeSpan.MILLISECOND
-        f = client.read(TimeRange(start - 5 * sy.TimeSpan.MILLISECOND, next_start),
-                        data.key)
+        f = client.read(
+            TimeRange(start - 5 * sy.TimeSpan.MILLISECOND, next_start), data.key
+        )
         assert len(f) == 1
 
         data_2 = client.channels.create(
@@ -234,20 +232,19 @@ class TestWriter:
             data_type="float64",
             index=idx.key,
         )
-        with (client.open_writer(
+        with client.open_writer(
             next_start,
             [idx.key, data.key, data_2.key, data_3.key],
-            enable_auto_commit=True
-        ) as w):
-            w.write({
-                idx.key: [next_start],
-                data.key: [1],
-                data_2.key: [2],
-                data_3.key: [3]
-            })
+            enable_auto_commit=True,
+        ) as w:
+            w.write(
+                {idx.key: [next_start], data.key: [1], data_2.key: [2], data_3.key: [3]}
+            )
 
-        tr = sy.TimeRange(start - 5 * sy.TimeSpan.MILLISECOND, next_start + 5 *
-                          sy.TimeSpan.MILLISECOND)
+        tr = sy.TimeRange(
+            start - 5 * sy.TimeSpan.MILLISECOND,
+            next_start + 5 * sy.TimeSpan.MILLISECOND,
+        )
         f = client.read(tr, data_2.key)
         assert len(f) == 1
         f2 = client.read(tr, [data.key, data_2.key, data_3.key])
@@ -320,7 +317,7 @@ class TestDeleter:
     def test_delete_channel_not_found_name(
         self, channel: sy.Channel, client: sy.Synnax
     ):
-        client.write(0, np.random.rand(50).astype(np.float64), channel.key)
+        client.write(0, channel.key, np.random.rand(50).astype(np.float64))
         with pytest.raises(sy.NotFoundError):
             client.delete([channel.name, "kaka"], TimeRange.MAX)
 
@@ -328,7 +325,7 @@ class TestDeleter:
         assert data.size == 50 * 8
 
     def test_delete_channel_not_found_key(self, channel: sy.Channel, client: sy.Synnax):
-        client.write(0, np.random.rand(50).astype(np.float64), channel.key)
+        client.write(0, channel.key, np.random.rand(50).astype(np.float64))
         with pytest.raises(sy.NotFoundError):
             client.delete([channel.key, 23423], TimeRange.MAX)
 

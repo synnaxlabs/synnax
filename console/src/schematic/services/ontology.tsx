@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
@@ -114,23 +113,23 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    store,
     selection: { resources },
   } = props;
-  const activeRange = Range.select(store.getState());
-  const activeKey = Cluster.useSelectActiveKey();
+  const activeRange = Range.useSelect();
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useRangeSnapshot();
+  const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu("schematic.menu", {
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    link: () => {
-      const url = `synnax://cluster/${activeKey}/schematic/${resources[0].id.key}`;
-      void navigator.clipboard.writeText(url);
-    },
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   });
   const isSingle = resources.length === 1;
   return (
@@ -146,8 +145,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         Copy
       </PMenu.Item>
       <PMenu.Divider />
-      {isSingle && <Link.CopyMenuItem />}
-      <PMenu.Divider />
+      {isSingle && (
+        <>
+          <Link.CopyMenuItem />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

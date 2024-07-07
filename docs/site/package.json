@@ -7,7 +7,6 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
-    "postbuild": "pagefind --source .vercel/output --output-subdir ../../src/pages/pagefind",
     "preview": "astro preview",
     "astro": "astro",
     "algolia": "node ./src/util/algoliasearch.js"
