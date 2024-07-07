@@ -29,7 +29,7 @@ import {
 import { Align } from "@synnaxlabs/pluto";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { List } from "@synnaxlabs/pluto/list";
-import { box, dimensions, xy } from "@synnaxlabs/x";
+import { box, dimensions, runtime, xy } from "@synnaxlabs/x";
 import { listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
 import {
@@ -61,7 +61,12 @@ export interface PaletteProps {
 type Entry = Command | ontology.Resource;
 type Key = string;
 
-const useDropOutside = ({ onDrop, canDrop, key, type }: Haul.UseDropOutsideProps) => {
+const useDropOutsideMacOS = ({
+  onDrop,
+  canDrop,
+  key,
+  type,
+}: Haul.UseDropOutsideProps) => {
   const ctx = Haul.useContext();
   if (ctx == null) return;
   const { drop } = ctx;
@@ -93,6 +98,9 @@ const useDropOutside = ({ onDrop, canDrop, key, type }: Haul.UseDropOutsideProps
     [target],
   );
 };
+
+const useDropOutside =
+  runtime.getOS() === "MacOS" ? useDropOutsideMacOS : Haul.useDropOutside;
 
 export const Palette = ({
   commands,
@@ -129,7 +137,7 @@ export const Palette = ({
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
       const windows = Drift.selectWindows(store.getState());
       const boxes = windows
-        // .filter((w) => w.key.startsWith(MOSAIC_TYPE))
+        .filter((w) => w.stage === "created")
         .map((w) => box.construct(w.position, w.size));
       if (boxes.some((b) => box.contains(b, cursor))) return [];
       const { key } = placer(

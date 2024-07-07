@@ -26,6 +26,10 @@ task::Manager::Manager(
     breaker(breaker) {
 }
 
+task::Manager::~Manager() {
+    if (run_thread.joinable()) run_thread.join();
+}
+
 const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
@@ -98,7 +102,6 @@ freighter::Error task::Manager::stop() {
     if (!run_thread.joinable()) return freighter::NIL;
     streamer->closeSend();
     breaker.stop();
-    run_thread.join();
     for (auto &[key, task]: tasks) {
         LOG(INFO) << "[driver] stopping task " << task->name();
         task->stop();

@@ -140,17 +140,27 @@ func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
 		// Find the first "]" and remove everything before it
 		// This is to remove the timestamp from the log output
 		b := scanner.Bytes()
+		dl := logger
+		if len(b) == 0 {
+			dl.Warn("received empty log line from driver")
+			continue
+		}
 		level := string(b[0])
 		original := string(b)
 		split := strings.Split(original, "]")
-		dl := logger
 		message := original
 		if len(split) >= 3 {
 			callerSplit := strings.Split(split[0], " ")
 			caller = callerSplit[len(callerSplit)-1]
-			first := split[1][2:]
+			first := split[1]
+			if len(first) >= 2 {
+				first = first[2:]
+			}
 			dl = logger.Named(first)
-			message = split[2][1:]
+			message = split[2]
+			if len(message) > 1 {
+				message = message[1:]
+			}
 		}
 		switch level {
 		case "D":

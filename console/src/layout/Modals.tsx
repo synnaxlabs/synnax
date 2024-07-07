@@ -1,12 +1,12 @@
 import { Icon } from "@synnaxlabs/media";
-import { Button, Divider, Modal as Core, Nav, Text } from "@synnaxlabs/pluto";
+import { Button, Modal as Core, Nav, Text } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { CSSProperties, FC, ReactElement } from "react";
 
 import { Content } from "@/layout/Content";
 import { useRemover } from "@/layout/hooks";
-import { State, WindowProps } from "@/layout/layout";
 import { useSelectModals } from "@/layout/selectors";
+import { State, WindowProps } from "@/layout/slice";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
   width: window?.size?.width,

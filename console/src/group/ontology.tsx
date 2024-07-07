@@ -118,8 +118,10 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
     if (selection.parent == null) return;
     // Sort the groups by depth that way deeper nested groups are ungrouped first.
     selection.resources.sort((a, b) => {
-      const a_depth = selection.nodes.find((n) => n.key === a.id.toString())?.depth ?? 0;
-      const b_depth = selection.nodes.find((n) => n.key === b.id.toString())?.depth ?? 0;
+      const a_depth =
+        selection.nodes.find((n) => n.key === a.id.toString())?.depth ?? 0;
+      const b_depth =
+        selection.nodes.find((n) => n.key === b.id.toString())?.depth ?? 0;
       return b_depth - a_depth;
     });
     const prevNodes = Tree.deepCopy(nodes);
@@ -290,7 +292,7 @@ const handleRename: Ontology.HandleTreeRename = {
       // We check for this because the rename might be a side effect of creating
       // a new group, in which case the group might not exist yet. This is fine
       // and we don't want to throw an error.
-      if (!(e instanceof NotFoundError)) throw e;
+      if (!NotFoundError.matches(e)) throw e;
     }
   },
 };

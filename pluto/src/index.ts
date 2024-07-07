@@ -47,6 +47,7 @@ export { Tag } from "@/tag";
 export { Telem } from "@/telem";
 export { telem } from "@/telem/aether";
 export { Control } from "@/telem/control";
+export { control } from "@/telem/control/aether";
 export { Text } from "@/text";
 export { Theming } from "@/theming";
 export { Tooltip } from "@/tooltip";

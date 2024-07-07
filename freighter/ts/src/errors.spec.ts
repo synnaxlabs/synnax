@@ -28,12 +28,14 @@ import {
 } from "@/errors";
 
 class MyCustomError extends BaseTypedError {
+  type = "MyCustomError";
   constructor(message: string) {
-    super(message, "MyCustomError");
+    super(message);
   }
 }
 
-const myCustomErrorEncoder = (error: MyCustomError): ErrorPayload => {
+const myCustomErrorEncoder = (error: MyCustomError): ErrorPayload | null => {
+  if (error.type !== "MyCustomError") return null;
   return { type: "MyCustomError", data: error.message };
 };
 

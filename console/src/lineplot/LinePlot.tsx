@@ -40,6 +40,7 @@ import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 
 import { Menu } from "@/components/menu";
+import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
   AxisKey,
@@ -60,6 +61,7 @@ import {
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
+  AxesState,
   type AxisState,
   internalCreate,
   type LineState,
@@ -439,7 +441,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 };
 
 const buildAxes = (vis: State): Channel.AxisProps[] =>
-  getEntries(vis.axes.axes)
+  getEntries<AxesState["axes"]>(vis.axes.axes)
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(([key, axis]): Channel.AxisProps => {
       return { location: axisLocation(key as AxisKey), ...axis };
@@ -512,14 +514,17 @@ export const LinePlot: Layout.Renderer = ({
   layoutKey,
   ...props
 }): ReactElement | null => {
-  const linePlot = useSelect(layoutKey);
-  const dispatch = useDispatch();
-  const client = Synnax.use();
-  useAsyncEffect(async () => {
-    if (client == null || linePlot != null) return;
-    const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
-    dispatch(internalCreate({ ...(data as unknown as State) }));
-  }, [client, linePlot]);
+  const linePlot = useLoadRemote({
+    name: "Line Plot",
+    targetVersion: ZERO_STATE.version,
+    layoutKey,
+    useSelect: useSelect,
+    fetcher: async (client, layoutKey) => {
+      const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
+      return data as unknown as State;
+    },
+    actionCreator: internalCreate,
+  });
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };

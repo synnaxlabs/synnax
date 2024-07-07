@@ -30,8 +30,16 @@ import React, {
   useMemo,
   useRef,
 } from "react";
+import { z } from "zod";
 
 import { type state } from "@/state";
+
+export const itemZ = z.object({
+  key: z.string().or(z.number()).or(z.symbol()),
+  type: z.string(),
+  elementID: z.string().optional(),
+  data: z.record(z.unknown()).optional(),
+});
 
 // Item represents a draggable item.
 export interface Item {
@@ -40,6 +48,11 @@ export interface Item {
   elementID?: string;
   data?: UnknownRecord;
 }
+
+export const draggingStateZ = z.object({
+  source: itemZ,
+  items: z.array(itemZ),
+});
 
 export interface DraggingState {
   source: Item;
@@ -307,7 +320,7 @@ export const useDropOutside = ({ type, key, ...rest }: UseDropOutsideProps): voi
     const handleMouseLeave = (e: globalThis.DragEvent) => {
       const { onDragOver, canDrop } = propsRef.current;
       const windowBox = box.construct(window.document.documentElement);
-      if (box.contains(windowBox, xy.construct(e.clientX, e.clientY))) return;
+      if ((box.contains(windowBox, xy.construct(e.clientX, e.clientY)), false)) return;
       isOutside.current = true;
       if (!canDrop(dragging.current)) return;
       onDragOver?.(dragging.current);

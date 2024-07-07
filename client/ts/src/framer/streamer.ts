@@ -68,7 +68,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
       const frame = await this.read();
       return { done: false, value: frame };
     } catch (err) {
-      if (err instanceof EOF) return { done: true, value: undefined };
+      if (EOF.matches(err)) return { done: true, value: undefined };
       throw err;
     }
   }
