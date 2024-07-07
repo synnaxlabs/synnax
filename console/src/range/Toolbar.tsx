@@ -36,8 +36,14 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
-import type { Range, StaticRange } from "@/range/slice";
-import { add, remove, rename, setActive } from "@/range/slice";
+import {
+  add,
+  type Range,
+  remove,
+  rename,
+  setActive,
+  type StaticRange,
+} from "@/range/slice";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();

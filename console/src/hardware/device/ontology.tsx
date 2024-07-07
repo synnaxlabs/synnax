@@ -83,11 +83,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
-    selection: { resources },
+    selection: { nodes, resources },
   } = props;
-  const { nodes } = selection;
-  if (selection.nodes.length === 0) return null;
-  const singleResource = selection.nodes.length === 1;
+  if (nodes.length === 0) return null;
+  const singleResource = nodes.length === 1;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
@@ -100,7 +99,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
   };
-  const make = selection.resources[0].data?.make;
+  const make = resources[0].data?.make;
   let customMenuItems: ReactElement | null = null;
   if (make != null) {
     const C = CONTEXT_MENUS[make as string];

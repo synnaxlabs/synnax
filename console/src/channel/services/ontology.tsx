@@ -226,14 +226,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { resources },
   } = props;
   const activeRange = Range.useSelect();
-
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
   const delAlias = useDeleteAlias();
   const del = useDelete();
   const handleRename = useRename();
   const handleLink = Link.useCopyToClipboard();
-
   const handleSelect = {
     group: () => groupFromSelection(props),
     delete: () => del(props),
@@ -246,7 +244,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         resource: resources[0].id.payload,
       }),
   };
-
   const singleResource = resources.length === 1;
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
