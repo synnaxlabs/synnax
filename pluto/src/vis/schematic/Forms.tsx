@@ -117,6 +117,7 @@ export const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
     Omit<Toggle.UseProps, "aetherKey"> & { control: ControlStateProps }
   >({ path });
+  console.log(value.source);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const source = telem.streamChannelValuePropsZ.parse(
@@ -465,11 +466,61 @@ export const ValueForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
+const LightTelemForm = ({ path }: { path: string }): ReactElement => {
+  const { value, onChange } = Form.useField<Omit<Toggle.UseProps, "aetherKey">>({
+    path,
+  });
+  console.log("checkpoint 1");
+  console.log(value.source);
+  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
+  console.log("checkpoint 2");
+  const source = telem.streamChannelValuePropsZ.parse(
+    sourceP.segments.valueStream.props,
+  );
+  console.log("checkpoint 3");
+
+  const handleSourceChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
+    const t = telem.sourcePipeline("boolean", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "threshold",
+        },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: v }),
+        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+      },
+      outlet: "threshold",
+    });
+    onChange({ ...value, source: t });
+  };
+
+  console.log("checkpoint 4");
+
+  const c = Channel.useName(source.channel as number);
+  useEffect(() => {
+    onChange({ ...value });
+  }, [c]);
+
+  return (
+    <FormWrapper direction="x" align="stretch">
+      <Input.Item label="Input Channel" grow>
+        <Channel.SelectSingle
+          value={source.channel as number}
+          onChange={handleSourceChange}
+        />
+      </Input.Item>
+    </FormWrapper>
+  );
+};
+
 export const LightForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telemetry":
-        return <ToggleControlForm path="" />;
+        return <LightTelemForm path="" />;
       default: {
         return (
           <FormWrapper direction="x">

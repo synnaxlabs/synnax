@@ -708,6 +708,19 @@ const light: Spec<LightProps> = {
     },
     orientation: "left",
     units: "psi",
+    source: telem.sourcePipeline("boolean", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "threshold",
+        },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: 0 }),
+        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+      },
+      outlet: "threshold",
+    }),
   }),
   Preview: LightPreview,
   zIndex: Z_INDEX_UPPER,
