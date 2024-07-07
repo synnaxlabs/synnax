@@ -197,7 +197,7 @@ export const selectActiveMosaicTabKey = (
 export const useSelectActiveMosaicTabKey = (): string | null =>
   useMemoSelect(selectActiveMosaicTabKey, []);
 
-export const selectActiveMosaicTab = (
+export const selectActiveMosaicLayout = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
 ): State | undefined => {
@@ -207,7 +207,7 @@ export const selectActiveMosaicTab = (
 };
 
 export const useSelectActiveMosaicLayout = (): State | undefined => {
-  return useMemoSelect(selectActiveMosaicTab, []);
+  return useMemoSelect(selectActiveMosaicLayout, []);
 };
 
 export const selectHauling = (state: StoreState): Haul.DraggingState =>

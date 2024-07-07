@@ -27,7 +27,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
   const handleLink = Link.useCopyToClipboard();
-
   const onSelect = useAsyncActionMenu("group.menu", {
     ungroup: () => ungroup(props),
     rename: () => Tree.startRenaming(nodes[0].key),
@@ -52,7 +51,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-
       <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
         New Group
       </PMenu.Item>
@@ -63,8 +61,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </PMenu.Item>
       )}
       <PMenu.Divider />
-      {singleResource && <Link.CopyMenuItem />}
-      <PMenu.Divider />
+      {singleResource && (
+        <>
+          <Link.CopyMenuItem />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

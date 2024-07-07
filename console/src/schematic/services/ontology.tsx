@@ -113,10 +113,9 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    store,
     selection: { resources },
   } = props;
-  const activeRange = Range.select(store.getState());
+  const activeRange = Range.useSelect();
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useRangeSnapshot();
@@ -146,8 +145,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         Copy
       </PMenu.Item>
       <PMenu.Divider />
-      {isSingle && <Link.CopyMenuItem />}
-      <PMenu.Divider />
+      {isSingle && (
+        <>
+          <Link.CopyMenuItem />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

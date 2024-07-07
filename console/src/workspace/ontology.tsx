@@ -150,13 +150,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     selection,
     selection: { resources },
   } = props;
-
   const del = useDelete();
   const createSchematic = useCreateSchematic();
   const createLinePlot = useCreateLinePlot();
   const group = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
-
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
@@ -169,7 +167,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         resource: { key: resources[0].id.key, type: "workspace" },
       }),
   };
-
   const singleResource = resources.length === 1;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
@@ -180,11 +177,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-
       <Group.GroupMenuItem selection={selection} />
+      <PMenu.Divider />
       {singleResource && (
         <>
-          <PMenu.Divider />
           <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
             New Line Plot
           </PMenu.Item>

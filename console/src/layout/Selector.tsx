@@ -9,7 +9,6 @@
 
 import "@/layout/Selector.css";
 
-import { Logo } from "@synnaxlabs/media";
 import { Button, Eraser, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";

@@ -74,8 +74,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         Delete
       </PMenu.Item>
       <PMenu.Divider />
-      {isSingle && <Link.CopyMenuItem />}
-      <PMenu.Divider />
+      {isSingle && (
+        <>
+          <Link.CopyMenuItem />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );
