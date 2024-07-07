@@ -7,40 +7,41 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
+import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components/menu";
+import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { nodes, parent, resources },
   } = props;
-  const onSelect = (key: string): void => {
-    switch (key) {
-      case "ungroup":
-        void ungroupSelection(props);
-        return;
-      case "rename":
-        Tree.startRenaming(nodes[0].key);
-        return;
-      case "group":
-        void newGroup(props);
-        return;
-    }
-  };
-
+  const ungroup = useUngroupSelection();
+  const createEmptyGroup = useCreateEmpty();
+  const onSelect = useAsyncActionMenu("group.menu", {
+    ungroup: () => ungroup(props),
+    rename: () => Tree.startRenaming(nodes[0].key),
+    group: () => createEmptyGroup(props),
+  });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
   const singleResource = resources.length === 1;
-
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+      {singleResource && (
+        <>
+          <Menu.RenameItem />
+          <PMenu.Divider />
+        </>
+      )}
+
       <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
         New Group
       </PMenu.Item>
@@ -50,7 +51,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {isDelete ? "Delete" : "Ungroup"}
         </PMenu.Item>
       )}
-      {singleResource && <Ontology.RenameMenuItem />}
+      <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );
@@ -61,6 +62,8 @@ export const UngroupMenuItem = (): ReactElement => (
     Ungroup
   </PMenu.Item>
 );
+
+const createNewID = (): ontology.ID => new ontology.ID({ type: "group", key: uuid() });
 
 export interface GroupMenuItemProps {
   selection: Ontology.TreeContextMenuProps["selection"];
@@ -75,36 +78,69 @@ export const GroupMenuItem = ({
     </PMenu.Item>
   ) : null;
 
-const ungroupSelection = async ({
-  client,
-  selection,
-  state,
-}: Ontology.TreeContextMenuProps): Promise<void> => {
-  if (selection.parent == null) return;
-  for (const node of selection.resources) {
-    const id = node.id;
-    const children =
-      Tree.findNode({ tree: state.nodes, key: id.toString() })?.children ?? [];
-    const parentID = new ontology.ID(selection.parent.key);
-    state.setLoading(id.toString());
-    await client.ontology.moveChildren(
-      id,
-      parentID,
-      ...children.map((c) => new ontology.ID(c.key)),
-    );
-    await client.ontology.groups.delete(id.key);
-    state.setLoading(false);
-    let nextNodes = Tree.moveNode({
-      tree: state.nodes,
-      destination: parentID.toString(),
-      keys: children.map((c) => c.key),
+const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const mut = useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    mutationFn: async ({ client, selection, state: { nodes } }) => {
+      if (selection.parent == null) return;
+      for (const res of selection.resources) {
+        const id = res.id;
+        const children =
+          Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
+        const parentID = new ontology.ID(selection.parent.key as string);
+        const childKeys = children.map((c) => new ontology.ID(c.key));
+        await client.ontology.moveChildren(id, parentID, ...childKeys);
+        await client.ontology.groups.delete(id.key);
+      }
+    },
+    onError: async (
+      { message },
+      { selection, addStatus, state: { setNodes, nodes: prevNodes } },
+    ) => {
+      if (selection.parent == null || prevNodes == null) return;
+      setNodes(prevNodes);
+      addStatus({
+        key: uuid(),
+        variant: "error",
+        message: "Failed to ungroup resources",
+        description: message,
+      });
+    },
+  });
+  return (props: Ontology.TreeContextMenuProps) => {
+    // Instead of using an onMutate argument to the useMutationHook, we do the eager
+    // update beforehand so we can pass the previous nodes to the mutation. This lets
+    // the mutationFn have access to the un-removed nodes while still allowing us
+    // to eagerly update the UI.
+    const {
+      selection,
+      state: { nodes, setNodes },
+    } = props;
+    if (selection.parent == null) return;
+    // Sort the groups by depth that way deeper nested groups are ungrouped first.
+    selection.resources.sort((a, b) => {
+      const a_depth =
+        selection.nodes.find((n) => n.key === a.id.toString())?.depth ?? 0;
+      const b_depth =
+        selection.nodes.find((n) => n.key === b.id.toString())?.depth ?? 0;
+      return b_depth - a_depth;
     });
-    nextNodes = Tree.removeNode({ tree: nextNodes, keys: id.toString() });
-    state.setNodes([...nextNodes]);
-  }
+    const prevNodes = Tree.deepCopy(nodes);
+    setNodes([
+      ...selection.resources.reduce((acc, { id }) => {
+        const children =
+          Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
+        acc = Tree.moveNode({
+          tree: acc,
+          destination: selection.parent?.key as string,
+          keys: children.map((c) => c.key),
+        });
+        acc = Tree.removeNode({ tree: acc, keys: id.toString() });
+        return acc;
+      }, nodes),
+    ]);
+    mut.mutate({ ...props, state: { ...props.state, nodes: prevNodes } });
+  };
 };
-
-const NEW_GROUP_NAME = "New Group Name";
 
 export const canGroupSelection = (
   selection: Ontology.TreeContextMenuProps["selection"],
@@ -119,99 +155,146 @@ const getAllNodesOfMinDepth = (
   return nodes.filter(({ depth }) => depth === minDepth);
 };
 
-export const newGroup = async ({
-  client,
-  state,
-  services,
-  selection: { resources },
-}: Ontology.TreeContextMenuProps): Promise<void> => {
-  if (resources.length === 0) return;
-  const resource = resources[resources.length - 1];
-  const otgID = new ontology.ID({ type: "group", key: uuid() });
-  const res: ontology.Resource = {
-    key: otgID.toString(),
-    id: otgID,
-    name: "",
-  };
-  state.expand(resource.id.toString());
-  const newGroupNode = Ontology.toTreeNode(services, res);
-  const nextNodes = Tree.setNode({
-    tree: state.nodes,
-    destination: resource.id.toString(),
-    additions: newGroupNode,
+export const useCreateEmpty = (): ((
+  props: Ontology.TreeContextMenuProps,
+) => Promise<void>) => {
+  const mut = useMutation<
+    void,
+    Error,
+    Ontology.TreeContextMenuProps & { newID: ontology.ID }
+  >({
+    onMutate: async ({
+      services,
+      selection: { resources },
+      state: { nodes, setNodes, expand },
+      newID,
+    }) => {
+      if (resources.length === 0) return;
+      const resource = resources[resources.length - 1];
+      const res: ontology.Resource = {
+        key: newID.toString(),
+        id: newID,
+        name: "",
+      };
+      expand(resource.id.toString());
+      const newGroupNode = Ontology.toTreeNode(services, res);
+      setNodes([
+        ...Tree.setNode({
+          tree: nodes,
+          destination: resource.id.toString(),
+          additions: newGroupNode,
+        }),
+      ]);
+    },
+    mutationFn: async ({ client, selection: { resources }, newID }) => {
+      const resource = resources[resources.length - 1];
+      const [name, renamed] = await Tree.asyncRename(newID.toString());
+      if (!renamed) throw new Error(renameCancel);
+      await client.ontology.groups.create(resource.id, name, newID.key);
+    },
+    onError: async (
+      { message },
+      { state: { nodes, setNodes }, addStatus, selection, newID },
+    ) => {
+      if (selection.resources.length === 0) return;
+      if (message !== renameCancel)
+        addStatus({
+          key: uuid(),
+          variant: "error",
+          message: "Failed to create group",
+          description: message,
+        });
+      setNodes([...Tree.removeNode({ tree: nodes, keys: newID.toString() })]);
+    },
   });
-  state.setNodes([...nextNodes]);
-  setTimeout(() => {
-    Tree.startRenaming(res.id.toString(), async (name) => {
-      if (name.length === 0) {
-        // remove the node from the tree
-        state.setNodes([
-          ...Tree.removeNode({ tree: nextNodes, keys: res.id.toString() }),
-        ]);
-        return;
-      }
-      state.setLoading(otgID.toString());
-      await client.ontology.groups.create(resource.id, name, otgID.key);
-      state.setLoading(false);
-    });
-  }, 20);
+  return async (props: Ontology.TreeContextMenuProps) =>
+    mut.mutate({ ...props, newID: createNewID() });
 };
 
-export const fromSelection = async ({
-  client,
-  selection,
-  services,
-  state,
-}: Ontology.TreeContextMenuProps): Promise<void> => {
-  if (selection.parent == null) return;
+const renameCancel = "Rename Cancelled";
+
+const getResourcesToGroup = (
+  selection: Ontology.TreeContextMenuProps["selection"],
+): ontology.ID[] => {
   const nodesOfMinDepth = getAllNodesOfMinDepth(selection.nodes);
   const nodesOfMinDepthKeys = nodesOfMinDepth.map(({ key }) => key);
-  const resourcesToGroup = selection.resources
+  return selection.resources
     .filter(({ id }) => nodesOfMinDepthKeys.includes(id.toString()))
     .map(({ id }) => id);
-  const parentID = new ontology.ID(selection.parent.key);
-  const g = await client.ontology.groups.create(parentID, NEW_GROUP_NAME);
-  const otgID = new ontology.ID({ type: "group", key: g.key.toString() });
-  const res = await client.ontology.retrieve(otgID);
-  await client.ontology.moveChildren(parentID, res.id, ...resourcesToGroup);
-  const newGroupNode = Ontology.toTreeNode(services, res);
-  let nextNodes = Tree.setNode({
-    tree: state.nodes,
-    destination: selection.parent.key,
-    additions: newGroupNode,
-  });
-  nextNodes = Tree.moveNode({
-    tree: state.nodes,
-    destination: res.id.toString(),
-    keys: resourcesToGroup.map((id) => id.toString()),
-  });
-  state.setNodes([...nextNodes]);
-  state.setResources([...state.resources, res]);
-  state.setSelection([res.id.toString()]);
-  setTimeout(() => {
-    Tree.startRenaming(res.id.toString());
-  }, 20);
 };
 
-const handleRename: Ontology.HandleTreeRename = ({
-  client,
-  id,
-  name,
-  state: { nodes, setNodes },
-}) => {
-  void (async () => {
-    if (client == null || id.type !== "group") return;
-    await client.ontology.groups.rename(id.key, name);
-    const next = Tree.updateNode({
-      tree: nodes,
-      key: id.toString(),
-      updater: (node) => ({
-        ...node,
-        name,
-      }),
-    });
-    setNodes([...next]);
-  })();
+export const useCreateFromSelection = (): ((
+  props: Ontology.TreeContextMenuProps,
+) => void) => {
+  const mut = useMutation<
+    void,
+    Error,
+    Ontology.TreeContextMenuProps & { newID: ontology.ID },
+    Tree.Node[]
+  >({
+    onMutate: async ({
+      selection,
+      state: { nodes, setNodes, setSelection },
+      newID,
+    }) => {
+      if (selection.parent == null) return;
+      const resourcesToGroup = getResourcesToGroup(selection);
+      const prevNodes = Tree.deepCopy(nodes);
+      let nextNodes = Tree.setNode({
+        tree: nodes,
+        destination: selection.parent.key,
+        additions: {
+          key: newID.toString(),
+          icon: <Icon.Group />,
+          children: [],
+          name: "",
+          allowRename: true,
+        },
+      });
+      nextNodes = Tree.moveNode({
+        tree: nodes,
+        destination: newID.toString(),
+        keys: resourcesToGroup.map((id) => id.toString()),
+      });
+      setNodes([...nextNodes]);
+      setSelection([newID.toString()]);
+      return prevNodes;
+    },
+    mutationFn: async ({ client, selection, newID }) => {
+      if (selection.parent == null) return;
+      const [groupName, renamed] = await Tree.asyncRename(newID.toString());
+      if (!renamed) throw new Error(renameCancel);
+      const resourcesToGroup = getResourcesToGroup(selection);
+      const parentID = new ontology.ID(selection.parent.key);
+      await client.ontology.groups.create(parentID, groupName, newID.key);
+      await client.ontology.moveChildren(parentID, newID, ...resourcesToGroup);
+    },
+    onError: async ({ message }, { state: { setNodes }, addStatus }, prevNodes) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      if (message === renameCancel) return;
+      addStatus({
+        key: uuid(),
+        variant: "error",
+        message: "Failed to group resources",
+        description: message,
+      });
+    },
+  });
+  return (props: Ontology.TreeContextMenuProps) =>
+    mut.mutate({ ...props, newID: createNewID() });
+};
+
+const handleRename: Ontology.HandleTreeRename = {
+  execute: async ({ client, id, name }) => {
+    try {
+      await client.ontology.groups.rename(id.key, name);
+    } catch (e) {
+      // We check for this because the rename might be a side effect of creating
+      // a new group, in which case the group might not exist yet. This is fine
+      // and we don't want to throw an error.
+      if (!NotFoundError.matches(e)) throw e;
+    }
+  },
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

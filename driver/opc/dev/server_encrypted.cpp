@@ -29,7 +29,9 @@
 # include <synchapi.h>
 # define sleep_ms(ms) Sleep(ms)
 #else
+
 # include <unistd.h>
+
 # define sleep_ms(ms) usleep(ms * 1000)
 #endif
 
@@ -38,12 +40,13 @@
  * @param  path               specifies the file name given in argv[]
  * @return Returns the file content after parsing */
 static UA_INLINE UA_ByteString
+
 loadFile(const char *const path) {
     UA_ByteString fileContents = UA_STRING_NULL;
 
     /* Open the file */
     FILE *fp = fopen(path, "rb");
-    if(!fp) {
+    if (!fp) {
         // exit with errno
         errno = 1; /* We read errno also from the tcp layer... */
         exit(errno);
@@ -52,12 +55,12 @@ loadFile(const char *const path) {
 
     /* Get the file length, allocate the data and read */
     fseek(fp, 0, SEEK_END);
-    fileContents.length = (size_t)ftell(fp);
-    fileContents.data = (UA_Byte *)UA_malloc(fileContents.length * sizeof(UA_Byte));
-    if(fileContents.data) {
+    fileContents.length = (size_t) ftell(fp);
+    fileContents.data = (UA_Byte *) UA_malloc(fileContents.length * sizeof(UA_Byte));
+    if (fileContents.data) {
         fseek(fp, 0, SEEK_SET);
         size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
-        if(read != fileContents.length)
+        if (read != fileContents.length)
             UA_ByteString_clear(&fileContents);
     } else {
         fileContents.length = 0;
@@ -68,16 +71,17 @@ loadFile(const char *const path) {
 }
 
 static UA_INLINE UA_StatusCode
-writeFile(const char* const path, const UA_ByteString buffer) {
+
+writeFile(const char *const path, const UA_ByteString buffer) {
     FILE *fp = NULL;
 
     fp = fopen(path, "wb");
-    if(fp == NULL)
+    if (fp == NULL)
         return UA_STATUSCODE_BADINTERNALERROR;
 
-    for(UA_UInt32 bufIndex = 0; bufIndex < buffer.length; bufIndex++) {
+    for (UA_UInt32 bufIndex = 0; bufIndex < buffer.length; bufIndex++) {
         int retVal = fputc(buffer.data[bufIndex], fp);
-        if(retVal == EOF) {
+        if (retVal == EOF) {
             fclose(fp);
             return UA_STATUSCODE_BADINTERNALERROR;
         }
@@ -88,6 +92,7 @@ writeFile(const char* const path, const UA_ByteString buffer) {
 }
 
 UA_Boolean running = true;
+
 static void stopHandler(int sig) {
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "received ctrl-c");
     running = false;
@@ -127,15 +132,15 @@ allowDeleteReference(UA_Server *server, UA_AccessControl *ac,
 }
 
 static UA_UsernamePasswordLogin userNamePW[2] = {
-    {UA_STRING_STATIC("peter"), UA_STRING_STATIC("peter123")},
-    {UA_STRING_STATIC("paula"), UA_STRING_STATIC("paula123")}
+        {UA_STRING_STATIC("peter"), UA_STRING_STATIC("peter123")},
+        {UA_STRING_STATIC("paula"), UA_STRING_STATIC("paula123")}
 };
 
 static void setCustomAccessControl(UA_ServerConfig *config) {
     /* Use the default AccessControl plugin as the starting point */
     UA_Boolean allowAnonymous = false;
     UA_String encryptionPolicy = UA_STRING_STATIC("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256");
-        //config->securityPolicies[config->securityPoliciesSize-1].policyUri;
+    //config->securityPolicies[config->securityPoliciesSize-1].policyUri;
     config->accessControl.clear(&config->accessControl);
     UA_AccessControl_default(config, allowAnonymous, &encryptionPolicy, 2, userNamePW);
 
@@ -146,52 +151,53 @@ static void setCustomAccessControl(UA_ServerConfig *config) {
     config->accessControl.allowDeleteReference = allowDeleteReference;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     signal(SIGINT, stopHandler);
     signal(SIGTERM, stopHandler);
     UA_ByteString certificate = UA_BYTESTRING_NULL;
     UA_ByteString privateKey = UA_BYTESTRING_NULL;
-    if(argc >= 3) {
+    if (argc >= 3) {
         /* Load certificate and private key */
         certificate = loadFile(argv[1]);
         privateKey = loadFile(argv[2]);
     }
     /* Load the trustlist */
     size_t trustListSize = 0;
-    if(argc > 3)
-        trustListSize = (size_t)argc-3;
-    UA_STACKARRAY(UA_ByteString, trustList, trustListSize+1);
-    for(size_t i = 0; i < trustListSize; i++)
-        trustList[i] = loadFile(argv[i+3]);
+    if (argc > 3)
+        trustListSize = (size_t) argc - 3;
+    UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
+    for (size_t i = 0; i < trustListSize; i++)
+        trustList[i] = loadFile(argv[i + 3]);
 
     /* Loading of an issuer list, not used in this application */
     size_t issuerListSize = 0;
-    UA_ByteString *issuerList = NULL;
+    UA_ByteString * issuerList = NULL;
 
     /* Loading of a revocation list currently unsupported */
-    UA_ByteString *revocationList = NULL;
+    UA_ByteString * revocationList = NULL;
     size_t revocationListSize = 0;
 
     UA_Server *server = UA_Server_new();
     UA_ServerConfig *config = UA_Server_getConfig(server);
     // config->allowNonePolicyPassword = true;
 
-    UA_StatusCode retval = UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4840,
-                                                       &certificate, &privateKey,
-                                                       trustList, trustListSize,
-                                                       issuerList, issuerListSize,
-                                                       revocationList, revocationListSize);
+    UA_StatusCode retval = UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4841,
+                                                                          &certificate, &privateKey,
+                                                                          trustList, trustListSize,
+                                                                          issuerList, issuerListSize,
+                                                                          revocationList, revocationListSize);
     if (retval != UA_STATUSCODE_GOOD) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
                      "Error setting up the server with security policies");
     }
     // set the security policy URI
-    UA_String securityPolicyUri = UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256");
+    char securityPolicyUriString[] = "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256";
+    UA_String securityPolicyUri = UA_STRING(securityPolicyUriString);
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
     UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
-    attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer");
-    attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer");
+    attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer");
+    attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer");
     UA_NodeId myIntegerNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer");
     UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(1, "the answer");
     UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
@@ -204,8 +210,8 @@ int main(int argc, char* argv[]) {
     UA_VariableAttributes attr2 = UA_VariableAttributes_default;
     UA_Double myDouble = 3.14;
     UA_Variant_setScalarCopy(&attr2.value, &myDouble, &UA_TYPES[UA_TYPES_DOUBLE]);
-    attr2.description = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer 2");
-    attr2.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer 2");
+    attr2.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer 2");
+    attr2.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer 2");
     attr2.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     UA_NodeId myDoubleNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer2");
     UA_QualifiedName myDoubleName = UA_QUALIFIEDNAME_ALLOC(1, "the answer 2");
@@ -217,15 +223,15 @@ int main(int argc, char* argv[]) {
     setCustomAccessControl(config);
     UA_ByteString_clear(&certificate);
     UA_ByteString_clear(&privateKey);
-    for(size_t i = 0; i < trustListSize; i++)
+    for (size_t i = 0; i < trustListSize; i++)
         UA_ByteString_clear(&trustList[i]);
-    if(retval != UA_STATUSCODE_GOOD)
+    if (retval != UA_STATUSCODE_GOOD)
         goto cleanup;
 
-    if(!running)
+    if (!running)
         goto cleanup; /* received ctrl-c already */
 
-        // add a variable node to the adresspace
+    // add a variable node to the adresspace
 
 
     /* allocations on the heap need to be freed */
@@ -235,7 +241,7 @@ int main(int argc, char* argv[]) {
 
     retval = UA_Server_run(server, &running);
 
- cleanup:
+    cleanup:
     UA_Server_delete(server);
     return retval == UA_STATUSCODE_GOOD ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -34,10 +34,13 @@ describe("TimeStamp", () => {
   });
 
   test("toString", () => {
-    const ts = new TimeStamp(TimeSpan.days(90)).add(TimeSpan.minutes(20)).add(TimeSpan.milliseconds(283)).add(TimeSpan.microseconds(900))
-    const tsString = ts.toString()
-    expect(tsString).toEqual("1970-04-01T00:20:00.283Z")
-  })
+    const ts = new TimeStamp(TimeSpan.days(90))
+      .add(TimeSpan.minutes(20))
+      .add(TimeSpan.milliseconds(283))
+      .add(TimeSpan.microseconds(900));
+    const tsString = ts.toString();
+    expect(tsString).toEqual("1970-04-01T00:20:00.283Z");
+  });
 
   test("encode", () => {
     const ts = TimeStamp.now();
@@ -435,12 +438,18 @@ describe("TimeRange", () => {
   });
 
   test("toString", () => {
-    const ts = new TimeStamp(TimeSpan.days(2)).add(TimeSpan.minutes(20)).add(TimeSpan.milliseconds(283)).add(TimeSpan.microseconds(900))
-    const ts2 = new TimeStamp(TimeSpan.days(4)).add(TimeSpan.minutes(20)).add(TimeSpan.milliseconds(283)).add(TimeSpan.microseconds(900))
-    const tr = ts.range(ts2)
-    const trString = tr.toString()
-    expect(trString).toEqual("1970-01-03T00:20:00.283Z - 1970-01-05T00:20:00.283Z")
-  })
+    const ts = new TimeStamp(TimeSpan.days(2))
+      .add(TimeSpan.minutes(20))
+      .add(TimeSpan.milliseconds(283))
+      .add(TimeSpan.microseconds(900));
+    const ts2 = new TimeStamp(TimeSpan.days(4))
+      .add(TimeSpan.minutes(20))
+      .add(TimeSpan.milliseconds(283))
+      .add(TimeSpan.microseconds(900));
+    const tr = ts.range(ts2);
+    const trString = tr.toString();
+    expect(trString).toEqual("1970-01-03T00:20:00.283Z - 1970-01-05T00:20:00.283Z");
+  });
 });
 
 describe("DataType", () => {
@@ -537,6 +546,22 @@ describe("Size", () => {
   test("toString", () => {
     TO_STRING_TESTS.forEach(([size, expected]) => {
       expect(size.toString()).toEqual(expected);
+    });
+  });
+
+  const TRUNCATE_TESTS = [
+    [Size.bytes(1).add(Size.kilobytes(1)), Size.KILOBYTE, Size.kilobytes(1)],
+    [Size.megabytes(100).add(Size.kilobytes(500)), Size.MEGABYTE, Size.megabytes(100)],
+    [
+      Size.gigabytes(1).add(Size.megabytes(500)).add(Size.kilobytes(500)),
+      Size.MEGABYTE,
+      Size.gigabytes(1).add(Size.megabytes(500)),
+    ],
+  ];
+
+  test("truncate", () => {
+    TRUNCATE_TESTS.forEach(([size, unit, expected]) => {
+      expect(size.truncate(unit).valueOf()).toEqual(expected.valueOf());
     });
   });
 });

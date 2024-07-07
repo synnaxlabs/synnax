@@ -39,14 +39,14 @@ struct ConnectionConfig {
 
     explicit ConnectionConfig(
         config::Parser parser
-    ): endpoint(parser.required<std::string>("endpoint")),
-       username(parser.optional<std::string>("username", "")),
-       password(parser.optional<std::string>("password", "")),
-       security_mode(parser.optional<std::string>("security_mode", "None")),
-       security_policy(parser.optional<std::string>("security_policy", "None")),
-       client_cert(parser.optional<std::string>("client_certificate", "")),
-       client_private_key(parser.optional<std::string>("client_private_key", "")),
-       server_cert(parser.optional<std::string>("server_certificate", "")) {
+    ) : endpoint(parser.required<std::string>("endpoint")),
+        username(parser.optional<std::string>("username", "")),
+        password(parser.optional<std::string>("password", "")),
+        security_mode(parser.optional<std::string>("security_mode", "None")),
+        security_policy(parser.optional<std::string>("security_policy", "None")),
+        client_cert(parser.optional<std::string>("client_certificate", "")),
+        client_private_key(parser.optional<std::string>("client_private_key", "")),
+        server_cert(parser.optional<std::string>("server_certificate", "")) {
     }
 
     json toJSON() const {
@@ -73,10 +73,10 @@ struct DeviceNodeProperties {
         std::string name,
         std::string node_id,
         bool is_array
-    ): data_type(data_type), name(name), node_id(node_id), is_array(is_array) {
+    ) : data_type(data_type), name(name), node_id(node_id), is_array(is_array) {
     }
 
-    explicit DeviceNodeProperties(config::Parser parser): data_type(
+    explicit DeviceNodeProperties(config::Parser parser) : data_type(
             synnax::DataType(parser.required<std::string>("data_type"))),
         name(parser.required<std::string>("name")),
         node_id(parser.required<std::string>("node_id")),
@@ -100,13 +100,13 @@ struct DeviceProperties {
     DeviceProperties(
         ConnectionConfig connection,
         std::vector<DeviceNodeProperties> channels
-    ): connection(connection), channels(channels) {
+    ) : connection(connection), channels(channels) {
     }
 
     explicit DeviceProperties(
         config::Parser parser
-    ): connection(parser.child("connection")),
-       channels({}) {
+    ) : connection(parser.child("connection")),
+        channels({}) {
         parser.iter("channels", [&](const config::Parser &cb) {
             channels.emplace_back(cb);
         });

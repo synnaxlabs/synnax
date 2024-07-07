@@ -8,19 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Input, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Input, state } from "@synnaxlabs/pluto";
+import { binary } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
-import { ReactElement } from "react";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { ReactElement, useEffect, useState } from "react";
+import { z } from "zod";
 
-export interface LoadFileContentsProps
+export interface InputFilePathProps
   extends Input.Control<string>,
     Omit<Align.PackProps, "value" | "onChange"> {}
 
-export const LoadFileContents = ({
+export const InputFilePath = ({
   value,
   onChange,
   ...props
-}: LoadFileContentsProps): ReactElement => {
+}: InputFilePathProps): ReactElement => {
   const path = value;
   const handleClick = () => {
     void (async () => {
@@ -29,26 +32,62 @@ export const LoadFileContents = ({
       onChange(path.path);
     })();
   };
-
   return (
     <Align.Pack direction="x" {...props}>
-      <Text.WithIcon
+      <Button.Button
         level="p"
-        style={{ padding: "0 2rem" }}
+        style={{ padding: "0 1.25rem", background: "var(--pluto-gray-l1)" }}
+        variant="outlined"
         shade={path == null ? 7 : 9}
         grow
+        onClick={handleClick}
         startIcon={
           path == null ? undefined : (
-            <Icon.Attachment style={{ color: "var(--pluto-gray-l7)" }} />
+            <Icon.Attachment style={{ color: "var(--pluto-gray-l6)" }} />
           )
         }
         size="medium"
       >
         {path == null ? "No file selected" : path}
-      </Text.WithIcon>
-      <Button.Button variant="outlined" onClick={handleClick}>
+      </Button.Button>
+      <Button.Button
+        variant="outlined"
+        onClick={handleClick}
+        style={{ background: "var(--pluto-gray-l1)" }}
+      >
         Select file
       </Button.Button>
     </Align.Pack>
   );
+};
+
+export interface InputFileContentsProps<P extends z.ZodTypeAny = z.ZodString>
+  extends Omit<InputFilePathProps, "value" | "onChange"> {
+  onChange: (value: z.output<P>, path: string) => void;
+  initialPath?: string;
+  schema?: P;
+  decoder?: binary.EncoderDecoder;
+}
+
+export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
+  onChange,
+  decoder = binary.TEXT_ECD,
+  initialPath,
+  schema,
+  ...props
+}: InputFileContentsProps<P>): ReactElement => {
+  const [path, setPath] = useState<string>("");
+  useEffect(() => {
+    if (initialPath == null || initialPath === path) return;
+    handleChange(initialPath);
+  }, [initialPath]);
+  const handleChange = (path: string) => {
+    void (async () => {
+      const contents = await readFile(path);
+      if (contents == null) return;
+      onChange(decoder.decode<P>(contents, schema), path);
+      setPath(path);
+    })();
+  };
+  return <InputFilePath value={path} onChange={handleChange} {...props} />;
 };

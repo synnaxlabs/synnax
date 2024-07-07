@@ -7,17 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align,Button, Select, Status } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/media";
+import {
+  Align,
+  Button,
+  List,
+  Ranger,
+  Select,
+  Status,
+  Text,
+  TimeSpan,
+} from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { listColumns } from "@/range/accordionEntry";
 import { createEditLayout } from "@/range/EditLayout";
-import { type Range } from "@/range/range";
+import { type Range } from "@/range/slice";
 
 export interface SelectMultipleRangesProps
   extends Select.MultipleProps<string, Range> {}
+
+export const listColumns: Array<List.ColumnSpec<string, Range>> = [
+  {
+    key: "name",
+    name: "Name",
+    weight: 450,
+  },
+  {
+    key: "start",
+    name: "Start",
+    width: 150,
+    render: ({ entry }) => {
+      if (entry.variant === "dynamic")
+        return (
+          <Text.WithIcon
+            level="p"
+            startIcon={
+              <Icon.Dynamic
+                style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }}
+              />
+            }
+            shade={7}
+          >
+            {new TimeSpan(entry.span).toString()}
+          </Text.WithIcon>
+        );
+      return <Ranger.TimeRangeChip timeRange={entry.timeRange} />;
+    },
+  },
+];
 
 export const SelectMultipleRanges = (
   props: SelectMultipleRangesProps,

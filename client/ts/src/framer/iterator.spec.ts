@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
-import { describe, expect,test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { type channel } from "@/channel";
+import { AUTO_SPAN } from "@/framer/iterator";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
 
@@ -55,6 +56,30 @@ describe("Iterator", () => {
         expect(iter.value.get(ch.key)).toHaveLength(25);
       }
       expect(c).toEqual(3);
+    } finally {
+      await iter.close();
+    }
+  });
+  test("chunk size", async () => {
+    const ch = await newChannel();
+    const data = Float64Array.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+    await ch.write(0, data);
+
+    const iter = await client.openIterator(TimeRange.MAX, [ch.key], { chunkSize: 4 });
+
+    try {
+      expect(await iter.seekFirst()).toBeTruthy();
+
+      expect(await iter.next(AUTO_SPAN)).toBeTruthy();
+      expect(iter.value.get(ch.key).data).toEqual(Float64Array.of(0, 1, 2, 3));
+
+      expect(await iter.next(AUTO_SPAN)).toBeTruthy();
+      expect(iter.value.get(ch.key).data).toEqual(Float64Array.of(4, 5, 6, 7));
+
+      expect(await iter.next(AUTO_SPAN)).toBeTruthy();
+      expect(iter.value.get(ch.key).data).toEqual(Float64Array.of(8, 9));
+
+      expect(await iter.next(AUTO_SPAN)).toBeFalsy();
     } finally {
       await iter.close();
     }

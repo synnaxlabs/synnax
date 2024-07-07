@@ -115,16 +115,28 @@ git_repository(
 # /////////////////////////////////////// NIDAQMX /////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////
 
-new_local_repository(
+# new_local_repository(
+#     name = "nidaqmx",
+#     path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
+#     build_file="@//driver/vendor/nidaqmx:BUILD.bazel"
+# )
+
+# new_local_repository(
+#     name = "nisyscfg",
+#     path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
+#     build_file="@//driver/vendor/nisyscfg:BUILD.bazel"
+# )
+
+git_repository(
     name = "nidaqmx",
-    path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
-    build_file="@//driver/vendor/nidaqmx:BUILD.bazel"
+    remote = "https://github.com/synnaxlabs/vendor-libraries",
+    commit = "e85c66553cd9d0e1b07380a409729adfc71d3d98"
 )
 
-new_local_repository(
+git_repository(
     name = "nisyscfg",
-    path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
-    build_file="@//driver/vendor/nisyscfg:BUILD.bazel"
+    remote = "https://github.com/synnaxlabs/vendor-libraries",
+    commit = "e85c66553cd9d0e1b07380a409729adfc71d3d98"
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////

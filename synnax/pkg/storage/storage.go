@@ -87,7 +87,7 @@ func (s *Storage) Gorpify() *gorp.DB {
 		gorp.WithEncoderDecoder(&binary.TracingEncoderDecoder{
 			Level:           alamos.Bench,
 			Instrumentation: s.Instrumentation,
-			EncoderDecoder:  &binary.MsgPackEncoderDecoder{},
+			Codec:           &binary.MsgPackEncoderDecoder{},
 		}),
 	)
 }

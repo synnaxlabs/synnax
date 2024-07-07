@@ -182,8 +182,10 @@ export const eventKey = (
   e:
     | KeyboardEvent
     | MouseEvent
-    | React.KeyboardEvent<HTMLElement>
-    | React.MouseEvent<HTMLElement>,
+    | PointerEvent
+    | React.KeyboardEvent
+    | React.MouseEvent
+    | React.PointerEvent,
 ): Key => {
   if (e.type.includes("key")) return keyboardKey(e as KeyboardEvent);
   return mouseKey((e as MouseEvent).button);
@@ -234,6 +236,15 @@ export const mouseKey = (button: number): Key => MOUSE_BUTTONS[button] ?? "Mouse
  */
 export const match = (expected: Trigger[], actual: Trigger[], loose = false): boolean =>
   filter(expected, actual, loose).length > 0;
+
+export const matchCallback =
+  <E extends KeyboardEvent | MouseEvent | React.KeyboardEvent | React.MouseEvent>(
+    expect: Trigger[],
+    callback: (e: E) => void,
+  ): ((e: E) => void) =>
+  (e) => {
+    if (match(expect, [[eventKey(e)]])) return callback(e);
+  };
 
 /**
  * Filter compares the expected triggers against the actual triggers and returns

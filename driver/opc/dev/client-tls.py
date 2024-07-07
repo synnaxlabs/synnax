@@ -13,6 +13,7 @@ import sys
 import socket
 from pathlib import Path
 from cryptography.x509.oid import ExtendedKeyUsageOID
+
 sys.path.insert(0, "..")
 from asyncua import Client
 from asyncua.crypto.security_policies import SecurityPolicyBasic256Sha256
@@ -20,7 +21,6 @@ from asyncua.crypto.cert_gen import setup_self_signed_certificate
 from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
 from asyncua.crypto.truststore import TrustStore
 from asyncua import ua
-
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ USE_TRUST_STORE = True
 cert_idx = 4
 cert = Path("client.der")
 private_key = Path("client.key.der")
+
 
 async def task(loop):
     host_name = socket.gethostname()

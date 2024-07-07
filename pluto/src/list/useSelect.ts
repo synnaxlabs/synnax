@@ -37,6 +37,7 @@ export interface UseSelectSingleAllowNoneProps<K extends Key, E extends Keyed<K>
   extends BaseProps<K, E> {
   allowMultiple: false;
   allowNone?: true;
+  autoSelectOnNone?: boolean;
   value: K | null;
   onChange: (next: K | null, extra: UseSelectOnChangeExtra<K, E>) => void;
 }
@@ -45,6 +46,7 @@ export interface UseSelectSingleDisallowNoneProps<K extends Key, E extends Keyed
   extends BaseProps<K, E> {
   allowMultiple: false;
   allowNone: false | undefined;
+  autoSelectOnNone?: boolean;
   value: K;
   onChange: (next: K, extra: UseSelectOnChangeExtra<K, any>) => void;
 }
@@ -62,6 +64,7 @@ export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>>
   extends BaseProps<K, E> {
   allowMultiple?: true;
   allowNone?: boolean;
+  autoSelectOnNone?: boolean;
   value: K | K[];
   onChange: (next: K[], extra: UseSelectOnChangeExtra<K, E>) => void;
 }
@@ -76,6 +79,7 @@ export type FlexUseSelectProps<K extends Key, E extends Keyed<K>> = {
   value: K | K[] | null;
   allowMultiple?: boolean;
   allowNone?: boolean;
+  autoSelectOnNone?: boolean;
   replaceOnSingle?: boolean;
   onChange: (next: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => void;
 };
@@ -88,7 +92,12 @@ export interface UseSelectMultipleReturn<K extends Key = Key> {
 
 export const selectValueIsZero = <K extends Key>(
   value: K | K[] | null,
-): value is null | K[] => value == null || (Array.isArray(value) && value.length === 0);
+): value is null | K[] => {
+  if (value == null) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "string") return value.length === 0;
+  return false;
+};
 
 const DEFAULT_PROPS_DATA: any[] = [];
 const DEFAULT_PROPS_VALUE: any[] = [];
@@ -124,6 +133,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
   allowMultiple,
   allowNone,
   replaceOnSingle = false,
+  autoSelectOnNone = false,
   onChange,
 }: UseSelectProps<K, E> | FlexUseSelectProps<K, E>): UseSelectMultipleReturn<K> => {
   const shiftValueRef = useRef<K | null>(null);
@@ -151,7 +161,12 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
     if (!Array.isArray(data)) data = data();
     // If for some reason the value is empty and it shouldn't be, automatically set
     // it to the new value..
-    if (selectValueIsZero(propsValue) && allowNone === false && data.length > 0) {
+    if (
+      selectValueIsZero(propsValue) &&
+      allowNone === false &&
+      data.length > 0 &&
+      autoSelectOnNone
+    ) {
       const first = data[0];
       shiftValueRef.current = first.key;
       handleChange([first.key], {
@@ -204,7 +219,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       if (allowNone === false && v.length === 0) {
         // If we're not allowed to have no select, still call handleChange with the same
         // value. This is useful when you want to close a dialog on selection.
-        handleChange(value, {
+        return handleChange(value, {
           entries: data.filter(({ key }) => value.includes(key)),
           clicked: key,
           clickedIndex: data.findIndex(({ key: k }) => k === key),
@@ -217,7 +232,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
         clickedIndex: data.findIndex(({ key: k }) => k === key),
       });
     },
-    [valueRef, dataRef, handleChange, allowMultiple],
+    [valueRef, dataRef, handleChange, allowMultiple, allowNone],
   );
 
   const clear = useCallback(

@@ -22,19 +22,13 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
-import { Selector,type TabSpec } from "@/tabs/Selector";
+import { Selector } from "@/tabs/Selector";
+import { RenderProp, type Spec, Tab } from "@/tabs/types";
 import { type ComponentSize } from "@/util/component";
-import { type RenderProp } from "@/util/renderProp";
-
-export interface Tab extends TabSpec {
-  content?: ReactNode;
-}
-
-export type TabRenderProp = RenderProp<Tab>;
 
 export interface UseStaticTabsProps {
   tabs: Tab[];
-  content?: TabRenderProp;
+  content?: RenderProp;
   onSelect?: (key: string) => void;
   selected?: string;
 }
@@ -89,10 +83,10 @@ export interface TabsContextValue {
   closable?: boolean;
   selected?: string;
   onSelect?: (key: string) => void;
-  content?: TabRenderProp | ReactNode;
+  content?: RenderProp | ReactNode;
   onClose?: (key: string) => void;
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onRename?: (key: string, title: string) => void;
   onCreate?: () => void;
@@ -104,7 +98,7 @@ export interface TabsProps
       "children" | "onSelect" | "size" | "onDragStart" | "onDragEnd" | "content"
     >,
     TabsContextValue {
-  children?: TabRenderProp | ReactNode;
+  children?: RenderProp | ReactNode;
   size?: ComponentSize;
   selectedAltColor?: boolean;
 }
@@ -186,7 +180,7 @@ export const Content = (): ReactNode | null => {
   if (renderProp != null) {
     if (typeof renderProp === "function") content = renderProp(selectedTab);
     else content = renderProp;
-  } else if (selectedTab.content != null) content = selectedTab.content;
+  } else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
   return (
     <div className={CSS.B("tabs-content")} onClick={() => onSelect?.(selected)}>
       {content}

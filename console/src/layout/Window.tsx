@@ -9,7 +9,11 @@
 
 import "@/layout/Window.css";
 
-import { setWindowDecorations, setWindowVisible } from "@synnaxlabs/drift";
+import {
+  setWindowDecorations,
+  setWindowMinimized,
+  setWindowVisible,
+} from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
@@ -22,7 +26,7 @@ import { Controls } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
-import { WindowProps } from "@/layout/layout";
+import { WindowProps } from "@/layout/slice";
 import { useSelect } from "@/layout/selectors";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
@@ -90,8 +94,10 @@ export const Window = (): ReactElement | null => {
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
   useEffect(() => {
-    if (layout?.key != null)
+    if (layout?.key != null) {
       dispatch(setWindowVisible({ key: layout.key, value: true }));
+      dispatch(setWindowMinimized({ key: layout.key, value: false }));
+    }
     if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
   }, [os, layout?.key]);
   const menuProps = PMenu.useContextMenu();

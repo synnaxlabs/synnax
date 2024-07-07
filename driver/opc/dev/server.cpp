@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Emiliano Bonilla on 3/29/24.
-//
 /* This work is licensed under a Creative Commons CCZero 1.0 Universal License.
  * See http://creativecommons.org/publicdomain/zero/1.0/ for more information. */
 
@@ -30,8 +27,8 @@ int main() {
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
     UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
-    attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer");
-    attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer");
+    attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer");
+    attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer");
     UA_NodeId myIntegerNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer");
     UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(1, "the answer");
     UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
@@ -44,8 +41,8 @@ int main() {
     UA_VariableAttributes attr2 = UA_VariableAttributes_default;
     UA_Double myDouble = 3.14;
     UA_Variant_setScalarCopy(&attr2.value, &myDouble, &UA_TYPES[UA_TYPES_DOUBLE]);
-    attr2.description = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer 2");
-    attr2.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer 2");
+    attr2.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer 2");
+    attr2.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer 2");
     attr2.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     UA_NodeId myDoubleNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer2");
     UA_QualifiedName myDoubleName = UA_QUALIFIEDNAME_ALLOC(1, "the answer 2");

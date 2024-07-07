@@ -11,6 +11,7 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 import { type SynnaxProps } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type Cluster, type LocalState } from "@/cluster/core";
 
@@ -61,7 +62,7 @@ export const LOCAL: Cluster = {
   props: LOCAL_PROPS,
 };
 
-export const ZERO_STATE: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
   version: "0.0.1",
   activeCluster: null,
   clusters: {
@@ -87,9 +88,18 @@ export interface RemovePayload {
   keys: string[];
 }
 
+export interface RenamePayload {
+  key: string;
+  name: string;
+}
+
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+export const migrateSlice = migrate.migrator<SliceState>({
+  name: "cluster.slice",
+  migrations: MIGRATIONS,
+  def: ZERO_SLICE_STATE,
+});
 
 export const {
   actions,
@@ -99,7 +109,7 @@ export const {
   reducer,
 } = createSlice({
   name: SLICE_NAME,
-  initialState: ZERO_STATE,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (
       { activeCluster, clusters: clusters },
@@ -113,7 +123,6 @@ export const {
       { payload: { keys } }: PayloadAction<RemovePayload>,
     ) => {
       for (const key of keys) {
-         
         delete clusters[key];
       }
     },
@@ -125,6 +134,12 @@ export const {
       { payload: localState }: PayloadAction<SetLocalStatePayload>,
     ) => {
       state.localState = { ...state.localState, ...localState };
+    },
+    rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
+      const cluster = state.clusters[key];
+      if (cluster == null) return;
+      cluster.name = name;
+      if (cluster.props != null) cluster.props.name = name;
     },
   },
 });
@@ -142,6 +157,7 @@ export const {
   setActive,
   setLocalState,
   remove,
+  rename,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

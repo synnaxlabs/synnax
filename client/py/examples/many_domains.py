@@ -32,7 +32,7 @@ for i in range(100):
         start=start,
         data=data,
     )
-    
+
     # The next domain starts 2 seconds after the previous one finishes.
     start = start + 2 * sy.TimeSpan.SECOND
 

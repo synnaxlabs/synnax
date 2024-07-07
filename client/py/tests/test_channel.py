@@ -110,6 +110,27 @@ class TestChannelClient:
         with pytest.raises(sy.NotFoundError):
             client.channels.retrieve(fake_keys)
 
+    def test_retrieve_numeric_string(
+        self, client: sy.Synnax, two_channels: list[sy.channel]
+    ):
+        channels = client.channels.retrieve(
+            [str(two_channels[0].key), str(two_channels[1].key)]
+        )
+        for channel in channels:
+            assert channel.name in ["test", "test2"]
+
+    def test_retrieve_bad_numeric_string(self, client: sy.Synnax):
+        ch1 = client.channels.create(
+            data_type=sy.DataType.FLOAT32, name="test1", rate=1 * sy.Rate.HZ
+        )
+        ch2 = client.channels.create(
+            data_type=sy.DataType.FLOAT32, name=str(ch1.key), rate=1 * sy.Rate.HZ
+        )
+
+        # Should get first channel since the numeric string gets converted to a key
+        result_channel = client.channels.retrieve(ch2.name)
+        assert result_channel.name == "test1"
+
     def test_retrieve_single_multiple_found(
         self,
         client: sy.Synnax,
@@ -189,7 +210,7 @@ class TestChannelClient:
                 rate=1 * sy.Rate.HZ,
                 data_type=sy.DataType.FLOAT64,
             ),
-            retrieve_if_name_exists=True
+            retrieve_if_name_exists=True,
         )
         ch_retrieved = client.channels.retrieve(name)
         assert ch.key == ch_retrieved.key
@@ -202,7 +223,7 @@ class TestChannelClient:
                 rate=1 * sy.Rate.HZ,
                 data_type=sy.DataType.FLOAT64,
             ),
-            retrieve_if_name_exists=True
+            retrieve_if_name_exists=True,
         )
         assert ch2.key != ch.key
         ch2_retrieved = client.channels.retrieve(name)

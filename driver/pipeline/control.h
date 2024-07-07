@@ -16,7 +16,6 @@
 #include "driver/breaker/breaker.h"
 
 namespace pipeline {
-
 /// @brief an object that writes data to an acuqisition computer or other resource.
 class Sink {
 public:
@@ -57,6 +56,9 @@ public:
     ///  until the configured number of maximum retries is exceeded. Any other error will
     /// be considered permanent and the pipeline will exit.
     virtual freighter::Error close() = 0;
+
+    // TODO: add a description
+    virtual void closeSend() = 0; 
 
     virtual ~Streamer() = default;
 };
@@ -122,11 +124,13 @@ public:
     /// @brief stops the control pipeline, blocking until the control thread has exited.
     /// If the pipeline has already stopped, this method will return immediately.
     void stop();
+
 private:
     std::unique_ptr<std::thread> thread;
     std::shared_ptr<StreamerFactory> factory;
     synnax::StreamerConfig config;
     std::shared_ptr<Sink> sink;
+    std::unique_ptr<Streamer> streamer = nullptr;
     breaker::Breaker breaker;
 
     void runInternal();

@@ -11,14 +11,10 @@ import { Layout } from "@/layout";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/range/EditLayout";
 import { MetaData, metaDataWindowLayout } from "@/range/MetaData";
 
-export * from "@/range/accordionEntry";
 export * from "@/range/ContextMenu";
 export * from "@/range/EditLayout";
-export * from "@/range/link";
 export * from "@/range/MetaData";
-export * from "@/range/ontology";
-export * from "@/range/palette";
-export * from "@/range/range";
+export * from "@/range/slice";
 export * from "@/range/Select";
 export * from "@/range/selectors";
 export * from "@/range/slice";

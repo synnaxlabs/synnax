@@ -9,7 +9,7 @@
 
 import "@/divider/Divider.css";
 
-import { type direction } from "@synnaxlabs/x/spatial";
+import { type direction, location } from "@synnaxlabs/x/spatial";
 import { type HTMLAttributes, type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -18,7 +18,7 @@ import { CSS } from "@/css";
 export interface DividerProps
   extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   direction?: direction.Direction;
-  padded?: boolean;
+  padded?: boolean | location.Location;
 }
 
 /**
@@ -32,14 +32,18 @@ export const Divider = ({
   className,
   padded = false,
   ...props
-}: DividerProps): ReactElement => (
-  <div
-    className={CSS(
-      CSS.B("divider"),
-      CSS.dir(direction),
-      padded && CSS.BM("divider", "padded"),
-      className,
-    )}
-    {...props}
-  />
-);
+}: DividerProps): ReactElement => {
+  if (padded === true) padded = "center";
+  return (
+    <div
+      className={CSS(
+        CSS.B("divider"),
+        CSS.dir(direction),
+        padded !== false && CSS.BM("divider", "padded"),
+        typeof padded === "string" && CSS.loc(padded),
+        className,
+      )}
+      {...props}
+    />
+  );
+};

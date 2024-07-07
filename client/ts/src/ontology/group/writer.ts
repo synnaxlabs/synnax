@@ -10,11 +10,11 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type Payload, payloadZ } from "@/ontology/group/payload";
+import { type Payload, groupZ } from "@/ontology/group/payload";
 import { type ID, idZ } from "@/ontology/payload";
 
 const resZ = z.object({
-  group: payloadZ,
+  group: groupZ,
 });
 
 const createReqZ = z.object({

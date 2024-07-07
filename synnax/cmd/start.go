@@ -205,7 +205,7 @@ func start(cmd *cobra.Command) {
 		}()
 
 		// Provision the root user.
-		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
+		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
 			return err
 		}
 
@@ -372,6 +372,7 @@ func buildEmbeddedDriverConfig(
 		RackName:        rackName,
 		Username:        viper.GetString("username"),
 		Password:        viper.GetString("password"),
+		Debug:           config.Bool(viper.GetBool("debug")),
 	}
 	if insecure {
 		return cfg

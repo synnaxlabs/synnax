@@ -23,7 +23,7 @@ cc_library(
 )
 
 cc_library(
-    name = "nisyscfg",
+    name = "syscfg",
     srcs = select({
         "//conditions:default": ["nisyscfg_prod.cpp"],
         ":ni_mock": ["nisyscfg_mock.cpp"],
@@ -53,15 +53,30 @@ cc_library(
         "scanner.cpp",
         "ni.cpp", 
     ],
-    hdrs = [
-        "ni.h",
-        "error.h",
-        "//driver/task",
-        "//driver/pipeline",
-        "//client/cpp:synnax",
-        "ts_queue.h"
-
-    ],
+    hdrs = select({
+        "@platforms//os:windows": [
+            "ni.h",
+            "scale.h",
+            "ai_channels.h",
+            "error.h",
+            "//driver/task",
+            "//driver/pipeline",
+            "//client/cpp:synnax",
+            "ts_queue.h",
+            "dll_check_windows.h",
+        ],
+        "//conditions:default": [
+            "ni.h",
+            "scale.h",
+            "ai_channels.h",
+            "error.h",
+            "//driver/task",
+            "//driver/pipeline",
+            "//client/cpp:synnax",
+            "ts_queue.h",
+            "dll_check_linux.h",
+        ],
+    }),
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
@@ -79,11 +94,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "daqmx",
-        "nisyscfg",
+        "syscfg",
         "//driver/breaker",
         "//driver/errors",
         "//driver/pipeline",
         "//client/cpp:synnax",
+        "//driver/loop",
         "//driver/config",
         "//driver/task",
         "@nlohmann_json//:json",
@@ -92,19 +108,30 @@ cc_library(
 
 
 cc_test(
-    name = "reader_test",
+    name = "analog_read_test",
     srcs = [
-        "reader_test.cpp",
+        "analog_read_test.cpp",
     ],
     copts = ["/std:c++20"],
     deps = [
-        # "daqmx",
         "ni",
         "//driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
 
+cc_test(
+    name = "digital_read_test",
+    srcs = [
+        "digital_read_test.cpp",
+    ],
+    copts = ["/std:c++20"],
+    deps = [
+        "ni",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
 
 
 cc_test(

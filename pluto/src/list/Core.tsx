@@ -14,6 +14,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
+  useEffect,
   useLayoutEffect,
   useRef,
 } from "react";
@@ -59,7 +60,6 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   className,
   ...props
 }: VirtualCoreProps<K, E>): ReactElement => {
-  if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
   const { hasMore, onFetchMore } = useInfiniteContext();
   const { hover: hoverValue, setHover } = useHoverContext();
   const {
@@ -80,7 +80,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const prev = usePrevious(data);
 
-  // // Whenever the data changes, scroll to the top of the list
+  // Whenever the data changes, scroll to the top of the list
   useLayoutEffect(() => {
     if (prev == null || prev.length === 0) return;
     if (data.length > 0 && data[0].key !== prev[0].key) {
@@ -89,11 +89,22 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     }
   }, [data]);
 
-  const items = virtualizer.getVirtualItems();
+  useEffect(() => {
+    if (parentRef.current == null) return;
+    const rng = virtualizer.calculateRange();
+    const b = bounds.construct(rng.startIndex + 2, rng.endIndex - 2);
+    if (bounds.contains(b, hoverValue)) return;
+    virtualizer.scrollToIndex(hoverValue);
+  }, [hoverValue, itemHeight]);
 
-  if (items.at(-1)?.index === data.length - 1 && hasMore) {
-    onFetchMore?.();
-  }
+  const items = virtualizer.getVirtualItems();
+  const lastItemIndex = items.at(-1)?.index;
+  const dataLength = data.length;
+  useEffect(() => {
+    if (lastItemIndex === dataLength - 1 && hasMore) onFetchMore?.();
+  }, [lastItemIndex, dataLength, hasMore]);
+
+  if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
 
   const empty = data.length === 0;
 

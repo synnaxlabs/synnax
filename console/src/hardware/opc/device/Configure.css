@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-configure {
+.console-opc-configure {
     position: relative;
     height: 100%;
     width: 100%;
@@ -18,15 +18,10 @@
         width: 100%;
         max-width: 450px;
         padding: 4rem;
-        & p {
+        & *:not(button) > p {
             font-size: 2.4rem;
             line-height: 150%;
         }
-    }
-
-    .console-connect {
-        flex-grow: 0 !important;
-        height: 850px !important;
     }
 
     .console-content {
@@ -38,7 +33,8 @@
     .console-form {
         border: var(--pluto-border);
         border-radius: 1.5rem;
-        height: 100%;
+        height: calc(100% - 10rem);
+        overflow-y: auto;
     }
 
     .pluto-navbar {

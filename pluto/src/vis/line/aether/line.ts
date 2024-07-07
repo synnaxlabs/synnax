@@ -102,24 +102,21 @@ export class Context extends render.GLProgram {
     this.translationBufferCache = new Map();
   }
 
-  bindCommonPropsAndState(
-    { dataToDecimalScale: s, region }: LineProps,
+  bindState(
     { strokeWidth, color }: ParsedState,
   ): number {
-    const scaleTransform = scale.xyScaleToTransform(s);
-    const transform = scale.xyScaleToTransform(this.ctx.scaleRegion(region));
-    this.uniformXY("u_region_scale", transform.scale);
-    this.uniformXY("u_region_offset", transform.offset);
     this.uniformColor("u_color", color);
-    this.uniformXY("u_scale", scaleTransform.scale);
-    this.uniformXY("u_offset", scaleTransform.offset);
     return this.attrStrokeWidth(strokeWidth);
   }
 
-  bindScale(s: scale.XY): void {
-    const transform = scale.xyScaleToTransform(s);
-    this.uniformXY("u_scale", transform.scale);
-    this.uniformXY("u_offset", transform.offset);
+  bindScale(
+    dataScaleTransform: scale.XYTransformT,
+    regionTransform: scale.XYTransformT,
+  ): void {
+    const aggregateScale = xy.scale(dataScaleTransform.scale, regionTransform.scale);
+    const aggregateOffset = xy.translate(xy.scale(regionTransform.scale, dataScaleTransform.offset), regionTransform.offset);
+    this.uniformXY("u_scale_aggregate", aggregateScale);
+    this.uniformXY("u_offset_aggregate", aggregateOffset);
   }
 
   draw(
@@ -308,9 +305,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       ops: digests(ops),
     }));
     const clearProg = prog.setAsActive();
-    const instances = prog.bindCommonPropsAndState(props, this.state);
+    const instances = prog.bindState(this.state);
+    const regionTransform = scale.xyScaleToTransform(prog.ctx.scaleRegion(props.region))
     ops.forEach((op) => {
-      prog.bindScale(offsetScale(dataToDecimalScale, op));
+      const scaleTransform = scale.xyScaleToTransform(offsetScale(dataToDecimalScale, op));
+      prog.bindScale(scaleTransform, regionTransform);
       prog.draw(op, instances);
     });
     clearProg();

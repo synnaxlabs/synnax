@@ -61,6 +61,7 @@ export interface ColumnSpec<K extends Key = Key, E extends Keyed<K> = Keyed<K>> 
   width?: number;
   cWidth?: number;
   shade?: Text.Shade;
+  weight?: Text.Weight;
 }
 
 interface ColumnContextValue<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
@@ -216,6 +217,7 @@ const ListColumnValue = <K extends Key, E extends Keyed<K>>({
       level="p"
       style={style}
       shade={col.shade}
+      weight={col.weight}
     >
       {convertRenderV(rv as RenderableValue)}
     </Text.Text>
@@ -226,6 +228,7 @@ const columnWidths = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
   columns: Array<ColumnSpec<K, E>>,
   data: E[],
   font: string,
+  padding: number = 30,
 ): Array<ColumnSpec<K, E>> => {
   const le = longestEntries(data, columns);
   return columns.map((col) => {
@@ -233,7 +236,7 @@ const columnWidths = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
     else {
       const { width: labelWidth } = Text.dimensions(col.name, font);
       const { width: entryWidth } = Text.dimensions(le[col.key as keyof E], font);
-      col.cWidth = Math.max(labelWidth, entryWidth) * 1.1;
+      col.cWidth = Math.max(labelWidth, entryWidth) + padding;
     }
     return col;
   });
@@ -285,5 +288,5 @@ export const Column = {
    */
   Item,
   /** The default height of a column list item. */
-  itemHeight: 36,
+  itemHeight: 5.5 * 6,
 };

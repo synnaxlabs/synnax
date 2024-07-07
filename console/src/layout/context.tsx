@@ -9,7 +9,7 @@
 
 import { createContext, useContext } from "react";
 
-import { type Renderer } from "@/layout/layout";
+import { type Renderer } from "@/layout/slice";
 
 export type Renderers = Record<string, Renderer>;
 
@@ -22,3 +22,6 @@ export const useLayoutRenderer = (type: string): Renderer => {
   if (r == null) throw new Error(`no renderer for layout type ${type}`);
   return r;
 };
+
+export const useOptionalRenderer = (type: string): Renderer | null =>
+  useContext(RendererContext)[type] ?? null;

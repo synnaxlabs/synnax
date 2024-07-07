@@ -1,3 +1,4 @@
+
 // Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -240,6 +241,8 @@ public:
         std::unique_ptr<task::Factory> factory,
         const breaker::Config& breaker
     );
+
+    ~Manager();
 
     freighter::Error start(std::atomic<bool> &done);
 

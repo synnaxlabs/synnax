@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Channel, Form, List } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { FC, ReactElement } from "react";
+import { Align, Divider, Form, Input, List, Select, state } from "@synnaxlabs/pluto";
+import { binary, deep } from "@synnaxlabs/x";
+import { FC, ReactElement, useRef } from "react";
+import { z } from "zod";
 
+import { FS } from "@/fs";
 import {
-  AccelerationUnits,
   AccelSensitivityUnits,
   AI_CHANNEL_SCHEMAS,
   AI_CHANNEL_TYPE_NAMES,
@@ -20,12 +21,16 @@ import {
   AIChanType,
   ElectricalUnits,
   ForceUnits,
+  PressureUnits,
   Scale,
   SCALE_SCHEMAS,
   ScaleType,
   ShuntResistorLoc,
+  TemperatureUnits,
   TorqueUnits,
   Units,
+  VelocitySensitivityUnits,
+  VelocityUnits,
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
@@ -36,13 +41,6 @@ export interface FormProps {
   label?: string;
 }
 
-export const ChannelField = Form.fieldBuilder(Channel.SelectSingle)({
-  fieldKey: "channel",
-  inputProps: {
-    label: "Synnax Channel",
-  },
-});
-
 interface NamedKey<K extends string = string> {
   key: K;
   name: string;
@@ -52,7 +50,7 @@ const NAMED_KEY_COLS: List.ColumnSpec<string, NamedKey>[] = [
   { key: "name", name: "Name" },
 ];
 
-const TerminalConfigField = Form.buildButtonSelectField<string, NamedKey>({
+const TerminalConfigField = Form.buildDropdownButtonSelectField<string, NamedKey>({
   fieldKey: "terminalConfig",
   fieldProps: {
     label: "Terminal Configuration",
@@ -85,7 +83,7 @@ const TerminalConfigField = Form.buildButtonSelectField<string, NamedKey>({
   },
 });
 
-const AccelSensitivityUnitsField = Form.buildButtonSelectField<
+const AccelSensitivityUnitsField = Form.buildDropdownButtonSelectField<
   AccelSensitivityUnits,
   NamedKey<AccelSensitivityUnits>
 >({
@@ -109,7 +107,7 @@ const AccelSensitivityUnitsField = Form.buildButtonSelectField<
   },
 });
 
-const ExcitSourceField = Form.buildButtonSelectField<string, NamedKey>({
+const ExcitSourceField = Form.buildDropdownButtonSelectField<string, NamedKey>({
   fieldKey: "excitSource",
   fieldProps: {
     label: "Excitation Source",
@@ -134,60 +132,34 @@ const ExcitSourceField = Form.buildButtonSelectField<string, NamedKey>({
   },
 });
 
-const AccelerationUnitsField = Form.buildButtonSelectField<
-  AccelerationUnits,
-  NamedKey<AccelerationUnits>
->({
-  fieldKey: "units",
-  fieldProps: {
-    label: "Acceleration Units",
+const BridgeConfigField = Form.buildDropdownButtonSelectField<string, NamedKey<string>>(
+  {
+    fieldKey: "bridgeConfig",
+    fieldProps: {
+      label: "Bridge Configuration",
+    },
+    inputProps: {
+      entryRenderKey: "name",
+      columns: NAMED_KEY_COLS,
+      data: [
+        {
+          key: "FullBridge",
+          name: "Full Bridge",
+        },
+        {
+          key: "HalfBridge",
+          name: "Half Bridge",
+        },
+        {
+          key: "QuarterBridge",
+          name: "Quarter Bridge",
+        },
+      ],
+    },
   },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: [
-      {
-        key: "g",
-        name: "g",
-      },
-      {
-        key: "MetersPerSecondSquared",
-        name: "m/s^2",
-      },
-      {
-        key: "InchesPerSecondSquared",
-        name: "in/s^2",
-      },
-    ],
-  },
-});
+);
 
-const BridgeConfigField = Form.buildButtonSelectField<string, NamedKey<string>>({
-  fieldKey: "bridgeConfig",
-  fieldProps: {
-    label: "Bridge Configuration",
-  },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: [
-      {
-        key: "FullBridge",
-        name: "Full Bridge",
-      },
-      {
-        key: "HalfBridge",
-        name: "Half Bridge",
-      },
-      {
-        key: "QuarterBridge",
-        name: "Quarter Bridge",
-      },
-    ],
-  },
-});
-
-const ShuntResistorLocField = Form.buildButtonSelectField<
+const ShuntResistorLocField = Form.buildDropdownButtonSelectField<
   ShuntResistorLoc,
   NamedKey<ShuntResistorLoc>
 >({
@@ -215,7 +187,10 @@ const ShuntResistorLocField = Form.buildButtonSelectField<
   },
 });
 
-const ResistanceConfigField = Form.buildButtonSelectField<string, NamedKey<string>>({
+const ResistanceConfigField = Form.buildDropdownButtonSelectField<
+  string,
+  NamedKey<string>
+>({
   fieldKey: "resistanceConfig",
   fieldProps: {
     label: "Resistance Configuration",
@@ -240,7 +215,7 @@ const ResistanceConfigField = Form.buildButtonSelectField<string, NamedKey<strin
   },
 });
 
-const StrainConfig = Form.buildButtonSelectField({
+const StrainConfig = Form.buildDropdownButtonSelectField({
   fieldKey: "strainConfig",
   fieldProps: {
     label: "Strain Configuration",
@@ -301,7 +276,10 @@ const MinMaxValueFields = ({ path }: { path: string }): ReactElement => (
   </Align.Space>
 );
 
-const ForceUnitsField = Form.buildButtonSelectField<ForceUnits, NamedKey<ForceUnits>>({
+const ForceUnitsField = Form.buildDropdownButtonSelectField<
+  ForceUnits,
+  NamedKey<ForceUnits>
+>({
   fieldKey: "units",
   fieldProps: { label: "Force Units" },
   inputProps: {
@@ -324,11 +302,11 @@ const ForceUnitsField = Form.buildButtonSelectField<ForceUnits, NamedKey<ForceUn
   },
 });
 
-const ElectricalUnitsField = Form.buildButtonSelectField<
+const ElectricalUnitsField = Form.buildDropdownButtonSelectField<
   ElectricalUnits,
   NamedKey<ElectricalUnits>
 >({
-  fieldKey: "units",
+  fieldKey: "electricalUnits",
   fieldProps: { label: "Electrical Units" },
   inputProps: {
     entryRenderKey: "name",
@@ -336,17 +314,20 @@ const ElectricalUnitsField = Form.buildButtonSelectField<
     data: [
       {
         key: "VoltsPerVolt",
-        name: "Volts per Volt",
+        name: "V/V",
       },
       {
         key: "mVoltsPerVolt",
-        name: "mV per Volt",
+        name: "mV/V",
       },
     ],
   },
 });
 
-const PressureUnitsField = Form.buildButtonSelectField({
+const PressureUnitsField = Form.buildDropdownButtonSelectField<
+  PressureUnits,
+  NamedKey<PressureUnits>
+>({
   fieldKey: "units",
   fieldProps: { label: "Pressure Units" },
   inputProps: {
@@ -358,14 +339,17 @@ const PressureUnitsField = Form.buildButtonSelectField({
         name: "Pascals",
       },
       {
-        key: "PSI",
+        key: "PoundsPerSquareInch",
         name: "PSI",
       },
     ],
   },
 });
 
-const TemperatureUnitsField = Form.buildButtonSelectField<string, NamedKey<string>>({
+const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
+  TemperatureUnits,
+  NamedKey<TemperatureUnits>
+>({
   fieldKey: "units",
   fieldProps: {
     label: "Temperature Units",
@@ -375,7 +359,7 @@ const TemperatureUnitsField = Form.buildButtonSelectField<string, NamedKey<strin
     columns: NAMED_KEY_COLS,
     data: [
       {
-        key: "DegG",
+        key: "DegC",
         name: "Celsius",
       },
       {
@@ -394,13 +378,15 @@ const TemperatureUnitsField = Form.buildButtonSelectField<string, NamedKey<strin
   },
 });
 
-const TorqueUnitsField = Form.buildButtonSelectField<
+const TorqueUnitsField = Form.buildDropdownButtonSelectField<
   TorqueUnits,
   NamedKey<TorqueUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Torque Units" },
   inputProps: {
+    columns: NAMED_KEY_COLS,
+    entryRenderKey: "name",
     data: [
       {
         key: "NewtonMeters",
@@ -429,19 +415,19 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "NI Channel Type",
+    label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      const prevType = get<AIChanType>({ path }).value;
+      const prevType = get<AIChanType>(path).value;
       if (prevType === value) return;
       const next = deep.copy(ZERO_AI_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AIChan>({ path: parentPath }).value;
-      set({
-        path: parentPath,
-        value: {
-          ...deep.overrideValidItems(next, prevParent, AI_CHANNEL_SCHEMAS[value]),
-          type: next.type,
-        },
+      const prevParent = get<AIChan>(parentPath).value;
+      let schema = AI_CHANNEL_SCHEMAS[value];
+      // @ts-expect-error - schema source type checking
+      if ("sourceType" in schema) schema = schema.sourceType() as z.ZodObject<AIChan>;
+      set(parentPath, {
+        ...deep.overrideValidItems(next, prevParent, schema),
+        type: next.type,
       });
     },
   },
@@ -458,22 +444,13 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
   },
 });
 
-const VoltageUnits = Form.buildButtonSelectField({
-  fieldKey: "units",
-  fieldProps: { label: "Voltage Units" },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: [{ key: "Volts", name: "Volts" }],
-  },
-});
-
 export const UnitsField = Form.buildSelectSingleField<Units, NamedKey<Units>>({
-  fieldKey: "preScaledUnits",
-  fieldProps: { label: "Pre-Scaled Units" },
+  fieldKey: "units",
+  fieldProps: { label: "Units", grow: true },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
+    allowNone: false,
     data: [
       {
         key: "Volts",
@@ -595,7 +572,14 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   linear: ({ prefix }) => {
     return (
       <>
-        <UnitsField fieldKey="preScaledUnits" label="Pre-Scaled Units" path={prefix} />
+        <Align.Space direction="x" grow>
+          <UnitsField
+            fieldKey="preScaledUnits"
+            label="Pre-Scaled Units"
+            path={prefix}
+          />
+          <UnitsField fieldKey="scaledUnits" label="Scaled Units" path={prefix} />
+        </Align.Space>
         <Align.Space direction="x" grow>
           <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
           <Form.NumericField
@@ -637,29 +621,115 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
       </>
     );
   },
-  table: () => <></>,
+  table: ({ prefix }) => {
+    const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${prefix}.rawCol`);
+    const [scaledCol, setScaledCol] = state.usePersisted<string>(
+      "Scaled",
+      `${prefix}.scaledCol`,
+    );
+    const [colOptions, setColOptions] = state.usePersisted<NamedKey<string>[]>(
+      [],
+      `${prefix}.colOptions`,
+    );
+    const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
+    const tableSchema = z.record(z.array(z.unknown()));
+    const preScaledField = Form.useField<number[]>({ path: `${prefix}.preScaledVals` });
+    const scaledField = Form.useField<number[]>({ path: `${prefix}.scaledVals` });
+    const currValueRef = useRef<Record<string, unknown[]>>({});
+
+    const updateValue = () => {
+      const value = currValueRef.current;
+      const preScaledValues = value[rawCol] as number[] | undefined;
+      const scaledValues = value[scaledCol] as number[] | undefined;
+      const hasScaled = scaledValues != null;
+      const hasPreScaled = preScaledValues != null;
+      if (hasScaled && hasPreScaled) {
+        if (preScaledValues!.length !== scaledValues!.length)
+          preScaledField.setStatus({
+            variant: "error",
+            message: `Pre-scaled ${preScaledValues!.length} values and scaled ${scaledValues!.length} values must be the same length`,
+          });
+      }
+      if (hasPreScaled) preScaledField.onChange(preScaledValues);
+      if (hasScaled) scaledField.onChange(scaledValues);
+    };
+
+    const handleFileContentsChange = (
+      value: z.output<typeof tableSchema>,
+      path: string,
+    ) => {
+      setPath(path);
+      currValueRef.current = value;
+      const keys = Object.keys(value).filter(
+        (key) =>
+          Array.isArray(value[key]) && value[key].every((v) => isFinite(Number(v))),
+      );
+      setColOptions(keys.map((key) => ({ key, name: key })));
+      if (keys.length > 0) setRawCol(keys[0]);
+      if (keys.length > 1) setScaledCol(keys[1]);
+      updateValue();
+    };
+
+    const handleRawColChange = (value: string) => {
+      setRawCol(value);
+      updateValue();
+    };
+
+    const handleScaledColChange = (value: string) => {
+      setScaledCol(value);
+      updateValue();
+    };
+
+    return (
+      <>
+        <UnitsField fieldKey="preScaledUnits" path={prefix} />
+        <Input.Item label="Table CSV" padHelpText>
+          <FS.InputFileContents<typeof tableSchema>
+            initialPath={path}
+            onChange={handleFileContentsChange}
+            decoder={binary.CSV_ECD}
+          />
+        </Input.Item>
+        <Align.Space direction="x" grow>
+          <Input.Item label="Raw Column" padHelpText grow>
+            <Select.Single
+              columns={NAMED_KEY_COLS}
+              value={rawCol}
+              onChange={handleRawColChange}
+              data={colOptions}
+            />
+          </Input.Item>
+          <Input.Item label="Scaled Column" padHelpText grow>
+            <Select.Single
+              columns={NAMED_KEY_COLS}
+              value={scaledCol}
+              onChange={handleScaledColChange}
+              data={colOptions}
+            />
+          </Input.Item>
+        </Align.Space>
+      </>
+    );
+  },
   none: () => <></>,
 };
 
-export const SelectCustomScaleTypeField = Form.buildButtonSelectField<
+export const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
   ScaleType,
   NamedKey<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "Custom Scale Type",
+    label: "Custom Scaling",
     onChange: (value, { get, set, path }) => {
-      const prevType = get<ScaleType>({ path }).value;
+      const prevType = get<ScaleType>(path).value;
       if (prevType === value) return;
       const next = deep.copy(ZERO_SCALES[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<Scale>({ path: parentPath }).value;
-      set({
-        path: parentPath,
-        value: {
-          ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
-          type: next.type,
-        },
+      const prevParent = get<Scale>(parentPath).value;
+      set(parentPath, {
+        ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
+        type: next.type,
       });
     },
   },
@@ -694,7 +764,7 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
   return (
     <>
       <SelectCustomScaleTypeField path={path} />
-      <FormComponent prefix={path} />;
+      <FormComponent prefix={path} />
     </>
   );
 };
@@ -702,17 +772,12 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
 export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
-      <ChannelField path={prefix} grow />
       <PortField path={prefix} grow />
-      <Align.Space direction="x" grow>
-        <TerminalConfigField path={prefix} grow />
-        <AccelerationUnitsField
-          path={prefix}
-          inputProps={{ omit: ["MetersPerSecondSquared", "InchesPerSecondSquared"] }}
-          grow
-        />
-      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <TerminalConfigField path={prefix} grow />
+      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
       <SensitivityField
         path={prefix}
         grow
@@ -727,6 +792,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           ),
         }}
       />
+      <Divider.Divider direction="x" padded="bottom" />
       <Align.Space direction="x" grow>
         <ExcitSourceField
           path={prefix}
@@ -739,76 +805,18 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           label="Current Excitation Value"
         />
       </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  ai_accel_4_wire_dc_voltage: ({ prefix }) => (
-    <>
-      <ChannelField path={prefix} />
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <SensitivityField
-        path={prefix}
-        grow
-        inputProps={{
-          children: (
-            <AccelSensitivityUnitsField
-              path={prefix}
-              grow
-              showLabel={false}
-              showHelpText={false}
-            />
-          ),
-        }}
-      />
-      <Align.Space direction="x" grow>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
-        <Form.SwitchField
-          path={`${prefix}.useExcitForScaling`}
-          label="Use Excitation for Scaling"
-        />
-      </Align.Space>
-      <CustomScaleForm prefix={prefix} />
-    </>
-  ),
-  ai_accel_charge: ({ prefix }) => (
-    <>
-      <ChannelField path={prefix} />
-      <PortField path={prefix} />
-      <TerminalConfigField path={prefix} />
-      <MinMaxValueFields path={prefix} />
-      <AccelerationUnitsField path={prefix} />
-      <SensitivityField
-        path={prefix}
-        grow
-        inputProps={{
-          children: (
-            <AccelSensitivityUnitsField
-              path={prefix}
-              showLabel={false}
-              showHelpText={false}
-            />
-          ),
-        }}
-      />
-      <CustomScaleForm prefix={prefix} />
-    </>
-  ),
+
   ai_bridge: ({ prefix }) => (
     <>
-      <ChannelField path={prefix} />
       <PortField path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
-      <ElectricalUnitsField path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <ElectricalUnitsField path={prefix} fieldKey="units" />
       <Align.Space direction="x">
         <BridgeConfigField path={prefix} grow />
         <Form.NumericField
@@ -816,6 +824,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           label="Nominal Bridge Resistance"
         />
       </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
       <Align.Space direction="x" grow>
         <ExcitSourceField
           path={prefix}
@@ -828,44 +837,20 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           label="Voltage Excitation Value"
         />
       </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  ai_charge: ({ prefix }) => {
-    const Units = Form.buildButtonSelectField({
-      fieldKey: "units",
-      fieldProps: { label: "Charge Units" },
-      inputProps: {
-        data: [
-          {
-            key: "Coulombs",
-            name: "Coulombs",
-          },
-          {
-            key: "PicoCoulombs",
-            name: "nC",
-          },
-        ],
-      },
-    });
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <TerminalConfigField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Units path={prefix} />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+
   ai_current: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ShuntResistorLocField path={prefix} grow />
           <Form.NumericField
@@ -874,92 +859,54 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
   },
-  ai_current_rms: ({ prefix }) => {
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <TerminalConfigField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Align.Space direction="x" grow>
-          <ShuntResistorLocField path={prefix} grow />
-          <Form.NumericField
-            path={`${prefix}.extShuntResistorVal`}
-            label="Shunt Resistance"
-            grow
-          />
-        </Align.Space>
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-  // TODO: Add support for entering coefficients
-  ai_force_bridge_polynomial: ({ prefix }) => {
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <ForceUnitsField path={prefix} />
-        <BridgeConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal Bridge Resistance"
-        />
-        {/* forwardCoeffs */}
-        {/* reverseCoeffs */}
-        <ElectricalUnitsField path={prefix} />
-        <ForceUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical Units"
-        />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+
   ai_force_bridge_table: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <ForceUnitsField path={prefix} />
-        <BridgeConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal Bridge Resistance"
-        />
-        <ForceUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical Units"
-        />
-        {/* physicalVals */}
-        <ElectricalUnitsField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
+        <Align.Space direction="x" size="small">
+          <BridgeConfigField path={prefix} grow />
+          <Form.NumericField
+            path={`${prefix}.nominalBridgeResistance`}
+            label="Nominal Bridge Resistance"
+            grow
+          />
+        </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
+        <Align.Space direction="x" size="small">
+          <ExcitSourceField
+            path={prefix}
+            fieldKey="voltageExcitSource"
+            label="Voltage Excitation Source"
+            grow
+          />
+          <Form.NumericField
+            path={`${prefix}.voltageExcitVal`}
+            label="Voltage Excitation Value"
+            grow
+          />
+        </Align.Space>
+        <Align.Space direction="x">
+          <ForceUnitsField
+            path={prefix}
+            fieldKey="physicalUnits"
+            label="Physical Units"
+            grow
+          />
+          {/* physicalVals */}
+          <ElectricalUnitsField path={prefix} grow />
+        </Align.Space>
         {/* electricalVals */}
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -967,10 +914,11 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_force_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <ForceUnitsField path={prefix} />
+        <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ExcitSourceField
             path={prefix}
@@ -983,6 +931,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             label="Voltage Excitation Value"
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <BridgeConfigField path={prefix} grow />
           <Form.NumericField
@@ -990,6 +939,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             label="Nominal Bridge Resistance"
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ForceUnitsField
             path={prefix}
@@ -1023,12 +973,13 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
   },
   ai_force_iepe: ({ prefix }) => {
-    const SensitivityUnits = Form.buildButtonSelectField({
+    const SensitivityUnits = Form.buildDropdownButtonSelectField({
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
@@ -1048,10 +999,11 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <ForceUnitsField path={prefix} inputProps={{ omit: ["KilogramForce"] }} />
         <SensitivityField
           path={prefix}
@@ -1061,6 +1013,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             ),
           }}
         />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ExcitSourceField
             path={prefix}
@@ -1074,45 +1027,14 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
   },
-  ai_freq_voltage: ({ prefix }) => {
-    const UnitsField = Form.buildButtonSelectField({
-      fieldKey: "units",
-      fieldProps: { label: "Frequency Units" },
-      inputProps: {
-        entryRenderKey: "name",
-        columns: NAMED_KEY_COLS,
-        data: [
-          {
-            key: "Hz",
-            name: "Hertz",
-          },
-        ],
-      },
-    });
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <UnitsField path={prefix} />
-        <Align.Space direction="x">
-          <Form.NumericField
-            path={`${prefix}.thresholdLevel`}
-            label="Threshold Level"
-            grow
-          />
-          <Form.NumericField path={`${prefix}.hysteresis`} label="Hysteresis" grow />
-        </Align.Space>
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+
   ai_microphone: ({ prefix }) => {
-    const UnitsField = Form.buildButtonSelectField({
+    const UnitsField = Form.buildDropdownButtonSelectField({
       fieldKey: "units",
       fieldProps: { label: "Sound Pressure Units" },
       inputProps: {
@@ -1128,10 +1050,13 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
+        <TerminalConfigField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
         <UnitsField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x">
           <Form.NumericField
             path={`${prefix}.micSensitivity`}
@@ -1144,6 +1069,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x">
           <ExcitSourceField
             path={prefix}
@@ -1157,39 +1083,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-  ai_pressure_bridge_polynomial: ({ prefix }) => {
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <PressureUnitsField path={prefix} />
-        <BridgeConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal Bridge Resistance"
-        />
-        {/* forwardCoeffs */}
-        {/* reverseCoeffs */}
-        <ElectricalUnitsField path={prefix} />
-        <PressureUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical Units"
-        />
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -1197,7 +1091,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_pressure_bridge_table: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <PressureUnitsField path={prefix} />
@@ -1230,11 +1123,19 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_pressure_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <PressureUnitsField path={prefix} />
-        <BridgeConfigField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
+        <Align.Space direction="x">
+          <BridgeConfigField path={prefix} grow />
+          <Form.NumericField
+            path={`${prefix}.nominalBridgeResistance`}
+            label="Nominal Bridge Resistance"
+          />
+        </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x">
           <ExcitSourceField
             path={prefix}
@@ -1246,30 +1147,31 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             path={`${prefix}.voltageExcitVal`}
             label="Voltage Excitation Value"
             grow
+            style={{ maxWidth: 200 }}
           />
         </Align.Space>
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal Bridge Resistance"
-        />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <PressureUnitsField
             path={prefix}
             fieldKey="physicalUnits"
             label="Physical Units"
             grow
+            style={{ width: "50%" }}
           />
-          <ElectricalUnitsField path={prefix} />
+          <ElectricalUnitsField path={prefix} grow style={{ width: "50%" }} />
         </Align.Space>
         <Align.Space direction="x" grow>
           <Form.NumericField
             path={`${prefix}.firstPhysicalVal`}
             label="Physical Value One"
             grow
+            style={{ width: "50%" }}
           />
           <Form.NumericField
             path={`${prefix}.secondPhysicalVal`}
             label="Physical Value Two"
+            style={{ width: "50%" }}
             grow
           />
         </Align.Space>
@@ -1277,168 +1179,50 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           <Form.NumericField
             path={`${prefix}.firstElectricalVal`}
             label="Electrical Value One"
+            style={{ width: "50%" }}
             grow
           />
           <Form.NumericField
             path={`${prefix}.secondElectricalVal`}
             label="Electrical Value Two"
+            style={{ width: "50%" }}
             grow
           />
         </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
   },
   ai_resistance: ({ prefix }) => {
-    const UnitsField = Form.buildButtonSelectField({
-      fieldKey: "units",
-      fieldProps: { label: "Resistance Units" },
-      inputProps: {
-        data: [
-          {
-            key: "Ohms",
-            name: "Ohms",
-          },
-        ],
-      },
-    });
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <UnitsField path={prefix} />
         <ResistanceConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current Excitation Value"
-        />
+        <Divider.Divider direction="x" padded="bottom" />
+        <Align.Space direction="x">
+          <ExcitSourceField
+            path={prefix}
+            fieldKey="currentExcitSource"
+            label="Current Excitation Source"
+          />
+          <Form.NumericField
+            path={`${prefix}.currentExcitVal`}
+            label="Current Excitation Value"
+          />
+        </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
   },
-  ai_rosette_strain_gage: ({ prefix }) => {
-    const TypeField = Form.buildButtonSelectField({
-      fieldKey: "rosetteType",
-      fieldProps: { label: "Rosette Type" },
-      inputProps: {
-        entryRenderKey: "name",
-        columns: NAMED_KEY_COLS,
-        data: [
-          {
-            key: "RectangularRosette",
-            name: "Rectangular",
-          },
-          {
-            key: "DeltaRosette",
-            name: "Delta",
-          },
-          {
-            key: "TeeRosette",
-            name: "Tee",
-          },
-        ],
-      },
-    });
-    const MeasureTypeField = Form.buildSelectMultiField({
-      fieldKey: "rosetteMeasTypes",
-      fieldProps: { label: "Measurement Type" },
-      inputProps: {
-        data: [
-          {
-            key: "PrincipleStrain1",
-            name: "Principle Strain 1",
-          },
-          {
-            key: "PrincipleStrain2",
-            name: "Principle Strain 2",
-          },
-          {
-            key: "PrincipleStrainAngle",
-            name: "Principle Strain Angle",
-          },
-          {
-            key: "CartesianStrainX",
-            name: "Cartesian Strain X",
-          },
-          {
-            key: "CartesianStrainY",
-            name: "Cartesian Strain Y",
-          },
-          {
-            key: "CartesianShearStrainXY",
-            name: "Cartesian Shear Strain XY",
-          },
-          {
-            key: "MaxShearStrain",
-            name: "Max Shear Strain",
-          },
-          {
-            key: "MaxShearStrainAngle",
-            name: "Max Shear Strain Angle",
-          },
-        ],
-      },
-    });
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Align.Space direction="x" grow>
-          <TypeField path={prefix} grow />
-          <Form.NumericField
-            path={`${prefix}.gageOrientation`}
-            label="Gage Orientation"
-            grow
-          />
-        </Align.Space>
-        <MeasureTypeField path={prefix} />
-        <StrainConfig path={prefix} />
-        <Align.Space direction="x" grow>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField path={`${prefix}.gageFactor`} label="Gage Factor" grow />
-          <Form.NumericField
-            path={`${prefix}.nominalGageResistance`}
-            label="Nominal Gage Resistance"
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField
-            path={`${prefix}.poissonRatio`}
-            label="Poission's Ratio"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.leadWireResistance`}
-            label="Lead Wire Resistance"
-            grow
-          />
-        </Align.Space>
-      </>
-    );
-  },
   ai_rtd: ({ prefix }) => {
-    const RTDTypeField = Form.buildButtonSelectField({
+    const RTDTypeField = Form.buildDropdownButtonSelectField({
       fieldKey: "rtdType",
       fieldProps: { label: "RTD Type" },
       inputProps: {
@@ -1475,14 +1259,16 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <TemperatureUnitsField path={prefix} grow />
           <RTDTypeField path={prefix} grow />
         </Align.Space>
         <ResistanceConfigField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
           <ExcitSourceField
             path={prefix}
@@ -1496,11 +1282,12 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <Form.NumericField path={`${prefix}.r0`} label="R0 Resistance" grow />
       </>
     );
   },
   ai_strain_gauge: ({ prefix }) => {
-    const StrainUnitsField = Form.buildButtonSelectField({
+    const StrainUnitsField = Form.buildDropdownButtonSelectField({
       fieldKey: "units",
       fieldProps: { label: "Strain Units" },
       inputProps: {
@@ -1514,7 +1301,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
@@ -1566,14 +1352,13 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_temp_builtin: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
         <TemperatureUnitsField path={prefix} />
       </>
     );
   },
   ai_thermocouple: ({ prefix }) => {
-    const ThermocoupleTypeField = Form.buildButtonSelectField({
+    const ThermocoupleTypeField = Form.buildDropdownButtonSelectField({
       fieldKey: "thermocoupleType",
       fieldProps: { label: "Thermocouple Type" },
       inputProps: {
@@ -1592,10 +1377,12 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         ],
       },
     });
-    const CJCSourceField = Form.buildButtonSelectField({
+    const CJCSourceField = Form.buildDropdownButtonSelectField({
       fieldKey: "cjcSource",
       fieldProps: { label: "CJC Source" },
       inputProps: {
+        columns: NAMED_KEY_COLS,
+        entryRenderKey: "name",
         data: [
           { key: "BuiltIn", name: "Built In" },
           { key: "ConstVal", name: "Constant Value" },
@@ -1603,10 +1390,11 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         ],
       },
     });
+    const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, true);
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
           <TemperatureUnitsField path={prefix} grow />
@@ -1614,115 +1402,31 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         </Align.Space>
         <Align.Space direction="x" grow>
           <CJCSourceField path={prefix} grow />
-          <Form.NumericField path={`${prefix}.cjcVal`} label="CJC Value" grow />
+          {cjcSource === "ConstVal" && (
+            <Form.NumericField path={`${prefix}.cjcVal`} label="CJC Value" grow />
+          )}
+          {cjcSource === "Chan" && (
+            <Form.NumericField path={`${prefix}.cjcPort`} label="CJC Port" grow />
+          )}
         </Align.Space>
       </>
     );
   },
-  ai_thermistor_iex: ({ prefix }) => {
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Align.Space direction="x" grow>
-          <TemperatureUnitsField path={prefix} grow />
-          <ResistanceConfigField path={prefix} grow />
-        </Align.Space>
-        <Align.Space direction="x">
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="currentExcitSource"
-            label="Current Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.currentExcitVal`}
-            label="Current Excitation Value"
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField path={`${prefix}.a`} label="A" grow />
-          <Form.NumericField path={`${prefix}.b`} label="B" grow />
-          <Form.NumericField path={`${prefix}.c`} label="C" grow />
-        </Align.Space>
-      </>
-    );
-  },
-  ai_thermistor_vex: ({ prefix }) => {
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Align.Space direction="x" grow>
-          <TemperatureUnitsField path={prefix} grow />
-          <ResistanceConfigField path={prefix} grow />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField path={`${prefix}.a`} label="A" grow />
-          <Form.NumericField path={`${prefix}.b`} label="B" grow />
-          <Form.NumericField path={`${prefix}.c`} label="C" grow />
-          <Form.NumericField path={`${prefix}.r1`} label="R1" grow />
-        </Align.Space>
-      </>
-    );
-  },
-  ai_torque_bridge_polynomial: ({ prefix }) => {
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <TorqueUnitsField path={prefix} />
-        <BridgeConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal Bridge Resistance"
-        />
-        {/* forwardCoeffs */}
-        {/* reverseCoeffs */}
-        <ElectricalUnitsField path={prefix} />
-        <TorqueUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical Units"
-        />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+
   ai_torque_bridge_table: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <TorqueUnitsField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <BridgeConfigField path={prefix} />
+        <Form.NumericField
+          path={`${prefix}.nominalBridgeResistance`}
+          label="Nominal Bridge Resistance"
+        />
+        <Divider.Divider direction="x" padded="bottom" />
         <ExcitSourceField
           path={prefix}
           fieldKey="voltageExcitSource"
@@ -1732,10 +1436,8 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           path={`${prefix}.voltageExcitVal`}
           label="Voltage Excitation Value"
         />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal Bridge Resistance"
-        />
+        <Divider.Divider direction="x" padded="bottom" />
+
         <TorqueUnitsField
           path={prefix}
           fieldKey="physicalUnits"
@@ -1744,6 +1446,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         {/* physicalVals */}
         <ElectricalUnitsField path={prefix} />
         {/* electricalVals */}
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -1751,55 +1454,78 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_torque_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <TorqueUnitsField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <BridgeConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
           label="Nominal Bridge Resistance"
         />
-        <TorqueUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical Units"
-        />
-        <ElectricalUnitsField path={prefix} />
-        <Form.NumericField
-          path={`${prefix}.firstPhysicalVal`}
-          label="Physical Value One"
-        />
-        <Form.NumericField
-          path={`${prefix}.secondPhysicalVal`}
-          label="Physical Value Two"
-        />
-        <Form.NumericField
-          path={`${prefix}.firstElectricalVal`}
-          label="Electrical Value One"
-        />
-        <Form.NumericField
-          path={`${prefix}.secondElectricalVal`}
-          label="Electrical Value Two"
-        />
+        <Divider.Divider direction="x" padded="bottom" />
+        <Align.Space direction="x">
+          <ExcitSourceField
+            path={prefix}
+            grow
+            fieldKey="voltageExcitSource"
+            label="Voltage Excitation Source"
+          />
+          <Form.NumericField
+            path={`${prefix}.voltageExcitVal`}
+            label="Voltage Excitation Value"
+          />
+        </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
+        <Align.Space direction="x" size="small">
+          <TorqueUnitsField
+            path={prefix}
+            fieldKey="physicalUnits"
+            label="Physical Units"
+            grow
+          />
+          <ElectricalUnitsField path={prefix} grow />
+        </Align.Space>
+        <Align.Space direction="x">
+          <Form.NumericField
+            grow
+            path={`${prefix}.firstPhysicalVal`}
+            label="Physical Value One"
+          />
+          <Form.NumericField
+            grow
+            path={`${prefix}.secondPhysicalVal`}
+            label="Physical Value Two"
+          />
+        </Align.Space>
+        <Align.Space direction="x">
+          <Form.NumericField
+            grow
+            path={`${prefix}.firstElectricalVal`}
+            label="Electrical Value One"
+          />
+          <Form.NumericField
+            grow
+            path={`${prefix}.secondElectricalVal`}
+            label="Electrical Value Two"
+          />
+        </Align.Space>
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );
   },
   ai_velocity_iepe: ({ prefix }) => {
-    const VelocityUnits = Form.buildButtonSelectField({
+    const VelocityUnits = Form.buildDropdownButtonSelectField<
+      VelocityUnits,
+      NamedKey<VelocityUnits>
+    >({
       fieldKey: "units",
       fieldProps: { label: "Velocity Units" },
       inputProps: {
+        columns: NAMED_KEY_COLS,
+        entryRenderKey: "name",
         data: [
           {
             key: "MetersPerSecond",
@@ -1812,10 +1538,15 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         ],
       },
     });
-    const SensitivityUnits = Form.buildButtonSelectField({
+    const SensitivityUnits = Form.buildDropdownButtonSelectField<
+      VelocitySensitivityUnits,
+      NamedKey<VelocitySensitivityUnits>
+    >({
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
+        columns: NAMED_KEY_COLS,
+        entryRenderKey: "name",
         data: [
           {
             key: "MillivoltsPerMillimeterPerSecond",
@@ -1830,23 +1561,30 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
-        <ElectricalUnitsField path={prefix} />
         <VelocityUnits path={prefix} />
-        <Form.NumericField path={`${prefix}.sensitivity`} label="Sensitivity" />
-        <SensitivityUnits path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current Excitation Source"
-        />
         <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current Excitation Value"
+          path={`${prefix}.sensitivity`}
+          label="Sensitivity"
+          inputProps={{
+            children: (
+              <SensitivityUnits path={prefix} showLabel={false} showHelpText={false} />
+            ),
+          }}
         />
+        <Align.Space direction="x" grow>
+          <ExcitSourceField
+            path={prefix}
+            fieldKey="currentExcitSource"
+            label="Current Excitation Source"
+          />
+          <Form.NumericField
+            path={`${prefix}.currentExcitVal`}
+            label="Current Excitation Value"
+          />
+        </Align.Space>
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -1854,47 +1592,11 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_voltage: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
         <PortField path={prefix} />
+        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-  ai_voltage_rms: ({ prefix }) => {
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <TerminalConfigField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <VoltageUnits path={prefix} />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-  ai_voltage_with_excit: ({ prefix }) => {
-    return (
-      <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <VoltageUnits path={prefix} />
-        <BridgeConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
-        <Form.SwitchField
-          path={`${prefix}.useExcitForScaling`}
-          label="Use Excitation for Scaling"
-        />
+        <Divider.Divider direction="x" padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
     );

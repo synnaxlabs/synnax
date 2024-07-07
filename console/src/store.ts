@@ -11,7 +11,7 @@ import type { Reducer, Store } from "@reduxjs/toolkit";
 import { combineReducers, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
-import { type deep } from "@synnaxlabs/x";
+import { type deep, migrate } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
@@ -71,17 +71,30 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   visible: false,
 };
 
-export const migrateState = (prev: RootState): RootState => ({
-  ...prev,
-  layout: Layout.migrateSlice(prev.layout),
-  schematic: Schematic.migrateSlice(prev.schematic),
-  line: LinePlot.migrateSlice(prev.line),
-  version: Version.migrateSlice(prev.version),
-  workspace: Workspace.migrateSlice(prev.workspace),
-  range: Range.migrateSlice(prev.range),
-  docs: Docs.migrateSlice(prev.docs),
-  cluster: Cluster.migrateSlice(prev.cluster),
-});
+export const migrateState = (prev: RootState): RootState => {
+  console.log("--------------- Migrating State ---------------");
+  console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
+  const layout = Layout.migrateSlice(prev.layout);
+  const schematic = Schematic.migrateSlice(prev.schematic);
+  const line = LinePlot.migrateSlice(prev.line);
+  const version = Version.migrateSlice(prev.version);
+  const workspace = Workspace.migrateSlice(prev.workspace);
+  const range = Range.migrateSlice(prev.range);
+  const docs = Docs.migrateSlice(prev.docs);
+  const cluster = Cluster.migrateSlice(prev.cluster);
+  console.log("--------------- Migrated State ---------------");
+  return {
+    ...prev,
+    layout,
+    schematic,
+    line,
+    version,
+    workspace,
+    range,
+    docs,
+    cluster,
+  };
+};
 
 const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
@@ -90,7 +103,6 @@ const newStore = async (): Promise<RootStore> => {
   });
   if (preloadedState != null && Drift.SLICE_NAME in preloadedState) {
     const windows = preloadedState[Drift.SLICE_NAME].windows;
-    // Reset these values to zero on startup.
     Object.keys(windows).forEach((key) => {
       windows[key].visible = false;
       windows[key].focusCount = 0;

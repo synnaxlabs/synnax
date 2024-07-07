@@ -70,15 +70,15 @@
     },
     {
       "name": "alamos/py",
-      "path": "../alamos/py",
+      "path": "../alamos/py"
     },
     {
       "name": "alamos/go",
-      "path": "../alamos/go",
+      "path": "../alamos/go"
     },
     {
       "name": "alamos/ts",
-      "path": "../alamos/ts",
+      "path": "../alamos/ts"
     },
     {
       "name": "x/media",
@@ -103,7 +103,7 @@
     {
       "name": "driver",
       "path": "../driver"
-    },
+    }
   ],
   "settings": {
     "editor.formatOnSave": true,
@@ -233,17 +233,19 @@
       "lineplot",
       "Migratable",
       "msgpackr",
-      "Navdrawer",
+      "NavDrawer",
       "nsis",
       "OPCUA",
       "reduxjs",
       "renderable",
       "Swatinem",
       "syncer",
+      "Syncer",
       "Synnax",
       "tauri",
       "Tauri",
-      "telem"
+      "telem",
+      "zodutil"
     ],
     "cSpell.enableFiletypes": [
       "mdx"

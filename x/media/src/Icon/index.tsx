@@ -74,6 +74,8 @@ import {
   MdLink,
   MdOutlineAccessTimeFilled,
   MdOutlineDeviceHub,
+  MdOutlineMotionPhotosOff,
+  MdOutlineMotionPhotosOn,
   MdOutlineTableRows,
   MdPause,
   MdPerson,
@@ -107,9 +109,10 @@ import {
   TbArrowLeft,
   TbArrowRight,
   TbArrowUp,
+  TbLivePhoto,
   TbPlugConnected,
   TbPlugConnectedX,
-  TbSubtask,
+  TbRadarFilled,
 } from "react-icons/tb";
 
 export type IconProps = React.SVGProps<SVGSVGElement>;
@@ -307,11 +310,14 @@ export const Icon: IconType = {
   Disconnect: wrapIcon(TbPlugConnectedX),
   Hardware: wrapIcon(MdHardware),
   Save: wrapIcon(MdSaveAlt),
-  Task: wrapIcon(TbSubtask),
+  Task: wrapIcon(TbRadarFilled),
   Device: wrapIcon(SiGooglenearby),
   Link: wrapIcon(MdLink),
   Attachment: wrapIcon(GrAttachment),
   Drag: wrapIcon(GrDrag),
+  Dynamic: wrapIcon(TbLivePhoto),
+  Enable: wrapIcon(MdOutlineMotionPhotosOn),
+  Disable: wrapIcon(MdOutlineMotionPhotosOff),
 };
 
 export interface IconType {
@@ -424,4 +430,7 @@ export interface IconType {
   Drag: IconFC;
   Link: IconFC;
   Attachment: IconFC;
+  Disable: IconFC;
+  Enable: IconFC;
+  Dynamic: IconFC;
 }

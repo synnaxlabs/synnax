@@ -15,16 +15,16 @@ import { type Command } from "@/palette/Palette";
 
 export const connectServerCommand: Command = {
   key: "opc-connect-server",
-  name: "OPC UA - Connect a New Server",
+  name: "Connect an OPC UA Server",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(createConfigureLayout()),
 };
 
 export const createReadTaskCommand: Command = {
   key: "opc-create-read-task",
-  name: "OPC UA - Create a New Read Task",
+  name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  onSelect: ({ placeLayout }) => placeLayout(configureReadLayout),
+  onSelect: ({ placeLayout }) => placeLayout(configureReadLayout(true)),
 };
 
 export const COMMANDS = [connectServerCommand, createReadTaskCommand];

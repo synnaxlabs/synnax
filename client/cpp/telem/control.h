@@ -28,6 +28,3 @@ struct ControlSubject {
     }
 };
 }
-
-
-

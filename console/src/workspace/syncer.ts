@@ -10,7 +10,8 @@
 import { QueryError } from "@synnaxlabs/client";
 import { Status, Synnax, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
-import { useEffect, useReducer, useRef } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -18,38 +19,48 @@ import { RootState } from "@/store";
 import { selectActiveKey } from "@/workspace/selectors";
 import { setActive } from "@/workspace/slice";
 
+const MAX_RETRY_COUNT = 3;
+
 export const useSyncLayout = async (): Promise<void> => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   const prevSync = useRef<unknown>();
-  const sync = useDebouncedCallback(
-    (s: RootState): void => {
-      const key = selectActiveKey(s);
-      if (key == null || client == null) return;
-      const layoutSlice = Layout.selectSliceState(s);
-      if (deep.equal(prevSync.current, layoutSlice)) return;
-      client.workspaces
-        .setLayout(key, layoutSlice as unknown as UnknownRecord)
-        .catch((e) => {
-          if (e instanceof QueryError) {
-            addStatus({
-              key: "layout-sync",
-              variant: "error",
-              message: "Layout not found in cluster. Clearing.",
-            });
-            store.dispatch(setActive(null));
-            return;
-          }
-          addStatus({
-            key: "layout-sync",
-            variant: "error",
-            message: "Failed to sync layout: " + e.message,
-          });
+  const sync = useMutation({
+    mutationKey: ["workspace.save"],
+    retry: MAX_RETRY_COUNT,
+    mutationFn: useDebouncedCallback(
+      async (s: RootState) => {
+        const key = selectActiveKey(s);
+        if (key == null || client == null) return;
+        const layoutSlice = Layout.selectSliceState(s);
+        if (deep.equal(prevSync.current, layoutSlice)) return;
+        prevSync.current = layoutSlice;
+        await client.workspaces.setLayout(key, layoutSlice as unknown as UnknownRecord);
+      },
+      250,
+      [client],
+    ),
+    onError: (e) => {
+      if (QueryError.matches(e)) {
+        addStatus({
+          key: "workspace.save",
+          variant: "error",
+          message: "Layout not found in cluster. Clearing.",
         });
+        store.dispatch(setActive(null));
+        return;
+      }
+      addStatus({
+        key: "workspace.save",
+        variant: "error",
+        message: "Failed to save workspace",
+        description: e.message,
+      });
     },
-    250,
-    [client],
-  );
-  useEffect(() => store.subscribe(() => sync(store.getState())), [client]);
+  });
+
+  useEffect(() => {
+    store.subscribe(() => sync.mutate(store.getState()));
+  }, [client]);
 };

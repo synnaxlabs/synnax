@@ -96,8 +96,9 @@ static UA_StatusCode nodeIter(
                 });
         }
     }
-    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0) return
-            UA_STATUSCODE_GOOD;
+    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0)
+        return
+                UA_STATUSCODE_GOOD;
     ctx->depth++;
     iterateChildren(ctx, child_id);
     ctx->depth--;

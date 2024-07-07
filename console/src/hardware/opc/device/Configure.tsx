@@ -125,7 +125,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       const task = await rack.retrieveTaskByName("opc Scanner");
       return await task.executeCommandSync<{ message: string }>(
         "test_connection",
-        { connection: methods.get({ path: "connection" }).value },
+        { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
       );
     },
@@ -141,34 +141,31 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         const task = await rack.retrieveTaskByName("opc Scanner");
         const { details: deviceProperties } = await task.executeCommandSync<Properties>(
           "scan",
-          { connection: methods.get({ path: "connection" }).value },
+          { connection: methods.get("connection").value },
           TimeSpan.seconds(20),
         );
         if (deviceProperties == null) return;
-        methods.set({
-          path: "groups",
-          value: [
-            {
-              key: nanoid(),
-              name: "Group 1",
-              channels: [
-                {
-                  key: nanoid(),
-                  name: "group_1_time",
-                  dataType: "timestamp",
-                  nodeId: "",
-                  isIndex: true,
-                  isArray: false,
-                },
-                ...deviceProperties.channels.map((c) => ({
-                  ...c,
-                  key: nanoid(),
-                  isIndex: false,
-                })),
-              ],
-            },
-          ],
-        });
+        methods.set("groups", [
+          {
+            key: nanoid(),
+            name: "Group 1",
+            channels: [
+              {
+                key: nanoid(),
+                name: "group_1_time",
+                dataType: "timestamp",
+                nodeId: "",
+                isIndex: true,
+                isArray: false,
+              },
+              ...deviceProperties.channels.map((c) => ({
+                ...c,
+                key: nanoid(),
+                isIndex: false,
+              })),
+            ],
+          },
+        ]);
         setDeviceProperties(deviceProperties);
         setRackKey(rack.key);
         setStep("createChannels");
@@ -188,21 +185,12 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         client == null ||
         rackKey == null ||
         deviceProperties == null
-      )
+      ) {
         return;
-      setProgress("Creating device...");
-      await client.hardware.devices.create({
-        key: uuidv4(),
-        name: methods.get<string>({ path: "name" }).value,
-        model: "opc",
-        make: "opc",
-        rack: rackKey,
-        location: methods.get<string>({ path: "connection.endpoint" }).value,
-        properties: deviceProperties,
-        configured: true,
-      });
+      }
       setProgress("Creating channels...");
-      const groups = methods.get<GroupConfig[]>({ path: "groups" }).value;
+      const groups = methods.get<GroupConfig[]>("groups").value;
+      const mapped = new Map<string, number>();
       for (const group of groups) {
         // find the index channel
         const idxBase = group.channels.find((c) => c.isIndex);
@@ -212,17 +200,37 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           isIndex: true,
           dataType: DataType.TIMESTAMP.toString(),
         });
+        mapped.set(idxBase.nodeId, idx.key);
         setProgress(`Creating channels for ${group.name}...`);
-        await client.channels.create(
-          group.channels
-            .filter((c) => !c.isIndex)
-            .map((c) => ({
-              name: c.name,
-              dataType: new DataType(c.dataType).toString(),
-              index: idx.key,
-            })),
+        const toCreate = group.channels.filter((c) => !c.isIndex);
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: c.name,
+            dataType: new DataType(c.dataType).toString(),
+            index: idx.key,
+          })),
         );
+        channels.forEach((c, i) => {
+          const nodeId = toCreate[i].nodeId;
+          if (nodeId != null) mapped.set(nodeId, c.key);
+        });
       }
+      setProgress("Creating device...");
+      deviceProperties.channels.forEach((c) => {
+        const synnaxChannel = mapped.get(c.nodeId);
+        if (synnaxChannel == null) return;
+        c.synnaxChannel = synnaxChannel;
+      });
+      await client.hardware.devices.create({
+        key: uuidv4(),
+        name: methods.get<string>("name").value,
+        model: "opc",
+        make: "opc",
+        rack: rackKey,
+        location: methods.get<string>("connection.endpoint").value,
+        properties: deviceProperties,
+        configured: true,
+      });
     },
   });
 
@@ -238,7 +246,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   }
 
   return (
-    <Align.Space className={CSS.B("configure")} align="stretch" grow empty>
+    <Align.Space className={CSS.B("opc-configure")} align="stretch" grow empty>
       <Form.Form {...methods}>
         <Align.Space className={CSS.B("content")} grow>
           {content}
@@ -355,20 +363,20 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
               path="connection.client_certificate"
               label="Client Certificate"
             >
-              {(p) => <FS.LoadFileContents grow {...p} />}
+              {(p) => <FS.InputFilePath grow {...p} />}
             </Form.Field>
             <Form.Field<string>
               path="connection.client_private_key"
               label="Client Private Key"
             >
-              {(p) => <FS.LoadFileContents grow {...p} />}
+              {(p) => <FS.InputFilePath grow {...p} />}
             </Form.Field>
             <Form.Field<string>
               path="connection.server_certificate"
               label="Server Certificate"
               grow
             >
-              {(p) => <FS.LoadFileContents grow {...p} />}
+              {(p) => <FS.InputFilePath grow {...p} />}
             </Form.Field>
           </>
         )}

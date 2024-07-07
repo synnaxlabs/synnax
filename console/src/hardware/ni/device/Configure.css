@@ -19,12 +19,13 @@
     position: relative;
     height: 100%;
     width: 100%;
+    overflow: hidden;
 
     & .console-description {
         width: 100%;
         max-width: 450px;
         padding: 4rem;
-        & p {
+        & *:not(button) > p {
             font-size: 2.4rem;
             line-height: 150%;
         }
@@ -34,12 +35,14 @@
         width: 100%;
         flex-grow: 1;
         padding: 3rem;
+        overflow: hidden;
     }
 
     .console-form {
         border: var(--pluto-border);
         border-radius: 1.5rem;
         height: 100%;
+        overflow-y: auto;
     }
 
     .pluto-navbar {

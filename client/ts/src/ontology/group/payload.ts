@@ -17,12 +17,12 @@ export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 
-export const payloadZ = z.object({
+export const groupZ = z.object({
   key: keyZ,
   name: z.string(),
 });
 
-export type Payload = z.infer<typeof payloadZ>;
+export type Payload = z.infer<typeof groupZ>;
 
 export type ParamAnalysisResult =
   | {

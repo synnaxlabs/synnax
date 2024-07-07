@@ -1,0 +1,109 @@
+/*
+ * Copyright 2024 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-task-configure {
+    height: 100%;
+    align-items: center;
+    container-type: size;
+
+    .pluto-field__config-sampleRate,
+    .pluto-field__config--streamRate,
+    .pluto-field__config--arraySize {
+        flex-basis: 200px;
+        flex-grow: 1;
+    }
+
+    > div {
+        padding: 5rem;
+        max-width: 1000px;
+        width: 100%;
+        flex-grow: 1;
+
+        .console-channel-form-container {
+            display: flex;
+            /* height of 0 means list items will produce overflow scroll correctly */
+            height: 0px;
+            border-radius: 1rem;
+            overflow: hidden;
+
+            .console-channels {
+                border-right: var(--pluto-border);
+                overflow: hidden;
+                max-width: 300px;
+                width: 100%;
+                height: 100%;
+
+                .pluto-menu-context__container {
+                    overflow: hidden;
+                }
+
+                .console-hover-actions {
+                    display: none;
+                }
+
+                .pluto-list__item:hover {
+                    .console-hover-actions {
+                        display: flex;
+                    }
+                }
+            }
+
+            .console-channel-form {
+                overflow: hidden;
+                .console-details {
+                    height: 100%;
+                    overflow: auto;
+                    padding: 3rem 5rem;
+                }
+            }
+        }
+    }
+}
+
+@container (max-height: 600px) {
+    .pluto-input--natural input {
+        font-size: var(--pluto-h2-size);
+        line-height: var(--pluto-h2-line-height);
+    }
+}
+
+@container (max-width: 600px) {
+    .console-task-properties {
+        flex-direction: column !important;
+        gap: 0 !important;
+    }
+    .pluto-input--natural input {
+        font-size: var(--pluto-h2-size);
+        line-height: var(--pluto-h2-line-height);
+    }
+    .console-task-controls {
+        flex-direction: column !important;
+        .console-task-state {
+            min-height: 10rem;
+        }
+    }
+    .console-content {
+        padding: 3rem 2rem !important;
+    }
+    .console-channel-form-container {
+        flex-direction: column !important;
+
+        .console-channels {
+            max-width: 100% !important;
+            border-right: none !important;
+        }
+        .console-channel-form {
+            flex-grow: 1;
+            flex-basis: 800px;
+            border-top: var(--pluto-border);
+        }
+    }
+}

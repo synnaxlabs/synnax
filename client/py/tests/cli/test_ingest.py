@@ -19,6 +19,7 @@ from .data import DATA_DIR
 
 CHANNELS = ["ingest-valid-idx", "ingest-valid-1", "ingest-valid-2"]
 
+
 @pytest.mark.cli
 class TestIngest:
     def test_valid_ingest(self, client: Synnax):
@@ -43,4 +44,3 @@ class TestIngest:
             )
         finally:
             client.channels.delete(CHANNELS)
-

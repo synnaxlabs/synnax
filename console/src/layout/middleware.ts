@@ -12,8 +12,8 @@ import { Mosaic } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
-import { WindowProps } from "@/layout/layout";
 import { select, selectSliceState } from "@/layout/selectors";
+import { WindowProps } from "@/layout/slice";
 import {
   clearWorkspace,
   MOSAIC_WINDOW_TYPE,
@@ -106,9 +106,12 @@ export const closeWindowOnRemoveEffect: MiddlewareEffect<
 export const createWindowsOnSetWorkspaceEffect: MiddlewareEffect<
   StoreState & Drift.StoreState,
   SetWorkspacePayload,
-  Drift.CreateWindowPayload
+  Drift.CreateWindowPayload | Drift.CloseWindowPayload
 > = ({ getState, dispatch }) => {
-  const { layouts } = selectSliceState(getState());
+  const state = getState();
+  const winKey = selectWindowKey(state);
+  if (winKey !== MAIN_WINDOW) return;
+  const { layouts } = selectSliceState(state);
   Object.values(layouts)
     .filter(({ location: l }) => l === "window")
     .forEach(({ key, name, window }) => {

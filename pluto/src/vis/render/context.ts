@@ -111,6 +111,8 @@ export class Context {
     gl.disable(gl.DITHER);
     this.gl = gl;
 
+    this.glCanvas.oncontextlost = console.log;
+
     const afterRender = () => {
       this.gl.flush();
       this.gl.finish();

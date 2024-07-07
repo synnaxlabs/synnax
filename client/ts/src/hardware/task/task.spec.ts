@@ -84,5 +84,17 @@ describe("Hardware", () => {
         expect(retrieved.state?.variant).toBe(state.variant);
       });
     });
+    describe("list", () => {
+      it("should list all tasks", async () => {
+        const t = await client.hardware.racks.create({ name: "test" });
+        await t.createTask({
+          name: "test",
+          config: { a: "dog" },
+          type: "ni",
+        });
+        const tasks = await client.hardware.tasks.list();
+        expect(tasks.length).toBeGreaterThan(0);
+      });
+    });
   });
 });

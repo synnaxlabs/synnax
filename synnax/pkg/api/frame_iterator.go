@@ -65,8 +65,9 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 		return nil, err
 	}
 	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{
-		Bounds: req.Bounds,
-		Keys:   req.Keys,
+		Bounds:    req.Bounds,
+		Keys:      req.Keys,
+		ChunkSize: req.ChunkSize,
 	})
 	if err != nil {
 		return nil, err

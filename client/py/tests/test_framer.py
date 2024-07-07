@@ -36,7 +36,37 @@ class TestChannelWriteRead:
         assert data.time_range.start == start
         assert len(d) == len(data)
         assert data.time_range.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1
-        assert all(data == d)
+        assert np.array_equal(data, d)
+
+
+@pytest.mark.framer
+@pytest.mark.iterator
+class TestIterator:
+    def test_basic_iterate(self, channel: sy.Channel, client: sy.Synnax):
+        d = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).astype(np.float64)
+        channel.write(0, d)
+        with client.open_iterator(sy.TimeRange.MAX, channel.key) as i:
+            for f in i:
+                assert np.array_equal(f.get(channel.key), d)
+
+    def test_auto_chunk(self, channel: sy.Channel, client: sy.Synnax):
+        d = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).astype(np.float64)
+        channel.write(0, d)
+        with client.open_iterator(sy.TimeRange.MAX, channel.key, chunk_size=4) as i:
+            assert i.seek_first()
+            i.next(sy.framer.AUTO_SPAN)
+            l = i.value.get(channel.key).to_numpy().tolist()
+            assert l == [0, 1, 2, 3]
+
+            i.next(sy.framer.AUTO_SPAN)
+            l = i.value.get(channel.key).to_numpy().tolist()
+            assert l == [4, 5, 6, 7]
+
+            i.next(sy.framer.AUTO_SPAN)
+            l = i.value.get(channel.key).to_numpy().tolist()
+            assert l == [8, 9]
+
+            assert not i.next(sy.framer.AUTO_SPAN)
 
 
 @pytest.mark.framer
@@ -165,6 +195,65 @@ class TestWriter:
                 with pytest.raises(TimeoutError):
                     async with asyncio.timeout(0.2):
                         await s.read()
+
+    @pytest.mark.focus
+    def test_write_persist_stream_regression(self, client: sy.Synnax):
+        """Should work"""
+        idx = client.channels.create(
+            name="idx",
+            is_index=True,
+            data_type="timestamp",
+        )
+        data = client.channels.create(
+            name="data",
+            data_type="float64",
+            index=idx.key,
+        )
+        # Write some data
+        start = sy.TimeStamp.now()
+        with client.open_writer(
+            start,
+            [idx.key, data.key],
+            enable_auto_commit=True
+        ) as w:
+            w.write({ idx.key: [start], data.key: [1] })
+
+        # Read the data
+        next_start = start + 5 * sy.TimeSpan.MILLISECOND
+        f = client.read(TimeRange(start - 5 * sy.TimeSpan.MILLISECOND, next_start),
+                        data.key)
+        assert len(f) == 1
+
+        data_2 = client.channels.create(
+            name="data_2",
+            data_type="float64",
+            index=idx.key,
+        )
+        data_3 = client.channels.create(
+            name="data_3",
+            data_type="float64",
+            index=idx.key,
+        )
+        with (client.open_writer(
+            next_start,
+            [idx.key, data.key, data_2.key, data_3.key],
+            enable_auto_commit=True
+        ) as w):
+            w.write({
+                idx.key: [next_start],
+                data.key: [1],
+                data_2.key: [2],
+                data_3.key: [3]
+            })
+
+        tr = sy.TimeRange(start - 5 * sy.TimeSpan.MILLISECOND, next_start + 5 *
+                          sy.TimeSpan.MILLISECOND)
+        f = client.read(tr, data_2.key)
+        assert len(f) == 1
+        f2 = client.read(tr, [data.key, data_2.key, data_3.key])
+        assert len(f2[data.key]) == 2
+        assert len(f2[data_2.key]) == 1
+        assert len(f2[data_3.key]) == 1
 
 
 @pytest.mark.framer

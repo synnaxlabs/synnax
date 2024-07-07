@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Emiliano Bonilla on 3/31/24.
-//
 
 #pragma once
 
