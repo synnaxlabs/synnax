@@ -13,7 +13,6 @@ import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { NI } from "@/hardware/ni";
@@ -81,6 +80,8 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
   }).mutate;
 
+const handleLink = Link.useCopyToClipboard();
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
@@ -89,23 +90,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { nodes } = selection;
   if (selection.nodes.length === 0) return null;
   const singleResource = selection.nodes.length === 1;
-  const clusterKey = Cluster.useSelectActiveKey();
   const del = useDelete();
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => del(props),
-    link: () => {
-      if (clusterKey == null) return;
-      Link.CopyToClipboard({
-        clusterKey,
-        resource: {
-          type: "range",
-          key: resources[0].id.key,
-        },
+    link: () =>
+      handleLink({
         name: resources[0].name,
-        ...props,
-      });
-    },
+        resource: { key: resources[0].id.key, type: "device" },
+      }),
     rename: () => Tree.startRenaming(nodes[0].key),
   };
   const make = selection.resources[0].data?.make;

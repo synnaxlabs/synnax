@@ -28,12 +28,12 @@ import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 
 export interface HandlerProps {
-  resource: string;
-  resourceKey: string;
+  addStatus: (status: Status.CrudeSpec) => void;
   client: Synnax;
   dispatch: Dispatch<UnknownAction>;
   placer: Layout.Placer;
-  addStatus: (status: Status.CrudeSpec) => void;
+  resource: string;
+  resourceKey: string;
   windowKey: string;
 }
 
@@ -139,37 +139,46 @@ export const CopyMenuItem = (): ReactElement => (
 );
 
 export interface CopyToClipboardProps {
-  clusterKey: string;
-  resource?: {
-    type: string;
-    key: string;
-  };
+  clusterKey?: string;
   name: string;
-  addStatus: (status: Status.CrudeSpec) => void;
+  resource?: {
+    key: string;
+    type: string;
+  };
 }
 
-export const CopyToClipboard = ({
-  clusterKey,
-  resource,
-  name,
-  addStatus,
-}: CopyToClipboardProps): void => {
-  let url = `synnax://cluster/${clusterKey}`;
-  if (resource != null) url += `/${resource.type}/${resource.key}`;
-  navigator.clipboard.writeText(url).then(
-    () => {
-      addStatus({
-        variant: "success",
-        key: nanoid(),
-        message: `Link to ${name} copied to clipboard.`,
-      });
-    },
-    () => {
+export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) => {
+  const activeClusterKey = Cluster.useSelectActiveKey();
+  const addStatus = Status.useAggregator();
+  return ({ resource, name, clusterKey }) => {
+    let url = "synnax://cluster/";
+    const key = clusterKey ?? activeClusterKey;
+    if (key == null) {
       addStatus({
         variant: "error",
         key: nanoid(),
-        message: `Failed to copy link to ${name} to clipboard.`,
+        message: `Failed to copy link to ${name} to clipboard`,
+        description: "No active cluster found",
       });
-    },
-  );
+      return;
+    }
+    url += key;
+    if (resource != undefined) url += `/${resource.type}/${resource.key}`;
+    navigator.clipboard.writeText(url).then(
+      () => {
+        addStatus({
+          variant: "success",
+          key: nanoid(),
+          message: `Link to ${name} copied to clipboard.`,
+        });
+      },
+      () => {
+        addStatus({
+          variant: "error",
+          key: nanoid(),
+          message: `Failed to copy link to ${name} to clipboard.`,
+        });
+      },
+    );
+  };
 };

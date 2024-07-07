@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
@@ -118,27 +117,20 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { resources },
   } = props;
   const activeRange = Range.select(store.getState());
-  const activeKey = Cluster.useSelectActiveKey();
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useRangeSnapshot();
+  const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu("schematic.menu", {
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    link: () => {
-      if (activeKey == null) return;
-      Link.CopyToClipboard({
-        clusterKey: activeKey,
-        resource: {
-          type: "schematic",
-          key: resources[0].id.key,
-        },
+    link: () =>
+      handleLink({
         name: resources[0].name,
-        ...props,
-      });
-    },
+        resource: { key: resources[0].id.key, type: "schematic" },
+      }),
   });
   const isSingle = resources.length === 1;
   return (

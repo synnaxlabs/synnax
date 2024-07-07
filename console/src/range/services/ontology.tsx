@@ -16,7 +16,6 @@ import { toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -184,7 +183,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activeRange = select(state);
   const layout = Layout.selectActiveMosaicTab(state);
   const { resources, nodes } = selection;
-  const clusterKey = Cluster.useSelectActiveKey();
+  const handleLink = Link.useCopyToClipboard();
 
   const del = useDelete();
   const addToActivePlot = useAddToActivePlot();
@@ -200,19 +199,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     addToNewPlot: () => addToNewPlot(props),
     edit: () => handleEdit(props),
     group: () => groupFromSelection(props),
-    link: () => {
-      if (clusterKey == null) return;
-      Link.CopyToClipboard({
-        clusterKey,
-        resource: {
-          type: "range",
-          key: resources[0].id.key,
-        },
+    link: () =>
+      handleLink({
         name: resources[0].name,
-        ...props,
-      });
-    },
+        resource: { key: resources[0].id.key, type: "range" },
+      }),
   };
+
   const isSingle = resources.length === 1;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">

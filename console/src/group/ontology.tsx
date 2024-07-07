@@ -15,7 +15,6 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Link } from "@/link";
@@ -27,24 +26,20 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
-  const clusterKey = Cluster.useSelectActiveKey();
+  const handleLink = Link.useCopyToClipboard();
 
   const onSelect = useAsyncActionMenu("group.menu", {
     ungroup: () => ungroup(props),
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => createEmptyGroup(props),
-    link: () => {
-      if (clusterKey == null) return;
-      Link.CopyToClipboard({
-        clusterKey,
-        resource: {
-          type: "group",
-          key: resources[0].id.key,
-        },
+    link: () =>
+      handleLink({
         name: resources[0].name,
-        ...props,
-      });
-    },
+        resource: {
+          key: resources[0].id.key,
+          type: "group",
+        },
+      }),
   });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;

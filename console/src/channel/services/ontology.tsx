@@ -22,7 +22,6 @@ import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -221,29 +220,6 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
   }).mutate;
 
-export const useLink = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const clusterKey = Cluster.useSelectActiveKey();
-  if (clusterKey == null) {
-    return ({ addStatus }) => {
-      addStatus({
-        key: nanoid(),
-        variant: "error",
-        message: "Cannot copy link to clipboard, no active cluster found.",
-      });
-    };
-  }
-  return ({ addStatus, selection: { resources } }) =>
-    Link.CopyToClipboard({
-      clusterKey,
-      resource: {
-        type: "channel",
-        key: resources[0].id.key,
-      },
-      name: resources[0].name,
-      addStatus,
-    });
-};
-
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection } = props;
   const activeRange = Range.select(store.getState());
@@ -253,7 +229,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const delAlias = useDeleteAlias();
   const del = useDelete();
   const handleRename = useRename();
-  const handleLink = useLink();
+  const handleLink = Link.useCopyToClipboard();
 
   const handleSelect = {
     group: () => groupFromSelection(props),
@@ -261,7 +237,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     deleteAlias: () => delAlias(props),
     alias: () => setAlias(props),
     rename: () => handleRename(props),
-    link: () => handleLink(props),
+    link: () =>
+      handleLink({
+        name: selection.resources[0].name,
+        resource: { key: selection.resources[0].id.key, type: "channel" },
+      }),
   };
 
   const singleResource = selection.resources.length === 1;

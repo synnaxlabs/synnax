@@ -14,7 +14,6 @@ import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -156,7 +155,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createSchematic = useCreateSchematic();
   const createLinePlot = useCreateLinePlot();
   const group = Group.useCreateFromSelection();
-  const clusterKey = Cluster.useSelectActiveKey();
+  const handleLink = Link.useCopyToClipboard();
 
   const handleSelect = {
     delete: () => del(props),
@@ -164,18 +163,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     group: () => group(props),
     plot: () => createLinePlot(props),
     schematic: () => createSchematic(props),
-    link: () => {
-      if (clusterKey == null) return;
-      Link.CopyToClipboard({
-        clusterKey,
-        resource: {
-          type: "workspace",
-          key: resources[0].id.key,
-        },
+    link: () =>
+      handleLink({
         name: resources[0].name,
-        ...props,
-      });
-    },
+        resource: { key: resources[0].id.key, type: "workspace" },
+      }),
   };
 
   const singleResource = resources.length === 1;

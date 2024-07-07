@@ -11,7 +11,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { NI } from "@/hardware/ni";
@@ -86,8 +85,8 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus } = props;
   const { resources, nodes } = selection;
-  const clusterKey = Cluster.useSelectActiveKey();
   const del = useDelete();
+  const handleLink = Link.useCopyToClipboard();
   const onSelect = {
     delete: () => del(props),
     edit: () =>
@@ -101,18 +100,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         services: props.services,
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
-    link: () => {
-      if (clusterKey == null) return;
-      Link.CopyToClipboard({
-        clusterKey,
-        resource: {
-          type: "range",
-          key: resources[0].id.key,
-        },
+    link: () =>
+      handleLink({
         name: resources[0].name,
-        ...props,
-      });
-    },
+        resource: { key: resources[0].id.key, type: "task" },
+      }),
   };
   const singleResource = resources.length === 1;
   return (

@@ -29,7 +29,6 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
@@ -102,6 +101,8 @@ export const List = (): ReactElement => {
     })();
   };
 
+  const handleLink = Link.useCopyToClipboard();
+
   const NoRanges = (): ReactElement => {
     const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
       e.stopPropagation();
@@ -120,8 +121,6 @@ export const List = (): ReactElement => {
     );
   };
 
-  const clusterKey = Cluster.useSelectActiveKey();
-
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -135,20 +134,17 @@ export const List = (): ReactElement => {
       delete: () => rng != null && del.mutate(rng.key),
       save: () => rng != null && handleSave(rng.key),
       setActive: () => rng != null && handleSetActive(rng.key),
-      link: () => {
-        if (rng == null) return;
-        if (clusterKey == null) return;
-        Link.CopyToClipboard({
-          clusterKey,
-          resource: {
-            type: "range",
-            key: rng.key,
-          },
+      link: () =>
+        rng != null &&
+        handleLink({
           name: rng.name,
-          addStatus,
-        });
-      },
+          resource: {
+            key: rng.key,
+            type: "range",
+          },
+        }),
     };
+
     return (
       <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
         <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
