@@ -263,7 +263,6 @@ class TestRangeData:
         assert rng[data_ch.name][2] == 3.0
         assert rng[data_ch.name][3] == 4.0
 
-    @pytest.mark.focus
     def test_basic_write(self, client: sy.Synnax):
         """It should correctly write data to the range"""
         name = str(uuid4())

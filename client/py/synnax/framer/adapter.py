@@ -103,7 +103,7 @@ class WriteFrameAdapter:
                 )
             if isinstance(series, list) and len(series) > 1:
                 first = series[0]
-                if not isinstance(first, (float, int, TimeoutError)):
+                if not isinstance(first, (float, int)):
                     raise ValidationError(
                         f"""
                     Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}

@@ -209,19 +209,61 @@ class TestWriteFrameAdapter:
         self,
         adapter: [WriteFrameAdapter, sy.Channel],
     ):
+        """Should correctly adapt multiple channels and a single list of values"""
         adapter, channel = adapter
         o = adapter.adapt([channel], [1.0])
         assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
         assert o.series[0][0] == 1.0
 
-    @pytest.mark.focus
     def test_adaptation_of_list(
         self,
         adapter: [WriteFrameAdapter, sy.Channel],
     ):
+        """Should correctly adapt a channel and a list of values
+        """
         adapter, channel = adapter
         o = adapter.adapt(channel, [1.0, 2.0, 3.0])
         assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
         assert len(o.series[0]) == 3
+
+    def test_adaptation_of_multiple_series_and_single_payload(self, adapter):
+        """Should raise a validation error when there are more series than channels"""
+        adapter, channel = adapter
+        with pytest.raises(sy.ValidationError):
+            adapter.adapt(channel, [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+
+    def test_adaptation_of_single_channel_and_no_data(self, adapter):
+        """Should raise a validation error when there are no series"""
+        adapter, channel = adapter
+        with pytest.raises(sy.ValidationError):
+            adapter.adapt(channel)
+
+    def test_adaptation_of_multiple_channels_and_no_data(self, adapter):
+        """Should raise a validation error when there are no series"""
+        adapter, channel = adapter
+        with pytest.raises(sy.ValidationError):
+            adapter.adapt([channel, channel])
+
+    def test_mismatch_of_channels_and_series_length(self, adapter):
+        """Should raise a validation error when there are more channels than series"""
+        adapter, channel = adapter
+        with pytest.raises(sy.ValidationError):
+            adapter.adapt([channel, channel], [1.0])
+
+    def test_validation_error_when_frame_with_nonexistent_channel_name_is_adapted(self,
+                                                                               adapter):
+        """Should raise a validation error when a Frame with a nonexistent channel key is adapted"""
+        adapter, channel = adapter
+        with pytest.raises(sy.ValidationError):
+            adapter.adapt(Frame(["caramela"], [sy.Series([1, 2, 3],
+                                                 data_type=sy.DataType.FLOAT64)])
+        )
+
+    def test_type_error_when_invalid_value_is_adapted(self, adapter):
+        """Should raise a type error when an invalid value is adapted"""
+        adapter, channel = adapter
+        with pytest.raises(TypeError):
+            adapter.adapt(Exception("Invalid value"))
+
