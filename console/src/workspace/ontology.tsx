@@ -14,7 +14,6 @@ import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -147,27 +146,28 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
-  const { selection } = props;
-
+  const {
+    selection,
+    selection: { resources },
+  } = props;
   const del = useDelete();
   const createSchematic = useCreateSchematic();
   const createLinePlot = useCreateLinePlot();
   const group = Group.useCreateFromSelection();
-  const clusterKey = Cluster.useSelectActiveKey();
-
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
     delete: () => del(props),
-    rename: () => Tree.startRenaming(selection.resources[0].id.toString()),
+    rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
     plot: () => createLinePlot(props),
     schematic: () => createSchematic(props),
-    link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/workspace/${selection.resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
-    },
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   };
-
-  const singleResource = selection.resources.length === 1;
+  const singleResource = resources.length === 1;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && (
@@ -177,11 +177,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-
-      <Group.GroupMenuItem selection={props.selection} />
+      <Group.GroupMenuItem selection={selection} />
+      <PMenu.Divider />
       {singleResource && (
         <>
-          <PMenu.Divider />
           <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
             New Line Plot
           </PMenu.Item>

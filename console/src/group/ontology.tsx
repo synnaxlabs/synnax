@@ -17,6 +17,7 @@ import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components/menu";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -25,10 +26,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
+  const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu("group.menu", {
     ungroup: () => ungroup(props),
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => createEmptyGroup(props),
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
@@ -41,7 +48,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-
       <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
         New Group
       </PMenu.Item>
@@ -52,6 +58,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </PMenu.Item>
       )}
       <PMenu.Divider />
+      {singleResource && (
+        <>
+          <Link.CopyMenuItem />
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );
