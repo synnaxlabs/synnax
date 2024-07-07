@@ -78,7 +78,7 @@ export const List = (): ReactElement => {
             return handleConnect(null);
           case "link": {
             const name = allClusters.find((c) => c.key === key)?.name;
-            if (name == undefined) return;
+            if (name == null) return;
             return handleLink({ name });
           }
           case "rename":
