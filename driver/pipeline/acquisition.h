@@ -135,7 +135,7 @@ public:
     /// If the pipeline has already stopped, stop will return immediately.
     void stop();
 
-    ~Acquisition() = default;
+    ~Acquisition();
 
 private:
     std::unique_ptr<std::thread> thread;
