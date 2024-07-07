@@ -23,7 +23,7 @@ cc_library(
 )
 
 cc_library(
-    name = "nisyscfg",
+    name = "syscfg",
     srcs = select({
         "//conditions:default": ["nisyscfg_prod.cpp"],
         ":ni_mock": ["nisyscfg_mock.cpp"],
@@ -94,7 +94,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "daqmx",
-        "nisyscfg",
+        "syscfg",
         "//driver/breaker",
         "//driver/errors",
         "//driver/pipeline",

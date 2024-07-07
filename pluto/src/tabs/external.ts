@@ -9,3 +9,4 @@
 
 export * from "@/tabs/Selector";
 export * from "@/tabs/Tabs";
+export * from "@/tabs/types";

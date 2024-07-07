@@ -61,7 +61,6 @@ public:
     }) {
     }
 
-    //copy constructor
     Breaker(
         const Breaker &other
     ) noexcept: config(other.config),
@@ -72,8 +71,6 @@ public:
         std::cout << "copy constructor called" << std::endl;
     }
 
-
-    //move constructor
     Breaker(Breaker &&other) noexcept : config(other.config),
                                         interval(other.interval),
                                         retries(other.retries),
@@ -84,7 +81,6 @@ public:
         std::cout << "move constructor called" << std::endl;
     }
 
-    // copy assignment
     Breaker &operator=(const Breaker &other) noexcept {
         if (this == &other) return *this;
         this->config = other.config;
@@ -95,7 +91,6 @@ public:
         return *this;
     }
 
-    // destructor
     ~Breaker() {
         stop();
         // sleep to allow for the breaker to shutdown.
