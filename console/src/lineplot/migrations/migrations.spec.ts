@@ -8,10 +8,11 @@ import {
 } from "@/lineplot/migrations";
 import * as v0 from "@/lineplot/migrations/v0";
 import * as v1 from "@/lineplot/migrations/v1";
+import * as v2 from "@/lineplot/migrations/v2";
 
 describe("migrations", () => {
   describe("state", () => {
-    const STATES = [v0.ZERO_STATE, v1.ZERO_STATE];
+    const STATES = [v0.ZERO_STATE, v1.ZERO_STATE, v2.ZERO_STATE];
     STATES.forEach((state) => {
       it(`should migrate state from ${state.version} to latest`, () => {
         const migrated = migrateState(state);
@@ -20,7 +21,7 @@ describe("migrations", () => {
     });
   });
   describe("slice", () => {
-    const STATES = [v0.ZERO_SLICE_STATE, v1.ZERO_SLICE_STATE];
+    const STATES = [v0.ZERO_SLICE_STATE, v1.ZERO_SLICE_STATE, v2.ZERO_SLICE_STATE];
     STATES.forEach((state) => {
       it(`should migrate slice from ${state.version} to latest`, () => {
         const migrated = migrateSlice(state);

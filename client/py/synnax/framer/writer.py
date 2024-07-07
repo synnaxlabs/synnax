@@ -12,7 +12,6 @@ from uuid import uuid4
 from warnings import warn
 from typing import overload
 
-import numpy as np
 from freighter import (
     EOF,
     Payload,
@@ -28,7 +27,7 @@ from synnax import io
 from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
-from synnax.framer.frame import Frame, FramePayload
+from synnax.framer.frame import Frame, FramePayload, CrudeFrame
 from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, Subject
 from synnax.util.normalize import normalize
@@ -170,10 +169,7 @@ class Writer:
     @overload
     def write(
         self,
-        channels_or_data: Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries]
-        | DataFrame
-        | dict[ChannelKey | ChannelName, float | np.number],
+        channels_or_data: CrudeFrame,
     ):
         ...
 
@@ -183,17 +179,14 @@ class Writer:
         | ChannelKey
         | ChannelKeys
         | ChannelNames
-        | Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries]
-        | dict[ChannelKey | ChannelName, float | np.number]
-        | DataFrame,
+        | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given data to the database. The formats are listed below. Before
         we get into them, here are some important terms to know.
 
             1. Channel ID -> the key or name of the channel(s) you're writing to.
-            j2. Series or CrudeSeries -> the data for that channel, which can be
+            2. Series or CrudeSeries -> the data for that channel, which can be
             represented as a synnax Series type, a numpy array, or a simple Python
             list. You can also provide a single numeric (or, in the case of variable
             length types, a string or JSON) value and Synnax will convert it into a
