@@ -243,7 +243,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     link: () =>
       handleLink({
         name: resources[0].name,
-        resource: { key: resources[0].id.key, type: "channel" },
+        resource: resources[0].id.payload,
       }),
   };
 

@@ -35,8 +35,8 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
-import type { Range, StaticRange } from "@/range/slice";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
+import type { Range, StaticRange } from "@/range/slice";
 import { add, remove, rename, setActive } from "@/range/slice";
 
 export const List = (): ReactElement => {

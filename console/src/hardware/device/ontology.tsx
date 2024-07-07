@@ -80,8 +80,6 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
   }).mutate;
 
-const handleLink = Link.useCopyToClipboard();
-
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
@@ -91,13 +89,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   if (selection.nodes.length === 0) return null;
   const singleResource = selection.nodes.length === 1;
   const del = useDelete();
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => del(props),
     link: () =>
       handleLink({
         name: resources[0].name,
-        resource: { key: resources[0].id.key, type: "device" },
+        resource: resources[0].id.payload,
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
   };
