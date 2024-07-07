@@ -1,1 +1,1 @@
-export * as numeric from "@/numeric/value";
+export * as numeric from "@/numeric/numeric";
