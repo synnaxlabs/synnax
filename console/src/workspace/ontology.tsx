@@ -9,7 +9,7 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
@@ -20,13 +20,16 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes, setNodes }, selection: { resources } }) => {
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = useConfirmDelete({ type: "Workspace" });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+      if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
@@ -48,6 +51,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
+      if (errors.CANCELED.matches(e)) return;
       addStatus({
         key: nanoid(),
         variant: "error",
@@ -56,6 +60,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       });
     },
   }).mutate;
+};
 
 const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({

@@ -9,17 +9,20 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
+import { Confirm } from "@/confirm";
 import { Group } from "@/group";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 
 type DeviceLayoutCreator = (
   device: string,
@@ -55,10 +58,12 @@ const handleConfigure = ({
   })();
 };
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes, setNodes }, selection: { resources } }) => {
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = useConfirmDelete({ type: "Device" });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
+      if (!(await confirm(resources))) throw errors.CANCELED;
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -70,6 +75,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+      if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       addStatus({
         key: nanoid(),
@@ -79,6 +85,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       });
     },
   }).mutate;
+};
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
