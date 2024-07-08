@@ -390,6 +390,27 @@ export const RegulatorPreview = (props: RegulatorProps): ReactElement => (
   <Primitives.Regulator {...props} />
 );
 
+export interface ElectricRegulatorProps extends Primitives.ElectricRegulatorProps {
+  label?: LabelExtensionProps;
+}
+
+export const ElectricRegulator = ({
+  label,
+  onChange,
+  orientation,
+  color,
+}: SymbolProps<ElectricRegulatorProps>): ReactElement => {
+  return (
+    <Labeled {...label} onChange={onChange}>
+      <Primitives.ElectricRegulator orientation={orientation} color={color} />
+    </Labeled>
+  );
+};
+
+export const ElectricRegulatorPreview = (
+  props: ElectricRegulatorProps,
+): ReactElement => <Primitives.ElectricRegulator {...props} />;
+
 export interface BurstDiscProps extends Primitives.BurstDiscProps {
   label?: LabelExtensionProps;
 }

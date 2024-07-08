@@ -10,6 +10,7 @@
 import { type FC } from "react";
 import { z } from "zod";
 
+import { type Variant } from "@/status/aether/types";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
@@ -42,6 +43,9 @@ import {
   CheckValve,
   CheckValvePreview,
   type CheckValveProps,
+  ElectricRegulator,
+  ElectricRegulatorPreview,
+  type ElectricRegulatorProps,
   Filter,
   FilterPreview,
   type FilterProps,
@@ -125,6 +129,7 @@ const VARIANTS = [
   "cap",
   "cavityPump",
   "checkValve",
+  "electricRegulator",
   "filter",
   "fourWayValve",
   "light",
@@ -368,6 +373,24 @@ const regulator: Spec<RegulatorProps> = {
     orientation: "left",
   }),
   Preview: RegulatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const electricRegulator: Spec<ElectricRegulatorProps> = {
+  name: "Electric Regulator",
+  key: "electricRegulator",
+  Form: CommonNonToggleForm,
+  Symbol: ElectricRegulator,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Electric Regulator",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+  }),
+  Preview: ElectricRegulatorPreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -742,6 +765,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   reliefValve,
   checkValve,
   regulator,
+  electricRegulator,
   angledReliefValve,
   pistonPump,
   pump,
