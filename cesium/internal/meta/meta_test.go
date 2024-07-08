@@ -34,7 +34,7 @@ var _ = Describe("Meta", Ordered, func() {
 		AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
 		Context("FS: "+fsName, Ordered, func() {
 			Specify("Corrupted meta.json", func() {
-				db := MustSucceed(cesium.Open("", cesium.WithFS(fs)))
+				db := MustSucceed(cesium.Open("", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
 				key := GenerateChannelKey()
 
 				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Faraday", Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
@@ -46,7 +46,7 @@ var _ = Describe("Meta", Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(f.Close()).To(Succeed())
 
-				db, err = cesium.Open("", cesium.WithFS(fs))
+				db, err = cesium.Open("", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger()))
 				Expect(err).To(MatchError(ContainSubstring("error decoding meta in folder for channel %d", key)))
 			})
 
@@ -57,7 +57,7 @@ var _ = Describe("Meta", Ordered, func() {
 				)
 
 				DescribeTable("meta configs", func(badCh cesium.Channel, badField string) {
-					db := MustSucceed(cesium.Open("", cesium.WithFS(fs)))
+					db := MustSucceed(cesium.Open("", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
@@ -68,7 +68,7 @@ var _ = Describe("Meta", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
 
-					db, err = cesium.Open("", cesium.WithFS(fs))
+					db, err = cesium.Open("", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger()))
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError(ContainSubstring(badField)))
 				},
