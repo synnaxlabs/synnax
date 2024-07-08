@@ -175,7 +175,7 @@ export class Context {
       scale.Scale.scale<number>(0, 1)
         // Turn it to pixels relative to the child width.
         .scale(box.width(b))
-        // Translate the value to the left based on the parent and childs position.
+        // Translate the value to the left based on the parent and child's position.
         .translate(box.left(b))
         // Rebound the scale to the canvas width.
         .reBound(box.width(this.region))
@@ -187,7 +187,7 @@ export class Context {
         .scale(box.height(b))
         // Invert the scale since we read pixels from the top.
         .invert()
-        // Translate the value to the top based on the parent and childs position.
+        // Translate the value to the top based on the parent and child's position.
         .translate(box.top(b))
         // Rebound the scale to the canvas height.
         .reBound(box.height(this.region))
