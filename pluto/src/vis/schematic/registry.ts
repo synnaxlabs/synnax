@@ -107,8 +107,6 @@ import {
   type ValveProps,
 } from "@/vis/schematic/Symbols";
 
-import { AngledReliefValve } from "./primitives/Primitives";
-
 export interface Spec<P extends object> {
   key: Variant;
   name: string;
