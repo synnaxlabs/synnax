@@ -43,7 +43,10 @@ const curriedTranslate =
   <T extends numeric.Value>(translate: T): Operation<T> =>
   (currScale, type, v, reverse) => {
     if (type === "dimension") return [currScale, v];
-    return [currScale, (reverse ? v - translate : v + translate) as T];
+    return [
+      currScale,
+      (reverse ? v - translate : (v as number) + (translate as number)) as T,
+    ];
   };
 
 const curriedMagnify =
@@ -59,10 +62,11 @@ const curriedScale =
     if (currScale === null) return [bound, v];
     const { lower: prevLower, upper: prevUpper } = currScale;
     const { lower: nextLower, upper: nextUpper } = bound;
-    const prevRange = prevUpper - prevLower;
-    const nextRange = nextUpper - nextLower;
+    const prevRange = (prevUpper - prevLower) as T;
+    const nextRange = (nextUpper - nextLower) as T;
     if (type === "dimension") return [bound, (v * (nextRange / prevRange)) as T];
-    const nextV = (v - prevLower) * (nextRange / prevRange) + nextLower;
+    // @ts-expect-error - typescript can't do the math correctly
+    const nextV = ((v - prevLower) * (nextRange / prevRange) + nextLower) as T;
     return [bound, nextV as T];
   };
 
@@ -90,7 +94,7 @@ const curriedClamp =
 /**
  * Scale implements a chain of operations that can be used to transform a numeric value.
  */
-export class Scale<T extends numeric.Numeric = number> {
+export class Scale<T extends numeric.Value = number> {
   ops: TypedOperation<T>[] = [];
   currBounds: bounds.Bounds<T> | null = null;
   currType: ValueType | null = null;
@@ -100,15 +104,15 @@ export class Scale<T extends numeric.Numeric = number> {
     this.ops = [];
   }
 
-  static translate<T extends numeric.Numeric = number>(value: T): Scale<T> {
+  static translate<T extends numeric.Value = number>(value: T): Scale<T> {
     return new Scale<T>().translate(value);
   }
 
-  static magnify<T extends numeric.Numeric = number>(value: T): Scale<T> {
+  static magnify<T extends numeric.Value = number>(value: T): Scale<T> {
     return new Scale<T>().magnify(value);
   }
 
-  static scale<T extends numeric.Numeric>(
+  static scale<T extends numeric.Value>(
     lowerOrBound: T | bounds.Bounds<T>,
     upper?: T,
   ): Scale<T> {
@@ -229,13 +233,13 @@ export const xyScaleToTransform = (scale: XY): XYTransformT => ({
 });
 
 export class XY {
-  x: Scale;
-  y: Scale;
+  x: Scale<number>;
+  y: Scale<number>;
   currRoot: location.CornerXY | null;
 
   constructor(
-    x: Scale = new Scale(),
-    y: Scale = new Scale(),
+    x: Scale<number> = new Scale<number>(),
+    y: Scale<number> = new Scale<number>(),
     root: location.CornerXY | null = null,
   ) {
     this.x = x;

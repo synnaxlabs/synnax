@@ -9,7 +9,7 @@
 
 import { numeric } from "@/numeric";
 
-export const clamp = <T extends numeric.Numeric>(value: T, min?: T, max?: T): T => {
+export const clamp = <T extends numeric.Value>(value: T, min?: T, max?: T): T => {
   if (min !== undefined && value < min) return min;
   if (max !== undefined && value > max) return max;
   return value;
