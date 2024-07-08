@@ -10,6 +10,7 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -17,13 +18,16 @@ import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { create } from "@/schematic/Schematic";
 import { type State } from "@/schematic/slice";
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = useConfirmDelete({ type: "Schematic" });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
+      if (!(await confirm(selection.resources))) throw errors.CANCELED;
       const ids = selection.resources.map((res) => new ontology.ID(res.key));
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
@@ -42,6 +46,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
+      if (errors.CANCELED.matches(err)) return;
       addStatus({
         variant: "error",
         message: "Failed to delete schematic",
@@ -49,6 +54,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       });
     },
   }).mutate;
+};
 
 const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
