@@ -6,6 +6,7 @@ description: "Learn how to create a digital write task for NI hardware."
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
+import { Video } from "@/components/Media";
 
 The Digital Write Task is used for sending commands to the digital outputs of your NI 
 cards. In this guide, we'll walk you through the steps to create a Digital Write Task in 
@@ -28,7 +29,7 @@ can be used for both control and data acquisition purposes. In the context of th
 Driver, a digital write task defines a background process that writes to the digital
 outputs of your device.
 
-An digital write task can be started, stopped, and re-configured at any time. We 
+A digital write task can be started, stopped, and re-configured at any time. We 
 permanently store the configuration of the task in Synnax, so it's easy to set up 
 multiple tasks for different purposes.
 
@@ -52,17 +53,34 @@ channel.
 
 <Divider.Divider direction="x" />
 
-### Open the Task Configuration Dialog
+## Open the Task Configuration Dialog
 
-To configure a digital write task, open the Synnax Console and click on the Quick Search
-& Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on Windows/Linux
-and `Cmd+Shift+P` on macOS.
+### From the Resources Toolbar
 
-In command mode (enabled when the first character in the input is ">"), type "NI".
-You'll see an option called "Create a new Digital Write Task". Select this option
-to open the task configuration dialog.
+To create a digital write task from the resources toolbar, open the Synnax Console and 
+click on the "Resources" tab in the left sidebar. Find the device you'd like to create
+the task for, right-click on it, and select "Create Digital write Task".
 
-INSERT VIDEO HERE
+<Video client:only="react" id="device-drivers/ni/digital-write-task/device-create-digital-write-task" />
+
+### From the Command Palette
+
+To create a digital write task from the command palette, open the Synnax Console and 
+click on the Quick Search & Command Palette at the top. You can also open this palette with 
+`Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
+
+In command moe (enabled when the first character in the input is ">"), type
+"NI". You'll see an option called "Create a New Digital write Task". Select this
+option to open the read task configuration dialog.
+
+<Video client:only="react" id="device-drivers/ni/digital-write-task/palette-create-digital-write-task" />
+
+### From The Layout Selector
+
+To create a digital write task from the layout selector, click on the "+" button in the 
+top right corner and select "NI Digital write Task".
+
+<Video client:only="react" id="device-drivers/ni/digital-write-task/layout-create-digital-write-task" />
 
 <Divider.Divider direction="x" />
 
