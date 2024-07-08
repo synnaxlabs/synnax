@@ -69,7 +69,7 @@ export const List = (): ReactElement => {
           case "link": {
             const name = allClusters.find((c) => c.key === key)?.name;
             if (name == null) return;
-            return handleLink({ name });
+            return handleLink({ clusterKey: key, name });
           }
           case "rename":
             return handleRename(key);
@@ -182,8 +182,6 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
     </CoreList.ItemFrame>
   );
 };
-
-// TODO: copy link does not work
 
 export interface NoneConnectedProps extends PropsWithChildren {}
 
