@@ -465,8 +465,10 @@ export const ValueForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
+interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
+
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<Omit<Toggle.UseProps, "aetherKey">>({
+  const { value, onChange } = Form.useField<LightTelemFormT>({
     path,
   });
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
@@ -493,6 +495,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   const c = Channel.useName(source.channel as number);
+
   useEffect(() => {
     onChange({ ...value });
   }, [c]);
@@ -521,14 +524,6 @@ export const LightForm = (): ReactElement => {
               <LabelControls path="label" />
               <Align.Space direction="x">
                 <ColorControl path="color" />
-                <Form.Field<string>
-                  path="units"
-                  label="Units"
-                  align="start"
-                  padHelpText={false}
-                >
-                  {(p) => <Input.Text {...p} />}
-                </Form.Field>
               </Align.Space>
             </Align.Space>
             <OrientationControl path="" />

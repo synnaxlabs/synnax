@@ -472,12 +472,6 @@ export const AngledValve = ({
   </Toggle>
 );
 
-export const Tag = (): ReactElement => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 25">
-    <Path d="M57.0945 1.83334H4.04767C2.39087 1.83334 1.45252 3.73241 2.45908 5.0484L7.42509 11.5411C7.96869 12.2518 7.97408 13.2371 7.43828 13.9538L2.94078 19.9691C1.95471 21.2879 2.89585 23.1667 4.54256 23.1667H57.2344C57.9298 23.1667 58.5752 22.8055 58.939 22.2128L64.2505 13.5584C64.6483 12.9102 64.644 12.0925 64.2395 11.4484L58.7881 2.76955C58.4222 2.18696 57.7825 1.83334 57.0945 1.83334Z" />
-  </svg>
-);
-
 export interface ReduceFittingProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const ReduceFitting = ({
@@ -644,6 +638,7 @@ export const Filter = ({
 );
 
 type DetailedBorderRadius = Record<location.CornerXYString, xy.XY>;
+
 type BorderRadius =
   | number
   | Record<direction.Direction, number>
