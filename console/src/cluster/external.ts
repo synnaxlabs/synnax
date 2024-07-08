@@ -14,7 +14,6 @@ export * from "@/cluster/Badges";
 export * from "@/cluster/Connect";
 export * from "@/cluster/core";
 export * from "@/cluster/Dropdown";
-export * from "@/cluster/local";
 export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
 export * from "@/cluster/testConnection";
