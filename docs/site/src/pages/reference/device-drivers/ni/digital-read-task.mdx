@@ -6,6 +6,7 @@ description: "Learn how to create a digital read task for NI hardware."
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
+import { Video } from "@/components/Media";
 
 The Digital Read Task is used for acquiring data from analog inputs on your NI devices. In
 this guide, we'll walk you through the steps to create a digital read Task in Synnax.
@@ -48,33 +49,36 @@ Synnax can only accept live data from a channel from one source at a time. If yo
 a task running that reads from a `pressure` channel, you cannot start another task that
 reads from the same channel.
 
-### One Running Task per Index Channel
-
-[Index channels](/reference/concepts/channels#channel-types) are use to store
-the timestamps for your data channels. When you configure a task to read from a
-data channel, Synnax will automatically generate timestamps for the
-corresponding index channel, regardless of whether you've explicitly added it to
-the task.
-
-For example, imaging we two channels, `pressure` and `temperature` that share
-the same index channel, `time`. If you configure a task to read from `pressure`,
-Synnax will automatically generate timestamps for the `time` channel. If you
-then configure a task to read from `temperature`, Synnax will not allow you to
-start the task, as the `time` channel is already in use.
-
 <Divider.Divider direction="x" />
 
 ## Open the Task Configuration Dialog
 
-To configure a digital read task, open the Synnax Console and click on the 
-Quick Search & Command Palette at the top. You can also open this palette with 
+### From the Resources Toolbar
+
+To create a digital read task from the resources toolbar, open the Synnax Console and 
+click on the "Resources" tab in the left sidebar. Find the device you'd like to create
+the task for, right-click on it, and select "Create Digital read Task".
+
+<Video client:only="react" id="device-drivers/ni/digital-read-task/device-create-digital-read-task" />
+
+### From the Command Palette
+
+To create a digital read task from the command palette, open the Synnax Console and 
+click on the Quick Search & Command Palette at the top. You can also open this palette with 
 `Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is ">"), type
-"NI". You'll see an option called "Create a New Digital Read Task". Select this
+In command moe (enabled when the first character in the input is ">"), type
+"NI". You'll see an option called "Create a New Digital read Task". Select this
 option to open the read task configuration dialog.
 
-INSERT VIDEO HERE
+<Video client:only="react" id="device-drivers/ni/digital-read-task/palette-create-digital-read-task" />
+
+### From The Layout Selector
+
+To create a digital read task from the layout selector, click on the "+" button in the 
+top right corner and select "NI Digital read Task".
+
+<Video client:only="react" id="device-drivers/ni/digital-read-task/layout-create-digital-read-task" />
 
 <Divider.Divider direction="x" />
 
@@ -115,5 +119,3 @@ stream data for real-time visualization. Historical data will not be available f
 Once you'd added all of the channels you need and have configured sampling rates, hit
 the "Configure" button. If there are no errors, Synnax will acknowledge the configured 
 task and enable the "Play" button in the dialog. Click this button to start the task.
-
-<Divider.Divider direction="x" />
