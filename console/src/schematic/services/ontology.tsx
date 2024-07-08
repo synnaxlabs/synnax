@@ -23,6 +23,7 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { create } from "@/schematic/Schematic";
+import { select } from "@/schematic/selectors";
 import { type State } from "@/schematic/slice";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -121,13 +122,19 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 
 const useDownload = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({ client, selection: { resources } }) => {
-      const schematic = await client.workspaces.schematic.retrieve(resources[0].id.key);
+    mutationFn: async ({ client, selection: { resources }, store }) => {
+      let state = select(store.getState(), resources[0].id.key);
+      if (state == null) {
+        const schematic = await client.workspaces.schematic.retrieve(
+          resources[0].id.key,
+        );
+        state = schematic.data as unknown as State;
+      }
       const savePath = await save({
-        defaultPath: `${schematic.name}.json`,
+        defaultPath: `${resources[0].name}.json`,
       });
       if (savePath == null) throw Error("No path selected");
-      const data = new TextEncoder().encode(JSON.stringify(schematic));
+      const data = new TextEncoder().encode(JSON.stringify(state));
       await writeFile(savePath, data);
     },
     onError: (err, { addStatus }) => {

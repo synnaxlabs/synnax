@@ -243,7 +243,6 @@ export const { actions, reducer } = createSlice({
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
-
         delete state.schematics[layoutKey];
       });
     },

@@ -26,8 +26,8 @@ import { Controls } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
-import { WindowProps } from "@/layout/slice";
 import { useSelect } from "@/layout/selectors";
+import { WindowProps } from "@/layout/slice";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;

@@ -44,3 +44,5 @@ export const migrateSlice = migrate.migrator<v1.SliceState>({
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });
+
+export const STATES_Z = [v0.stateZ, v1.stateZ];

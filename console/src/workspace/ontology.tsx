@@ -24,6 +24,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
+import { migrateState } from "@/schematic/migrations";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -128,6 +129,8 @@ const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       if (fileResponse == null) throw new Error("No file selected.");
       const file = await readFile(fileResponse.path);
       const importedStr = new TextDecoder().decode(file);
+      // TODO: first parse that is a valid schematic of any state, then migrate it to
+      // the latest state
       try {
         const json = JSON.parse(importedStr);
         CSchematic.schematicZ.parse(json);
