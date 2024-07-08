@@ -19,11 +19,6 @@ export const niNav: PageNavNode = {
       name: "Get Started",
     },
     {
-      key: "/reference/device-drivers/ni/supported-devices",
-      href: "/reference/device-drivers/ni/supported-devices",
-      name: "Supported Devices",
-    },
-    {
       key: "/reference/device-drivers/ni/configure-device",
       href: "/reference/device-drivers/ni/configure-device",
       name: "Configure a Device",

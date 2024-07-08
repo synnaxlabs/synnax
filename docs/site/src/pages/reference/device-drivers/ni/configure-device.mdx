@@ -7,6 +7,7 @@ description: "Learn how to connect and configure National Instruments modules."
 
 import { StepText } from "@/components/StepText";
 import { Divider } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
 import Note from "@/components/Note.astro";
 
@@ -29,188 +30,45 @@ can be found [here](https://www.ni.com/en/support/downloads/drivers/download.ni-
 3. The [Synnax Console](/reference/console/get-started) installed on your local
 machine.
 
-## Overview
+## <StepText level="h2" step={1}>Select a Device to Configure</StepText>
 
-There are three main steps to configuring an NI device in Synnax:
-
-1. Find and select the device you want to configure.
-2. Define basic properties for the device.
-3. Map ports and lines on your device to channels within Synnax.
-
-Once you've completed these steps, you'll be ready to start defining tasks in order
-to acquire data and send commands to your device.
-
-## <StepText level="h2" step={1}>Select Device to Configure</StepText>
-
-Synnax will automatically detect devices, and display a notification in the 
+Synnax will automatically detect new NI modules, and display a notification in the 
 Console when a new device is connected. To start configuring the device,
 simply click the "Configure" button in the notification.
 
-INSERT VIDEO HERE
+<Video client:only="react" id="device-drivers/ni/configure-device/device-configure-from-notification" />
 
 Alternatively, you can find connected devices in the resources toolbar. To 
 open the device configuration dialog, right click on the device and select
 "Configure".
 
-INSERT VIDEO HERE
+<Video client:only="react" id="device-drivers/ni/configure-device/device-configure-from-resources" />
 
-## <StepText level="h2" step={2}>Define Basic Properties</StepText>
+## <StepText level="h2" step={2}>Name Your Device</StepText>
 
-Once you've opened the device configuration dialog, it's time to define some basic 
-properties. We've automatically pre-populated values we think are reasonable, but
-here's an overview of each property if you'd like to change them:
+The first step in the configuration dialog will prompt you to name your device. This name
+will be used for your team to identify the device in the Console.
 
-<Table>
-    <thead>
-        <tr>
-            <th>Field</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Serial Number</td>
-            <td>The serial number of the device. This will uniquely identify the 
-            device in Synnax. We recommend keeping the default value.</td>
-        </tr>
-        <tr>
-            <td>Model</td>
-            <td>The model of the card. This will help Synnax provide recommendations 
-            when configuring tasks and creating channels. We recommend keeping the
-            default value.</td>
-        </tr>
-        <tr>
-            <td>Name</td>
-            <td>A human-readable name for the device. Feel free to change 
-            this to anything you see fit.</td>
-        </tr>
-        <tr>
-            <td>Identifier</td>
-            <td>A short, several character identifier for the device. This will be used
-            to prefix channel names that correspond to this device. Change this to something
-            meaningful to your team, but try to keep it short.</td>
-        </tr>
-    </tbody>
-</Table>
+<Video client:only="react" id="device-drivers/ni/configure-device/device-configure-name" />
 
-## <StepText level="h2" step={3}>Create Channels</StepText>
+## <StepText level="h2" step={3}>Set the Device Identifier</StepText>
 
-The next step in the workflow is to map ports and lines on your device to channels 
-within Synnax. We've automatically defined a reasonable mapping for your device. In
-most cases, you won't need to change this. If you do, here's an overview of the
-process for doing so.
+Next, you'll need to set a short device identifier. This identifier will be used to prefix
+the names of all of the channels on your device. We've automatically generated a few 
+suggestions, although you're welcome to choose your own.
 
-### A Note on Channel Naming Conventions
+<Video client:only="react" id="device-drivers/ni/configure-device/device-configure-id" />
 
-Synnax will automatically name channels based on the device identifier, the channel type
-(e.g. analog input, digital output), and the port/line number on the device. Although
-the ports on your device often correspond to specific sensor types (i.e. pressure transducers),
-we recommend keeping the channel name tied to the port/line number.
+## <StepText level="h3" step={3}>Save the Configuration</StepText>
 
-When running specific tests, you can define channel name aliases that can map these 
-absolute names to sensor-specific ones.
+Once you're happy with the name and identifier, the last step is to save the configuration
+by hitting the blue "Save" button in the bottom right corner.
 
-### <StepText level="h3" step={3.1}>Identify Sampling Groups</StepText>
-
-Channels in the configuration dialog are organized into **sampling groups**. Each group
-has a special "Index" channel that is used to store the timestamps for the samples
-recorded by each channel in the group. Indexes are identified by a green 
-<span style={{color: "var(--pluto-secondary-z)"}}>Index</span> tag next to their data type.
-
-The important rule to remember is that **all channels in a group must be sampled together**.
-For example, if you have an analog voltage channel `pxi_255_ai_0` and a thermocouple channel
-`pxi_255_ai_1` that are within the same group, both channels must be sampled at the same rate.
-It's not possible to sample `pxi_255_ai_0` at 1 kHz and `pxi_255_ai_1` at 10 Hz. 
-
-It is possible, however, to disable sampling for a channel when configuring a 
-[task](/reference/device-drivers/ni/read-task). For example, you could read from the `pxi_255_ai_0` channel without reading from the `pxi_255_ai_1` channel.
-As long as you don't write to two different channels with the same index at the same time,
-Synnax is happy.
-
-<Note variant="info">
-When in doubt about whether you'll need to sample channels at different rates, it's
-best to split them into separate groups. Although it incurs a performance and storage 
-overhead, it provides more flexibility in the future.
-</Note>
-
-#### Default Sampling Groups
-
-Synnax will automatically create sampling groups for you based on the ports/lines on 
-your device. Here's an overview of the default groups we create:
-
-<Table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Analog Inputs</td>
-            <td>All analog input channels on the device.</td>
-        </tr>
-        <tr>
-            <td>Digital Inputs</td>
-            <td>All digital input channels on the device.</td>
-        </tr>
-        <tr>
-            <td>Analog Output Command</td>
-            <td>A group with an index channel and a command channel. The command channel 
-                will be used to send commands to an analog output channel on the device.
-                Keeping each command channel in a separate group allows you to send commands
-                independently to each analog output channel.</td> 
-        </tr>
-        <tr>
-            <td>Analog Output States</td>
-            <td>A group with an index channel and corresponding channels representing
-                acknowledged states for each commanded analog output channel on the device. 
-                These states will be updated by the driver when the device acknowledges a command.</td>
-        </tr>
-        <tr>
-            <td>Digital Output Command</td>
-            <td>A group with an index channel and a command channel. The command channel
-            will be used to send commands to a digital output channel on the device. 
-            Keeping each command channel in a separate group allows you to send commands
-            independently to each digital output channel.</td>
-        </tr>
-        <tr>
-            <td>Digital Output States</td>
-            <td>A group with an index channel and corresponding channels representing
-                acknowledged states for each commanded digital output channel on the device.
-                These states will be updated by the driver when the device acknowledges a command.</td>
-        </tr>
-    </tbody>
-</Table>
-
-### <StepText level="h3" step={3.2}>Split Sampling Groups</StepText>
-
-In the case where you'd like to split a sampling group, use the "+" button at the top
-of the sampling groups list, then drag and drop channels between groups.
-
-INSERT VIDEO HERE
-
-### <StepText level="h3" step={3.3}>Edit Channel Properties</StepText>
-
-To edit a channel's properties, simply click on the channel in the list. A dialog will
-appear in the bottom panel. 
-
-We only recommend adjusting the data type of the channel when you need an increase
-in precisions (almost only for analog input channels). 
-
-INSERT VIDEO HERE
-
-<Divider.Divider direction="x" />
-
-## <StepText level="h2" step={4}>Confirm</StepText>
-
-After you'd defined your sampling groups, hit "Next" to move to the confirmation dialog.
-Once you're ready to proceed, hit "Configure" and Synnax will create the necessary
-channels in the database. Once that process completes, press "Done" to close the dialog.
-
-<Divider.Divider direction="x" />
+<Video client:only="react" id="device-drivers/ni/configure-device/device-configure-save" />
 
 ## Next Steps
 
-Now that you've connected your device and created channel, it's time to set up data
-acquisition and control tasks. 
+Now that you've configured your device, it's time to record data using a task. To read
+data, you can start with a [Digital Read Task](/reference/device-drivers/ni/digital-read-task)
+or an [Analog Read Task](/reference/device-drivers/ni/analog-read-task). To send commands, 
+try a [Digital Write Task](/reference/device-drivers/ni/digital-write-task). 
