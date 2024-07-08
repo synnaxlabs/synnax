@@ -143,14 +143,14 @@ class WriteTest {
 		const samplesPerSecond = samples / (Number(time) / Number(TimeSpan.SECOND));
 		const s = `
 -- TypeScript Write (${this.tc.identifier}) --
-Samples written: ${samples}
+Samples written: ${formatNumber(samples)}
 Time taken: ${time}
-Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
+Calculated Samples per Second: ${formatNumber(samplesPerSecond)}
 Configuration:
 \tNumber of writers: ${this.tc.numWriters}
 \tNumber of channels: ${this.tc.numChannels()}
-\tNumber of domains: ${this.tc.domains}
-\tSamples per domain: ${this.tc.samplesPerDomain}
+\tNumber of domains: ${formatNumber(this.tc.domains)}
+\tSamples per domain: ${formatNumber(this.tc.samplesPerDomain)}
 \tAuto commit: ${this.tc.autoCommit}
 \tIndex persist interval: ${this.tc.indexPersistInterval}
 \tWriter mode: ${framer.WriterMode[this.tc.writerMode]}
@@ -213,6 +213,10 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
 			}
 		}
 	}
+}
+
+function formatNumber(x: number): string {
+    return x.toFixed(2).toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
 }
 
 async function main(): Promise<void> {

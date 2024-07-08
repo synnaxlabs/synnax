@@ -106,12 +106,12 @@ class ReadTest {
         const time: TimeSpan = start.span(end);
         const samplesPerSecond = samples / (Number(time) / Number(TimeSpan.SECOND));
         const assertionPassed = this.tc.samplesExpected == 0 || approxEqual(samples, this.tc.samplesExpected);
-        const assertionResult = `Expected samples: ${this.tc.samplesExpected}; Actual samples: ${samples}`;
+        const assertionResult = `Expected samples: ${formatNumber(this.tc.samplesExpected)}; Actual samples: ${formatNumber(samples)}`;
         const s = `
 -- TypeScript Read (${this.tc.identifier}) --
-Samples read: ${samples}
+Samples read: ${formatNumber(samples)}
 Time taken: ${time}
-Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
+Calculated Samples per Second: ${formatNumber(samplesPerSecond)}
 Configuration:
 \tNumber of iterators: ${this.tc.numIterators}
 \tNumber of channels: ${this.tc.numChannels()}
@@ -152,6 +152,9 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
     }
 }
 
+function formatNumber(x: number): string {
+    return x.toFixed(2).toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
+}
 
 async function main() {
     try {

@@ -76,13 +76,13 @@ Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!
 '''
         s = f'''
 -- Python Stream ({self._tc.identifier})--
-Samples streamed: {samples}
+Samples streamed: {samples:,.2f}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}
 Configuration:
 \tNumber of streamers: 1
 \tNumber of channels: {len(self._tc.channels)}
-\tSamples expected: {self._tc.samples_expected}
+\tSamples expected: {self._tc.samples_expected:,.2f}
 {err_assertion}
 
             '''

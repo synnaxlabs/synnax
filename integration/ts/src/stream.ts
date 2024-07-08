@@ -77,13 +77,13 @@ class StreamTest {
         const samplesPerSecond = samples / (Number(time) / Number(TimeSpan.SECOND));
         const s = `
 -- TypeScript Stream (${this.tc.identifier}) --
-Samples streamed: ${samples}
+Samples streamed: ${formatNumber(samples)}
 Time taken: ${time}
-Calculated Samples per Second: ${samplesPerSecond.toFixed(2)}
+Calculated Samples per Second: ${formatNumber(samplesPerSecond)}
 Configuration:
 \tNumber of streamers: 1
 \tNumber of channels: ${this.tc.channels.length}
-\tSamples expected: ${this.tc.samplesExpected}
+\tSamples expected: ${formatNumber(this.tc.samplesExpected)}
 
 Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!"}
 `;
@@ -112,6 +112,10 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
 
         return samplesStreamed;
     }
+}
+
+function formatNumber(x: number): string {
+    return x.toFixed(2).toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
 }
 
 async function main() {

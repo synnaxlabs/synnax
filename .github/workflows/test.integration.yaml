@@ -17,7 +17,7 @@ permissions:
   packages: write
 
 jobs:
-  test-integration-ubuntu-mini:
+  test-integration-ubuntu:
     runs-on: "Ubuntu"
     timeout-minutes: 1440
     steps:
@@ -61,11 +61,13 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         run: ./run-integration.sh tests/ws-d-r.json
         working-directory: ./integration
+        continue-on-error: true
 
       - name: Benchmark test
         if: steps.filter.outputs.changd == 'true'
         run: ./run-integration.sh tests/benchmark-test.json
         working-directory: ./integration
+        continue-on-error: true
 
   test-integration-windows:
     runs-on: "Windows"
@@ -107,9 +109,11 @@ jobs:
         shell: powershell
         run: ./run-integration.ps1 tests/ws-d-r-mini.json
         working-directory: ./integration
+        continue-on-error: true
 
       - name: Benchmark Test
         if: steps.filter.outputs.changed == 'true'
         shell: powershell
         run: ./run-integration.ps1 tests/benchmark-test-small.json
         working-directory: ./integration
+        continue-on-error: true

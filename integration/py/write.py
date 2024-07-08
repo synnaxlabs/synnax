@@ -134,7 +134,7 @@ Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!
         samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
         s = f'''
 -- Python Write ({self._tc.identifier}) --
-Samples written: {samples}
+Samples written: {samples:,.0f}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}
 Configuration:

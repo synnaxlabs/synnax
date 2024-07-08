@@ -110,14 +110,14 @@ class Read_Test:
             else "FAIL!!"
         )
         assertion_result = (
-            f"""Expected samples: {self._tc.samples_expected}; Actual samples: {samples}\n{assertion_passed}"""
+            f"""Expected samples: {self._tc.samples_expected:,.2f}; Actual samples: {samples:,.2f}\n{assertion_passed}"""
             if self._tc.samples_expected != 0
             else ""
         )
 
         s = f"""
 -- Python Read ({self._tc.identifier})--
-Samples read: {samples}
+Samples read: {samples:,.2f}
 Time taken: {time}
 Calculated Samples per Second: {samples_per_second:,.2f}
 Configuration:
