@@ -117,7 +117,6 @@ export const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
     Omit<Toggle.UseProps, "aetherKey"> & { control: ControlStateProps }
   >({ path });
-  console.log(value.source);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const source = telem.streamChannelValuePropsZ.parse(
@@ -470,14 +469,10 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<Omit<Toggle.UseProps, "aetherKey">>({
     path,
   });
-  console.log("checkpoint 1");
-  console.log(value.source);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
-  console.log("checkpoint 2");
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
   );
-  console.log("checkpoint 3");
 
   const handleSourceChange = (v: channel.Key | null): void => {
     v = v ?? 0;
@@ -496,8 +491,6 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     });
     onChange({ ...value, source: t });
   };
-
-  console.log("checkpoint 4");
 
   const c = Channel.useName(source.channel as number);
   useEffect(() => {

@@ -1166,9 +1166,7 @@ export const RotaryMixer = ({
 );
 
 export interface LightProps extends ToggleProps, SVGBasedPrimitiveProps {
-  // dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
-  // units: string;
 }
 
 export const Light = ({
@@ -1186,7 +1184,6 @@ export const Light = ({
       scale={scale}
     >
       <Circle cx="25" cy="25" r="24" />
-      {/* <Circle cx="25" cy="25" r="22" fill={Color.cssString(color)} /> */}
     </InternalSVG>
   </Toggle>
 );
@@ -1214,7 +1211,6 @@ export const ElectricRegulator = ({
       <Path d="M42 36.5L5.41845 16.8709C3.41989 15.7985 1 17.2463 1 19.5144V53.4856C1 55.7537 3.4199 57.2015 5.41846 56.1291L42 36.5ZM42 36.5L78.5815 16.8709C80.5801 15.7985 83 17.2463 83 19.5144V53.4856C83 55.7537 80.5801 57.2015 78.5815 56.1291L42 36.5Z" />
       <Rect width="40" height="20" x="22" y="1" />
       <Line x1="42" y1="21" x2="42" y2="35" />
-      {/* <Path d="M40 1.5H27.1522C24.8526 1.5 23.4081 3.9809 24.5432 5.98082L41.1303 35.2058C41.6373 36.099 43 35.7392 43 34.7122V4.5C43 2.84315 41.6569 1.5 40 1.5Z" /> */}
     </InternalSVG>
   </Div>
 );

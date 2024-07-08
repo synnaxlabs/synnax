@@ -10,7 +10,6 @@
 import { type FC } from "react";
 import { z } from "zod";
 
-import { type Variant } from "@/status/aether/types";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
