@@ -10,11 +10,12 @@
 package fs_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
 )
 
 var _ = Describe("FS", func() {
@@ -94,6 +95,7 @@ var _ = Describe("FS", func() {
 						Expect(MustSucceed(f.Write([]byte{1, 2, 3, 4}))).To(Equal(4))
 						Expect(f.Close()).To(Succeed())
 						f, err = fs.Open("test_file.txt", os.O_CREATE|os.O_RDWR)
+						Expect(err).ToNot(HaveOccurred())
 						Expect(MustSucceed(f.Stat()).Size()).To(Equal(int64(4)))
 						var buf = make([]byte, 4)
 						Expect(MustSucceed(f.Read(buf))).To(Equal(4))
@@ -123,6 +125,7 @@ var _ = Describe("FS", func() {
 						Expect(file.Close()).To(Succeed())
 
 						file, err = fs.Open("test_file.txt", os.O_RDONLY)
+						Expect(err).ToNot(HaveOccurred())
 						r := make([]byte, 7)
 						n, err = file.Read(r)
 						Expect(err).ToNot(HaveOccurred())
@@ -153,6 +156,7 @@ var _ = Describe("FS", func() {
 						Expect(file.Close()).To(Succeed())
 
 						file, err = fs.Open("test_file.txt", os.O_RDONLY)
+						Expect(err).ToNot(HaveOccurred())
 						r := make([]byte, 7)
 						n, err = file.Read(r)
 						Expect(err).ToNot(HaveOccurred())
@@ -178,6 +182,7 @@ var _ = Describe("FS", func() {
 
 						// READ
 						file, err = fs.Open("test_file.txt", os.O_RDONLY)
+						Expect(err).ToNot(HaveOccurred())
 						r := make([]byte, 10)
 						n, err = file.Read(r)
 						Expect(err).ToNot(HaveOccurred())
@@ -195,6 +200,7 @@ var _ = Describe("FS", func() {
 
 						// READ
 						file, err = fs.Open("test_file.txt", os.O_RDONLY)
+						Expect(err).ToNot(HaveOccurred())
 						r = make([]byte, 10)
 						n, err = file.Read(r)
 						Expect(err).ToNot(HaveOccurred())
@@ -249,6 +255,7 @@ var _ = Describe("FS", func() {
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_RDWR))
 						_, err = f.Write([]byte("newnew"))
+						Expect(err).ToNot(HaveOccurred())
 						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
@@ -273,6 +280,7 @@ var _ = Describe("FS", func() {
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
 						_, err = f.Write([]byte("newnew"))
+						Expect(err).ToNot(HaveOccurred())
 						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
@@ -283,8 +291,11 @@ var _ = Describe("FS", func() {
 						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY|os.O_APPEND))
+						Expect(err).ToNot(HaveOccurred())
 						_, err = f.Write([]byte("brandnew"))
+						Expect(err).ToNot(HaveOccurred())
 						_, err = f.Write([]byte("haha"))
+						Expect(err).ToNot(HaveOccurred())
 						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
@@ -296,9 +307,13 @@ var _ = Describe("FS", func() {
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY))
 						_, err = f.Write([]byte("ipromise"))
+						Expect(err).ToNot(HaveOccurred())
 						_, err = f.Write([]byte("n"))
+						Expect(err).ToNot(HaveOccurred())
 						_, err = f.Write([]byte("e"))
+						Expect(err).ToNot(HaveOccurred())
 						_, err = f.Write([]byte("w"))
+						Expect(err).ToNot(HaveOccurred())
 						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
@@ -310,8 +325,11 @@ var _ = Describe("FS", func() {
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_WRONLY|os.O_APPEND))
 						_, err = f.Write([]byte("t"))
+						Expect(err).ToNot(HaveOccurred())
 						_, err = f.Write([]byte("e"))
+						Expect(err).ToNot(HaveOccurred())
 						_, err = f.Write([]byte("a"))
+						Expect(err).ToNot(HaveOccurred())
 						Expect(f.Close()).To(Succeed())
 
 						f = MustSucceed(fs.Open("test_file.txt", os.O_RDONLY))
@@ -463,22 +481,6 @@ var _ = Describe("FS", func() {
 			})
 
 			Describe("Truncate", func() {
-				/* When os.Truncate is called on a Windows file with read only perms,
-				the implementation does not error. Therefore, this test case is
-				canceled. The implementation of memFS is in line with the unix file
-				system. */
-				//It("Should not truncate a file without write perms", func() {
-				//	f, err := fs.Open("a.txt", os.O_CREATE|os.O_RDONLY)
-				//	Expect(err).ToNot(HaveOccurred())
-				//	err = f.Truncate(5)
-				//	Expect(err).To(HaveOccurred())
-				//	if s := MustSucceed(fs.Stat("")); s.Sys() == nil {
-				//		Expect(err).To(MatchError(ContainSubstring("fs: file was not created for writing (truncate requires write fd)")))
-				//	} else {
-				//		Expect(err).To(MatchError(ContainSubstring("invalid argument")))
-				//	}
-				//	Expect(f.Close()).To(Succeed())
-				//})
 				It("Should truncate a file when the size is smaller than original", func() {
 					f, err := fs.Open("b.txt", os.O_CREATE|os.O_RDWR)
 					Expect(err).ToNot(HaveOccurred())
@@ -491,6 +493,7 @@ var _ = Describe("FS", func() {
 
 					buf := make([]byte, 5)
 					f, err = fs.Open("b.txt", os.O_RDONLY)
+					Expect(err).ToNot(HaveOccurred())
 					_, err = f.Read(buf)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
@@ -510,6 +513,7 @@ var _ = Describe("FS", func() {
 
 					buf = make([]byte, 16)
 					f, err = fs.Open("b.txt", os.O_RDONLY)
+					Expect(err).ToNot(HaveOccurred())
 					_, err = f.Read(buf)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
@@ -531,6 +535,7 @@ var _ = Describe("FS", func() {
 
 					buf = make([]byte, 15)
 					f, err = fs.Open("c.txt", os.O_RDONLY)
+					Expect(err).ToNot(HaveOccurred())
 					_, err = f.Read(buf)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
@@ -550,6 +555,7 @@ var _ = Describe("FS", func() {
 					Expect(err).ToNot(HaveOccurred())
 					buf := make([]byte, 10)
 					_, err = f.Read(buf)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
 					Expect(buf).To(Equal([]byte("hello\x00\x00\x00\x00\x00")))
 				})
