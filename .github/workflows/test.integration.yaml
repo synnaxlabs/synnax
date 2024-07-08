@@ -43,5 +43,5 @@ jobs:
         run: cd /failfail
 
       - name: Try run still
-        if: ${{ !canceled() }} && steps.filter.outputs.changed == 'true'
+        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
         run: echo "RAN"
