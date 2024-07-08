@@ -39,30 +39,9 @@ jobs:
                 - "freighter/**"
                 - ".github/workflows/test.integration.yaml"
 
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
+      - name: Fail on purpose
+        run: cd /failfail
 
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
-
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
-
-      - name: Mini Test
-        if: steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r-mini.json
-        working-directory: ./integration
-
-      - name: Load test
-        if: steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r.json
-        working-directory: ./integration
-
-      - name: Benchmark test
-        if: steps.filter.outputs.changd == 'true'
-        run: ./run-integration.sh tests/benchmark-test.json
-        working-directory: ./integration
+      - name: Try run still
+        if: ${{ !canceled() }} && steps.filter.outputs.changed == 'true'
+        run: echo "RAN"
