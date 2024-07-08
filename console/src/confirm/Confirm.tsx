@@ -108,10 +108,12 @@ export const Confirm: Layout.Renderer = ({ layoutKey, onClose }) => {
   );
 };
 
-export const useModal = (): ((
+export type CreateConfirmModal = (
   args: ConfirmLayoutArgs,
   layoutOverrides?: LayoutOverrides,
-) => Promise<boolean>) => {
+) => Promise<boolean>;
+
+export const useModal = (): CreateConfirmModal => {
   const placer = Layout.usePlacer();
   const store = useStore<RootState>();
   return async (args, layoutOverrides) => {

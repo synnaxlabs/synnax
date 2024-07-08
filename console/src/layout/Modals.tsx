@@ -5,8 +5,8 @@ import { CSSProperties, FC, ReactElement } from "react";
 
 import { Content } from "@/layout/Content";
 import { useRemover } from "@/layout/hooks";
-import { State, WindowProps } from "@/layout/layout";
 import { useSelectModals } from "@/layout/selectors";
+import { State, WindowProps } from "@/layout/slice";
 import { DefaultContextMenu } from "@/layout/Window";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
