@@ -15,7 +15,6 @@ import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { ChannelServices } from "@/channel/services";
-import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
@@ -36,7 +35,6 @@ const SideEffect = (): null => {
   }, []);
   Version.useLoadTauri();
   Device.useListenForChanges();
-  Cluster.useLocalServer();
   Workspace.useSyncLayout();
   Link.useDeep({ handlers: HANDLERS });
   return null;

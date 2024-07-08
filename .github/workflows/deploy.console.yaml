@@ -145,11 +145,24 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
+
+      - name: Build Pluto
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:pluto
+    
+      - name: Build Drift
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:drift
+
+      # We need to build the console separately WITHOUT turbo repo because of strange
+      # incompatibility issues with rust builds.
+    
       - name: Build Console
         if: needs.setup.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
-        run: pnpm build:console
+        working-directory: ./console
+        run: pnpm build
 
       - name: Upload MacOS Release Asset
         if: github.event_name == 'push' &&  matrix.platform == 'macos-12'
@@ -247,8 +260,9 @@ jobs:
 
             fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2));
 
-      - name: Commit Auto Update JSON File
-        id: commit-auto-update-json-file
+      - name: Commit & Push Auto Update JSON File on RC
+        id: commit-auto-update-json-file-rc
+        if: github.ref == 'refs/heads/rc'
         uses: EndBug/add-and-commit@v9
         with:
           add: "*"
@@ -256,3 +270,16 @@ jobs:
           message: "Auto Update JSON File"
           pull: "--commit --no-edit"
           push: "origin rc --force"
+
+      - name: Commit & Push Auto Update JSON File on Main
+        id: commit-auto-update-json-file-main
+        if: github.ref == 'refs/heads/main'
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "*"
+          default_author: github_actor
+          message: "Auto Update JSON File"
+          pull: "--commit --no-edit"
+          push: "origin main --force"
+      
+

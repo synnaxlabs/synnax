@@ -7,9 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction } from "@synnaxlabs/x";
+import { direction } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type Tabs } from "@/tabs";
+import { Tabs } from "@/tabs";
+
+const baseNodeZ = z.object({
+  key: z.number(),
+  tabs: z.array(Tabs.tabZ).optional(),
+  selected: z.string().optional(),
+  direction: direction.direction.optional(),
+  size: z.number().optional(),
+});
+
+type BaseNode = z.infer<typeof baseNodeZ> & {
+  first?: BaseNode;
+  last?: BaseNode;
+};
+
+export const nodeZ: z.ZodType<BaseNode> = baseNodeZ.extend({
+  first: z.lazy(() => nodeZ).optional(),
+  last: z.lazy(() => nodeZ).optional(),
+});
 
 /**
  * Represents the data for a node in the Mosaic binary tree. Nodes can be either leaf

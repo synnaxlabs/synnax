@@ -9,27 +9,29 @@
 import { NotFoundError, ontology, schematic as CSchematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes, setNodes }, selection: { resources } }) => {
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = useConfirmDelete({ type: "Workspace" });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+      if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
@@ -51,6 +53,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
+      if (errors.CANCELED.matches(e)) return;
       addStatus({
         key: nanoid(),
         variant: "error",
@@ -59,6 +62,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       });
     },
   }).mutate;
+};
 
 const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
@@ -212,29 +216,30 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
-  const { selection } = props;
-
+  const {
+    selection,
+    selection: { resources },
+  } = props;
   const del = useDelete();
   const createSchematic = useCreateSchematic();
   const createLinePlot = useCreateLinePlot();
   const group = Group.useCreateFromSelection();
-  const clusterKey = Cluster.useSelectActiveKey();
+  const handleLink = Link.useCopyToClipboard();
   const importSchematic = useImportSchematic();
-
   const handleSelect = {
     delete: () => del(props),
-    rename: () => Tree.startRenaming(selection.resources[0].id.toString()),
+    rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
     plot: () => createLinePlot(props),
     schematic: () => createSchematic(props),
     importSchematic: () => importSchematic(props),
-    link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/workspace/${selection.resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
-    },
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   };
-
-  const singleResource = selection.resources.length === 1;
+  const singleResource = resources.length === 1;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && (
@@ -244,11 +249,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-
-      <Group.GroupMenuItem selection={props.selection} />
+      <Group.GroupMenuItem selection={selection} />
+      <PMenu.Divider />
       {singleResource && (
         <>
-          <PMenu.Divider />
           <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
             New Line Plot
           </PMenu.Item>

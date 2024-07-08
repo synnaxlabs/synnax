@@ -56,10 +56,27 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
   const theme = useLiveTheme();
   const href = `${CDN_ROOT}/${id}-${theme}.mp4`;
   const ref = useRef<HTMLVideoElement>(null);
+
   useEffect(() => {
     if (ref.current) ref.current.load();
   }, [href]);
-  return <Core.Video ref={ref} href={href} loop autoPlay muted {...props} />;
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (ref.current == null) return;
+        if (entry.isIntersecting) ref.current.play();
+        else ref.current.pause();
+      },
+      { threshold: 0.7 },
+    );
+    if (ref.current != null) observer.observe(ref.current);
+    return () => {
+      if (ref.current != null) observer.unobserve(ref.current);
+    };
+  }, []);
+
+  return <Core.Video ref={ref} href={href} loop muted {...props} />;
 };
 
 export const Image = ({ id, themed = true, ...props }: VideoProps): ReactElement => {

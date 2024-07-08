@@ -19,6 +19,8 @@
         border: var(--pluto-border-l4);
         box-shadow: var(--pluto-shadow-menu);
         overflow: hidden;
+        min-width: 400px;
+        min-height: 150px;
     }
 
     @media (max-height: 800px) {
