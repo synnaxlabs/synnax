@@ -512,19 +512,18 @@ export const Pump = ({
     orientation={orientation}
   >
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={3} top={38.5} id="1" />
-      <Handle location="right" orientation={orientation} left={95} top={2} id="2" />
+      <Handle location="left" orientation={orientation} left={2} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 68, height: 61 }}
+      dimensions={{ width: 52, height: 52 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="35" cy="25" r="23" />
-      <Path d="M50 41.5L56.7186 50.8314C57.6711 52.1544 56.7257 54 55.0955 54H14.9045C13.2743 54 12.3289 52.1544 13.2814 50.8314L20 41.5" />
-      <Line x1="35" y1="2" x2="65.0167" y2="2" />
-      <Line x1="1" y1="24" x2="35" y2="24" />
+      <Circle cx="26" cy="26" r="24" />
+      <Line x1="26" y1="2" x2="50" y2="26" />
+      <Line x1="26" y1="50" x2="50" y2="26" />
     </InternalSVG>
   </Toggle>
 );
@@ -758,13 +757,15 @@ export const Regulator = ({
       <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 84, height: 58 }}
+      dimensions={{ width: 88, height: 80 }}
       orientation={orientation}
       color={color}
       scale={scale}
     >
-      <Path d="M42 36.5L5.41845 16.8709C3.41989 15.7985 1 17.2463 1 19.5144V53.4856C1 55.7537 3.4199 57.2015 5.41846 56.1291L42 36.5ZM42 36.5L78.5815 16.8709C80.5801 15.7985 83 17.2463 83 19.5144V53.4856C83 55.7537 80.5801 57.2015 78.5815 56.1291L42 36.5Z" />
-      <Path d="M40 1.5H27.1522C24.8526 1.5 23.4081 3.9809 24.5432 5.98082L41.1303 35.2058C41.6373 36.099 43 35.7392 43 34.7122V4.5C43 2.84315 41.6569 1.5 40 1.5Z" />
+      <Path d="M44.5 53L7.35453 34.2035C5.35901 33.1937 3 34.6438 3 36.8803V69.1197C3 71.3562 5.35901 72.8063 7.35453 71.7965L44.5 53ZM44.5 53L81.6455 34.2035C83.641 33.1937 86 34.6438 86 36.8803V69.1197C86 71.3562 83.641 72.8063 81.6455 71.7965L44.5 53Z" />
+      <Path d="M61 30C62.6569 30 64.0231 28.6494 63.7755 27.0111C63.141 22.8129 61.181 18.8968 58.1421 15.8579C54.3914 12.1071 49.3043 10 44 10C38.6957 10 33.6086 12.1071 29.8579 15.8579C26.819 18.8968 24.859 22.8129 24.2245 27.0111C23.9769 28.6494 25.3431 30 27 30L44 30H61Z" />
+      <Line x1="44" y1="53" x2="44" y2="30" strokeLinecap="round" />
+      <Path d="M44 10.5V8C44 6.34315 45.3431 5 47 5H80C81.6569 5 83 6.34315 83 8V24.4281C83 25.4126 82.517 26.3344 81.7076 26.8947L44 53" />
     </InternalSVG>
   </Div>
 );
@@ -980,21 +981,20 @@ export const ScrewPump = ({
     orientation={orientation}
   >
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1} top={40} id="1" />
-      <Handle location="right" orientation={orientation} left={95} top={2.5} id="2" />
+      <Handle location="left" orientation={orientation} left={2} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 68, height: 61 }}
+      dimensions={{ width: 52, height: 52 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="35.1112" cy="25" r="23" />
-      <Path d="M50.1112 41.5L56.8298 50.8314C57.7823 52.1544 56.8369 54 55.2067 54H15.0157C13.3855 54 12.4401 52.1544 13.3926 50.8314L20.1112 41.5" />
-      <Path d="M35.1112 2H65.1279" strokeLinecap="round" />
-      <Line x1="2.11121" y1="25" x2="34.1112" y2="25" strokeLinecap="round" />
-      <Circle cx="35.1112" cy="37" r="11" />
-      <Circle cx="35.1112" cy="13" r="11" />
+      <Circle cx="26" cy="26" r="24" />
+      <Line x1="26" y1="2" x2="50" y2="26" />
+      <Line x1="26" y1="50" x2="50" y2="26" />
+      <Path d="M 30 26, L 20 16, M 30 26, L 20 36" strokeLinecap="round" />
+      <Path d="M 38 26, L 28 16, M 38 26, L 28 36" strokeLinecap="round" />
     </InternalSVG>
   </Toggle>
 );
@@ -1172,13 +1172,19 @@ export const Light = ({
   ...props
 }: LightProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("light"), className)}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+    </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 50, height: 50 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="25" cy="25" r="24" />
+      <Circle cx="25" cy="25" r="23" />
     </InternalSVG>
   </Toggle>
 );
@@ -1194,18 +1200,19 @@ export const ElectricRegulator = ({
 }: RegulatorProps): ReactElement => (
   <Div className={CSS(className, CSS.B("regulator"))} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={0} top={66} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
+      <Handle location="left" orientation={orientation} left={5} top={66} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={66} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 84, height: 58 }}
+      dimensions={{ width: 88, height: 80 }}
       orientation={orientation}
       color={color}
       scale={scale}
     >
-      <Path d="M42 36.5L5.41845 16.8709C3.41989 15.7985 1 17.2463 1 19.5144V53.4856C1 55.7537 3.4199 57.2015 5.41846 56.1291L42 36.5ZM42 36.5L78.5815 16.8709C80.5801 15.7985 83 17.2463 83 19.5144V53.4856C83 55.7537 80.5801 57.2015 78.5815 56.1291L42 36.5Z" />
-      <Rect width="40" height="20" x="22" y="1" />
-      <Line x1="42" y1="21" x2="42" y2="35" />
+      <Path d="M44.5 53L7.35453 34.2035C5.35901 33.1937 3 34.6438 3 36.8803V69.1197C3 71.3562 5.35901 72.8063 7.35453 71.7965L44.5 53ZM44.5 53L81.6455 34.2035C83.641 33.1937 86 34.6438 86 36.8803V69.1197C86 71.3562 83.641 72.8063 81.6455 71.7965L44.5 53Z" />
+      <Rect x="19" y="10" width="50" height="20" rx="3" ry="3" />
+      <Line x1="44" y1="53" x2="44" y2="30" strokeLinecap="round" />
+      <Path d="M44 10.5V8C44 6.34315 45.3431 5 47 5H80C81.6569 5 83 6.34315 83 8V24.4281C83 25.4126 82.517 26.3344 81.7076 26.8947L44 53" />
     </InternalSVG>
   </Div>
 );

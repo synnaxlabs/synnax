@@ -107,6 +107,8 @@ import {
   type ValveProps,
 } from "@/vis/schematic/Symbols";
 
+import { AngledReliefValve } from "./primitives/Primitives";
+
 export interface Spec<P extends object> {
   key: Variant;
   name: string;
@@ -750,27 +752,27 @@ const light: Spec<LightProps> = {
 
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
+  light,
   switch: switch_,
   button,
   tank,
   valve,
-  threeWayValve,
   solenoidValve,
+  threeWayValve,
   fourWayValve,
   angledValve,
-  light,
   manualValve,
   needleValve,
   reliefValve,
+  angledReliefValve,
   checkValve,
   regulator,
   electricRegulator,
-  angledReliefValve,
-  pistonPump,
   pump,
+  pistonPump,
   screwPump,
-  vacuumPump,
   cavityPump,
+  vacuumPump,
   staticMixer,
   rotaryMixer,
   burstDisc,
