@@ -57,6 +57,11 @@ jobs:
         run: ./run-integration.sh tests/ws-d-r-mini.json
         working-directory: ./integration
 
+      - name: Delete Test
+        if: steps.filter.outputs.changed == 'true'
+        run: ./run-integration.sh tests/delete-test.json
+        working-directory: ./integration
+
       - name: Load test
         if: steps.filter.outputs.changed == 'true'
         run: ./run-integration.sh tests/ws-d-r.json

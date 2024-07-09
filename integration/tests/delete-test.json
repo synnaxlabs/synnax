@@ -1,7 +1,7 @@
 {
   "cluster": {
     "insecure": true,
-    "mem_fs": true
+    "mem_fs": false
   },
   "setup": {
     "index_channels": 3,

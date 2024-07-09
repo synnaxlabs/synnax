@@ -15,7 +15,7 @@ type ClusterParam struct {
 	MemFS    bool `json:"mem_fs"`
 }
 
-// startcluster starts a cluster that is sent a SIG_KILL when ctx is canceled.
+// startCluster starts a cluster that is sent a SIG_KILL when ctx is canceled.
 func startCluster(p ClusterParam) (error, func() error) {
 	if p == (ClusterParam{}) {
 		fmt.Printf("--cannot find cluster startup configration, skipping\n")
@@ -34,7 +34,6 @@ func startCluster(p ClusterParam) (error, func() error) {
 	var (
 		stdOut, stdErr = bytes.Buffer{}, bytes.Buffer{}
 		cmd            = exec.Command("./bin/synnax.exe", args...)
-		pgoCmd         *exec.Cmd
 	)
 
 	cmd.Stderr = &stdErr
@@ -52,23 +51,7 @@ func startCluster(p ClusterParam) (error, func() error) {
 
 	time.Sleep(5 * telem.Second.Duration())
 
-	pgoCmd = startPGO()
-	if err := pgoCmd.Start(); err != nil {
-		return errors.Wrap(err, "error in starting PGO"), func() error { return nil }
-	}
-
 	return nil, func() (err error) {
-		if pgoCmd.ProcessState != nil && !pgoCmd.ProcessState.Exited() {
-			err = pgoCmd.Wait()
-		}
-
-		return errors.CombineErrors(err, cmd.Process.Kill())
+		return cmd.Process.Kill()
 	}
-}
-
-func startPGO() *exec.Cmd {
-	// It is important to note that every test must run for > 60s for PGO to have enough
-	// time to gather the profile.
-	url := "http://localhost:9090/debug/pprof/profile?seconds=60"
-	return exec.Command("curl", "-o", "../synnax/default.pgo", url)
 }

@@ -7,14 +7,17 @@ fi
 
 
 # Build the server binary
-echo "--Compiling with PGO"
-(cd ../synnax && go build -o ../integration/bin/synnax.exe -pgo=auto)
+echo "--Compiling"
+(cd ../synnax && go build -tags="development" -o ../integration/bin/synnax.exe)
 
 # Run the Go program with the provided arguments
 go run . "$1"
 
 # Capture the exit code of the Go program
 exit_code=$?
+
+# Delete testing data
+rm -rf ./synnax-data
 
 # Check if the exit code is not 0
 if [ $exit_code -ne 0 ]; then
