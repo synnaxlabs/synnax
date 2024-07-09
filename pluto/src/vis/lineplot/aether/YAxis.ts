@@ -23,6 +23,7 @@ export const yAxisStateZ = coreAxisStateZ.extend({
 
 export interface YAxisProps extends AxisRenderProps {
   xDataToDecimalScale: scale.Scale;
+  exposure: number;
 }
 
 type Children = line.Line | rule.Rule;
@@ -54,13 +55,14 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
   }
 
   private async renderLines(
-    { xDataToDecimalScale: xScale, plot, canvases }: YAxisProps,
+    { xDataToDecimalScale: xScale, plot, canvases, exposure }: YAxisProps,
     yScale: scale.Scale,
   ): Promise<void> {
     if (!canvases.includes("gl")) return;
     const props: line.LineProps = {
       region: plot,
       dataToDecimalScale: new scale.XY(xScale, yScale),
+      exposure,
     };
     await Promise.all(this.lines.map(async (el) => await el.render(props)));
   }
@@ -85,7 +87,13 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
   }
 
   async findByXValue(
-    { xDataToDecimalScale, plot, viewport, hold }: Omit<YAxisProps, "canvases">,
+    {
+      xDataToDecimalScale,
+      plot,
+      viewport,
+      hold,
+      exposure,
+    }: Omit<YAxisProps, "canvases">,
     target: number,
   ): Promise<line.FindResult[]> {
     const [yDataToDecimalScale, error] = await this.dataToDecimalScale(
@@ -95,7 +103,7 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
     );
     if (error != null) throw error;
     const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
-    const props: line.LineProps = { region: plot, dataToDecimalScale };
+    const props: line.LineProps = { region: plot, dataToDecimalScale, exposure };
     return (
       await Promise.all(
         this.lines.map(async (el) => await el.findByXValue(props, target)),

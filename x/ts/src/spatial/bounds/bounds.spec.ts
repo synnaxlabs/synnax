@@ -475,4 +475,51 @@ describe("Bounds", () => {
       expect(bounds.clamp(b, 4)).toEqual(2);
     });
   });
+  describe("exposure", () => {
+    interface Spec {
+      name: string;
+      bg: bounds.Crude;
+      filter: bounds.Crude;
+      result: number;
+    }
+    const SPECS: Spec[] = [
+      {
+        name: "full exposure",
+        bg: [1, 3],
+        filter: [1, 3],
+        result: 1,
+      },
+      {
+        name: "no exposure",
+        bg: [1, 3],
+        filter: [4, 5],
+        result: 0,
+      },
+      {
+        name: "partial exposure",
+        bg: [1, 3],
+        filter: [2, 4],
+        result: 0.5,
+      },
+      {
+        name: "partial exposure",
+        bg: [1, 3],
+        filter: [0, 2],
+        result: 0.5,
+      },
+      {
+        name: "full exposure",
+        bg: [1, 3],
+        filter: [0, 4],
+        result: 1,
+      },
+    ];
+    SPECS.forEach(({ name, bg, filter, result }) => {
+      test(name, () => {
+        expect(bounds.exposure(bounds.construct(bg), bounds.construct(filter))).toEqual(
+          result,
+        );
+      });
+    });
+  });
 });
