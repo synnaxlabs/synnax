@@ -120,6 +120,7 @@ func (s *Provider) Subscribe(
 	plumber.SetSink[framer.StreamerResponse](p, "observable", obs)
 	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "observable", 10)
 	streamer.InFrom(confluence.NewStream[framer.StreamerRequest]())
+	// HERE
 	p.Flow(sCtx, confluence.CloseInletsOnExit())
 	return obs, nil
 }

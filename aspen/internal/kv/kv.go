@@ -253,6 +253,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		Capacity:     1,
 	}.MustRoute(pipe)
 
+	// HERE
 	pipe.Flow(sCtx)
 
 	return db_, nil

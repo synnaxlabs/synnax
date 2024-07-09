@@ -55,6 +55,7 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	plumber.MustConnect[iterator.Response](pipe, "iterator", "sender", 1)
 	plumber.MustConnect[iterator.Request](pipe, "receiver", "iterator", 1)
 
+	// HERE
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return sCtx.Wait()
 }

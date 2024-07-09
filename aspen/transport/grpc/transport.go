@@ -268,7 +268,7 @@ func (t Transport) Report() alamos.Report {
 	return t.pledgeServer.Report()
 }
 
-func (t Transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
+func (t Transport) Configure(sCtx signal.Context, addr address.Address, external bool) error {
 	if external {
 		return nil
 	}
@@ -278,7 +278,8 @@ func (t Transport) Configure(ctx signal.Context, addr address.Address, external 
 	if err != nil {
 		return err
 	}
-	ctx.Go(func(ctx context.Context) (err error) {
+	// HERE
+	sCtx.Go(func(ctx context.Context) (err error) {
 		go func() {
 			err = server.Serve(lis)
 		}()

@@ -278,21 +278,23 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 			return err
 		}
 		udb := udb
+		// HERE
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
 			return udb.GarbageCollect(_ctx)
-		})
+		}, signal.RecoverWithErrOnPanic())
 	}
 	db.mu.RUnlock()
 	return sCtx.Wait()
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
+	// HERE
 	signal.GoTick(sCtx, opts.gcCfg.GCTryInterval, func(ctx context.Context, time time.Time) error {
 		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
 		if err != nil {
 			db.L.Error("garbage collection error", zap.Error(err))
 		}
 		return nil
-	})
+	}, signal.WithMaxRestart(10), signal.RecoverWithoutErrOnPanic())
 }

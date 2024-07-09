@@ -99,14 +99,17 @@ func (d *Driver) start() error {
 		internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 		defer cancel()
 
+		// HERE
 		internalSCtx.Go(func(ctx context.Context) error {
 			pipeOutputToLogger(stdoutPipe, d.cfg.L)
 			return nil
 		}, signal.WithKey("stdoutPipe"))
+		// HERE
 		internalSCtx.Go(func(ctx context.Context) error {
 			pipeOutputToLogger(stderrPipe, d.cfg.L)
 			return nil
 		}, signal.WithKey("stderrPipe"))
+		// HERE
 		internalSCtx.Go(func(ctx context.Context) error {
 			err := d.cmd.Wait()
 			return err

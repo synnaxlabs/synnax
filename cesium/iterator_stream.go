@@ -124,10 +124,11 @@ type IteratorConfig struct {
 }
 
 // Flow implements the confluence.Segment interface.
-func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
+func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
-	ctx.Go(func(ctx context.Context) error {
+	// HERE
+	sCtx.Go(func(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():

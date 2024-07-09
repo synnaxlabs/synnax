@@ -92,7 +92,9 @@ func Open(configs ...Config) (*Relay, error) {
 
 	sCtx, _ := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 
+	// HERE
 	r.delta.Flow(sCtx, confluence.WithAddress("delta"))
+	// HERE
 	tpr.Flow(sCtx, confluence.WithAddress("tapper"), confluence.CloseInletsOnExit())
 	r.wg = sCtx
 

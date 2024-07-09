@@ -118,6 +118,7 @@ func start(cmd *cobra.Command) {
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
+	// HERE
 	sCtx.Go(func(ctx context.Context) (err error) {
 
 		secProvider, err := configureSecurity(ins, insecure)
@@ -253,6 +254,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		// HERE
 		sCtx.Go(func(_ context.Context) error {
 			defer cancel()
 			return srv.Serve()

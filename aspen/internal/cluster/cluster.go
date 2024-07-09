@@ -199,6 +199,7 @@ func (c *Cluster) goFlushStore(sCtx signal.Context) {
 				flush.Flush(sCtx, change.State)
 			}
 		})
+		// HERE
 		sCtx.Go(func(ctx context.Context) error {
 			<-ctx.Done()
 			flush.FlushSync(ctx, c.Store.CopyState())
