@@ -1,0 +1,12 @@
+.console-task-configure.console-opcua {
+    .console-browser {
+        max-width: 50%;
+        width: 100%;
+    }
+    .console-channels {
+        height: 100%;
+        .pluto-list__container {
+            height: calc(100% - 6rem);
+        }
+    }
+}

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/opc/task/ReadTask.css";
+
 import { channel, device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -49,8 +51,6 @@ import {
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import {
-  ChannelListEmptyContent,
-  ChannelListHeader,
   Controls,
   useCreate,
   useObserveState,
@@ -194,7 +194,12 @@ const Wrapped = ({
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
   return (
-    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
+    <Align.Space
+      className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
+      direction="y"
+      grow
+      empty
+    >
       <Align.Space direction="y" grow>
         <Form.Form {...methods}>
           <Align.Space direction="x">
@@ -205,7 +210,7 @@ const Wrapped = ({
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
               path="config.device"
-              label="Device"
+              label="OPC UA Server"
               style={{ width: "100%" }}
             >
               {(p) => (
@@ -242,12 +247,13 @@ const Wrapped = ({
             style={{ overflow: "hidden", height: "500px" }}
           >
             <Align.Space
-              className={CSS.B("channel-form")}
+              className={CSS.B("browser")}
               direction="y"
               grow
               bordered
               rounded
               style={{ overflow: "hidden", height: "100%" }}
+              empty
             >
               <Header.Header level="h4">
                 <Header.Title weight={500}>Browser</Header.Title>
@@ -328,7 +334,9 @@ export const ChannelList = ({
 
   return (
     <Align.Space className={CSS.B("channels")} grow empty bordered rounded {...props}>
-      <ChannelListHeader onAdd={handleAdd} />
+      <Header.Header level="h4">
+        <Header.Title weight={500}>Channels</Header.Title>
+      </Header.Header>
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string): void => {
@@ -356,7 +364,17 @@ export const ChannelList = ({
       >
         <List.List<string, ReadChannelConfig>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <Align.Center>
+              <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+                No channels added. Drag a variable{" "}
+                <Icon.Variable
+                  style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
+                />{" "}
+                from the browser to add a channel to the task.
+              </Text.Text>
+            </Align.Center>
+          }
         >
           <List.Selector<string, ReadChannelConfig>
             value={selected}

@@ -4,6 +4,7 @@ import { Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ReactElement, useEffect, useState } from "react";
 
+import { CSS } from "@/css";
 import {
   Device as OPCDevice,
   ScannerScanCommandResult,
@@ -35,8 +36,6 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       return await rack.retrieveTaskByName("opc Scanner");
     },
   });
-
-  console.log(nodes);
 
   const expand = useMutation({
     mutationKey: [client?.key, scanTask?.key, device?.key],
@@ -91,8 +90,10 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       <Tree.Tree
         emptyContent={
           <Align.Center>
-            <Text.Text shade={5} level="p">
-              {device == null ? "No device selected." : "No nodes found."}
+            <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+              {device == null
+                ? "No OPC UA Server Selected. Select a server to browse nodes."
+                : "No nodes found in OPC UA server."}
             </Text.Text>
           </Align.Center>
         }

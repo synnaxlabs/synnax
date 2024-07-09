@@ -260,7 +260,7 @@ export const DefaultItem = memo(
     const baseProps: Button.LinkProps | Button.ButtonProps = {
       id: key,
       variant: "text",
-      draggable: onDrop != null,
+      draggable: haulItems.length > 0,
       className: CSS(
         CSS.BE("list", "item"),
         CONTEXT_TARGET,
@@ -330,7 +330,6 @@ export const Tree = ({
   ...props
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
-
   return (
     <List.List<string, FlattenedNode> data={nodes} emptyContent={emptyContent}>
       <List.Selector<string, FlattenedNode>
