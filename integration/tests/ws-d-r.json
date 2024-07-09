@@ -175,6 +175,21 @@
         }
       },
       {
+        "op": "delete",
+        "client": "py",
+        "delay": 1,
+        "params": {
+          "channels": [
+            "int2-0"
+          ],
+          "time_range": {
+            "start": 0,
+            "end": 1000000000000000
+          },
+          "expected_error": "unauthorized"
+        }
+      },
+      {
         "op": "read",
         "client": "py",
         "delay": 0.5,
@@ -220,7 +235,6 @@
       {
         "op": "stream",
         "client": "ts",
-        "starts_after": [],
         "params": {
           "channels": [
             "int0",
@@ -237,7 +251,6 @@
       {
         "op": "stream",
         "client": "py",
-        "starts_after": [],
         "params": {
           "channels": [
             "int1",
@@ -254,7 +267,6 @@
       {
         "op": "delete",
         "client": "py",
-        "starts_after": [],
         "params": {
           "time_range": {
             "start": 100000000000000,
@@ -299,7 +311,6 @@
       {
         "op": "delete",
         "client": "ts",
-        "starts_after": [],
         "params": {
           "time_range": {
             "start": 100000000000000,
@@ -340,7 +351,6 @@
       {
         "op": "read",
         "client": "py",
-        "starts_after": [],
         "params": {
           "num_iterators": 5,
           "channel_groups": [
@@ -384,7 +394,6 @@
       {
         "op": "read",
         "client": "ts",
-        "starts_after": [],
         "params": {
           "num_iterators": 5,
           "channel_groups": [
