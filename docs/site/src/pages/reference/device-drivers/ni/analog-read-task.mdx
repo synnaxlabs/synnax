@@ -7,7 +7,7 @@ description: "Learn how to create an analog read task for NI hardware."
 import { Divider } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
 import { Tabs } from "@/components/Tabs";
-import { Video } from "@/components/Media";
+import { Video, Image } from "@/components/Media";
 
 The analog read task is used for acquiring data from analog inputs on your NI devices. 
 In this guide, we'll walk you through the steps for creating an analog read task using
@@ -90,15 +90,19 @@ top right corner and select "NI Analog Read Task".
 The first step is to select the NI device you'd like to read data from. Use the dropdown
 menu in the top left corner to do so.
 
+<Video client:only="react" id="device-drivers/ni/analog-read-task/analog-read-task-select-device" />
+
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
 Next, you'll need to add channels to read data from. Click on the "+" button in the
 channels section. Then, click on the new channel in the list to configure it.
 
+<Video client:only="react" id="device-drivers/ni/analog-read-task/analog-read-task-create-channel" />
+
 ### <StepText level="h3" step={3}>Configure Timing</StepText>
 
-There are two parameters to control the timing of the task: the sample rate and the 
-stream rate. The sample rate defines at how many samples per second the task will read
+There are two parameters to control the timing of the task: the **sample rate** and the 
+**stream rate**. The sample rate defines how many samples per second the task will read
 from the device. The stream rate defines how often the task will stream data into Synnax.
 
 For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax will
@@ -108,6 +112,8 @@ For very low rate tasks (&lt; 50Hz), we recommend setting the stream rate to the
 as the sample rate. For higher rate tasks, lowering the stream rate can significantly 
 improve performance. It's typically best to keep the stream rate below 50Hz unless you need
 to quickly process incoming data in real-time.
+
+<Image client:only="react" id="device-drivers/ni/analog-read-task/analog-read-task-timing" />
 
 ### <StepText level="h3" step={4}>Enable/Disable Data Saving</StepText>
 
