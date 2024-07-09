@@ -42,7 +42,10 @@ FailureReason: %s,
 `, r.Key, r.ContextKey, r.State, r.FailureReason)
 }
 
-type RoutineState uint8
+type (
+	RoutineState uint8
+	PanicPolicy  uint8
+)
 
 //go:generate stringer -type=RoutineState
 const (
@@ -53,6 +56,14 @@ const (
 	Failed
 	ContextCanceled
 	Panicked
+)
+
+//go:generate stringer -type=PanicPolicy
+const (
+	PropagatePanic PanicPolicy = iota
+	RecoverNoErr
+	RecoverErr
+	Restart
 )
 
 // Defer attaches the provided function f to the routine. The function will be
@@ -117,6 +128,18 @@ func CancelOnExitErr() RoutineOption {
 	}
 }
 
+func WithPanicPolicy(p PanicPolicy) RoutineOption {
+	return func(r *routineOptions) {
+		r.panicPolicy = p
+	}
+}
+
+func WithMaxRestart(maxRestart int) RoutineOption {
+	return func(r *routineOptions) {
+		r.maxRestart = maxRestart
+	}
+}
+
 type routineOptions struct {
 	// key is a unique identifier for the routine. signal will panic if more
 	// than one routine is started with the same key. If no key is provided
@@ -131,6 +154,11 @@ type routineOptions struct {
 		cancelOnExit    bool
 		cancelOnExitErr bool
 	}
+	// panicPolicy defines what the routine should do if it panics.
+	panicPolicy PanicPolicy
+	// maxRestart defines the maximum number of times a panicking goroutine attempts to
+	// restart if its PanicPolicy is set to Restart.
+	maxRestart int
 	// callerSkip is the number of stack frames to skip when logging.
 	callerSkip int
 }
@@ -159,6 +187,7 @@ func (r *routine) info() RoutineInfo {
 
 func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	r.ctx.mu.Lock()
+	defer r.ctx.mu.Unlock()
 
 	if r.key == "" {
 		r.key = "anonymous-" + strconv.Itoa(len(r.ctx.mu.routines))
@@ -173,7 +202,6 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 		return r.ctx, false
 	}
 	r.state.state = Running
-	r.ctx.mu.Unlock()
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
 	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
@@ -181,10 +209,9 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	return ctx, true
 }
 
+// runPostlude decides the state of the goroutine upon exiting and combines err with
+// any errors from deferred functions.
 func (r *routine) runPostlude(err error) error {
-	r.maybeRecover()
-	defer r.maybeRecover()
-
 	r.ctx.L.Debug("stopping routine", r.zapFields()...)
 
 	r.ctx.mu.Lock()
@@ -231,19 +258,33 @@ func (r *routine) runPostlude(err error) error {
 	return err
 }
 
-func (r *routine) maybeRecover() {
-	if err := recover(); err != nil {
-		r.ctx.mu.Lock()
-		defer r.ctx.mu.Unlock()
+func (r *routine) handlePanic(err any) (error, bool) {
+	r.ctx.mu.Lock()
+	defer r.ctx.mu.Unlock()
+
+	r.ctx.L.Debugf("routine panicked, handling with strategy %v", r.panicPolicy)
+	r.ctx.L.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
+
+	switch r.panicPolicy {
+	case PropagatePanic:
 		r.state.state = Panicked
-		r.ctx.L.Error("routine panicked")
-		r.ctx.L.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
 		if err, ok := err.(error); ok {
 			r.state.err = err
 			_ = r.span.Error(err)
 		}
 		r.span.End()
 		panic(err)
+	case RecoverErr:
+		r.state.state = Failed
+		if err, ok := err.(error); ok {
+			return errors.Wrap(err, "routine recovered"), false
+		}
+		return errors.Newf("%s", err), false
+	case RecoverNoErr:
+		r.state.state = Exited
+		return nil, false
+	default:
+		return nil, true
 	}
 }
 
@@ -277,9 +318,27 @@ func (r *routine) goRun(f func(context.Context) error) {
 	if ctx, proceed := r.runPrelude(); proceed {
 		pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
 			r.ctx.internal.Go(func() (err error) {
-				defer func() { err = r.runPostlude(err) }()
-				err = f(ctx)
-				return err
+				restart := false
+				for i := 0; i < r.maxRestart+1; i++ {
+					if r.panicPolicy == Restart && i == r.maxRestart {
+						// If on the last straw, error if routine still panics.
+						r.panicPolicy = RecoverErr
+					}
+					func() {
+						defer func() {
+							if e := recover(); e != nil {
+								err, restart = r.handlePanic(e)
+							}
+						}()
+						err = f(ctx)
+					}()
+
+					if !restart {
+						err = r.runPostlude(err)
+						return
+					}
+				}
+				return
 			})
 		})
 	}
