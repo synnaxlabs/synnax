@@ -136,6 +136,9 @@ func WithPanicPolicy(p PanicPolicy) RoutineOption {
 
 func WithMaxRestart(maxRestart int) RoutineOption {
 	return func(r *routineOptions) {
+		if r.panicPolicy != Restart {
+			panic("cannot set maxRestart without panic policy Restart")
+		}
 		r.maxRestart = maxRestart
 	}
 }
@@ -201,7 +204,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 		r.state.err = r.ctx.Err()
 		return r.ctx, false
 	}
-	r.state.state = Running
+	r.state.state = Starting
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
 	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
@@ -258,7 +261,7 @@ func (r *routine) runPostlude(err error) error {
 	return err
 }
 
-func (r *routine) handlePanic(err any) (error, bool) {
+func (r *routine) maybeRecover(err any) (error, bool) {
 	r.ctx.mu.Lock()
 	defer r.ctx.mu.Unlock()
 
@@ -317,6 +320,9 @@ func (r *routine) path() string {
 func (r *routine) goRun(f func(context.Context) error) {
 	if ctx, proceed := r.runPrelude(); proceed {
 		pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
+			r.ctx.mu.Lock()
+			r.state.state = Running
+			r.ctx.mu.Unlock()
 			r.ctx.internal.Go(func() (err error) {
 				restart := false
 				for i := 0; i < r.maxRestart+1; i++ {
@@ -327,7 +333,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 					func() {
 						defer func() {
 							if e := recover(); e != nil {
-								err, restart = r.handlePanic(e)
+								err, restart = r.maybeRecover(e)
 							}
 						}()
 						err = f(ctx)
