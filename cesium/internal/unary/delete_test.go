@@ -44,6 +44,7 @@ var _ = Describe("Delete", func() {
 						IsIndex:  true,
 						Index:    index,
 					},
+					Instrumentation: PanicLogger(),
 				}))
 				db = MustSucceed(unary.Open(unary.Config{
 					FS: MustSucceed(fs.Sub("data")),
@@ -52,6 +53,7 @@ var _ = Describe("Delete", func() {
 						DataType: telem.Int64T,
 						Index:    index,
 					},
+					Instrumentation: PanicLogger(),
 				}))
 				rateDB = MustSucceed(unary.Open(unary.Config{
 					FS: MustSucceed(fs.Sub("rate")),
@@ -60,6 +62,7 @@ var _ = Describe("Delete", func() {
 						DataType: telem.Int64T,
 						Rate:     1 * telem.Hz,
 					},
+					Instrumentation: PanicLogger(),
 				}))
 				db.SetIndex(indexDB.Index())
 			})

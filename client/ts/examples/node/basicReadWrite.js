@@ -30,7 +30,7 @@ const timeChannel = await client.channels.create({
 });
 
 // Create a channel that will be used to store our data.
-const indexChannel = await client.channels.create({
+const dataChannel = await client.channels.create({
     name: "basic_read_write_data",
     isIndex: false,
     dataType: DataType.FLOAT32,
@@ -54,14 +54,14 @@ const data = Float32Array.from({ length: N_SAMPLES }, (_, i) => Math.sin(i / 100
 // otherwise writing the data will fail. Notice how we align the writes with the 'start'
 // timestamp.
 await timeChannel.write(start, time);
-await indexChannel.write(start, data);
+await dataChannel.write(start, data);
 
 // Define the time range to read the data back from
 const tr = new TimeRange(start, start.add(TimeSpan.milliseconds(N_SAMPLES)));
 
 // Read the data back. The order doesn't matter here.
 const readTime = await timeChannel.read(tr);
-const readData = await indexChannel.read(tr);
+const readData = await dataChannel.read(tr);
 
 // Print out some information.
 console.log({

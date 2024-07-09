@@ -55,6 +55,11 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	return &Logger{Config: cfg, zap: z.WithOptions(zap.AddCallerSkip(1))}, nil
 }
 
+// Zap returns the underlying zap Logger
+func (l *Logger) Zap() *zap.Logger {
+	return l.zap
+}
+
 func (l *Logger) child(meta InstrumentationMeta) (nl *Logger) {
 	if l != nil {
 		nl = &Logger{zap: l.zap.Named(meta.Key), Config: l.Config}

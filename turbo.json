@@ -1,6 +1,11 @@
 {
   "$schema": "https://turborepo.org/schema.json",
-  "pipeline": {
+  "globalEnv": [
+    "SYNNAX_TS_ENV",
+    "TAURI_SIGNING_PRIVATE_KEY",
+    "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+  ],
+  "tasks": {
     "build": {
       "dependsOn": [
         "^build"

@@ -21,10 +21,10 @@ import {
 import { compare } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
-import { State } from "@/layout/layout";
 import { useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
+import { State } from "@/layout/slice";
 import {
   type NavDrawerLocation,
   place,

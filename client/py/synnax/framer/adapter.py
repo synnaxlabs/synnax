@@ -11,16 +11,14 @@ from pandas import DataFrame
 
 from synnax.channel.payload import (
     ChannelKey,
-    ChannelKeys,
     ChannelName,
-    ChannelNames,
     ChannelParams,
     ChannelPayload,
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.exceptions import QueryError, ValidationError
-from synnax.framer.frame import Frame
+from synnax.exceptions import ValidationError
+from synnax.framer.frame import Frame, CrudeFrame
 from synnax.telem.series import CrudeSeries, Series
 
 
@@ -90,27 +88,28 @@ class WriteFrameAdapter:
     def adapt(
         self,
         channels_or_data: ChannelPayload
+        | list[ChannelPayload]
         | ChannelParams
-        | Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries]
-        | DataFrame,
+        | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
-        if isinstance(channels_or_data, (ChannelName, ChannelKey)):
+        if isinstance(channels_or_data, (ChannelName, ChannelKey, ChannelPayload)):
             if series is None:
                 raise ValidationError(
                     f"""
                 Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
-                but no series.
+                but no data.
                 """
                 )
             if isinstance(series, list) and len(series) > 1:
-                raise ValidationError(
-                    f"""
-                Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
-                but multiple series.
-                """
-                )
+                first = series[0]
+                if not isinstance(first, (float, int)):
+                    raise ValidationError(
+                        f"""
+                    Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
+                    but multiple series.
+                    """
+                    )
 
             pld = self.__adapt_ch(channels_or_data)
             series = Series(data_type=pld.data_type, data=series)

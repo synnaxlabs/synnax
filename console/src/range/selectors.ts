@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { selectByKey, useMemoSelect } from "@/hooks";
-import type { Range, StaticRange } from "@/range/range";
-import { SLICE_NAME,type SliceState, type StoreState } from "@/range/slice";
+import type { Range, StaticRange } from "@/range/slice";
+import { SLICE_NAME, type SliceState, type StoreState } from "@/range/slice";
 
 /**
  * Selects the workspace state.

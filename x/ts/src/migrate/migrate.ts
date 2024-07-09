@@ -15,6 +15,15 @@ export const semVerZ = z.string().regex(/^\d+\.\d+\.\d+$/);
 
 export type SemVer = z.infer<typeof semVerZ>;
 
+/**
+ * Compares the two semantic versions.
+ *
+ * @param a  The first semantic version.
+ * @param b  The second semantic version.
+ * @returns a number, where the the number is compare.LESS_THAN (negative) if a is OLDER
+ * than B, compare.EQUAL (0) if a is the same as b, and compare.GREATER_THAN (positive)
+ * if a is NEWER than b.
+ */
 const compareSemVer: compare.CompareF<string> = (a, b) => {
   const semA = semVerZ.parse(a);
   const semB = semVerZ.parse(b);
@@ -25,34 +34,123 @@ const compareSemVer: compare.CompareF<string> = (a, b) => {
   return aPatch - bPatch;
 };
 
+/**
+ * @returns true if the first semantic version is newer than the second.
+ * @param a The first semantic version.
+ * @param b The second semantic version.
+ */
 const semVerNewer = (a: SemVer, b: SemVer): boolean =>
   compare.isGreaterThan(compareSemVer(a, b));
 
-export const migratable = z.object({
-  version: semVerZ,
-});
+export type Migratable<V extends string = string> = { version: V };
 
-export interface Migratable extends z.infer<typeof migratable> {}
+export type Migration<I extends Migratable, O extends Migratable> = (input: I) => O;
 
-export type Migration<I = unknown, O = unknown> = (
-  migratable: Migratable & I,
-) => Migratable & O;
+export interface MigrationProps<
+  I extends Migratable,
+  O extends Migratable,
+  ZI extends z.ZodTypeAny,
+  ZO extends z.ZodTypeAny,
+> {
+  name: string;
+  inputSchema?: ZI;
+  outputSchema?: ZO;
+  migrate: Migration<I, O>;
+}
 
+export const createMigration =
+  <
+    I extends Migratable,
+    O extends Migratable,
+    ZI extends z.ZodTypeAny = z.ZodTypeAny,
+    ZO extends z.ZodTypeAny = z.ZodTypeAny,
+  >({
+    name,
+    migrate,
+  }: MigrationProps<I, O, ZI, ZO>): Migration<I, O> =>
+  (input: I): O => {
+    try {
+      const out = migrate(input);
+      console.log(`${name} migrated: ${input.version} -> ${out.version}`);
+      return out;
+    } catch (e) {
+      console.log(`${name} failed to migrate from ${input.version}`);
+      console.error(e);
+      throw e;
+    }
+  };
+
+/**
+ * A record of migrations to be applied, where the key of the record is the
+ * input version of the migration.
+ */
 export type Migrations = Record<string, Migration<any, any>>;
 
-export const migrator = <I = unknown, O = unknown>(
-  migrations: Migrations,
-): Migration<I, O> => {
-  const latestVersion = Object.keys(migrations).sort(compareSemVer).pop();
-  if (latestVersion == null)
-    return ((v: Migratable) => v) as unknown as Migration<I, O>;
+interface MigratorProps<O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTypeAny> {
+  name: string;
+  migrations: Migrations;
+  def: O;
+  targetSchema?: ZO;
+}
+
+export const migrator = <O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTypeAny>({
+  name,
+  migrations,
+  targetSchema,
+  def,
+}: MigratorProps<O, ZO>): ((v: Migratable) => O) => {
+  const latestMigrationVersion = Object.keys(migrations).sort(compareSemVer).pop();
+  if (latestMigrationVersion == null)
+    return (v: Migratable) => {
+      if (v.version !== def.version) {
+        console.log(
+          `${name} version ${v.version} is newer than latest version of ${def.version}. 
+          Returning default instead.
+          `,
+        );
+        return def;
+      }
+      try {
+        if (targetSchema != null) return targetSchema.parse(v);
+        return v;
+      } catch (e) {
+        console.log(`${name} failed to parse default. Exiting with default`);
+        console.error(e);
+        return def;
+      }
+    };
   const migLength = Object.keys(migrations).length;
+  let migrationApplied = false;
   const f = (old: Migratable): Migratable => {
-    if (migLength === 0 || semVerNewer(old.version, latestVersion)) return old;
-    const version = old.version;
-    const migration = migrations[version];
-    const new_: Migratable = migration(old);
-    return f(new_);
+    try {
+      if (migLength === 0 || semVerNewer(old.version, latestMigrationVersion)) {
+        if (migrationApplied) console.log(`${name} ${old.version} now up to date`);
+        else
+          console.log(
+            `${name} version ${old.version} is up to date with target version ${def.version}`,
+          );
+        return old;
+      }
+      const version = old.version;
+      const migrate = migrations[version];
+      const new_: Migratable = migrate(old);
+      migrationApplied = true;
+      return f(new_);
+    } catch (e) {
+      console.log(
+        `${name} failed to migrate from ${old.version} to ${latestMigrationVersion}`,
+      );
+      console.error(e);
+      return def;
+    }
   };
-  return f as unknown as Migration<I, O>;
+  return (v: Migratable): O => {
+    try {
+      return f(v) as O;
+    } catch (e) {
+      console.log(`${name} failed to parse final result. Exiting with default`);
+      console.error(e);
+      return def;
+    }
+  };
 };

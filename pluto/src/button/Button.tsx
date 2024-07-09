@@ -15,8 +15,9 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { type Align } from "@/align";
-import { color } from "@/button/color";
+import { Color } from "@/color";
 import { CSS } from "@/css";
+import { status } from "@/status/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -31,6 +32,7 @@ export interface ButtonExtensionProps {
   sharp?: boolean;
   loading?: boolean;
   triggers?: Triggers.Trigger[];
+  status?: status.Variant;
 }
 
 /** The base props accepted by all button types in this directory. */
@@ -83,6 +85,8 @@ export const Button = Tooltip.wrap(
     startIcon = [] as ReactElement[],
     delay = 0,
     onClick,
+    color,
+    status,
     ...props
   }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
@@ -108,6 +112,7 @@ export const Button = Tooltip.wrap(
           CSS.size(size),
           CSS.sharp(sharp),
           CSS.disabled(disabled),
+          status != null && CSS.M(status),
           CSS.BM("btn", variant),
           className,
         )}
@@ -116,7 +121,7 @@ export const Button = Tooltip.wrap(
         size={iconSpacing}
         onClick={handleClick}
         noWrap
-        color={color(variant, disabled, props.color, props.shade)}
+        color={Color.cssString(color)}
         startIcon={startIcon}
         {...props}
       >

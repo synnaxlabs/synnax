@@ -25,35 +25,39 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { List as Core } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
+import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
-import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
-import { add, remove, rename, setActive } from "@/range/slice";
+import {
+  add,
+  type Range,
+  remove,
+  rename,
+  setActive,
+  type StaticRange,
+} from "@/range/slice";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
-  const newLayout = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const selectedRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
     const layout = createEditLayout(key == null ? "Range.Create" : "Range.Edit");
-    newLayout({
-      ...layout,
-      key: key ?? layout.key,
-    });
+    placeLayout({ ...layout, key: key ?? layout.key });
   };
 
   const handleRemove = (keys: string[]): void => {
@@ -66,25 +70,36 @@ export const List = (): ReactElement => {
 
   const addStatus = Status.useAggregator();
 
+  const confirm = Confirm.useModal();
   const del = useMutation<void, Error, string, Range | undefined>({
-    onMutate: (key: string) => {
+    onMutate: async (key: string) => {
       const rng = ranges.find((r) => r.key === key);
+      if (
+        !(await confirm({
+          message: `Are you sure you want to delete ${rng?.name}?`,
+          description: "This action cannot be undone.",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Delete", variant: "error" },
+        }))
+      )
+        throw errors.CANCELED;
       handleRemove([key]);
       return rng;
     },
     mutationFn: async (key: string) => await client?.ranges.delete(key),
-    onError: ({ message }, _, range) => {
+    onError: (e, _, range) => {
+      if (errors.CANCELED.matches(e)) return;
       addStatus({
         variant: "error",
         message: "Failed to rename range",
-        description: message,
+        description: e.message,
       });
       dispatch(add({ ranges: [range as Range] }));
     },
   });
 
-  const handleSave = (key: string): undefined => {
-    void (async () => {
+  const save = useMutation<void, Error, string, Range | undefined>({
+    mutationFn: async (key: string) => {
       const range = ranges.find((r) => r.key === key);
       if (range == null || range.variant === "dynamic") return;
       await client?.ranges.create({
@@ -93,14 +108,18 @@ export const List = (): ReactElement => {
         name: range.name,
       });
       dispatch(add({ ranges: [{ ...range, persisted: true }] }));
-    })();
-  };
+    },
+    onError: (e, _, range) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to save range",
+        description: e.message,
+      });
+      dispatch(add({ ranges: [range as Range] }));
+    },
+  });
 
-  const handleSetActive = (key: string): void => {
-    void (async () => {
-      await client?.ranges.setActive(key);
-    })();
-  };
+  const handleLink = Link.useCopyToClipboard();
 
   const NoRanges = (): ReactElement => {
     const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
@@ -120,8 +139,6 @@ export const List = (): ReactElement => {
     );
   };
 
-  const clusterKey = Cluster.useSelectActiveKey();
-
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -133,14 +150,18 @@ export const List = (): ReactElement => {
       edit: () => handleAddOrEdit(rng?.key),
       remove: () => rng != null && handleRemove([rng.key]),
       delete: () => rng != null && del.mutate(rng.key),
-      save: () => rng != null && handleSave(rng.key),
-      setActive: () => rng != null && handleSetActive(rng.key),
-      link: () => {
-        if (rng == null) return;
-        const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
-        void navigator.clipboard.writeText(toCopy);
-      },
+      save: () => rng != null && save.mutate(rng.key),
+      link: () =>
+        rng != null &&
+        handleLink({
+          name: rng.name,
+          resource: {
+            key: rng.key,
+            type: "range",
+          },
+        }),
     };
+
     return (
       <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
         <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
@@ -152,9 +173,6 @@ export const List = (): ReactElement => {
             <Menu.RenameItem />
             <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
               Edit
-            </PMenu.Item>
-            <PMenu.Item startIcon={<Icon.Play />} itemKey="setActive">
-              Set as Active Range
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item startIcon={<Icon.Close />} itemKey="remove">
