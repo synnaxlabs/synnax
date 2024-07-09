@@ -55,7 +55,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs, cleanUp = makeFS()
-				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
+				db = MustSucceed(domain.Open(domain.Config{
+					FS:              fs,
+					Instrumentation: PanicLogger(),
+				}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
@@ -110,7 +113,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Context("No preset end", func() {
 					It("Should start writing to a new file when one file is full", func() {
 						fs2, cleanUp2 := makeFS()
-						db2 := MustSucceed(domain.Open(domain.Config{FS: fs2, FileSize: 10 * telem.ByteSize}))
+						db2 := MustSucceed(domain.Open(domain.Config{
+							FS:              fs2,
+							FileSize:        10 * telem.ByteSize,
+							Instrumentation: PanicLogger(),
+						}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
@@ -162,7 +169,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					It("Should work when the file size exceeds the limit by just 1", func() {
 						fs2, cleanUp2 := makeFS()
-						db2 := MustSucceed(domain.Open(domain.Config{FS: fs2, FileSize: 5 * telem.ByteSize}))
+						db2 := MustSucceed(domain.Open(domain.Config{
+							FS:              fs2,
+							FileSize:        5 * telem.ByteSize,
+							Instrumentation: PanicLogger(),
+						}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
@@ -206,7 +217,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Context("With preset end", func() {
 					It("Should start writing to a new file when one file is full", func() {
 						fs2, cleanUp2 := makeFS()
-						db2 := MustSucceed(domain.Open(domain.Config{FS: fs2, FileSize: 10 * telem.ByteSize}))
+						db2 := MustSucceed(domain.Open(domain.Config{
+							FS:              fs2,
+							FileSize:        10 * telem.ByteSize,
+							Instrumentation: PanicLogger(),
+						}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS, End: 100 * telem.SecondTS}))

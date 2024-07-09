@@ -10,6 +10,7 @@
 import { z } from "zod";
 
 import { clamp } from "@/clamp/clamp";
+import { numeric } from "@/numeric";
 import * as bounds from "@/spatial/bounds/bounds";
 import { type Box, isBox } from "@/spatial/box/box";
 import * as box from "@/spatial/box/box";
@@ -25,65 +26,77 @@ export type BoundVariant = "domain" | "range";
 
 type ValueType = "position" | "dimension";
 
-type Operation = (
-  currScale: bounds.Bounds | null,
+type Operation<T extends numeric.Value = number> = (
+  currScale: bounds.Bounds<T> | null,
   type: ValueType,
-  number: number,
+  value: T,
   reverse: boolean,
-) => OperationReturn;
+) => OperationReturn<T>;
 
-type OperationReturn = [bounds.Bounds | null, number];
+type OperationReturn<T extends numeric.Value = number> = [bounds.Bounds<T> | null, T];
 
-interface TypedOperation extends Operation {
+interface TypedOperation<T extends numeric.Value = number> extends Operation<T> {
   type: "translate" | "magnify" | "scale" | "invert" | "clamp" | "re-bound";
 }
 
 const curriedTranslate =
-  (translate: number): Operation =>
+  <T extends numeric.Value>(translate: T): Operation<T> =>
   (currScale, type, v, reverse) => {
     if (type === "dimension") return [currScale, v];
-    return [currScale, reverse ? v - translate : v + translate];
+    return [
+      currScale,
+      (reverse ? v - translate : (v as number) + (translate as number)) as T,
+    ];
   };
 
 const curriedMagnify =
-  (magnify: number): Operation =>
-  (currScale, _type, v, reverse) => [currScale, reverse ? v / magnify : v * magnify];
+  <T extends numeric.Value>(magnify: T): Operation<T> =>
+  (currScale, _type, v, reverse) => [
+    currScale,
+    (reverse ? v / magnify : v * magnify) as T,
+  ];
 
 const curriedScale =
-  (bound: bounds.Bounds): Operation =>
+  <T extends numeric.Value>(bound: bounds.Bounds<T>): Operation<T> =>
   (currScale, type, v) => {
     if (currScale === null) return [bound, v];
     const { lower: prevLower, upper: prevUpper } = currScale;
     const { lower: nextLower, upper: nextUpper } = bound;
-    const prevRange = prevUpper - prevLower;
-    const nextRange = nextUpper - nextLower;
-    if (type === "dimension") return [bound, v * (nextRange / prevRange)];
-    const nextV = (v - prevLower) * (nextRange / prevRange) + nextLower;
-    return [bound, nextV];
+    const prevRange = (prevUpper - prevLower) as T;
+    const nextRange = (nextUpper - nextLower) as T;
+    if (type === "dimension") return [bound, (v * (nextRange / prevRange)) as T];
+    // @ts-expect-error - typescript can't do the math correctly
+    const nextV = ((v - prevLower) * (nextRange / prevRange) + nextLower) as T;
+    return [bound, nextV as T];
   };
 
 const curriedReBound =
-  (bound: bounds.Bounds): Operation =>
+  <T extends numeric.Value>(bound: bounds.Bounds<T>): Operation<T> =>
   (_, __, v) => [bound, v];
 
-const curriedInvert = (): Operation => (currScale, type, v) => {
-  if (currScale === null) throw new Error("cannot invert without bounds");
-  if (type === "dimension") return [currScale, v];
-  const { lower, upper } = currScale;
-  return [currScale, upper - (v - lower)];
-};
+const curriedInvert =
+  <T extends numeric.Value>(): Operation<T> =>
+  (currScale, type, v) => {
+    if (currScale === null) throw new Error("cannot invert without bounds");
+    if (type === "dimension") return [currScale, v];
+    const { lower, upper } = currScale;
+    return [currScale, (upper - (v - lower)) as T];
+  };
 
 const curriedClamp =
-  (bound: bounds.Bounds): Operation =>
+  <T extends numeric.Value>(bound: bounds.Bounds<T>): Operation<T> =>
   (currScale, _, v) => {
     const { lower, upper } = bound;
-    v = clamp(v, lower, upper);
+    v = clamp<T>(v, lower, upper);
     return [currScale, v];
   };
 
-export class Scale {
-  ops: TypedOperation[] = [];
-  currBounds: bounds.Bounds | null = null;
+/**
+ * Scale implements a chain of operations that can be used to transform a numeric value.
+ */
+export class Scale<T extends numeric.Value = number> {
+  ops: TypedOperation<T>[] = [];
+  currBounds: bounds.Bounds<T> | null = null;
   currType: ValueType | null = null;
   private reversed = false;
 
@@ -91,94 +104,97 @@ export class Scale {
     this.ops = [];
   }
 
-  static translate(value: number): Scale {
-    return new Scale().translate(value);
+  static translate<T extends numeric.Value = number>(value: T): Scale<T> {
+    return new Scale<T>().translate(value);
   }
 
-  static magnify(value: number): Scale {
-    return new Scale().magnify(value);
+  static magnify<T extends numeric.Value = number>(value: T): Scale<T> {
+    return new Scale<T>().magnify(value);
   }
 
-  static scale(lowerOrBound: number | bounds.Bounds, upper?: number): Scale {
-    return new Scale().scale(lowerOrBound, upper);
+  static scale<T extends numeric.Value>(
+    lowerOrBound: T | bounds.Bounds<T>,
+    upper?: T,
+  ): Scale<T> {
+    return new Scale<T>().scale(lowerOrBound, upper);
   }
 
-  translate(value: number): Scale {
+  translate(value: T): Scale<T> {
     const next = this.new();
-    const f = curriedTranslate(value) as TypedOperation;
+    const f = curriedTranslate(value) as TypedOperation<T>;
     f.type = "translate";
     next.ops.push(f);
     return next;
   }
 
-  magnify(value: number): Scale {
+  magnify(value: T): Scale<T> {
     const next = this.new();
-    const f = curriedMagnify(value) as TypedOperation;
+    const f = curriedMagnify(value) as TypedOperation<T>;
     f.type = "magnify";
     next.ops.push(f);
     return next;
   }
 
-  scale(lowerOrBound: number | bounds.Bounds, upper?: number): Scale {
-    const b = bounds.construct(lowerOrBound, upper);
+  scale(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
+    const b = bounds.construct<T>(lowerOrBound, upper);
     const next = this.new();
-    const f = curriedScale(b) as TypedOperation;
+    const f = curriedScale<T>(b) as TypedOperation<T>;
     f.type = "scale";
     next.ops.push(f);
     return next;
   }
 
-  clamp(lowerOrBound: number | bounds.Bounds, upper?: number): Scale {
+  clamp(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
     const b = bounds.construct(lowerOrBound, upper);
     const next = this.new();
-    const f = curriedClamp(b) as TypedOperation;
+    const f = curriedClamp(b) as TypedOperation<T>;
     f.type = "clamp";
     next.ops.push(f);
     return next;
   }
 
-  reBound(lowerOrBound: number | bounds.Bounds, upper?: number): Scale {
+  reBound(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
     const b = bounds.construct(lowerOrBound, upper);
     const next = this.new();
-    const f = curriedReBound(b) as TypedOperation;
+    const f = curriedReBound(b) as TypedOperation<T>;
     f.type = "re-bound";
     next.ops.push(f);
     return next;
   }
 
-  invert(): Scale {
-    const f = curriedInvert() as TypedOperation;
+  invert(): Scale<T> {
+    const f = curriedInvert() as TypedOperation<T>;
     f.type = "invert";
     const next = this.new();
     next.ops.push(f);
     return next;
   }
 
-  pos(v: number): number {
+  pos(v: T): T {
     return this.exec("position", v);
   }
 
-  dim(v: number): number {
+  dim(v: T): T {
     return this.exec("dimension", v);
   }
 
-  private new(): Scale {
-    const scale = new Scale();
+  private new(): Scale<T> {
+    const scale = new Scale<T>();
     scale.ops = this.ops.slice();
     scale.reversed = this.reversed;
     return scale;
   }
 
-  private exec(vt: ValueType, v: number): number {
+  private exec(vt: ValueType, v: T): T {
     this.currBounds = null;
-    return this.ops.reduce<OperationReturn>(
-      ([b, v]: OperationReturn, op: Operation): OperationReturn =>
+    return this.ops.reduce<OperationReturn<T>>(
+      ([b, v]: OperationReturn<T>, op: Operation<T>): OperationReturn<T> =>
         op(b, vt, v, this.reversed),
       [null, v],
     )[1];
   }
 
-  reverse(): Scale {
+  reverse(): Scale<T> {
     const scale = this.new();
     scale.ops.reverse();
     // Switch the order of the operations to place scale operation 'BEFORE' the subsequent
@@ -217,13 +233,13 @@ export const xyScaleToTransform = (scale: XY): XYTransformT => ({
 });
 
 export class XY {
-  x: Scale;
-  y: Scale;
+  x: Scale<number>;
+  y: Scale<number>;
   currRoot: location.CornerXY | null;
 
   constructor(
-    x: Scale = new Scale(),
-    y: Scale = new Scale(),
+    x: Scale<number> = new Scale<number>(),
+    y: Scale<number> = new Scale<number>(),
     root: location.CornerXY | null = null,
   ) {
     this.x = x;

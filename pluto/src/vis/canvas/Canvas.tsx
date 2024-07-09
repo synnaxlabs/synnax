@@ -94,6 +94,13 @@ export const Canvas = Aether.wrap<CanvasProps>(
         .addEventListener("change", handleChange, { once: true });
     }, [dpr]);
 
+    // We want to trigger a re-render when the window is focused or blurred to ensure
+    // that we wake up sleeping render contexts.
+    useEffect(() => {
+      window.addEventListener("focus", () => setState((p) => ({ ...p })));
+      window.addEventListener("blur", () => setState((p) => ({ ...p })));
+    }, [setState]);
+
     const refCallback = useCallback(
       (el: HTMLCanvasElement | null) => {
         resizeRef(el);
