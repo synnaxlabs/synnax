@@ -12,20 +12,20 @@ import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { toArray } from "@synnaxlabs/x";
+import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { createEditLayout } from "@/range/EditLayout";
-import { type Range } from "@/range/range";
-import { select } from "@/range/selectors";
+import { select, useSelect } from "@/range/selectors";
+import { type Range } from "@/range/slice";
 import { add, rename, setActive, type StoreState } from "@/range/slice";
 
 const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
@@ -88,7 +88,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
     mutationFn: async ({ selection, client, store }) => {
-      const active = Layout.selectActiveMosaicTab(store.getState());
+      const active = Layout.selectActiveMosaicLayout(store.getState());
       if (active == null) return;
       const res = selection.resources[0];
       await fetchIfNotInState(store, client, res.id.key);
@@ -136,9 +136,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
   }).mutate;
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes, setNodes }, selection: { resources } }) => {
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = useConfirmDelete({ type: "Range" });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+      if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
@@ -155,6 +157,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       { addStatus, selection: { resources }, state: { setNodes } },
       prevNodes,
     ) => {
+      if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       let message = "Failed to delete ranges";
       if (resources.length === 1)
@@ -167,6 +170,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       });
     },
   }).mutate;
+};
 
 const handleEdit = ({
   selection: { resources },
@@ -179,19 +183,18 @@ const handleEdit = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { selection, store } = props;
-  const state = store.getState();
-  const activeRange = select(state);
-  const layout = Layout.selectActiveMosaicTab(state);
-  const { resources, nodes } = selection;
-  const clusterKey = Cluster.useSelectActiveKey();
-
+  const {
+    selection,
+    selection: { resources, nodes },
+  } = props;
+  const activeRange = useSelect();
+  const layout = Layout.useSelectActiveMosaicLayout();
   const del = useDelete();
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
   const activate = useActivate();
   const groupFromSelection = Group.useCreateFromSelection();
-
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(nodes[0].key),
@@ -200,15 +203,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     addToNewPlot: () => addToNewPlot(props),
     edit: () => handleEdit(props),
     group: () => groupFromSelection(props),
-    link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/range/${resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
-    },
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   };
   const isSingle = resources.length === 1;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
+      <PMenu.Divider />
       {isSingle && (
         <>
           {resources[0].id.key !== activeRange?.key && (
@@ -218,9 +223,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
           </PMenu.Item>
+          <PMenu.Divider />
         </>
       )}
-      <PMenu.Divider />
       {layout?.type === "lineplot" && (
         <PMenu.Item itemKey="addToActivePlot" startIcon={<Icon.Visualize />}>
           Add to {layout.name}

@@ -6,6 +6,8 @@ description: "Learn how to create an analog read task for NI hardware."
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
+import { Tabs } from "@/components/Tabs";
+import { Video } from "@/components/Media";
 
 The analog read task is used for acquiring data from analog inputs on your NI devices. 
 In this guide, we'll walk you through the steps for creating an analog read task using
@@ -16,8 +18,8 @@ the Synnax Console.
 ## Prerequisites
 
 Before configuring the task, you'll need to have connected and configured an NI device
-and created the relevant channels in Synnax. Check out the [Configure Device](/reference/device-drivers/ni/configure-device) 
-guide for more information.
+and created the relevant channels in Synnax. Check out the 
+[Configure Device](/reference/device-drivers/ni/configure-device) guide for more information.
 
 <Divider.Divider direction="x" />
 
@@ -43,39 +45,41 @@ There are a few important rules to keep in mind when creating an analog read tas
 All channels in the task are sampled at the same rate. If you'd like to sample
 different channels at different rates, create a separate task to do so.
 
-### One Running Task Per Channel
+### One Running Task Per Port
 
-Synnax can only accept live data from a channel from one source at a time. If you have 
-a task running that reads from a `pressure` channel, you cannot start another task that
-reads from the same channel.
-
-### One Running Task per Index Channel
-
-[Index channels](/reference/concepts/channels#channel-types) are use to store
-the timestamps for your data channels. When you configure a task to read from a
-data channel, Synnax will automatically generate timestamps for the
-corresponding index channel, regardless of whether you've explicitly added it to
-the task.
-
-For example, imaging we two channels, `pressure` and `temperature` that share
-the same index channel, `time`. If you configure a task to read from `pressure`,
-Synnax will automatically generate timestamps for the `time` channel. If you
-then configure a task to read from `temperature`, Synnax will not allow you to
-start the task, as the `time` channel is already in use.
+Synnax can only read live data into a channel from one source at a time. If you have two
+tasks that read from "ai0" on the same device, you cannot have both tasks running at the same time.
 
 <Divider.Divider direction="x" />
 
 ## Open the Task Configuration Dialog
 
-To configure an analog read task, open the Synnax Console and click on the 
-Quick Search & Command Palette at the top. You can also open this palette with 
+### From the Resources Toolbar
+
+To create an analog read task from the resources toolbar, open the Synnax Console and 
+click on the "Resources" tab in the left sidebar. Find the device you'd like to create
+the task for, right-click on it, and select "Create Analog Read Task".
+
+<Video client:only="react" id="device-drivers/ni/analog-read-task/device-create-analog-read-task" />
+
+### From the Command Palette
+
+To create an analog read task from the command palette, open the Synnax Console and 
+click on the Quick Search & Command Palette at the top. You can also open this palette with 
 `Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is ">"), type
+In command moe (enabled when the first character in the input is ">"), type
 "NI". You'll see an option called "Create a New Analog Read Task". Select this
 option to open the read task configuration dialog.
 
-INSERT VIDEO HERE
+<Video client:only="react" id="device-drivers/ni/analog-read-task/palette-create-analog-read-task" />
+
+### From The Layout Selector
+
+To create an analog read task from the layout selector, click on the "+" button in the 
+top right corner and select "NI Analog Read Task".
+
+<Video client:only="react" id="device-drivers/ni/analog-read-task/layout-create-analog-read-task" />
 
 <Divider.Divider direction="x" />
 

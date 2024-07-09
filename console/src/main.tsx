@@ -20,6 +20,7 @@ import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
+import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
 import { NI } from "@/hardware/ni";
@@ -49,6 +50,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
+  ...Confirm.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

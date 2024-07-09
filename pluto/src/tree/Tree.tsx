@@ -260,7 +260,7 @@ export const DefaultItem = memo(
     const baseProps: Button.LinkProps | Button.ButtonProps = {
       id: key,
       variant: "text",
-      draggable: true,
+      draggable: onDrop != null,
       className: CSS(
         CSS.BE("list", "item"),
         CONTEXT_TARGET,

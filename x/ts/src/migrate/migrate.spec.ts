@@ -10,80 +10,81 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import {
-  migratable,
-  type Migration,
-  type Migrations,
-  migrator,
-} from "@/migrate/migrate";
+import { migrate } from "@/migrate";
 
-const entityV0_0_0 = migratable.extend({
+const entityV0 = z.object({
+  version: z.literal("0.0.0"),
   name: z.string(),
 });
 
-type EntityV0_0_0 = z.infer<typeof entityV0_0_0>;
+type EntityV0 = z.infer<typeof entityV0>;
 
-const entityV0_0_1 = migratable.extend({
+const entityV1 = z.object({
+  version: z.literal("1.0.0"),
   title: z.string(),
 });
 
-type EntityV0_0_1 = z.infer<typeof entityV0_0_1>;
+const migrateV1 = migrate.createMigration<EntityV0, EntityV1>({
+  name: "entity",
+  inputSchema: entityV0,
+  outputSchema: entityV1,
+  migrate: (entity) => {
+    const { name, ...rest } = entity;
+    return { ...rest, version: "1.0.0", title: entity.name };
+  },
+});
 
-const entityV0_0_2 = migratable.extend({
+type EntityV1 = z.infer<typeof entityV1>;
+
+const entityV2 = z.object({
+  version: z.literal("2.0.0"),
   title: z.string(),
   description: z.string(),
 });
 
-type EntityV0_0_2 = z.infer<typeof entityV0_0_2>;
+type EntityV2 = z.infer<typeof entityV2>;
 
-const migrations: Migrations = {
-  "0.0.0": ((entity: EntityV0_0_0): EntityV0_0_1 => {
+const migrateV2 = migrate.createMigration<EntityV1, EntityV2>({
+  name: "entity",
+  inputSchema: entityV1,
+  outputSchema: entityV2,
+  migrate: (entity) => ({ ...entity, version: "2.0.0", description: "" }),
+});
 
-    const { name, ...rest } = entity;
-    return {
-      ...rest,
-      version: "0.0.1",
-      title: entity.name,
-    };
-  }) as Migration<EntityV0_0_0, EntityV0_0_1>,
-  "0.0.1": (entity: EntityV0_0_1): EntityV0_0_2 => {
-    return {
-      ...entity,
-      version: "0.0.2",
-      description: "",
-    };
-  },
+const migrations: migrate.Migrations = {
+  "0.0.0": migrateV1,
+  "1.0.0": migrateV2,
 };
 
 describe("migrator", () => {
-  it("should migrate an entity from v0.0.0 to v0.0.2", () => {
-    const entity: EntityV0_0_0 = {
-      version: "0.0.0",
-      name: "foo",
-    };
-    const migrated = migrator(migrations)(entity);
-    expect(migrated).toEqual({
-      version: "0.0.2",
-      title: "foo",
-      description: "",
-    });
+  it("should migrate an entity from v0 to v2", () => {
+    const entity: EntityV0 = { version: "0.0.0", name: "foo" };
+    const DEFAULT: EntityV2 = { version: "2.0.0", title: "", description: "" };
+    const migrated = migrate.migrator({
+      name: "entity",
+      migrations,
+      def: DEFAULT,
+    })(entity);
+    expect(migrated).toEqual({ version: "2.0.0", title: "foo", description: "" });
   });
-  it("should not migrate an entity from v0.0.2", () => {
-    const entity: EntityV0_0_2 = {
-      version: "0.0.2",
-      title: "foo",
-      description: "bar",
-    };
-    const migrated = migrator(migrations)(entity);
-    expect(migrated).toEqual(entity);
+  it("should migrate an entity from v1 to v2", () => {
+    const entity: EntityV1 = { version: "1.0.0", title: "foo" };
+    const DEFAULT: EntityV2 = { version: "2.0.0", title: "", description: "" };
+    const migrated = migrate.migrator({
+      name: "entity",
+      migrations,
+      def: DEFAULT,
+    })(entity);
+    expect(migrated).toEqual({ version: "2.0.0", title: "foo", description: "" });
   });
-  it("should not migrate an entity from v0.0.3", () => {
-    const entity = {
-      version: "0.0.3",
-      title: "foo",
-      description: "bar",
-    };
-    const migrated = migrator(migrations)(entity);
+  it("should not migrate an entity from v2 to v2", () => {
+    const entity: EntityV2 = { version: "2.0.0", title: "foo", description: "bar" };
+    const DEFAULT: EntityV2 = { version: "2.0.0", title: "", description: "" };
+    const migrated = migrate.migrator({
+      name: "entity",
+      migrations,
+      def: DEFAULT,
+    })(entity);
     expect(migrated).toEqual(entity);
   });
 });

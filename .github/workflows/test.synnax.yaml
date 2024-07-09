@@ -45,7 +45,7 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: go test -tags noui -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
+        run: go test -tags="noui development" -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
         working-directory: ./synnax
 
       - name: Upload Coverage

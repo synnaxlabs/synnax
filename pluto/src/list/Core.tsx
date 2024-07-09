@@ -92,6 +92,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   useEffect(() => {
     if (parentRef.current == null) return;
     const rng = virtualizer.calculateRange();
+    if (rng == null) return;
     const b = bounds.construct(rng.startIndex + 2, rng.endIndex - 2);
     if (bounds.contains(b, hoverValue)) return;
     virtualizer.scrollToIndex(hoverValue);

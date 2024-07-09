@@ -644,7 +644,9 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize)))
+							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -742,7 +744,9 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit: should not commit a tiny domain", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(80*telem.ByteSize)))
+							cesium.WithFileSize(80*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -839,7 +843,9 @@ var _ = Describe("Writer Behavior", func() {
 
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(64*telem.ByteSize)))
+							cesium.WithFileSize(64*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						By("Asserting that upon writing to the channels, the writes go to appropriate files", func() {
 							w = MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
@@ -902,7 +908,9 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("Without AutoCommit", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize)))
+							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -996,7 +1004,9 @@ var _ = Describe("Writer Behavior", func() {
 					It("Should not break when auto committing to not all channels", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize)))
+							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						var (
 							index2 = GenerateChannelKey()

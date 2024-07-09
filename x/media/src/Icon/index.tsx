@@ -118,7 +118,7 @@ import {
   TbVariable,
 } from "react-icons/tb";
 
-export type IconProps = React.SVGProps<SVGSVGElement>;
+export interface IconProps extends React.SVGProps<SVGSVGElement> {}
 type IconFC = FC<IconProps>;
 
 export const NI: IconFC = (props) => (
@@ -223,6 +223,7 @@ export const Icon: IconType = {
   Analyze: wrapIcon(FaBezierCurve),
   Concepts: wrapIcon(BsLightbulbFill),
   Visualize: wrapIcon(MdAreaChart),
+  LinePlot: wrapIcon(MdAreaChart),
   Expand: wrapIcon(AiOutlineExpand),
   Cluster: wrapIcon(HiSquare3Stack3D),
   Loading: wrapIcon(AiOutlineLoading, { className: "media--spin" }),
@@ -442,4 +443,5 @@ export interface IconType {
   Variable: IconFC;
   Object: IconFC;
   Type: IconFC;
+  LinePlot: IconFC;
 }
