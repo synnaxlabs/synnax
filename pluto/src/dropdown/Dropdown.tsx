@@ -19,6 +19,7 @@ import {
   type CSSProperties,
   type ReactElement,
   type ReactNode,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -28,13 +29,7 @@ import { createPortal } from "react-dom";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
-import {
-  useClickOutside,
-  useCombinedRefs,
-  useDebouncedCallback,
-  useResize,
-  useSyncedRef,
-} from "@/hooks";
+import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { ComponentSize } from "@/util/component";
 import { getRootElement } from "@/util/rootElement";
@@ -98,23 +93,19 @@ export const Dialog = ({
 
   const [{ dialogBox, dialogLoc }, setState] = useState<State>({ ...ZERO_STATE });
 
-  const calculatePosition = useDebouncedCallback(
-    () => {
-      if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
-        return;
-      const f = variant === "floating" ? calcFloatingDialog : calcConnectedDialog;
-      const { adjustedDialog, location } = f({
-        target: targetRef.current,
-        dialog: dialogRef.current,
-        initial: propsLocation,
-        prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
-      });
-      prevLocation.current = location;
-      setState({ dialogLoc: location, dialogBox: adjustedDialog });
-    },
-    30,
-    [propsLocation, variant],
-  );
+  const calculatePosition = useCallback(() => {
+    if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
+      return;
+    const f = variant === "floating" ? calcFloatingDialog : calcConnectedDialog;
+    const { adjustedDialog, location } = f({
+      target: targetRef.current,
+      dialog: dialogRef.current,
+      initial: propsLocation,
+      prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
+    });
+    prevLocation.current = location;
+    setState({ dialogLoc: location, dialogBox: adjustedDialog });
+  }, [propsLocation, variant]);
 
   useLayoutEffect(() => {
     calculatePosition();
