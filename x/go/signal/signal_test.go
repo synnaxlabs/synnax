@@ -232,7 +232,7 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
 				return immediatelyPanic(ctx)
-			}, signal.WithPanicPolicy(signal.RecoverErr))
+			}, signal.RecoverWithErrOnPanic())
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("routine panicked")))
 		})
@@ -241,7 +241,7 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
 				return immediatelyPanic(ctx)
-			}, signal.WithPanicPolicy(signal.RecoverNoErr))
+			}, signal.RecoverWithoutErrOnPanic())
 
 			Expect(ctx.Wait()).To(BeNil())
 		})
@@ -256,7 +256,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(inc1, signal.WithMaxRestart(100))
+			ctx.Go(inc1, signal.WithMaxRestart(100), signal.RecoverWithErrOnPanic())
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
 			Expect(counter).To(Equal(101))
@@ -272,7 +272,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(inc1, signal.WithMaxRestartAndPanicPolicy(100, signal.RecoverNoErr))
+			ctx.Go(inc1, signal.WithMaxRestart(100), signal.RecoverWithoutErrOnPanic())
 
 			Expect(ctx.Wait()).ToNot(HaveOccurred())
 			Expect(counter).To(Equal(101))

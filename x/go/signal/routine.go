@@ -44,7 +44,7 @@ FailureReason: %s,
 
 type (
 	RoutineState uint8
-	PanicPolicy  uint8
+	panicPolicy  uint8
 	// contextPolicy is a private enum to keep enabling us to use the CancelOnExit()
 	// and CancelOnFail() options pattern.
 	contextPolicy uint8
@@ -61,11 +61,10 @@ const (
 	Panicked
 )
 
-//go:generate stringer -type=PanicPolicy
 const (
-	PropagatePanic PanicPolicy = iota
-	RecoverNoErr
-	RecoverErr
+	propagatePanic panicPolicy = iota
+	recoverNoErr
+	recoverErr
 )
 
 const (
@@ -113,28 +112,31 @@ type deferral struct {
 	f   func() error
 }
 
-func WithPanicPolicy(p PanicPolicy) RoutineOption {
+// RecoverWithErrOnPanic instructs the goroutine to recover if it panics, and fail with
+// the panic as an error.
+// Setting RecoverWithErrOnPanic will override a previously set panic policy.
+func RecoverWithErrOnPanic() RoutineOption {
 	return func(r *routineOptions) {
-		r.panicPolicy = p
+		r.panicPolicy = recoverErr
+	}
+}
+
+// RecoverWithoutErrOnPanic instructs the goroutine to recover if it panics, and exit
+// without error.
+// Setting RecoverWithoutErrOnPanic will override a previously set panic policy.
+func RecoverWithoutErrOnPanic() RoutineOption {
+	return func(r *routineOptions) {
+		r.panicPolicy = recoverNoErr
 	}
 }
 
 // WithMaxRestart sets the maximum number of attempted restarts after panicking.
-// It also sets the panicPolicy to RecoverErr. If you wish to use a different panicPolicy,
-// use the WithMaxRestartAndPanicPolicy function.
+// It does not configure a panicPolicy and thus the goroutine will panic after the
+// maximum restart attempts is reached. To set a panicPolicy use one of
+// RecoverWithErrOnPanic or RecoverWithoutErrOnPanic.
 func WithMaxRestart(maxRestart int) RoutineOption {
 	return func(r *routineOptions) {
 		r.maxRestart = maxRestart
-		r.panicPolicy = RecoverErr
-	}
-}
-
-// WithMaxRestartAndPanicPolicy sets the maximum number of attempted restarts and the
-// panic policy.
-func WithMaxRestartAndPanicPolicy(maxRestart int, p PanicPolicy) RoutineOption {
-	return func(r *routineOptions) {
-		r.maxRestart = maxRestart
-		r.panicPolicy = p
 	}
 }
 
@@ -168,7 +170,7 @@ type routineOptions struct {
 	// exiting.
 	contextPolicy contextPolicy
 	// panicPolicy defines what the routine should do if it panics.
-	panicPolicy PanicPolicy
+	panicPolicy panicPolicy
 	// maxRestart defines the maximum number of times a panicking goroutine attempts to
 	// restart before its panicPolicy kicks into place.
 	maxRestart int
@@ -279,7 +281,7 @@ func (r *routine) maybeRecover(err any) error {
 	r.ctx.L.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
 
 	switch r.panicPolicy {
-	case PropagatePanic:
+	case propagatePanic:
 		r.state.state = Panicked
 		if err, ok := err.(error); ok {
 			r.state.err = err
@@ -287,13 +289,13 @@ func (r *routine) maybeRecover(err any) error {
 		}
 		r.span.End()
 		panic(err)
-	case RecoverErr:
+	case recoverErr:
 		r.state.state = Failed
 		if err, ok := err.(error); ok {
 			return errors.Wrap(err, "routine recovered")
 		}
 		return errors.Newf("%s", err)
-	case RecoverNoErr:
+	case recoverNoErr:
 		r.state.state = Exited
 		return nil
 	default:
