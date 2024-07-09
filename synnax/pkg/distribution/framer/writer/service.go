@@ -260,7 +260,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	res := confluence.NewStream[Response]()
 	seg.InFrom(req)
 	seg.OutTo(res)
-	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
+	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnFail())
 	return &Writer{
 		requests:  req,
 		responses: res,

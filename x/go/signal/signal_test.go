@@ -52,12 +52,12 @@ var _ = Describe("Signal", func() {
 			})
 		})
 
-		Describe("CancelOnExitErr", func() {
+		Describe("CancelOnFail", func() {
 			It("Should cancel the context when the first routine exits with an error", func() {
 				ctx, cancel := signal.Isolated()
-				ctx.Go(immediatelyReturnNil, signal.CancelOnExitErr())
+				ctx.Go(immediatelyReturnNil, signal.CancelOnFail())
 				Expect(ctx.Stopped()).ToNot(BeClosed())
-				ctx.Go(immediatelyReturnError, signal.CancelOnExitErr())
+				ctx.Go(immediatelyReturnError, signal.CancelOnFail())
 				cancel()
 				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
 				Eventually(ctx.Stopped()).Should(BeClosed())
@@ -256,13 +256,25 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(
-				inc1,
-				signal.WithPanicPolicy(signal.Restart),
-				signal.WithMaxRestart(100),
-			)
+			ctx.Go(inc1, signal.WithMaxRestart(100))
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
+			Expect(counter).To(Equal(101))
+		})
+
+		It("Should try to restart when instructed to and follow the panic policy", func() {
+			var (
+				counter = 0
+				inc1    = func(ctx context.Context) error {
+					counter += 1
+					panic("panicking once")
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			ctx.Go(inc1, signal.WithMaxRestartAndPanicPolicy(100, signal.RecoverNoErr))
+
+			Expect(ctx.Wait()).ToNot(HaveOccurred())
 			Expect(counter).To(Equal(101))
 		})
 

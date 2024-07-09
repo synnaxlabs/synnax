@@ -11,12 +11,11 @@ func _() {
 	_ = x[PropagatePanic-0]
 	_ = x[RecoverNoErr-1]
 	_ = x[RecoverErr-2]
-	_ = x[Restart-3]
 }
 
-const _PanicPolicy_name = "PropagatePanicRecoverNoErrRecoverErrRestart"
+const _PanicPolicy_name = "PropagatePanicRecoverNoErrRecoverErr"
 
-var _PanicPolicy_index = [...]uint8{0, 14, 26, 36, 43}
+var _PanicPolicy_index = [...]uint8{0, 14, 26, 36}
 
 func (i PanicPolicy) String() string {
 	if i >= PanicPolicy(len(_PanicPolicy_index)-1) {
