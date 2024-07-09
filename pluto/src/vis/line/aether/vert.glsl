@@ -1,6 +1,6 @@
 attribute float a_x;
 attribute float a_y;
-attribute vec2 a_translate;
+attribute lowp vec2 a_translate;
 
 uniform lowp vec2 u_scale_aggregate;
 uniform lowp vec2 u_offset_aggregate;
