@@ -38,7 +38,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 			Context("Happy path - one file", func() {
 				It("Should garbage collect one tombstone", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 9 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        9 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(7), telem.TimeRange{Start: 12*telem.SecondTS + 1, End: 16*telem.SecondTS + 1}, telem.Density(1))).To(Succeed())
 
@@ -81,7 +86,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 				It("Should garbage collect multiple tombstones", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 20 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        20 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(23*telem.SecondTS+1), []byte{20, 21, 22, 23})).To(Succeed())
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed())
@@ -139,7 +149,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				})
 
 				It("Should garbage collect multiple tombstones based on the threshold", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: (1.25 * 20) * telem.ByteSize, GCThreshold: float32(16) / 20}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        (1.25 * 20) * telem.ByteSize,
+						GCThreshold:     float32(16) / 20,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(23*telem.SecondTS+1), []byte{20, 21, 22, 23})).To(Succeed())
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed())
@@ -178,7 +193,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 				It("Should not garbage collect a file that is oversize but not still being written to", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 13 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        13 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(domain.Write(ctx, db, (1 * telem.SecondTS).Range(7*telem.SecondTS+1), []byte{1, 2, 3, 4, 5, 6, 7})).To(Succeed())
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(2), (1 * telem.SecondTS).Range(3*telem.SecondTS), telem.Density(1)))
 					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
@@ -224,7 +244,13 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 			Context("Happy path - multiple files", func() {
 				It("Should garbage collect multiple tombstones", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, MaxDescriptors: 4, FileSize: 2 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						MaxDescriptors:  4,
+						FileSize:        2 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(23*telem.SecondTS+1), []byte{20, 21, 22, 23})).To(Succeed())
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed())
@@ -283,7 +309,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				})
 
 				It("Should garbage collect multiple tombstones across many files", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 7 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        7 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13})).To(Succeed())             // file 1
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(25*telem.SecondTS+1), []byte{20, 21, 22, 23, 24, 25})).To(Succeed())     // file 1
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed()) // file 2
@@ -338,7 +369,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				})
 
 				It("Should garbage collect tombstones based on the threshold", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 7 * telem.ByteSize, GCThreshold: 0.4}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        7 * telem.ByteSize,
+						GCThreshold:     0.4,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13})).To(Succeed())             // file 1
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(25*telem.SecondTS+1), []byte{20, 21, 22, 23, 24, 25})).To(Succeed())     // file 1
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed()) // file 2
@@ -384,7 +420,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 			Context("Tombstone persist", func() {
 				It("Should preserve the tombstones after database closure", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 7 * telem.ByteSize, GCThreshold: 0.4}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        7 * telem.ByteSize,
+						GCThreshold:     0.4,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13})).To(Succeed())             // file 1
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(25*telem.SecondTS+1), []byte{20, 21, 22, 23, 24, 25})).To(Succeed())     // file 1
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed()) // file 2
@@ -393,7 +434,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 					By("Reopening the DB")
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 7 * telem.ByteSize, GCThreshold: 0.4}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        7 * telem.ByteSize,
+						GCThreshold:     0.4,
+						Instrumentation: PanicLogger(),
+					}))
 
 					By("Garbage collecting and asserting the file got smaller")
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
@@ -448,7 +494,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 			Context("Close", func() {
 				It("Should not allow GC on a closed DB", func() {
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 20 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        20 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
 					Expect(db.Close()).To(Succeed())
 					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})

@@ -38,13 +38,18 @@ interface InternalState {
 
 type Children = XAxis | tooltip.Tooltip | measure.Measure;
 
+const calculateExposure = (viewport: box.Box, region: box.Box): number => {
+  const vpArea = box.width(viewport) * Math.sqrt(box.height(viewport));
+  const regArea = box.width(region) * Math.sqrt(box.height(region));
+  return vpArea / regArea;
+};
+
 export class LinePlot extends aether.Composite<
   typeof linePlotStateZ,
   InternalState,
   Children
 > {
   static readonly TYPE: string = "LinePlot";
-  private readonly eraser: render.Eraser = new render.Eraser();
 
   schema = linePlotStateZ;
 
@@ -62,13 +67,21 @@ export class LinePlot extends aether.Composite<
   }
 
   async findByXDecimal(x: number): Promise<FindResult[]> {
-    const props = { ...this.state, plot: this.calculatePlot() };
+    const props = {
+      ...this.state,
+      plot: this.calculatePlot(),
+      exposure: this.exposure,
+    };
     const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXDecimal(props, x));
     return (await Promise.all(p)).flat();
   }
 
   async findByXValue(x: number): Promise<FindResult[]> {
-    const props = { ...this.state, plot: this.calculatePlot() };
+    const props = {
+      ...this.state,
+      plot: this.calculatePlot(),
+      exposure: this.exposure,
+    };
     const p = this.axes.flatMap(async (a) => await a.findByXValue(props, x));
     return (await Promise.all(p)).flat();
   }
@@ -85,11 +98,20 @@ export class LinePlot extends aether.Composite<
     return this.childrenOfType<measure.Measure>(measure.Measure.TYPE);
   }
 
+  private get exposure(): number {
+    return calculateExposure(this.state.viewport, this.state.container);
+  }
+
   private async renderAxes(
     plot: box.Box,
     canvases: render.CanvasVariant[],
   ): Promise<void> {
-    const p = { ...this.state, plot, canvases };
+    const p = {
+      ...this.state,
+      plot,
+      canvases,
+      exposure: this.exposure,
+    };
     await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
   }
 
@@ -173,9 +195,8 @@ export class LinePlot extends aether.Composite<
     }
     instrumentation.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
-    return async ({ canvases }) => {
+    return async ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
-    };
   }
 
   requestRender(priority: render.Priority, reason: string): void {

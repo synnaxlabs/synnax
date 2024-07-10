@@ -42,6 +42,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
+						Instrumentation: PanicLogger(),
 					}))
 				})
 				AfterEach(func() {
@@ -92,7 +93,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
-						FileSize: telem.Size(10*telem.TimeStampT.Density()) * telem.ByteSize,
+						FileSize:        telem.Size(10*telem.TimeStampT.Density()) * telem.ByteSize,
+						Instrumentation: PanicLogger(),
 					}))
 					db = MustSucceed(unary.Open(unary.Config{
 						FS: MustSucceed(fs.Sub("data")),
@@ -102,7 +104,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							DataType: telem.Int64T,
 							Index:    index,
 						},
-						FileSize: telem.Size(5*telem.Int64T.Density()) * telem.ByteSize,
+						FileSize:        telem.Size(5*telem.Int64T.Density()) * telem.ByteSize,
+						Instrumentation: PanicLogger(),
 					}))
 					db.SetIndex(indexDB.Index())
 				})
@@ -446,7 +449,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Key:      2,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
-						}}))
+						},
+						Instrumentation: PanicLogger(),
+					}))
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
@@ -522,7 +527,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Name:     "gauss",
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
-						}}))
+						},
+						Instrumentation: PanicLogger(),
+					}))
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())

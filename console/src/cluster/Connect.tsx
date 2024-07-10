@@ -1,22 +1,28 @@
 // Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in
+// the file licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business
+// Source License, use of this software will be governed by the Apache License,
+// Version 2.0, included in the file licenses/APL.txt.
 
 import "@/cluster/Connect.css";
 
 import type { connection, SynnaxProps } from "@synnaxlabs/client";
 import { synnaxPropsZ } from "@synnaxlabs/client";
-import { componentRenderProp, Form, Nav, Status } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Input } from "@synnaxlabs/pluto/input";
+import {
+  Align,
+  Button,
+  componentRenderProp,
+  Form,
+  Input,
+  Nav,
+  Status,
+} from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import type { ReactElement } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -25,7 +31,7 @@ import { useSelectMany } from "@/cluster/selectors";
 import { set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import type { Layout } from "@/layout";
 
 export const connectWindowLayout: Layout.State = {
   key: "connectCluster",
@@ -41,22 +47,31 @@ export const connectWindowLayout: Layout.State = {
 };
 
 /**
- * ConnectCluster implements the LayoutRenderer component type to provide a form for
+ * Connect implements the LayoutRenderer component type to provide a form for
  * connecting to a cluster.
- *
- * @param props - The standard LayoutRendererProps.
  */
 export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
-
   const names = useSelectMany().map((c) => c.name);
 
   const formSchema = synnaxPropsZ.omit({ connectivityPollFrequency: true }).extend({
     name: z.string().refine((n) => !names.includes(n), {
       message: "A cluster with this name already exists",
     }),
+  });
+
+  const methods = Form.use<typeof formSchema>({
+    schema: formSchema,
+    values: {
+      name: "",
+      host: "",
+      port: "",
+      username: "",
+      password: "",
+      secure: false,
+    },
   });
 
   const handleSubmit = (): void => {
@@ -81,18 +96,6 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       onClose();
     })();
   };
-
-  const methods = Form.use<typeof formSchema>({
-    schema: formSchema,
-    values: {
-      name: "",
-      host: "",
-      port: 9090,
-      username: "",
-      password: "",
-      secure: false,
-    },
-  });
 
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
@@ -154,7 +157,6 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           >
             Test Connection
           </Button.Button>
-
           <Button.Button
             onClick={handleSubmit}
             loading={loading === "submit"}

@@ -43,8 +43,9 @@ var _ = Describe("Garbage Collection", func() {
 							DataType: telem.Int64T,
 							Rate:     1 * telem.Hz,
 						},
-						FileSize:    899 * telem.ByteSize,
-						GCThreshold: math.SmallestNonzeroFloat32,
+						FileSize:        899 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
 					}))
 					indexDB = MustSucceed(unary.Open(unary.Config{
 						FS: MustSucceed(fs.Sub("index")),
@@ -54,10 +55,10 @@ var _ = Describe("Garbage Collection", func() {
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize:    899 * telem.ByteSize,
-						GCThreshold: math.SmallestNonzeroFloat32,
+						FileSize:        899 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
 					}))
-
 					dataDB = MustSucceed(unary.Open(unary.Config{
 						FS: MustSucceed(fs.Sub("data")),
 						Channel: core.Channel{
@@ -65,8 +66,9 @@ var _ = Describe("Garbage Collection", func() {
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
-						FileSize:    899 * telem.ByteSize,
-						GCThreshold: math.SmallestNonzeroFloat32,
+						FileSize:        899 * telem.ByteSize,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
 				})
@@ -167,7 +169,8 @@ var _ = Describe("Garbage Collection", func() {
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize: 50 * telem.ByteSize,
+						FileSize:        50 * telem.ByteSize,
+						Instrumentation: PanicLogger(),
 					}))
 
 					dataDB = MustSucceed(unary.Open(unary.Config{
@@ -177,8 +180,9 @@ var _ = Describe("Garbage Collection", func() {
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
-						GCThreshold: 0.5,
-						FileSize:    50 * telem.ByteSize,
+						GCThreshold:     0.5,
+						FileSize:        50 * telem.ByteSize,
+						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
 				})

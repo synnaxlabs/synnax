@@ -29,7 +29,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs, cleanUp = makeFS()
-				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
+				db = MustSucceed(domain.Open(domain.Config{
+					FS:              fs,
+					Instrumentation: PanicLogger(),
+				}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())

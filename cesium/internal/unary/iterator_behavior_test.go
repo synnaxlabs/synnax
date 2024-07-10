@@ -44,6 +44,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							IsIndex:  true,
 							Index:    index,
 						},
+						Instrumentation: PanicLogger(),
 					}))
 					db = MustSucceed(unary.Open(unary.Config{
 						FS: MustSucceed(fs.Sub("data")),
@@ -52,6 +53,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							DataType: telem.Int64T,
 							Index:    index,
 						},
+						Instrumentation: PanicLogger(),
 					}))
 					db.SetIndex(indexDB.Index())
 				})
@@ -702,6 +704,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
+						Instrumentation: PanicLogger(),
 					}))
 				})
 				AfterEach(func() {

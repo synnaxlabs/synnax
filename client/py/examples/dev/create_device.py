@@ -13,7 +13,7 @@ client.hardware.create_device(
             rack=rack[0].key,
             name="New PXI-6255",
             make="NI",
-            model="PXI-6255-BLA-BLA-BLA",
+            model="PXI-6255",
             location="dev1",
             identifier="dev1",
         )

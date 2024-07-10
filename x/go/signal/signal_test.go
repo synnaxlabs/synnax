@@ -52,12 +52,12 @@ var _ = Describe("Signal", func() {
 			})
 		})
 
-		Describe("CancelOnExitErr", func() {
+		Describe("CancelOnFail", func() {
 			It("Should cancel the context when the first routine exits with an error", func() {
 				ctx, cancel := signal.Isolated()
-				ctx.Go(immediatelyReturnNil, signal.CancelOnExitErr())
+				ctx.Go(immediatelyReturnNil, signal.CancelOnFail())
 				Expect(ctx.Stopped()).ToNot(BeClosed())
-				ctx.Go(immediatelyReturnError, signal.CancelOnExitErr())
+				ctx.Go(immediatelyReturnError, signal.CancelOnFail())
 				cancel()
 				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
 				Eventually(ctx.Stopped()).Should(BeClosed())
@@ -216,6 +216,66 @@ var _ = Describe("Signal", func() {
 			_ = signal.SendUnderContext(ctx, v, 1)
 			cancel()
 			Expect(v).ToNot(Receive())
+		})
+
+	})
+
+	Describe("Panic recovery", func() {
+
+		// We cannot test with a test case that a goroutine indeed panics when it is
+		// instructed to propagate its panic since there is no way to capture a panic
+		// in another goroutine. However, we have manually tested that it indeed
+		// panics the whole program.
+		// We can test all other cases where panics are recovered.
+
+		It("Should error a panic when instructed", func() {
+			ctx, _ := signal.Isolated()
+			ctx.Go(func(ctx context.Context) error {
+				return immediatelyPanic(ctx)
+			}, signal.RecoverWithErrOnPanic())
+
+			Expect(ctx.Wait()).To(MatchError(ContainSubstring("routine panicked")))
+		})
+
+		It("Should not error when instructed to not error", func() {
+			ctx, _ := signal.Isolated()
+			ctx.Go(func(ctx context.Context) error {
+				return immediatelyPanic(ctx)
+			}, signal.RecoverWithoutErrOnPanic())
+
+			Expect(ctx.Wait()).To(BeNil())
+		})
+
+		It("Should try to restart when instructed to", func() {
+			var (
+				counter = 0
+				inc1    = func(ctx context.Context) error {
+					counter += 1
+					panic("panicking once")
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			ctx.Go(inc1, signal.WithMaxRestart(100), signal.RecoverWithErrOnPanic())
+
+			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
+			Expect(counter).To(Equal(101))
+		})
+
+		It("Should try to restart when instructed to and follow the panic policy", func() {
+			var (
+				counter = 0
+				inc1    = func(ctx context.Context) error {
+					counter += 1
+					panic("panicking once")
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			ctx.Go(inc1, signal.WithMaxRestart(100), signal.RecoverWithoutErrOnPanic())
+
+			Expect(ctx.Wait()).ToNot(HaveOccurred())
+			Expect(counter).To(Equal(101))
 		})
 
 	})
