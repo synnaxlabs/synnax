@@ -288,6 +288,6 @@ func (t Transport) Configure(ctx signal.Context, addr address.Address, external 
 		defer server.Stop()
 		<-ctx.Done()
 		return ctx.Err()
-	}, signal.CancelOnExitErr())
+	}, signal.CancelOnFail())
 	return nil
 }
