@@ -1,4 +1,4 @@
-# 20 - Engineering Process Standardization
+# 21 - Synnax Integration Testing
 
 **Feature Name**: Integration Testing Framework <br />
 **Start Date**: 2024-06-18 <br />
@@ -7,7 +7,7 @@
 
 # 0 - Summary
 
-As the Synnax codebase, users, and number of production deployments grow, stability and 
+As the Synnax codebase, users, and number of production deployments grow, stability and
 performance of the system become increasingly important characteristics of Synnax to be
 measured. In this RFC I propose an in-house framework to allow Synnax to run
 easily-configurable and easily-portable integration tests throughout its whole system
@@ -145,7 +145,7 @@ samples read during a `read` operation or errors that occur by specifying the
 `samples_expected` and/or `expected_error` field. Also note that the `stream` operation
 finishes when the streamer has successfully streamed at least 95% of the specified
 expected sample count. This is because sometimes streamers never stream all the samples
-written due to opening time differences and other factors. 
+written due to opening time differences and other factors.
 
 In addition to the body, the test suite may also accept `cluster`, `setup`, and `cleanup`
 customizations. The `cluster` option allows the test to start a customized cluster (e.g.
@@ -171,7 +171,7 @@ For this reason, we implemented a much less elegant and idiomatic approach – 
 introduce a time interval after which a command is run to assert the order of execution.
 Although unsophisticated, this approach works better than the previous one, as most
 operations take at least 10 seconds to run, making timing delays easy. However, one must
-still be extremely careful with this manually-introduceddelay. 
+still be extremely careful with this manually-introduceddelay.
 
 ### 2.3.2 Deployment
 
@@ -254,7 +254,7 @@ Currently, indiviudal channels must be specified by their names to be operated o
 is painful as writing to 1,000 channels must involve typing 1,000 names in the test
 configuration. Ideally, one could use results from past operations as channel groups,
 i.e. delete the time range from all channels just written to, read from channels just
-deleted from, etc.  
+deleted from, etc.
 
 One way to do this, for example, is to write the test configuration file in a format
 "smarter" than JSON – for example, a Python List or a Javascript Array. This way, one
