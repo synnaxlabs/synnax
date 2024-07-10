@@ -6,7 +6,7 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-import { NotFoundError, ontology, schematic as CSchematic } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
@@ -24,7 +24,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
-import { migrateState } from "@/schematic/migrations";
+import { migrateState, STATES_Z } from "@/schematic/migrations";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -110,60 +110,32 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
   }).mutate;
 
-// Two cases: (1) schematic already exists in cluster (2) must create schematic
 const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({
-      addStatus,
-      client: {
-        workspaces: { schematic },
-      },
-      placeLayout,
-      selection: { resources },
-    }) => {
+    mutationFn: async ({ placeLayout }) => {
       const fileResponse = await open({
         directory: false,
         multiple: false,
         title: "Import schematic into Synnax",
       });
-      if (fileResponse == null) throw new Error("No file selected.");
+      if (fileResponse == null) return;
       const file = await readFile(fileResponse.path);
       const importedStr = new TextDecoder().decode(file);
-      // TODO: first parse that is a valid schematic of any state, then migrate it to
-      // the latest state
-      try {
-        const json = JSON.parse(importedStr);
-        CSchematic.schematicZ.parse(json);
-      } catch (e) {
-        addStatus({
-          key: nanoid(),
-          variant: "error",
-          message: `${fileResponse.name} is not a valid schematic`,
-          description: e?.toString() ?? "",
-        });
-        return;
-      }
-      const importedSchematic = JSON.parse(importedStr);
-      const key = importedSchematic.key;
-      const creator = Schematic.create({
-        ...(importedSchematic.data as Schematic.State),
-        key: importedSchematic.key,
-        name: importedSchematic.name,
-        snapshot: importedSchematic.snapshot,
+
+      const json = JSON.parse(importedStr);
+      const z = STATES_Z.find((stateZ) => {
+        return stateZ.safeParse(json).success;
       });
-      try {
-        await schematic.retrieve(key);
-        await schematic.setData(key, importedSchematic.data);
-        await schematic.rename(key, importedSchematic.name);
-        placeLayout(creator);
-      } catch (e) {
-        if (e instanceof NotFoundError) {
-          await schematic.create(resources[0].id.key, {
-            ...importedSchematic,
-          });
-          placeLayout(creator);
-        }
-      }
+      if (z == null) throw new Error(`${fileResponse.name} is not a valid schematic.`);
+      const newState = migrateState(z.parse(json));
+
+      // TODO: add logic for retrieving schematic from cluster and adding
+      // imported schematic to cluster
+      const creator = Schematic.create({
+        ...newState,
+        name: fileResponse.name.slice(0, -5),
+      });
+      placeLayout(creator);
     },
     onError: (e, { addStatus }) => {
       addStatus({

@@ -129,6 +129,7 @@ const useDownload = (): ((props: Ontology.TreeContextMenuProps) => void) =>
           resources[0].id.key,
         );
         state = schematic.data as unknown as State;
+        state.snapshot = schematic.snapshot;
       }
       const savePath = await save({
         defaultPath: `${resources[0].name}.json`,
