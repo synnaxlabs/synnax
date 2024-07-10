@@ -278,5 +278,6 @@ KILL signal to the server process to forcibly stop it. This is less ideal than a
 graceful shutdown. In any case, even though the GitHub Actions runner cleans up orphan
 processes by default, but this is something that should be addressed.
 
-In addition, Synnax server may also be shut down via a close keyword currently configured
-to `stop`. This may be another way to tackle this problem.
+As of 07/10/2024, This problem is resolved. The Synnax server is shut down via a
+preconfigured stop keyword by entering `"stop"` to `stdin`, circumventing the need to
+send an interrupt signal.

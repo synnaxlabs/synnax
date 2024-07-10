@@ -29,8 +29,8 @@ const client = new Synnax({
 // We can just specify the names of the channels we'd like to stream from.
 const read_from = [
     "stream_write_example_time",
-    // "stream_write_example_data_1",
-    // "stream_write_example_data_2"
+    "stream_write_example_data_1",
+    "stream_write_example_data_2"
 ]
 
 const streamer = await client.openStreamer(read_from);

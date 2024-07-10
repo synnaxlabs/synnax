@@ -23,7 +23,7 @@ func startCluster(p ClusterParam) (error, func() error) {
 	}
 
 	fmt.Printf("--starting cluster\n")
-	args := []string{"start", "-v", "--debug"}
+	args := []string{"start", "-v"}
 	if p.Insecure {
 		args = append(args, "-i")
 	}
@@ -38,8 +38,12 @@ func startCluster(p ClusterParam) (error, func() error) {
 
 	cmd.Stderr = &stdErr
 	cmd.Stdout = &stdOut
+	stdIn, err := cmd.StdinPipe()
+	if err != nil {
+		return err, func() error { return nil }
+	}
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		return errors.Wrapf(
 			err,
@@ -52,6 +56,13 @@ func startCluster(p ClusterParam) (error, func() error) {
 	time.Sleep(5 * telem.Second.Duration())
 
 	return nil, func() (err error) {
-		return cmd.Process.Kill()
+		const stopKeyword = "stop"
+		if _, err := stdIn.Write([]byte(stopKeyword)); err != nil {
+			return err
+		}
+		if err = stdIn.Close(); err != nil {
+			return err
+		}
+		return cmd.Wait()
 	}
 }
