@@ -236,8 +236,16 @@ const InternalSVG = ({
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
   const colorStr = Color.cssString(color);
-  // @ts-expect-error - css variables
-  if (color != null) style[CSS.var("symbol-color")] = new Color.Color(color).rgbString;
+  const theme = Theming.use();
+  if (color != null) {
+    // @ts-expect-error - css variables
+    style[CSS.var("symbol-color")] = new Color.Color(color).rgbString;
+    // @ts-expect-error - css variables
+    style[CSS.var("symbol-color-contrast")] = new Color.Color(color).pickByContrast(
+      theme.colors.gray.l0,
+      theme.colors.gray.l10,
+    ).rgbString;
+  }
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -522,8 +530,20 @@ export const Pump = ({
       scale={scale}
     >
       <Circle cx="32" cy="32" r="30" />
-      <Line x1="32" y1="2" x2="62" y2="32" />
-      <Line x1="32" y1="62" x2="62" y2="32" />
+      <Line
+        x1="32"
+        y1="2"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="62"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
     </InternalSVG>
   </Toggle>
 );
@@ -991,17 +1011,31 @@ export const ScrewPump = ({
       scale={scale}
     >
       <Circle cx="32" cy="32" r="30" />
-      <Line x1="32" y1="2" x2="62" y2="32" />
-      <Line x1="32" y1="62" x2="62" y2="32" />
+      <Line
+        x1="32"
+        y1="2"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="62"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
       <Path
         d="M 0 0, L -10 -10, M 0 0, L -10 10"
         transform="translate(32, 32)"
         strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
       />
       <Path
         d="M 0 0, L -10 -10, M 0 0, L -10 10"
         transform="translate(42, 32)"
         strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
       />
     </InternalSVG>
   </Toggle>
@@ -1032,8 +1066,20 @@ export const VacuumPump = ({
       scale={scale}
     >
       <Circle cx="32" cy="32" r="30" />
-      <Line x1="17" y1="6.0192" x2="57.9808" y2="17" />
-      <Line x1="17" y1="57.9808" x2="57.9808" y2="47" />
+      <Line
+        x1="17"
+        y1="6.0192"
+        x2="57.9808"
+        y2="17"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="17"
+        y1="57.9808"
+        x2="57.9808"
+        y2="47"
+        className={CSS(CSS.M("detail"), className)}
+      />
     </InternalSVG>
   </Toggle>
 );
@@ -1063,12 +1109,25 @@ export const CavityPump = ({
       scale={scale}
     >
       <Circle cx="32" cy="32" r="30" />
-      <Line x1="32" y1="2" x2="62" y2="32" />
-      <Line x1="32" y1="62" x2="62" y2="32" />
+      <Line
+        x1="32"
+        y1="2"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="62"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
       <Path
         d="M 17 26 C 17 20.6667 23 20.6667 23 26 C 23 31.3333 29 31.3333 29 26 C 29 20.6667 35 20.6667 35 26"
         strokeLinecap="round"
         transform="translate(6, 6)"
+        className={CSS(CSS.M("detail"), className)}
       />
     </InternalSVG>
   </Toggle>
@@ -1099,11 +1158,24 @@ export const PistonPump = ({
       scale={scale}
     >
       <Circle cx="32" cy="32" r="30" />
-      <Line x1="32" y1="2" x2="62" y2="32" />
-      <Line x1="32" y1="62" x2="62" y2="32" />
+      <Line
+        x1="32"
+        y1="2"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="62"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
       <Path
         d="M 18 26, L 34 26, L 34 22, M 34 26, L 34 30"
         transform="translate(6, 6)"
+        className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
     </InternalSVG>
@@ -1166,9 +1238,30 @@ export const RotaryMixer = ({
       scale={scale}
     >
       <Path d="M1 30V2C1 1.44772 1.44772 1 2 1H35.4545C35.7434 1 36.0181 1.12487 36.208 1.34247L48.4262 15.3425C48.7549 15.7192 48.7549 16.2808 48.4262 16.6575L36.208 30.6575C36.0181 30.8751 35.7434 31 35.4545 31H2C1.44772 31 1 30.5523 1 30Z" />
-      <Line x1="32" y1="16" x2="40" y2="16" strokeLinecap="round" />
-      <Line x1="32" y1="16" x2="28" y2="22.9282" strokeLinecap="round" />
-      <Line x1="32" y1="16" x2="28" y2="9.0717" strokeLinecap="round" />
+      <Line
+        x1="32"
+        y1="16"
+        x2="40"
+        y2="16"
+        strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="16"
+        x2="28"
+        y2="22.9282"
+        strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="16"
+        x2="28"
+        y2="9.0717"
+        strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
+      />
     </InternalSVG>
   </Toggle>
 );
