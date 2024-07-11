@@ -176,7 +176,7 @@ func (e Expression) Tree() ast.Expr {
 
 // Evaluate evaluates the expression
 func (e Expression) Evaluate(r Resolver) float64 {
-	return eval(e.exp, r)
+	return eval(e.exp, r)x
 }
 
 func eval(exp ast.Expr, r Resolver) float64 {

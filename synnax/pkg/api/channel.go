@@ -93,7 +93,7 @@ type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its node Name.
 	NodeKey distribution.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Optional parameter that queries a Channel by its key.
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys `js on:"keys" msgpack:"keys"`
 	// Optional parameter that queries a Channel by its name.
 	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.

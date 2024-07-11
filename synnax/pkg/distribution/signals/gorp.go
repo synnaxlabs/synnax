@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+``// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/binary"
