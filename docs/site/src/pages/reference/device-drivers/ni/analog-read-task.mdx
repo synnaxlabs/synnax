@@ -126,12 +126,24 @@ to quickly process incoming data in real-time.
 
 Data saving defines whether acquired data will be permanently stored in Synnax. When
 enabled, Synnax will both stream and store data. When disabled, Synnax will only
-stream data for real-time visualization. Historical data will not be available for review.
+stream data for real-time visualization, control, and processing. Historical data will
+not be available for review.
 
-### <StepText level="h3" step={6}>Configure and Start the Task</StepText>
-
-Once you'd added all of the channels you need and have configured sampling rates, hit
-the "Configure" button. If there are no errors, Synnax will acknowledge the configured 
-task and enable the "Play" button in the dialog. Click this button to start the task.
+We recommend turning data saving off when you're testing a new task or running operations
+where historical data saving is not important.
 
 <Divider.Divider direction="x" />
+
+## Start the Task
+
+Once you'd added all of the channels you need and have configured task PerformanceTiming, 
+hit the "Configure" button. If there are no errors, Synnax will acknowledge the configured 
+task and enable the Play (<Icon.Play />) button in the dialog. Click this button to start the task.
+
+<Video client:only="react" id="device-drivers/ni/analog-read-task/analog-read-task-start" />
+
+<Note variant="info">
+Starting and stopping a task does not re-apply the task configuration. If you've made 
+changes to the configuration, you'll need to re-configure the task by hitting the "
+Configure" button.
+</Note>

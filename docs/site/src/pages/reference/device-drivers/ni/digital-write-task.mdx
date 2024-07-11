@@ -136,8 +136,18 @@ Set the rate higher in scenarios that require quick response times.
 />
 </div>
 
-### <StepText level="h3" step={4}>Start the Task</StepText>
+<Divider.Divider direction="x" />
+
+## Start the Task
 
 Once you've added all of the channels you need and have configured sampling rates, hit
 the "Configure" button. If there are no errors, Synnax will acknowledge the configured
-task and enable the "Play" button in the dialog. Click this button to start the task.
+task and enable the Play (<Icon.Play />) button in the dialog. Click this button to start the task.
+
+<Video client:only="react" id="device-drivers/ni/digital-write-task/digital-write-task-start" />
+
+<Note variant="info">
+Starting and stopping a task does not re-apply the task configuration. If you've made 
+changes to the configuration, you'll need to re-configure the task by hitting the "
+Configure" button.
+</Note>
