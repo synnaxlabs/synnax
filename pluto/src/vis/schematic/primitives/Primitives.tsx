@@ -1173,8 +1173,7 @@ export const PistonPump = ({
         className={CSS(CSS.M("detail"), className)}
       />
       <Path
-        d="M 18 26, L 34 26, L 34 22, M 34 26, L 34 30"
-        transform="translate(6, 6)"
+        d="M 23 32, h 16, m 0 -8, v 16"
         className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
