@@ -69,7 +69,7 @@ To create an analog read task from the command palette, open the Synnax Console 
 click on the Quick Search & Command Palette at the top. You can also open this palette with 
 `Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
-In command moe (enabled when the first character in the input is ">"), type
+In command mode (enabled when the first character in the input is ">"), type
 "NI". You'll see an option called "Create a New Analog Read Task". Select this
 option to open the read task configuration dialog.
 
@@ -78,7 +78,7 @@ option to open the read task configuration dialog.
 ### From The Layout Selector
 
 To create an analog read task from the layout selector, click on the "+" button in the 
-top right corner and select "NI Analog Read Task".
+top right corner of the central mosaic and select "NI Analog Read Task".
 
 <Video client:only="react" id="device-drivers/ni/analog-read-task/layout-create-analog-read-task" />
 
@@ -107,7 +107,7 @@ There are two parameters to control the timing of the task: the **sample rate** 
 from the device. The stream rate defines how often the task will stream data into Synnax.
 
 For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax will
-read a batch of 10 samples every second, and then forward the entire batch to the server.
+read a batch of 10 samples every second, and then forward the entire batch to the Synnax database.
 
 For very low rate tasks (&lt; 50Hz), we recommend setting the stream rate to the same value
 as the sample rate. For higher rate tasks, lowering the stream rate can significantly 

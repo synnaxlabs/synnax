@@ -6,7 +6,8 @@ description: "Learn how to create a digital write task for NI hardware."
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
-import { Video } from "@/components/Media";
+import { Video, Image } from "@/components/Media";
+import { Icon } from "@synnaxlabs/media";
 
 The Digital Write Task is used for sending commands to the digital outputs of your NI 
 cards. In this guide, we'll walk you through the steps to create a Digital Write Task in 
@@ -39,17 +40,20 @@ multiple tasks for different purposes.
 
 Commands in Synnax require two types of channels: a command channel and state channel.
 Command channels are used to send commands to hardware. To set a digital output to high, 
-you would write a `1` to the command channel. To set it to low, you would send a `0`.
+you would write a `1` to the command channel. To set it to low, you would write a `0`.
 
 State channels represent the current state of the digital output. When you send a command,
 the corresponding digital write task will process the command and update the value in
 the state channel.
 
 As an example, to configure a valve in the [console schematic](/reference/console/schematic) 
-to write to a digital output, you would set the output channel as the command channel
-and the state channel as the input channel. Clicking the valve would send a command to
-the digital output, and the valve would turn solid or transparent based on the state
-channel.
+to write to a digital output, you would set the `command` field to the command channel
+of the digital output and the `state` field to the state channel of the digital output.
+Clicking the valve would send a command to the digital output, and the valve would turn 
+solid or transparent based on the state channel.
+
+Using two channels provides a guarantee that a particular command was acknowledged by
+a running task. 
 
 <Divider.Divider direction="x" />
 
@@ -58,8 +62,8 @@ channel.
 ### From the Resources Toolbar
 
 To create a digital write task from the resources toolbar, open the Synnax Console and 
-click on the "Resources" tab in the left sidebar. Find the device you'd like to create
-the task for, right-click on it, and select "Create Digital write Task".
+click on the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device 
+you'd like to create the task for, right-click on it, and select "Create Digital write Task".
 
 <Video client:only="react" id="device-drivers/ni/digital-write-task/device-create-digital-write-task" />
 
@@ -88,8 +92,10 @@ top right corner and select "NI Digital write Task".
 
 ### <StepText level="h3" step={1}>Select your NI Device</StepText>
 
-The first step is to select teh NI device you'd like to write to the outputs of. Use
+The first step is to select the NI device you'd like to write to the outputs of. Use
 the dropdown menu in the top left corner to do so.
+
+<Video client:only="react" id="device-drivers/ni/digital-write-task/digital-write-task-select-device" />
 
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
@@ -100,10 +106,20 @@ You'll need to select both a digital output port and line to write to. You'll al
 to select the command channel the task will listen to, and the state channel that will
 be updated when the command is processed.
 
+<Video client:only="react" id="device-drivers/ni/digital-write-task/digital-write-task-add-channel" />
+
 ### <StepText level="h3" step={3}>Configure the State Update Rate</StepText>
 
 The state update rate determines how often the state channels in the task are updated.
 Set the rate higher in scenarios that require quick response times. 
+
+<div style={{ display: "flex", justifyContent: "center"}}>
+<Image 
+    client:only="react" 
+    id="device-drivers/ni/digital-write-task/digital-write-task-state-rate" 
+    style={{ width: "50%", minWidth: 200 }}
+/>
+</div>
 
 ### <StepText level="h3" step={4}>Start the Task</StepText>
 
