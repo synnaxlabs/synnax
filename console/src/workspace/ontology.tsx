@@ -133,7 +133,7 @@ const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       // imported schematic to cluster
       const creator = Schematic.create({
         ...newState,
-        name: fileResponse.name.slice(0, -5),
+        name: fileResponse.name?.slice(0, -5),
       });
       placeLayout(creator);
     },

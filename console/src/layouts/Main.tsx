@@ -11,6 +11,8 @@ import "@/layouts/Main.css";
 
 import { Drift } from "@synnaxlabs/drift";
 import { Align } from "@synnaxlabs/pluto";
+// import { listen } from "@tauri-apps/api/event";
+// import { listen } from "@tauri-apps/api/event";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -29,6 +31,9 @@ import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
 const SideEffect = (): null => {
+  // listen("tauri://file-drop", async (event) => {
+  //   console.log(event);
+  // });
   const dispatch = useDispatch();
   useEffect(() => {
     dispatch(Layout.maybeCreateGetStartedTab());
@@ -37,6 +42,11 @@ const SideEffect = (): null => {
   Device.useListenForChanges();
   Workspace.useSyncLayout();
   Link.useDeep({ handlers: HANDLERS });
+  // useEffect(() => {
+  //   listen("tauri://drop", (event) => {
+  //     console.log(event);
+  //   });
+  // }, []);
   return null;
 };
 
