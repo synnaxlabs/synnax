@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
 import { Video, Image } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
+import Note from "@/components/Note.astro";
 
 The Digital Write Task is used for sending commands to the digital outputs of your NI 
 cards. In this guide, we'll walk you through the steps to create a Digital Write Task in 
@@ -28,7 +29,7 @@ guide for more information.
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
 can be used for both control and data acquisition purposes. In the context of the NI
 Driver, a digital write task defines a background process that writes to the digital
-outputs of your device.
+outputs of your device based on values written to Synnax [command channels](#how-commands-work-in-synnax).
 
 A digital write task can be started, stopped, and re-configured at any time. We 
 permanently store the configuration of the task in Synnax, so it's easy to set up 
@@ -39,12 +40,26 @@ multiple tasks for different purposes.
 ## How Commands Work in Synnax
 
 Commands in Synnax require two types of channels: a command channel and state channel.
-Command channels are used to send commands to hardware. To set a digital output to high, 
-you would write a `1` to the command channel. To set it to low, you would write a `0`.
+Command channels signal a task to set the value of a digital output. To set a digital 
+output to high, you would write a `1` to the command channel. To set it to low, you 
+would write a `0`.
+
+A command channel for a digital output might be `my_temp_card_do_0_1_cmd`, where 
+`my_temp_card` is the device identifier, `do_0_1` is the port and line of the digital 
+output, and `_cmd` indicates that it's a command channel.
+
+<Note variant="info">
+Command channels also have an associated index channel that stores the timestamps at
+which commands were sent. This channel is suffixed with `_cmd_time`. For the command
+channel `my_temp_card_do_0_1_cmd`, the index channel would be `my_temp_card_do_0_1_cmd_time`.
+</Note>
 
 State channels represent the current state of the digital output. When you send a command,
 the corresponding digital write task will process the command and update the value in
 the state channel.
+
+State channels are typically suffixed with `_state`. A state channel maintains the same
+format as its corresponding command channel, but suffixed with `_state` instead of `_cmd`.
 
 As an example, to configure a valve in the [console schematic](/reference/console/schematic) 
 to write to a digital output, you would set the `command` field to the command channel
