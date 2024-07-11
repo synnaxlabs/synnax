@@ -4,7 +4,8 @@ title: "NI | Analog Read Task"
 heading: "NI Analog Read Task"
 description: "Learn how to create an analog read task for NI hardware."   
 ---
-import { Divider } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/media"
+import { Divider, Text } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
 import { Tabs } from "@/components/Tabs";
 import { Video, Image } from "@/components/Media";
@@ -57,7 +58,7 @@ tasks that read from "ai0" on the same device, you cannot have both tasks runnin
 ### From the Resources Toolbar
 
 To create an analog read task from the resources toolbar, open the Synnax Console and 
-click on the "Resources" tab in the left sidebar. Find the device you'd like to create
+click on the resources (<Icon.Resources />) tab in the left sidebar. Find the device you'd like to create
 the task for, right-click on it, and select "Create Analog Read Task".
 
 <Video client:only="react" id="device-drivers/ni/analog-read-task/device-create-analog-read-task" />
@@ -128,3 +129,5 @@ the "Configure" button. If there are no errors, Synnax will acknowledge the conf
 task and enable the "Play" button in the dialog. Click this button to start the task.
 
 <Divider.Divider direction="x" />
+
+

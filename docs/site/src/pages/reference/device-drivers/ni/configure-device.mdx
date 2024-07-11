@@ -8,7 +8,6 @@ description: "Learn how to connect and configure National Instruments modules."
 import { StepText } from "@/components/StepText";
 import { Divider } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
-import Table from "@/components/Table.astro";
 import Note from "@/components/Note.astro";
 
 The first step to start acquiring data and sending commands to your 
@@ -65,12 +64,16 @@ suggestions, although you're welcome to choose your own.
 
 <Video client:only="react" id="device-drivers/ni/configure-device/device-configure-id" />
 
+<Divider.Divider direction="x" />
+
 <StepText level="h2" step={3}>Save the Configuration</StepText>
 
 Once you're happy with the name and identifier, the last step is to save the configuration
 by hitting the blue "Save" button in the bottom right corner.
 
 <Video client:only="react" id="device-drivers/ni/configure-device/device-configure-save" />
+
+<Divider.Divider direction="x" />
 
 ## Next Steps
 
