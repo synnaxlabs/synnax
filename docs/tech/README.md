@@ -58,3 +58,27 @@ you need to be familiar with when working on a specific area of the codebase.
 We also have language specific guides for developing in [python](./python/python.md) and
 [typescript](./typescript/typescript.md). These includes information on the correct 
 processes for working on the codebase in that language.
+
+
+# 7 - Developer Expecations
+
+To ensure software reliability and good practices, all contributors must adhere to the following principles.
+
+1. All PRs must be approved 
+   1. Be approved by at least 2 people.
+   2. Must be approved by Elham Islam.
+   3. Adhere to and every checklist in the existing PR template.
+   4. Not exceed 2000 lines of changes.
+
+2. Any changes to the codebase must be done through a PR. No direct pushes to main or rc branches.
+
+3. 
+
+# 8 - Issue priority
+
+| Priority Level| Feature | Bug |
+|----------|----------|----------|
+| Urgent (1) | This feature blocks progress on upcoming pilots. | This bug will stop the user from making progress and will cause significant loss of time and/or resources. Exampls are critical bugs which cause complete failure of core elements of the product. |
+| High (2) | This feature has been requested by users and is important to their use of our product. |  This bug significantly degrades the quality of the user's experience and would take priority over most new feature development. Bugs could cause slowing of the user's workflow or repeated work. |
+| Medium (3) | There has been some interest in this feature or would improve the product | This bug makes a noticable inpact on the user experience and should be targeted for next release or there is an existing workaround for now.|
+| Low (4) | This feature is not critical to users or the product.| These bugs have low impact on the user and could be put off to future releases as necessary.|

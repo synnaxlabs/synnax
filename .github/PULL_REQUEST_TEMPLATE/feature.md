@@ -29,3 +29,8 @@ with necessary manual QA steps to test my change.
 ## Breaking Changes
 
 Please list any breaking changes to public or internal packages.
+
+## Reviwer Checklist
+- [ ] Code coverage is met
+- [ ] Sufficient test coverage of new additions
+- [ ] Verified all steps in the Readiness checklists are completed
