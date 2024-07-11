@@ -98,7 +98,7 @@
 }
 
 .pluto--enabled svg .pluto--detail {
-    stroke: rgba(var(--pluto-symbol-color-contrast), 0.6) !important;
+    stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
 }
 
 .pluto-tank {
