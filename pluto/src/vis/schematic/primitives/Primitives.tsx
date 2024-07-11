@@ -236,8 +236,16 @@ const InternalSVG = ({
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
   const colorStr = Color.cssString(color);
-  // @ts-expect-error - css variables
-  if (color != null) style[CSS.var("symbol-color")] = new Color.Color(color).rgbString;
+  const theme = Theming.use();
+  if (color != null) {
+    // @ts-expect-error - css variables
+    style[CSS.var("symbol-color")] = new Color.Color(color).rgbString;
+    // @ts-expect-error - css variables
+    style[CSS.var("symbol-color-contrast")] = new Color.Color(color).pickByContrast(
+      theme.colors.gray.l0,
+      theme.colors.gray.l10,
+    ).rgbString;
+  }
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -472,12 +480,6 @@ export const AngledValve = ({
   </Toggle>
 );
 
-export const Tag = (): ReactElement => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 25">
-    <Path d="M57.0945 1.83334H4.04767C2.39087 1.83334 1.45252 3.73241 2.45908 5.0484L7.42509 11.5411C7.96869 12.2518 7.97408 13.2371 7.43828 13.9538L2.94078 19.9691C1.95471 21.2879 2.89585 23.1667 4.54256 23.1667H57.2344C57.9298 23.1667 58.5752 22.8055 58.939 22.2128L64.2505 13.5584C64.6483 12.9102 64.644 12.0925 64.2395 11.4484L58.7881 2.76955C58.4222 2.18696 57.7825 1.83334 57.0945 1.83334Z" />
-  </svg>
-);
-
 export interface ReduceFittingProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const ReduceFitting = ({
@@ -518,19 +520,30 @@ export const Pump = ({
     orientation={orientation}
   >
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1} top={39} id="1" />
-      <Handle location="right" orientation={orientation} left={95} top={3} id="2" />
+      <Handle location="left" orientation={orientation} left={2} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 68, height: 61 }}
+      dimensions={{ width: 64, height: 64 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="35" cy="25" r="23" />
-      <Path d="M50 41.5L56.7186 50.8314C57.6711 52.1544 56.7257 54 55.0955 54H14.9045C13.2743 54 12.3289 52.1544 13.2814 50.8314L20 41.5" />
-      <Line x1="35" y1="2" x2="65.0167" y2="2" />
-      <Line x1="1" y1="24" x2="35" y2="24" />
+      <Circle cx="32" cy="32" r="30" />
+      <Line
+        x1="32"
+        y1="2"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="62"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
     </InternalSVG>
   </Toggle>
 );
@@ -644,6 +657,7 @@ export const Filter = ({
 );
 
 type DetailedBorderRadius = Record<location.CornerXYString, xy.XY>;
+
 type BorderRadius =
   | number
   | Record<direction.Direction, number>
@@ -763,13 +777,15 @@ export const Regulator = ({
       <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 84, height: 58 }}
+      dimensions={{ width: 88, height: 80 }}
       orientation={orientation}
       color={color}
       scale={scale}
     >
-      <Path d="M42 36.5L5.41845 16.8709C3.41989 15.7985 1 17.2463 1 19.5144V53.4856C1 55.7537 3.4199 57.2015 5.41846 56.1291L42 36.5ZM42 36.5L78.5815 16.8709C80.5801 15.7985 83 17.2463 83 19.5144V53.4856C83 55.7537 80.5801 57.2015 78.5815 56.1291L42 36.5Z" />
-      <Path d="M40 1.5H27.1522C24.8526 1.5 23.4081 3.9809 24.5432 5.98082L41.1303 35.2058C41.6373 36.099 43 35.7392 43 34.7122V4.5C43 2.84315 41.6569 1.5 40 1.5Z" />
+      <Path d="M44.5 53L7.35453 34.2035C5.35901 33.1937 3 34.6438 3 36.8803V69.1197C3 71.3562 5.35901 72.8063 7.35453 71.7965L44.5 53ZM44.5 53L81.6455 34.2035C83.641 33.1937 86 34.6438 86 36.8803V69.1197C86 71.3562 83.641 72.8063 81.6455 71.7965L44.5 53Z" />
+      <Path d="M61 30C62.6569 30 64.0231 28.6494 63.7755 27.0111C63.141 22.8129 61.181 18.8968 58.1421 15.8579C54.3914 12.1071 49.3043 10 44 10C38.6957 10 33.6086 12.1071 29.8579 15.8579C26.819 18.8968 24.859 22.8129 24.2245 27.0111C23.9769 28.6494 25.3431 30 27 30L44 30H61Z" />
+      <Line x1="44" y1="53" x2="44" y2="30" strokeLinecap="round" />
+      <Path d="M44 10.5V8C44 6.34315 45.3431 5 47 5H80C81.6569 5 83 6.34315 83 8V24.4281C83 25.4126 82.517 26.3344 81.7076 26.8947L44 53" />
     </InternalSVG>
   </Div>
 );
@@ -881,11 +897,15 @@ export const Value = ({
 }: ValueProps): ReactElement => {
   const borderColor = Color.cssString(color);
   const theme = Theming.use();
-  let textColor: string | undefined = "var(--pluto-gray-l0)";
-  if (color != null)
-    textColor = Color.cssString(
-      new Color.Color(color).pickByContrast(theme.colors.gray.l0, theme.colors.gray.l9),
-    );
+  const textColor: string | undefined =
+    color == null
+      ? "var(--pluto-gray-l0)"
+      : Color.cssString(
+          new Color.Color(color).pickByContrast(
+            theme.colors.gray.l0,
+            theme.colors.gray.l9,
+          ),
+        );
   return (
     <Div
       className={CSS(CSS.B("value"), className)}
@@ -965,3 +985,339 @@ export const Button = ({
     </Div>
   );
 };
+
+export interface ScrewPumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const ScrewPump = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  ...props
+}: ScrewPumpProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("screw-pump"), className)}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={2} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 64, height: 64 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="32" cy="32" r="30" />
+      <Line
+        x1="32"
+        y1="2"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="62"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Path
+        d="M 0 0, L -10 -10, M 0 0, L -10 10"
+        transform="translate(32, 32)"
+        strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Path
+        d="M 0 0, L -10 -10, M 0 0, L -10 10"
+        transform="translate(42, 32)"
+        strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
+      />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface VacuumPumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const VacuumPump = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  ...props
+}: VacuumPumpProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("vacuum-pump"), className)}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 64, height: 64 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="32" cy="32" r="30" />
+      <Line
+        x1="17"
+        y1="6.0192"
+        x2="57.9808"
+        y2="17"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="17"
+        y1="57.9808"
+        x2="57.9808"
+        y2="47"
+        className={CSS(CSS.M("detail"), className)}
+      />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface CavityPumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const CavityPump = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  ...props
+}: CavityPumpProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("cavity-pump"), className)}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 64, height: 64 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="32" cy="32" r="30" />
+      <Line
+        x1="32"
+        y1="2"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="62"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Path
+        d="M 17 26 C 17 20.6667 23 20.6667 23 26 C 23 31.3333 29 31.3333 29 26 C 29 20.6667 35 20.6667 35 26"
+        strokeLinecap="round"
+        transform="translate(6, 6)"
+        className={CSS(CSS.M("detail"), className)}
+      />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface PistonPumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const PistonPump = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  ...props
+}: PistonPumpProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("piston-pump"), className)}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 64, height: 64 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="32" cy="32" r="30" />
+      <Line
+        x1="32"
+        y1="2"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="62"
+        x2="62"
+        y2="32"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Path
+        d="M 23 32, h 16, m 0 -8, v 16"
+        className={CSS(CSS.M("detail"), className)}
+        strokeLinecap="round"
+      />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface StaticMixerProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const StaticMixer = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  ...props
+}: StaticMixerProps): ReactElement => (
+  <Div
+    {...props}
+    className={CSS(CSS.B("static-mixer"), className)}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 66, height: 31 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Rect x="1" y="1" width="64" height="28" rx="2" ry="2" />
+      <Path d="M17 10C23 10 27 20 33 20C39 20 43 10 49 10" strokeLinecap="round" />
+      <Path d="M17 20C23 20 27 10 33 10C39 10 43 20 49 20" strokeLinecap="round" />
+    </InternalSVG>
+  </Div>
+);
+
+export interface RotaryMixerProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const RotaryMixer = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  ...props
+}: RotaryMixerProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("rotary-mixer"), className)}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={48} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 50, height: 33 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M1 30V2C1 1.44772 1.44772 1 2 1H35.4545C35.7434 1 36.0181 1.12487 36.208 1.34247L48.4262 15.3425C48.7549 15.7192 48.7549 16.2808 48.4262 16.6575L36.208 30.6575C36.0181 30.8751 35.7434 31 35.4545 31H2C1.44772 31 1 30.5523 1 30Z" />
+      <Line
+        x1="32"
+        y1="16"
+        x2="40"
+        y2="16"
+        strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="16"
+        x2="28"
+        y2="22.9282"
+        strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
+      />
+      <Line
+        x1="32"
+        y1="16"
+        x2="28"
+        y2="9.0717"
+        strokeLinecap="round"
+        className={CSS(CSS.M("detail"), className)}
+      />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface LightProps extends ToggleProps, SVGBasedPrimitiveProps {
+  color?: Color.Crude;
+}
+
+export const Light = ({
+  className,
+  color,
+  orientation = "left",
+  scale,
+  ...props
+}: LightProps): ReactElement => (
+  <Toggle {...props} className={CSS(CSS.B("light"), className)}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 64, height: 64 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="32" cy="32" r="30" />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface ElectricRegulatorProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const ElectricRegulator = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: RegulatorProps): ReactElement => (
+  <Div className={CSS(className, CSS.B("regulator"))} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={5} top={66} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={66} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 88, height: 80 }}
+      orientation={orientation}
+      color={color}
+      scale={scale}
+    >
+      <Path d="M44.5 53L7.35453 34.2035C5.35901 33.1937 3 34.6438 3 36.8803V69.1197C3 71.3562 5.35901 72.8063 7.35453 71.7965L44.5 53ZM44.5 53L81.6455 34.2035C83.641 33.1937 86 34.6438 86 36.8803V69.1197C86 71.3562 83.641 72.8063 81.6455 71.7965L44.5 53Z" />
+      <Rect x="19" y="10" width="50" height="20" rx="3" ry="3" />
+      <Line x1="44" y1="53" x2="44" y2="30" strokeLinecap="round" />
+      <Path d="M44 10.5V8C44 6.34315 45.3431 5 47 5H80C81.6569 5 83 6.34315 83 8V24.4281C83 25.4126 82.517 26.3344 81.7076 26.8947L44 53" />
+    </InternalSVG>
+  </Div>
+);
