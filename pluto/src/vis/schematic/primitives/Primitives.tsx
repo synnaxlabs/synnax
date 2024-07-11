@@ -516,14 +516,14 @@ export const Pump = ({
       <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 52, height: 52 }}
+      dimensions={{ width: 64, height: 64 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="26" cy="26" r="24" />
-      <Line x1="26" y1="2" x2="50" y2="26" />
-      <Line x1="26" y1="50" x2="50" y2="26" />
+      <Circle cx="32" cy="32" r="30" />
+      <Line x1="32" y1="2" x2="62" y2="32" />
+      <Line x1="32" y1="62" x2="62" y2="32" />
     </InternalSVG>
   </Toggle>
 );
@@ -985,16 +985,24 @@ export const ScrewPump = ({
       <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 52, height: 52 }}
+      dimensions={{ width: 64, height: 64 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="26" cy="26" r="24" />
-      <Line x1="26" y1="2" x2="50" y2="26" />
-      <Line x1="26" y1="50" x2="50" y2="26" />
-      <Path d="M 30 26, L 20 16, M 30 26, L 20 36" strokeLinecap="round" />
-      <Path d="M 38 26, L 28 16, M 38 26, L 28 36" strokeLinecap="round" />
+      <Circle cx="32" cy="32" r="30" />
+      <Line x1="32" y1="2" x2="62" y2="32" />
+      <Line x1="32" y1="62" x2="62" y2="32" />
+      <Path
+        d="M 0 0, L -10 -10, M 0 0, L -10 10"
+        transform="translate(32, 32)"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M 0 0, L -10 -10, M 0 0, L -10 10"
+        transform="translate(42, 32)"
+        strokeLinecap="round"
+      />
     </InternalSVG>
   </Toggle>
 );
@@ -1018,14 +1026,14 @@ export const VacuumPump = ({
       <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 52, height: 52 }}
+      dimensions={{ width: 64, height: 64 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="26" cy="26" r="24" />
-      <Line x1="14" y1="5.2154" x2="46.7846" y2="14" />
-      <Line x1="14" y1="45.7841" x2="46.7846" y2="38" />
+      <Circle cx="32" cy="32" r="30" />
+      <Line x1="17" y1="6.0192" x2="57.9808" y2="17" />
+      <Line x1="17" y1="57.9808" x2="57.9808" y2="47" />
     </InternalSVG>
   </Toggle>
 );
@@ -1049,17 +1057,18 @@ export const CavityPump = ({
       <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 52, height: 52 }}
+      dimensions={{ width: 64, height: 64 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="26" cy="26" r="24" />
-      <Line x1="26" y1="2" x2="50" y2="26" />
-      <Line x1="26" y1="50" x2="50" y2="26" />
+      <Circle cx="32" cy="32" r="30" />
+      <Line x1="32" y1="2" x2="62" y2="32" />
+      <Line x1="32" y1="62" x2="62" y2="32" />
       <Path
         d="M 17 26 C 17 20.6667 23 20.6667 23 26 C 23 31.3333 29 31.3333 29 26 C 29 20.6667 35 20.6667 35 26"
         strokeLinecap="round"
+        transform="translate(6, 6)"
       />
     </InternalSVG>
   </Toggle>
@@ -1084,15 +1093,19 @@ export const PistonPump = ({
       <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 52, height: 52 }}
+      dimensions={{ width: 64, height: 64 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="26" cy="26" r="24" />
-      <Line x1="26" y1="2" x2="50" y2="26" />
-      <Line x1="26" y1="50" x2="50" y2="26" />
-      <Path d="M 18 26, L 34 26, L 34 22, M 34 26, L 34 30" strokeLinecap="round" />
+      <Circle cx="32" cy="32" r="30" />
+      <Line x1="32" y1="2" x2="62" y2="32" />
+      <Line x1="32" y1="62" x2="62" y2="32" />
+      <Path
+        d="M 18 26, L 34 26, L 34 22, M 34 26, L 34 30"
+        transform="translate(6, 6)"
+        strokeLinecap="round"
+      />
     </InternalSVG>
   </Toggle>
 );
@@ -1179,12 +1192,12 @@ export const Light = ({
       <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 50, height: 50 }}
+      dimensions={{ width: 64, height: 64 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="25" cy="25" r="23" />
+      <Circle cx="32" cy="32" r="30" />
     </InternalSVG>
   </Toggle>
 );
