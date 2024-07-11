@@ -45,9 +45,12 @@ const { title, description } = Astro.props;
         h5,
         h6,
         p,
-        table,
-        video {
+        table {
             margin: 3rem 0;
+        }
+
+        video {
+            margin: 5rem 0;
         }
 
         h2 {
@@ -72,10 +75,6 @@ const { title, description } = Astro.props;
             @media (prefers-color-scheme: dark) {
                 box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
             }
-        }
-
-        img {
-            width: 100%;
         }
 
         .pluto-divider {
