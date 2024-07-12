@@ -123,3 +123,11 @@ const Main = (): ReactElement => (
 const rootEl = document.getElementById("root") as HTMLElement;
 
 ReactDOM.createRoot(rootEl).render(<Main />);
+
+rootEl.addEventListener("dragover", (event) => {
+  event.preventDefault();
+});
+
+rootEl.addEventListener("drop", (event) => {
+  event.preventDefault();
+});

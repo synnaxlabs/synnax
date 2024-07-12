@@ -48,7 +48,12 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
  */
 export const Main = (): ReactElement => {
   return (
-    <>
+    <div
+      onDrop={(e) => {
+        console.log(e);
+        e.preventDefault();
+      }}
+    >
       {/* We need to place notifications here so they are in the proper stacking context */}
       <Notifications.Notifications />
       <SideEffect />
@@ -72,7 +77,7 @@ export const Main = (): ReactElement => {
         <NavRight />
       </Align.Space>
       <NavBottom />
-    </>
+    </div>
   );
 };
 

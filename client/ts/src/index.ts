@@ -33,8 +33,6 @@ export { ontology } from "@/ontology";
 export { ranger } from "@/ranger";
 export { signals } from "@/signals";
 export { workspace } from "@/workspace";
-export { linePlot } from "@/workspace/lineplot";
-export { schematic } from "@/workspace/schematic";
 export type {
   CrudeDataType,
   CrudeDensity,
