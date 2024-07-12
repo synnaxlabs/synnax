@@ -9,8 +9,8 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, direction,location, type UnknownRecord, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback,useState } from "react";
+import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -389,6 +389,27 @@ export const Regulator = ({
 export const RegulatorPreview = (props: RegulatorProps): ReactElement => (
   <Primitives.Regulator {...props} />
 );
+
+export interface ElectricRegulatorProps extends Primitives.ElectricRegulatorProps {
+  label?: LabelExtensionProps;
+}
+
+export const ElectricRegulator = ({
+  label,
+  onChange,
+  orientation,
+  color,
+}: SymbolProps<ElectricRegulatorProps>): ReactElement => {
+  return (
+    <Labeled {...label} onChange={onChange}>
+      <Primitives.ElectricRegulator orientation={orientation} color={color} />
+    </Labeled>
+  );
+};
+
+export const ElectricRegulatorPreview = (
+  props: ElectricRegulatorProps,
+): ReactElement => <Primitives.ElectricRegulator {...props} />;
 
 export interface BurstDiscProps extends Primitives.BurstDiscProps {
   label?: LabelExtensionProps;
@@ -779,4 +800,258 @@ export const Button = Aether.wrap<SymbolProps<ButtonProps>>(
 
 export const ButtonPreview = ({ label: _, ...props }: ButtonProps): ReactElement => (
   <Primitives.Button label="Button" {...props} />
+);
+
+export interface ScrewPumpProps
+  extends Primitives.ScrewPumpProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const ScrewPump = Aether.wrap<SymbolProps<ScrewPumpProps>>(
+  "screwPump",
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.ScrewPump
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const ScrewPumpPreview = (props: ScrewPumpProps): ReactElement => (
+  <Primitives.ScrewPump {...props} />
+);
+
+export interface VacuumPumpProps
+  extends Primitives.VacuumPumpProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const VacuumPump = Aether.wrap<SymbolProps<VacuumPumpProps>>(
+  "vacuumPump",
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.VacuumPump
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const VacuumPumpPreview = (props: VacuumPumpProps): ReactElement => (
+  <Primitives.VacuumPump {...props} />
+);
+
+export interface CavityPumpProps
+  extends Primitives.CavityPumpProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const CavityPump = Aether.wrap<SymbolProps<CavityPumpProps>>(
+  "progressiveCavityPump",
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.CavityPump
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const CavityPumpPreview = (props: CavityPumpProps): ReactElement => (
+  <Primitives.CavityPump {...props} />
+);
+
+export interface PistonPumpProps
+  extends Primitives.PistonPumpProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const PistonPump = Aether.wrap<SymbolProps<PistonPumpProps>>(
+  "pistonPump",
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.PistonPump
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const PistonPumpPreview = (props: PistonPumpProps): ReactElement => (
+  <Primitives.PistonPump {...props} />
+);
+
+export interface StaticMixerProps extends Primitives.StaticMixerProps {
+  label?: LabelExtensionProps;
+}
+
+export const StaticMixer = Aether.wrap<SymbolProps<StaticMixerProps>>(
+  "statixMixer",
+  ({ label, onChange, orientation, color }): ReactElement => {
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <Primitives.StaticMixer orientation={orientation} color={color} />
+      </Labeled>
+    );
+  },
+);
+
+export const StaticMixerPreview = (props: StaticMixerProps): ReactElement => (
+  <Primitives.StaticMixer {...props} />
+);
+
+export interface RotaryMixerProps
+  extends Primitives.RotaryMixerProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const RotaryMixer = Aether.wrap<SymbolProps<RotaryMixerProps>>(
+  "rotaryMixer",
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.RotaryMixer
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const RotaryMixerPreview = (props: RotaryMixerProps): ReactElement => (
+  <Primitives.RotaryMixer {...props} />
+);
+
+export interface LightProps
+  extends Primitives.LightProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+}
+
+export const Light = Aether.wrap<SymbolProps<LightProps>>(
+  "light",
+  ({
+    aetherKey,
+    label,
+    className,
+    orientation = "left",
+    color,
+    source,
+    onChange,
+  }): ReactElement => {
+    const { enabled } = Toggle.use({ aetherKey, source });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <Primitives.Light
+          color={color}
+          enabled={enabled}
+          className={className}
+          orientation={orientation}
+        />
+      </Labeled>
+    );
+  },
+);
+
+export const LightPreview = (props: LightProps): ReactElement => (
+  <Primitives.Light {...props} />
 );

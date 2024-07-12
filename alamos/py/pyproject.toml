@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "alamos"
-version = "0.23.1"
+version = "0.24.2"
 description = ""
 authors = ["Emiliano Bonilla <ebonilla@synnaxlabs.com>"]
 readme = "README.md"
@@ -12,12 +12,12 @@ mypy = "^1.3.0"
 opentelemetry-sdk = "^1.18.0"
 opentelemetry-api = "^1.18.0"
 uptrace = "^1.18.0"
-pytest = "^8.2.2"
 
 
 [tool.poetry.group.dev.dependencies]
+pytest = "^8.2.2"
 black = "^23.3.0"
-pytest-asyncio = "^0.21.0"
+pytest-asyncio = "^0.23.7"
 pytest-cov = "^4.0.0"
 isort = "^5.12.0"
 

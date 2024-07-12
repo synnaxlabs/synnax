@@ -9,9 +9,10 @@
 
 from typing import overload
 
+import pandas as pd
 from alamos import NOOP, Instrumentation
 from freighter import AsyncStreamClient, StreamClient, UnaryClient
-from numpy import ndarray
+from pandas import DataFrame
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -25,12 +26,12 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
-from synnax.framer.frame import Frame
+from synnax.framer.frame import Frame, CrudeFrame
 from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import Writer, WriterMode
 from synnax.framer.deleter import Deleter
-from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeSpan
+from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeSpan, CrudeSeries
 from synnax.telem.control import Authority, CrudeAuthority
 
 
@@ -147,11 +148,21 @@ class Client:
             instrumentation=self.instrumentation,
         )
 
+    @overload
     def write(
         self,
         start: CrudeTimeStamp,
-        data: ndarray | Series,
+        frame: CrudeFrame,
+        strict: bool = False,
+    ):
+        ...
+
+    @overload
+    def write(
+        self,
+        start: CrudeTimeStamp,
         to: ChannelKey | ChannelName | ChannelPayload,
+        data: CrudeSeries,
         strict: bool = False,
     ):
         """Writes telemetry to the given channel starting at the given timestamp.
@@ -161,16 +172,44 @@ class Client:
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
+        ...
+
+    @overload
+    def write(
+        self,
+        start: CrudeTimeStamp,
+        to: ChannelKeys | ChannelNames | list[ChannelPayload],
+        series: list[CrudeSeries],
+        strict: bool = False,
+    ):
+        ...
+
+    def write(
+        self,
+        start: CrudeTimeStamp,
+        to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        series: CrudeSeries | list[CrudeSeries] | None = None,
+        strict: bool = False,
+    ):
+        channels = list()
+        if isinstance(to, (list, ChannelKey, ChannelPayload, ChannelName)):
+            channels = to
+        elif isinstance(to, dict):
+            channels = list(to.keys())
+        elif isinstance(to, Frame):
+            channels = to.channels
+        elif isinstance(to, pd.DataFrame):
+            channels = list(to.columns)
         with self.open_writer(
             start=start,
-            channels=to,
+            channels=channels,
             strict=strict,
             mode=WriterMode.PERSIST_ONLY,
             err_on_unauthorized=True,
             enable_auto_commit=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
-            w.write(to, data)
+            w.write(to, series)
 
     @overload
     def read(

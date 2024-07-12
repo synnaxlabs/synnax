@@ -8,105 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import {
-  type Control,
-  type Diagram,
-  Legend,
-  type Schematic,
-  type Viewport,
-} from "@synnaxlabs/pluto";
+import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
-import { box, deep, migrate, scale, xy } from "@synnaxlabs/x";
+import { box, scale, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
-export type NodeProps = object & {
-  key: Schematic.Variant;
-  color?: Color.Crude;
-};
+import * as latest from "@/schematic/migrations";
 
-export interface State extends migrate.Migratable {
-  editable: boolean;
-  fitViewOnResize: boolean;
-  snapshot: boolean;
-  remoteCreated: boolean;
-  viewport: Diagram.Viewport;
-  nodes: Diagram.Node[];
-  edges: Diagram.Edge[];
-  props: Record<string, NodeProps>;
-  control: Control.Status;
-  controlAcquireTrigger: number;
-  legend: LegendState;
-}
-
-interface CopyBuffer {
-  pos: xy.Crude;
-  nodes: Diagram.Node[];
-  edges: Diagram.Edge[];
-  props: Record<string, NodeProps>;
-}
-
-export interface LegendState {
-  visible: boolean;
-  position: Legend.StickyXY;
-}
-
-const ZERO_LEGEND_STATE: LegendState = {
-  visible: false,
-  position: xy.ZERO,
-};
-
-const ZERO_COPY_BUFFER: CopyBuffer = {
-  pos: xy.ZERO,
-  nodes: [],
-  edges: [],
-  props: {},
-};
-
-// ||||| TOOLBAR |||||
-
-const TOOLBAR_TABS = ["symbols", "properties"] as const;
-export type ToolbarTab = (typeof TOOLBAR_TABS)[number];
-
-export interface ToolbarState {
-  activeTab: ToolbarTab;
-}
-
-export interface SliceState extends migrate.Migratable {
-  mode: Viewport.Mode;
-  copy: CopyBuffer;
-  toolbar: ToolbarState;
-  schematics: Record<string, State>;
-}
+export type SliceState = latest.SliceState;
+export type NodeProps = latest.NodeProps;
+export type State = latest.State;
+export type LegendState = latest.LegendState;
+export type ToolbarTab = latest.ToolbarTab;
+export type ToolbarState = latest.ToolbarState;
+export const ZERO_STATE = latest.ZERO_STATE;
+export const migrateSlice = latest.migrateSlice;
+export const migrateState = latest.migrateState;
 
 export const SLICE_NAME = "schematic";
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
-
-export const ZERO_STATE: State = {
-  version: "0.0.0",
-  snapshot: false,
-  nodes: [],
-  edges: [],
-  props: {},
-  remoteCreated: false,
-  viewport: { position: xy.ZERO, zoom: 1 },
-  editable: true,
-  control: "released",
-  controlAcquireTrigger: 0,
-  fitViewOnResize: false,
-  legend: ZERO_LEGEND_STATE,
-};
-
-export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
-  mode: "select",
-  copy: { ...ZERO_COPY_BUFFER },
-  toolbar: { activeTab: "symbols" },
-  schematics: {},
-};
 
 export interface SetViewportPayload {
   key: string;
@@ -146,9 +70,9 @@ export interface SetEdgesPayload {
   edges: Diagram.Edge[];
 }
 
-export interface CreatePayload extends State {
+export type CreatePayload = latest.AnyState & {
   key: string;
-}
+};
 
 export interface RemovePayload {
   keys: string[];
@@ -217,36 +141,16 @@ export const calculatePos = (
   return s.pos(cursor);
 };
 
-export const STATE_MIGRATIONS: migrate.Migrations = {
-  "0.0.0": (state: State): State => {
-    if (state.legend == null) state.legend = deep.copy(ZERO_LEGEND_STATE);
-    state.version = "0.0.1";
-    return state;
-  },
-};
-
-const migrateState = migrate.migrator<State, State>(STATE_MIGRATIONS);
-
-const SLICE_MIGRATIONS: migrate.Migrations = {};
-
-export const migrateSlice = (v: SliceState) => {
-  const mig = migrate.migrator<SliceState, SliceState>(SLICE_MIGRATIONS)(v);
-  mig.schematics = Object.fromEntries(
-    Object.entries(mig.schematics).map(([key, value]) => [key, migrateState(value)]),
-  );
-  return mig;
-};
-
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState: ZERO_SLICE_STATE,
+  initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
       // for each schematic, find the keys of the selected nodes and edges
       // and add them to the copy buffer. Then get the props of each
       // selected node and edge and add them to the copy buffer.
       const { schematics } = state;
-      const copyBuffer: CopyBuffer = {
+      const copyBuffer: latest.CopyBuffer = {
         nodes: [],
         edges: [],
         props: {},
@@ -312,7 +216,10 @@ export const { actions, reducer } = createSlice({
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      const schematic = { ...ZERO_STATE, ...migrateState(payload) };
+      const schematic: State = {
+        ...ZERO_STATE,
+        ...latest.migrateState(payload),
+      } as State;
       if (schematic.snapshot) {
         schematic.editable = false;
         clearSelections(schematic);

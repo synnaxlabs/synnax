@@ -4,11 +4,11 @@ client = sy.Synnax()
 
 with client.control.acquire(
     name="Simple Automation",
-    read=["pressure_1", "pressure_2", "temperature_1", "temperature_2"],   
-    write=["valve_1_cmd", "valve_2_cmd"]
+    read=["pressure_1", "pressure_2", "temperature_1", "temperature_2"],
+    write=["valve_1_cmd", "valve_2_cmd"],
 ) as auto:
     # Set initial valve states
-    auto["valve_1_cmd"] = False;
+    auto["valve_1_cmd"] = False
 
     # Wait until pressure_1 is less than 100 psi
     auto.wait_until(lambda auto: auto["pressure_1"] < 100)

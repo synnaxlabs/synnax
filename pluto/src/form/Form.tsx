@@ -18,7 +18,6 @@ import {
   useCallback,
   useContext as reactUseContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -134,7 +133,7 @@ export const useFieldState = <I extends Input.Value, O extends Input.Value = I>(
 ): FieldState<O> | null => {
   const { get, bind } = useContext(ctx);
   const [, setChangeTrigger] = useState(0);
-  useLayoutEffect(() => {
+  useEffect(() => {
     setChangeTrigger((prev) => prev + 1);
     return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
   }, [path, bind]);
@@ -148,7 +147,7 @@ export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>
 ): O | null => {
   const { get, bind } = useContext(ctx);
   const [, setChangeTrigger] = useState(0);
-  useLayoutEffect(() => {
+  useEffect(() => {
     setChangeTrigger((prev) => prev + 1);
     return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
   }, [path, bind]);
@@ -176,7 +175,7 @@ export const useFieldListener = <
   onChange,
 }: UseFieldListenerProps<I, Z>): void => {
   const ctx = useContext(override);
-  useLayoutEffect(
+  useEffect(
     () =>
       ctx.bind<I>({
         path,
@@ -208,7 +207,7 @@ export const useChildFieldValues = (<V extends unknown = unknown>({
 }: UseChildFieldValuesProps): V | null => {
   const { bind, get } = useContext();
   const [state, setState] = useState<FieldState<V> | null>(get<V>(path, { optional }));
-  useLayoutEffect(() => {
+  useEffect(() => {
     setState(get<V>(path, { optional }));
     return bind<V>({
       path,
@@ -241,7 +240,7 @@ export const useFieldArray = <V extends unknown = unknown>({
   const { bind, get, set } = useContext();
   const [fState, setFState] = useState<V[]>(get<V[]>(path).value);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     setFState(get<V[]>(path).value);
     return bind<V[]>({
       path,
@@ -254,7 +253,7 @@ export const useFieldArray = <V extends unknown = unknown>({
     (value: V | V[]) => {
       const copy = shallowCopy(get<V[]>(path).value);
       copy.push(...toArray(value));
-      set(path, copy);
+      set(path, copy, { validateChildren: false });
     },
     [path, get, set],
   );
@@ -263,7 +262,7 @@ export const useFieldArray = <V extends unknown = unknown>({
     (value: V | V[], start: number) => {
       const copy = shallowCopy(get<V[]>(path).value);
       copy.splice(start, 0, ...toArray(value));
-      set(path, copy);
+      set(path, copy, { validateChildren: false });
     },
     [path, get, set],
   );
@@ -311,7 +310,7 @@ export interface FieldState<V = unknown> {
   required: boolean;
 }
 
-interface GetOptions<O extends boolean | undefined = boolean | undefined> {
+interface RequiredGetOptions<O extends boolean | undefined = boolean | undefined> {
   optional?: O;
 }
 
@@ -319,17 +318,24 @@ interface OptionalGetOptions {
   optional?: true;
 }
 
-type GetProps = GetOptions | OptionalGetOptions;
+type GetOptions = RequiredGetOptions | OptionalGetOptions;
 
 interface GetFunc {
-  <V extends Input.Value>(path: string, opts: GetOptions<true>): FieldState<V> | null;
   <V extends Input.Value>(
     path: string,
-    opts?: GetOptions<boolean | undefined>,
+    opts: RequiredGetOptions<true>,
+  ): FieldState<V> | null;
+  <V extends Input.Value>(
+    path: string,
+    opts?: RequiredGetOptions<boolean | undefined>,
   ): FieldState<V>;
 }
 
-type SetFunc = (path: string, value: unknown) => void;
+interface SetOptions {
+  validateChildren?: boolean;
+}
+
+type SetFunc = (path: string, value: unknown, opts?: SetOptions) => void;
 
 interface BindProps<V = unknown> {
   path: string;
@@ -439,7 +445,7 @@ export const use = <Z extends z.ZodTypeAny>({
   const get: GetFunc = useCallback(
     <V extends any = unknown>(
       path: string,
-      { optional }: GetProps = { optional: false },
+      { optional }: GetOptions = { optional: false },
     ): FieldState<V> | null => {
       const { state, statuses, touched } = ref.current;
       const value = deep.get(state, path, { optional });
@@ -496,27 +502,33 @@ export const use = <Z extends z.ZodTypeAny>({
     (
       result: z.SafeParseReturnType<z.input<Z>, z.output<Z>>,
       validationPath: string = "",
+      validateChildren: boolean = true,
     ): boolean => {
       const { statuses, listeners, touched } = ref.current;
 
       // Parse was a complete success. No errors encountered.
       if (result.success) {
         /// Clear statuses for all fields and update relevant listeners.
+        const paths = [...statuses.keys()];
         statuses.clear();
-        statuses.forEach((_, path) => updateFieldState(path));
+        paths.forEach((path) => updateFieldState(path));
         return true;
       }
 
       // The validation may still be a success if all errors are warnings.
       let success = true;
       const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
+
+      let matcher = (a: string, b: string) => a === b;
+      if (validateChildren) matcher = (a: string, b: string) => deep.pathsMatch(a, b);
+
       result.error.issues.forEach((issue) => {
         const { message } = issue;
         const issuePath = issue.path.join(".");
 
         // If we're only validating a sub-path and it doesn't match a particular issue,
         // skip it.
-        if (!deep.pathsMatch(issuePath, validationPath)) return;
+        if (!matcher(issuePath, validationPath)) return;
 
         const variant = getVariant(issue);
         if (variant !== "warning") success = false;
@@ -551,34 +563,35 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 
   const validate = useCallback(
-    (path?: string): boolean => {
+    (path?: string, validateChildren?: boolean): boolean => {
       if (schemaRef.current == null) return true;
       const { state } = ref.current;
       const result = schemaRef.current.safeParse(state);
-      return processValidationResult(result, path);
+      return processValidationResult(result, path, validateChildren);
     },
     [processValidationResult],
   );
 
   const validateAsync = useCallback(
-    async (path?: string): Promise<boolean> => {
+    async (path?: string, validateChildren?: boolean): Promise<boolean> => {
       if (schemaRef.current == null) return true;
       const { state } = ref.current;
       const result = await schemaRef.current.safeParseAsync(state);
-      return processValidationResult(result, path);
+      return processValidationResult(result, path, validateChildren);
     },
     [processValidationResult],
   );
 
-  const set: SetFunc = useCallback((path, value): void => {
+  const set: SetFunc = useCallback((path, value, opts = {}): void => {
+    const { validateChildren = true } = opts;
     const { state, touched } = ref.current;
     touched.add(path);
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
     try {
-      validate(path);
+      validate(path, validateChildren);
     } catch {
-      validateAsync(path);
+      validateAsync(path, validateChildren);
     }
     updateFieldValues(path);
     onChangeRef.current?.(ref.current.state);

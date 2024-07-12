@@ -22,7 +22,7 @@ from synnax.channel.payload import (
     ChannelNames,
 )
 from synnax.exceptions import ValidationError
-from synnax.telem import Series, MultiSeries, TypedCrudeSeries
+from synnax.telem import Series, MultiSeries, TypedCrudeSeries, CrudeSeries
 
 
 class FramePayload(Payload):
@@ -143,3 +143,6 @@ class Frame:
 
     def to_df(self) -> DataFrame:
         return DataFrame({k: s for k, s in self.items()})
+
+
+CrudeFrame = Frame | FramePayload | dict[ChannelKey, CrudeSeries] | DataFrame

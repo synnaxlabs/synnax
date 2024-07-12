@@ -28,7 +28,9 @@
     background: var(--pluto-primary-z);
     border: var(--pluto-border);
     border-color: var(--pluto-primary-z) !important;
-    color: var(--pluto-text-on-primary);
+    & * {
+        color: var(--pluto-text-on-primary) !important;
+    }
 
     &:hover:not(.pluto--disabled) {
         background: var(--pluto-primary-p1);
@@ -39,6 +41,36 @@
         background: var(--pluto-primary-m1);
         border-color: var(--pluto-primary-m1) !important;
     }
+
+    &.pluto--warning {
+        background: var(--pluto-warning-z);
+        border-color: var(--pluto-warning-z) !important;
+
+        &:hover:not(.pluto--disabled) {
+            background: var(--pluto-warning-p1);
+            border-color: var(--pluto-warning-p1) !important;
+        }
+
+        &:active:not(.pluto--disabled) {
+            background: var(--pluto-warning-m1);
+            border-color: var(--pluto-warning-m1) !important;
+        }
+    }
+
+    &.pluto--error {
+        background: var(--pluto-error-z);
+        border-color: var(--pluto-error-z) !important;
+
+        &:hover:not(.pluto--disabled) {
+            background: var(--pluto-error-p1);
+            border-color: var(--pluto-error-p1) !important;
+        }
+
+        &:active:not(.pluto--disabled) {
+            background: var(--pluto-error-m1);
+            border-color: var(--pluto-error-m1) !important;
+        }
+    }
 }
 
 /* |||| OUTLINED |||| */
@@ -46,6 +78,16 @@
 .pluto-btn--outlined {
     background: var(--pluto-gray-l0);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
+
+    &.pluto--warning {
+        border-color: var(--pluto-warning-z) !important;
+        color: var(--pluto-warning-z);
+    }
+
+    &.pluto--error {
+        border-color: var(--pluto-error-z) !important;
+        color: var(--pluto-error-z);
+    }
 
     &:hover:not(.pluto--disabled) {
         background: var(--pluto-gray-l2);

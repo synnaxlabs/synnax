@@ -9,6 +9,7 @@
 
 import ssl
 from typing import Any, Generic, Literal, Type, MutableMapping
+from warnings import warn
 
 from pydantic import BaseModel
 from websockets.client import WebSocketClientProtocol, connect
@@ -60,8 +61,13 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         self.__server_closed = None
         self.__res_msg_t = _new_res_msg_t(res_t)
 
-    async def receive(self) -> tuple[RS | None, Exception | None]:
+    async def receive(
+        self,
+        timeout: float | None = None,
+    ) -> tuple[RS | None, Exception | None]:
         """Implements the AsyncStream protocol."""
+        if timeout is not None:
+            warn("Timeout is not supported for async websockets", stacklevel=2)
         if self.__server_closed is not None:
             return None, self.__server_closed
 
@@ -142,11 +148,14 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         self.__server_closed = None
         self.__res_msg_t = _new_res_msg_t(res_t)
 
-    def receive(self) -> tuple[RS | None, Exception | None]:
+    def receive(
+        self,
+        timeout: float | None = None
+    ) -> tuple[RS | None, Exception | None]:
         if self.__server_closed is not None:
             return None, self.__server_closed
 
-        data = self.__internal.recv()
+        data = self.__internal.recv(timeout)
         assert isinstance(data, bytes)
         msg = self.__encoder.decode(data, self.__res_msg_t)
 
