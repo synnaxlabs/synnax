@@ -77,7 +77,7 @@ export const STATE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.stateMigration,
 };
 
-export const migrateState = migrate.migrator<v1.State>({
+export const migrateState = migrate.migrator<AnyState, v1.State>({
   name: "lineplot.state",
   migrations: STATE_MIGRATIONS,
   def: v1.ZERO_STATE,
@@ -87,7 +87,7 @@ export const SLICE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.sliceMigration,
 };
 
-export const migrateSlice = migrate.migrator<v1.SliceState>({
+export const migrateSlice = migrate.migrator<AnySliceState, v1.SliceState>({
   name: "lineplot.slice",
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
