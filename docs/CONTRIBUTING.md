@@ -9,7 +9,7 @@ Thanks for your interest in Synnax! We'd love to have you contribute!
 >
 > ― Antoine de Saint-Exupéry, Wind, Sand and Stars
 
-# 1 - Find Something to Work On
+## 1 - Find Something to Work On
 
 The next best step is to start thinking about the area or feature you'd like to
 contribute to. There are a few ways to do this:
@@ -33,7 +33,7 @@ contribute to. There are a few ways to do this:
     - [Transport protocols](../freighter)
     - And more!
 
-# 2 - Technical
+## 2 - Technical
 
 If you haven't already, please star the project on GitHub! This helps us grow our
 community and attract more contributors. Now that you've found an area you're intersted
@@ -42,7 +42,7 @@ our technical documentation can be found in the [docs/tech](../docs/tech) direct
 where the [README](./tech/README.md) is the best place to get started.
 
 
-# 3 - Developer Expecations
+## 3 - Developer Expecations
 
 To ensure software reliability and good practices, all contributors must adhere to the following principles.
 
@@ -55,7 +55,7 @@ To ensure software reliability and good practices, all contributors must adhere 
 2. Any changes to the codebase must be done through a PR. No direct pushes to main or rc branches.
  
 
-# 4 - Issue priority
+## 4 - Issue priority
 
 | Priority Level| Feature | Bug |
 |----------|----------|----------|

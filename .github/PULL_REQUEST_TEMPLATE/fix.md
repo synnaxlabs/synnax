@@ -13,11 +13,11 @@ Maximum 2-3 sentence description describing the changes.
 - [ ] I have performed a self-review of my code.
 - [ ] I have added sufficient regression tests to cover the changes to CI.
 - [ ] I have added relevant tests to cover the changes or exposing bugs.
-- [ ] Code coverage targets met.
+- [ ] I have verified Code coverage targets are met.
 
 ## Additional Notes
-- [ ] These changes deal with concurrency
-- [ ] These changes affect UI 
+- [ ] These changes deal with concurrency.
+- [ ] These changes affect UI.
 
 ## Manual QA Additions
 

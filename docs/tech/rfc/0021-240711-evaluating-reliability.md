@@ -79,12 +79,12 @@ context for solving the problem.
 One setback in operating in the aerospace industry and only hosting Synnax on prem is the 
 inability to receive logs from crashes,errors of our software. Not having a single automated
 source for this information will become increasingly problematic, particularly when customers
-begin to outnumber of available engineers that can be mobilized forreal time support. Further, 
-this limits are ability for early issue detection as issues that arise are only brought up at the
-customer's discretion. While this already creates a delay between the failure event and our ability 
-to diagnose it, it also means we do not have information on the customer's interperatation of 
-such bugs. I believe it would be meaningful information to know what bugs caused the customer to 
-notify us immediately and which ones they were not as concerned about.
+begin to outnumber of available engineers. Further, these limits are ability for early issue 
+detection as issues that arise are only brought up at thecustomer's discretion. While this already 
+creates a delay between the failure event and our ability to diagnose it, it also means we do not
+have information on the customer's interperatation of such bugs. I believe it would be
+meaningful information to know what bugs caused the customer to notify us immediately and whic
+h ones they were not as concerned about.
 
 Further, while we can expose alot of bugs, there are a lot of patterns of use a customer may 
 go through for their specific application that cause bugs via unique interactions between components; 
@@ -124,7 +124,6 @@ Example:
 - time between subsequent errors
 - volumes of data/writers/readers before degradation
 - response times
-- etc.
 
 These targets are really important and should be associated with the sort of people we are 
 selling to and our assumptions of what we believe to be the baseline product we need in order
@@ -136,7 +135,7 @@ track of these targets or reconsider whether they are the correct ones.
 
 # 2.5 Intentional Fault Injection
 On a system basis, having a more intentional and comprehensive method of intentionally 
-causing faults. At the very least, it's importantto make of all possible failure cases a 
+causing faults. At the very least, it's important to make of all possible failure cases a 
 system/subsystem can be in, what causes them and whether they have a mechanism for testing 
 (unit testing, integration). It is ultimately the RE's job to ensure this is done for their 
 respective software.
@@ -150,12 +149,3 @@ respective software.
 2. Constructing and evaluating our current list of issues and bugs and what we are aiming to guarantee before we make a larger push in sales.
 3. Long term
 	1. reliability evaluation for each of the components. Creating an internal process to go through a real use of our product
-
-# 4 Things to address (Don't need to read)
-1. reliability evaluation
-	1. creating an in depth testing environment to simulate the real invorionment software will be run in 
-2. Qualifying what tests are important for each of the cases
-	1. e.g. when concerned with exposing race conditions, we probably want to do very comprehensive load testing and stress testing
-	2. e.g. testing stability in transient states is especially important for things like the console, driver, server, etc.
-3. Being able to qualify things like mean time between failures (MTBF)/ average faiolure rate
-4. How log monitoring tools would come into our software, what existing tools we have that we can make better use of

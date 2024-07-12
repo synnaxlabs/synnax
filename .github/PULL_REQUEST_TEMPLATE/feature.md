@@ -22,9 +22,9 @@ properly migrated to new formats.
 - [ ] Server - I have ensured that previous versions of stored data structures are 
 properly migrated to new formats.
 
-# Additional Notes
-- [ ] These changes deal with concurrency
-- [ ] These changes affect UI
+##  Additional Notes
+- [ ] These changes deal with concurrency.
+- [ ] These changes affect UI.
 
 ## Manual QA Additions
 
