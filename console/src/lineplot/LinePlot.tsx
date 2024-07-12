@@ -326,21 +326,14 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           );
           break;
         case "range":
-          dispatch(
-            Range.setBuffer({
-              timeRange: {
-                start: Number(timeRange.start.valueOf()),
-                end: Number(timeRange.end.valueOf()),
-              },
-            }),
-          );
-          newLayout(Range.createEditLayout());
+          newLayout(Range.createEditLayout("", timeRange));
           break;
         case "download":
           if (client == null) return;
           download({ timeRange, lines, client });
           break;
       }
+      console.log("bar");
     };
 
     return (

@@ -20,9 +20,9 @@ import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
-import { useSelect, useSelectBuffer } from "@/range/selectors";
-import { add, clearBuffer } from "@/range/slice";
+import { Layout } from "@/layout";
+import { useSelect } from "@/range/selectors";
+import { add } from "@/range/slice";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name must not be empty"),
@@ -37,7 +37,10 @@ export const EDIT_LAYOUT_TYPE = "editRange";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const createEditLayout = (name: string = "Range.Create"): Layout.State => ({
+export const createEditLayout = (
+  name: string = "Range.Create",
+  initialValues?: TimeRange,
+): Layout.State => ({
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
   windowKey: EDIT_LAYOUT_TYPE,
@@ -49,6 +52,7 @@ export const createEditLayout = (name: string = "Range.Create"): Layout.State =>
     size: { height: 290, width: 700 },
     navTop: true,
   },
+  args: initialValues,
 });
 
 type DefineRangeFormProps = z.infer<typeof formSchema>;
@@ -57,21 +61,22 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const range = useSelect(layoutKey);
+  const args = Layout.useSelectArgs<TimeRange>(layoutKey);
   const client = Synnax.use();
   const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
-  const editBuffer = useSelectBuffer();
-  const dispatch = useDispatch();
   const initialValues = useQuery<DefineRangeFormProps>({
     queryKey: ["range", layoutKey],
     queryFn: async () => {
       if (isCreate) {
-        dispatch(clearBuffer());
         return {
           name: "",
-          timeRange: { start: now, end: now },
           labels: [],
-          ...editBuffer,
+          timeRange: {
+            start: now,
+            end: now,
+          },
+          ...args,
         };
       }
       if (range == null || range.persisted) {
@@ -96,6 +101,8 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   });
   if (initialValues.isPending) return <Logo.Watermark variant="loader" />;
   if (initialValues.isError) throw initialValues.error;
+  console.log("Returning a EditLayoutForm with following data:");
+  console.log(initialValues.data);
   return (
     <EditLayoutForm
       isRemoteEdit={isRemoteEdit}
@@ -117,7 +124,7 @@ const EditLayoutForm = ({
   isRemoteEdit,
   onClose,
 }: EditLayoutFormProps): ReactElement => {
-  const methods = Form.use({ values: initialValues, schema: formSchema });
+  const methods = Form.use({ values: initialValues, schema: formSchema, sync: true });
   const dispatch = useDispatch();
   const client = Synnax.use();
   const isCreate = layoutKey === EDIT_LAYOUT_TYPE;

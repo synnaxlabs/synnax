@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { PayloadAction } from "@reduxjs/toolkit";
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import * as latest from "@/range/migrations";
 
@@ -51,17 +50,11 @@ export const { actions, reducer } = createSlice({
         state.ranges[range.key] = range;
       });
     },
-    clearBuffer: (state) => {
-      state.buffer = null;
-    },
     remove: (state, { payload: { keys } }: PA<RemovePayload>) => {
       keys.forEach((k) => delete state.ranges[k]);
     },
     setActive: (state, { payload }: PA<SetActivePayload>) => {
       state.activeRange = payload;
-    },
-    setBuffer: (state, { payload }: PA<Partial<StaticRange>>) => {
-      state.buffer = payload;
     },
     rename: (state, { payload: { key, name } }: PA<RenamePayload>) => {
       const range = state.ranges[key];
@@ -70,7 +63,7 @@ export const { actions, reducer } = createSlice({
     },
   },
 });
-export const { add, remove, setActive, setBuffer, clearBuffer, rename } = actions;
+export const { add, remove, setActive, rename } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
