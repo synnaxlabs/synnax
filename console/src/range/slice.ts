@@ -63,7 +63,7 @@ export const { actions, reducer } = createSlice({
     },
   },
 });
-export const { add, remove, setActive, rename } = actions;
+export const { add, remove, rename, setActive } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
