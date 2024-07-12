@@ -13,6 +13,7 @@ Maximum 2-3 sentence description describing the changes.
 - [ ] I have performed a self-review of my code.
 - [ ] I have added relevant tests to cover the changes.
 - [ ] I have updated user facing documentation accordingly.
+- [ ] I have verified code coverage targets are met.
 
 ## Migrations
 

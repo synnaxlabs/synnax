@@ -48,7 +48,7 @@ To ensure software reliability and good practices, all contributors must adhere 
 
 1. All PRs must be approved 
    1. Be approved by at least 2 people.
-   2. Must be approved by Elham Islam.
+   2. Must be approved by [Elham Islam](https://github.com/Lham42).
    3. Adhere to and every checklist in the existing PR template.
    4. Not exceed 2000 lines of changes.
 
@@ -59,7 +59,7 @@ To ensure software reliability and good practices, all contributors must adhere 
 
 | Priority Level| Feature | Bug |
 |----------|----------|----------|
-| Urgent (1) | This feature blocks progress on upcoming pilots. | This bug will stop the user from making progress and will cause significant loss of time and/or resources. Exampls are critical bugs which cause complete failure of core elements of the product. |
-| High (2) | This feature has been requested by users and is important to their use of our product. |  This bug significantly degrades the quality of the user's experience and would take priority over most new feature development. Bugs could cause slowing of the user's workflow or repeated work. |
-| Medium (3) | There has been some interest in this feature or would improve the product | This bug makes a noticable inpact on the user experience and should be targeted for next release or there is an existing workaround for now.|
-| Low (4) | This feature is not critical to users or the product.| These bugs have low impact on the user and could be put off to future releases as necessary.|gi
+| 1:Urgent | This feature blocks progress on upcoming pilots. | This bug will stop the user from making progress and will cause significant loss of time and/or resources. Exampls are critical bugs which cause complete failure of core elements of the product. |
+| 2:High | This feature has been requested by users and is important to their use of our product. |  This bug significantly degrades the quality of the user's experience and would take priority over most new feature development. Bugs could cause slowing of the user's workflow or repeated work. |
+| 3:Medium | There has been some interest in this feature or would improve the product | This bug makes a noticable inpact on the user experience and should be targeted for next release or there is an existing workaround for now.|
+| 4:Low | This feature is not critical to users or the product.| These bugs have low impact on the user and could be put off to future releases as necessary.|
