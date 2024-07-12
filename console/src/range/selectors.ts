@@ -8,8 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { selectByKey, useMemoSelect } from "@/hooks";
-import type { Range, StaticRange } from "@/range/slice";
-import { SLICE_NAME, type SliceState, type StoreState } from "@/range/slice";
+import {
+  type Range,
+  SLICE_NAME,
+  type SliceState,
+  type StoreState,
+} from "@/range/slice";
 
 /**
  * Selects the workspace state.
@@ -61,17 +65,6 @@ export const select = (
   selectByKey(selectState(state).ranges, key, selectActiveKey(state));
 
 /**
- * Selects information from the current edit range buffer.
- *
- * @param state - The state of the workspace store.
- *
- * @returns Information from the stored buffer. If no buffer is set, it returns null.
- */
-export const selectBuffer = (
-  state: StoreState,
-): Partial<StaticRange> | null | undefined => selectState(state).buffer;
-
-/**
  * Selects a range from the workspace store.
  *
  * @returns The range with the given key. If no key is provided, the active range is
@@ -80,14 +73,6 @@ export const selectBuffer = (
  */
 export const useSelect = (key?: string): Range | null | undefined =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
-
-/**
- * Selects information from the current edit range buffer.
- *
- * @returns Information from the stored buffer. If no buffer is set, it returns null.
- */
-export const useSelectBuffer = (): Partial<Range> | null | undefined =>
-  useMemoSelect((state: StoreState) => selectBuffer(state), []);
 
 /**
  * Selects ranges from the workspace store. If no keys are provided, all ranges are

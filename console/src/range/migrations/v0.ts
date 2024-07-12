@@ -41,7 +41,6 @@ export const sliceStateZ = z.object({
   version: z.literal("0.0.0"),
   activeRange: z.string().nullable(),
   ranges: z.record(rangeZ),
-  buffer: staticRangeZ.partial().nullable(),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;
@@ -49,7 +48,6 @@ export type SliceState = z.infer<typeof sliceStateZ>;
 export const ZERO_SLICE_STATE: SliceState = {
   version: "0.0.0",
   activeRange: null,
-  buffer: null,
   ranges: {
     rolling30s: {
       key: "recent",

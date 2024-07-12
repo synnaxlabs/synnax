@@ -333,7 +333,6 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           download({ timeRange, lines, client });
           break;
       }
-      console.log("bar");
     };
 
     return (
