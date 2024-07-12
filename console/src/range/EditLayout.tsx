@@ -101,8 +101,6 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   });
   if (initialValues.isPending) return <Logo.Watermark variant="loader" />;
   if (initialValues.isError) throw initialValues.error;
-  console.log("Returning a EditLayoutForm with following data:");
-  console.log(initialValues.data);
   return (
     <EditLayoutForm
       isRemoteEdit={isRemoteEdit}
