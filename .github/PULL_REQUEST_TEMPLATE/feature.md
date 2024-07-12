@@ -40,3 +40,6 @@ Please list any breaking changes to public or internal packages.
 - [ ] Verified all steps in the Readiness checklists.
 - [ ] UI changes have been tested.
 - [ ] Style and formatting is consistent.
+- [ ] Reviewed any relevant changes to concurrent code for safety. 
+- [ ] Sufficient comments and clarity of code.
+- [ ] Any additional documentation necessary for feature is provided and has been reviewed for clarity.

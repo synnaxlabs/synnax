@@ -16,7 +16,7 @@ Maximum 2-3 sentence description describing the changes.
 - [ ] Code coverage targets met.
 
 ## Additional Notes
-- [ ] These changes deals with concurrency
+- [ ] These changes deal with concurrency
 - [ ] These changes affect UI 
 
 ## Manual QA Additions
@@ -30,3 +30,4 @@ Maximum 2-3 sentence description describing the changes.
 - [ ] UI changes have been tested.
 - [ ] style and formatting is consistent.
 - [ ] Reviewed any relevant changes to concurrent code for safety. 
+- [ ] Sufficient comments and clarity of code.
