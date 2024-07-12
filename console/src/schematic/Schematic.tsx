@@ -17,15 +17,19 @@ import {
   Haul,
   Legend,
   Schematic as Core,
+  Status,
   Text,
   Theming,
+  Triggers,
   usePrevious,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { Triggers } from "@synnaxlabs/pluto/triggers";
 import { box, deep, type UnknownRecord } from "@synnaxlabs/x";
-import { nanoid } from "nanoid/non-secure";
+import { useMutation } from "@tanstack/react-query";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { nanoid } from "nanoid";
 import {
   type ReactElement,
   useCallback,
@@ -38,6 +42,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { migrateState, STATES_Z } from "@/schematic/migrations";
 import {
   select,
   useSelect,
@@ -412,3 +417,53 @@ export const create =
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
     return { key, location, name, type: LAYOUT_TYPE, window, tab };
   };
+
+export interface ImportProps {
+  filePath?: string;
+}
+
+export const useImport = (): ((props: ImportProps) => void) => {
+  const addStatus = Status.useAggregator();
+  const placeLayout = Layout.usePlacer();
+  return useMutation<void, Error, ImportProps, void>({
+    mutationFn: async ({ filePath }) => {
+      let path = filePath;
+      if (path == null) {
+        const fileResponse = await open({
+          directory: false,
+          multiple: false,
+          title: "Import schematic into Synnax",
+        });
+        if (fileResponse == null) return;
+        path = fileResponse.path;
+      }
+      const file = await readFile(path);
+      const fileName = path.split("/").pop();
+      const importedStr = new TextDecoder().decode(file);
+      const json = JSON.parse(importedStr);
+      const z = STATES_Z.find((stateZ) => {
+        return stateZ.safeParse(json).success;
+      });
+      if (z == null)
+        throw new Error(
+          (fileName != null ? `${fileName} is not` : `${filePath} is not a path to`) +
+            " a valid schematic.",
+        );
+      const newState = migrateState(z.parse(json));
+      placeLayout(
+        create({
+          ...newState,
+          name: fileName?.split(".")[0] ?? "New Schematic",
+        }),
+      );
+    },
+    onError: (e) => {
+      addStatus({
+        key: nanoid(),
+        variant: "error",
+        message: "Failed to import schematic.",
+        description: e.message,
+      });
+    },
+  }).mutate;
+};

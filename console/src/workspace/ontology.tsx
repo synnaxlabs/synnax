@@ -11,8 +11,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
@@ -24,7 +22,6 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
-import { migrateState, STATES_Z } from "@/schematic/migrations";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -110,42 +107,10 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
   }).mutate;
 
-const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({ placeLayout }) => {
-      const fileResponse = await open({
-        directory: false,
-        multiple: false,
-        title: "Import schematic into Synnax",
-      });
-      if (fileResponse == null) return;
-      const file = await readFile(fileResponse.path);
-      const importedStr = new TextDecoder().decode(file);
-
-      const json = JSON.parse(importedStr);
-      const z = STATES_Z.find((stateZ) => {
-        return stateZ.safeParse(json).success;
-      });
-      if (z == null) throw new Error(`${fileResponse.name} is not a valid schematic.`);
-      const newState = migrateState(z.parse(json));
-
-      // TODO: add logic for retrieving schematic from cluster and adding
-      // imported schematic to cluster
-      const creator = Schematic.create({
-        ...newState,
-        name: fileResponse.name?.slice(0, -5),
-      });
-      placeLayout(creator);
-    },
-    onError: (e, { addStatus }) => {
-      addStatus({
-        key: nanoid(),
-        variant: "error",
-        message: "Failed to import schematic.",
-        description: e.message,
-      });
-    },
-  }).mutate;
+const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const fn = Schematic.useImport();
+  return () => fn({});
+};
 
 const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({

@@ -134,7 +134,7 @@ const useDownload = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       const savePath = await save({
         defaultPath: `${resources[0].name}.json`,
       });
-      if (savePath == null) throw Error("No path selected");
+      if (savePath == null) return;
       const data = new TextEncoder().encode(JSON.stringify(state));
       await writeFile(savePath, data);
     },
