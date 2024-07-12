@@ -3,12 +3,12 @@
 **Feature Name**: Integration Testing Framework <br />
 **Start Date**: 2024-06-18 <br />
 **Authors**: Leo Liu<br />
-**Status**: Draft <br />
+**Status**: Rev 1 <br />
 
 # 0 - Summary
 
 As the Synnax codebase, users, and number of production deployments grow, stability and
-performance of the system become increasingly important characteristics of Synnax to be
+performance become increasingly important characteristics of Synnax to be
 measured. In this RFC I propose an in-house framework to allow Synnax to run
 easily-configurable and easily-portable integration tests throughout its whole system
 (Synnax server, Cesium, Python client, TypeScript client).
@@ -18,14 +18,14 @@ easily-configurable and easily-portable integration tests throughout its whole s
 Currently, each component of Synnax has its own unit tests that ensures correctness
 for that component. The goal of integration testing is to assure all parts of Synnax
 function as expected when run in tandem. This is crucial as real-world use cases do not
-utilize any single Synnax component but rather the entire system. A user, for example,
+utilize any single Synnax component, but rather the entire system. For example, a user
 may write data with the Python client while streaming it using the C++ client, and then
-deletes from the TypeScript client.
+delete from the TypeScript client.
 
 Despite the different parameters and clients, there are only four fundamental operations
 available to a user: reading, writing, streaming, and deleting. Thus, all data-related
 operations in Cesium is a permutation of these four operations, and integration testing
-should allow customization to tests with an equally high degree of freedom.
+should allow customization of tests with an equally high degree of freedom.
 
 Recognizing the modular nature of Synnax's operations allows us to simplify the process
 of integration test configuration to arranging "blocks" of operations in series or parallel.
@@ -36,8 +36,9 @@ of integration test configuration to arranging "blocks" of operations in series 
 
 The design of this integration testing framework follows three objectives:
 1. Highly configurable: The tester should have control over as many parameters as possible.
-This is crucial to understanding the system as a write of 1,000,000 samples may behave
-very differently between 1,000 domains of 1,000 samples and 1 domain and 1,000,000 samples.
+This is crucial to understanding the system as a write operation consisting
+of 1,000,000 samples may behave very differently depending on whether it is configured as
+1,000,000 domains of 1 sample each, 1,000 domains of 1,000 samples, or 1 domain and 1,000,000 samples.
 This means the user should control every parameter, which client to use, how many
 goroutines, etc.
 2. Highly modular: In the same vein as configurability, each node in the test should be
@@ -167,18 +168,18 @@ as the order that the commands are started is not necessarily the order that the
 get run – for example, setting up writers and reading input for writers may take a longer
 time than for deletes, resulting in `delete` running before `write` gets run.
 
-For this reason, we implemented a much less elegant and idiomatic approach – to manually
+For this reason, we implemented a much less elegant and idiomatic approach – to manually
 introduce a time interval after which a command is run to assert the order of execution.
 Although unsophisticated, this approach works better than the previous one, as most
 operations take at least 10 seconds to run, making timing delays easy. However, one must
-still be extremely careful with this manually-introduceddelay.
+still be extremely careful with this manually-introduced delay.
 
 ### 2.3.2 Deployment
 
 The integration test is set up as a GitHub action, running on an AWS EC2 instance to
 simulate more performant machines that our users may run Synnax on. In addition to testing
 that there are no errors in running different parts of the system in tandem, relevant
-timing metrics are also provided for each opeartion in the testing report.
+timing metrics are also provided for each operation in the testing report.
 
 ### 2.3.3 Test Cases
 
