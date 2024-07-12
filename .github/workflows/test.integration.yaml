@@ -41,7 +41,7 @@ jobs:
 
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
+        run: pnpm i --no-frozen-lockfile
 
       - name: Build client
         if: steps.filter.outputs.changed == 'true'
