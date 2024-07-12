@@ -42,6 +42,14 @@ export const compareSemVer: compare.CompareF<string> = (a, b) => {
 export const semVerNewer = (a: SemVer, b: SemVer): boolean =>
   compare.isGreaterThan(compareSemVer(a, b));
 
+/**
+ * @returns true if the first semantic version is older than the second.
+ * @param a The first semantic version.
+ * @param b The second semantic version.
+ */
+export const semVerOlder = (a: SemVer, b: SemVer): boolean =>
+  compare.isLessThan(compareSemVer(a, b));
+
 export type Migratable<V extends string = string> = { version: V };
 
 export type Migration<I extends Migratable, O extends Migratable> = (input: I) => O;

@@ -518,6 +518,7 @@ export const LinePlot: Layout.Renderer = ({
     },
     actionCreator: internalCreate,
   });
+  console.log("RENDRE", linePlot);
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };
