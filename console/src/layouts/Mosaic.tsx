@@ -60,8 +60,13 @@ export const Mosaic = memo((): ReactElement => {
   const placer = usePlacer();
   const dispatch = useDispatch();
 
+  const handleDragOver = () => {
+    console.log("dragging");
+  };
+
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
+      console.log("bee boop");
       dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
     [dispatch, windowKey],
@@ -142,6 +147,7 @@ export const Mosaic = memo((): ReactElement => {
     <Core.Mosaic
       root={mosaic}
       onDrop={handleDrop}
+      onDragOver={handleDragOver}
       onClose={handleClose}
       onSelect={handleSelect}
       onResize={handleResize}
