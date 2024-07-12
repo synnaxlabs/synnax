@@ -30,6 +30,7 @@ func openDBOnFS(fs xfs.FS) *cesium.DB {
 	return MustSucceed(cesium.Open(
 		"",
 		cesium.WithFS(fs),
+		cesium.WithInstrumentation(PanicLogger()),
 	))
 }
 

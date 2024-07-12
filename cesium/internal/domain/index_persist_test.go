@@ -28,7 +28,12 @@ var _ = Describe("Index Persist", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs, cleanUp = makeFS()
-				db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
+				db = MustSucceed(domain.Open(domain.Config{
+					FS:              fs,
+					FileSize:        5 * telem.ByteSize,
+					GCThreshold:     0,
+					Instrumentation: PanicLogger(),
+				}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
@@ -49,7 +54,12 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        5 * telem.ByteSize,
+						GCThreshold:     0,
+						Instrumentation: PanicLogger(),
+					}))
 
 					By("Asserting that the data is still there")
 					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
@@ -104,7 +114,10 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 				It("Should persist an empty index", func() {
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{FS: fs}))
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						Instrumentation: PanicLogger(),
+					}))
 					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 				})

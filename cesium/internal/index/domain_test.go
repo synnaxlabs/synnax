@@ -30,7 +30,7 @@ var _ = Describe("Domain", func() {
 			)
 			BeforeEach(func() {
 				fs, cleanUp = makeFS()
-				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
+				db = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}))
 				idx = &index.Domain{DB: db}
 			})
 			AfterEach(func() {

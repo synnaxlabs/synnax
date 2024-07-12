@@ -40,7 +40,7 @@ var _ = Describe("Delete", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs, cleanUp = makeFS()
-				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
+				db = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}))
 				Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 				Expect(domain.Write(ctx, db, (20 * telem.SecondTS).SpanRange(10*telem.Second), []byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29})).To(Succeed())
 				Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{30, 31, 32, 33, 34, 35, 36, 37, 38, 39})).To(Succeed())
@@ -200,7 +200,7 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should return an error when the db is closed", func() {
-					db2 := MustSucceed(domain.Open(domain.Config{FS: fs}))
+					db2 := MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}))
 					Expect(db2.Close()).To(Succeed())
 					Expect(db2.Delete(ctx, createCalcOffset(0), createCalcOffset(0), telem.TimeRangeMin, telem.Density(1))).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
