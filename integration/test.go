@@ -96,7 +96,7 @@ func runStep(i int, step TestStep, verbose bool) error {
 			}
 
 			return nil
-		}, signal.CancelOnExitErr())
+		}, signal.CancelOnFail())
 	}
 
 	return sCtx.Wait()
