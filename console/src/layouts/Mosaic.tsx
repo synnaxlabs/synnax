@@ -19,9 +19,6 @@ import {
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
-// import { listen } from "@tauri-apps/api/event";
-// import { readFile } from "@tauri-apps/plugin-fs";
-// import { useEffect } from "react";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -40,9 +37,6 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-// import { Schematic } from "@/schematic";
-// import { migrateState } from "@/schematic/migrations";
-// import { STATES_Z } from "@/schematic/migrations";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 
@@ -143,31 +137,6 @@ export const Mosaic = memo((): ReactElement => {
     100,
     [dispatch, windowKey],
   );
-  // const placeLayout = Layout.usePlacer();
-  // console.log("Mosaic");
-  // useEffect(() => {
-  //   console.log("listening for drop");
-  //   listen("tauri://drop", async (event) => {
-  //     console.log(event);
-  //     const file = await readFile(event.payload.paths[0]);
-  //     const importedStr = new TextDecoder().decode(file);
-
-  //     const json = JSON.parse(importedStr);
-  //     const z = STATES_Z.find((stateZ) => {
-  //       return stateZ.safeParse(json).success;
-  //     });
-  //     if (z == null) throw new Error(`${"bob"} is not a valid schematic.`);
-  //     const newState = migrateState(z.parse(json));
-
-  //     // TODO: add logic for retrieving schematic from cluster and adding
-  //     // imported schematic to cluster
-  //     const creator = Schematic.create({
-  //       ...newState,
-  //       name: "bob",
-  //     });
-  //     placeLayout(creator);
-  //   });
-  // }, []);
 
   return (
     <Core.Mosaic
