@@ -1049,6 +1049,64 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w.Close()).To(Succeed())
 					})
 				})
+				Describe("Set authority", func() {
+					It("Should set the authority of writers", func() {
+						var (
+							key  = GenerateChannelKey()
+							key2 = GenerateChannelKey()
+						)
+						By("Creating a channel")
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.TimeStampT},
+							cesium.Channel{Key: key2, Virtual: true, DataType: telem.StringT},
+						)).To(Succeed())
+						w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       []cesium.ChannelKey{key, key2},
+							Start:          10 * telem.SecondTS,
+							Authorities:    []control.Authority{control.Authority(100), control.Authority(110)},
+							SendAuthErrors: config.True(),
+						}))
+
+						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       []cesium.ChannelKey{key, key2},
+							Start:          10 * telem.SecondTS,
+							Authorities:    []control.Authority{control.Authority(110), control.Authority(100)},
+							SendAuthErrors: config.True(),
+						}))
+
+						w1.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{
+								telem.NewSeriesV[int64](1, 2, 3, 4),
+							}),
+						)
+						Expect(w1.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						Expect(w1.SetAuthority(cesium.WriterConfig{Channels: []cesium.ChannelKey{key, key2}, Authorities: []control.Authority{control.Absolute, control.Authority(0)}})).To(BeTrue())
+						Expect(w1.Error()).ToNot(HaveOccurred())
+
+						w2.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{
+								telem.NewSeriesV[int64](1, 3, 4),
+							},
+						))
+						Expect(w2.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						w1.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key2},
+							[]telem.Series{
+								{DataType: telem.StringT, Data: []byte("hehe")},
+							},
+						))
+
+						Expect(w1.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						Expect(w1.Close()).To(Succeed())
+						Expect(w2.Close()).To(Succeed())
+					})
+				})
 			})
 			Describe("Stream Only Mode", func() {
 				It("Should not persist data", func() {

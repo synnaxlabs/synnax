@@ -52,9 +52,12 @@ type Iterator struct {
 
 const AutoSpan telem.TimeSpan = -1
 
+// SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
+// valid until a seeking call is made.
 func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.bounds = tr
 	i.internal.SetBounds(tr)
+	i.seekReset(i.bounds.End)
 }
 
 func (i *Iterator) Bounds() telem.TimeRange { return i.bounds }

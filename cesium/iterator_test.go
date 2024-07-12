@@ -95,6 +95,63 @@ var _ = Describe("Iterator Behavior", func() {
 					// Data2:  _  _  2   3  _  _  6  _  8  _  /  _  11  12  13   _  15
 				})
 
+				Context("Basic", func() {
+					Specify("SeekLast", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{data1Key, data2Key},
+						}))
+						Expect(i.SeekLast()).To(BeTrue())
+						Expect(i.Prev(5 * telem.Second)).To(BeTrue())
+						f := i.Value()
+						Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{22, 25}))
+						Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{11, 12, 13, 15}))
+						Expect(i.Close()).To(Succeed())
+					})
+
+					Specify("LE", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{data1Key, data2Key},
+						}))
+						Expect(i.SeekLE(4 * telem.SecondTS)).To(BeTrue())
+						Expect(i.Next(6 * telem.Second)).To(BeTrue())
+						f := i.Value()
+						Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{14, 17, 19}))
+						Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{6, 8}))
+						Expect(i.Close()).To(Succeed())
+					})
+
+					Specify("GE", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{data1Key, data2Key},
+						}))
+						Expect(i.SeekGE(9 * telem.SecondTS)).To(BeTrue())
+						Expect(i.Next(3 * telem.Second)).To(BeTrue())
+						f := i.Value()
+						Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{19}))
+						Expect(f.Get(data1Key)[1].Data).To(EqualUnmarshal([]uint16{20}))
+						Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{11}))
+						Expect(i.Close()).To(Succeed())
+					})
+
+					Specify("SetBounds & Error", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{data1Key, data2Key},
+						}))
+						Expect(i.SeekGE(12 * telem.SecondTS)).To(BeTrue())
+						Expect(i.Next(3 * telem.Second)).To(BeTrue())
+						i.SetBounds((6 * telem.SecondTS).Range(9 * telem.SecondTS))
+						Expect(i.Valid()).To(BeFalse())
+						Expect(i.Error()).ToNot(HaveOccurred())
+						Expect(i.Close()).To(Succeed())
+						Expect(i.SeekFirst()).To(BeFalse())
+						Expect(i.Error()).To(MatchError(ContainSubstring("closed")))
+					})
+				})
+
 				Specify("With bound", func() {
 					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 						Bounds:   (1 * telem.SecondTS).Range(13 * telem.SecondTS),

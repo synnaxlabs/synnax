@@ -468,6 +468,14 @@ var _ = Describe("Delete", func() {
 						_, err = db.RetrieveChannel(ctx, index2)
 						Expect(err).To(BeNil())
 					})
+					It("Should error when there is an error in deleting index channels", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{index1}}))
+						Expect(db.DeleteChannels([]cesium.ChannelKey{data1, index1})).To(MatchError(ContainSubstring("1 unclosed")))
+						Expect(i.Close()).To(Succeed())
+						Expect(fs.Exists(channelKeyToPath(data1))).To(BeFalse())
+						_, err := db.RetrieveChannels(ctx, data1)
+						Expect(err).To(HaveOccurredAs(cesium.ErrChannelNotFound))
+					})
 				})
 			})
 
