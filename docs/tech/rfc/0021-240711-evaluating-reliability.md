@@ -1,7 +1,13 @@
+# 20 - Evaluating Software Reliability
+
+**Feature Name**: Evaluating Software Reliability <br />
+**Start Date**: 2024-07-11 <br />
+**Authors**: Elham Islam <br />
+
 # 0 - Summary 
 This serves to outline plans for improving stability to Synnax as well as maintaining an 
 ongoing prioritization and awareness of stability and reliability of the software we develop. 
-This expands on steps described on 2024-06-13 regarding [Engineering Process Standardization](https://github.com/synnaxlabs/synnax/blob/22452d79f6abe220b48acebf4264d6d7665953c1/docs/tech/rfc/0020-240613-engineering-workflow.md?plain=1#L57)
+This expands on steps described on 2024-06-13 regarding [Engineering Process Standardization](./0020-240613-engineering-workflow.md)
 
 In short, the sources of instability and pain for the customer could come from each of the following areas currently:
 - Server
@@ -9,18 +15,18 @@ In short, the sources of instability and pain for the customer could come from e
 - Driver
 - Cesium
 - Client Libraries
-- Deployment
+- Deployment.
 
 # 1 - Current State
 Synnax's core features and functionality necessary for our ICP have largely been developed, 
 but still contain bugs and areas of instability. We currently are in a position where we 
 know there is still work to be done in both identifying and resolving these issues. However, 
 it feels as though there's only a nebulous sense of how large that volume of 
-work is and how long it will be until we get there. There are also not clear defined methods 
+work is and how long it will be until we get there. There are also not clearly defined methods 
 for addressing these bugs or identifying them beyond use.
 
 We currently have been providing support to our customers remotely, receiving feedback on 
-bugs and issues as they come across them. However, I personally believe there is a layer of 
+bugs and issues as they come across them. However, I believe there is a layer of 
 insulation between the users of our product and their experience with the use of 
 our product. While being able to be on a zoom with them several times a week provides
 meaningful feedback on the product, I think it is not the ideal format in which we can get quick 
@@ -28,23 +34,16 @@ information on issues to diagnose. Not being on site with our users has added
 additional days of engineering work to simply recreate the problem users are having. And our 
 current plans of being on-site largely focus on the initial deployment.
 
-# 2 - Proposed changes
+# 2 - Proposed Changes
 
-## 2.0 - Maintenance & Software Stability vs Feature Development
+## 2.0 - Maintenance & Software Stability vs. Feature Development
 
-First, I propose that we draw a clear distinction between work that pertains to 
-expanding the feature set and product functionality and work that pertains to improving 
-software reliability and product stability. The immediate change would be to separate these
-sections out in linear rather than having a single Product and Engineering section.
-This helps us consolidate all outstanding issues in the existing product without the
-noise of future development plans. 
-
-It's important before pursuing new feature development, we evaluate our set of outastanding 
+It's important before pursuing new feature development, we evaluate our set of outstanding 
 maintenance and stability work. The idea is to handle the higher priority work before moving 
 on to work that expands functionality and thereby expands the space in which faults can arise 
 and outpace our stability efforts.
 
-## 2.1 - Qualification of bugs and stability improvements
+## 2.1 - Qualification of Bugs and Stability Improvements
 In order to better qualify the readiness of our software, it's important we have an indication 
 of the importance of any particular issue. I propose we use the following mapping 
 to the priority levels in linear and stay very disciplined in qualifying the urgency of tasks 
@@ -67,17 +66,17 @@ Low(4):  These bugs have low impact on the user and could be put off to future r
      
 ## 2.2 - Software Ownership
 It is important we create clear segments of responsibility across the codebase. Having a 
-single owner allows for a clear path for delegation. Further, it is that engineers responsibility
+single owner allows for a clear path for delegation. Further, it is that engineer's responsibility
 to have a mechanism or process in place to evaluate stability and reliability of their software.
 
 In general, it is important that everyone is responsible for their own software. That is, 
-if they introduce a bug, or instability, it is their responsbility to address the problem. 
+if they introduce a bug or instability, it is their responsbility to address the problem. 
 This is ultimately is the most productive way to address issues as the RE will have the most 
 context for solving the problem. 
 
-# 2.3- Metrics from active product use
+# 2.3- Metrics from Active Product Use
 One setback in operating in the aerospace industry and only hosting Synnax on prem is the 
-inability to receive logs from crashes,errors of our software. Not having a single automated
+inability to receive logs from crashes, errors of our software. Not having a single automated
 source for this information will become increasingly problematic, particularly when customers
 begin to outnumber of available engineers. Further, these limits are ability for early issue 
 detection as issues that arise are only brought up at thecustomer's discretion. While this already 
