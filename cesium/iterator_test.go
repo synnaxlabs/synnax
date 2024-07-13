@@ -109,7 +109,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(i.Close()).To(Succeed())
 					})
 
-					Specify("LE", func() {
+					Specify("SeekLE", func() {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds:   telem.TimeRangeMax,
 							Channels: []cesium.ChannelKey{data1Key, data2Key},
@@ -122,7 +122,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(i.Close()).To(Succeed())
 					})
 
-					Specify("GE", func() {
+					Specify("SeekGE", func() {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds:   telem.TimeRangeMax,
 							Channels: []cesium.ChannelKey{data1Key, data2Key},
