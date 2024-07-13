@@ -57,7 +57,7 @@ var _ = Describe("Iterator", func() {
 					Series: []telem.Series{
 						telem.NewSeriesV[int64](18, 19, 20, 21, 22),
 					},
-				}))
+				})).To(BeTrue())
 				Expect(writer.Commit()).To(BeTrue())
 				Expect(writer.Error()).To(Succeed())
 				Expect(writer.Close()).To(Succeed())
