@@ -9,7 +9,7 @@ Thanks for your interest in Synnax! We'd love to have you contribute!
 >
 > ― Antoine de Saint-Exupéry, Wind, Sand and Stars
 
-# 1 - Find Something to Work On
+## 1 - Find Something to Work On
 
 The next best step is to start thinking about the area or feature you'd like to
 contribute to. There are a few ways to do this:
@@ -33,7 +33,7 @@ contribute to. There are a few ways to do this:
     - [Transport protocols](../freighter)
     - And more!
 
-# 2 - Technical
+## 2 - Technical
 
 If you haven't already, please star the project on GitHub! This helps us grow our
 community and attract more contributors. Now that you've found an area you're intersted
@@ -41,3 +41,23 @@ in working on, it's time to get into the technical foundations of the project. A
 our technical documentation can be found in the [docs/tech](../docs/tech) directory
 where the [README](./tech/README.md) is the best place to get started.
 
+## 3 - Developer Expecations
+
+To ensure software reliability and good practices, all contributors must adhere to the following principles.
+
+1. All PRs must 
+   - be approved by at least 2 people.
+   - be approved by [Elham Islam](https://github.com/Lham42).
+   - adhere to and every checklist in the existing PR template.
+   - not exceed 2000 lines of changes.
+
+2. Any changes to the codebase must be done through a PR. No direct pushes to `main` or `rc` branches.
+
+## 4 - Issue priority
+
+| Priority Level| Feature | Bug |
+|----------|----------|----------|
+| Urgent | This feature blocks progress on upcoming pilots. | This bug will stop the user from making progress and will cause significant loss of time and/or resources. Exampls are critical bugs which cause complete failure of core elements of the product. |
+| High | This feature has been requested by users and is important to their use of our product. |  This bug significantly degrades the quality of the user's experience and would take priority over most new feature development. Bugs could cause slowing of the user's workflow or repeated work. |
+| Medium | There has been some interest in this feature or would improve the product | This bug makes a noticable inpact on the user experience and should be targeted for next release or there is an existing workaround for now.|
+| Low | This feature is not critical to users or the product.| These bugs have low impact on the user and could be put off to future releases as necessary.|
