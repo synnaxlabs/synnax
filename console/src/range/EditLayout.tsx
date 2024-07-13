@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { type TimeRange as TimeRangeT } from "@/range/migrations";
 import { useSelect } from "@/range/selectors";
 import { add } from "@/range/slice";
 
@@ -39,7 +40,7 @@ const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const createEditLayout = (
   name: string = "Range.Create",
-  initialValues?: TimeRange,
+  timeRange?: TimeRangeT,
 ): Layout.State => ({
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
@@ -52,7 +53,7 @@ export const createEditLayout = (
     size: { height: 290, width: 700 },
     navTop: true,
   },
-  args: initialValues,
+  args: timeRange ?? null,
 });
 
 type DefineRangeFormProps = z.infer<typeof formSchema>;
@@ -61,7 +62,7 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const range = useSelect(layoutKey);
-  const args = Layout.useSelectArgs<TimeRange>(layoutKey);
+  const args = Layout.useSelectArgs<TimeRangeT>(layoutKey);
   const client = Synnax.use();
   const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
@@ -73,10 +74,9 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
           name: "",
           labels: [],
           timeRange: {
-            start: now,
-            end: now,
+            start: args?.start ?? now,
+            end: args?.end ?? now,
           },
-          ...args,
         };
       }
       if (range == null || range.persisted) {
@@ -99,6 +99,7 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
       };
     },
   });
+  console.log(initialValues.data);
   if (initialValues.isPending) return <Logo.Watermark variant="loader" />;
   if (initialValues.isError) throw initialValues.error;
   return (
@@ -126,6 +127,7 @@ const EditLayoutForm = ({
   const dispatch = useDispatch();
   const client = Synnax.use();
   const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
+  console.log(initialValues);
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (persist: boolean) => {

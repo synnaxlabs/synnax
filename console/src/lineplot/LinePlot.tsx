@@ -82,6 +82,7 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
+import { type TimeRange as CTimeRange } from "@/range/migrations";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -306,6 +307,10 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       s.pos(box.left(selection)),
       s.pos(box.right(selection)),
     );
+    const timeRangeNumber: CTimeRange = {
+      start: Number(timeRange.start.valueOf()),
+      end: Number(timeRange.end.valueOf()),
+    };
 
     const newLayout = Layout.usePlacer();
     const handleSelect = (key: string): void => {
@@ -326,7 +331,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           );
           break;
         case "range":
-          newLayout(Range.createEditLayout("", timeRange));
+          newLayout(Range.createEditLayout("", timeRangeNumber));
           break;
         case "download":
           if (client == null) return;

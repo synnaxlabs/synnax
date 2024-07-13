@@ -16,12 +16,14 @@ export const baseRangeZ = z.object({
   persisted: z.boolean(),
 });
 
+export const timeRangeZ = z.object({
+  start: z.number(),
+  end: z.number(),
+});
+
 export const staticRangeZ = baseRangeZ.extend({
   variant: z.literal("static"),
-  timeRange: z.object({
-    start: z.number(),
-    end: z.number(),
-  }),
+  timeRange: timeRangeZ,
 });
 
 export const dynamicRangeZ = baseRangeZ.extend({
@@ -30,6 +32,8 @@ export const dynamicRangeZ = baseRangeZ.extend({
 });
 
 export const rangeZ = z.union([staticRangeZ, dynamicRangeZ]);
+
+export type TimeRange = z.infer<typeof timeRangeZ>;
 
 export type StaticRange = z.infer<typeof staticRangeZ>;
 
