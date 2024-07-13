@@ -53,7 +53,7 @@ export const createEditLayout = (
     size: { height: 290, width: 700 },
     navTop: true,
   },
-  args: timeRange ?? null,
+  args: timeRange,
 });
 
 type DefineRangeFormProps = z.infer<typeof formSchema>;
@@ -73,9 +73,9 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
         return {
           name: "",
           labels: [],
-          timeRange: {
-            start: args?.start ?? now,
-            end: args?.end ?? now,
+          timeRange: args ?? {
+            start: now,
+            end: now,
           },
         };
       }
@@ -99,7 +99,6 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
       };
     },
   });
-  console.log(initialValues.data);
   if (initialValues.isPending) return <Logo.Watermark variant="loader" />;
   if (initialValues.isError) throw initialValues.error;
   return (
@@ -127,7 +126,6 @@ const EditLayoutForm = ({
   const dispatch = useDispatch();
   const client = Synnax.use();
   const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
-  console.log(initialValues);
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (persist: boolean) => {
