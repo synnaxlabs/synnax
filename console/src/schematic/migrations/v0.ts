@@ -18,6 +18,8 @@ import {
 import { migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { nodeZ, viewportZ } from "../../../../pluto/src/vis/diagram/types";
+
 export type NodeProps = object & {
   key: Schematic.Variant;
   color?: Color.Crude;
@@ -29,8 +31,8 @@ export const stateZ = z.object({
   fitViewOnResize: z.boolean(),
   snapshot: z.boolean(),
   remoteCreated: z.boolean(),
-  viewport: Diagram.viewportZ,
-  nodes: z.array(Diagram.nodeZ),
+  viewport: viewportZ,
+  nodes: z.array(nodeZ),
   edges: z.array(z.unknown()),
   props: z.record(z.unknown()),
   control: control.statusZ,

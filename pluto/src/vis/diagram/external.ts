@@ -9,5 +9,5 @@
 
 export * from "@/vis/diagram/align";
 export * from "@/vis/diagram/Diagram";
-export type { Edge, Node, Viewport } from "@/vis/diagram/types";
+export * from "@/vis/diagram/types";
 export * from "@/vis/diagram/util";
