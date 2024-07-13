@@ -193,6 +193,7 @@ I can successfully:
 - [ ] Recognize and connect to a National Instruments device available on local machine.
 - [ ] Recognize and connect to a National Instruments devices available on network.
 - [ ] Recognize and connect to physcial and simulated devices.
+- [ ] Disconnect a physical device from the machine with a task running without faulting.
 - [ ] Save device configuration.
 - [ ] Not see chassis devices connected to the machine
 - [ ] See devices connected to a chassis
