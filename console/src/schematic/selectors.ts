@@ -81,14 +81,13 @@ export const selectNodeProps = (
   layoutKey: string,
   key: string,
 ): NodeProps => {
-  console.log("selectNodeProps");
   const schematic = select(state, layoutKey);
-  console.log("schematic", schematic);
+  console.log(schematic);
+  console.log(schematic.props[key]);
   return schematic.props[key];
 };
 
 export const useSelectNodeProps = (layoutKey: string, key: string): NodeProps => {
-  console.log("useSelectNodeProps");
   return useMemoSelect(
     (state: StoreState) => selectNodeProps(state, layoutKey, key),
     [layoutKey, key],

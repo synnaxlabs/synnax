@@ -140,23 +140,20 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleFileDrop = useCallback(
     (nodeKey: number, event: React.DragEvent<HTMLDivElement>) => {
-      console.log("Beginning file drop");
       const files = Array.from(event.dataTransfer.files);
       if (files.length === 0) return;
-      console.log(nodeKey);
       files.forEach((file) => {
         if (file.type !== "application/json") return;
-        console.log(file);
         file
           ?.arrayBuffer()
           .then((b) => {
             const fileAsJSON = new binary.JSONEncoderDecoder().decode(b);
             const name = file.name.slice(0, -5);
             SchematicServices.FileHandler({ nodeKey, file: fileAsJSON, placer, name });
-            // TODO: do something with fileAsJSON
-            console.log(fileAsJSON);
           })
-          .catch(console.error);
+          .catch((e) => {
+            console.error(e);
+          });
       });
     },
     [dispatch],

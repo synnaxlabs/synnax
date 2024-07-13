@@ -8,27 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { Schematic } from "@/schematic";
 import { migrateState, STATES_Z } from "@/schematic/migrations";
+import { create } from "@/schematic/Schematic";
 
 export const FileHandler: Layout.FileHandler = async ({
-  nodeKey,
+  // nodeKey,
   file,
   placer,
   name,
 }): Promise<boolean> => {
-  console.log("STarting FileHandler");
   const z = STATES_Z.find((stateZ) => {
     return stateZ.safeParse(file).success;
   });
   if (z == null) return false;
   const state = migrateState(z.parse(file));
-  placer(
-    Schematic.create({
-      ...state,
-      name,
-    }),
-  );
-  console.log(`Opening file ${name}.json with key ${nodeKey}`);
+  const creator = create({
+    ...state,
+    name,
+  });
+  console.log("FILE DROP: creator");
+  console.log(creator);
+  const foo = placer(creator);
+  console.log(foo);
   return true;
 };

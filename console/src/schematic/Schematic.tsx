@@ -107,11 +107,10 @@ const SymbolRenderer = ({
   selected,
   layoutKey,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
-  console.log("SymbolRenderer");
-  const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
-  console.log("After useSelectNodeProps");
+  const foo = useSelectNodeProps(layoutKey, symbolKey);
+  if (foo == null) console.log(foo);
+  const { key, ...props } = foo;
   const dispatch = useSyncComponent(layoutKey);
-  console.log("After useSyncComponent");
 
   const handleChange = useCallback(
     (props: object) => {
@@ -452,12 +451,14 @@ export const useImport = (): ((props: ImportProps) => void) => {
             " a valid schematic.",
         );
       const newState = migrateState(z.parse(json));
-      placeLayout(
-        create({
-          ...newState,
-          name: fileName?.split(".")[0] ?? "New Schematic",
-        }),
-      );
+      const creator = create({
+        ...newState,
+        name: fileName?.split(".")[0] ?? "New Schematic",
+      });
+      console.log("CONTEXT MENU CREATOR:");
+      console.log(creator);
+      const foo = placeLayout(creator);
+      console.log(foo);
     },
     onError: (e) => {
       addStatus({

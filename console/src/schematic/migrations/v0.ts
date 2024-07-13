@@ -29,11 +29,8 @@ export const stateZ = z.object({
   fitViewOnResize: z.boolean(),
   snapshot: z.boolean(),
   remoteCreated: z.boolean(),
-  viewport: z.object({
-    position: xy.xy,
-    zoom: z.number(),
-  }),
-  nodes: z.array(z.unknown()),
+  viewport: Diagram.viewportZ,
+  nodes: z.array(Diagram.nodeZ),
   edges: z.array(z.unknown()),
   props: z.record(z.unknown()),
   control: control.statusZ,

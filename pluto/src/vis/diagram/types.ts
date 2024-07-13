@@ -9,6 +9,7 @@
 
 import { xy } from "@synnaxlabs/x";
 import type * as rf from "reactflow";
+import { z } from "zod";
 
 import { type Color } from "@/color";
 import { type connector } from "@/vis/diagram/edge/connector";
@@ -25,6 +26,11 @@ export interface Viewport {
    */
   zoom: number;
 }
+
+export const viewportZ = z.object({
+  position: xy.xy,
+  zoom: z.number(),
+});
 
 /** Pluto specific info passed to the 'data' attribute on rf.Edge */
 export interface RFEdgeData {
@@ -67,6 +73,13 @@ export interface Node {
   /** An optional z-index for the node. */
   zIndex?: number;
 }
+
+export const nodeZ = z.object({
+  key: z.string(),
+  position: xy.xy,
+  selected: z.boolean().optional(),
+  zIndex: z.number().optional(),
+});
 
 /**
  * Translates nodes from their pluto representation to their react-flow representation.
