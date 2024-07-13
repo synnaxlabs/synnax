@@ -39,11 +39,11 @@ export interface HandlerProps {
 
 export type Handler = (props: HandlerProps) => Promise<boolean>;
 
-export interface UseDeepLinkProps {
+export interface UseDeepProps {
   handlers: Handler[];
 }
 
-export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
+export const useDeep = ({ handlers }: UseDeepProps): void => {
   const client = PSynnax.use();
   const clientRef = useSyncedRef(client);
   const addStatus = Status.useAggregator();
@@ -56,7 +56,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
   const addOpenUrlErrorStatus = () => {
     addStatus({
       variant: "error",
-      key: "openUrlError",
+      key: nanoid(),
       message: openUrlErrorMessage,
     });
   };
@@ -90,7 +90,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
       const addClusterErrorStatus = () => {
         addStatus({
           variant: "error",
-          key: "openUrlError-${clusterKey}",
+          key: nanoid(),
           message: `Cannot open URL, Cluster with key ${clusterKey} not found`,
         });
       };
@@ -124,7 +124,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
           return;
       addStatus({
         variant: "error",
-        key: "openUrlError-ResourceNotFound-",
+        key: nanoid(),
         message: `Cannot open link, ${resource} is unknown`,
       });
     });

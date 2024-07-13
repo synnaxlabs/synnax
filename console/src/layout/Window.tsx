@@ -93,6 +93,7 @@ export const Window = (): ReactElement | null => {
   const layout = useSelect(win);
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
+
   useEffect(() => {
     if (layout?.key != null) {
       dispatch(setWindowVisible({ key: layout.key, value: true }));
@@ -100,13 +101,13 @@ export const Window = (): ReactElement | null => {
     }
     if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
   }, [os, layout?.key]);
+
   const menuProps = PMenu.useContextMenu();
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
-  if (layout == null) return null;
-  const content = <Content layoutKey={layout.key} />;
-
   const ctx = Haul.useContext();
   const dragging = Haul.useDraggingRef();
+  if (layout == null) return null;
+  const content = <Content layoutKey={layout.key} />;
 
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>

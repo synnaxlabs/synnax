@@ -37,6 +37,7 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
+import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 
@@ -55,14 +56,12 @@ export const Mosaic = memo((): ReactElement => {
   const [windowKey, mosaic] = useSelectMosaic();
   const store = useStore();
   const activeTab = useSelectActiveMosaicTabKey();
-
   const client = Synnax.use();
   const placer = usePlacer();
   const dispatch = useDispatch();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
-      console.log("bee boop");
       dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
     [dispatch, windowKey],
@@ -141,14 +140,24 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleFileDrop = useCallback(
     (nodeKey: number, event: React.DragEvent<HTMLDivElement>) => {
+      console.log("Beginning file drop");
+      const files = Array.from(event.dataTransfer.files);
+      if (files.length === 0) return;
       console.log(nodeKey);
-      event.dataTransfer.files
-        .item(0)
-        ?.arrayBuffer()
-        .then((b) => {
-          console.log(new binary.JSONEncoderDecoder().decode(b));
-        })
-        .catch(console.error);
+      files.forEach((file) => {
+        if (file.type !== "application/json") return;
+        console.log(file);
+        file
+          ?.arrayBuffer()
+          .then((b) => {
+            const fileAsJSON = new binary.JSONEncoderDecoder().decode(b);
+            const name = file.name.slice(0, -5);
+            SchematicServices.FileHandler({ nodeKey, file: fileAsJSON, placer, name });
+            // TODO: do something with fileAsJSON
+            console.log(fileAsJSON);
+          })
+          .catch(console.error);
+      });
     },
     [dispatch],
   );
@@ -203,3 +212,5 @@ export const Window = memo(({ layoutKey }: Layout.RendererProps): ReactElement =
   );
 });
 Window.displayName = "MosaicWindow";
+
+export const FILE_HANDLERS = [SchematicServices.FileHandler];

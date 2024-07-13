@@ -107,9 +107,11 @@ const SymbolRenderer = ({
   selected,
   layoutKey,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
+  console.log("SymbolRenderer");
   const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
-
+  console.log("After useSelectNodeProps");
   const dispatch = useSyncComponent(layoutKey);
+  console.log("After useSyncComponent");
 
   const handleChange = useCallback(
     (props: object) => {

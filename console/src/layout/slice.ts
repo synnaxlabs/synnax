@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Dispatch, PayloadAction, UnknownAction } from "@reduxjs/toolkit";
-import { createSlice } from "@reduxjs/toolkit";
+import {
+  createSlice,
+  type Dispatch,
+  type PayloadAction,
+  type UnknownAction,
+} from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, type location } from "@synnaxlabs/x";
-import { nanoid } from "nanoid/non-secure";
+import { nanoid } from "nanoid";
 import { ComponentType } from "react";
 
+import { type Placer } from "@/layout/hooks";
 import * as latest from "@/layout/migrations";
 
 export type State<A = any> = latest.State<A>;
@@ -48,10 +53,12 @@ export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
 
 /** Signature for the placeLayout action. */
 export type PlacePayload = State;
+
 /** Signature for the removeLayout action. */
 export interface RemovePayload {
   keys: string[];
 }
+
 /** Signature for the setTheme action. */
 export type SetActiveThemePayload = string | undefined;
 
@@ -61,14 +68,17 @@ export interface MoveMosaicTabPayload {
   key: number;
   loc: location.Location;
 }
+
 interface ResizeMosaicTabPayload {
   windowKey: string;
   key: number;
   size: number;
 }
+
 interface SelectMosaicTabPayload {
   tabKey: string;
 }
+
 interface RenamePayload {
   key: string;
   name: string;
@@ -86,6 +96,15 @@ interface SetAltKeyPayload {
 }
 
 interface SetHaulingPayload extends Haul.DraggingState {}
+
+export interface FileHandlerProps {
+  nodeKey: number;
+  file: any;
+  name: string;
+  placer: Placer;
+}
+
+export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
   location: NavDrawerLocation;
