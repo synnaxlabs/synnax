@@ -199,8 +199,11 @@ jobs:
 
   test-cpp:
     needs: [setup, build-server]
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
     if: needs.setup.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
