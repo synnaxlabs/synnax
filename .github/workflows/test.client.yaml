@@ -197,13 +197,10 @@ jobs:
         ports:
           - 9090:9090
 
-  test-cpp:
+  test-cpp-ubuntu:
     needs: [setup, build-server]
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
     if: needs.setup.outputs.changed == 'true'
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -232,4 +229,28 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 9090:9090
+
+  test-cpp:
+      needs: [setup, build-server]
+      strategy:
+        matrix:
+          platform: [ macos-latest, windows-latest]
+
+      if: needs.setup.outputs.changed == 'true'
+      runs-on: ${{ matrix.platform }}
+      steps:
+        - name: Checkout Repository
+          uses: actions/checkout@v3
+
+        - name: Setup Bazel
+          uses: bazel-contrib/setup-bazel@0.8.1
+          with:
+            bazelisk-cache: true
+            disk-cache: ${{ github.workflow }}
+            repository-cache: true
+
+        - name: Test
+          run: bazel test //client/...
+          shell: bash
+   
 
