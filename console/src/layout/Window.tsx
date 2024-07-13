@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
-import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
 import { type ReactElement, useEffect } from "react";
@@ -105,6 +105,9 @@ export const Window = (): ReactElement | null => {
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
 
+  const ctx = Haul.useContext();
+  const dragging = Haul.useDraggingRef();
+
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Align.Space
@@ -114,6 +117,25 @@ export const Window = (): ReactElement | null => {
           CSS.BM("main", os.toLowerCase()),
           maximized && CSS.BM("main", "maximized"),
         )}
+        onDragOver={(event) => {
+          if (
+            event.dataTransfer.effectAllowed === "all" &&
+            dragging.current.items.length === 0
+          ) {
+            ctx?.start(
+              {
+                type: "offscreen",
+                key: "offscreen",
+              },
+              [
+                {
+                  type: Haul.FILE_TYPE,
+                  key: "file",
+                },
+              ],
+            );
+          }
+        }}
       >
         <NavTop title={layout.name} {...layout.window} />
         {content}

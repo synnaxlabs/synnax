@@ -18,7 +18,7 @@ import {
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { binary, type location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -59,10 +59,6 @@ export const Mosaic = memo((): ReactElement => {
   const client = Synnax.use();
   const placer = usePlacer();
   const dispatch = useDispatch();
-
-  const handleDragOver = () => {
-    console.log("dragging");
-  };
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
@@ -143,11 +139,24 @@ export const Mosaic = memo((): ReactElement => {
     [dispatch, windowKey],
   );
 
+  const handleFileDrop = useCallback(
+    (nodeKey: number, event: React.DragEvent<HTMLDivElement>) => {
+      console.log(nodeKey);
+      event.dataTransfer.files
+        .item(0)
+        ?.arrayBuffer()
+        .then((b) => {
+          console.log(new binary.JSONEncoderDecoder().decode(b));
+        })
+        .catch(console.error);
+    },
+    [dispatch],
+  );
+
   return (
     <Core.Mosaic
       root={mosaic}
       onDrop={handleDrop}
-      onDragOver={handleDragOver}
       onClose={handleClose}
       onSelect={handleSelect}
       onResize={handleResize}
@@ -155,6 +164,7 @@ export const Mosaic = memo((): ReactElement => {
       onRename={handleRename}
       onCreate={handleCreate}
       activeTab={activeTab ?? undefined}
+      onFileDrop={handleFileDrop}
     >
       {({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />}
     </Core.Mosaic>

@@ -71,6 +71,8 @@ interface DropProps {
   dropped: Item[];
 }
 
+export const FILE_TYPE = "file";
+
 type DragEndInterceptor = (state: DraggingState, cursor: xy.XY) => DropProps | null;
 export interface ContextValue {
   state: DraggingState;

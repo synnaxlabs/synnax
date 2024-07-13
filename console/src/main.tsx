@@ -14,7 +14,7 @@ import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import { type Haul, Pluto, type state, type Triggers } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
@@ -79,6 +79,11 @@ const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
+  useEffect(() => {
+    const doc = document.documentElement;
+    doc.addEventListener("dragover", (e) => e.preventDefault());
+    doc.addEventListener("drop", (e) => e.preventDefault());
+  }, []);
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider
@@ -123,11 +128,3 @@ const Main = (): ReactElement => (
 const rootEl = document.getElementById("root") as HTMLElement;
 
 ReactDOM.createRoot(rootEl).render(<Main />);
-
-rootEl.addEventListener("dragover", (event) => {
-  event.preventDefault();
-});
-
-rootEl.addEventListener("drop", (event) => {
-  event.preventDefault();
-});
