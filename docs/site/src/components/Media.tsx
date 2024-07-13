@@ -68,7 +68,7 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
         if (entry.isIntersecting) ref.current.play();
         else ref.current.pause();
       },
-      { threshold: 0.7 },
+      { threshold: 0.85 },
     );
     if (ref.current != null) observer.observe(ref.current);
     return () => {
