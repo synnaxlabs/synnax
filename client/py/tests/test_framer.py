@@ -8,11 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import time
 
 import numpy as np
 import pandas as pd
 import pytest
-import time
 
 import synnax as sy
 from synnax import TimeSpan, TimeRange, TimeStamp, UnauthorizedError
@@ -251,6 +251,23 @@ class TestWriter:
         assert len(f2[data.key]) == 2
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
+
+    def test_set_authority(self, client: sy.Synnax, channel: sy.channel):
+        w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
+        w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
+        try:
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+
+            w1.set_authority({channel.key: 255})
+
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
 
 
 @pytest.mark.framer
