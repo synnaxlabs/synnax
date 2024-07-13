@@ -24,9 +24,9 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { DataType } from "@synnaxlabs/x/telem";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
@@ -299,7 +299,7 @@ export const ChannelList = ({
 
   const handleAdd = (): void => {
     push({
-      key: nanoid(),
+      key: id.id(),
       channel: 0,
       nodeId: "",
       enabled: true,

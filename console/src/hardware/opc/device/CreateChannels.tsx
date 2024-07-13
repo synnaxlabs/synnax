@@ -16,7 +16,7 @@ import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { nanoid } from "nanoid/non-secure";
+import { id } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
@@ -171,14 +171,14 @@ const GroupList = ({
             {
               size: "large",
               onClick: () => {
-                const key = nanoid();
+                const key = id.id();
                 onSelectGroup(key, value.length);
                 push({
                   key,
                   name: `Group ${value.length + 1}`,
                   channels: [
                     {
-                      key: nanoid(),
+                      key: id.id(),
                       name: `group_1_${value.length + 1}_time`,
                       dataType: "timestamp",
                       isIndex: true,

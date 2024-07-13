@@ -25,11 +25,10 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, type UnknownRecord } from "@synnaxlabs/x";
+import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { nanoid } from "nanoid";
 import {
   type ReactElement,
   useCallback,
@@ -240,7 +239,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         dispatch(
           addElement({
             key: layoutKey,
-            elKey: nanoid(),
+            elKey: id.id(),
             node: {
               position: pos,
               zIndex: spec.zIndex,
@@ -465,7 +464,7 @@ export const useImport = (): ((props: ImportProps) => void) => {
     },
     onError: (e) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: "Failed to import schematic.",
         description: e.message,

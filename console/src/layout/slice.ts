@@ -15,8 +15,7 @@ import {
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic } from "@synnaxlabs/pluto";
-import { type deep, type location } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
+import { type deep, id, type location } from "@synnaxlabs/x";
 import { ComponentType } from "react";
 
 import { type Placer } from "@/layout/hooks";
@@ -453,7 +452,7 @@ export type Payload = Action["payload"];
 export const MOSAIC_WINDOW_TYPE = "mosaic";
 
 export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
-  key: `${MOSAIC_WINDOW_TYPE}-${nanoid()}`,
+  key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",

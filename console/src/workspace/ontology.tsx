@@ -10,9 +10,8 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, errors, id, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
@@ -54,7 +53,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: "Failed to delete workspace.",
         description: e.message,
@@ -100,7 +99,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: "Failed to create schematic.",
         description: e.message,
@@ -148,7 +147,7 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: "Failed to create line plot.",
         description: e.message,

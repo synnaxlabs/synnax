@@ -19,8 +19,8 @@ import {
   useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
-import { nanoid } from "nanoid";
 import { ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -56,7 +56,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
   const addOpenUrlErrorStatus = () => {
     addStatus({
       variant: "error",
-      key: nanoid(),
+      key: id.id(),
       message: openUrlErrorMessage,
     });
   };
@@ -90,7 +90,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
       const addClusterErrorStatus = () => {
         addStatus({
           variant: "error",
-          key: nanoid(),
+          key: id.id(),
           message: `Cannot open URL, Cluster with key ${clusterKey} not found`,
         });
       };
@@ -124,7 +124,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
           return;
       addStatus({
         variant: "error",
-        key: nanoid(),
+        key: id.id(),
         message: `Cannot open link, ${resource} is unknown`,
       });
     });
@@ -156,7 +156,7 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
     if (key == null) {
       addStatus({
         variant: "error",
-        key: nanoid(),
+        key: id.id(),
         message: `Failed to copy link to ${name} to clipboard`,
         description: "No active cluster found",
       });
@@ -168,14 +168,14 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
       () => {
         addStatus({
           variant: "success",
-          key: nanoid(),
+          key: id.id(),
           message: `Link to ${name} copied to clipboard.`,
         });
       },
       () => {
         addStatus({
           variant: "error",
-          key: nanoid(),
+          key: id.id(),
           message: `Failed to copy link to ${name} to clipboard.`,
         });
       },

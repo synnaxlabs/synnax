@@ -27,8 +27,8 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { type ReactElement, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -147,11 +147,11 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         if (deviceProperties == null) return;
         methods.set("groups", [
           {
-            key: nanoid(),
+            key: id.id(),
             name: "Group 1",
             channels: [
               {
-                key: nanoid(),
+                key: id.id(),
                 name: "group_1_time",
                 dataType: "timestamp",
                 nodeId: "",
@@ -160,7 +160,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
               },
               ...deviceProperties.channels.map((c) => ({
                 ...c,
-                key: nanoid(),
+                key: id.id(),
                 isIndex: false,
               })),
             ],

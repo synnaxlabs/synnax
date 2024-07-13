@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, QueryError } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Button,
@@ -22,9 +22,8 @@ import {
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep, primitiveIsZero } from "@synnaxlabs/x";
+import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
@@ -64,7 +63,7 @@ export const configureDigitalWriteLayout = (
   create: boolean = false,
 ): Layout.State<ConfigureDigitalWriteArgs> => ({
   name: "Configure NI Digital Write Task",
-  key: nanoid(),
+  key: id.id(),
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",
@@ -340,7 +339,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       ...deep.copy(ZERO_DO_CHAN),
       port: 0,
       line: availableLine,
-      key: nanoid(),
+      key: id.id(),
     });
   };
   const menuProps = Menu.useContextMenu();
@@ -361,7 +360,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
                   ...deep.copy(value[i]),
                   stateChannel: 0,
                   cmdChannel: 0,
-                  key: nanoid(),
+                  key: id.id(),
                 })),
               );
             }}
