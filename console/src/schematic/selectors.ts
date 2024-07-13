@@ -82,8 +82,6 @@ export const selectNodeProps = (
   key: string,
 ): NodeProps => {
   const schematic = select(state, layoutKey);
-  console.log(schematic);
-  console.log(schematic.props[key]);
   return schematic.props[key];
 };
 

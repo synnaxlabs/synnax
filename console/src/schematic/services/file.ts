@@ -22,11 +22,11 @@ export const FileHandler: Layout.FileHandler = async ({
   });
   if (z == null) return false;
   const state = migrateState(z.parse(file));
-  const creator = create({
-    ...state,
-    name,
-  });
-  const foo = placer(creator);
-  console.log(foo);
+  placer(
+    create({
+      ...state,
+      name,
+    }),
+  );
   return true;
 };
