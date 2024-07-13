@@ -513,12 +513,10 @@ export const LinePlot: Layout.Renderer = ({
     useSelect: useSelect,
     fetcher: async (client, layoutKey) => {
       const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
-      console.log(data);
       return data as unknown as State;
     },
     actionCreator: internalCreate,
   });
-  console.log("RENDRE", linePlot);
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };
