@@ -108,7 +108,10 @@ const SymbolRenderer = ({
   layoutKey,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
   const foo = useSelectNodeProps(layoutKey, symbolKey);
-  if (foo == null) console.log(foo);
+  const v = useSelect(layoutKey);
+  console.log(v);
+  console.log(layoutKey, symbolKey);
+  if (foo == null) return null;
   const { key, ...props } = foo;
   const dispatch = useSyncComponent(layoutKey);
 

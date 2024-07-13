@@ -26,8 +26,6 @@ export const FileHandler: Layout.FileHandler = async ({
     ...state,
     name,
   });
-  console.log("FILE DROP: creator");
-  console.log(creator);
   const foo = placer(creator);
   console.log(foo);
   return true;

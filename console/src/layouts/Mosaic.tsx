@@ -147,7 +147,7 @@ export const Mosaic = memo((): ReactElement => {
         file
           ?.arrayBuffer()
           .then((b) => {
-            const fileAsJSON = new binary.JSONEncoderDecoder().decode(b);
+            const fileAsJSON = JSON.parse(new TextDecoder().decode(b));
             const name = file.name.slice(0, -5);
             SchematicServices.FileHandler({ nodeKey, file: fileAsJSON, placer, name });
           })
