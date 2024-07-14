@@ -25,50 +25,59 @@
 /* |||| FILLED |||| */
 
 .pluto-btn--filled {
-    background: var(--pluto-primary-z);
+    --pluto-bg: var(--pluto-primary-z);
+    background: var(--pluto-bg);
     border: var(--pluto-border);
-    border-color: var(--pluto-primary-z) !important;
+    border-color: var(--pluto-bg) !important;
     & * {
         color: var(--pluto-text-on-primary) !important;
     }
 
     &:hover:not(.pluto--disabled) {
-        background: var(--pluto-primary-p1);
-        border-color: var(--pluto-primary-p1) !important;
+        --pluto-bg: var(--pluto-primary-p1);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
     }
 
     &:active:not(.pluto--disabled) {
-        background: var(--pluto-primary-m1);
-        border-color: var(--pluto-primary-m1) !important;
+        --pluto-bg: var(--pluto-primary-m1);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
     }
 
     &.pluto--warning {
-        background: var(--pluto-warning-z);
-        border-color: var(--pluto-warning-z) !important;
+        --pluto-bg: var(--pluto-warning-z);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
 
         &:hover:not(.pluto--disabled) {
-            background: var(--pluto-warning-p1);
-            border-color: var(--pluto-warning-p1) !important;
+            --pluto-bg: var(--pluto-warning-p1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
         }
 
         &:active:not(.pluto--disabled) {
-            background: var(--pluto-warning-m1);
-            border-color: var(--pluto-warning-m1) !important;
+            --pluto-bg: var(--pluto-warning-m1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
         }
     }
 
     &.pluto--error {
-        background: var(--pluto-error-z);
-        border-color: var(--pluto-error-z) !important;
+        --pluto-bg: var(--pluto-error-z);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
 
         &:hover:not(.pluto--disabled) {
-            background: var(--pluto-error-p1);
-            border-color: var(--pluto-error-p1) !important;
+            --pluto-bg: var(--pluto-error-p1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
         }
 
         &:active:not(.pluto--disabled) {
-            background: var(--pluto-error-m1);
-            border-color: var(--pluto-error-m1) !important;
+            --pluto-bg: var(--pluto-error-m1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
         }
     }
 }
@@ -76,7 +85,8 @@
 /* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
-    background: var(--pluto-gray-l0);
+    --pluto-bg: var(--pluto-gray-l0);
+    background: var(--pluto-bg);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 
     &.pluto--warning {
@@ -90,12 +100,14 @@
     }
 
     &:hover:not(.pluto--disabled) {
-        background: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l2);
+        background: var(--pluto-bg);
         border-color: var(--pluto-gray-l4) !important;
     }
 
     &:active:not(.pluto--disabled) {
-        background: var(--pluto-gray-l3);
+        --pluto-bg: var(--pluto-gray-l3);
+        background: var(--pluto-bg);
         border-color: var(--pluto-gray-l5) !important;
     }
 }
@@ -103,7 +115,8 @@
 .pluto-btn--filled,
 .pluto-btn--outlined {
     &.pluto--disabled {
-        background: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l2);
+        background: var(--pluto-bg);
         color: var(--pluto-gray-l5);
         border: var(--pluto-border);
         border-color: var(--pluto-gray-l3) !important;
@@ -117,11 +130,13 @@
     border: none;
 
     &:hover:not(.pluto--disabled) {
-        background: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l2);
+        background: var(--pluto-bg);
     }
 
     &:active:not(.pluto--disabled) {
-        background: var(--pluto-gray-l3);
+        --pluto-bg: var(--pluto-gray-l3);
+        background: var(--pluto-bg);
     }
 
     &.pluto--disabled {
