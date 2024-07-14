@@ -213,9 +213,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
-      {isSingle ? (
-        <PMenu.Divider />
-      ) : (
+      {isSingle && (
         <>
           {resources[0].id.key !== activeRange?.key && (
             <PMenu.Item itemKey="activate">Set as Active Range</PMenu.Item>
@@ -224,9 +222,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
           </PMenu.Item>
-          <PMenu.Divider />
         </>
       )}
+      <PMenu.Divider />
       {layout?.type === "lineplot" && (
         <PMenu.Item
           itemKey="addToActivePlot"
