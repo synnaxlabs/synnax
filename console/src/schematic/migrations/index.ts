@@ -27,19 +27,21 @@ export const ZERO_SLICE_STATE = v1.ZERO_SLICE_STATE;
 
 export const STATE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.stateMigration,
+  "0.0.1": v1.stateMigration,
 };
 
 export const SLICE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.sliceMigration,
+  "0.0.1": v1.sliceMigration,
 };
 
-export const migrateState = migrate.migrator<v1.State>({
+export const migrateState = migrate.migrator<AnyState, v1.State>({
   name: "schematic.state",
   migrations: STATE_MIGRATIONS,
   def: v1.ZERO_STATE,
 });
 
-export const migrateSlice = migrate.migrator<v1.SliceState>({
+export const migrateSlice = migrate.migrator<AnySliceState, v1.SliceState>({
   name: "schematic.slice",
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,

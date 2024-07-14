@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { migrateSlice, ZERO_SLICE_STATE } from "@/layout/migrations";
+import {
+  type AnySliceState,
+  migrateSlice,
+  ZERO_SLICE_STATE,
+} from "@/layout/migrations";
 import * as v0 from "@/layout/migrations/v0";
 import * as v3 from "@/layout/migrations/v3";
 
 describe("migrations", () => {
   describe("slice", () => {
-    const STATES = [
+    const STATES: AnySliceState[] = [
       v0.ZERO_SLICE_STATE,
       { ...v0.ZERO_SLICE_STATE, version: "0.1.0" },
       { ...v0.ZERO_SLICE_STATE, version: "0.2.0" },
