@@ -300,14 +300,14 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
-
     const s = scale.Scale.scale(1).scale(bounds);
+    const placer = Layout.usePlacer();
+
     const timeRange = new TimeRange(
       s.pos(box.left(selection)),
       s.pos(box.right(selection)),
     );
 
-    const newLayout = Layout.usePlacer();
     const handleSelect = (key: string): void => {
       switch (key) {
         case "iso":
@@ -326,15 +326,12 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           );
           break;
         case "range":
-          dispatch(
-            Range.setBuffer({
-              timeRange: {
-                start: Number(timeRange.start.valueOf()),
-                end: Number(timeRange.end.valueOf()),
-              },
+          placer(
+            Range.createEditLayout(undefined, {
+              start: Number(timeRange.start.valueOf()),
+              end: Number(timeRange.end.valueOf()),
             }),
           );
-          newLayout(Range.createEditLayout());
           break;
         case "download":
           if (client == null) return;

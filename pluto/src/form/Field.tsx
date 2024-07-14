@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in
+// the file licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business
+// Source License, use of this software will be governed by the Apache License,
+// Version 2.0, included in the file licenses/APL.txt.
+
 import { caseconv, deep, Key, Keyed } from "@synnaxlabs/x";
 import { FC, ReactElement } from "react";
 
@@ -12,7 +21,6 @@ import {
 } from "@/form/Form";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { Status } from "@/status";
 import { componentRenderProp, RenderProp } from "@/util/renderProp";
 
 export type FieldProps<
