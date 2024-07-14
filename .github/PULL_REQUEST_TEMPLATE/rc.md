@@ -228,10 +228,14 @@ I can successfully:
 - [ ] Array Sampling - Read from multiple channels in array-sampling mode.
 - [ ] Array Sampling - Auto-generate timestamps on the driver.
 - [ ] Array Sampling - Read timestamps from the OPC UA server.
-- [ ] Array Sampling - The driver will not crash if I specify an improper array
-  size.
+- [ ] Array Sampling - The driver will not crash if I specify an improper array size.
 - [ ] Channel Selection - The read task dialog will recommend synnax channels
 based on the configured OPC UA node.
+- [ ] connect to a physical device and read data from it.
+- [ ]	maintain operation of the driver when a device is disconnected or a channel is 
+removed from the device while it is running.
+- [ ]	enable and disable data saving at will.
+
 
 ### National Instruments
 
@@ -260,6 +264,7 @@ I can successfully:
 - [ ] Begin several tasks at different times and see them all plotting live
   data.
 - [ ] Enable and disable data saving at will.
+- [ ] verify there is no lag between sensor input and data written to sever.
 
 ##### Special Purpose Channels
 
@@ -343,9 +348,8 @@ I can successfully:
        device)
      - [ ] Out of range values
      - [ ] Multiple tasks using the same channel
-
+     
 ### Other
 
 I can successfully:
-
 - [ ] Toggle the color theme from the command search bar.
