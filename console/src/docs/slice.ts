@@ -48,7 +48,7 @@ export type SetLocationPayload = Location;
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<SliceState>({
+export const migrateSlice = migrate.migrator<SliceState, SliceState>({
   name: "docs.slice",
   migrations: MIGRATIONS,
   def: ZERO_SLICE_STATE,

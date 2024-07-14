@@ -148,6 +148,8 @@ I can successfully:
 - [ ] Rename a schematic in a workspace.
 - [ ] Delete a line plot in a workspace.
 - [ ] Delete a schematic in a workspace.
+- [ ] Create a workspace in a previous version of Synnax, add visualizations, and open
+     it in the release candidate.
 
 ### Resources
 
