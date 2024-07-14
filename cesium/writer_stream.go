@@ -473,7 +473,6 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 		)
 	}
 	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, s.Len()-1)
-
 	return nil
 }
 
