@@ -236,7 +236,6 @@ based on the configured OPC UA node.
 removed from the device while it is running.
 - [ ]	enable and disable data saving at will.
 
-
 ### National Instruments
 
 #### Configuration
@@ -348,7 +347,7 @@ I can successfully:
        device)
      - [ ] Out of range values
      - [ ] Multiple tasks using the same channel
-     
+
 ### Other
 
 I can successfully:
