@@ -685,6 +685,38 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						s := fr.Series[0]
 						Expect(s.Alignment).To(Equal(telem.NewAlignmentPair(1, 0)))
 					})
+
+					// This test case is added due to a behaviour change in the iterator.
+					// Originally, when SeekGE finds a domain that is greater than the
+					// provided timestamp but does not contain it, it leaves the iterator's
+					// view at the provided timestamp.
+					// For example, if the domains are [0-5] [10-15] [25-30], and we
+					// seekGE(20), the iterator's view is set at 20, meaning when we
+					// call next(3), we would read from [20, 23), resulting in a false
+					// next call. This is confusing for the caller since a next call
+					// following a seek call should read data, in this case, from
+					// [25, 28).
+					//
+					// A similar behaviour adjustment is put in place for SeekLE as well.
+					It("Should bound an iterator's view to a sought domain", func() {
+						Expect(unary.Write(ctx, indexDB, 0*telem.SecondTS, telem.NewSecondsTSV(0, 1, 2, 3, 4, 5))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 15*telem.SecondTS, telem.NewSecondsTSV(15, 16, 17))).To(Succeed())
+						Expect(unary.Write(ctx, db, 0*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13))).To(Succeed())
+						Expect(unary.Write(ctx, db, 15*telem.SecondTS, telem.NewSeriesV[int64](15, 16, 17))).To(Succeed())
+
+						i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+						Expect(i.SeekLE(ctx, 9*telem.SecondTS)).To(BeTrue())
+						Expect(i.Prev(ctx, 3*telem.Second)).To(BeTrue())
+						Expect(i.Value().Series[0].Data).To(Equal(telem.NewSeriesV[int64](3, 4, 5).Data))
+
+						Expect(i.SeekGE(ctx, 7*telem.SecondTS)).To(BeTrue())
+						Expect(i.Next(ctx, 2*telem.Second)).To(BeTrue())
+						Expect(i.Value().Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11).Data))
+
+						Expect(i.Close()).To(Succeed())
+					})
 				})
 			})
 			Describe("Close", func() {
