@@ -18,7 +18,7 @@ export type StaticRange = v0.StaticRange;
 export const ZERO_SLICE_STATE = v0.ZERO_SLICE_STATE;
 
 export const MIGRATIONS: migrate.Migrations = {};
-export const migrateSlice = migrate.migrator({
+export const migrateSlice = migrate.migrator<SliceState, SliceState>({
   name: "range.slice",
   migrations: MIGRATIONS,
   def: ZERO_SLICE_STATE,
