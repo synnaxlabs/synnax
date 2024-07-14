@@ -188,6 +188,8 @@ I can successfully:
 - [ ] Rename a schematic in a workspace.
 - [ ] Delete a line plot in a workspace.
 - [ ] Delete a schematic in a workspace.
+- [ ] Create a workspace in a previous version of Synnax, add visualizations, and open
+     it in the release candidate.
 
 ### Resources
 
@@ -228,10 +230,13 @@ I can successfully:
 - [ ] Array Sampling - Read from multiple channels in array-sampling mode.
 - [ ] Array Sampling - Auto-generate timestamps on the driver.
 - [ ] Array Sampling - Read timestamps from the OPC UA server.
-- [ ] Array Sampling - The driver will not crash if I specify an improper array
-  size.
+- [ ] Array Sampling - The driver will not crash if I specify an improper array size.
 - [ ] Channel Selection - The read task dialog will recommend synnax channels
 based on the configured OPC UA node.
+- [ ] Connect to a physical device and read data from it.
+- [ ]	Maintain operation of the driver when a device is disconnected or a channel is 
+removed from the device while it is running.
+- [ ]	Enable and disable data saving at will.
 
 ### National Instruments
 
@@ -243,6 +248,7 @@ I can successfully:
 - [ ] Recognize and connect to a National Instruments devices available on
   network.
 - [ ] Recognize and connect to physcial and simulated devices.
+- [ ] Disconnect a physical device from the machine with a task running without faulting.
 - [ ] Save device configuration.
 - [ ] Not see chassis devices connected to the machine
 - [ ] See devices connected to a chassis
@@ -259,6 +265,7 @@ I can successfully:
 - [ ] Begin several tasks at different times and see them all plotting live
   data.
 - [ ] Enable and disable data saving at will.
+- [ ] verify there is no lag between sensor input and data written to sever.
 
 ##### Special Purpose Channels
 
@@ -346,5 +353,4 @@ I can successfully:
 ### Other
 
 I can successfully:
-
 - [ ] Toggle the color theme from the command search bar.

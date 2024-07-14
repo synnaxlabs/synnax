@@ -36,13 +36,13 @@ export const SLICE_MIGRATIONS: migrate.Migrations = {
   "1.0.0": v2.sliceMigration,
 };
 
-export const migrateState = migrate.migrator<v2.State>({
+export const migrateState = migrate.migrator<AnyState, State>({
   name: "schematic.state",
   migrations: STATE_MIGRATIONS,
   def: ZERO_STATE,
 });
 
-export const migrateSlice = migrate.migrator<v2.SliceState>({
+export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   name: "schematic.slice",
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,

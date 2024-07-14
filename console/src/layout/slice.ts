@@ -395,7 +395,7 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
     ) => {
-      return {
+      return migrateSlice({
         ...slice,
         layouts: {
           ...layoutsToPreserve(state.layouts),
@@ -406,7 +406,7 @@ export const { actions, reducer } = createSlice({
         themes: state.themes,
         activeTheme: state.activeTheme,
         nav: keepNav ? state.nav : slice.nav,
-      };
+      });
     },
     clearWorkspace: (state) => {
       return {

@@ -50,7 +50,7 @@ func DetermineEncoderDecoder(contentType string) (EncoderDecoder, error) {
 			return ecd, nil
 		}
 	}
-	return nil, errors.New("[encoding] - unable to determine encoding type")
+	return nil, errors.Newf("[encoding] - unable to determine encoding type for %s", contentType)
 }
 
 func SupportedContentTypes() []string {

@@ -24,7 +24,7 @@ export type SemVer = z.infer<typeof semVerZ>;
  * than B, compare.EQUAL (0) if a is the same as b, and compare.GREATER_THAN (positive)
  * if a is NEWER than b.
  */
-const compareSemVer: compare.CompareF<string> = (a, b) => {
+export const compareSemVer: compare.CompareF<string> = (a, b) => {
   const semA = semVerZ.parse(a);
   const semB = semVerZ.parse(b);
   const [aMajor, aMinor, aPatch] = semA.split(".").map(Number);
@@ -39,8 +39,16 @@ const compareSemVer: compare.CompareF<string> = (a, b) => {
  * @param a The first semantic version.
  * @param b The second semantic version.
  */
-const semVerNewer = (a: SemVer, b: SemVer): boolean =>
+export const semVerNewer = (a: SemVer, b: SemVer): boolean =>
   compare.isGreaterThan(compareSemVer(a, b));
+
+/**
+ * @returns true if the first semantic version is older than the second.
+ * @param a The first semantic version.
+ * @param b The second semantic version.
+ */
+export const semVerOlder = (a: SemVer, b: SemVer): boolean =>
+  compare.isLessThan(compareSemVer(a, b));
 
 export type Migratable<V extends string = string> = { version: V };
 
@@ -93,12 +101,16 @@ interface MigratorProps<O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTyp
   targetSchema?: ZO;
 }
 
-export const migrator = <O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTypeAny>({
+export const migrator = <
+  I extends Migratable,
+  O extends Migratable,
+  ZO extends z.ZodTypeAny = z.ZodTypeAny,
+>({
   name,
   migrations,
   targetSchema,
   def,
-}: MigratorProps<O, ZO>): ((v: Migratable) => O) => {
+}: MigratorProps<O, ZO>): ((v: I) => O) => {
   const latestMigrationVersion = Object.keys(migrations).sort(compareSemVer).pop();
   if (latestMigrationVersion == null)
     return (v: Migratable) => {
