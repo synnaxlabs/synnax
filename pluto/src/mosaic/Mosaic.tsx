@@ -38,7 +38,7 @@ export interface MosaicProps
   onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
-  onFileDrop?: (key: number, event: DragEvent) => void;
+  onFileDrop?: (key: number, loc: location.Location, event: DragEvent) => void;
   children: Tabs.RenderProp;
   activeTab?: string;
 }
@@ -203,13 +203,13 @@ const TabLeaf = memo(
         if (event == null) return [];
         setDragMask(null);
         const hasFiles = Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
+        const loc =
+          tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
         if (hasFiles) {
-          onFileDrop?.(key, event);
+          onFileDrop?.(key, loc, event);
           return items;
         }
         const dropped = Haul.filterByType(HAUL_DROP_TYPE, items);
-        const loc =
-          tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
         if (dropped.length > 0) {
           const tabKey = dropped.map(({ key }) => key)[0];
           onDrop(key, tabKey as string, loc);

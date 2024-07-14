@@ -98,12 +98,14 @@ interface SetAltKeyPayload {
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface FileHandlerProps {
-  nodeKey: number;
+  mosaicKey: number;
   file: any;
+  location: location.Location;
   name: string;
   placer: Placer;
   client: Synnax | null;
   workspaceKey: string | null;
+  dispatch: Dispatch<UnknownAction>;
 }
 
 export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;

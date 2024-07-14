@@ -9,9 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, QueryError, type Synnax } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
-import { type AsyncDestructor } from "@synnaxlabs/x/destructor";
-import { type TimeRange } from "@synnaxlabs/x/telem";
+import { type AsyncDestructor, id, type TimeRange } from "@synnaxlabs/x";
 
 import { cache } from "@/telem/client/cache";
 import { Reader } from "@/telem/client/reader";

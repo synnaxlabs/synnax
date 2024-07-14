@@ -11,28 +11,30 @@ import { NotFoundError } from "@synnaxlabs/client";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
+import { moveMosaicTab } from "@/layout/slice";
 import { migrateState, STATES_Z } from "@/schematic/migrations";
 import { create } from "@/schematic/Schematic";
 
 export const FileHandler: Layout.FileHandler = async ({
   // nodeKey,
+  mosaicKey,
   file,
   placer,
+  location,
   name,
   client,
   workspaceKey,
+  dispatch,
 }): Promise<boolean> => {
   const z = STATES_Z.find((stateZ) => {
     return stateZ.safeParse(file).success;
   });
-  console.log("hi");
   if (z == null) return false;
   const state = migrateState(z.parse(file));
   const creator = create({
     ...state,
     name,
   });
-  console.log(creator);
   if (client == null) {
     placer(creator);
     return true;
@@ -46,7 +48,16 @@ export const FileHandler: Layout.FileHandler = async ({
   } catch (e) {
     if (!NotFoundError.matches(e)) throw e;
     if (workspaceKey == null) {
-      placer(creator);
+      const foo = placer(creator);
+      console.log("foo", foo);
+      dispatch(
+        moveMosaicTab({
+          key: mosaicKey,
+          windowKey: foo.windowKey,
+          tabKey: foo.key,
+          loc: location,
+        }),
+      );
       return true;
     }
     await client.workspaces.schematic.create(workspaceKey, {
@@ -55,6 +66,15 @@ export const FileHandler: Layout.FileHandler = async ({
       ...state,
     });
   }
-  placer(creator);
+  const foo = placer(creator);
+  console.log("foo", foo);
+  dispatch(
+    moveMosaicTab({
+      key: mosaicKey,
+      windowKey: foo.windowKey,
+      tabKey: state.key,
+      loc: location,
+    }),
+  );
   return true;
 };

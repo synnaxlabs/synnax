@@ -63,6 +63,10 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
+      console.log("handleDrop");
+      console.log("key", key);
+      console.log("tabKey", tabKey);
+      console.log("loc", loc);
       dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
     [dispatch, windowKey],
@@ -70,6 +74,9 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
+      console.log("handleCreate");
+      console.log("mosaicKey", mosaicKey);
+      console.log("tabKeys", tabKeys);
       if (tabKeys == null) {
         placer(
           createSelector({
@@ -112,6 +119,8 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleClose = useCallback(
     (tabKey: string): void => {
+      console.log("handleClose");
+      console.log("tabKey", tabKey);
       dispatch(remove({ keys: [tabKey] }));
     },
     [dispatch],
@@ -119,6 +128,8 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
+      console.log("handleSelect");
+      console.log("tabKey", tabKey);
       dispatch(selectMosaicTab({ tabKey }));
     },
     [dispatch],
@@ -126,6 +137,9 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleRename = useCallback(
     (tabKey: string, name: string): void => {
+      console.log("handleRename");
+      console.log("tabKey", tabKey);
+      console.log("name", name);
       dispatch(rename({ key: tabKey, name }));
     },
     [dispatch],
@@ -133,6 +147,9 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleResize = useDebouncedCallback(
     (key, size) => {
+      console.log("handleResize");
+      console.log("key", key);
+      console.log("size", size);
       dispatch(resizeMosaicTab({ key, size, windowKey }));
     },
     100,
@@ -142,7 +159,9 @@ export const Mosaic = memo((): ReactElement => {
   const workspaceKey = Workspace.useSelectActiveKey();
 
   const handleFileDrop = useCallback(
-    (nodeKey: number, event: React.DragEvent<HTMLDivElement>) => {
+    (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
+      console.log(nodeKey);
+      console.log(loc);
       const files = Array.from(event.dataTransfer.files);
       if (files.length === 0) return;
       files.forEach((file) => {
@@ -153,12 +172,14 @@ export const Mosaic = memo((): ReactElement => {
             const fileAsJSON = JSON.parse(new TextDecoder().decode(b));
             const name = file.name.slice(0, -5);
             SchematicServices.FileHandler({
-              nodeKey,
+              mosaicKey: nodeKey,
               file: fileAsJSON,
               placer,
               name,
               client,
               workspaceKey,
+              location: loc,
+              dispatch,
             });
           })
           .catch((e) => {
