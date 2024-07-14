@@ -219,6 +219,7 @@ export const { actions, reducer } = createSlice({
       const schematic: State = {
         ...ZERO_STATE,
         ...latest.migrateState(payload),
+        key: layoutKey,
       } as State;
       if (schematic.snapshot) {
         schematic.editable = false;

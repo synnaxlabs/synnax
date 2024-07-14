@@ -13,6 +13,7 @@ import {
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, id, type location } from "@synnaxlabs/x";
@@ -101,6 +102,8 @@ export interface FileHandlerProps {
   file: any;
   name: string;
   placer: Placer;
+  client: Synnax | null;
+  workspaceKey: string | null;
 }
 
 export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;

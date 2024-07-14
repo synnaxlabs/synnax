@@ -40,6 +40,7 @@ import { LinePlot } from "@/lineplot";
 import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
+import { Workspace } from "@/workspace";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
@@ -138,6 +139,8 @@ export const Mosaic = memo((): ReactElement => {
     [dispatch, windowKey],
   );
 
+  const workspaceKey = Workspace.useSelectActiveKey();
+
   const handleFileDrop = useCallback(
     (nodeKey: number, event: React.DragEvent<HTMLDivElement>) => {
       const files = Array.from(event.dataTransfer.files);
@@ -149,7 +152,14 @@ export const Mosaic = memo((): ReactElement => {
           .then((b) => {
             const fileAsJSON = JSON.parse(new TextDecoder().decode(b));
             const name = file.name.slice(0, -5);
-            SchematicServices.FileHandler({ nodeKey, file: fileAsJSON, placer, name });
+            SchematicServices.FileHandler({
+              nodeKey,
+              file: fileAsJSON,
+              placer,
+              name,
+              client,
+              workspaceKey,
+            });
           })
           .catch((e) => {
             console.error(e);

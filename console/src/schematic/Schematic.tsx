@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import { NotFoundError } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -18,6 +19,7 @@ import {
   Legend,
   Schematic as Core,
   Status,
+  Synnax,
   Text,
   Theming,
   Triggers,
@@ -424,6 +426,8 @@ export interface ImportProps {
 export const useImport = (): ((props: ImportProps) => void) => {
   const addStatus = Status.useAggregator();
   const placeLayout = Layout.usePlacer();
+  const client = Synnax.use();
+  const workspace = Workspace.useSelectActiveKey();
   return useMutation<void, Error, ImportProps, void>({
     mutationFn: async ({ filePath }) => {
       let path = filePath;
@@ -438,6 +442,7 @@ export const useImport = (): ((props: ImportProps) => void) => {
       }
       const file = await readFile(path);
       const fileName = path.split("/").pop();
+      const name = fileName?.split(".")[0] ?? "New Schematic";
       const importedStr = new TextDecoder().decode(file);
       const json = JSON.parse(importedStr);
       const z = STATES_Z.find((stateZ) => {
@@ -449,12 +454,30 @@ export const useImport = (): ((props: ImportProps) => void) => {
             " a valid schematic.",
         );
       const newState = migrateState(z.parse(json));
-      placeLayout(
-        create({
+      const creator = create({
+        ...newState,
+        name,
+      });
+      if (client == null) {
+        placeLayout(creator);
+        return;
+      }
+      try {
+        const schematic = await client.workspaces.schematic.retrieve(newState.key);
+        await client.workspaces.schematic.setData(
+          schematic.key,
+          newState as unknown as UnknownRecord,
+        );
+      } catch (e) {
+        if (!NotFoundError.matches(e)) throw e;
+        if (workspace == null) return;
+        await client.workspaces.schematic.create(workspace, {
+          name,
+          data: deep.copy(newState) as unknown as UnknownRecord,
           ...newState,
-          name: fileName?.split(".")[0] ?? "New Schematic",
-        }),
-      );
+        });
+      }
+      placeLayout(creator);
     },
     onError: (e) => {
       addStatus({
