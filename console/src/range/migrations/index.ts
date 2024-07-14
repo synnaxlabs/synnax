@@ -13,6 +13,7 @@ import * as v0 from "@/range/migrations/v0";
 
 export type SliceState = v0.SliceState;
 export type Range = v0.Range;
+export type TimeRange = v0.TimeRange;
 export type DynamicRange = v0.DynamicRange;
 export type StaticRange = v0.StaticRange;
 export const ZERO_SLICE_STATE = v0.ZERO_SLICE_STATE;

@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Input,
   List,
   Ranger,
   Select,
@@ -18,7 +19,6 @@ import {
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
