@@ -62,12 +62,6 @@ func WithGC(config *GCConfig) Option {
 	}
 }
 
-func MemBacked() Option {
-	return func(o *options) {
-		o.fs = xfs.NewMem()
-	}
-}
-
 func WithInstrumentation(i alamos.Instrumentation) Option {
 	return func(o *options) {
 		o.Instrumentation = i

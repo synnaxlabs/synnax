@@ -94,7 +94,8 @@ func (i *Iterator) Valid() bool {
 	return ok
 }
 
-// SetBounds implements Iterator.
+// SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
+// valid until a seeking call is made.
 func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 	i.exec(IteratorRequest{Command: IterSetBounds, Bounds: bounds})
 }
