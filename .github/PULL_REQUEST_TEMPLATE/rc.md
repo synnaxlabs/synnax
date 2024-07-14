@@ -231,10 +231,10 @@ I can successfully:
 - [ ] Array Sampling - The driver will not crash if I specify an improper array size.
 - [ ] Channel Selection - The read task dialog will recommend synnax channels
 based on the configured OPC UA node.
-- [ ] connect to a physical device and read data from it.
-- [ ]	maintain operation of the driver when a device is disconnected or a channel is 
+- [ ] Connect to a physical device and read data from it.
+- [ ]	Maintain operation of the driver when a device is disconnected or a channel is 
 removed from the device while it is running.
-- [ ]	enable and disable data saving at will.
+- [ ]	Enable and disable data saving at will.
 
 ### National Instruments
 
