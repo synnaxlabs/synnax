@@ -472,6 +472,13 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 			s.DataType,
 		)
 	}
+	if s.Len() == 0 {		
+		return errors.Wrapf(
+			validate.Error,
+			"series for channel %d length is zero",
+			w.idx.key,
+		)
+	}
 	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, s.Len()-1)
 	return nil
 }
