@@ -17,7 +17,22 @@ export const defineCommand: Command = {
   key: "clear-local-storage",
   name: "Clear Local Storage",
   icon: <Icon.Close />,
-  onSelect: ({ store }) => store.dispatch(CLEAR_STATE as PayloadAction<any>),
+  onSelect: ({ store, confirm }) => {
+    confirm(
+      {
+        message: "Are you sure you want to clear the Console's local storage?",
+        description:
+          "This will remove all saved console data that is not persisted within a Synnax cluster.",
+      },
+      {
+        icon: "Close",
+        name: "Clear Local Storage.Confirm",
+      },
+    ).then((result) => {
+      if (!result) return;
+      store.dispatch(CLEAR_STATE as PayloadAction<any>);
+    });
+  },
 };
 
 export const COMMANDS = [defineCommand];

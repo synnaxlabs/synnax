@@ -66,6 +66,8 @@ export const open = async <S extends RequiredState>({
   const db = new TauriKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
 
+  console.log(`Latest database version key is ${version}`);
+
   const revert = async (): Promise<void> => {
     if (appWindow.label !== MAIN_WINDOW) return;
     version--;
@@ -75,8 +77,7 @@ export const open = async <S extends RequiredState>({
 
   const clear = async (): Promise<void> => {
     if (appWindow.label === MAIN_WINDOW) {
-      for (let i = version; i >= version - KEEP_HISTORY - 1; i--)
-        await db.delete(persistedStateKey(i));
+      await db.clear();
       version = 0;
       await db.set(DB_VERSION_KEY, { version });
     }
@@ -90,9 +91,11 @@ export const open = async <S extends RequiredState>({
     // when we do deep deletes.
     const deepCopy = deep.copy(store.getState());
     const filtered = deep.deleteD<S>(deepCopy, ...exclude);
-    db.set(persistedStateKey(version), filtered).catch(console.error);
-    db.set(DB_VERSION_KEY, { version }).catch(console.error);
-    db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
+    void (async () => {
+      await db.set(persistedStateKey(version), filtered).catch(console.error);
+      await db.set(DB_VERSION_KEY, { version }).catch(console.error);
+      await db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
+    })();
   }, 500);
 
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;

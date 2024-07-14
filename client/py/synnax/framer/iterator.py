@@ -132,7 +132,7 @@ class Iterator:
         :returns: False if a segment satisfying the request can't be found for a particular
         channel or the iterator has accumulated an error.
         """
-        return self._exec(command=_Command.NEXT, span=span)
+        return self._exec(command=_Command.PREV, span=span)
 
     @trace("debug")
     def seek_first(self) -> bool:
@@ -157,7 +157,7 @@ class Iterator:
         return self._exec(command=_Command.SEEK_LAST)
 
     @trace("debug")
-    def seek_lt(self, stamp: TimeStamp) -> bool:
+    def seek_le(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is less than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
         considered valid until a call to first, last, next, prev, prev_span, next_span, or next_range.

@@ -1,11 +1,11 @@
 // Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in
+// the file licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business
+// Source License, use of this software will be governed by the Apache License,
+// Version 2.0, included in the file licenses/APL.txt.
 
 import "@/cluster/Dropdown.css";
 
@@ -19,25 +19,14 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import {
-  type MouseEvent,
-  type MouseEventHandler,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-} from "react";
+import type { MouseEvent, PropsWithChildren, ReactElement } from "react";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
-import { type Cluster } from "@/cluster/core";
-import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selectors";
-import {
-  LOCAL_CLUSTER_KEY,
-  remove,
-  rename,
-  setActive,
-  setLocalState,
-} from "@/cluster/slice";
+import type { Cluster } from "@/cluster/core";
+import { useSelect, useSelectMany } from "@/cluster/selectors";
+import { remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -49,7 +38,6 @@ export const List = (): ReactElement => {
   const allClusters = useSelectMany();
   const active = useSelect();
   const openWindow = Layout.usePlacer();
-
   const selected = active?.key ?? null;
 
   const handleConnect = (key: string | null): void => {
@@ -61,18 +49,16 @@ export const List = (): ReactElement => {
   };
 
   const handleRename = (key: string): void => {
-    Text.edit(`text-${key}`);
+    Text.edit(`cluster-dropdown-${key}`);
   };
 
-  const handleLink = (key: string): void => {
-    void navigator.clipboard.writeText(`synnax://cluster/${key}`);
-  };
+  const handleLink = Link.useCopyToClipboard();
 
   const contextMenu = useCallback(
     ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
       if (key == null) return <Layout.DefaultContextMenu />;
+
       const handleSelect = (menuKey: string): void => {
-        if (key == null) return;
         switch (menuKey) {
           case "remove":
             return handleRemove([key]);
@@ -80,8 +66,11 @@ export const List = (): ReactElement => {
             return handleConnect(key);
           case "disconnect":
             return handleConnect(null);
-          case "link":
-            return handleLink(key);
+          case "link": {
+            const name = allClusters.find((c) => c.key === key)?.name;
+            if (name == null) return;
+            return handleLink({ clusterKey: key, name });
+          }
           case "rename":
             return handleRename(key);
         }
@@ -89,9 +78,6 @@ export const List = (): ReactElement => {
 
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
-          <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
-            Remove
-          </PMenu.Item>
           {key === active?.key ? (
             <PMenu.Item
               startIcon={<Icon.Disconnect />}
@@ -105,8 +91,13 @@ export const List = (): ReactElement => {
               Connect
             </PMenu.Item>
           )}
-          <Link.CopyMenuItem />
           <Menu.RenameItem />
+          <PMenu.Divider />
+          <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
+            Remove
+          </PMenu.Item>
+          <Link.CopyMenuItem />
+          <PMenu.Divider />
           <Menu.HardReloadItem />
         </PMenu.Menu>
       );
@@ -163,43 +154,14 @@ export const List = (): ReactElement => {
 
 const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   const dispatch = useDispatch();
-  const { status, pid } = useSelectLocalState();
-  const isLocal = props.entry.key === LOCAL_CLUSTER_KEY;
-  let icon: ReactElement | null = null;
-  let loading = false;
-  if (isLocal) {
-    switch (status) {
-      case "starting":
-        icon = <Icon.Loading />;
-        loading = true;
-        break;
-      case "running":
-        icon = <Icon.Pause />;
-        break;
-      case "stopping":
-        icon = <Icon.Loading />;
-        loading = true;
-        break;
-      case "stopped":
-        icon = <Icon.Play />;
-        break;
-    }
-  }
 
   const handleChange = (value: string) => {
     dispatch(rename({ key: props.entry.key, name: value }));
   };
 
-  const handleClick: MouseEventHandler = (e): void => {
-    e.stopPropagation();
-    if (!isLocal) return;
-    if (status === "running") dispatch(setLocalState({ command: "stop" }));
-    if (status === "stopped") dispatch(setLocalState({ command: "start" }));
-  };
-
   return (
     <CoreList.ItemFrame
-      className={CSS(CSS.B("cluster-list-item"), isLocal && "local")}
+      className={CSS(CSS.B("cluster-list-item"))}
       direction="x"
       align="center"
       {...props}
@@ -207,7 +169,7 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
       <Align.Space direction="y" justify="spaceBetween" size={0.5} grow>
         <Text.MaybeEditable
           level="p"
-          id={`text-${props.entry.key}`}
+          id={`cluster-dropdown-${props.entry.key}`}
           weight={450}
           value={props.entry.name}
           onChange={handleChange}
@@ -217,23 +179,6 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
           {props.entry.props.host}:{props.entry.props.port}
         </Text.Text>
       </Align.Space>
-      {isLocal && (
-        <Align.Space direction="y" align="end" size="small">
-          {icon != null && (
-            <Button.Icon
-              disabled={status === "starting" || status === "stopping"}
-              onClick={handleClick}
-              variant="outlined"
-              loading={loading}
-            >
-              {icon}
-            </Button.Icon>
-          )}
-          <Text.Text level="p" shade={6}>
-            PID {isLocal ? pid : "N/A"}
-          </Text.Text>
-        </Align.Space>
-      )}
     </CoreList.ItemFrame>
   );
 };
@@ -271,7 +216,6 @@ export const NoneConnected = (): ReactElement => {
 export const Dropdown = (): ReactElement => {
   const dropProps = Core.use();
   const cluster = useSelect();
-
   return (
     <Core.Dialog
       {...dropProps}

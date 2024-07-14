@@ -195,7 +195,7 @@ export class CoreAxis<
     const [bounds, err] = await this.bounds(hold, fetchDataBounds);
     const dir = direction.swap(direction.construct(this.state.location));
     return [
-      scale.Scale.scale(bounds)
+      scale.Scale.scale<number>(bounds)
         .scale(1)
         .translate(-box.root(viewport)[dir])
         .magnify(1 / box.dim(viewport, dir)),

@@ -89,6 +89,7 @@ export const Dialog = ({
   const targetRef = useRef<HTMLDivElement>(null);
   const visibleRef = useSyncedRef(visible);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const prevLocation = useRef<location.XY | undefined>(undefined);
 
   const [{ dialogBox, dialogLoc }, setState] = useState<State>({ ...ZERO_STATE });
 
@@ -100,7 +101,9 @@ export const Dialog = ({
       target: targetRef.current,
       dialog: dialogRef.current,
       initial: propsLocation,
+      prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
     });
+    prevLocation.current = location;
     setState({ dialogLoc: location, dialogBox: adjustedDialog });
   }, [propsLocation, variant]);
 
@@ -110,10 +113,14 @@ export const Dialog = ({
 
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
 
-  const resizeParentRef = useResize(calculatePosition, { enabled: visible });
+  const resizeParentRef = useResize(calculatePosition, {
+    enabled: visible,
+  });
   const combinedParentRef = useCombinedRefs(targetRef, resizeParentRef);
 
-  const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
+  const resizeDialogRef = useResize(calculatePosition, {
+    enabled: visible,
+  });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
   let dialogStyle: CSSProperties = {};
@@ -121,9 +128,7 @@ export const Dialog = ({
     dialogStyle = { ...xy.css(box.topLeft(dialogBox)) };
     if (variant === "connected") dialogStyle.width = box.width(dialogBox);
   }
-  if (typeof maxHeight === "number") {
-    dialogStyle.maxHeight = maxHeight;
-  }
+  if (typeof maxHeight === "number") dialogStyle.maxHeight = maxHeight;
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
@@ -188,7 +193,7 @@ export const Dialog = ({
 };
 Dialog.displayName = "Dropdown";
 
-interface CalcDialogProps extends Pick<position.DialogProps, "initial"> {
+interface CalcDialogProps extends Pick<position.DialogProps, "initial" | "prefer"> {
   target: HTMLElement;
   dialog: HTMLElement;
 }
@@ -204,13 +209,15 @@ const calcFloatingDialog = ({
   target: target_,
   dialog: dialog_,
   initial,
+  prefer,
 }: CalcDialogProps): position.DialogReturn => {
   const res = position.dialog({
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     target: box.construct(target_),
     dialog: box.construct(dialog_),
     ...FLOATING_PROPS,
-    initial: initial,
+    initial,
+    prefer,
   });
   const { location } = res;
   const adjustedDialog = box.translate(
@@ -232,7 +239,8 @@ const CONNECTED_TRANSLATE_AMOUNT: number = 1;
 const calcConnectedDialog = ({
   target,
   dialog,
-  initial,
+  initial = CONNECTED_PROPS.initial,
+  prefer = CONNECTED_PROPS.prefer,
 }: CalcDialogProps): position.DialogReturn => {
   let targetBox = box.construct(target);
   // the container is the nearest element that has a container-type or contain property
@@ -255,7 +263,8 @@ const calcConnectedDialog = ({
     dialog: box.resize(box.construct(dialog), "x", box.width(targetBox)),
     container,
     ...CONNECTED_PROPS,
-    initial: initial ?? CONNECTED_PROPS.initial,
+    initial,
+    prefer,
   };
 
   const res = position.dialog(props);

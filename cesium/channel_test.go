@@ -383,8 +383,7 @@ var _ = Describe("Channel", Ordered, func() {
 					f := MustSucceed(s.Open("123.txt", os.O_CREATE))
 					Expect(f.Close()).To(Succeed())
 
-					db, err := cesium.Open("", cesium.WithFS(s))
-					Expect(err).ToNot(HaveOccurred())
+					db := openDBOnFS(s)
 					Expect(db.Close()).To(Succeed())
 				})
 
@@ -393,20 +392,20 @@ var _ = Describe("Channel", Ordered, func() {
 					_, err := s.Sub("1")
 					Expect(err).ToNot(HaveOccurred())
 
-					_, err = cesium.Open("", cesium.WithFS(s))
+					_, err = cesium.Open("", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("field must be set"))
 				})
 
 				It("Should not error when db gets created with proper numeric folders", func() {
 					s := MustSucceed(fs.Sub("sub0"))
-					db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					db := openDBOnFS(s)
 					key := GenerateChannelKey()
 
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
-					db = MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					db = openDBOnFS(s)
 					ch, err := db.RetrieveChannel(ctx, key)
 					Expect(err).ToNot(HaveOccurred())
 
@@ -424,7 +423,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 				It("Should not error when db is opened on existing directory", func() {
 					s := MustSucceed(fs.Sub("sub3"))
-					db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					db := openDBOnFS(s)
 					indexKey := GenerateChannelKey()
 					key := GenerateChannelKey()
 
@@ -440,7 +439,7 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db on the file system with existing data")
-					db = MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					db = openDBOnFS(s)
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch).ToNot(BeNil())
 					Expect(ch.Key).To(Equal(key))

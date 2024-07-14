@@ -172,22 +172,22 @@ export class Context {
   scaleRegion(b: box.Box): scale.XY {
     return new scale.XY(
       // Accept a value in decimal.
-      scale.Scale.scale(0, 1)
+      scale.Scale.scale<number>(0, 1)
         // Turn it to pixels relative to the child width.
         .scale(box.width(b))
-        // Translate the value to the left based on the parent and childs position.
+        // Translate the value to the left based on the parent and child's position.
         .translate(box.left(b))
         // Rebound the scale to the canvas width.
         .reBound(box.width(this.region))
         // Rescale the value to clip space.
         .scale(-1, 1),
       // Accept a value in decimal.
-      scale.Scale.scale(0, 1)
+      scale.Scale.scale<number>(0, 1)
         // Turn it to pixels relative to the child height.
         .scale(box.height(b))
         // Invert the scale since we read pixels from the top.
         .invert()
-        // Translate the value to the top based on the parent and childs position.
+        // Translate the value to the top based on the parent and child's position.
         .translate(box.top(b))
         // Rebound the scale to the canvas height.
         .reBound(box.height(this.region))

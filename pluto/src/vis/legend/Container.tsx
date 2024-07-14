@@ -9,7 +9,7 @@
 
 import "@/vis/legend/Container.css";
 
-import { box, location, Optional, scale, xy } from "@synnaxlabs/x";
+import { box, location, scale, xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   memo,
@@ -18,6 +18,7 @@ import {
   useCallback,
   useRef,
 } from "react";
+import { z } from "zod";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -27,16 +28,24 @@ import { type OptionalControl } from "@/input/types";
 import { state } from "@/state";
 import { preventDefault } from "@/util/event";
 
-interface CompleteStickyXY extends xy.XY {
-  root: location.CornerXY;
-  units: { x: "px" | "decimal"; y: "px" | "decimal" };
-}
+export const completeStickyXYz = xy.xy.extend({
+  root: location.corner,
+  units: z.object({
+    x: z.enum(["px", "decimal"]),
+    y: z.enum(["px", "decimal"]),
+  }),
+});
+export type CompleteStickyXY = z.infer<typeof completeStickyXYz>;
+export const stickyXYz = completeStickyXYz.partial({
+  root: true,
+  units: true,
+});
 
 // StickyXY is a special coordinate system that allows for an element to 'stick' to an
 // edge of its parent container. This makes for intuitive positioning behavior for
 // components like legends. When the parent resizes, the legend will remain in
 // a natural position.
-export type StickyXY = Optional<CompleteStickyXY, "root" | "units">;
+export type StickyXY = z.infer<typeof stickyXYz>;
 
 const stickyToCSS = (pos: StickyXY): CSSProperties => {
   const ret: CSSProperties = {};

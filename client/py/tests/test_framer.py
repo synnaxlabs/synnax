@@ -8,11 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import time
 
 import numpy as np
 import pandas as pd
 import pytest
-import time
 
 import synnax as sy
 from synnax import TimeSpan, TimeRange, TimeStamp, UnauthorizedError
@@ -67,6 +67,38 @@ class TestIterator:
             assert l == [8, 9]
 
             assert not i.next(sy.framer.AUTO_SPAN)
+
+    def test_advanced_iterate(self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]):
+        [idx_ch, data_ch] = indexed_pair
+        idx_ch.write(0, np.array([0, 1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND, 3 * sy.TimeSpan.SECOND, 4 * sy.TimeSpan.SECOND, 5 * sy.TimeSpan.SECOND]).astype(np.int64))
+        data_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
+        idx_ch.write(TimeStamp(10 * sy.TimeSpan.SECOND), np.array([10 * sy.TimeSpan.SECOND, 11 * sy.TimeSpan.SECOND, 12 * sy.TimeSpan.SECOND, 13 * sy.TimeSpan.SECOND]).astype(np.int64))
+        data_ch.write(TimeStamp(10 * sy.TimeSpan.SECOND), np.array([10, 11, 12, 13]).astype(np.int64))
+        idx_ch.write(TimeStamp(15 * sy.TimeSpan.SECOND), np.array([15 * sy.TimeSpan.SECOND, 16 * sy.TimeSpan.SECOND, 17 * sy.TimeSpan.SECOND, 18 * sy.TimeSpan.SECOND, 19 * sy.TimeSpan.SECOND]).astype(np.int64))
+        data_ch.write(TimeStamp(15 * sy.TimeSpan.SECOND), np.array([15, 16, 17, 18, 19]).astype(np.int64))
+        with client.open_iterator(sy.TimeRange.MAX, data_ch.key) as i:
+            assert i.seek_ge(sy.TimeStamp(16 * sy.TimeSpan.SECOND))
+            assert i.next(4 * sy.TimeSpan.SECOND)
+            l = i.value.get(data_ch.key).to_numpy().tolist()
+            assert l == [16, 17, 18, 19]
+
+            assert i.seek_last()
+            assert i.prev(4 * sy.TimeSpan.SECOND)
+            l = i.value.get(data_ch.key).to_numpy().tolist()
+            assert l == [16, 17, 18, 19]
+
+            assert i.prev(11 * sy.TimeSpan.SECOND)
+            l = i.value.get(data_ch.key).to_numpy().tolist()
+            assert l == [5, 10, 11, 12, 13, 15]
+
+            assert i.seek_le(sy.TimeStamp(6 * sy.TimeSpan.SECOND))
+            assert i.prev(3 * sy.TimeSpan.SECOND)
+            l = i.value.get(data_ch.key).to_numpy().tolist()
+            assert l == [3, 4, 5]
+
+            assert not i.seek_le(-1)
+            assert not i.seek_ge(sy.TimeStamp(20 * sy.TimeSpan.SECOND))
+
 
 
 @pytest.mark.framer
@@ -196,7 +228,6 @@ class TestWriter:
                     async with asyncio.timeout(0.2):
                         await s.read()
 
-    @pytest.mark.focus
     def test_write_persist_stream_regression(self, client: sy.Synnax):
         """Should work"""
         idx = client.channels.create(
@@ -212,16 +243,15 @@ class TestWriter:
         # Write some data
         start = sy.TimeStamp.now()
         with client.open_writer(
-            start,
-            [idx.key, data.key],
-            enable_auto_commit=True
+            start, [idx.key, data.key], enable_auto_commit=True
         ) as w:
-            w.write({ idx.key: [start], data.key: [1] })
+            w.write({idx.key: [start], data.key: [1]})
 
         # Read the data
         next_start = start + 5 * sy.TimeSpan.MILLISECOND
-        f = client.read(TimeRange(start - 5 * sy.TimeSpan.MILLISECOND, next_start),
-                        data.key)
+        f = client.read(
+            TimeRange(start - 5 * sy.TimeSpan.MILLISECOND, next_start), data.key
+        )
         assert len(f) == 1
 
         data_2 = client.channels.create(
@@ -234,26 +264,42 @@ class TestWriter:
             data_type="float64",
             index=idx.key,
         )
-        with (client.open_writer(
+        with client.open_writer(
             next_start,
             [idx.key, data.key, data_2.key, data_3.key],
-            enable_auto_commit=True
-        ) as w):
-            w.write({
-                idx.key: [next_start],
-                data.key: [1],
-                data_2.key: [2],
-                data_3.key: [3]
-            })
+            enable_auto_commit=True,
+        ) as w:
+            w.write(
+                {idx.key: [next_start], data.key: [1], data_2.key: [2], data_3.key: [3]}
+            )
 
-        tr = sy.TimeRange(start - 5 * sy.TimeSpan.MILLISECOND, next_start + 5 *
-                          sy.TimeSpan.MILLISECOND)
+        tr = sy.TimeRange(
+            start - 5 * sy.TimeSpan.MILLISECOND,
+            next_start + 5 * sy.TimeSpan.MILLISECOND,
+        )
         f = client.read(tr, data_2.key)
         assert len(f) == 1
         f2 = client.read(tr, [data.key, data_2.key, data_3.key])
         assert len(f2[data.key]) == 2
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
+
+    def test_set_authority(self, client: sy.Synnax, channel: sy.channel):
+        w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
+        w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
+        try:
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+
+            w1.set_authority({channel.key: 255})
+
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
 
 
 @pytest.mark.framer
@@ -320,7 +366,7 @@ class TestDeleter:
     def test_delete_channel_not_found_name(
         self, channel: sy.Channel, client: sy.Synnax
     ):
-        client.write(0, np.random.rand(50).astype(np.float64), channel.key)
+        client.write(0, channel.key, np.random.rand(50).astype(np.float64))
         with pytest.raises(sy.NotFoundError):
             client.delete([channel.name, "kaka"], TimeRange.MAX)
 
@@ -328,7 +374,7 @@ class TestDeleter:
         assert data.size == 50 * 8
 
     def test_delete_channel_not_found_key(self, channel: sy.Channel, client: sy.Synnax):
-        client.write(0, np.random.rand(50).astype(np.float64), channel.key)
+        client.write(0, channel.key, np.random.rand(50).astype(np.float64))
         with pytest.raises(sy.NotFoundError):
             client.delete([channel.key, 23423], TimeRange.MAX)
 

@@ -44,8 +44,10 @@ export const CreateChannels = ({
 }: CreateChannelsProps): ReactElement => {
   const [mostRecentSelected, setMostRecentSelected] =
     useState<MostRecentSelectedState | null>(null);
+  const ctx = Form.useContext();
+  const groups = ctx.get<GroupConfig[]>("groups").value;
   const [selectedGroup, setSelectedGroup] = useState<SelectedGroupState | undefined>(
-    undefined,
+    groups.length > 0 ? { index: 0, key: groups[0].key } : undefined,
   );
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
@@ -75,7 +77,12 @@ export const CreateChannels = ({
   }, [setMostRecentSelected, setSelectedChannels]);
 
   return (
-    <Align.Space direction="x" grow className={CSS.B("physical-plan")} size={10}>
+    <Align.Space
+      direction="x"
+      grow
+      className={CSS(CSS.B("physical-plan"), CSS.B("opcua"))}
+      size={10}
+    >
       <Align.Space direction="y" className={CSS.B("description")}>
         <Text.Text level="h2" weight={600}>
           Here are the channels we'll create for your OPC UA server
@@ -258,9 +265,12 @@ const GroupListItem = ({
     key: props.entry.key,
     canDrop: ({ source }) => source.type === "Device.Channel",
     onDrop: ({ items }) => {
-      props.onSelect?.(props.entry.key);
+      if (items.length === 0) return [];
       const path = `groups.${index}.channels`;
       const v = ctx.get<ChannelConfig[]>(path);
+      const first = items[0];
+      if (v.value.some((c) => c.key === first.key)) return [];
+      props.onSelect?.(props.entry.key);
       ctx.set(
         path,
         v.value.concat(items.map((i) => ({ ...(i.data as ChannelConfig) }))),
