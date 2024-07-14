@@ -231,15 +231,14 @@ const XAxis = ({
   });
 
   const xRules = rules?.filter((r) => r.axis === key);
+  const dragging = Haul.useDraggingState();
   return (
     <Core.XAxis
       {...axis}
       {...dropProps}
       location={location as loc.Y}
       showGrid={showGrid ?? index === 0}
-      className={CSS(
-        CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(Haul.useDraggingState())),
-      )}
+      className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
     >
       {yAxes.map((a, i) => {

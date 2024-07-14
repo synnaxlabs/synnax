@@ -25,6 +25,7 @@ export type ReadState = task.State<ReadStateDetails>;
 
 export const readChanZ = z.object({
   key: z.string(),
+  name: z.string().optional(),
   channel: z.number().min(1, "Channel must be specified"),
   nodeId: z.string().min(1, "Node ID must be specified"),
   enabled: z.boolean(),

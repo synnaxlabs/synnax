@@ -153,15 +153,6 @@ const Wrapped = ({
     ),
   });
 
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(
-    initialValues.config.channels.length > 0
-      ? [initialValues.config.channels[0].key]
-      : [],
-  );
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
-    initialValues.config.channels.length > 0 ? 0 : null,
-  );
-
   const taskState = useObserveState<DigitalWriteStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
@@ -260,18 +251,7 @@ const Wrapped = ({
               </Header.Header>
               <Browser device={device} />
             </Align.Space>
-            <ChannelList
-              path="config.channels"
-              selected={selectedChannels}
-              onSelect={useCallback(
-                (v, i) => {
-                  if (v.length > 0) setSelectedChannelIndex(i);
-                  else setSelectedChannelIndex(null);
-                  setSelectedChannels(v);
-                },
-                [setSelectedChannels, setSelectedChannelIndex],
-              )}
-            />
+            <ChannelList path="config.channels" device={device} />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -288,35 +268,28 @@ const Wrapped = ({
 
 export interface ChannelListProps {
   path: string;
-  onSelect: (keys: string[], index: number) => void;
-  selected: string[];
+  device?: device.Device<Device.Properties>;
 }
 
-export const ChannelList = ({
-  path,
-  selected,
-  onSelect,
-}: ChannelListProps): ReactElement => {
+export const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
 
   const menuProps = Menu.useContextMenu();
 
-  const handleAdd = (): void => {
-    push({
-      key: nanoid(),
-      channel: 0,
-      nodeId: "",
-      enabled: true,
-    });
-  };
-
-  const onDrop = useCallback(({ source, items }: Haul.OnDropProps): Haul.Item[] => {
+  const onDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
     const dropped = items.filter(
       (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
     );
     push(
-      dropped.map((i) => ({ key: nanoid(), channel: 0, nodeId: i.data?.nodeId ?? "" })),
+      dropped.map((i) => ({
+        key: nanoid(),
+        name: (i.data?.name as string) ?? "",
+        channel: 0,
+        enabled: true,
+        nodeId: (i.data?.nodeId as string) ?? "",
+      })),
     );
+    return dropped;
   }, []);
 
   const canDrop = useCallback((state: Haul.DraggingState): boolean => {
@@ -332,8 +305,24 @@ export const ChannelList = ({
     onDrop,
   });
 
+  const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
+
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    value.length > 0 ? [value[0].key] : [],
+  );
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+    value.length > 0 ? 0 : null,
+  );
+
   return (
-    <Align.Space className={CSS.B("channels")} grow empty bordered rounded {...props}>
+    <Align.Space
+      className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
+      grow
+      empty
+      bordered
+      rounded
+      {...props}
+    >
       <Header.Header level="h4">
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
@@ -346,7 +335,8 @@ export const ChannelList = ({
                   .map((k) => value.findIndex((v) => v.key === k))
                   .filter((i) => i >= 0);
                 remove(indices);
-                onSelect([], 0);
+                setSelectedChannels([]);
+                setSelectedChannelIndex(null);
                 break;
               }
             }
@@ -377,12 +367,14 @@ export const ChannelList = ({
           }
         >
           <List.Selector<string, ReadChannelConfig>
-            value={selected}
+            value={selectedChannels}
             allowNone
             allowMultiple
-            onChange={(keys, { clickedIndex }) =>
-              clickedIndex != null && onSelect(keys, clickedIndex)
-            }
+            onChange={(keys, { clickedIndex }) => {
+              if (clickedIndex == null) return;
+              setSelectedChannels(keys);
+              setSelectedChannelIndex(clickedIndex);
+            }}
             replaceOnSingle
           >
             <List.Core<string, ReadChannelConfig> grow>
@@ -391,11 +383,12 @@ export const ChannelList = ({
                   {...props}
                   path={path}
                   remove={() => {
-                    const indices = selected
+                    const indices = selectedChannels
                       .map((k) => value.findIndex((v) => v.key === k))
                       .filter((i) => i >= 0);
                     remove(indices);
-                    onSelect([], 0);
+                    setSelectedChannels([]);
+                    setSelectedChannelIndex(null);
                   }}
                 />
               )}
@@ -403,6 +396,12 @@ export const ChannelList = ({
           </List.Selector>
         </List.List>
       </Menu.ContextMenu>
+      {selectedChannelIndex != null && (
+        <ChannelForm
+          selectedChannelIndex={selectedChannelIndex}
+          deviceProperties={device?.properties}
+        />
+      )}
     </Align.Space>
   );
 };
@@ -422,7 +421,7 @@ export const ChannelListItem = ({
     optional: true,
   });
   if (childValues == null) return <></>;
-  const channelName = Channel.useName(entry.channel, "No Synnax Channel");
+  const channelName = Channel.useName(entry.channel, entry.name);
   let channelColor = undefined;
   if (channelName === "No Synnax Channel") channelColor = "var(--pluto-warning-z)";
   const opcNode =
@@ -443,7 +442,7 @@ export const ChannelListItem = ({
           {channelName}
         </Text.Text>
         <Text.Text level="small" weight={350} shade={7} color={opcNodeColor}>
-          {opcNode}
+          {entry.name} {opcNode}
         </Text.Text>
       </Align.Space>
       <Button.Toggle
@@ -490,7 +489,11 @@ const ChannelForm = ({
   const channelRecName = Channel.useName(channelRec, "");
   const ctx = Form.useContext();
   return (
-    <>
+    <Align.Space
+      direction="y"
+      grow
+      style={{ padding: "2rem", borderTop: "var(--pluto-border)" }}
+    >
       <Form.Field<string>
         path={`${prefix}.nodeId`}
         label="OPC Node"
@@ -535,7 +538,7 @@ const ChannelForm = ({
           </Button.Button>
         </Align.Space>
       )}
-    </>
+    </Align.Space>
   );
 };
 
