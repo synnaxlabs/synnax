@@ -479,13 +479,12 @@ export const useImport = (): ((props: ImportProps) => void) => {
       }
       placeLayout(creator);
     },
-    onError: (e) => {
+    onError: (e) =>
       addStatus({
         key: id.id(),
         variant: "error",
         message: "Failed to import schematic.",
         description: e.message,
-      });
-    },
+      }),
   }).mutate;
 };

@@ -1,11 +1,11 @@
 // Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in
+// the file licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business
+// Source License, use of this software will be governed by the Apache License,
+// Version 2.0, included in the file licenses/APL.txt.
 
 import {
   Color,
@@ -23,6 +23,13 @@ export type NodeProps = object & {
   color?: Color.Crude;
 };
 
+export const nodePropsZ = z.object({}).and(
+  z.object({
+    key: Schematic.typeZ,
+    color: Color.crudeZ.optional(),
+  }),
+);
+
 export const stateZ = z.object({
   version: z.literal("0.0.0"),
   editable: z.boolean(),
@@ -31,8 +38,8 @@ export const stateZ = z.object({
   remoteCreated: z.boolean(),
   viewport: Diagram.viewportZ,
   nodes: z.array(Diagram.nodeZ),
-  edges: z.array(z.unknown()),
-  props: z.record(z.unknown()),
+  edges: z.array(Diagram.edgeZ),
+  props: z.record(z.string(), nodePropsZ),
   control: control.statusZ,
   controlAcquireTrigger: z.number(),
 });
@@ -52,7 +59,7 @@ export interface State extends migrate.Migratable<"0.0.0"> {
 
 export const copyBufferZ = z.object({
   pos: xy.xy,
-  nodes: z.array(z.unknown()),
+  nodes: z.array(Diagram.nodeZ),
   edges: z.array(z.unknown()),
   props: z.record(z.unknown()),
 });

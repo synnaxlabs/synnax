@@ -39,8 +39,8 @@ export interface SliceState extends Omit<v1.SliceState, "version" | "schematics"
 
 export const stateMigration = migrate.createMigration<v1.State, State>({
   name: "schematic.state",
-  migrate: (input) => ({
-    ...input,
+  migrate: (state) => ({
+    ...state,
     version: "2.0.0",
     key: "",
   }),
@@ -48,10 +48,10 @@ export const stateMigration = migrate.createMigration<v1.State, State>({
 
 export const sliceMigration = migrate.createMigration<v1.SliceState, SliceState>({
   name: "schematic.slice",
-  migrate: (input) => ({
-    ...input,
+  migrate: (sliceState) => ({
+    ...sliceState,
     schematics: Object.fromEntries(
-      Object.entries(input.schematics).map(([key, state]) => [
+      Object.entries(sliceState.schematics).map(([key, state]) => [
         key,
         {
           ...stateMigration(state),

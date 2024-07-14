@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, direction, location, xy } from "@synnaxlabs/x";
+import { z } from "zod";
 
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;
@@ -117,6 +118,11 @@ export interface Segment {
   direction: direction.Direction;
   length: number;
 }
+
+export const segmentZ = z.object({
+  direction: direction.direction,
+  length: z.number(),
+});
 
 export const travelSegments = (source: xy.XY, ...segments: Segment[]): xy.XY => {
   let current = source;

@@ -11,8 +11,8 @@ import { xy } from "@synnaxlabs/x";
 import type * as rf from "reactflow";
 import { z } from "zod";
 
-import { type Color } from "@/color";
-import { type connector } from "@/vis/diagram/edge/connector";
+import { Color } from "@/color";
+import { connector } from "@/vis/diagram/edge/connector";
 
 /** The current viewport state of the diagram */
 export interface Viewport {
@@ -40,6 +40,11 @@ export interface RFEdgeData {
   segments: connector.Segment[];
 }
 
+export const rfEdgeDataZ = z.object({
+  color: Color.crudeZ,
+  segments: z.array(connector.segmentZ),
+});
+
 /** The properties for an edge within a diagram. */
 export interface Edge extends RFEdgeData {
   /** A unique key for identifying the edge within the diagram. */
@@ -61,6 +66,15 @@ export interface Edge extends RFEdgeData {
    */
   targetHandle?: string | null;
 }
+
+export const edgeZ = rfEdgeDataZ.extend({
+  key: z.string(),
+  source: z.string(),
+  target: z.string(),
+  selected: z.boolean(),
+  sourceHandle: z.string().nullable(),
+  targetHandle: z.string().nullable(),
+});
 
 /** The properties for a node within a diagram. */
 export interface Node {
