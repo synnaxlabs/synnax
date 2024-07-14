@@ -5,11 +5,11 @@
     }
     .console-channels {
         height: 100%;
+        .pluto-menu-context__container {
+            max-height: calc(100% - 35rem);
+        }
         &.console-dragging {
             border-color: var(--pluto-primary-z);
-        }
-        .pluto-list__container {
-            height: calc(100% - 6rem);
         }
     }
 }

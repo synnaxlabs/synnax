@@ -378,8 +378,9 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
             replaceOnSingle
           >
             <List.Core<string, ReadChannelConfig> grow>
-              {(props) => (
+              {({ key, ...props }) => (
                 <ChannelListItem
+                  key={key}
                   {...props}
                   path={path}
                   remove={() => {
@@ -477,68 +478,14 @@ interface ChannelFormProps {
   deviceProperties?: Device.Properties;
 }
 
-const ChannelForm = ({
-  selectedChannelIndex,
-  deviceProperties,
-}: ChannelFormProps): ReactElement => {
+const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const dev = Form.useField<string>({ path: "config.device" }).value;
-  const channelPath = `${prefix}.channel`;
-  const channelValue = Form.useFieldValue<number>(channelPath);
-  const [channelRec, setChannelRec] = useState<channel.Key>(0);
-  const channelRecName = Channel.useName(channelRec, "");
-  const ctx = Form.useContext();
   return (
     <Align.Space
       direction="y"
       grow
       style={{ padding: "2rem", borderTop: "var(--pluto-border)" }}
-    >
-      <Form.Field<string>
-        path={`${prefix}.nodeId`}
-        label="OPC Node"
-        onChange={(v) => {
-          if (deviceProperties == null) return;
-          const defaultChan = deviceProperties.channels.find(
-            (c) => c.nodeId === v,
-          )?.synnaxChannel;
-          if (defaultChan != null) setChannelRec(defaultChan);
-        }}
-        hideIfNull
-      >
-        {(p) => <SelectNodeRemote allowNone={false} device={dev} {...p} />}
-      </Form.Field>
-      <Form.Field<number>
-        path={channelPath}
-        label="Synnax Channel"
-        hideIfNull
-        padHelpText={false}
-      >
-        {(p) => <Channel.SelectSingle allowNone={false} {...p} />}
-      </Form.Field>
-      {channelRecName.length > 0 && channelValue !== channelRec && (
-        <Align.Space direction="x" size="small">
-          <Button.Icon
-            variant="text"
-            size="small"
-            onClick={() => ctx.set(channelPath, channelRec)}
-            tooltip={"Apply recommended channel"}
-          >
-            <Icon.Bolt style={{ color: "var(--pluto-gray-l6)" }} />
-          </Button.Icon>
-          <Button.Button
-            variant="suggestion"
-            size="small"
-            style={{ width: "fit-content" }}
-            startIcon={<Icon.Channel />}
-            onClick={() => ctx.set(channelPath, channelRec)}
-            tooltip={"Apply recommended channel"}
-          >
-            {channelRecName}
-          </Button.Button>
-        </Align.Space>
-      )}
-    </Align.Space>
+    ></Align.Space>
   );
 };
 
