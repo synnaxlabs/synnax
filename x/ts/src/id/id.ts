@@ -10,4 +10,4 @@
 import { customAlphabet } from "nanoid";
 import { alphanumeric } from "nanoid-dictionary";
 
-export const id = customAlphabet(alphanumeric, 16);
+export const id = customAlphabet(alphanumeric, 11);
