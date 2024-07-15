@@ -270,8 +270,8 @@ var _ = Describe("Writer Behavior", func() {
 						ok := w.Write(cesium.NewFrame(
 							[]cesium.ChannelKey{rate1, rate2},
 							[]telem.Series{
-								telem.EmptySeries("int64"),
-								telem.EmptySeries("int64"),
+								{DataType: "int64"},
+								{DataType: "int64"},
 							},
 						))
 						Expect(ok).To(BeTrue())
