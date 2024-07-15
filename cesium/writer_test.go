@@ -280,11 +280,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(end).To(Equal(10 * telem.SecondTS))
 
 						Expect(w.Close()).To(Succeed())
-
-						//By("Checking that the data is correct")
-						//f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, rate1, rate2))
-						//Expect(f.Series[0].Data).To(BeEmpty())
-						//Expect(f.Series[1].Data).To(BeEmpty())
 					})
 				})
 				Describe("Auto-commit", func() {
