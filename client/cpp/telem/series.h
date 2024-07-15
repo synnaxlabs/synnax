@@ -32,6 +32,16 @@ void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
     for (size_t i = v.size() - 3; i < v.size(); ++i) os << v[i] << " ";
 }
 
+void output_partial_vector_uint8(std::ostream &os, const std::vector<uint8_t> &v) {
+    if (v.size() <= 6) {
+        for (size_t i = 0; i < v.size(); i++) os << (uint32_t)v[i] << " ";
+        return;
+    }
+    for (size_t i = 0; i < 3; i++) os << (uint32_t)v[i] << " ";
+    os << "... ";
+    for (size_t i = v.size() - 3; i < v.size(); ++i) os << v[i] << " ";
+}
+
 
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
