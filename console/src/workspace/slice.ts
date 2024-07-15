@@ -10,7 +10,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
 
 export interface SliceState extends migrate.Migratable {
   active: string | null;
@@ -41,7 +40,7 @@ export interface RenamePayload {
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator({
+export const migrateSlice = migrate.migrator<SliceState, SliceState>({
   name: "workspace.slice",
   migrations: MIGRATIONS,
   def: ZERO_SLICE_STATE,

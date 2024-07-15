@@ -505,6 +505,98 @@ var _ = Describe("Writer Behavior", func() {
 								Expect(w.Close()).To(Succeed())
 							})
 
+							It("Should auto persist every second when the interval is not set", func() {
+								By("Opening a writer")
+								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+									Channels:         []cesium.ChannelKey{index1, basic1},
+									Start:            10 * telem.SecondTS,
+									Mode:             cesium.WriterPersistStream,
+									EnableAutoCommit: config.True(),
+								}))
+
+								By("Writing telemetry")
+								ok := w.Write(cesium.NewFrame(
+									[]cesium.ChannelKey{index1, basic1},
+									[]telem.Series{
+										telem.NewSecondsTSV(10, 11, 13),
+										telem.NewSeriesV[int64](100, 101, 103),
+									},
+								))
+								Expect(ok).To(BeTrue())
+								Expect(w.Error()).ToNot(HaveOccurred())
+
+								By("Checking that this telemetry is not persisted")
+								s := MustSucceed(fs.Stat(channelKeyToPath(index1) + "/index.domain"))
+								Expect(s.Size()).To(Equal(int64(0)))
+								s = MustSucceed(fs.Stat(channelKeyToPath(basic1) + "/index.domain"))
+								Expect(s.Size()).To(Equal(int64(0)))
+
+								By("Sleeping to wait for the threshold to be met")
+								time.Sleep(time.Duration(1000 * telem.Millisecond))
+
+								By("Writing more telemetry")
+								ok = w.Write(cesium.NewFrame(
+									[]cesium.ChannelKey{index1, basic1},
+									[]telem.Series{
+										telem.NewSecondsTSV(20, 22, 23, 24),
+										telem.NewSeriesV[int64](200, 202, 203, 204),
+									},
+								))
+
+								Expect(ok).To(BeTrue())
+								Expect(w.Error()).ToNot(HaveOccurred())
+
+								By("Asserting that the telemetry has been persisted")
+								Eventually(func(g Gomega) {
+									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
+									buf := make([]byte, 26)
+									_, err := f.Read(buf)
+									g.Expect(err).ToNot(HaveOccurred())
+									g.Expect(f.Close()).To(Succeed())
+									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+									g.Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(24*telem.SecondTS + 1)))
+									g.Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(56)))
+
+									f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
+									buf = make([]byte, 26)
+									_, err = f.Read(buf)
+									g.Expect(err).ToNot(HaveOccurred())
+									g.Expect(f.Close()).To(Succeed())
+									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+									g.Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(24*telem.SecondTS + 1)))
+									g.Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(56)))
+								}).Should(Succeed())
+
+								By("Writing more telemetry")
+								ok = w.Write(cesium.NewFrame(
+									[]cesium.ChannelKey{index1, basic1},
+									[]telem.Series{
+										telem.NewSecondsTSV(30, 31, 33),
+										telem.NewSeriesV[int64](300, 301, 303),
+									},
+								))
+								Expect(ok).To(BeTrue())
+
+								By("Assert that the stranded telemetry be persisted on close")
+								Expect(w.Close()).To(Succeed())
+
+								f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
+								buf := make([]byte, 26)
+								_, err := f.Read(buf)
+								Expect(err).ToNot(HaveOccurred())
+								Expect(f.Close()).To(Succeed())
+								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(33*telem.SecondTS + 1)))
+								Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(80)))
+
+								f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
+								buf = make([]byte, 26)
+								_, err = f.Read(buf)
+								Expect(err).ToNot(HaveOccurred())
+								Expect(f.Close()).To(Succeed())
+								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(33*telem.SecondTS + 1)))
+								Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(80)))
+							})
+
 							It("Should auto persist once the time interval is reached", func() {
 								By("Opening a writer")
 								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -597,12 +689,13 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								))
 								Expect(ok).To(BeTrue())
+								Expect(w.Error()).ToNot(HaveOccurred())
 
 								By("Asserting that the telemetry has been persisted")
 								Eventually(func(g Gomega) {
 									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 									buf := make([]byte, 26)
-									_, err := f.ReadAt(buf, 0)
+									_, err := f.Read(buf)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -1047,6 +1140,64 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						))).To(BeTrue())
 						Expect(w.Close()).To(Succeed())
+					})
+				})
+				Describe("Set authority", func() {
+					It("Should set the authority of writers", func() {
+						var (
+							key  = GenerateChannelKey()
+							key2 = GenerateChannelKey()
+						)
+						By("Creating a channel")
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.TimeStampT},
+							cesium.Channel{Key: key2, Virtual: true, DataType: telem.StringT},
+						)).To(Succeed())
+						w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       []cesium.ChannelKey{key, key2},
+							Start:          10 * telem.SecondTS,
+							Authorities:    []control.Authority{control.Authority(100), control.Authority(110)},
+							SendAuthErrors: config.True(),
+						}))
+
+						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       []cesium.ChannelKey{key, key2},
+							Start:          10 * telem.SecondTS,
+							Authorities:    []control.Authority{control.Authority(110), control.Authority(100)},
+							SendAuthErrors: config.True(),
+						}))
+
+						w1.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{
+								telem.NewSeriesV[int64](1, 2, 3, 4),
+							}),
+						)
+						Expect(w1.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						Expect(w1.SetAuthority(cesium.WriterConfig{Channels: []cesium.ChannelKey{key, key2}, Authorities: []control.Authority{control.Absolute, control.Authority(0)}})).To(BeTrue())
+						Expect(w1.Error()).ToNot(HaveOccurred())
+
+						w2.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{
+								telem.NewSeriesV[int64](1, 3, 4),
+							},
+						))
+						Expect(w2.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						w1.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key2},
+							[]telem.Series{
+								{DataType: telem.StringT, Data: []byte("hehe")},
+							},
+						))
+
+						Expect(w1.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						Expect(w1.Close()).To(Succeed())
+						Expect(w2.Close()).To(Succeed())
 					})
 				})
 			})

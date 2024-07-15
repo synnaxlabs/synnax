@@ -98,6 +98,8 @@ func (f Frame) SquashSameKeyData(key ChannelKey) (data []byte) {
 	return
 }
 
+// Len returns the length of all series in the frame,
+// if a series has a different length, Len panics.
 func (f Frame) Len() int64 {
 	f.assertEven("Len")
 	if len(f.Series) == 0 {

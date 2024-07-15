@@ -222,14 +222,13 @@ func (a *API) BindTo(t Transport) {
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
-	//if !*a.config.Insecure {
 	secureMiddleware = append(secureMiddleware, tk)
-	//}
 
 	freighter.UseOnAll(
 		insecureMiddleware,
 		t.AuthRegistration,
 		t.AuthLogin,
+		t.ConnectivityCheck,
 	)
 
 	freighter.UseOnAll(
@@ -246,17 +245,11 @@ func (a *API) BindTo(t Transport) {
 		t.ChannelRename,
 		t.ChannelRetrieveGroup,
 
-		// CONNECTIVITY
-		t.ConnectivityCheck,
-
 		// FRAME
 		t.FrameWriter,
 		t.FrameIterator,
 		t.FrameStreamer,
 		t.FrameDelete,
-
-		// CONNECTIVITY
-		t.ConnectivityCheck,
 
 		// ONTOLOGY
 		t.OntologyRetrieve,

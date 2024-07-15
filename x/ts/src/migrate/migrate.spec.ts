@@ -56,6 +56,13 @@ const migrations: migrate.Migrations = {
   "1.0.0": migrateV2,
 };
 
+describe("compareSemVer", () => {
+  it("should return true when the major version is higher", () => {
+    expect(migrate.compareSemVer("1.0.0", "0.0.0")).toBeGreaterThan(0);
+    expect(migrate.semVerNewer("3.0.0", "0.3.0")).toBeTruthy();
+  });
+});
+
 describe("migrator", () => {
   it("should migrate an entity from v0 to v2", () => {
     const entity: EntityV0 = { version: "0.0.0", name: "foo" };
