@@ -77,11 +77,8 @@ func BenchmarkCesium(b *testing.B) {
 		streamOnly:           *streamOnly,
 	}
 
-	fsMaker, ok := fileSystems[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
-	fs = fsMaker()
-	if !ok {
-		b.Error("Cannot find osFS in file systems")
-	}
+	makeFS := fileSystems[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
+	fs, cleanUp := makeFS()
 
 	dataSeries, channels, keys := testutil.GenerateDataAndChannels(benchCfg.numIndexChannels, benchCfg.numDataChannels, benchCfg.numRateChannels, benchCfg.samplesPerDomain)
 
