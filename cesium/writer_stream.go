@@ -338,18 +338,13 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		return fr, err
 	}
 
-	// No data to write, so do nothing.
-	if fr.Len() == 0 || fr.Series[0].Len() == 0 {
-		return fr, nil
-	}
-
 	var incrementedSampleCount bool
 
 	for i, series := range fr.Series {
 		key := fr.Keys[i]
 		uWriter, ok := w.internal[key]
 
-		if !ok {
+		if !ok || series.Len() == 0 {
 			continue
 		}
 
