@@ -348,7 +348,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			continue
 		}
 
-		if w.writingToIdx && w.idx.key == key {
+		if w.writingToIdx && w.idx.key == key && series.Len() > 0 {
 			if err = w.updateHighWater(series); err != nil {
 				return fr, err
 			}
@@ -470,13 +470,6 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 			w.idx.key,
 			telem.TimeStampT,
 			s.DataType,
-		)
-	}
-	if s.Len() == 0 {		
-		return errors.Wrapf(
-			validate.Error,
-			"series for channel %d length is zero",
-			w.idx.key,
 		)
 	}
 	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, s.Len()-1)
