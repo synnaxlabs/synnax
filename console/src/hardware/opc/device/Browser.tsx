@@ -1,10 +1,10 @@
+import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax, Text, TimeSpan, Tree } from "@synnaxlabs/pluto";
+import { Align, Icon as PIcon, Synnax, Text, TimeSpan, Tree } from "@synnaxlabs/pluto";
 import { Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ReactElement, useEffect, useState } from "react";
 
-import { CSS } from "@/css";
 import {
   Device as OPCDevice,
   ScannerScanCommandResult,
@@ -56,7 +56,13 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       const newNodes = channels.map((channel) => ({
         key: nodeKey(channel.nodeId, nodeID),
         name: channel.name,
-        icon: ICONS[channel.nodeClass],
+        icon: channel.isArray ? (
+          <PIcon.Icon bottomRight={<Icon.Array />}>
+            <Icon.Variable />
+          </PIcon.Icon>
+        ) : (
+          ICONS[channel.nodeClass]
+        ),
         hasChildren: true,
         haulItems: [
           {

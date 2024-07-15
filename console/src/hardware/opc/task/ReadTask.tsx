@@ -28,7 +28,6 @@ import {
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
-import { DataType } from "@synnaxlabs/x/telem";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
@@ -79,9 +78,6 @@ export const READ_SELECTABLE: Layout.Selectable = {
   icon: <Icon.Logo.OPC />,
   create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
 };
-
-const findChannel = (props: Device.Properties, nodeId: string): string | undefined =>
-  Object.entries(props.read.channels).find(([, v]) => v === nodeId)?.[0];
 
 const Wrapped = ({
   layoutKey,
@@ -186,10 +182,9 @@ const Wrapped = ({
       }
 
       if (shouldCreateIndex) {
-        console.log("CREATIN INDEX");
         modified = true;
         const idx = await client.channels.create({
-          name: `${dev.properties.identifier}_time`,
+          name: `${dev.name} time`,
           dataType: "timestamp",
           isIndex: true,
         });
@@ -199,11 +194,12 @@ const Wrapped = ({
 
       const toCreate: ReadChannelConfig[] = [];
       for (const ch of methods.value().config.channels) {
-        const exKey = findChannel(dev.properties, ch.nodeId);
+        if (ch.useAsIndex) continue;
+        const exKey = dev.properties.read.channels[ch.nodeId];
         if (primitiveIsZero(exKey)) toCreate.push(ch);
         else {
           try {
-            const rCh = await client.channels.retrieve(exKey as string);
+            const rCh = await client.channels.retrieve(exKey);
             if (rCh.name !== ch.name) {
               await client.channels.rename(Number(exKey), ch.name);
             }
@@ -218,13 +214,13 @@ const Wrapped = ({
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_${c.name}`,
+            name: c.name,
             dataType: "float32",
             index: dev.properties.read.index,
           })),
         );
         channels.forEach((c, i) => {
-          dev.properties.read.channels[c.key] = toCreate[i].nodeId;
+          dev.properties.read.channels[toCreate[i].nodeId] = c.key;
         });
       }
 
@@ -237,7 +233,9 @@ const Wrapped = ({
       const config = methods.value().config;
       config.channels = config.channels.map((c) => ({
         ...c,
-        channel: findChannel(dev.properties, c.nodeId),
+        channel: c.useAsIndex
+          ? dev.properties.read.index
+          : dev.properties.read.channels[c.nodeId],
       }));
 
       createTask({
@@ -363,6 +361,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
         channel: 0,
         enabled: true,
         nodeId: (i.data?.nodeId as string) ?? "",
+        useAsIndex: false,
       })),
     );
     return dropped;
@@ -567,6 +566,7 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
         label="Channel Name"
         inputProps={{ variant: "natural", level: "h3" }}
       />
+      <Form.SwitchField path={`${prefix}.useAsIndex`} label="Use as Index" />
     </Align.Space>
   );
 };

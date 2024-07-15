@@ -12,7 +12,7 @@
         }
     }
 
-    --pluto-scale: scale(0.65);
+    --pluto-scale: scale(0.7);
 
     .pluto--bottomLeft {
         transform: translate(-55%, 35%) var(--pluto-scale);
@@ -22,7 +22,7 @@
         left: 0;
     }
     .pluto--bottomRight {
-        transform: translate(55%, 35%) var(--pluto-scale);
+        transform: translate(55%, 25%) var(--pluto-scale);
         position: absolute;
         backdrop-filter: blur(100px);
         bottom: 0;

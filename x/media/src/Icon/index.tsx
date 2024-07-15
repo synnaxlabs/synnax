@@ -52,6 +52,7 @@ import {
   MdAlignVerticalTop,
   MdAreaChart,
   MdAutoAwesome,
+  MdDataArray,
   MdDataObject,
   MdEdit,
   MdEditOff,
@@ -332,6 +333,7 @@ export const Icon: IconType = {
   Variable: wrapIcon(TbVariable, "variable"),
   Object: wrapIcon(MdDataObject, "object"),
   Type: wrapIcon(MdTypeSpecimen, "type"),
+  Array: wrapIcon(MdDataArray, "array"),
 };
 
 export interface IconType {
@@ -451,4 +453,5 @@ export interface IconType {
   Object: IconFC;
   Type: IconFC;
   LinePlot: IconFC;
+  Array: IconFC;
 }

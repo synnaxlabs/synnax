@@ -30,6 +30,7 @@ export const readChanZ = z.object({
   nodeName: z.string(),
   nodeId: z.string(),
   enabled: z.boolean(),
+  useAsIndex: z.boolean(),
 });
 
 export const readConfigZ = z

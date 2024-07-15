@@ -46,7 +46,6 @@ import { type Layout } from "@/layout";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
-  identifier: z.string().min(1, "Identifier is required"),
   connection: connectionConfigZ,
   groups: groupConfigZ.array(),
 });
@@ -82,7 +81,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   const methods = Form.use({
     values: {
       name: "My OPC UA Server",
-      identifier: "",
       connection: {
         endpoint: "opc.tcp://0.0.0.0:4840",
         username: "",
@@ -169,12 +167,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
               placeholder: "name",
             }}
           />
-          <Form.TextField
-            path="identifier"
-            inputProps={{
-              placeholder: "my_opc_server",
-            }}
-          />
+
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
               <Input.Text placeholder="opc.tcp://localhost:4840" autoFocus {...p} />
