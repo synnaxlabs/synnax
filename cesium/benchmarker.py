@@ -1,6 +1,38 @@
+import os
+from dataclasses import dataclass, fields
+from datetime import datetime
 from subprocess import run
 
 import matplotlib.pyplot as plt
+import pandas as pd
+
+
+@dataclass
+class Params:
+    domains_per_channel: int
+    samples_per_domain: int
+    num_index_channels: int
+    num_data_channels: int
+    num_rate_channels: int
+    using_mem_FS: bool
+    num_writers: int
+    num_goroutines: int
+    stream_only: bool
+    commit_interval: int
+
+
+default_params = Params(
+    domains_per_channel=100,
+    samples_per_domain=100,
+    num_index_channels=10,
+    num_data_channels=1000,
+    num_rate_channels=0,
+    using_mem_FS=False,
+    num_writers=10,
+    num_goroutines=10,
+    stream_only=False,
+    commit_interval=-1,
+)
 
 param_names = ["domains_per_channel", "samples_per_domain", "num_index_channels",
                "num_data_channels", "num_rate_channels", "using_mem_FS", "num_writers",
@@ -8,8 +40,18 @@ param_names = ["domains_per_channel", "samples_per_domain", "num_index_channels"
 machine_specs = "MBP 2023 M2 | 10 Cores | 16GB RAM | 512GB SSD"
 
 
-def parse_command(params):
-    return ["./benchmarker.sh", *[str(arg) for arg in params]]
+def parse_command(params: Params):
+    return ["./benchmarker.sh", *[str(getattr(params, f.name)) for f in fields(Params)]]
+
+
+def print_benchmarks(var_of_interest, other_params, var_values, test_results):
+    print(f"params: {other_params}")
+    for i, op in enumerate(("write", "read", "stream")):
+        data = {var_of_interest: var_values, "throughput": [r[i] for r in test_results]}
+        df = pd.DataFrame(data)
+
+        print(f"\nThroughput for {op.capitalize()}:\n")
+        print(df.to_string(index=False))
 
 
 def plot(var_of_interest, other_params, var_values, test_results):
@@ -25,10 +67,11 @@ def plot(var_of_interest, other_params, var_values, test_results):
                 bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
     plt.tight_layout(pad=2)
     plt.subplots_adjust(bottom=0.11)
-    plt.show()
+    time = datetime.now().strftime("%d/%m/%Y-%H:%M:%S")
+    plt.savefig(f"/tmp/benchmarks/cesium-benchmark-{time}.png")
 
 
-def bench(var_of_interest, var_values, default_params):
+def bench(var_of_interest, var_values):
     """
     test plots the performance of Cesium in writes, reads, and streams with default
     parameters except for the specified variable of interest, whose value on each iteration
@@ -40,9 +83,12 @@ def bench(var_of_interest, var_values, default_params):
 
     for var_value in var_values:
         param = default_params
-        param[var_index] = var_value
+        setattr(param, var_of_interest, var_value)
 
-        total_data = param[0] * param[1] * (param[2] + param[3] + param[4])
+        total_data = (param.domains_per_channel * param.samples_per_domain *
+                      (param.num_data_channels +
+                       param.num_index_channels +
+                       param.num_rate_channels))
         print(f"---{var_of_interest}={var_value}---")
         print(" ".join(parse_command(param)))
         print(f"test total data: {total_data:,}")
@@ -69,13 +115,13 @@ def bench(var_of_interest, var_values, default_params):
     for i in range(len(param_names)):
         if i == var_index:
             continue
-        other_params += param_names[i] + " = " + str(default_params[i]) + ";"
+        other_params += param_names[i] + " = " + str(
+            getattr(default_params, param_names[i])) + ";"
 
-    plot(var_of_interest, other_params, var_values, test_results)
+    print_benchmarks(var_of_interest, other_params, var_values, test_results)
 
 
-# example: testing the effect of different number of commit_intervals
+# example: testing the effect of different number of data channel
 bench("num_data_channels",
-      [1000, 3000, 5000, 7000, 9000, 11000, 13000, 15000, 17000, 19000],
-      [100, 100, 10, 1000, 0, "false", 1, 8, "false", -1]
+      [50, 100, 500, 1000, 5000, 10000],
       )

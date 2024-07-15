@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/testutil"
 	"golang.org/x/sync/semaphore"
 	"sync"
 	"testing"
@@ -77,7 +77,7 @@ func BenchmarkCesium(b *testing.B) {
 		streamOnly:           *streamOnly,
 	}
 
-	makeFS := fileSystems[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
+	makeFS := testutil.FileSystemsWithoutAssertion[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
 	fs, cleanUp := makeFS()
 
 	dataSeries, channels, keys := testutil.GenerateDataAndChannels(benchCfg.numIndexChannels, benchCfg.numDataChannels, benchCfg.numRateChannels, benchCfg.samplesPerDomain)
@@ -192,12 +192,17 @@ func bench_write(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series
 
 					// Add the index data into frame / modify the index data in the frame
 					if k == 0 {
-						for l := 0; l < cfg.numIndexChannels; l++ {
-							frame = frame.Append(writerChannels[l], telem.NewSeries[telem.TimeStamp](indexData))
+						for _, ch := range writerChannels {
+							if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
+								frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+							}
 						}
 					} else {
 						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-						for l := len(frame.Keys) - 1; l >= len(frame.Keys)-cfg.numIndexChannels; l-- {
+						for l := len(frame.Keys) - 1; l >= 0; l-- {
+							if l > cfg.numIndexChannels {
+								break
+							}
 							frame.Series[l] = indexDataSeries
 						}
 					}
@@ -298,12 +303,17 @@ func bench_read(b *testing.B, cfg BenchmarkConfig, dataSeries telem.Series, chan
 
 		// Add the index data into frame / modify the index data in the frame
 		if k == 0 {
-			for l := 0; l < cfg.numIndexChannels; l++ {
-				frame = frame.Append(keys[l], telem.NewSeries[telem.TimeStamp](indexData))
+			for _, ch := range keys {
+				if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
+					frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+				}
 			}
 		} else {
 			indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-			for l := len(frame.Keys) - 1; l >= len(frame.Keys)-cfg.numIndexChannels; l-- {
+			for l := len(frame.Keys) - 1; l >= 0; l-- {
+				if l > cfg.numIndexChannels {
+					break
+				}
 				frame.Series[l] = indexDataSeries
 			}
 		}
@@ -454,12 +464,17 @@ func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, dataSeries telem.Seri
 
 					// Add the index data into frame / modify the index data in the frame
 					if k == 0 {
-						for l := 0; l < cfg.numIndexChannels; l++ {
-							frame = frame.Append(writerChannels[l], telem.NewSeries[telem.TimeStamp](indexData))
+						for _, ch := range writerChannels {
+							if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
+								frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+							}
 						}
 					} else {
 						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-						for l := len(frame.Keys) - 1; l >= len(frame.Keys)-cfg.numIndexChannels; l-- {
+						for l := len(frame.Keys) - 1; l >= 0; l-- {
+							if l > cfg.numIndexChannels {
+								break
+							}
 							frame.Series[l] = indexDataSeries
 						}
 					}
