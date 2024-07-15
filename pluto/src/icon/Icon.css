@@ -1,0 +1,45 @@
+.pluto-icon {
+    width: fit-content;
+    height: fit-content;
+    position: relative;
+
+    .pluto-sub {
+        z-index: 1;
+        background-color: var(--pluto-bg, var(--pluto-gray-l0));
+        border-radius: 1rem;
+        &.synnax-icon-add * {
+            stroke-width: 4px;
+        }
+    }
+
+    --pluto-scale: scale(0.65);
+
+    .pluto--bottomLeft {
+        transform: translate(-55%, 35%) var(--pluto-scale);
+        position: absolute;
+        backdrop-filter: blur(100px);
+        bottom: 0;
+        left: 0;
+    }
+    .pluto--bottomRight {
+        transform: translate(55%, 35%) var(--pluto-scale);
+        position: absolute;
+        backdrop-filter: blur(100px);
+        bottom: 0;
+        right: 0;
+    }
+    .pluto--topLeft {
+        transform: translate(-55%, -35%) var(--pluto-scale);
+        position: absolute;
+        backdrop-filter: blur(100px);
+        top: 0;
+        left: 0;
+    }
+    .pluto--topRight {
+        transform: translate(55%, -35%) var(--pluto-scale);
+        position: absolute;
+        backdrop-filter: blur(100px);
+        top: 0;
+        right: 0;
+    }
+}
