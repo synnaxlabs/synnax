@@ -1,7 +1,7 @@
 import { PayloadAction } from "@reduxjs/toolkit";
 import { Synnax } from "@synnaxlabs/client";
 import { Status, Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { migrate } from "@synnaxlabs/x";
+import { compare, migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
@@ -33,19 +33,20 @@ export const useLoadRemote = <V extends migrate.Migratable>({
       if (client == null) return;
       return fetcher(client, layoutKey);
     },
-    onError: (e) => {
+    onError: (e) =>
       addStatus({
         key: nanoid(),
         variant: "error",
         message: `Failed to load ${name}`,
         description: e.message,
-      });
-    },
+      }),
   });
   useAsyncEffect(async () => {
-    if (v != null && v.version === targetVersion) return;
+    // If the layout data already exists and is not outdated, don't fetch.
+    if (v != null && !migrate.semVerOlder(v.version, targetVersion)) return;
     dispatch(actionCreator(await get.mutateAsync()));
   }, [get.mutate, v, layoutKey, targetVersion]);
-  if (v == null || v.version != targetVersion) return null;
+  // If the layout data is null or outdated, return null.
+  if (v == null || migrate.semVerOlder(v.version, targetVersion)) return null;
   return v;
 };
