@@ -90,12 +90,6 @@ export const transformPath = (
   return result.join(".");
 };
 
-export const pathToSnake = (path: string): string =>
-  transformPath(path, caseconv.stringToSnake);
-
-export const pathToCamel = (path: string): string =>
-  transformPath(path, caseconv.stringToCamel);
-
 export const get = (<V = unknown, T = UnknownRecord>(
   obj: T,
   path: string,

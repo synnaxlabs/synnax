@@ -55,8 +55,12 @@ export const nodeProperties = z.object({
 export type NodeProperties = z.infer<typeof nodeProperties>;
 
 export const propertiesZ = z.object({
+  identifier: z.string(),
   connection: connectionConfigZ,
-  channels: nodeProperties.array().optional(),
+  read: z.object({
+    index: z.number(),
+    channels: z.record(z.string(), z.string()),
+  }),
 });
 
 export type Properties = z.infer<typeof propertiesZ>;

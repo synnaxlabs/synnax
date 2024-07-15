@@ -60,12 +60,14 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   }
 
   decodeString<P extends z.ZodTypeAny>(data: string, schema?: P): z.output<P> {
-    const unpacked = caseconv.toCamel(JSON.parse(data));
+    const parsed = JSON.parse(data);
+    const unpacked = caseconv.snakeToCamel(parsed);
     return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
   }
 
   encodeString(payload: unknown): string {
-    return JSON.stringify(caseconv.toSnake(payload), (_, v) => {
+    const caseConverted = caseconv.camelToSnake(payload);
+    return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (isObject(v) && "encode_value" in v) {
         if (typeof v.value === "bigint") return v.value.toString();

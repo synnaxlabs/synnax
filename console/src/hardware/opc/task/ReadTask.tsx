@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/ReadTask.css";
 
-import { channel, device } from "@synnaxlabs/client";
+import { device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -27,6 +27,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
+import { primitiveIsZero } from "@synnaxlabs/x";
 import { DataType } from "@synnaxlabs/x/telem";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
@@ -38,7 +39,6 @@ import { CSS } from "@/css";
 import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
-import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
 import {
   Read,
   READ_TYPE,
@@ -80,6 +80,9 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
 };
 
+const findChannel = (props: Device.Properties, nodeId: string): string | undefined =>
+  Object.entries(props.read.channels).find(([, v]) => v === nodeId)?.[0];
+
 const Wrapped = ({
   layoutKey,
   initialValues,
@@ -95,34 +98,34 @@ const Wrapped = ({
       z.object({
         name: z.string(),
         config: readConfigZ.superRefine(async (cfg, ctx) => {
-          if (client == null || device == null) return;
-          for (let i = 0; i < cfg.channels.length; i++) {
-            const { channel, nodeId } = cfg.channels[i];
-            if (channel === 0 || nodeId.length === 0) continue;
-            const ch = await client.channels.retrieve(channel);
-            const node = device.properties.channels?.find((c) => c.nodeId === nodeId);
-            if (node == null) return;
-            const nodeDt = new DataType(node.dataType);
-            if (!nodeDt.canCastTo(ch.dataType))
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["channels", i, "nodeId"],
-                message: `Node data type ${node.dataType} cannot be cast to channel data type ${ch.dataType}`,
-              });
-            else if (!nodeDt.canSafelyCastTo(ch.dataType))
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["channels", i, "nodeId"],
-                message: `Node data type ${node.dataType} may not be safely cast to channel data type ${ch.dataType}`,
-                params: { variant: "warning" },
-              });
-            if (cfg.arrayMode && !node.isArray)
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["channels", i, "nodeId"],
-                message: `Cannot sample from a non-array node in array mode`,
-              });
-          }
+          // if (client == null || device == null) return;
+          // for (let i = 0; i < cfg.channels.length; i++) {
+          //   const { channel, nodeId } = cfg.channels[i];
+          //   if (channel === 0 || nodeId.length === 0) continue;
+          //   const ch = await client.channels.retrieve(channel);
+          //   const node = device.properties.channels?.find((c) => c.nodeId === nodeId);
+          //   if (node == null) return;
+          //   const nodeDt = new DataType(node.dataType);
+          //   if (!nodeDt.canCastTo(ch.dataType))
+          //     ctx.addIssue({
+          //       code: z.ZodIssueCode.custom,
+          //       path: ["channels", i, "nodeId"],
+          //       message: `Node data type ${node.dataType} cannot be cast to channel data type ${ch.dataType}`,
+          //     });
+          //   else if (!nodeDt.canSafelyCastTo(ch.dataType))
+          //     ctx.addIssue({
+          //       code: z.ZodIssueCode.custom,
+          //       path: ["channels", i, "nodeId"],
+          //       message: `Node data type ${node.dataType} may not be safely cast to channel data type ${ch.dataType}`,
+          //       params: { variant: "warning" },
+          //     });
+          //   if (cfg.arrayMode && !node.isArray)
+          //     ctx.addIssue({
+          //       code: z.ZodIssueCode.custom,
+          //       path: ["channels", i, "nodeId"],
+          //       message: `Cannot sample from a non-array node in array mode`,
+          //     });
+          // }
         }),
       }),
     [client?.key, device?.key],
@@ -163,13 +166,85 @@ const Wrapped = ({
 
   const configure = useMutation({
     mutationKey: [client?.key],
+    onError: console.error,
     mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
+      if (client == null) return;
+
+      const dev = await client.hardware.devices.retrieve<Device.Properties>(
+        methods.value().config.device,
+      );
+
+      let modified = false;
+      let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);
+      if (!shouldCreateIndex) {
+        try {
+          await client.channels.retrieve(dev.properties.read.index);
+        } catch (e) {
+          if (NotFoundError.matches(e)) shouldCreateIndex = true;
+          else throw e;
+        }
+      }
+
+      if (shouldCreateIndex) {
+        console.log("CREATIN INDEX");
+        modified = true;
+        const idx = await client.channels.create({
+          name: `${dev.properties.identifier}_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.read.index = idx.key;
+        dev.properties.read.channels = {};
+      }
+
+      const toCreate: ReadChannelConfig[] = [];
+      for (const ch of methods.value().config.channels) {
+        const exKey = findChannel(dev.properties, ch.nodeId);
+        if (primitiveIsZero(exKey)) toCreate.push(ch);
+        else {
+          try {
+            const rCh = await client.channels.retrieve(exKey as string);
+            if (rCh.name !== ch.name) {
+              await client.channels.rename(Number(exKey), ch.name);
+            }
+          } catch (e) {
+            if (NotFoundError.matches(e)) toCreate.push(ch);
+            else throw e;
+          }
+        }
+      }
+
+      if (toCreate.length > 0) {
+        modified = true;
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: `${dev.properties.identifier}_${c.name}`,
+            dataType: "float32",
+            index: dev.properties.read.index,
+          })),
+        );
+        channels.forEach((c, i) => {
+          dev.properties.read.channels[c.key] = toCreate[i].nodeId;
+        });
+      }
+
+      if (modified)
+        await client.hardware.devices.create({
+          ...dev,
+          properties: dev.properties,
+        });
+
+      const config = methods.value().config;
+      config.channels = config.channels.map((c) => ({
+        ...c,
+        channel: findChannel(dev.properties, c.nodeId),
+      }));
+
       createTask({
         key: task?.key,
         name: methods.value().name,
         type: READ_TYPE,
-        config: readConfigZ.parse(methods.value().config),
+        config,
       });
     },
   });
@@ -284,6 +359,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
       dropped.map((i) => ({
         key: nanoid(),
         name: (i.data?.name as string) ?? "",
+        nodeName: (i.data?.nodeName as string) ?? "",
         channel: 0,
         enabled: true,
         nodeId: (i.data?.nodeId as string) ?? "",
@@ -440,7 +516,7 @@ export const ChannelListItem = ({
     >
       <Align.Space direction="y" size="small">
         <Text.Text level="p" weight={500} shade={9} color={channelColor}>
-          {channelName}
+          {entry.name}
         </Text.Text>
         <Text.Text level="small" weight={350} shade={7} color={opcNodeColor}>
           {entry.name} {opcNode}
@@ -485,7 +561,13 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
       direction="y"
       grow
       style={{ padding: "2rem", borderTop: "var(--pluto-border)" }}
-    ></Align.Space>
+    >
+      <Form.TextField
+        path={`${prefix}.name`}
+        label="Channel Name"
+        inputProps={{ variant: "natural", level: "h3" }}
+      />
+    </Align.Space>
   );
 };
 

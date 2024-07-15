@@ -90,7 +90,7 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       <Tree.Tree
         emptyContent={
           <Align.Center>
-            <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+            <Text.Text shade={6} level="p" style={{ maxWidth: 215 }}>
               {device == null
                 ? "No OPC UA Server Selected. Select a server to browse nodes."
                 : "No nodes found in OPC UA server."}

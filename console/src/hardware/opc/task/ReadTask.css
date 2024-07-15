@@ -2,6 +2,7 @@
     .console-browser {
         max-width: 30%;
         width: 100%;
+        flex-basis: 200px;
     }
     .console-channels {
         height: 100%;

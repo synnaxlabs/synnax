@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Configure.css";
 
-import { type rack, TimeSpan } from "@synnaxlabs/client";
+import { TimeSpan } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -46,6 +46,7 @@ import { type Layout } from "@/layout";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
+  identifier: z.string().min(1, "Identifier is required"),
   connection: connectionConfigZ,
   groups: groupConfigZ.array(),
 });
@@ -81,6 +82,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   const methods = Form.use({
     values: {
       name: "My OPC UA Server",
+      identifier: "",
       connection: {
         endpoint: "opc.tcp://0.0.0.0:4840",
         username: "",
@@ -127,7 +129,12 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           rack: rack.key,
           location: methods.get<string>("connection.endpoint").value,
           properties: {
+            identifier: methods.get<string>("identifier").value,
             connection: methods.get<Properties>("connection").value,
+            read: {
+              index: 0,
+              channels: [],
+            },
           },
           configured: true,
         });
@@ -154,17 +161,20 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
     >
       <Align.Space direction="y" style={{ padding: "3rem 4rem" }} grow size="small">
         <Form.Form {...methods}>
-          <Form.Field<string> path="name">
-            {(p) => (
-              <Input.Text
-                level="h2"
-                variant="natural"
-                placeholder="Name"
-                autoFocus
-                {...p}
-              />
-            )}
-          </Form.Field>
+          <Form.TextField
+            path="name"
+            inputProps={{
+              level: "h2",
+              variant: "natural",
+              placeholder: "name",
+            }}
+          />
+          <Form.TextField
+            path="identifier"
+            inputProps={{
+              placeholder: "my_opc_server",
+            }}
+          />
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
               <Input.Text placeholder="opc.tcp://localhost:4840" autoFocus {...p} />
