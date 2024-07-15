@@ -21,6 +21,20 @@
 
 using json = nlohmann::json;
 
+/* 
+
+Devices Identifiers in NI MAX
+
+Dev 1 : NI USB-6289 (simulated device)
+Dev 2 : NI USB-9211A (simulated device)
+Dev 3 : NI USB-9219 (simulated device)
+Dev 4 : NI USB-6000 (physical device)
+
+PXI1Slot2 : NI PXIe-4302 (simulated device)
+PXI1Slot3 : NI PXIe-4357 (simulated device)
+
+*/
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                              //
 //                                                   Basic Tests                                                //                
@@ -448,7 +462,7 @@ TEST(read_tests, one_velocity_channel) {
     auto config = json{
         {"sample_rate", 100},
         {"stream_rate", 20},
-        {"device_location", "Dev9"},
+        {"device_location", "Dev5"},
         {"type", "ni_analog_read"},
         {"test", true},
         {"device", ""}
@@ -592,7 +606,7 @@ TEST(read_tests, one_force_iepe_channel) {
     auto config = json{
         {"sample_rate", 100},
         {"stream_rate", 20},
-        {"device_location", "Dev9"},
+        {"device_location", "Dev5"},
         {"type", "ni_analog_read"},
         {"test", true},
         {"device", ""}
@@ -722,7 +736,7 @@ TEST(read_tests, one_pressure_linear_bridge_channel) {
         {"nominal_bridge_resistance", 1}, 
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
-        {"electrical_units", "Volts"},
+        {"electrical_units", "VoltsPerVolt"},
         {"first_physical_val", 0.0},
         {"second_physical_val", 10.0},
         {"physical_units", "Pascals"}
@@ -748,7 +762,7 @@ TEST(read_tests, one_analog_thermocouple_channel) {
     };
     auto channel_config = json{
         {"name", "test_ni_channel"},
-        {"type", "ai_thermcouple"},
+        {"type", "ai_thermocouple"},
         {"port", 0},
         {"max_val", 500},
         {"min_val", 65},
@@ -756,8 +770,9 @@ TEST(read_tests, one_analog_thermocouple_channel) {
         {"enabled", true},
         {"key", "key"},
         {"thermocouple_type", "J"},
-        {"cjc_source", "BuiltIn"},
-        {"cjc_val", 25.0}
+        {"cjc_source", "ConstVal"},
+        {"cjc_val", 25.0},
+        {"cjc_port", 0},
     };
     auto scale_config = json{
         {"type", "none"}
@@ -807,7 +822,7 @@ TEST(read_tests, one_acceleration_channel) {
     auto config = json{
         {"sample_rate", 100},
         {"stream_rate", 20},
-        {"device_location", "Dev9"},
+        {"device_location", "Dev5"},
         {"type", "ni_analog_read"},
         {"test", true},
         {"device", ""}
@@ -870,7 +885,7 @@ TEST(read_tests, one_microphone_channel) {
     auto config = json{
         {"sample_rate", 5},
         {"stream_rate", 1},
-        {"device_location", "Dev9"},
+        {"device_location", "Dev5"},
         {"type", "ni_analog_read"},
         {"test", true},
         {"device", ""}
