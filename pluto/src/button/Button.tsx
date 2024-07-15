@@ -100,7 +100,7 @@ export const Button = Tooltip.wrap(
 
     Triggers.use({
       triggers,
-      // @ts-expect-error
+      // @ts-expect-error HTMLButtonElement is not assignable to EventTarget
       callback: ({ stage }) => stage === "end" && handleClick(new MouseEvent("click")),
     });
 
