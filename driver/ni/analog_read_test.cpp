@@ -225,7 +225,7 @@ TEST(read_tests, analog_map_scaling) {
 ///////////////////////////////////////////////////////////////////
 //                          Helper                               //
 ///////////////////////////////////////////////////////////////////
-void analog_channel_helper(json config, json scale_config, json channel_config) {
+void analog_channel_helper(json config, json scale_config, json channel_config, float lower_bound = -1000, float upper_bound = 1000) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create(
@@ -283,6 +283,16 @@ void analog_channel_helper(json config, json scale_config, json channel_config) 
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
     VLOG(1) << frame << "\n";
+    std::cout << frame << std::endl;
+
+    // check every series with the frame stays within the bounds
+
+    std::vector<float> s = frame.series->at(0).values<float>();
+    for (auto &val : s) {
+        ASSERT_GE(val, lower_bound);
+        ASSERT_LE(val, upper_bound);
+    }
+
     reader.stop();
 }
 
