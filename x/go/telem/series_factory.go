@@ -14,12 +14,6 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-func EmptySeries(dt DataType) (series Series) {
-	series.DataType = dt
-	series.Data = make([]byte, 0)
-	return series
-}
-
 func NewSeries[T types.Numeric](data []T) (series Series) {
 	if len(data) == 0 {
 		panic("cannot infer data type from empty array")
