@@ -8,10 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
+from typing import overload
 from uuid import uuid4
 from warnings import warn
-from typing import overload
 
+from numpy import can_cast as np_can_cast
+from pandas import DataFrame
+from pandas import concat as pd_concat
+
+import synnax
 from freighter import (
     EOF,
     Payload,
@@ -19,10 +24,6 @@ from freighter import (
     StreamClient,
     decode_exception,
 )
-from numpy import can_cast as np_can_cast
-from pandas import DataFrame
-from pandas import concat as pd_concat
-
 from synnax import io
 from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
 from synnax.exceptions import Field, ValidationError
@@ -49,14 +50,14 @@ class WriterMode(int, Enum):
 
 
 class _Config(Payload):
-    authorities: list[int]
-    control_subject: Subject
+    authorities: list[int] = Authority.ABSOLUTE
+    control_subject: Subject = Subject(name="", key=str(uuid4()))
     start: TimeStamp | None = None
     keys: ChannelKeys
-    mode: WriterMode
-    err_on_unauthorized: bool
-    enable_auto_commit: bool
-    auto_index_persist_interval: TimeSpan
+    mode: WriterMode = WriterMode.PERSIST_STREAM
+    err_on_unauthorized: bool = False
+    enable_auto_commit: bool = False
+    auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
 
 
 class _Request(Payload):
@@ -176,10 +177,10 @@ class Writer:
     def write(
         self,
         channels_or_data: ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | CrudeFrame,
+                          | ChannelKey
+                          | ChannelKeys
+                          | ChannelNames
+                          | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given data to the database. The formats are listed below. Before

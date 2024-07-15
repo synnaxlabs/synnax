@@ -315,6 +315,7 @@ const VALUE_FORM_TABS: Tabs.Tab[] = [
     name: "Telemetry",
   },
 ];
+
 interface ValueTelemFormT {
   telem: telem.StringSourceSpec;
   tooltip: string[];
@@ -452,6 +453,77 @@ export const ValueForm = (): ReactElement => {
                 >
                   {(p) => <Input.Text {...p} />}
                 </Form.Field>
+              </Align.Space>
+            </Align.Space>
+            <OrientationControl path="" />
+          </FormWrapper>
+        );
+      }
+    }
+  }, []);
+  const props = Tabs.useStatic({ tabs: VALUE_FORM_TABS, content });
+  return <Tabs.Tabs {...props} />;
+};
+
+interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
+
+const LightTelemForm = ({ path }: { path: string }): ReactElement => {
+  const { value, onChange } = Form.useField<LightTelemFormT>({
+    path,
+  });
+  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
+  const source = telem.streamChannelValuePropsZ.parse(
+    sourceP.segments.valueStream.props,
+  );
+
+  const handleSourceChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
+    const t = telem.sourcePipeline("boolean", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "threshold",
+        },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: v }),
+        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+      },
+      outlet: "threshold",
+    });
+    onChange({ ...value, source: t });
+  };
+
+  const c = Channel.useName(source.channel as number);
+
+  useEffect(() => {
+    onChange({ ...value });
+  }, [c]);
+
+  return (
+    <FormWrapper direction="x" align="stretch">
+      <Input.Item label="Input Channel" grow>
+        <Channel.SelectSingle
+          value={source.channel as number}
+          onChange={handleSourceChange}
+        />
+      </Input.Item>
+    </FormWrapper>
+  );
+};
+
+export const LightForm = (): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "telemetry":
+        return <LightTelemForm path="" />;
+      default: {
+        return (
+          <FormWrapper direction="x">
+            <Align.Space direction="y" grow>
+              <LabelControls path="label" />
+              <Align.Space direction="x">
+                <ColorControl path="color" />
               </Align.Space>
             </Align.Space>
             <OrientationControl path="" />

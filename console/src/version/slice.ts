@@ -10,7 +10,6 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
 
 export const SLICE_NAME = "version";
 

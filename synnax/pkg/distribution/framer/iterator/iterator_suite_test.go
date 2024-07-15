@@ -11,6 +11,7 @@ package iterator_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,6 +37,7 @@ func TestIterator(t *testing.T) {
 type serviceContainer struct {
 	channel channel.Service
 	iter    *iterator.Service
+	writer  *writer.Service
 }
 
 func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
@@ -44,6 +46,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		services   = make(map[core.NodeKey]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
 		iterNet    = tmock.NewIteratorNetwork()
+		writerNet  = tmock.NewWriterNetwork()
 	)
 	for i := 0; i < n; i++ {
 		var (
@@ -62,6 +65,12 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			ChannelReader: cont.channel,
 			HostResolver:  c.Cluster,
 			Transport:     iterNet.New(c.Config.AdvertiseAddress),
+		}))
+		cont.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
+			TS:            c.Storage.TS,
+			ChannelReader: cont.channel,
+			HostResolver:  c.Cluster,
+			Transport:     writerNet.New(c.Config.AdvertiseAddress),
 		}))
 		services[c.Cluster.HostKey()] = cont
 	}

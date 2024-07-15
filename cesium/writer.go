@@ -77,6 +77,26 @@ func (w *Writer) Commit() (telem.TimeStamp, bool) {
 	return 0, false
 }
 
+// SetAuthority is synchronous
+func (w *Writer) SetAuthority(cfg WriterConfig) bool {
+	if w.closed || w.hasAccumulatedErr {
+		return false
+	}
+	select {
+	case <-w.responses.Outlet():
+		w.hasAccumulatedErr = true
+		return false
+	case w.requests.Inlet() <- WriterRequest{Config: cfg, Command: WriterSetAuthority}:
+	}
+	for res := range w.responses.Outlet() {
+		if res.Command == WriterSetAuthority {
+			return res.Ack
+		}
+	}
+	w.logger.DPanic(unexpectedSteamClosure)
+	return false
+}
+
 func (w *Writer) Error() error {
 	if w.closed {
 		return errWriterClosed

@@ -58,8 +58,8 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	plumber.SetSegment[ts.IteratorRequest, ts.IteratorResponse](pipe, "storage", iter)
 	plumber.SetSource[ts.IteratorRequest](pipe, "receiver", receiver)
 	plumber.SetSink[ts.IteratorResponse](pipe, "sender", sender)
-	plumber.MustConnect[Request](pipe, "receiver", "storage", 1)
-	plumber.MustConnect[Response](pipe, "storage", "sender", 1)
+	plumber.MustConnect[ts.IteratorRequest](pipe, "receiver", "storage", 1)
+	plumber.MustConnect[ts.IteratorResponse](pipe, "storage", "sender", 1)
 	// HERE
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return sCtx.Wait()
