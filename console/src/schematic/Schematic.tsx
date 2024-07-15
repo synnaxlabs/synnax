@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { NotFoundError } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -18,8 +17,6 @@ import {
   Haul,
   Legend,
   Schematic as Core,
-  Status,
-  Synnax,
   Text,
   Theming,
   Triggers,
@@ -28,9 +25,6 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import {
   type ReactElement,
   useCallback,
@@ -43,7 +37,6 @@ import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { migrateState, STATES_Z } from "@/schematic/migrations";
 import {
   select,
   useSelect,
@@ -418,73 +411,3 @@ export const create =
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
     return { key, location, name, type: LAYOUT_TYPE, window, tab };
   };
-
-export interface ImportProps {
-  filePath?: string;
-}
-
-export const useImport = (): ((props: ImportProps) => void) => {
-  const addStatus = Status.useAggregator();
-  const placeLayout = Layout.usePlacer();
-  const client = Synnax.use();
-  const workspace = Workspace.useSelectActiveKey();
-  return useMutation<void, Error, ImportProps, void>({
-    mutationFn: async ({ filePath }) => {
-      let path = filePath;
-      if (path == null) {
-        const fileResponse = await open({
-          directory: false,
-          multiple: false,
-          title: "Import schematic into Synnax",
-        });
-        if (fileResponse == null) return;
-        path = fileResponse.path;
-      }
-      const file = await readFile(path);
-      const fileName = path.split("/").pop();
-      const name = fileName?.split(".")[0] ?? "New Schematic";
-      const importedStr = new TextDecoder().decode(file);
-      const json = JSON.parse(importedStr);
-      const z = STATES_Z.find((stateZ) => {
-        return stateZ.safeParse(json).success;
-      });
-      if (z == null)
-        throw new Error(
-          (fileName != null ? `${fileName} is not` : `${filePath} is not a path to`) +
-            " a valid schematic.",
-        );
-      const newState = migrateState(z.parse(json));
-      const creator = create({
-        ...newState,
-        name,
-      });
-      if (client == null) {
-        placeLayout(creator);
-        return;
-      }
-      try {
-        const schematic = await client.workspaces.schematic.retrieve(newState.key);
-        await client.workspaces.schematic.setData(
-          schematic.key,
-          newState as unknown as UnknownRecord,
-        );
-      } catch (e) {
-        if (!NotFoundError.matches(e)) throw e;
-        if (workspace == null) return;
-        await client.workspaces.schematic.create(workspace, {
-          name,
-          data: deep.copy(newState) as unknown as UnknownRecord,
-          ...newState,
-        });
-      }
-      placeLayout(creator);
-    },
-    onError: (e) =>
-      addStatus({
-        key: id.id(),
-        variant: "error",
-        message: "Failed to import schematic.",
-        description: e.message,
-      }),
-  }).mutate;
-};

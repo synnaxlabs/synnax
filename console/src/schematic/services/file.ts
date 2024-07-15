@@ -8,12 +8,14 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
 import { moveMosaicTab } from "@/layout/slice";
-import { migrateState, STATES_Z } from "@/schematic/migrations";
+import { parser } from "@/schematic/migrations";
 import { create } from "@/schematic/Schematic";
+import { select } from "@/schematic/selectors";
+import { remove } from "@/schematic/slice";
 
 export const FileHandler: Layout.FileHandler = async ({
   mosaicKey,
@@ -23,56 +25,55 @@ export const FileHandler: Layout.FileHandler = async ({
   name,
   client,
   workspaceKey,
+  confirm,
   dispatch,
+  store,
 }): Promise<boolean> => {
-  const z = STATES_Z.find((stateZ) => {
-    return stateZ.safeParse(file).success;
-  });
-  if (z == null) return false;
-  const state = migrateState(z.parse(file));
+  const newState = parser(file);
+  if (newState == null) return false;
   const creator = create({
-    ...state,
+    ...newState,
     name,
   });
-  if (client == null) {
-    placer(creator);
-    return true;
+  const key = newState.key;
+  const existingState = select(store.getState(), key);
+  if (existingState != null) {
+    if (deep.equal(existingState, newState)) throw Error(`${name} already exists.`);
+    if (
+      !(await confirm({
+        message: `${name} already exists`,
+        description: "Would you like to replace the existing schematic?",
+        cancel: { label: "Cancel" },
+        confirm: { label: "Replace", variant: "error" },
+      }))
+    )
+      throw errors.CANCELED;
+    Layout.remove({ keys: [key] });
+    remove({ keys: [key] });
   }
-  try {
-    const schematic = await client.workspaces.schematic.retrieve(state.key);
-    await client.workspaces.schematic.setData(
-      schematic.key,
-      state as unknown as UnknownRecord,
-    );
-  } catch (e) {
-    if (!NotFoundError.matches(e)) throw e;
-    if (workspaceKey == null) {
-      console.log("creator", creator);
-      const foo = placer(creator);
-      console.log("foo", foo);
-      dispatch(
-        moveMosaicTab({
-          key: mosaicKey,
-          windowKey: foo.windowKey,
-          tabKey: foo.key,
-          loc,
-        }),
+  if (client != null) {
+    try {
+      await client.workspaces.schematic.retrieve(key);
+      await client.workspaces.schematic.setData(
+        key,
+        newState as unknown as UnknownRecord,
       );
-      return true;
+    } catch (e) {
+      if (!NotFoundError.matches(e)) throw e;
+      if (workspaceKey == null) throw Error("Workspace key is required.");
+      await client.workspaces.schematic.create(workspaceKey, {
+        name,
+        data: newState as unknown as UnknownRecord,
+        ...newState,
+      });
     }
-    await client.workspaces.schematic.create(workspaceKey, {
-      name,
-      data: deep.copy(state) as unknown as UnknownRecord,
-      ...state,
-    });
   }
-  const foo = placer(creator);
-  console.log("foo", foo);
+  const windowKey = placer(creator).windowKey;
   dispatch(
     moveMosaicTab({
       key: mosaicKey,
-      windowKey: foo.windowKey,
-      tabKey: state.key,
+      windowKey,
+      tabKey: newState.key,
       loc,
     }),
   );

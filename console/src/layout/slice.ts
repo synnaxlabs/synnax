@@ -11,6 +11,7 @@ import {
   createSlice,
   type Dispatch,
   type PayloadAction,
+  type Store,
   type UnknownAction,
 } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
@@ -19,6 +20,7 @@ import { Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, id, type location } from "@synnaxlabs/x";
 import { ComponentType } from "react";
 
+import { CreateConfirmModal } from "@/confirm/Confirm";
 import { type Placer } from "@/layout/hooks";
 import * as latest from "@/layout/migrations";
 
@@ -103,6 +105,8 @@ export interface FileHandlerProps {
   loc: location.Location;
   name: string;
   placer: Placer;
+  store: Store;
+  confirm: CreateConfirmModal;
   client: Synnax | null;
   workspaceKey: string | null;
   dispatch: Dispatch<UnknownAction>;

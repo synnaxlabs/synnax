@@ -23,6 +23,7 @@ import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
+import { Confirm } from "@/confirm";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
@@ -157,6 +158,7 @@ export const Mosaic = memo((): ReactElement => {
   );
 
   const workspaceKey = Workspace.useSelectActiveKey();
+  const confirm = Confirm.useModal();
 
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
@@ -176,6 +178,8 @@ export const Mosaic = memo((): ReactElement => {
               file: fileAsJSON,
               placer,
               name,
+              store,
+              confirm,
               client,
               workspaceKey,
               loc,

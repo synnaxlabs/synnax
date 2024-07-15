@@ -49,3 +49,8 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
 });
 
 export const STATES_Z = [v0.stateZ, v1.stateZ, v2.stateZ];
+
+export const parser: (potentialState: any) => State | null = (potentialState) => {
+  const z = STATES_Z.find((stateZ) => stateZ.safeParse(potentialState).success);
+  return z == null ? null : migrateState(z.parse(potentialState));
+};
