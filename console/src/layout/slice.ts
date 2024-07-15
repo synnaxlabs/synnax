@@ -100,7 +100,7 @@ interface SetHaulingPayload extends Haul.DraggingState {}
 export interface FileHandlerProps {
   mosaicKey: number;
   file: any;
-  location: location.Location;
+  loc: location.Location;
   name: string;
   placer: Placer;
   client: Synnax | null;

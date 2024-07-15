@@ -178,13 +178,11 @@ export const Mosaic = memo((): ReactElement => {
               name,
               client,
               workspaceKey,
-              location: loc,
+              loc,
               dispatch,
             });
           })
-          .catch((e) => {
-            console.error(e);
-          });
+          .catch((e) => console.error(e));
       });
     },
     [dispatch],

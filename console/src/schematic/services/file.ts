@@ -19,7 +19,7 @@ export const FileHandler: Layout.FileHandler = async ({
   mosaicKey,
   file,
   placer,
-  location,
+  loc,
   name,
   client,
   workspaceKey,
@@ -47,6 +47,7 @@ export const FileHandler: Layout.FileHandler = async ({
   } catch (e) {
     if (!NotFoundError.matches(e)) throw e;
     if (workspaceKey == null) {
+      console.log("creator", creator);
       const foo = placer(creator);
       console.log("foo", foo);
       dispatch(
@@ -54,7 +55,7 @@ export const FileHandler: Layout.FileHandler = async ({
           key: mosaicKey,
           windowKey: foo.windowKey,
           tabKey: foo.key,
-          loc: location,
+          loc,
         }),
       );
       return true;
@@ -72,7 +73,7 @@ export const FileHandler: Layout.FileHandler = async ({
       key: mosaicKey,
       windowKey: foo.windowKey,
       tabKey: state.key,
-      loc: location,
+      loc,
     }),
   );
   return true;
