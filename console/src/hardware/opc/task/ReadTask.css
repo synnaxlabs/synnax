@@ -7,10 +7,15 @@
     .console-channels {
         height: 100%;
         .pluto-menu-context__container {
-            max-height: calc(100% - 35rem);
+            max-height: calc(100% - 200px);
         }
         &.console-dragging {
             border-color: var(--pluto-primary-z);
+        }
+        .console-channel-form {
+            padding: 2rem;
+            border-top: var(--pluto-border);
+            flex-basis: 200px;
         }
     }
 }

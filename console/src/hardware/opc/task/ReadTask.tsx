@@ -9,12 +9,10 @@
 
 import "@/hardware/opc/task/ReadTask.css";
 
-import { device, NotFoundError } from "@synnaxlabs/client";
+import { DataType, device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Button,
-  Channel,
   Device as PDevice,
   Form,
   Haul,
@@ -22,15 +20,14 @@ import {
   Input,
   List,
   Menu,
-  Status,
   Synnax,
   Text,
   useAsyncEffect,
+  useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
@@ -50,7 +47,9 @@ import {
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import {
+  ChannelListContextMenu,
   Controls,
+  EnableDisableButton,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -79,6 +78,11 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
 };
 
+const schema = z.object({
+  name: z.string(),
+  config: readConfigZ,
+});
+
 const Wrapped = ({
   layoutKey,
   initialValues,
@@ -87,44 +91,6 @@ const Wrapped = ({
   const client = Synnax.use();
   const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
     undefined,
-  );
-
-  const schema = useMemo(
-    () =>
-      z.object({
-        name: z.string(),
-        config: readConfigZ.superRefine(async (cfg, ctx) => {
-          // if (client == null || device == null) return;
-          // for (let i = 0; i < cfg.channels.length; i++) {
-          //   const { channel, nodeId } = cfg.channels[i];
-          //   if (channel === 0 || nodeId.length === 0) continue;
-          //   const ch = await client.channels.retrieve(channel);
-          //   const node = device.properties.channels?.find((c) => c.nodeId === nodeId);
-          //   if (node == null) return;
-          //   const nodeDt = new DataType(node.dataType);
-          //   if (!nodeDt.canCastTo(ch.dataType))
-          //     ctx.addIssue({
-          //       code: z.ZodIssueCode.custom,
-          //       path: ["channels", i, "nodeId"],
-          //       message: `Node data type ${node.dataType} cannot be cast to channel data type ${ch.dataType}`,
-          //     });
-          //   else if (!nodeDt.canSafelyCastTo(ch.dataType))
-          //     ctx.addIssue({
-          //       code: z.ZodIssueCode.custom,
-          //       path: ["channels", i, "nodeId"],
-          //       message: `Node data type ${node.dataType} may not be safely cast to channel data type ${ch.dataType}`,
-          //       params: { variant: "warning" },
-          //     });
-          //   if (cfg.arrayMode && !node.isArray)
-          //     ctx.addIssue({
-          //       code: z.ZodIssueCode.custom,
-          //       path: ["channels", i, "nodeId"],
-          //       message: `Cannot sample from a non-array node in array mode`,
-          //     });
-          // }
-        }),
-      }),
-    [client?.key, device?.key],
   );
 
   const methods = Form.use({ schema, values: initialValues });
@@ -160,16 +126,14 @@ const Wrapped = ({
   );
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
 
-  const configure = useMutation({
+  const configure = useMutation<void>({
     mutationKey: [client?.key],
-    onError: console.error,
     mutationFn: async () => {
       if (client == null) return;
-
+      const { config, name } = methods.value();
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
-        methods.value().config.device,
+        config.device,
       );
-
       let modified = false;
       let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);
       if (!shouldCreateIndex) {
@@ -180,7 +144,6 @@ const Wrapped = ({
           else throw e;
         }
       }
-
       if (shouldCreateIndex) {
         modified = true;
         const idx = await client.channels.create({
@@ -193,7 +156,7 @@ const Wrapped = ({
       }
 
       const toCreate: ReadChannelConfig[] = [];
-      for (const ch of methods.value().config.channels) {
+      for (const ch of config.channels) {
         if (ch.useAsIndex) continue;
         const exKey = dev.properties.read.channels[ch.nodeId];
         if (primitiveIsZero(exKey)) toCreate.push(ch);
@@ -230,7 +193,6 @@ const Wrapped = ({
           properties: dev.properties,
         });
 
-      const config = methods.value().config;
       config.channels = config.channels.map((c) => ({
         ...c,
         channel: c.useAsIndex
@@ -238,12 +200,7 @@ const Wrapped = ({
           : dev.properties.read.channels[c.nodeId],
       }));
 
-      createTask({
-        key: task?.key,
-        name: methods.value().name,
-        type: READ_TYPE,
-        config,
-      });
+      createTask({ key: task?.key, name, type: READ_TYPE, config });
     },
   });
 
@@ -346,24 +303,31 @@ export interface ChannelListProps {
 
 export const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
+  const valueRef = useSyncedRef(value);
 
   const menuProps = Menu.useContextMenu();
 
-  const onDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
+  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
     const dropped = items.filter(
       (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
     );
-    push(
-      dropped.map((i) => ({
-        key: nanoid(),
-        name: (i.data?.name as string) ?? "",
-        nodeName: (i.data?.nodeName as string) ?? "",
-        channel: 0,
-        enabled: true,
-        nodeId: (i.data?.nodeId as string) ?? "",
-        useAsIndex: false,
-      })),
-    );
+    const toAdd = dropped
+      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
+      .map((i) => {
+        const nodeId = i.data?.nodeId as string;
+        const name = i.data?.name as string;
+        return {
+          key: nodeId,
+          name,
+          nodeName: name,
+          channel: 0,
+          enabled: true,
+          nodeId,
+          useAsIndex: false,
+          dataType: i.data?.dataType ?? "float32",
+        };
+      });
+    push(toAdd);
     return dropped;
   }, []);
 
@@ -377,7 +341,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
   const props = Haul.useDrop({
     type: "opc.ReadTask",
     canDrop,
-    onDrop,
+    onDrop: handleDrop,
   });
 
   const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
@@ -402,29 +366,18 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
       <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-          const handleSelect = (key: string): void => {
-            switch (key) {
-              case "remove": {
-                const indices = keys
-                  .map((k) => value.findIndex((v) => v.key === k))
-                  .filter((i) => i >= 0);
-                remove(indices);
-                setSelectedChannels([]);
-                setSelectedChannelIndex(null);
-                break;
-              }
-            }
-          };
-
-          return (
-            <Menu.Menu onChange={handleSelect} level="small">
-              <Menu.Item startIcon={<Icon.Close />} itemKey="remove">
-                Remove
-              </Menu.Item>
-            </Menu.Menu>
-          );
-        }}
+        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
+          <ChannelListContextMenu
+            path={path}
+            keys={keys}
+            value={value}
+            remove={remove}
+            onSelect={(k, i) => {
+              setSelectedChannels(k);
+              setSelectedChannelIndex(i);
+            }}
+          />
+        )}
         {...menuProps}
       >
         <List.List<string, ReadChannelConfig>
@@ -443,7 +396,8 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
         >
           <List.Selector<string, ReadChannelConfig>
             value={selectedChannels}
-            allowNone
+            allowNone={false}
+            autoSelectOnNone={false}
             allowMultiple
             onChange={(keys, { clickedIndex }) => {
               if (clickedIndex == null) return;
@@ -472,7 +426,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
           </List.Selector>
         </List.List>
       </Menu.ContextMenu>
-      {selectedChannelIndex != null && (
+      {value.length > 0 && (
         <ChannelForm
           selectedChannelIndex={selectedChannelIndex}
           deviceProperties={device?.properties}
@@ -497,9 +451,6 @@ export const ChannelListItem = ({
     optional: true,
   });
   if (childValues == null) return <></>;
-  const channelName = Channel.useName(entry.channel, entry.name);
-  let channelColor = undefined;
-  if (channelName === "No Synnax Channel") channelColor = "var(--pluto-warning-z)";
   const opcNode =
     childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
   let opcNodeColor = undefined;
@@ -514,59 +465,72 @@ export const ChannelListItem = ({
       onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && remove?.()}
     >
       <Align.Space direction="y" size="small">
-        <Text.Text level="p" weight={500} shade={9} color={channelColor}>
-          {entry.name}
-        </Text.Text>
-        <Text.Text level="small" weight={350} shade={7} color={opcNodeColor}>
-          {entry.name} {opcNode}
-        </Text.Text>
-      </Align.Space>
-      <Button.Toggle
-        checkedVariant="outlined"
-        uncheckedVariant="outlined"
-        value={entry.enabled}
-        size="small"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
-        tooltip={
-          <Text.Text level="small" style={{ maxWidth: 300 }}>
-            Data acquisition for this channel is{" "}
-            {entry.enabled ? "enabled" : "disabled"}. Click to
-            {entry.enabled ? " disable" : " enable"} it.
-          </Text.Text>
-        }
-      >
-        <Status.Text
-          variant={entry.enabled ? "success" : "disabled"}
-          level="small"
-          align="center"
+        <Text.WithIcon
+          startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l7)" }} />}
+          level="p"
+          weight={500}
+          shade={9}
+          align="end"
         >
-          {entry.enabled ? "Enabled" : "Disabled"}
-        </Status.Text>
-      </Button.Toggle>
+          {entry.name}
+        </Text.WithIcon>
+        <Text.WithIcon
+          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
+          level="small"
+          weight={350}
+          shade={7}
+          color={opcNodeColor}
+          size="small"
+        >
+          {entry.nodeName} {opcNode}
+        </Text.WithIcon>
+      </Align.Space>
+      <Align.Space direction="x" align="center">
+        {childValues.useAsIndex && (
+          <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
+            Index
+          </Text.Text>
+        )}
+        <EnableDisableButton
+          value={childValues.enabled}
+          onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+        />
+      </Align.Space>
     </List.ItemFrame>
   );
 };
 
 interface ChannelFormProps {
-  selectedChannelIndex: number;
+  selectedChannelIndex?: number | null;
   deviceProperties?: Device.Properties;
 }
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
+  if (selectedChannelIndex == null || selectedChannelIndex == -1)
+    return (
+      <Align.Center className={CSS.B("channel-form")}>
+        <Text.Text level="p" shade={6}>
+          Select a channel to configure its properties.
+        </Text.Text>
+      </Align.Center>
+    );
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
-    <Align.Space
-      direction="y"
-      grow
-      style={{ padding: "2rem", borderTop: "var(--pluto-border)" }}
-    >
+    <Align.Space direction="y" grow className={CSS.B("channel-form")} empty>
       <Form.TextField
         path={`${prefix}.name`}
         label="Channel Name"
         inputProps={{ variant: "natural", level: "h3" }}
       />
-      <Form.SwitchField path={`${prefix}.useAsIndex`} label="Use as Index" />
+      <Form.SwitchField
+        path={`${prefix}.useAsIndex`}
+        label="Use as Index"
+        visible={(_, ctx) =>
+          DataType.TIMESTAMP.equals(
+            ctx.get<string>(`${prefix}.dataType`, { optional: true })?.value ?? "",
+          )
+        }
+      />
     </Align.Space>
   );
 };

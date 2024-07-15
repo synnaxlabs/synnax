@@ -14,6 +14,8 @@ describe("caseconv", () => {
         ["NS=1;ID=5", "NS=1;ID=5"],
         ["foo-bar", "foo-bar"],
         ["FooBar", "fooBar"],
+        ["foo.bar", "foo.bar"],
+        ["foo_bar_baz.qux", "fooBarBaz.qux"],
       ];
       SPECS.forEach(([input, expected]) => {
         it(`should convert ${input} to ${expected}`, () => {
@@ -69,6 +71,8 @@ describe("caseconv", () => {
         ["foo_bar_baz", "foo_bar_baz"],
         ["NS=1;ID=5", "NS=1;ID=5"],
         ["foo-bar", "foo-bar"],
+        ["foo.bar", "foo.bar"],
+        ["fooBarBaz.qux", "foo_bar_baz.qux"],
       ];
       SPECS.forEach(([input, expected]) => {
         it(`should convert ${input} to ${expected}`, () => {

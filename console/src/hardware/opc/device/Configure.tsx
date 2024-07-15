@@ -35,7 +35,6 @@ import {
 } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
   connectionConfigZ,
-  groupConfigZ,
   type Properties,
   SecurityMode,
   SecurityPolicy,
@@ -47,7 +46,6 @@ import { type Layout } from "@/layout";
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
   connection: connectionConfigZ,
-  groups: groupConfigZ.array(),
 });
 
 export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
@@ -91,7 +89,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         security_policy: "None",
         security_mode: "None",
       },
-      groups: [],
     },
     schema: configureZ,
   });
@@ -127,7 +124,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           rack: rack.key,
           location: methods.get<string>("connection.endpoint").value,
           properties: {
-            identifier: methods.get<string>("identifier").value,
             connection: methods.get<Properties>("connection").value,
             read: {
               index: 0,
@@ -241,6 +237,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
             variant="outlined"
             triggers={[SAVE_TRIGGER]}
             loading={testConnection.isPending}
+            disabled={testConnection.isPending}
             onClick={() => testConnection.mutate()}
           >
             Test Connection

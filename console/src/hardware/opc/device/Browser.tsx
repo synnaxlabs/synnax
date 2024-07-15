@@ -1,4 +1,3 @@
-import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Icon as PIcon, Synnax, Text, TimeSpan, Tree } from "@synnaxlabs/pluto";
 import { Optional } from "@synnaxlabs/x";
@@ -37,6 +36,8 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
     },
   });
 
+  const [loading, setLoading] = useState<string | undefined>(undefined);
+
   const expand = useMutation({
     mutationKey: [client?.key, scanTask?.key, device?.key],
     mutationFn: async (props: Optional<Tree.HandleExpandProps, "clicked">) => {
@@ -45,33 +46,28 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       const isRoot = props.clicked == null;
       const nodeID = isRoot ? "" : parseNodeID(props.clicked as string);
       const { connection } = device.properties;
+      setLoading(props.clicked as string);
       const res = await scanTask.executeCommandSync<ScannerScanCommandResult>(
         "scan",
         { connection, node_id: nodeID },
         TimeSpan.seconds(10),
       );
-      console.log(res);
       if (res.details == null) return;
       const { channels } = res.details;
-      const newNodes = channels.map((channel) => ({
-        key: nodeKey(channel.nodeId, nodeID),
-        name: channel.name,
-        icon: channel.isArray ? (
+      const newNodes = channels.map((node) => ({
+        key: nodeKey(node.nodeId, nodeID),
+        name: node.name,
+        icon: node.isArray ? (
           <PIcon.Icon bottomRight={<Icon.Array />}>
             <Icon.Variable />
           </PIcon.Icon>
         ) : (
-          ICONS[channel.nodeClass]
+          ICONS[node.nodeClass]
         ),
         hasChildren: true,
-        haulItems: [
-          {
-            key: channel.nodeId,
-            type: "opc",
-            data: channel,
-          },
-        ],
+        haulItems: [{ key: node.nodeId, type: "opc", data: node }],
       }));
+      setLoading(undefined);
       if (isRoot) setNodes(newNodes);
       else
         setNodes([
@@ -94,6 +90,7 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
   return (
     <Align.Space direction="y" grow style={{ height: "100%", overflow: "hidden" }}>
       <Tree.Tree
+        loading={loading}
         emptyContent={
           <Align.Center>
             <Text.Text shade={6} level="p" style={{ maxWidth: 215 }}>

@@ -144,7 +144,7 @@ export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
   onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
   onRename?: (key: string, name: string) => void;
   onDoubleClick?: (key: string, e: React.MouseEvent) => void;
-  loading?: boolean;
+  loading: boolean;
   useMargin?: boolean;
 }
 
@@ -169,6 +169,7 @@ export interface TreeProps
   children?: RenderProp<ItemProps>;
   virtual?: boolean;
   showRules?: boolean;
+  loading?: string;
 }
 
 export type Item = FC<ItemProps>;
@@ -327,6 +328,7 @@ export const Tree = ({
   expand: __,
   contract: _,
   emptyContent,
+  loading,
   ...props
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
@@ -347,6 +349,7 @@ export const Tree = ({
             children({
               ...props,
               key,
+              loading: loading === key,
               useMargin,
               onDrop,
               onRename,
