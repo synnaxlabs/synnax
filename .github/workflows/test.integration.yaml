@@ -62,12 +62,33 @@ jobs:
         run: ./run-integration.sh tests/delete-test.json
         working-directory: ./integration
 
-#      - name: Load test
-#        if: steps.filter.outputs.changed == 'true'
-#        run: ./run-integration.sh tests/ws-d-r.json
-#        working-directory: ./integration
+      - name: Load test
+        if: steps.filter.outputs.changed == 'true'
+        run: ./run-integration.sh tests/ws-d-r.json
+        working-directory: ./integration
 
       - name: Benchmark test
         if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
         run: ./run-integration.sh tests/benchmark-debug.json
         working-directory: ./integration
+
+  test-benchmark-cesium:
+    runs-on: "Ubuntu"
+    timeout-minutes: 1440
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changed:
+                - "cesium/**"
+                - ".github/workflows/test.integration.yaml"
+
+      - name: Benchmark
+        if: steps.filter.outputs.changed == 'true'
+        run: python ./benchmarker.py
+        working-directory: ./cesium
