@@ -249,6 +249,42 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 						Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 					})
+					// It("Should write an empty frame properly", func() {	
+					// 	var (
+					// 		rate1  = GenerateChannelKey()
+					// 		rate2  = GenerateChannelKey()
+					// 		index1 = GenerateChannelKey()
+					// 		data1  = GenerateChannelKey()
+					// 	)
+					// 	By("Creating a channel")
+					// 	Expect(db.CreateChannel(
+					// 		ctx,
+					// 		cesium.Channel{Key: rate1, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+					// 		cesium.Channel{Key: rate2, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+					// 		cesium.Channel{Key: index1, DataType: telem.TimeStampT, IsIndex: true},
+					// 		cesium.Channel{Key: data1, DataType: telem.Int64T, Index: index1},
+					// 	)).To(Succeed())
+					// 	w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					// 		Channels: []cesium.ChannelKey{index1, data1, rate1, rate2},
+					// 		Start:    10 * telem.SecondTS,
+					// 	}))
+
+					// 	By("Writing data")
+					// 	ok := w.Write(cesium.NewFrame(
+					// 		[]cesium.ChannelKey{index1, data1, rate1, rate2},
+					// 		[]telem.Series{},
+					// 	))
+					// 	Expect(ok).To(BeTrue())
+					// 	end, ok := w.Commit()
+					// 	Expect(end).To(Equal(10*telem.SecondTS + 1))
+					// 	Expect(ok).To(BeTrue())
+
+					// 	Expect(w.Close()).To(Succeed())
+
+					// 	By("Checking that the data is correct")
+					// 	f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, data1, rate1, rate2))
+					// 	Expect(f.Series).To(BeEmpty())
+					// })
 				})
 				Describe("Auto-commit", func() {
 					Describe("Indexed channels", func() {

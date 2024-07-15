@@ -338,6 +338,11 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		return fr, err
 	}
 
+	// No data to write, so do nothing.
+	if fr.Len() == 0 || fr.Series[0].Len() == 0 {
+		return fr, nil
+	}
+
 	var incrementedSampleCount bool
 
 	for i, series := range fr.Series {
@@ -348,7 +353,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			continue
 		}
 
-		if w.writingToIdx && w.idx.key == key && series.Len() > 0 {
+		if w.writingToIdx && w.idx.key == key {
 			if err = w.updateHighWater(series); err != nil {
 				return fr, err
 			}
