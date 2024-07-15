@@ -11,6 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
+  axis,
   Channel,
   Color,
   Legend,
@@ -23,19 +24,23 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   box,
+  DataType,
   deep,
   getEntries,
   location,
+  primitiveIsZero,
   scale,
   TimeRange,
   unique,
   type UnknownRecord,
 } from "@synnaxlabs/x";
+import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 
 import { Menu } from "@/components/menu";
+import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
   AxisKey,
@@ -56,6 +61,7 @@ import {
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
+  AxesState,
   type AxisState,
   internalCreate,
   type LineState,
@@ -87,6 +93,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const placer = Layout.usePlacer();
   const vis = useSelect(layoutKey);
+  const prevVis = usePrevious(vis);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
   const dispatch = useDispatch();
@@ -137,12 +144,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     (d): void => {
       const newLine = { ...d } as const as LineState;
       if (d.color != null) newLine.color = Color.toHex(d.color);
-      syncDispatch(
-        setLine({
-          key: layoutKey,
-          line: [newLine],
-        }),
-      );
+      syncDispatch(setLine({ key: layoutKey, line: [newLine] }));
     },
     [syncDispatch, layoutKey],
   );
@@ -164,21 +166,44 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [syncDispatch, layoutKey],
   );
 
-  const handleAxisChange = useCallback<
-    Exclude<Channel.LinePlotProps["onAxisChange"], undefined>
-  >(
-    (axis) => {
+  const handleAxisChange = useCallback(
+    (axis: Channel.AxisProps) => {
       syncDispatch(
         setAxis({
           key: layoutKey,
           axisKey: axis.key as AxisKey,
           axis: axis as AxisState,
-          triggerRender: false,
+          triggerRender: true,
         }),
       );
     },
     [syncDispatch, layoutKey],
   );
+
+  const xAxisChannelChange = useMutation<void, Error, Channel.AxisProps>({
+    mutationFn: async (axis) => {
+      const key = vis.channels[axis.key as XAxisKey];
+      const prevKey = prevVis?.channels[axis.key as XAxisKey];
+      if (client == null || key === prevKey) return;
+      let newType: axis.TickType = "time";
+      if (!primitiveIsZero(key)) {
+        const ch = await client.channels.retrieve(key);
+        if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
+      }
+      if (axis.type === newType) return;
+      syncDispatch(
+        setAxis({
+          key: layoutKey,
+          axisKey: axis.key as AxisKey,
+          axis: { ...(axis as AxisState), type: newType },
+          triggerRender: true,
+        }),
+      );
+    },
+  });
+  useEffect(() => {
+    xAxisChannelChange.mutate(vis.axes.axes.x1);
+  }, [vis.channels.x1]);
 
   const propsLines = buildLines(vis, ranges);
   const axes = useMemo(() => buildAxes(vis), [vis.axes.renderTrigger]);
@@ -220,22 +245,11 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
       if (stage !== "end") return;
-      if (mode === "select") {
+      if (mode === "select") syncDispatch(setSelection({ key: layoutKey, box: b }));
+      else
         syncDispatch(
-          setSelection({
-            key: layoutKey,
-            box: b,
-          }),
+          storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
         );
-      } else {
-        syncDispatch(
-          storeViewport({
-            key: layoutKey,
-            pan: box.bottomLeft(b),
-            zoom: box.dims(b),
-          }),
-        );
-      }
     },
     100,
     [syncDispatch, layoutKey],
@@ -286,14 +300,14 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
-
     const s = scale.Scale.scale(1).scale(bounds);
+    const placer = Layout.usePlacer();
+
     const timeRange = new TimeRange(
       s.pos(box.left(selection)),
       s.pos(box.right(selection)),
     );
 
-    const newLayout = Layout.usePlacer();
     const handleSelect = (key: string): void => {
       switch (key) {
         case "iso":
@@ -312,15 +326,12 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           );
           break;
         case "range":
-          dispatch(
-            Range.setBuffer({
-              timeRange: {
-                start: Number(timeRange.start.valueOf()),
-                end: Number(timeRange.end.valueOf()),
-              },
+          placer(
+            Range.createEditLayout(undefined, {
+              start: Number(timeRange.start.valueOf()),
+              end: Number(timeRange.end.valueOf()),
             }),
           );
-          newLayout(Range.createEditLayout());
           break;
         case "download":
           if (client == null) return;
@@ -427,14 +438,10 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 };
 
 const buildAxes = (vis: State): Channel.AxisProps[] =>
-  getEntries(vis.axes.axes)
+  getEntries<AxesState["axes"]>(vis.axes.axes)
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(([key, axis]): Channel.AxisProps => {
-      return {
-        location: axisLocation(key as AxisKey),
-        type: X_AXIS_KEYS.includes(key as XAxisKey) ? "time" : "linear",
-        ...axis,
-      };
+      return { location: axisLocation(key as AxisKey), ...axis };
     });
 
 const buildLines = (
@@ -504,14 +511,17 @@ export const LinePlot: Layout.Renderer = ({
   layoutKey,
   ...props
 }): ReactElement | null => {
-  const linePlot = useSelect(layoutKey);
-  const dispatch = useDispatch();
-  const client = Synnax.use();
-  useAsyncEffect(async () => {
-    if (client == null || linePlot != null) return;
-    const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
-    dispatch(internalCreate({ ...(data as unknown as State) }));
-  }, [client, linePlot]);
+  const linePlot = useLoadRemote({
+    name: "Line Plot",
+    targetVersion: ZERO_STATE.version,
+    layoutKey,
+    useSelect: useSelect,
+    fetcher: async (client, layoutKey) => {
+      const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
+      return data as unknown as State;
+    },
+    actionCreator: internalCreate,
+  });
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { QueryError } from "@synnaxlabs/client";
+import { NotFoundError, QueryError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
@@ -126,7 +126,7 @@ const Wrapped = ({
         try {
           await client.channels.retrieve(dev.properties.analogInput.index);
         } catch (e) {
-          if (e instanceof QueryError) shouldCreateIndex = true;
+          if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
         }
       }
@@ -151,7 +151,7 @@ const Wrapped = ({
           try {
             await client.channels.retrieve(exKey.toString());
           } catch (e) {
-            if (e instanceof QueryError) toCreate.push(channel);
+            if (QueryError.matches(e)) toCreate.push(channel);
             else throw e;
           }
         }

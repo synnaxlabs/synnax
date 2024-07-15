@@ -35,9 +35,10 @@ const client = new WebSocketClient(url, new binary.JSONEncoderDecoder());
 
 class MyCustomError extends BaseTypedError {
   code: number;
+  type = "integration.error";
 
   constructor(message: string, code: number) {
-    super(message, "integration.error");
+    super(message);
     this.code = code;
   }
 }

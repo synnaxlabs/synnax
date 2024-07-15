@@ -21,7 +21,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-const initialState: SliceState = {
+const ZERO_SLICE_STATE: SliceState = {
   version: "0.0.0",
 };
 
@@ -29,11 +29,15 @@ export type SetVersionAction = PayloadAction<string>;
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+export const migrateSlice = migrate.migrator({
+  name: "version.slice",
+  migrations: MIGRATIONS,
+  def: ZERO_SLICE_STATE,
+});
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (state, { payload: version }: SetVersionAction) => {
       state.version = version;

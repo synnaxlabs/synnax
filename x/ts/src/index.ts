@@ -16,6 +16,7 @@ export * from "@/control";
 export * from "@/debounce/debounce";
 export * from "@/deep";
 export * from "@/destructor";
+export * from "@/errors";
 export * from "@/identity";
 export * from "@/invert";
 export * from "@/kv";

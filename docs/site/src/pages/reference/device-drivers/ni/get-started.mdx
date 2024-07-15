@@ -8,9 +8,18 @@ description: "Learn how to acquire data from and control National Instruments ha
 import { Divider } from "@synnaxlabs/pluto";
 import Note from "@/components/Note.astro";
 
-The National Instruments (NI) device driver allows Synnax to directly connect to your NI 
-hardware, including CompactDAQ, CompactRIO, and PXI systems. This page will walk you
-through some of the important pre-requisites necessary to get started with the NI driver.
+The [National Instruments (NI)](https://www.ni.com/en-us.html) device driver allows 
+Synnax to directly connect to your NI hardware, including CompactDAQ, CompactRIO, and 
+PXI systems. This page will walk you through some of the important pre-requisites 
+necessary to get started with the NI driver.
+
+<Divider.Divider direction="x" />
+
+## Supported Devices
+
+**Synnax supports reading and writing data to all National Instruments devices that are supported by the [NI-DAQmx driver](https://www.ni.com/en-us/support/downloads/drivers/download.ni-daqmx.html).**
+
+Aside from very old DAQ modules, Synnax is generally compatible with every NI device.
 
 <Divider.Divider direction="x" />
 
@@ -24,7 +33,8 @@ National Instruments' DAQmx drivers must be installed for Synnax to communicate 
 hardware. Instructions for installing DAQmx can be found on the [National Instruments website.](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710)
 
 <Note variant="warning">
-Synnax will not be able to communicate with your hardware if DAQmx is not installed.
+If you have a Synnax cluster already running before installing DAQmx, you'll need to 
+restart the cluster for Synnax to recognize the DAQmx installation.
 </Note>
 
 <Divider.Divider direction="x" />

@@ -1,15 +1,19 @@
 // Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in
+// the file licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business
+// Source License, use of this software will be governed by the Apache License,
+// Version 2.0, included in the file licenses/APL.txt.
 
 import { selectByKey, useMemoSelect } from "@/hooks";
-import type { Range, StaticRange } from "@/range/range";
-import { SLICE_NAME,type SliceState, type StoreState } from "@/range/slice";
+import {
+  type Range,
+  SLICE_NAME,
+  type SliceState,
+  type StoreState,
+} from "@/range/slice";
 
 /**
  * Selects the workspace state.
@@ -19,21 +23,12 @@ import { SLICE_NAME,type SliceState, type StoreState } from "@/range/slice";
 const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 /**
- * Selects ranges with the given keys. If no keys are provided, all ranges are selected.
- *
- * @param state  - The state of the workspace store.
- * @param keys  - The keys of the ranges to select. If not provided, all ranges are
- * selected.
- * @returns The ranges with the given keys.
+ * Selects the workspace state.
+ * @returns The workspace state.
  */
-export const selectMultiple = (
-  state: StoreState,
-  keys?: string[] | string[],
-): Range[] => {
-  const all = Object.values(selectState(state).ranges);
-  if (keys == null) return all;
-  return all.filter((range) => keys.includes(range.key));
-};
+export const useSelectState = (): SliceState =>
+  useMemoSelect((state: StoreState) => selectState(state), []);
+
 /**
  * Selects the key of the active range.
  *
@@ -44,15 +39,23 @@ export const selectActiveKey = (state: StoreState): string | null =>
   selectState(state).activeRange;
 
 /**
+ * Selects the key of the active range.
+ *
+ * @returns The key of the active range, or null if no range is active.
+ */
+export const useSelectActiveKey = (): string | null =>
+  useMemoSelect((state: StoreState) => selectActiveKey(state), []);
+
+/**
  * Selects a range from the workspace store.
  *
  * @param state - The state of the workspace store.
- * @param key - The key of the range to select. If not provided, the active range key
- * will be used.
+ * @param key - The key of the range to select. If not provided, the active
+ * range key will be used.
  *
- * @returns The range with the given key. If no key is provided, the active range is
- * key is used. If no active range is set, returns null. If the range does not exist,
- * returns undefined.
+ * @returns The range with the given key. If the range does not exist, returns
+ * undefined. If no key is provided, the active range key is used. If no active
+ * range is set, returns null.
  */
 export const select = (
   state: StoreState,
@@ -61,39 +64,42 @@ export const select = (
   selectByKey(selectState(state).ranges, key, selectActiveKey(state));
 
 /**
- * Selects information from the current edit range buffer.
- *
- * @param state - The state of the workspace store.
- *
- * @returns Information from the stored buffer. If no buffer is set, it returns null.
- */
-export const selectBuffer = (
-  state: StoreState,
-): Partial<StaticRange> | null | undefined => selectState(state).buffer;
-
-/**
  * Selects a range from the workspace store.
  *
- * @returns The range with the given key. If no key is provided, the active range is
- * key is used. If no active range is set, returns null. If the range does not exist,
- * returns undefined.
+ * @param key - The key of the range to select. If not provided, the active
+ * range key will be used.
+ *
+ * @returns The range with the given key. If the range does not exist, returns
+ * undefined. If no key is provided, the active range key is used. If no active
+ * range is set, returns null.
  */
 export const useSelect = (key?: string): Range | null | undefined =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
 /**
- * Selects information from the current edit range buffer.
- *
- * @returns Information from the stored buffer. If no buffer is set, it returns null.
- */
-export const useSelectBuffer = (): Partial<Range> | null | undefined =>
-  useMemoSelect((state: StoreState) => selectBuffer(state), []);
-
-/**
- * Selects ranges from the workspace store. If no keys are provided, all ranges are
+ * Selects ranges with the given keys. If no keys are provided, all ranges are
  * selected.
  *
- * @param keys - The keys of the ranges to select. If not provided, all ranges are
+ * @param state  - The state of the workspace store.
+ * @param keys  - The keys of the ranges to select. If not provided, all ranges
+ * are selected.
+ * @returns The ranges with the given keys.
+ */
+export const selectMultiple = (
+  state: StoreState,
+  keys?: string[] | string[],
+): Range[] => {
+  const all = Object.values(selectState(state).ranges);
+  if (keys == null) return all;
+  return all.filter((range) => keys.includes(range.key));
+};
+
+/**
+ * Selects ranges from the workspace store. If no keys are provided, all ranges
+ * are selected.
+ *
+ * @param keys - The keys of the ranges to select. If not provided, all ranges
+ * are selected.
  * @returns The ranges with the given keys.
  */
 export const useSelectMultiple = (keys?: string[]): Range[] =>

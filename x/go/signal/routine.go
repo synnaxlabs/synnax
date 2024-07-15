@@ -42,7 +42,13 @@ FailureReason: %s,
 `, r.Key, r.ContextKey, r.State, r.FailureReason)
 }
 
-type RoutineState uint8
+type (
+	RoutineState uint8
+	panicPolicy  uint8
+	// contextPolicy is a private enum to keep enabling us to use the CancelOnExit()
+	// and CancelOnFail() options pattern.
+	contextPolicy uint8
+)
 
 //go:generate stringer -type=RoutineState
 const (
@@ -53,6 +59,19 @@ const (
 	Failed
 	ContextCanceled
 	Panicked
+)
+
+const (
+	propagatePanic panicPolicy = iota
+	recoverNoErr
+	recoverErr
+)
+
+const (
+	// CancelOnExit defines if the routine should cancel the context upon exiting.
+	cancelOnExit contextPolicy = iota + 1
+	// CancelOnFail defines if the routine should cancel the context upon exiting
+	cancelOnFail
 )
 
 // Defer attaches the provided function f to the routine. The function will be
@@ -93,27 +112,49 @@ type deferral struct {
 	f   func() error
 }
 
-// CancelOnExit defines if the routine should cancel the context upon exiting.
-// The default is false. If CancelOnExit or CancelOnExitErr has already been
-// set, CancelOnExit will panic.
-func CancelOnExit() RoutineOption {
+// RecoverWithErrOnPanic instructs the goroutine to recover if it panics, and fail with
+// the panic as an error.
+// Setting RecoverWithErrOnPanic will override a previously set panic policy.
+func RecoverWithErrOnPanic() RoutineOption {
 	return func(r *routineOptions) {
-		if r.contextPolicy.cancelOnExit || r.contextPolicy.cancelOnExitErr {
-			panic("[signal] - cannot set cancelOnExit or cancelOnExitErr twice")
-		}
-		r.contextPolicy.cancelOnExit = true
+		r.panicPolicy = recoverErr
 	}
 }
 
-// CancelOnExitErr defines if the routine should cancel the context upon exiting
-// with a non-nil error. The default is false. If CancelOnExit or
-// CancelOnExitErr has already been set, CancelOnExitErr will panic.
-func CancelOnExitErr() RoutineOption {
+// RecoverWithoutErrOnPanic instructs the goroutine to recover if it panics, and exit
+// without error.
+// Setting RecoverWithoutErrOnPanic will override a previously set panic policy.
+func RecoverWithoutErrOnPanic() RoutineOption {
 	return func(r *routineOptions) {
-		if r.contextPolicy.cancelOnExit || r.contextPolicy.cancelOnExitErr {
-			panic("[signal] - cannot set cancelOnExit or cancelOnExitErr twice")
-		}
-		r.contextPolicy.cancelOnExitErr = true
+		r.panicPolicy = recoverNoErr
+	}
+}
+
+// WithMaxRestart sets the maximum number of attempted restarts after panicking.
+// It does not configure a panicPolicy and thus the goroutine will panic after the
+// maximum restart attempts is reached. To set a panicPolicy use one of
+// RecoverWithErrOnPanic or RecoverWithoutErrOnPanic.
+func WithMaxRestart(maxRestart int) RoutineOption {
+	return func(r *routineOptions) {
+		r.maxRestart = maxRestart
+	}
+}
+
+// CancelOnExit instructs the goroutine to cancel upon exiting (error or no error)
+// If CancelOnFail or CancelOnExit is already called, this overrides the previous
+// configuration.
+func CancelOnExit() RoutineOption {
+	return func(r *routineOptions) {
+		r.contextPolicy = cancelOnExit
+	}
+}
+
+// CancelOnFail instructs the goroutine to cancel upon failing (error)
+// If CancelOnFail or CancelOnExit is already called, this overrides the previous
+// configuration.
+func CancelOnFail() RoutineOption {
+	return func(r *routineOptions) {
+		r.contextPolicy = cancelOnFail
 	}
 }
 
@@ -127,10 +168,12 @@ type routineOptions struct {
 	deferrals []deferral
 	// contextPolicy defines if the routine should cancel the context after
 	// exiting.
-	contextPolicy struct {
-		cancelOnExit    bool
-		cancelOnExitErr bool
-	}
+	contextPolicy contextPolicy
+	// panicPolicy defines what the routine should do if it panics.
+	panicPolicy panicPolicy
+	// maxRestart defines the maximum number of times a panicking goroutine attempts to
+	// restart before its panicPolicy kicks into place.
+	maxRestart int
 	// callerSkip is the number of stack frames to skip when logging.
 	callerSkip int
 }
@@ -159,6 +202,7 @@ func (r *routine) info() RoutineInfo {
 
 func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	r.ctx.mu.Lock()
+	defer r.ctx.mu.Unlock()
 
 	if r.key == "" {
 		r.key = "anonymous-" + strconv.Itoa(len(r.ctx.mu.routines))
@@ -172,8 +216,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 		r.state.err = r.ctx.Err()
 		return r.ctx, false
 	}
-	r.state.state = Running
-	r.ctx.mu.Unlock()
+	r.state.state = Starting
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
 	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
@@ -181,10 +224,9 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	return ctx, true
 }
 
+// runPostlude decides the state of the goroutine upon exiting and combines err with
+// any errors from deferred functions.
 func (r *routine) runPostlude(err error) error {
-	r.maybeRecover()
-	defer r.maybeRecover()
-
 	r.ctx.L.Debug("stopping routine", r.zapFields()...)
 
 	r.ctx.mu.Lock()
@@ -211,14 +253,14 @@ func (r *routine) runPostlude(err error) error {
 			r.ctx.L.Error("routine failed", r.zapFields()...)
 			r.ctx.L.Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
 		}
-		if r.contextPolicy.cancelOnExitErr {
+		if r.contextPolicy == cancelOnFail {
 			r.ctx.cancel()
 		}
 	} else {
 		r.state.state = Exited
 	}
 
-	if r.contextPolicy.cancelOnExit {
+	if r.contextPolicy == cancelOnExit {
 		r.ctx.cancel()
 	}
 
@@ -231,19 +273,35 @@ func (r *routine) runPostlude(err error) error {
 	return err
 }
 
-func (r *routine) maybeRecover() {
-	if err := recover(); err != nil {
-		r.ctx.mu.Lock()
-		defer r.ctx.mu.Unlock()
+func (r *routine) maybeRecover(err any) error {
+	r.ctx.mu.Lock()
+	defer r.ctx.mu.Unlock()
+
+	r.ctx.L.Debugf("routine panicked, handling with strategy %v", r.panicPolicy)
+	r.ctx.L.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
+
+	switch r.panicPolicy {
+	case propagatePanic:
 		r.state.state = Panicked
-		r.ctx.L.Error("routine panicked")
-		r.ctx.L.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
 		if err, ok := err.(error); ok {
 			r.state.err = err
 			_ = r.span.Error(err)
 		}
 		r.span.End()
 		panic(err)
+	case recoverErr:
+		r.state.state = Failed
+		if err, ok := err.(error); ok {
+			return errors.Wrap(err, "routine recovered")
+		}
+		return errors.Newf("%s", err)
+	case recoverNoErr:
+		r.state.state = Exited
+		return nil
+	default:
+		msg := fmt.Sprintf("unknown panic policy %v", r.panicPolicy)
+		r.ctx.L.DPanic(msg)
+		return errors.Newf(msg)
 	}
 }
 
@@ -276,10 +334,35 @@ func (r *routine) path() string {
 func (r *routine) goRun(f func(context.Context) error) {
 	if ctx, proceed := r.runPrelude(); proceed {
 		pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
+			r.ctx.mu.Lock()
+			r.state.state = Running
+			r.ctx.mu.Unlock()
 			r.ctx.internal.Go(func() (err error) {
-				defer func() { err = r.runPostlude(err) }()
-				err = f(ctx)
-				return err
+				for i := 0; i < r.maxRestart+1; i++ {
+					restart := false
+					if r.maxRestart != 0 && i != r.maxRestart {
+						// Before reaching the "last straw", restart the goroutine if
+						// recovered from a panic.
+						restart = true
+					}
+					func() {
+						defer func() {
+							if e := recover(); e != nil {
+								if restart {
+									return
+								}
+								err = r.maybeRecover(e)
+							}
+						}()
+						err = f(ctx)
+					}()
+
+					if !restart {
+						err = r.runPostlude(err)
+						return
+					}
+				}
+				return
 			})
 		})
 	}

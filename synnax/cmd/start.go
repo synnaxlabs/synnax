@@ -205,7 +205,7 @@ func start(cmd *cobra.Command) {
 		}()
 
 		// Provision the root user.
-		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
+		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
 			return err
 		}
 

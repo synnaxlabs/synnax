@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice,type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 
@@ -22,7 +22,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const initialState: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
   version: "0.0.0",
   active: null,
   workspaces: {},
@@ -40,11 +40,15 @@ export interface RenamePayload {
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+export const migrateSlice = migrate.migrator<SliceState, SliceState>({
+  name: "workspace.slice",
+  migrations: MIGRATIONS,
+  def: ZERO_SLICE_STATE,
+});
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     setActive: (state, { payload }: PayloadAction<SetActivePayload>) => {
       state.active = payload;

@@ -12,8 +12,8 @@ import { Mosaic } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
-import { WindowProps } from "@/layout/layout";
 import { select, selectSliceState } from "@/layout/selectors";
+import { WindowProps } from "@/layout/slice";
 import {
   clearWorkspace,
   MOSAIC_WINDOW_TYPE,

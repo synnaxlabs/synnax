@@ -8,11 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
+from typing import overload
 from uuid import uuid4
 from warnings import warn
-from typing import overload
 
-import numpy as np
+from numpy import can_cast as np_can_cast
+from pandas import DataFrame
+from pandas import concat as pd_concat
+
+import synnax
 from freighter import (
     EOF,
     Payload,
@@ -20,15 +24,11 @@ from freighter import (
     StreamClient,
     decode_exception,
 )
-from numpy import can_cast as np_can_cast
-from pandas import DataFrame
-from pandas import concat as pd_concat
-
 from synnax import io
 from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
-from synnax.framer.frame import Frame, FramePayload
+from synnax.framer.frame import Frame, FramePayload, CrudeFrame
 from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, Subject
 from synnax.util.normalize import normalize
@@ -50,14 +50,14 @@ class WriterMode(int, Enum):
 
 
 class _Config(Payload):
-    authorities: list[int]
-    control_subject: Subject
+    authorities: list[int] = Authority.ABSOLUTE
+    control_subject: Subject = Subject(name="", key=str(uuid4()))
     start: TimeStamp | None = None
     keys: ChannelKeys
-    mode: WriterMode
-    err_on_unauthorized: bool
-    enable_auto_commit: bool
-    auto_index_persist_interval: TimeSpan
+    mode: WriterMode = WriterMode.PERSIST_STREAM
+    err_on_unauthorized: bool = False
+    enable_auto_commit: bool = False
+    auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
 
 
 class _Request(Payload):
@@ -170,30 +170,24 @@ class Writer:
     @overload
     def write(
         self,
-        channels_or_data: Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries]
-        | DataFrame
-        | dict[ChannelKey | ChannelName, float | np.number],
+        channels_or_data: CrudeFrame,
     ):
         ...
 
     def write(
         self,
         channels_or_data: ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries]
-        | dict[ChannelKey | ChannelName, float | np.number]
-        | DataFrame,
+                          | ChannelKey
+                          | ChannelKeys
+                          | ChannelNames
+                          | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given data to the database. The formats are listed below. Before
         we get into them, here are some important terms to know.
 
             1. Channel ID -> the key or name of the channel(s) you're writing to.
-            j2. Series or CrudeSeries -> the data for that channel, which can be
+            2. Series or CrudeSeries -> the data for that channel, which can be
             represented as a synnax Series type, a numpy array, or a simple Python
             list. You can also provide a single numeric (or, in the case of variable
             length types, a string or JSON) value and Synnax will convert it into a

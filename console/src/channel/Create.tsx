@@ -122,7 +122,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
               onChange={(v, ctx) => {
                 if (v) {
                   ctx.set("dataType", DataType.TIMESTAMP.toString());
-                  ctx.set("index", 0);
+                  if (ctx.get("index").value !== 0) ctx.set("index", 0);
                 }
               }}
             />

@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Input,
   List,
   Ranger,
   Select,
@@ -18,12 +19,11 @@ import {
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
 import { createEditLayout } from "@/range/EditLayout";
-import { type Range } from "@/range/range";
+import { type Range } from "@/range/slice";
 
 export interface SelectMultipleRangesProps
   extends Select.MultipleProps<string, Range> {}

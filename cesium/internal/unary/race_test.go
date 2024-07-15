@@ -45,7 +45,8 @@ var _ = Describe("Unary racing", func() {
 						DataType: telem.Int16T,
 						Rate:     2 * telem.Hz,
 					},
-					FileSize: 1 * telem.ByteSize,
+					FileSize:        1 * telem.ByteSize,
+					Instrumentation: PanicLogger(),
 				}))
 				indexDB = MustSucceed(unary.Open(unary.Config{
 					FS: indexFS,
@@ -54,7 +55,8 @@ var _ = Describe("Unary racing", func() {
 						IsIndex:  true,
 						DataType: telem.Int64T,
 					},
-					FileSize: 1 * telem.ByteSize,
+					FileSize:        1 * telem.ByteSize,
+					Instrumentation: PanicLogger(),
 				}))
 				dataDB = MustSucceed(unary.Open(unary.Config{
 					FS: dataFS,
@@ -63,7 +65,8 @@ var _ = Describe("Unary racing", func() {
 						DataType: telem.Int64T,
 						Index:    indexKey,
 					},
-					FileSize: 1 * telem.ByteSize,
+					FileSize:        1 * telem.ByteSize,
+					Instrumentation: PanicLogger(),
 				},
 				))
 				dataDB.SetIndex(indexDB.Index())

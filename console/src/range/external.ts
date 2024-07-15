@@ -14,9 +14,9 @@ import { MetaData, metaDataWindowLayout } from "@/range/MetaData";
 export * from "@/range/ContextMenu";
 export * from "@/range/EditLayout";
 export * from "@/range/MetaData";
-export * from "@/range/range";
 export * from "@/range/Select";
 export * from "@/range/selectors";
+export * from "@/range/slice";
 export * from "@/range/slice";
 export * from "@/range/Toolbar";
 

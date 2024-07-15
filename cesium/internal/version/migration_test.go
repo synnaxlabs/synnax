@@ -40,7 +40,7 @@ var _ = Describe("Migration Test", func() {
 				Expect(testutil.CopyFS(sourceFS, destFS)).To(Succeed())
 
 				By("Opening the V1 database in V2")
-				db = MustSucceed(cesium.Open("", cesium.WithFS(fs)))
+				db = MustSucceed(cesium.Open("", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
 
 				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
 				for _, ch := range testdata.Channels {
