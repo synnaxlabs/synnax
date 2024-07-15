@@ -106,7 +106,4 @@
             border-top: var(--pluto-border);
         }
     }
-    .console-enable-disable-button .pluto-status-text span {
-        display: none;
-    }
 }

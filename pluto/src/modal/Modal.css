@@ -13,6 +13,7 @@
     .pluto-modal__dialog {
         position: absolute;
         top: 25%;
+        transform: translateY(-25%);
         border-radius: 1rem;
         background: var(--pluto-gray-l0);
         backdrop-filter: saturate(300%) blur(5rem);
