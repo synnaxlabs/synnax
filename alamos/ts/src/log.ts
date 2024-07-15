@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -78,26 +78,26 @@ export class Logger {
     return l;
   }
 
-  debug(msg: string, kv?: KV): void {
-    if (!this.filter("debug")) return;
+  debug(msg: string, kv?: KV, force: boolean = false): void {
+    if (!this.filter("debug") && !force) return;
     if (kv == null) console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg);
     else console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg, parseKV(kv));
   }
 
-  info(msg: string, kv?: KV): void {
-    if (!this.filter("info")) return;
+  info(msg: string, kv?: KV, force: boolean = false): void {
+    if (!this.filter("info") && !force) return;
     if (kv == null) console.log("%cINFO", "color: #005eff;", this.meta.path, msg);
     else console.log("%cINFO", "color: #005eff;", this.meta.path, msg, parseKV(kv));
   }
 
-  warn(msg: string, kv?: KV): void {
-    if (!this.filter("warn")) return;
+  warn(msg: string, kv?: KV, force: boolean = false): void {
+    if (!this.filter("warn") && !force) return;
     if (kv == null) console.warn("WARN", this.meta.path, msg);
     else console.warn("WARN", this.meta.path, msg, parseKV(kv));
   }
 
-  error(msg: string, kv?: KV): void {
-    if (!this.filter("error")) return;
+  error(msg: string, kv?: KV, force: boolean = false): void {
+    if (!this.filter("error") && !force) return;
     if (kv == null) console.error("ERROR", this.meta.path, msg);
     else console.error("ERROR", this.meta.path, msg, parseKV(kv));
   }
@@ -105,5 +105,4 @@ export class Logger {
   static readonly NOOP = new Logger();
 }
 
-const parseKV = (kv: KV): UnknownRecord => typeof kv === "function" ? kv() : kv;
-
+const parseKV = (kv: KV): UnknownRecord => (typeof kv === "function" ? kv() : kv);

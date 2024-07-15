@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,54 +7,58 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type { Runtime } from "@/runtime";
 export { configureStore } from "@/configureStore";
+export type { Runtime } from "@/runtime";
 export {
-  reducer,
-  createWindow,
-  closeWindow,
-  setWindowMinimized,
-  setWindowMaximized,
-  setWindowFullscreen,
-  setWindowVisible,
-  setWindowPosition,
-  setWindowSize,
-  setWindowAlwaysOnTop,
-  setWindowMinSize,
-  setWindowMaxSize,
-  setWindowResizable,
-  setWindowTitle,
-  setWindowSkipTaskbar,
-  registerProcess,
-  completeProcess,
-  initialState,
-  setWindowDecorations,
-  reloadWindow,
-  SLICE_NAME,
-} from "@/state";
+  selectSliceState,
+  selectWindow,
+  selectWindowAttribute,
+  selectWindowKey,
+  selectWindowLabel,
+  selectWindows,
+} from "@/selectors";
 export type {
-  StoreState,
-  SliceState,
   Action,
   CloseWindowPayload,
   CreateWindowPayload,
-  SetWindowMinimizedPayload,
-  SetWindowMaximizedPayload,
-  SetWindowVisiblePayload,
-  SetWindowPositionPayload,
-  SetWindowSizePayload,
   SetWindowAlwaysOnTopPayload,
-  SetWindowMinSizePayload,
+  SetWindowMaximizedPayload,
   SetWindowMaxSizePayload,
+  SetWindowMinimizedPayload,
+  SetWindowMinSizePayload,
+  SetWindowPositionPayload,
   SetWindowResizablePayload,
-  SetWindowTitlePayload,
+  SetWindowSizePayload,
   SetWindowSkipTaskbarPayload,
+  SetWindowTitlePayload,
+  SetWindowVisiblePayload,
+  SliceState,
+  StoreState,
+} from "@/state";
+export {
+  closeWindow,
+  completeProcess,
+  createWindow,
+  initialState,
+  reducer,
+  focusWindow,
+  registerProcess,
+  reloadWindow,
+  setWindowAlwaysOnTop,
+  setWindowDecorations,
+  setWindowFullscreen,
+  setWindowMaximized,
+  setWindowMaxSize,
+  setWindowMinimized,
+  setWindowMinSize,
+  setWindowPosition,
+  setWindowResizable,
+  setWindowSize,
+  setWindowSkipTaskbar,
+  setWindowStage,
+  setWindowTitle,
+  setWindowVisible,
+  SLICE_NAME,
 } from "@/state";
 export type { WindowProps, WindowStage, WindowState } from "@/window";
 export { MAIN_WINDOW } from "@/window";
-export {
-  selectWindow,
-  selectWindowKey,
-  selectWindowAttribute,
-  selectSliceState,
-} from "@/selectors";

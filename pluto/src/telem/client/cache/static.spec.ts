@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, test, it } from "vitest";
+import { describe, expect, it,test } from "vitest";
 
 import { Static } from "@/telem/client/cache/static";
 
@@ -25,7 +25,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1]),
           dataType: DataType.FLOAT32,
           timeRange: tr,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -42,7 +42,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1]),
           dataType: DataType.FLOAT32,
           timeRange: tr,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -67,7 +67,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1, 2]),
           dataType: DataType.FLOAT32,
           timeRange: tr1,
-          alignment: 1,
+          alignment: 1n,
         }),
       ]);
       c.write([
@@ -75,7 +75,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([4, 5]),
           dataType: DataType.FLOAT32,
           timeRange: tr2,
-          alignment: 4,
+          alignment: 4n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -103,7 +103,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([2, 3, 4, 5]),
           dataType: DataType.FLOAT32,
           timeRange: tr1,
-          alignment: 2,
+          alignment: 2n,
         }),
       ]);
       c.write([
@@ -111,7 +111,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([4, 5, 6]),
           dataType: DataType.FLOAT32,
           timeRange: tr2,
-          alignment: 4,
+          alignment: 4n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -136,7 +136,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([3, 4, 5, 6]),
           dataType: DataType.FLOAT32,
           timeRange: tr1,
-          alignment: 3,
+          alignment: 3n,
         }),
       ]);
       c.write([
@@ -144,7 +144,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1, 2, 3]),
           dataType: DataType.FLOAT32,
           timeRange: tr2,
-          alignment: 1,
+          alignment: 1n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -169,7 +169,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1, 2, 3, 4]),
           dataType: DataType.FLOAT32,
           timeRange: tr1,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       c.write([
@@ -177,7 +177,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([5, 6, 7, 8]),
           dataType: DataType.FLOAT32,
           timeRange: tr2,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -197,19 +197,36 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1]),
           dataType: DataType.FLOAT32,
           timeRange: tr,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
-      c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
+      const read = () =>
+        c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series;
       expect(c.gc().purgedSeries).toEqual(0);
-      expect(
-        c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series,
-      ).toHaveLength(1);
+      expect(read()).toHaveLength(1);
       await new Promise((resolve) => setTimeout(resolve, 8));
       expect(c.gc().purgedSeries).toEqual(1);
-      expect(
-        c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series,
-      ).toHaveLength(0);
+      expect(read()).toHaveLength(0);
+    });
+    it("should not garbage collect series that have a reference count greater than zero", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
+      c.write([
+        new Series({
+          data: new Float32Array([1]),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment: 0n,
+        }),
+      ]);
+      const read = () =>
+        c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series;
+      read().forEach((s) => s.acquire());
+      expect(c.gc().purgedSeries).toEqual(0);
+      expect(read()).toHaveLength(1);
+      c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
+      expect(c.gc().purgedSeries).toEqual(0);
+      expect(read()).toHaveLength(1);
     });
   });
   describe("close", () => {
@@ -221,7 +238,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1]),
           dataType: DataType.FLOAT32,
           timeRange: tr,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       c.close();

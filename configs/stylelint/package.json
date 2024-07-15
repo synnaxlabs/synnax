@@ -6,7 +6,6 @@
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/configs/stylelint",
   "author": "emilbon99@gmail.com",
   "license": "MIT",
-  "private": false,
   "dependencies": {
     "stylelint": "^16.4.0",
     "stylelint-config-prettier": "^9.0.5",

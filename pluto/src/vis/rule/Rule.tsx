@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useEffect, useRef } from "react";
+import "@/vis/rule/Rule.css";
 
-import { bounds, box } from "@synnaxlabs/x";
+import { bounds, box } from "@synnaxlabs/x/spatial";
+import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
@@ -21,8 +22,6 @@ import { state } from "@/state";
 import { Text } from "@/text";
 import { selectViewportEl } from "@/vis/lineplot/Viewport";
 import { rule } from "@/vis/rule/aether";
-
-import "@/vis/rule/Rule.css";
 
 export interface RuleProps
   extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition"> {

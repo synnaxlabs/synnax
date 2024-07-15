@@ -12,20 +12,20 @@ package fhttp
 import (
 	"context"
 	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/x/errors"
 	"go/types"
 	"io"
 	"net/http"
 	"time"
 
-	roacherrors "github.com/cockroachdb/errors"
 	ws "github.com/fasthttp/websocket"
 	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	roacherrors "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	"go.uber.org/zap"
 )
@@ -44,15 +44,15 @@ const (
 )
 
 type message[P freighter.Payload] struct {
-	Type    messageType     `json:"type" msgpack:"type"`
-	Err     ferrors.Payload `json:"error" msgpack:"error"`
-	Payload P               `json:"payload" msgpack:"payload"`
+	Type    messageType    `json:"type" msgpack:"type"`
+	Err     errors.Payload `json:"error" msgpack:"error"`
+	Payload P              `json:"payload" msgpack:"payload"`
 }
 
 func newCore[RQ, RS freighter.Payload](
 	ctx context.Context,
 	conn *ws.Conn,
-	ecd binary.EncoderDecoder,
+	ecd binary.Codec,
 	logger *zap.SugaredLogger,
 ) core[RQ, RS] {
 	ctx, cancel := context.WithCancel(ctx)
@@ -73,7 +73,7 @@ type core[I, O freighter.Payload] struct {
 	cancel     context.CancelFunc
 	contextC   chan struct{}
 	conn       *ws.Conn
-	ecd        binary.EncoderDecoder
+	ecd        binary.Codec
 	peerClosed error
 	logger     *zap.SugaredLogger
 }
@@ -201,7 +201,7 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 	// A close message means the server handler exited.
 	if msg.Type == closeMessage {
 		close(s.contextC)
-		s.peerClosed = ferrors.Decode(msg.Err)
+		s.peerClosed = errors.Decode(s.ctx, msg.Err)
 		return res, s.peerClosed
 	}
 
@@ -235,8 +235,10 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	alamos.Instrumentation
-	path    string
-	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
+	serverCtx context.Context
+	path      string
+	internal  bool
+	handler   func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(
@@ -245,16 +247,16 @@ func (s *streamServer[RQ, RS]) BindHandler(
 	s.handler = handler
 }
 
-func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
-	if !fiberws.IsWebSocketUpgrade(c) {
+func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
+	if !fiberws.IsWebSocketUpgrade(fiberCtx) {
 		return fiber.ErrUpgradeRequired
 	}
-	iMD := parseRequestCtx(c, address.Address(s.path))
+	iMD := parseRequestCtx(fiberCtx, address.Address(s.path))
 	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").(string)
 	ecd, err := httputil.DetermineEncoderDecoder(headerContentType)
 	if err != nil {
 		// If we can't determine the encoder/decoder, we can't continue, so we sent a best effort string.
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return fiberCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	oCtx, err := s.MiddlewareCollector.Exec(
 		iMD,
@@ -263,11 +265,11 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 			return oCtx, fiberws.New(func(c *fiberws.Conn) {
 				if err := func() error {
 
-					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
+					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](s.serverCtx, c.Conn, ecd, zap.S())}
 
-					errPayload := ferrors.Encode(s.handler(stream.ctx, stream))
-					if errPayload.Type == ferrors.TypeNil {
-						errPayload = ferrors.Encode(freighter.EOF)
+					errPayload := errors.Encode(ctx, s.handler(stream.ctx, stream), s.internal)
+					if errPayload.Type == errors.TypeNil {
+						errPayload = errors.Encode(ctx, freighter.EOF, s.internal)
 					}
 
 					if stream.ctx.Err() != nil {
@@ -315,18 +317,18 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					close(stream.contextC)
 					stream.cancel()
 					return nil
-				}(); err != nil {
+				}(); err != nil && !errors.Is(err, context.Canceled) {
 					s.L.Error("stream server handler error", zap.Error(err))
 				}
-			})(c)
+			})(fiberCtx)
 		}))
-	setResponseCtx(c, oCtx)
-	fErr := ferrors.Encode(err)
-	if fErr.Type == ferrors.TypeNil {
+	setResponseCtx(fiberCtx, oCtx)
+	fErr := errors.Encode(oCtx, err, s.internal)
+	if fErr.Type == errors.TypeNil {
 		return nil
 	}
-	c.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(c, ecd, fErr)
+	fiberCtx.Status(fiber.StatusBadRequest)
+	return encodeAndWrite(fiberCtx, ecd, fErr)
 }
 
 type serverStream[RQ, RS freighter.Payload] struct{ core[RQ, RS] }

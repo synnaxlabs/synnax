@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { migrate } from "@synnaxlabs/x";
+import { z } from "zod";
 
 /**
  * The name of the docs slice in a larger store.
@@ -34,7 +35,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-const initialState: SliceState = {
+const ZERO_SLICE_STATE: SliceState = {
   version: "0.0.0",
   location: {
     path: "",
@@ -47,11 +48,15 @@ export type SetLocationPayload = Location;
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+export const migrateSlice = migrate.migrator<SliceState, SliceState>({
+  name: "docs.slice",
+  migrations: MIGRATIONS,
+  def: ZERO_SLICE_STATE,
+});
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     setDocsLocation: (state, action: PayloadAction<SetLocationPayload>) => {
       state.location = action.payload;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -11,9 +11,14 @@
 
 .pluto-input-help-text {
     margin-left: 1rem;
-    height: var(--pluto-small-line-height);
+    min-height: var(--pluto-small-line-height);
+    height: fit-content;
 }
 
 .pluto-input-help-text--error {
     color: var(--pluto-error-z);
+}
+
+.pluto-input-help-text--warning {
+    color: var(--pluto-warning-z);
 }

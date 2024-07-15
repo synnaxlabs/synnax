@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import { type Payload, payloadZ, type Key, keyZ } from "@/ranger/payload";
+import { type Key, keyZ, type Payload, payloadZ } from "@/ranger/payload";
 
 const setActiveResZ = z.object({});
 
@@ -43,9 +43,9 @@ export class Active {
   async setActive(range: Key): Promise<void> {
     await sendRequired<typeof setActiveReqZ, typeof setActiveResZ>(
       this.client,
-      SET_ENDPOINT, 
-      { range }, 
-      setActiveReqZ, 
+      SET_ENDPOINT,
+      { range },
+      setActiveReqZ,
       setActiveResZ,
     );
   }
@@ -57,7 +57,7 @@ export class Active {
       z.object({}),
       retrieveActiveResZ,
     );
-    if (err instanceof QueryError) return null;
+    if (QueryError.matches(err)) return null;
     if (err != null) throw err;
     return res.range;
   }
@@ -65,8 +65,8 @@ export class Active {
   async clearActive(range: Key): Promise<void> {
     await sendRequired<typeof clearActiveReqZ, typeof clearActiveResZ>(
       this.client,
-      CLEAR_ENDPOINT, 
-      { range }, 
+      CLEAR_ENDPOINT,
+      { range },
       clearActiveReqZ,
       clearActiveResZ,
     );

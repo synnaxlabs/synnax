@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -14,8 +14,8 @@
     z-index: 8;
     border: var(--pluto-border-l4);
     backdrop-filter: blur(3rem);
-    background-color: var(--pluto-gray-l0-30);
-    -webkit-backdrop-filter: blur(3rem);
+    background-color: var(--pluto-gray-l0-60);
+    -webkit-backdrop-filter: saturate(300%) blur(3rem);
     box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 24px;
     border-radius: 1rem;
     padding: 1rem;
@@ -24,4 +24,3 @@
 .pluto-menu-context > .pluto-menu-item {
     width: 100%;
 }
-

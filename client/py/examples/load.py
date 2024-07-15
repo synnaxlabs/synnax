@@ -105,31 +105,23 @@ sensor_states = {v.key: np.uint8(False) for v in valve_responses}
 # Open a streamer to listen for incoming valve commands.
 with client.open_streamer([a.key for a in valve_commands]) as streamer:
     i = 0
-
     # Open a writer to write data to Synnax.
-    with client.open_writer(sy.TimeStamp.now(), write_to) as writer:
+    with client.open_writer(
+        sy.TimeStamp.now(),
+        write_to,
+        enable_auto_commit=True,
+    ) as writer:
         start = sy.TimeStamp.now()
-
         while True:
             time.sleep(rate)
-
             # If we've received a command, update the state of the corresponding valve.
             if streamer.received:
                 f = streamer.read()
                 for k in f.channels:
                     # 1 is open, 0 is closed.
                     sensor_states[command_to_res[k].key] = np.uint8(f[k][-1] > 0.9)
-
-            for s in sensors:
-                sensor_states[s.key] = np.float32(np.sin(i / 1000) + np.random.random())
-
+            for j, s in enumerate(sensors):
+                sensor_states[s.key] = np.float32(np.sin(i / 1000) + j / 100)
             sensor_states[sensor_idx.key] = sy.TimeStamp.now()
-            # Write the new data
             writer.write(sensor_states)
-
             i += 1
-
-            # Every 500 iterations, commit the data to Synnax.
-            if i % 500 == 0:
-                if not writer.commit():
-                    break

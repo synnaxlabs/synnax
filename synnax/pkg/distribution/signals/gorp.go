@@ -12,6 +12,9 @@ package signals
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/binary"
@@ -24,8 +27,6 @@ import (
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
-	"strings"
 )
 
 // GorpPublisherConfig is the configuration for opening a Signals pipeline that subscribes
@@ -187,8 +188,8 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 		obsCfg = ObservablePublisherConfig{
 			Name:          fmt.Sprintf("gorp_%s", strings.ToLower(types.Name[E]())),
 			Observable:    obs,
-			SetChannel:    channel.Channel{Name: cfg.SetName, DataType: cfg.SetDataType},
-			DeleteChannel: channel.Channel{Name: cfg.DeleteName, DataType: cfg.DeleteDataType},
+			SetChannel:    channel.Channel{Name: cfg.SetName, DataType: cfg.SetDataType, Internal: true},
+			DeleteChannel: channel.Channel{Name: cfg.DeleteName, DataType: cfg.DeleteDataType, Internal: true},
 		}
 	)
 	return svc.PublishFromObservable(ctx, obsCfg)

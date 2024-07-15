@@ -16,8 +16,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/deque"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // A dictionary mapping operators to their token

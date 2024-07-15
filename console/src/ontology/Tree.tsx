@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,25 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useState, memo, useMemo } from "react";
-
 import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
+  Haul,
   Menu,
+  type state,
+  Status,
   Synnax,
   useAsyncEffect,
-  Haul,
-  useStateRef as useRefAsState,
   useCombinedStateAndRef,
-  type state,
+  useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
+import { MutationFunction, useMutation } from "@tanstack/react-query";
+import { Mutex } from "async-mutex";
+import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
-import { type Services, type TreeContextMenuProps } from "@/ontology/service";
+import {
+  BaseProps,
+  HandleTreeRenameProps,
+  type Services,
+  type TreeContextMenuProps,
+} from "@/ontology/service";
 import { useServices } from "@/ontology/ServicesProvider";
 import { type RootAction, type RootState } from "@/store";
 
@@ -72,10 +79,14 @@ const loadInitialTree = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
 ): Promise<void> => {
-  const fetched = await client.ontology.retrieveChildren(ontology.Root, true, true);
+  const fetched = await client.ontology.retrieveChildren(ontology.Root, {
+    includeSchema: true,
+  });
   setNodes(toTreeNodes(services, fetched));
   setResources((p) => updateResources(p, fetched));
 };
+
+const mu = new Mutex();
 
 const handleResourcesChange = async (
   changes: ontology.ResourceChange[],
@@ -84,35 +95,36 @@ const handleResourcesChange = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
   resources: ontology.Resource[],
-): Promise<void> => {
-  const removed = changes
-    .filter(({ variant }) => variant === "delete")
-    .map(({ key }) => key);
-  const updated = changes
-    .filter(({ variant, value }) => variant === "set" && value != null)
-    .map(({ value }) => value) as ontology.Resource[];
-  setResources(updateResources(resources, updated, removed));
-  let nextTree = Core.removeNode({
-    tree: nodes,
-    keys: removed.map((id) => id.toString()),
+): Promise<void> =>
+  await mu.runExclusive(async () => {
+    const removed = changes
+      .filter(({ variant }) => variant === "delete")
+      .map(({ key }) => key);
+    const updated = changes
+      .filter(({ variant, value }) => variant === "set" && value != null)
+      .map(({ value }) => value) as ontology.Resource[];
+    setResources(updateResources(resources, updated, removed));
+    let nextTree = Core.removeNode({
+      tree: nodes,
+      keys: removed.map((id) => id.toString()),
+    });
+    let changed = false;
+    nextTree = updated.reduce(
+      (nextTree, node) =>
+        Core.updateNode({
+          tree: nextTree,
+          key: node.id.toString(),
+          updater: (n) => {
+            const next = { ...n, ...toTreeNode(services, node) };
+            if (!changed && !deep.equal(next, n)) changed = true;
+            return next;
+          },
+          throwOnMissing: false,
+        }),
+      nextTree,
+    );
+    if (changed) setNodes([...nextTree]);
   });
-  let changed = false;
-  nextTree = updated.reduce(
-    (nextTree, node) =>
-      Core.updateNode({
-        tree: nextTree,
-        key: node.id.toString(),
-        updater: (n) => {
-          const next = { ...n, ...toTreeNode(services, node) };
-          if (!changed && !deep.equal(next, n)) changed = true;
-          return next;
-        },
-        throwOnMissing: false,
-      }),
-    nextTree,
-  );
-  if (changed) setNodes([...nextTree]);
-};
 
 const handleRelationshipsChange = async (
   client: Client,
@@ -122,53 +134,54 @@ const handleRelationshipsChange = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
   resources: ontology.Resource[],
-): Promise<void> => {
-  // Remove any relationships that were deleted
-  const removed = changes
-    .filter(({ variant }) => variant === "delete")
-    .map(({ key: { to } }) => to.toString());
-  let nextTree = Core.removeNode({ tree: nodes, keys: removed });
+): Promise<void> =>
+  await mu.runExclusive(async () => {
+    // Remove any relationships that were deleted
+    const removed = changes
+      .filter(({ variant }) => variant === "delete")
+      .map(({ key: { to } }) => to.toString());
+    let nextTree = Core.removeNode({ tree: nodes, keys: removed });
 
-  const allSets = changes
-    .filter(({ variant }) => variant === "set")
-    .map(({ key }) => key);
+    const allSets = changes
+      .filter(({ variant }) => variant === "set")
+      .map(({ key }) => key);
 
-  // Find all the parent nodes in the current tree that are visible i.e. they
-  // may need children added.
-  const visibleSetNodes = Core.findNodes({
-    tree: nextTree,
-    keys: allSets.map(({ from }) => from.toString()),
-  }).map(({ key }) => key.toString());
+    // Find all the parent nodes in the current tree that are visible i.e. they
+    // may need children added.
+    const visibleSetNodes = Core.findNodes({
+      tree: nextTree,
+      keys: allSets.map(({ from }) => from.toString()),
+    }).map(({ key }) => key.toString());
 
-  // Get all the relationships that relate to those visibe nodes.
-  const visibleSets = allSets.filter(({ from }) =>
-    visibleSetNodes.includes(from.toString()),
-  );
+    // Get all the relationships that relate to those visibe nodes.
+    const visibleSets = allSets.filter(({ from }) =>
+      visibleSetNodes.includes(from.toString()),
+    );
 
-  // Retrieve the new resources for the nodes that need to be updated.
-  const updatedResources = await client.ontology.retrieve(
-    visibleSets.map(({ to }) => to),
-  );
+    // Retrieve the new resources for the nodes that need to be updated.
+    const updatedResources = await client.ontology.retrieve(
+      visibleSets.map(({ to }) => to),
+    );
 
-  // Update the resources in the tree.
-  setResources(updateResources(resources, updatedResources));
+    // Update the resources in the tree.
+    setResources(updateResources(resources, updatedResources));
 
-  // Update the tree.
-  nextTree = visibleSets.reduce(
-    (nextTree, { from, to }) =>
-      Core.setNode({
-        tree: nextTree,
-        destination: from.toString(),
-        additions: toTreeNodes(
-          services,
-          updatedResources.filter(({ id }) => id.toString() === to.toString()),
-        ),
-      }),
-    nextTree,
-  );
+    // Update the tree.
+    nextTree = visibleSets.reduce(
+      (nextTree, { from, to }) =>
+        Core.setNode({
+          tree: nextTree,
+          destination: from.toString(),
+          additions: toTreeNodes(
+            services,
+            updatedResources.filter(({ id }) => id.toString() === to.toString()),
+          ),
+        }),
+      nextTree,
+    );
 
-  setNodes([...nextTree]);
-};
+    setNodes([...nextTree]);
+  });
 
 export const Tree = (): ReactElement => {
   const client = Synnax.use();
@@ -176,13 +189,24 @@ export const Tree = (): ReactElement => {
   const store = useStore<RootState, RootAction>();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
-
   const [loading, setLoading] = useState<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-
+  const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
+  const addStatus = Status.useAggregator();
   const menuProps = Menu.useContextMenu();
+
+  const baseProps: BaseProps = useMemo<BaseProps>(
+    () => ({
+      client: client as Client,
+      store,
+      placeLayout,
+      removeLayout,
+      services,
+      addStatus,
+    }),
+    [client, store, placeLayout, removeLayout, services, addStatus],
+  );
 
   // Processes incoming changes to the ontology from the cluster.
   useAsyncEffect(async () => {
@@ -219,42 +243,6 @@ export const Tree = (): ReactElement => {
     };
   }, [client]);
 
-  const handleDrop: Core.TreeProps["onDrop"] = useCallback(
-    (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
-      const nodesSnapshot = nodesRef.current;
-      const dropped = Haul.filterByType(Core.HAUL_TYPE, items);
-      const isValidDrop = dropped.length > 0 && source.type === "Tree.Item";
-      if (!isValidDrop) return [];
-      const otgID = new ontology.ID(key);
-      const svc = services[otgID.type];
-      if (!svc.canDrop({ source, items })) return [];
-      // Find the parent where the node is being dropped.
-      const parent = Core.findNodeParent({
-        tree: nodesSnapshot,
-        key: source.key.toString(),
-      });
-      if (parent == null) return [];
-      void (async () => {
-        if (client == null) return;
-        // Move the children in the ontology.
-        await client.ontology.moveChildren(
-          new ontology.ID(parent.key),
-          otgID,
-          ...dropped.map(({ key }) => new ontology.ID(key as string)),
-        );
-        // Move the nodes in the tree.
-        const next = Core.moveNode({
-          tree: nodesSnapshot,
-          destination: key,
-          keys: dropped.map(({ key }) => key as string),
-        });
-        setNodes([...next]);
-      })();
-      return dropped;
-    },
-    [client],
-  );
-
   const handleExpand = useCallback(
     ({ action, clicked }: Core.HandleExpandProps): void => {
       if (action !== "expand") return;
@@ -263,12 +251,24 @@ export const Tree = (): ReactElement => {
         const id = new ontology.ID(clicked);
         try {
           setLoading(clicked);
-          const resources = await client.ontology.retrieveChildren(id, true, true);
+          const resources = await client.ontology.retrieveChildren(id, {
+            includeSchema: false,
+          });
           const converted = toTreeNodes(services, resources);
-          const nextTree = Core.setNode({
+          const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,
-            destination: clicked,
-            additions: converted,
+            parent: clicked,
+            updater: (nodes) => {
+              const res = converted.map((node) => {
+                const existing = nodes.find(({ key }) => key === node.key);
+                return { ...existing, ...node };
+              });
+              const nodesBeingRenamed = nodes.filter(
+                ({ key, name }) =>
+                  !converted.find(({ key: k }) => k === key) && name.length === 0,
+              );
+              return [...res, ...nodesBeingRenamed];
+            },
           });
           const keys = resources.map(({ id }) => id.toString());
           resourcesRef.current = [
@@ -285,29 +285,154 @@ export const Tree = (): ReactElement => {
     [client, services],
   );
 
-  const handleRename: Core.TreeProps["onRename"] = useCallback(
-    (key: string, name: string) => {
-      const id = new ontology.ID(key);
-      const svc = services[id.type];
-      if (client == null) return;
+  const treeProps = Core.use({
+    onExpand: handleExpand,
+    nodes,
+    selected,
+    onSelectedChange: setSelected,
+  });
+
+  const dropMutation = useMutation<
+    void,
+    Error,
+    { source: ontology.ID; ids: ontology.ID[]; destination: ontology.ID },
+    Core.Node[]
+  >({
+    onMutate: ({ ids, destination }) => {
       const nodesSnapshot = nodesRef.current;
-      svc.onRename?.({
+      const prevNodes = Core.deepCopy(nodesSnapshot);
+      const keys = ids.map((id) => id.toString());
+      // Move the nodes in the tree.
+      const next = Core.moveNode({
+        tree: nodesSnapshot,
+        destination: destination.toString(),
+        keys,
+      });
+      setNodes([...next]);
+      return prevNodes;
+    },
+    mutationFn: async ({ source, ids, destination }) => {
+      if (client == null) return;
+      await client.ontology.moveChildren(source, destination, ...ids);
+    },
+    onError: (error, _, prevNodes) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      addStatus({
+        variant: "error",
+        message: `Failed to move resources`,
+        description: error.message,
+      });
+    },
+  });
+
+  const handleDrop: Core.TreeProps["onDrop"] = useCallback(
+    (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
+      const nodesSnapshot = nodesRef.current;
+      const dropped = Haul.filterByType(Core.HAUL_TYPE, items);
+      const isValidDrop = dropped.length > 0 && source.type === "Tree.Item";
+      if (!isValidDrop) return [];
+      const destination = new ontology.ID(key);
+      const svc = services[destination.type];
+      if (!svc.canDrop({ source, items })) return [];
+      const minDepth = Math.min(
+        ...dropped.map(({ data }) => (data?.depth ?? 0) as number),
+      );
+      const firstNodeOfMinDepth = dropped.find(({ data }) => data?.depth === minDepth);
+      if (firstNodeOfMinDepth == null) return [];
+      // Find the parent where the node is being dropped.
+      const parent = Core.findNodeParent({
+        tree: nodesSnapshot,
+        key: firstNodeOfMinDepth.key.toString(),
+      });
+      if (parent == null) return [];
+      const moved = dropped.filter(({ data }) => data?.depth === minDepth);
+      const sourceID = new ontology.ID(parent.key);
+      moved.forEach((id) => treeProps.contract(id.toString()));
+      dropMutation.mutate({
+        source: sourceID,
+        ids: moved.map(({ key }) => new ontology.ID(key as string)),
+        destination,
+      });
+      return moved;
+    },
+    [client, treeProps.contract],
+  );
+
+  const getRenameProps = useCallback(
+    (key: string, name: string): HandleTreeRenameProps => {
+      const id = new ontology.ID(key);
+      return {
         id,
-        services,
-        client,
-        store,
-        placeLayout,
-        removeLayout,
         name,
         state: {
-          nodes: nodesSnapshot,
+          nodes: nodesRef.current,
           resources: resourcesRef.current,
           setNodes,
           setResources,
         },
-      });
+        ...baseProps,
+      };
     },
-    [services, client, store, placeLayout, removeLayout, resourcesRef],
+    [baseProps, nodesRef, resourcesRef],
+  );
+
+  const rename = useMutation<
+    void,
+    Error,
+    { key: string; name: string },
+    { prevName: string }
+  >({
+    mutationKey: ["rename"],
+    onMutate: ({ key, name }) => {
+      const rProps = getRenameProps(key, name);
+      const svc = services[rProps.id.type];
+      if (svc.allowRename == null || svc.onRename == null) return;
+      let prevName = "";
+      const nodes = Core.updateNode({
+        tree: nodesRef.current,
+        key,
+        updater: (node) => {
+          prevName = node.name;
+          return { ...node, name };
+        },
+      });
+      setNodes([...nodes]);
+      svc.onRename?.eager?.(rProps);
+      return { prevName };
+    },
+    mutationFn: useCallback<MutationFunction<void, { key: string; name: string }>>(
+      async ({ key, name }: { key: string; name: string }, ...props) => {
+        const rProps = getRenameProps(key, name);
+        const svc = services[rProps.id.type];
+        if (svc.allowRename == null || svc.onRename == null) return;
+        await svc?.onRename?.execute?.(getRenameProps(key, name), ...props);
+      },
+      [services],
+    ),
+    onError: (error, { key, name }, ctx) => {
+      if (ctx == null) return;
+      const { message } = error;
+      const { prevName } = ctx;
+      const rProps = getRenameProps(key, name);
+      const svc = services[rProps.id.type];
+      setNodes([
+        ...Core.updateNode({
+          tree: nodesRef.current,
+          key,
+          updater: (node) => ({ ...node, name: prevName }),
+        }),
+      ]);
+      addStatus({
+        variant: "error",
+        message: `Failed to rename ${prevName} to ${name}`,
+        description: message,
+      });
+      svc.onRename?.rollback?.(rProps, prevName);
+    },
+  });
+  const handleRename = useCallback(
+    (key: string, name: string) => rename.mutate({ key, name }),
+    [rename],
   );
 
   const handleDoubleClick: Core.TreeProps["onDoubleClick"] = useCallback(
@@ -321,42 +446,41 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
       });
     },
     [client, store, placeLayout, removeLayout, resourcesRef],
   );
 
-  const treeProps = Core.use({
-    onExpand: handleExpand,
-    nodes,
-    selected,
-    onSelectedChange: setSelected,
-  });
-
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
-      if (keys.length === 0 || client == null) return null;
+      if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
       const rightClickedButNotSelected = keys.find(
         (v) => !treeProps.selected.includes(v),
       );
       // In the case where we right clicked the menu, but it's not in the current
       // selection, we only display a context menu for that item.
       if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
+      // Because we're using a virtualized tree, the keys from the context menu
+      // might not actually be accurate (because we're missing DOM elements), so instead
+      // we pull directly from the list selected state.
+      else keys = selectedRef.current;
       const resources = resourcesRef.current;
       const nodeSnapshot = nodesRef.current;
 
       const selectedNodes = Core.findNodes({ tree: nodeSnapshot, keys });
       const selectedResources = resources.filter(({ key }) => keys.includes(key));
 
+      // TODO: we might be selecting two nodes that are not ascendants or
+      // descendants of the other ones. We need to change this function to
+      // implement recursion.
       const parent = Core.findNodeParent({
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
         // might be selecting nodes AND their children.
         key: selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
       });
-      // No parent means no valid contex menu.
-      if (parent == null) return null;
 
       const firstID = new ontology.ID(keys[0]);
 
@@ -366,6 +490,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        addStatus,
         selection: {
           parent,
           nodes: selectedNodes,
@@ -377,6 +502,9 @@ export const Tree = (): ReactElement => {
           setNodes,
           setSelection: setSelected,
           setResources,
+          expand: treeProps.expand,
+          contract: treeProps.contract,
+          setLoading: setLoading,
         },
       };
 
@@ -384,7 +512,7 @@ export const Tree = (): ReactElement => {
       if (!allSameType) return <MultipleSelectionContextMenu {...props} />;
 
       const M = services[firstID.type].TreeContextMenu;
-      return M == null ? null : <M {...props} />;
+      return M == null ? <Layout.DefaultContextMenu /> : <M {...props} />;
     },
     [
       client,
@@ -403,9 +531,10 @@ export const Tree = (): ReactElement => {
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
       <AdapterItem
+        {...props}
+        key={props.entry.key}
         loading={props.entry.key === loading}
         services={services}
-        {...props}
       />
     ),
     [services, loading],
@@ -421,6 +550,7 @@ export const Tree = (): ReactElement => {
         onRename={handleRename}
         onDrop={handleDrop}
         onDoubleClick={handleDoubleClick}
+        showRules
         {...treeProps}
       >
         {item}

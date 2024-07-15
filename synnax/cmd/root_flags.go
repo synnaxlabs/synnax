@@ -74,4 +74,10 @@ func configureRootFlags() {
 		"Enable verbose debugging.",
 	)
 
+	rootCmd.PersistentFlags().Bool(
+		"debug",
+		false,
+		"Enable debug logging.",
+	)
+
 }

@@ -21,16 +21,14 @@ import (
 )
 
 type LabelService struct {
-	validationProvider
 	dbProvider
 	internal *label.Service
 }
 
 func NewLabelService(p Provider) *LabelService {
 	return &LabelService{
-		internal:           p.Config.Label,
-		validationProvider: p.Validation,
-		dbProvider:         p.db,
+		internal:   p.Config.Label,
+		dbProvider: p.db,
 	}
 }
 
@@ -39,7 +37,7 @@ type Label = label.Label
 // LabelCreateRequest is a request to create a Label in the cluster.
 type LabelCreateRequest struct {
 	// Labels are the labels to create.
-	Labels []Label `json:"labels" msgpack:"labels" validate:"required,dive"`
+	Labels []Label `json:"labels" msgpack:"labels"`
 }
 
 // LabelCreateResponse is a response to a LabelCreateRequest.
@@ -53,9 +51,6 @@ func (s *LabelService) Create(
 	ctx context.Context,
 	req LabelCreateRequest,
 ) (res LabelCreateResponse, err error) {
-	if err = s.Validate(req); err != nil {
-		return LabelCreateResponse{}, err
-	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels)
 		res.Labels = req.Labels
@@ -108,16 +103,13 @@ func (s *LabelService) Retrieve(
 }
 
 type LabelDeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys" validate:"required"`
+	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
 func (s *LabelService) Delete(
 	ctx context.Context,
 	req LabelDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.Validate(req); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).DeleteMany(ctx, req.Keys)
 	})
@@ -132,9 +124,6 @@ func (s *LabelService) Set(
 	ctx context.Context,
 	req LabelSetRequest,
 ) (types.Nil, error) {
-	if err := s.Validate(req); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Label(ctx, req.ID, req.Labels)
 	})
@@ -149,9 +138,6 @@ func (s *LabelService) Remove(
 	ctx context.Context,
 	req LabelRemoveRequest,
 ) (types.Nil, error) {
-	if err := s.Validate(req); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
 	})

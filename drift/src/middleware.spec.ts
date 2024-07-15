@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type GetDefaultMiddleware } from "node_modules/@reduxjs/toolkit/dist/getDefaultMiddleware";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  initialState,
-  setWindowStage,
-  focusWindow,
-  Action,
-  centerWindow,
-  setWindowFullscreen,
-  setWindowMaximized,
-  setWindowPosition,
-  setWindowMinSize,
-} from "@/state";
+import { MockRuntime } from "@/mock/runtime";
+import { initialState, setWindowStage } from "@/state";
 
 import { configureMiddleware, middleware } from "./middleware";
-import { MockRuntime } from "./mock/runtime";
-import { WindowProps } from "./window";
-import { GetDefaultMiddleware } from "node_modules/@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 const state = {
   drift: initialState,

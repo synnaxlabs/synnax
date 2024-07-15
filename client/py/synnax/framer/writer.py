@@ -8,19 +8,27 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
+from typing import overload
 from uuid import uuid4
 from warnings import warn
 
-from freighter import EOF, Payload, Stream, StreamClient, decode_exception
 from numpy import can_cast as np_can_cast
 from pandas import DataFrame
 from pandas import concat as pd_concat
 
+import synnax
+from freighter import (
+    EOF,
+    Payload,
+    Stream,
+    StreamClient,
+    decode_exception,
+)
 from synnax import io
 from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
-from synnax.framer.frame import Frame, FramePayload
+from synnax.framer.frame import Frame, FramePayload, CrudeFrame
 from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, Subject
 from synnax.util.normalize import normalize
@@ -42,13 +50,14 @@ class WriterMode(int, Enum):
 
 
 class _Config(Payload):
-    authorities: list[int]
-    control_subject: Subject
+    authorities: list[int] = Authority.ABSOLUTE
+    control_subject: Subject = Subject(name="", key=str(uuid4()))
     start: TimeStamp | None = None
     keys: ChannelKeys
-    mode: WriterMode
-    enable_auto_commit: bool
-    auto_index_persist_interval: TimeSpan
+    mode: WriterMode = WriterMode.PERSIST_STREAM
+    err_on_unauthorized: bool = False
+    enable_auto_commit: bool = False
+    auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
 
 
 class _Request(Payload):
@@ -68,23 +77,21 @@ ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
 class Writer:
-    """CoreWriter is used to write a range of telemetry to a set of channels in time
-    order. It should not be instantiated directly, and should instead be created using
-    the Synnax client.
+    """Write is used to write telemetry to a set of channels in time order. It should
+    not be constructed directly, and should instead be created using the Synnax client.
 
     The writer is a streaming protocol that is heavily optimized for performance. This
     comes at the cost of increased complexity, and should only be used directly when
     writing large volumes of data (such as recording telemetry from a sensor or
     ingesting data from a file). Simpler methods (such as the frame writer's write
-    method)
-    should be used in most cases.
+    method) should be used in most cases.
 
     The protocol is as follows:
 
-    1. The writer is opened with a starting timestamp and a list of channel keys. The
-    writer will fail to open if the starting timestamp overlaps with any existing
-    telemetry for any of the channels specified. If the writer is opened successfully,
-    the caller is then free to write frames to the writer.
+    1. The writer is opened with a starting timestamp and a list of channel keys (or
+    names). The writer will fail to open if the starting timestamp overlaps with any
+    existing telemetry for any of the channels specified. If the writer is opened
+    successfully, the caller is then free to write frames to the writer.
 
     2. To writer a frame, the caller can use the write method and follow the validation
     rules described in its method's documentation. This process is asynchronous, meaning
@@ -126,6 +133,7 @@ class Writer:
         suppress_warnings: bool = False,
         strict: bool = False,
         mode: WriterMode = WriterMode.PERSIST_STREAM,
+        err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
     ) -> None:
@@ -133,23 +141,14 @@ class Writer:
         self.__adapter = adapter
         self.__suppress_warnings = suppress_warnings
         self.__strict = strict
-        self.__mode = mode
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
-        self.__open(name, authorities, enable_auto_commit, auto_index_persist_interval)
-
-    def __open(
-        self,
-        name: str,
-        authorities: list[Authority],
-        enable_auto_commit: bool,
-        auto_index_persist_interval: TimeSpan,
-    ) -> None:
         config = _Config(
             control_subject=Subject(name=name, key=str(uuid4())),
             keys=self.__adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
-            mode=self.__mode,
+            mode=mode,
+            err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
         )
@@ -158,20 +157,58 @@ class Writer:
         if exc is not None:
             raise exc
 
+    @overload
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
+        ...
+
+    @overload
+    def write(
+        self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
+    ):
+        ...
+
+    @overload
+    def write(
+        self,
+        channels_or_data: CrudeFrame,
+    ):
+        ...
+
     def write(
         self,
         channels_or_data: ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries]
-        | DataFrame,
+                          | ChannelKey
+                          | ChannelKeys
+                          | ChannelNames
+                          | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
-        """Writes the given frame to the database. The provided frame must:
+        """Writes the given data to the database. The formats are listed below. Before
+        we get into them, here are some important terms to know.
 
-        :param channels_or_data: The data to write to the database. The frame must:
+            1. Channel ID -> the key or name of the channel(s) you're writing to.
+            2. Series or CrudeSeries -> the data for that channel, which can be
+            represented as a synnax Series type, a numpy array, or a simple Python
+            list. You can also provide a single numeric (or, in the case of variable
+            length types, a string or JSON) value and Synnax will convert it into a
+            Series for you.
+
+        Here are the formats you can use to write data to a Synnax cluster:
+
+            1. Channel ID and a single series: Writes the series for the given channel.
+            2. A list of channel ids and their corresponding series: Assumes a
+            one to one mapping of ids to series i.e. the channel id at index i
+            corresponds to the series at index i.
+            3. A Synnax Frame (see the Frame documentation for more).
+            4. A dictionary of channel ids to series i.e. write the series for the
+            given channel id.
+            5. A pandas dataframe where the columns are the channel ids and the rows
+            are the series to write.
+            6. A dictionary of channel ids to a single
+            numeric value. Synnax will convert this into a series for you.
+
+        There are a few important rules to keep in mind when writing data to a Synnax
+        cluster:
 
             1. Have exactly one array for each key in the list of keys provided to the
             writer's open method.
@@ -214,22 +251,6 @@ class Writer:
             if err is not None:
                 raise err
             if res.command == _Command.SET_AUTHORITY:
-                return res.ack
-
-    def set_mode(self, value: WriterMode) -> bool:
-        err = self.__stream.send(
-            _Request(
-                command=_Command.SET_MODE,
-                config=_Config(mode=value),
-            )
-        )
-        if err is not None:
-            raise err
-        while True:
-            res, err = self.__stream.receive()
-            if err is not None:
-                raise err
-            if res.command == _Command.SET_MODE:
                 return res.ack
 
     def commit(self) -> tuple[TimeStamp, bool]:
@@ -306,8 +327,8 @@ class Writer:
             raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
 
     def __prep_data_types(self, frame: Frame):
-        for i, (label, series) in enumerate(frame.items()):
-            ch = self.__adapter.retriever.retrieve(label)[0]  # type: ignore
+        for i, (col, series) in enumerate(frame.items()):
+            ch = self.__adapter.retriever.retrieve(col)[0]  # type: ignore
             if series.data_type != ch.data_type:
                 if (
                     not np_can_cast(series.data_type.np, ch.data_type.np)
@@ -315,9 +336,9 @@ class Writer:
                 ):
                     raise ValidationError(
                         Field(
-                            str(label),
-                            f"""label {label} has type {series.data_type} but channel {ch.key}
-                                            expects type {ch.data_type}""",
+                            str(col),
+                            f"""Column {col} has type {series.data_type} but channel
+                            {ch.key} expects type {ch.data_type}""",
                         )
                     )
                 elif not self.__suppress_warnings and not (
@@ -325,11 +346,12 @@ class Writer:
                     and series.data_type == DataType.INT64
                 ):
                     warn(
-                        f"""Series for channel {ch.name} has type {series.data_type} but channel
-                        expects type {ch.data_type}. We can safely convert between the two,
-                        but this can cause performance degradations and is not recommended.
-                        To suppress this warning, set suppress_warnings=True when constructing
-                        the writer. To raise an error instead, set strict=True when constructing
+                        f"""Series for channel {ch.name} has type {series.data_type} but
+                        channel expects type {ch.data_type}. We can safely convert
+                        between the two, but this can cause performance degradations
+                        and is not recommended. To suppress this warning,
+                        set suppress_warnings=True when constructing the writer. To
+                        raise an error instead, set strict=True when constructing
                         the writer."""
                     )
                 frame.series[i] = series.astype(ch.data_type)

@@ -11,24 +11,36 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
+	"math"
+	"sync/atomic"
 )
 
 var (
-	// ErrDomainOverlap is returned when a domain overlaps with an existing domain in the DB.
-	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
-	// RangeNotFound is returned when a requested domain is not found in the DB.
-	RangeNotFound = errors.Wrap(query.NotFound, "domain not found")
+	// ErrWriteConflict is returned when a domain overlaps with an existing domain in the DB.
+	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
+	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
+	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
+	errDBClosed      = core.EntityClosed("domain.db")
 )
+
+func NewErrWriteConflict(tr1, tr2 telem.TimeRange) error {
+	intersection := tr1.Intersection(tr2)
+	return errors.Wrapf(ErrWriteConflict, "write overlaps with existing data occupying time range %v for a time span of %v", intersection, intersection.Span())
+}
+
+func NewErrRangeNotFound(tr telem.TimeRange) error {
+	return errors.Wrapf(ErrRangeNotFound, "time range %s cannot be found", tr)
+}
 
 // DB provides a persistent, concurrent store for reading and writing domains of telemetry
 // to and from an underlying file system.
@@ -51,8 +63,9 @@ var (
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
 	Config
-	idx   *index
-	files *fileController
+	idx    *index
+	files  *fileController
+	closed *atomic.Bool
 }
 
 // Config is the configuration for opening a DB.
@@ -63,10 +76,17 @@ type Config struct {
 	// exclusive access, and it should be empty when the DB is first opened.
 	// [REQUIRED]
 	FS xfs.FS
-	// FileSize is the maximum size of a data file in bytes. When a data file reaches this
-	// size, a new file will be created.
+	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
+	// Note while that a file's size may still exceed this value, it is not likely
+	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// Must be in (0, 1].
+	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
+	// instead, set it to a very small number greater than 0.
+	// [OPTIONAL] Default: 0.2
+	GCThreshold float32
 	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
 	// higher value will allow more concurrent reads and writes. It's important to note
 	// that the exact performance impact of changing this value is still relatively unknown.
@@ -78,7 +98,8 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
 	DefaultConfig = Config{
-		FileSize:       1 * telem.Gigabyte,
+		FileSize:       800 * telem.Megabyte,
+		GCThreshold:    0.2,
 		MaxDescriptors: 100,
 	}
 )
@@ -89,6 +110,8 @@ func (c Config) Validate() error {
 	validate.Positive(v, "fileSize", c.FileSize)
 	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
+	validate.GreaterThanEq(v, "gcThreshold", c.GCThreshold, 0)
+	validate.LessThanEq(v, "gcThreshold", c.GCThreshold, 1)
 	return v.Error()
 }
 
@@ -98,6 +121,11 @@ func (c Config) Override(other Config) Config {
 	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.GCThreshold = override.Numeric(c.GCThreshold, other.GCThreshold)
+
+	// Store 0.8 * the desired maximum file size as file size since we must leave some
+	// buffer for when we stop acquiring a new writer on a file.
+	c.FileSize = telem.Size(math.Round(0.8 * float64(c.FileSize)))
 	return c
 }
 
@@ -118,13 +146,17 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx.mu.tombstones = make(map[uint16][]pointer)
 	controller, err := openFileController(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return &DB{Config: cfg, idx: idx, files: controller}, nil
+	return &DB{
+		Config: cfg,
+		idx:    idx,
+		files:  controller,
+		closed: &atomic.Bool{},
+	}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
@@ -139,7 +171,20 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
+func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
+	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
+	if err != nil {
+		return nil, err
+	}
+	reader := xio.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.length))
+	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
+}
+
+// HasDataFor returns whether any time stamp in the time range tr exists in the database.
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	if db.closed.Load() {
+		return false, errDBClosed
+	}
 	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
@@ -154,17 +199,12 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
-	w := errutil.NewCatch(errutil.WithAggregation())
-	w.Exec(func() error { return db.idx.close() })
-	w.Exec(db.files.close)
-	return w.Error()
-}
-
-func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
-	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
-	if err != nil {
-		return nil, err
+	if !db.closed.CompareAndSwap(false, true) {
+		return nil
 	}
-	reader := io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.length))
-	return &Reader{ptr: ptr, ReaderAt: reader}, nil
+
+	w := errors.NewCatcher(errors.WithAggregation())
+	w.Exec(db.files.close)
+	w.Exec(db.idx.close)
+	return w.Error()
 }

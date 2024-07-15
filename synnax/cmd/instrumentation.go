@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/cmd/internal/invariants"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -20,7 +21,7 @@ import (
 	"time"
 )
 
-func configureInstrumentation(version string) alamos.Instrumentation {
+func configureInstrumentation(version string) (alamos.Instrumentation, *zap.Logger) {
 	logger, err := configureLogger()
 	if err != nil {
 		log.Fatal(err)
@@ -33,7 +34,7 @@ func configureInstrumentation(version string) alamos.Instrumentation {
 		"sy",
 		alamos.WithLogger(logger),
 		alamos.WithTracer(tracer),
-	)
+	), newPrettyLogger()
 }
 
 func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
@@ -45,23 +46,46 @@ func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 	}
 }
 
-func configureLogger() (*alamos.Logger, error) {
+func configureLogger() (logger *alamos.Logger, err error) {
 	verbose := viper.GetBool("verbose")
+	debug := viper.GetBool("debug")
 	var cfg zap.Config
-	if verbose {
+	if debug {
 		cfg = zap.NewDevelopmentConfig()
+	} else {
+		cfg = zap.NewProductionConfig()
+	}
+	cfg.Development = invariants.IsDevelopment
+
+	if verbose || debug {
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
 		cfg.Encoding = "console"
-	} else {
-		cfg = zap.NewProductionConfig()
+		cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	}
+	if !debug {
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+		cfg.DisableStacktrace = true
+		cfg.DisableCaller = true
 	}
-	z, err := cfg.Build()
+	logger, err = alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg})
 	if err != nil {
-		return nil, err
+		return
 	}
-	return alamos.NewLogger(alamos.LoggerConfig{Zap: z})
+
+	zap.ReplaceGlobals(logger.Zap())
+	return
+}
+
+func newPrettyLogger() *zap.Logger {
+	cfg := zap.NewDevelopmentConfig()
+	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
+	cfg.Encoding = "console"
+	cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	cfg.DisableStacktrace = true
+	logger, _ := cfg.Build()
+	return logger
 }
 
 func configureTracer(version string, logger *alamos.Logger) (*alamos.Tracer, error) {

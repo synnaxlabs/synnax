@@ -1,0 +1,54 @@
+name: "Test - Aspen"
+on:
+  pull_request:
+    branches:
+      - rc
+      - main
+  push:
+    branches:
+      - rc
+      - main
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changed:
+                - 'aspen/**'
+                - 'x/**'
+                - '.github/workflows/aspen.test.yaml'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        if: steps.filter.outputs.changed == 'true'
+        with:
+          go-version-file: "go.work"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "aspen/go.sum"
+            "cesium/go.sum"
+            "freighter/go/go.sum"
+            "synnax/go.sum"
+            "x/go/go.sum"
+
+      - name: Test
+        if: steps.filter.outputs.changed == 'true'
+        run: go test -v --covermode=atomic --coverprofile=coverage.txt ./...
+        working-directory: ./aspen
+
+      - name: Upload Coverage
+        if: steps.filter.outputs.changed == 'true'
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./aspen
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: aspen

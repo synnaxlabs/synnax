@@ -67,6 +67,8 @@ try:
             # Open TPC Valve
             auto[TPC_CMD] = True
 
+            dual_press_start = sy.TimeStamp.now()
+
             curr_target = PRESS_1_STEP
             while True:
                 print(f"Pressing L-Stand to {curr_target} PSI")
@@ -79,6 +81,16 @@ try:
                     break
                 print("Taking a nap")
                 time.sleep(PRESS_STEP_DELAY)
+
+            dual_press_end = sy.TimeStamp.now()
+            client.ranges.create(
+                name=f"{dual_press_start.__str__()[11:16]} Dual Press Sequence",
+                time_range=sy.TimeRange(dual_press_start, dual_press_end),
+                # a nice red
+                color="#D81E5B",
+            )
+
+            press_tank_start = sy.TimeStamp.now()
 
             print("Pressurized. Waiting for five seconds")
             time.sleep(PRESS_STEP_DELAY)
@@ -100,6 +112,14 @@ try:
             print("Pressurized. Waiting for five seconds")
             time.sleep(2)
 
+            press_tank_end = sy.TimeStamp.now()
+            client.ranges.create(
+                name=f"{press_tank_start.__str__()[11:16]} Press Tank Pressurization",
+                time_range=sy.TimeRange(press_tank_start, press_tank_end),
+                # a nice blue
+                color="#1E90FF",
+            )
+
             start = sy.TimeStamp.now()
 
             print("Opening MPV")
@@ -108,8 +128,9 @@ try:
             print("Test complete. Safeing System")
 
             rng = client.ranges.create(
-                name=f"{start.__str__()[11:16]} Bang Bang TPC Sim",
+                name=f"{start.__str__()[11:16]} Bang Bang Sim",
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
+                color="#bada55",
             )
 
             auto.set(
@@ -132,5 +153,4 @@ try:
                 }
             )
 finally:
-    print("Auto complete")
     time.sleep(100)

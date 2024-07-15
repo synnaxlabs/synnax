@@ -1,0 +1,140 @@
+/*
+ * Copyright 2024 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-symbol-primitive {
+    position: relative;
+    display: inline-flex;
+    width: fit-content;
+    height: fit-content;
+
+    .react-flow__handle {
+        scale: calc(1 / var(--pluto-diagram-zoom, 1));
+        transform: translate(
+            calc(var(--pluto-diagram-zoom, 1) * -50%),
+            calc(var(--pluto-diagram-zoom, 1) * -50%)
+        );
+    }
+
+    & svg {
+        stroke-width: 2px;
+
+        &.pluto--bottom > g {
+            transform-origin: top left;
+            transform: translateX(100%) rotate(90deg);
+        }
+
+        &.pluto--top > g {
+            transform-origin: top left;
+            transform: translateY(100%) rotate(-90deg);
+        }
+
+        &.pluto--right > g {
+            transform-origin: top left;
+            transform: translate(100%, 100%) rotate(180deg);
+        }
+    }
+
+    &:not(.pluto-symbol-primitive-toggle) svg {
+        fill: none;
+    }
+}
+
+*:not(.pluto--editable) .pluto-symbol-primitive-toggle:hover {
+    &:not(.pluto--enabled) svg {
+        fill: rgba(var(--pluto-symbol-color), 0.2) !important;
+    }
+    &.pluto--enabled svg {
+        stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
+        fill: rgba(var(--pluto-symbol-color), 0.8) !important;
+    }
+}
+
+.pluto-symbol-primitive-toggle {
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+
+    &:focus {
+        outline: none;
+    }
+
+    &:active {
+        opacity: 0.95;
+    }
+
+    &:not(:hover):not(.pluto--enabled) svg {
+        fill: none;
+    }
+}
+
+.pluto-solenoid-valve.pluto--normally-open {
+    &:hover {
+        & svg {
+            stroke: rgba(var(--pluto-symbol-color), 0.95) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.95) !important;
+        }
+        &:not(.pluto--enabled) svg {
+            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+        }
+    }
+
+    & .pluto-body {
+        fill: rgb(var(--pluto-symbol-color));
+    }
+    &.pluto--enabled {
+        & .pluto-body {
+            fill: none;
+        }
+    }
+}
+
+.pluto--enabled svg .pluto--detail {
+    stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
+}
+
+.pluto-tank {
+    border: var(--pluto-border);
+    border-width: 2px;
+}
+
+.pluto-value {
+    display: flex;
+    flex-direction: row;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l9);
+    border-radius: var(--pluto-border-radius);
+    border-width: 2px;
+    display: flex;
+    padding: 0;
+    flex-grow: 0;
+    align-items: center;
+    justify-content: center;
+
+    & .pluto-value__content {
+        padding-left: 1.5rem;
+    }
+
+    & .pluto-value__units {
+        display: flex;
+        align-items: center;
+        height: calc(100% + 2px);
+        padding: 0 1rem;
+        background: var(--pluto-gray-l7);
+        padding-top: 1px;
+        margin-right: -1px;
+
+        & small {
+            color: var(--pluto-gray-l0);
+            font-weight: 500;
+        }
+    }
+}

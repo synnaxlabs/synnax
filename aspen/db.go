@@ -11,14 +11,14 @@ package aspen
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
+	errors2 "github.com/synnaxlabs/x/errors"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	storex "github.com/synnaxlabs/x/store"
@@ -32,7 +32,7 @@ type Cluster interface {
 	// all nodes in the cluster.
 	Key() uuid.UUID
 	// Nodes returns a node.Group of all nodes in the cluster. The returned map
-	// is not safe to modify. To modify, use node.Group.CopyState().
+	// is not safe to modify. To modify, use node.ArrayIndex.CopyState().
 	Nodes() node.Group
 	// Node returns the member Node with the given Key.
 	Node(id node.Key) (node.Node, error)
@@ -81,6 +81,8 @@ const (
 	Suspect      = node.StateSuspect
 )
 
+var NodeNotfound = cluster.NodeNotFound
+
 type DB struct {
 	Cluster *cluster.Cluster
 	kvx.DB
@@ -91,7 +93,7 @@ type DB struct {
 // Close is not safe to call concurrently with any other DB method. All DB methods
 // called after Close will panic.
 func (db *DB) Close() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors2.NewCatcher(errors2.WithAggregation())
 	c.Exec(db.transportCloser.Close)
 	c.Exec(db.Cluster.Close)
 	c.Exec(db.DB.Close)

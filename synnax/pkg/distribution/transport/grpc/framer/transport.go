@@ -15,11 +15,14 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/go/framer/v1"
+	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
+	"go/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
@@ -59,6 +62,18 @@ type (
 		relay.Response,
 		*framerv1.RelayResponse,
 	]
+	deleteClient = fgrpc.UnaryClient[
+		deleter.Request,
+		*framerv1.DeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
+	deleteServer = fgrpc.UnaryServer[
+		deleter.Request,
+		*framerv1.DeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
 )
 
 var (
@@ -68,10 +83,10 @@ var (
 	_ framerv1.IteratorServiceServer = (*iteratorServer)(nil)
 	_ iterator.TransportServer       = (*iteratorServer)(nil)
 	_ iterator.TransportClient       = (*iteratorClient)(nil)
-	_ framer.Transport               = Transport{}
-	_ fgrpc.BindableTransport        = Transport{}
 	_ relay.TransportServer          = (*relayServer)(nil)
 	_ relay.TransportClient          = (*relayClient)(nil)
+	_ framer.Transport               = Transport{}
+	_ fgrpc.BindableTransport        = Transport{}
 )
 
 // New creates a new grpc Transport that opens connections from the given pool.
@@ -90,11 +105,12 @@ func New(pool *fgrpc.Pool) Transport {
 					return framerv1.NewWriterServiceClient(conn).Write(ctx)
 				},
 			},
-			server: &writerServer{writerServerCore: writerServerCore{
-				RequestTranslator:  writerRequestTranslator{},
-				ResponseTranslator: writerResponseTranslator{},
-				ServiceDesc:        &framerv1.WriterService_ServiceDesc,
-			}},
+			server: &writerServer{
+				writerServerCore: writerServerCore{
+					RequestTranslator:  writerRequestTranslator{},
+					ResponseTranslator: writerResponseTranslator{},
+					ServiceDesc:        &framerv1.WriterService_ServiceDesc,
+				}},
 		},
 		iterator: iteratorTransport{
 			server: &iteratorServer{iteratorServerCore: iteratorServerCore{
@@ -132,19 +148,32 @@ func New(pool *fgrpc.Pool) Transport {
 				},
 			},
 		},
+		deleter: deleteTransport{
+			server: &deleteServer{
+				RequestTranslator:  deleteRequestTranslator{},
+				ResponseTranslator: fgrpc.EmptyTranslator{},
+				ServiceDesc:        &framerv1.DeleteService_ServiceDesc,
+			},
+			client: &deleteClient{
+				Pool:               pool,
+				RequestTranslator:  deleteRequestTranslator{},
+				ResponseTranslator: fgrpc.EmptyTranslator{},
+				ServiceDesc:        &framerv1.DeleteService_ServiceDesc,
+			},
+		},
 	}
 }
 
 type writerServer struct{ writerServerCore }
 
 func (w *writerServer) Write(server framerv1.WriterService_WriteServer) error {
-	return w.Handler(server.Context(), w.Server(server))
+	return w.Handler(server.Context(), server)
 }
 
 type iteratorServer struct{ iteratorServerCore }
 
 func (t *iteratorServer) Iterate(server framerv1.IteratorService_IterateServer) error {
-	return t.Handler(server.Context(), t.Server(server))
+	return t.Handler(server.Context(), server)
 }
 
 // Transport is a grpc backed implementation of the framer.Transport interface.
@@ -153,6 +182,7 @@ type Transport struct {
 	writer   writerTransport
 	iterator iteratorTransport
 	relay    relayTransport
+	deleter  deleteTransport
 }
 
 // Writer implements the framer.Transport interface.
@@ -163,6 +193,9 @@ func (t Transport) Iterator() iterator.Transport { return t.iterator }
 
 // Relay implements the framer.Transport interface.
 func (t Transport) Relay() relay.Transport { return t.relay }
+
+// Deleter implements the framer.Transport interface
+func (t Transport) Deleter() deleter.Transport { return t.deleter }
 
 // BindTo implements the fgrpc.BindableTransport interface.
 func (t Transport) BindTo(server grpc.ServiceRegistrar) {
@@ -200,7 +233,7 @@ func (t iteratorTransport) Server() iterator.TransportServer { return t.server }
 type relayServer struct{ relayServerCore }
 
 func (t *relayServer) Relay(server framerv1.RelayService_RelayServer) error {
-	return t.Handler(server.Context(), t.Server(server))
+	return t.Handler(server.Context(), server)
 }
 
 type relayTransport struct {
@@ -213,3 +246,14 @@ func (t relayTransport) Client() relay.TransportClient { return t.client }
 
 // Server implements the framer.Transport interface.
 func (t relayTransport) Server() relay.TransportServer { return t.server }
+
+type deleteTransport struct {
+	client *deleteClient
+	server *deleteServer
+}
+
+// Client implements the framer.Transport interface.
+func (t deleteTransport) Client() deleter.TransportClient { return t.client }
+
+// Server implements the framer.Transport interface.
+func (t deleteTransport) Server() deleter.TransportServer { return t.server }

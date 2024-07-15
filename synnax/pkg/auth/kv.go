@@ -11,8 +11,8 @@ package auth
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
@@ -35,6 +35,9 @@ func (db *KV) authenticate(
 	creds InsecureCredentials,
 	tx gorp.Tx,
 ) (SecureCredentials, error) {
+	if err := creds.Validate(); err != nil {
+		return SecureCredentials{}, err
+	}
 	secureCreds, err := db.retrieve(ctx, tx, creds.Username)
 	if err != nil {
 		if errors.Is(err, query.NotFound) {

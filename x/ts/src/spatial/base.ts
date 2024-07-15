@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,8 @@
 import { z } from "zod";
 
 export const numberCouple = z.tuple([z.number(), z.number()]);
-export type NumberCouple = z.infer<typeof numberCouple>;
+export const bigNumberCouple = z.tuple([z.bigint(), z.bigint()]);
+export type NumberCouple<T extends number | bigint = number> = [T, T];
 
 // Dimensions
 
@@ -53,7 +54,7 @@ export const Y_LOCATIONS = ["top", "bottom"] as const;
 export const yLocation = z.enum(Y_LOCATIONS);
 export type YLocation = (typeof Y_LOCATIONS)[number];
 export const CENTER_LOCATIONS = ["center"] as const;
-export const centerlocation = z.enum(CENTER_LOCATIONS);
+export const centerLocation = z.enum(CENTER_LOCATIONS);
 export type CenterLocation = (typeof CENTER_LOCATIONS)[number];
 export const LOCATIONS = [...OUTER_LOCATIONS, ...CENTER_LOCATIONS] as const;
 export const location = z.enum(LOCATIONS);
@@ -70,10 +71,17 @@ export type Order = (typeof ORDERS)[number];
 // Bounds
 
 export const bounds = z.object({ lower: z.number(), upper: z.number() });
-export type Bounds = z.infer<typeof bounds>;
+export const bigBounds = z.object({ lower: z.bigint(), upper: z.bigint() });
+export interface Bounds<T extends number | bigint = number> {
+  lower: T;
+  upper: T;
+}
 
 export const crudeBounds = z.union([bounds, numberCouple]);
-export type CrudeBounds = z.infer<typeof crudeBounds>;
+export const bigCrudeBounds = z.union([bigBounds, numberCouple]);
+export type CrudeBounds<T extends number | bigint = number> =
+  | Bounds<T>
+  | NumberCouple<T>;
 export const crudeDirection = z.union([direction, location]);
 export type CrudeDirection = z.infer<typeof crudeDirection>;
 export const crudeLocation = z.union([direction, location, z.instanceof(String)]);

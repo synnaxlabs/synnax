@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
+
 package api.v1;
 
 import "google/protobuf/empty.proto";
@@ -19,6 +21,7 @@ service ChannelDeleteService {
 message ChannelDeleteRequest {
     repeated uint32 keys = 1;
     repeated string names = 2;
+    bool allow_internal = 3;
 }
 
 
@@ -31,6 +34,8 @@ message Channel {
     int64 density = 6;
     bool is_index = 7;
     uint32 index = 8;
+    bool is_virtual = 9;
+    bool internal = 10;
 }
 
 message ChannelRetrieveRequest {

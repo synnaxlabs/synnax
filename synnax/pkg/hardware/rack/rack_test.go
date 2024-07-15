@@ -48,7 +48,7 @@ var _ = Describe("Rack", Ordered, func() {
 	AfterEach(func() {
 		Expect(tx.Close()).To(Succeed())
 	})
-	Describe("Key", func() {
+	Describe("Task", func() {
 		It("Should correctly construct and deconstruct key from its components", func() {
 			k := rack.NewKey(1, 2)
 			Expect(k.Node()).To(Equal(core.NodeKey(1)))
@@ -61,12 +61,18 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key.IsValid()).To(BeTrue())
 			Expect(r.Key.Node()).To(Equal(core.NodeKey(1)))
-			Expect(r.Key.LocalKey()).To(Equal(uint16(1)))
+			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
 		})
 		It("Should correctly increment the local key counter", func() {
 			r := &rack.Rack{Name: "rack2"}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
+			Expect(r.Key.LocalKey()).To(Equal(uint16(3)))
+		})
+		It("Should return an error if the rack has no name", func() {
+			r := &rack.Rack{}
+			err := w.Create(ctx, r)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Name"))
 		})
 	})
 	Describe("Retrieve", func() {

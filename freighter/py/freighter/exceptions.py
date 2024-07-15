@@ -95,10 +95,15 @@ def decode_exception(encoded: ExceptionPayload | None) -> Exception | None:
     return None if encoded is None else REGISTRY.decode(encoded)
 
 
+_FREIGHTER_EXCEPTION_TYPE = "freighter."
+
+
 class Unreachable(Exception):
     """
     Raise when a target is unreachable.
     """
+
+    TYPE = _FREIGHTER_EXCEPTION_TYPE + "unreachable"
 
     target: str
     message: str
@@ -117,6 +122,8 @@ class StreamClosed(Exception):
     Raised when a stream is closed.
     """
 
+    TYPE = _FREIGHTER_EXCEPTION_TYPE + "stream_closed"
+
     def __str__(self):
         return "StreamClosed"
 
@@ -125,6 +132,8 @@ class EOF(Exception):
     """
     Raised when a stream is closed.
     """
+
+    TYPE = _FREIGHTER_EXCEPTION_TYPE + "eof"
 
     def __str__(self):
         return "EOF"
@@ -136,23 +145,32 @@ _EXCEPTIONS = [
     EOF,
 ]
 
-_FREIGHTER_EXCEPTION_TYPE = "freighter.exceptions"
-
 
 def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
-    return ExceptionPayload(type=_FREIGHTER_EXCEPTION_TYPE, data=str(exc))
+    if isinstance(exc, Unreachable):
+        return ExceptionPayload(
+            type=Unreachable.TYPE,
+            data=exc.message,
+        )
+    if isinstance(exc, StreamClosed):
+        return ExceptionPayload(type=StreamClosed.TYPE, data=str(exc))
+
+    if isinstance(exc, EOF):
+        return ExceptionPayload(type=EOF.TYPE, data=str(exc))
+
+    return None
 
 
 def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
-    if exc.type != "freighter":
+    if not exc.type.startswith(_FREIGHTER_EXCEPTION_TYPE):
         return None
-    if exc.data == "Unreachable":
-        return Unreachable()
-    if exc.data == "StreamClosed":
+    if exc.type == Unreachable.TYPE:
+        return Unreachable(message=exc.data)
+    if exc.type == StreamClosed.TYPE:
         return StreamClosed()
-    if exc.data == "EOF":
+    if exc.type == EOF.TYPE:
         return EOF()
-    raise ValueError(f"Unknown freighter exception: {exc}")
+    raise ValueError(f"Unknown error type: {exc.type}")
 
 
 register_exception(_freighter_encode, _freighter_decode)

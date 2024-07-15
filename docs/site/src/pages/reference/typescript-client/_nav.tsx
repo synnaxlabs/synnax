@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,6 +37,11 @@ export const typescriptClientNav: PageNavNode = {
       key: "/reference/typescript-client/stream-data",
       href: "/reference/typescript-client/stream-data",
       name: "Stream Data",
+    },
+    {
+      key: "/reference/typescript-client/delete-data",
+      href: "/reference/typescript-client/delete-data",
+      name: "Delete Data",
     },
     {
       key: "/reference/typescript-client/series-and-frames",

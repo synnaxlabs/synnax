@@ -12,8 +12,8 @@ package confluence
 import (
 	"context"
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/timeout"
 	"time"

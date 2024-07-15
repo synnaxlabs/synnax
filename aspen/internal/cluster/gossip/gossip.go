@@ -11,10 +11,10 @@ package gossip
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/rand"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
@@ -37,7 +37,8 @@ func New(cfgs ...Config) (*Gossip, error) {
 // GoGossip starts a goroutine that gossips at Config.Interval.
 func (g *Gossip) GoGossip(ctx signal.Context) {
 	g.R.Prod("gossip", g.Config)
-	g.L.Info("starting cluster gossip", g.Config.Report().ZapFields()...)
+	g.L.Info("starting cluster gossip")
+	g.L.Debug("config", g.Config.Report().ZapFields()...)
 	signal.GoTick(
 		ctx,
 		g.Interval,

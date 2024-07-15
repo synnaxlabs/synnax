@@ -1,11 +1,9 @@
 {
   "name": "@synnaxlabs/freighter",
-  "private": false,
-  "version": "0.9.4",
+  "version": "0.25.0",
   "type": "module",
   "description": "a modular transport abstraction",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
-  "licens": "MIT",
   "keywords": [
     "synnax",
     "grpc",
@@ -23,26 +21,25 @@
     "lint": "eslint \"src/**/*.ts*\"",
     "fix": "eslint \"src/**/*.ts*\" --fix"
   },
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
     "@synnaxlabs/alamos": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "js-convert-case": "^4.2.0",
     "node-fetch": "2.6.11",
-    "ws": "^8.16.0",
-    "zod": "3.22.4"
+    "ws": "^8.17.0",
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@types/node": "^20.12.7",
-    "@vitest/coverage-v8": "1.2.2",
+    "@vitest/coverage-v8": "^1.5.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.4.5",
-    "vite": "5.1.2",
-    "vitest": "1.2.2"
+    "vite": "5.2.11",
+    "vitest": "^1.5.0"
+  },
+  "peerDependencies": {
+    "zod": "^3.23.8"
   },
   "main": "dist/freighter.cjs",
   "module": "dist/freighter.js",

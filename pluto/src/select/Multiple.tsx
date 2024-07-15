@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/Multiple.css";
+
+import {
+  type AsyncTermSearcher,
+  compare,
+  convertRenderV,
+  type Key,
+  type Keyed,
+  type RenderableValue,
+  toArray,
+} from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -16,16 +27,6 @@ import {
   useState,
 } from "react";
 
-import {
-  convertRenderV,
-  type Key,
-  type Keyed,
-  type AsyncTermSearcher,
-  compare,
-  toArray,
-  type RenderableValue,
-} from "@synnaxlabs/x";
-
 import { Align } from "@/align";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
@@ -33,25 +34,30 @@ import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
-import { selectValueIsZero, type UseSelectMultipleProps } from "@/list/useSelect";
+import {
+  selectValueIsZero,
+  type UseSelectMultipleProps,
+  UseSelectOnChangeExtra,
+} from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
+import { DEFAULT_PLACEHOLDER } from "@/select/Single";
 import { Tag } from "@/tag";
-import { type RenderProp, componentRenderProp } from "@/util/renderProp";
-
-import "@/select/Multiple.css";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
     Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<Input.TextProps, "placeholder"> {
+    Pick<Input.TextProps, "placeholder">,
+    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   searcher?: AsyncTermSearcher<string, K, E>;
-  tagKey?: keyof E | ((e: E) => string | number);
+  entryRenderKey?: keyof E | ((e: E) => string | number);
   renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
+  children?: CoreList.VirtualCoreProps<K, E>["children"];
 }
 
 /**
@@ -66,7 +72,7 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
  * @param props.columns - The columns to be used to render the select options in the
  * dropdown. See the {@link ListColumn} type for more details on how to configure
  * columns.
- * @param props.tagKey - The option field rendered for each tag when selected in the
+ * @param props.entryRenderKey - The option field rendered for each tag when selected in the
  * input group. Defaults to "key".
  * @param props.location - Whether to render the dropdown above or below the select
  * component. Defaults to "below".
@@ -76,11 +82,10 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
 export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
-  location,
   className,
   data,
   columns = [],
-  tagKey = "key",
+  entryRenderKey = "key",
   emptyContent,
   searcher,
   renderTag,
@@ -91,6 +96,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   replaceOnSingle,
   onTagDragEnd,
   style,
+  children,
   ...props
 }: MultipleProps<K, E>): ReactElement => {
   const { visible, open, close } = Dropdown.use();
@@ -109,6 +115,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       return;
     let nextSelected: E[] = [];
     if (searchMode) {
+      // Wrap this in a try-except clause just in case the searcher throws an error.
       try {
         nextSelected = await searcher.retrieve(nextValue);
       } finally {
@@ -119,10 +126,11 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     setSelected(nextSelected);
   }, [searcher, searchMode, value, data]);
 
-  const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
-    (v, extra) => {
+  const handleChange = useCallback(
+    (v: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => {
+      if (v == null) return;
       setSelected(extra.entries);
-      onChange(v, extra);
+      onChange(toArray(v), extra);
     },
     [onChange],
   );
@@ -137,7 +145,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       close={close}
       open={open}
       data={data}
-      emtpyContent={emptyContent}
+      emptyContent={emptyContent}
       visible={visible}
       value={value}
       onChange={handleChange}
@@ -145,6 +153,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       replaceOnSingle={replaceOnSingle}
       columns={columns}
       allowMultiple
+      listItem={children}
       {...props}
     >
       <InputWrapper<K, E> searcher={searcher}>
@@ -157,7 +166,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
             loading={loading}
             selected={selected}
             onFocus={open}
-            tagKey={tagKey}
+            entryRenderKey={entryRenderKey}
             visible={visible}
             renderTag={renderTag}
             placeholder={placeholder}
@@ -176,7 +185,7 @@ interface SelectMultipleInputProps<K extends Key, E extends Keyed<K>>
   loading: boolean;
   selectedKeys: K | K[];
   selected: readonly E[];
-  tagKey: keyof E | ((e: E) => string | number);
+  entryRenderKey: keyof E | ((e: E) => string | number);
   visible: boolean;
   renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
@@ -191,9 +200,9 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
   onChange,
   onFocus,
   visible,
-  tagKey,
+  entryRenderKey,
   renderTag = componentRenderProp(MultipleTag<K, E>),
-  placeholder = "Select...",
+  placeholder = DEFAULT_PLACEHOLDER,
   onTagDragStart,
   onTagDragEnd,
   value,
@@ -207,12 +216,12 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
     if (visible) ref.current?.focus();
   }, [visible, selected]);
 
-  const handleFocus: Input.TextProps["onFocus"] = (e) => {
+  const handleFocus: Input.TextProps["onFocus"] = () => {
     if (!visible) onChange("");
     onFocus?.();
   };
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
+  const handleClick = (): void => {
     if (visible) return;
     onFocus?.();
   };
@@ -252,7 +261,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
           return renderTag({
             key: k,
             entryKey: k,
-            tagKey,
+            entryRenderKey,
             loading,
             entry: e,
             onClose: () => onSelect?.(k),
@@ -269,7 +278,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
 export interface MultipleTagProps<K extends Key, E extends Keyed<K>> {
   key: K;
   entryKey: K;
-  tagKey: keyof E | ((e: E) => string | number);
+  entryRenderKey: keyof E | ((e: E) => string | number);
   entry?: E;
   color?: Color.Crude;
   loading: boolean;
@@ -280,7 +289,7 @@ export interface MultipleTagProps<K extends Key, E extends Keyed<K>> {
 
 export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   entryKey,
-  tagKey,
+  entryRenderKey,
   entry,
   loading,
   ...props
@@ -288,7 +297,9 @@ export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   let v: RenderableValue = entryKey;
   if (entry != null)
     v =
-      typeof tagKey === "function" ? tagKey(entry) : (entry[tagKey] as RenderableValue);
+      typeof entryRenderKey === "function"
+        ? entryRenderKey(entry)
+        : (entry[entryRenderKey] as RenderableValue);
   return (
     <Tag.Tag
       size="small"

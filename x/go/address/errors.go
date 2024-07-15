@@ -9,7 +9,7 @@
 
 package address
 
-import "github.com/cockroachdb/errors"
+import "github.com/synnaxlabs/x/errors"
 
 var NotFound = errors.New("[address] - not found")
 

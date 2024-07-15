@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/os/Controls/Windows.css";
 
 import { Icon } from "@synnaxlabs/media";
+import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
 import { type InternalControlsProps } from "@/os/Controls/types";
 
-import "@/os/Controls/Windows.css";
-
 export const Windows = ({
   disabled = [],
   onMinimize,
   onMaximize,
   onClose,
-  // no-op on windows
+  // no-ops on windows
   onFullscreen: _,
+  focused: __,
   ...props
 }: InternalControlsProps): ReactElement => (
   <Align.Pack {...props}>

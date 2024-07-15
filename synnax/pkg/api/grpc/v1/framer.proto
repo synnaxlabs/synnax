@@ -1,14 +1,17 @@
 syntax = "proto3";
 
-import "ferrors/v1/ferrors.proto";
-import "telempb/telem.proto";
+import "x/go/telem/telem.proto";
+import "x/go/errors/errors.proto";
+import "x/go/control/control.proto";
+import "google/protobuf/empty.proto";
 
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 package api.v1;
 
 
 message Frame {
     repeated uint32 keys = 1;
-    repeated telempb.Series series = 2;
+    repeated telem.PBSeries series = 2;
 }
 
 service FrameIteratorService {
@@ -26,9 +29,10 @@ service FrameStreamerService {
 message FrameIteratorRequest {
     int32 command = 1;
     int64 span = 2;
-    telempb.TimeRange range = 3;
+    telem.PBTimeRange range = 3;
     int64 stamp = 4;
     repeated uint32 keys = 5;
+    int64 chunk_size = 6;
 }
 
 message FrameIteratorResponse {
@@ -38,20 +42,18 @@ message FrameIteratorResponse {
     int32 node_key = 43;
     bool ack = 5;
     int32 seq_num = 6;
-    ferrors.v1.ErrorPayload error = 7;
+    errors.PBPayload error = 7;
 }
 
 message FrameWriterConfig {
     repeated uint32 keys = 1;
     repeated uint32 authorities = 2;
     int64 start = 3;
-    ControlSubject control_subject = 4;
+    control.ControlSubject control_subject = 4;
     int32 mode = 5;
-}
-
-message ControlSubject {
-    string key = 1;
-    string name = 2;
+    bool enable_auto_commit = 6;
+    int64 auto_index_persist_interval = 7;
+    bool err_on_unauthorized = 8;
 }
 
 message FrameWriterRequest {
@@ -65,7 +67,7 @@ message FrameWriterResponse {
     bool ack = 2;
     int32 node_key = 3;
     int32 counter = 4;
-    ferrors.v1.ErrorPayload error = 5;
+    errors.PBPayload error = 5;
     int64 end = 6;
 }
 
@@ -76,5 +78,16 @@ message FrameStreamerRequest {
 
 message FrameStreamerResponse {
     Frame frame = 1;
-    ferrors.v1.ErrorPayload error = 2;
+    errors.PBPayload error = 2;
 }
+
+service FrameDeleteService {
+    rpc Exec(FrameDeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message FrameDeleteRequest {
+    repeated uint32 keys = 1;
+    repeated string names = 2;
+    telem.PBTimeRange bounds = 3;
+}
+

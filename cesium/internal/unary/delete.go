@@ -1,123 +1,134 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package unary
 
 import (
 	"context"
-	"errors"
-	errors2 "github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/cesium/internal/controller"
-	"github.com/synnaxlabs/cesium/internal/domain"
+	"fmt"
+	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Delete deletes a timerange tr from the unary database by adding all the unwanted
-// underlying pointers to tombstone.
-//
-// The start of the timerange is either in the found pointer, or after, i.e.:
-//
-// Case 1 (* denotes tr.Start):   *   |---------data---------|
-// In this case, that entire pointer will be deleted, and tr.Start will be set to the
-// start of that pointer. The startOffset passed to domain will be 0.
-//
-// Case 2 (* denotes tr.Start):   |----------data-----*----|
-// In this case, only data after tr.Start from that pointer will be deleted, the
-// startOffset passed to domain will be calculated via db.index().Distance().
-//
-// The same goes for the end pointer, but in the opposite direction (pointer will be
-// before or contains tr.End):
-//
-// Case 1 (* denotes tr.End):   |---------data---------|    *
-// In this case, that entire pointer will be deleted, and tr.End will be set to the
-// end of that pointer. The endOffset passed to domain will be the pointer's length.
-//
-// Case 2 (* denotes tr.End):   |----------data-----*----|
-// In this case, only data before tr.End from that pointer will be deleted, the
-// endOffset passed to domain will be calculated via db.index().Distance().
+// Delete deletes the specified time range from the database. Note that the start of the
+// time range is inclusive whereas the end is note.
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
-	var (
-		startOffset int64 = 0
-		endOffset   int64 = 0
-	)
+	if db.closed.Load() {
+		return errDBClosed
+	}
+	return db.wrapError(db.delete(ctx, tr))
+}
 
-	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
-		return controlledWriter{
-			Writer:     nil,
-			channelKey: db.Channel.Key,
-		}, nil
-	})
+// GarbageCollect removes unused telemetry data in the unaryDB. It is NOT safe to call
+// concurrently with other GarbageCollect methods.
+func (db *DB) GarbageCollect(ctx context.Context) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+	db.entityCount.add(1)
+	defer db.entityCount.add(-1)
+	return db.wrapError(db.Domain.GarbageCollect(ctx))
+}
 
+func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
+	if !tr.Valid() {
+		return errors.Newf("delete start %d cannot be after delete end %d", tr.Start, tr.End)
+	}
+
+	// Open an absolute gate to avoid deleting a time range in write.
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(
+		tr,
+		control.Subject{Key: uuid.NewString(), Name: "delete_writer"},
+		func() (controlledWriter, error) {
+			return controlledWriter{Writer: nil, channelKey: db.Channel.Key}, nil
+		})
 	if err != nil {
 		return err
 	}
 
-	_, ok := g.Authorize()
-	if !ok {
-		g.Release()
-		return controller.Unauthorized(g.Subject.Name, db.Channel.Key)
-	}
-
-	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
-	if ok := i.SeekGE(ctx, tr.Start); !ok {
-		return errors2.CombineErrors(i.Close(), errors.New("[cesium] Deletion Start TS not found"))
-	}
-
-	if i.TimeRange().Start.After(tr.Start) {
-		startOffset = 0
-		tr.Start = i.TimeRange().Start
-	} else {
-		approxDist, err := db.index().Distance(ctx, telem.TimeRange{
-			Start: i.TimeRange().Start,
-			End:   tr.Start,
-		}, false)
-		if err != nil {
-			return err
-		}
-		startOffset = approxDist.Upper
-	}
-
-	startPosition := i.Position()
-
-	if ok := i.SeekLE(ctx, tr.End); !ok {
-		return errors2.CombineErrors(i.Close(), errors.New("[cesium] Deletion End TS not found"))
-	}
-
-	if i.TimeRange().End.Before(tr.End) {
-		tr.End = i.TimeRange().End
-		endOffset = -1
-	} else {
-		approxDist, err := db.index().Distance(ctx, telem.TimeRange{
-			Start: i.TimeRange().Start,
-			End:   tr.End,
-		}, false)
-		if err != nil {
-			return errors2.CombineErrors(i.Close(), err)
-		}
-
-		endOffset = approxDist.Upper
-	}
-
-	endPosition := i.Position()
-
-	if endOffset == -1 {
-		err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset, tr)
-	} else {
-		err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
-	}
-
+	_, err = g.Authorize()
 	if err != nil {
-		return errors2.CombineErrors(i.Close(), err)
+		return err
 	}
+	defer g.Release()
 
-	g.Release()
-	return i.Close()
+	return db.Domain.Delete(
+		ctx,
+		db.calculateStartOffset,
+		db.calculateEndOffset,
+		tr,
+		db.Channel.DataType.Density(),
+	)
 }
 
-func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) error {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.mu.openIteratorWriters > 0 {
-		return nil
+// calculateStartOffset calculates the distance from a domain's start to the given time stamp.
+// Additionally, it "snaps" the time stamp to the nearest previous sample + 1.
+// calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
+//
+// **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
+// to Domain.Delete.
+func (db *DB) calculateStartOffset(
+	ctx context.Context,
+	domainStart telem.TimeStamp,
+	ts telem.TimeStamp,
+) (int64, telem.TimeStamp, error) {
+	approxDist, _, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
+	if err != nil {
+		return 0, ts, err
 	}
-	err := db.Domain.CollectTombstones(ctx, maxSizeRead)
-	return err
+	offset := approxDist.Upper
+	if !approxDist.Exact() {
+		// We stamp to offset - 1 here since if we are approximating the start offset,
+		// we want to stamp the last written sample.
+		approxStamp, err := db.index().Stamp(ctx, domainStart, offset-1, true)
+		if err != nil {
+			return offset, ts, err
+		}
+		if !approxStamp.Exact() {
+			msg := fmt.Sprintf("cannot stamp deletion start %d offset from start %v", offset-1, domainStart)
+			db.L.DPanic(msg)
+			return offset, ts, errors.New(msg)
+		}
+		ts = approxStamp.Upper + 1
+	}
+	return offset, ts, nil
+}
+
+// calculateStartOffset calculates the distance from a domain's start to the given time stamp.
+// Additionally, it "snaps" the time stamp to the nearest next sample.
+// calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
+//
+// **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
+// to Domain.Delete.
+func (db *DB) calculateEndOffset(
+	ctx context.Context,
+	domainStart telem.TimeStamp,
+	ts telem.TimeStamp,
+) (int64, telem.TimeStamp, error) {
+	approxDist, _, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
+	if err != nil {
+		return 0, ts, err
+	}
+	offset := approxDist.Upper
+	if !approxDist.Exact() {
+		approxStamp, err := db.index().Stamp(ctx, domainStart, offset, true)
+		if err != nil {
+			return offset, ts, err
+		}
+		if !approxStamp.Exact() {
+			msg := fmt.Sprintf("cannot stamp deletion start %d offset from start %v", offset, domainStart)
+			db.L.DPanic(msg)
+			return offset, ts, errors.New(msg)
+		}
+		ts = approxStamp.Upper
+	}
+	return offset, ts, nil
 }

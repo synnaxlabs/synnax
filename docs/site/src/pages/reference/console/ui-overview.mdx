@@ -10,61 +10,85 @@ import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
 import { Divider } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
+import Table from "@/components/Table.astro";
+
+The Synnax Console provides a flexible environment to display and interact with data
+stored and streamed through a Synnax cluster. It's interface is designed around two main
+UI elements: the central layout mosaic and side toolbars.
+
+The central mosaic displays visualizations such as line plots and schematics, while the
+toolbars exists to provide access to resources, data ranges, and visualization controls.
 
 <Divider.Divider direction="x" />
 
-## Important Tabs
+## Toolbars
+
+To kick things off, we'll walk you through each of the toolbars and their 
+functionality. 
+
+<Divider.Divider direction="x" />
+
+### <Icon.Resources /> Resources 
 
 <Text.Text level="p">
-The Synnax Console has several important properties in it. First, there are four
-main tabs that can be opened from the side. These are the <Icon.Resources/>
-__Resources__, <Icon.Range/> __Ranges__, <Icon.Visualize/> __Visualizations__,
-and <Icon.Cluster/> __Clusters__ tabs.
-</Text.Text>
-
-### Resources
-
-<Text.Text level="p">
-The <Icon.Resources/> __Resources__ tab list a file tree with folders for
+The resources toolbar displays a file tree with folders for
 channels, ranges, users, and workspaces.
 </Text.Text>
-
 <Video client:only="react" id="console/ui-overview-open-resources" />
 
-- [Channels](/reference/concepts/channels) are the sensor channels that you can
-  track and plot.
-- [Ranges](querying-data) are saved times that you can use
-  when loading data to view.
-- __Users__ are a list of all users registered in the cluster. The workspaces
-  created by the users can be found underneath their name.
-- [Workspaces](workspaces) list all created workspaces in
-  the cluster. This tree includes workspaces created by all users.
+<Table>
+  <thead>
+    <tr>
+      <th>Resource</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="/reference/concepts/channels">Channels</a></td>
+      <td>Channels are the sensor channels that you can track and plot.</td>
+    </tr>
+    <tr>
+      <td><a href="/reference/console/querying-data">Ranges</a></td>
+      <td>Ranges are saved times that you can use when loading data to view.</td>
+    </tr>
+    <tr>
+      <td>Users</td>
+      <td>Users are a list of all users registered in the cluster. The workspaces created by the users can be found underneath their name.</td>
+    </tr>
+    <tr>
+      <td>Workspaces</td>
+      <td>Workspaces list all created workspaces in the cluster. This tree includes workspaces created by all users.</td>
+    </tr>
+  </tbody>
+</Table>
 
-### Ranges
+<Divider.Divider direction="x" />
 
-<Text.Text level="p">
-You can view and create active ranges on the right by clicking the <Icon.Range/>
-__Ranges__ icon. More information about ranges are covered in [Querying Data Using Ranges](querying-data).
-</Text.Text>
+### <Icon.Range /> Ranges
+
+This toolbar allows you to create, view, and access the data ranges you're interested
+in visualizing. 
 
 <Video client:only="react" id="console/new-range" />
 
-### Visualization Properties
+<Divider.Divider direction="x" />
 
-<Text.Text level="p">
-When you have a visualization open, such as a PID or Line Plot, you can open the
-visualization properties by clicking the __Visualize__ <Icon.Visualize/> icon in
-the bottom-right. This allows you to show or hide visualization properties for a
-cleaner view.
-</Text.Text>
+### <Icon.Visualize /> Visualizations
+
+This toolbar can be opened by clicking the <Icon.Visualize /> button in the bottom-right
+corner of the console. It allows you to edit the properties of the currently selected
+visualization in the Mosaic.
 
 <Video client:only="react" id="console/ui-overview-open-visualization-toolbar" />
 
-### Clusters
+<Divider.Divider direction="x" />
+
+### <Icon.Cluster /> Clusters
 
 <Text.Text level="p">
 The list of clusters that you are connected to is found by clicking on the
-__Cluster__ <Icon.Cluster/> icon in the bottom-right. This opens up a list of
+cluster (<Icon.Cluster/>) icon in the bottom-right. This opens up a list of
 all available clusters. You can add new clusters from here. Also, you can switch
 your current active cluster. The text in the corner indicates whether you are
 connected, disconnected, or have a failed connection with the cluster. More
@@ -76,7 +100,7 @@ cluster](connect-a-cluster).
 
 <Divider.Divider direction="x" />
 
-## Window Management
+## The Central Mosaic
 
 The Synnax Console can be easily manipulated to help choose the exact display
 you want.

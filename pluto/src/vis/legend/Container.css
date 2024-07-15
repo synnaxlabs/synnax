@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -14,8 +14,8 @@
     cursor: grabbing;
     padding: 1rem;
     z-index: 4;
-    background-color: var(--pluto-gray-l1-60);
-    backdrop-filter: blur(3rem);
+    background-color: var(--pluto-gray-l1-90);
+    backdrop-filter: blur(4rem);
     -webkit-backdrop-filter: blur(3rem);
     border-radius: 1rem;
     max-height: 50%;

@@ -1,0 +1,34 @@
+name: "Docs Search Update"
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  update:
+    name: "Update Docs Search Index"
+    runs-on: ubuntu-latest
+    env:
+      DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
+      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up PNPM
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Update Docs Search Index
+        working-directory: docs/site
+        run: pnpm algolia

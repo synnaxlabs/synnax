@@ -11,14 +11,13 @@ package alamos
 
 import (
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/override"
 	"go.uber.org/zap"
 )
 
 // LoggerConfig is the config for a Logger.
 type LoggerConfig struct {
-	// Zap sets the underlying zap.Logger. If nil, a no-op logger is used.
-	Zap *zap.Logger
+	// ZapConfig sets the underlying zap.Logger. If nil, a no-op logger is used.
+	ZapConfig zap.Config
 }
 
 var (
@@ -32,13 +31,16 @@ func (c LoggerConfig) Validate() error { return nil }
 
 // Override implements config.Properties.
 func (c LoggerConfig) Override(other LoggerConfig) LoggerConfig {
-	c.Zap = override.Nil(c.Zap, other.Zap)
+	c.ZapConfig = other.ZapConfig
 	return c
 }
 
 // Logger provides logging functionality. It's an enhanced wrapper around a zap.Logger
 // that provides no-lop logging when nil.
-type Logger struct{ zap *zap.Logger }
+type Logger struct {
+	Config LoggerConfig
+	zap    *zap.Logger
+}
 
 // NewLogger creates a new Logger with the given configuration.
 func NewLogger(configs ...LoggerConfig) (*Logger, error) {
@@ -46,12 +48,21 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Logger{zap: cfg.Zap}, nil
+	z, err := cfg.ZapConfig.Build()
+	if err != nil {
+		return nil, err
+	}
+	return &Logger{Config: cfg, zap: z.WithOptions(zap.AddCallerSkip(1))}, nil
+}
+
+// Zap returns the underlying zap Logger
+func (l *Logger) Zap() *zap.Logger {
+	return l.zap
 }
 
 func (l *Logger) child(meta InstrumentationMeta) (nl *Logger) {
 	if l != nil {
-		nl = &Logger{zap: l.zap.Named(meta.Key)}
+		nl = &Logger{zap: l.zap.Named(meta.Key), Config: l.Config}
 	}
 	return
 }
@@ -61,6 +72,13 @@ func (l *Logger) Debug(msg string, fields ...zap.Field) {
 	if l != nil {
 		l.zap.Debug(msg, fields...)
 	}
+}
+
+func (l *Logger) Named(name string) *Logger {
+	if l != nil {
+		return &Logger{zap: l.zap.Named(name), Config: l.Config}
+	}
+	return nil
 }
 
 // Debugf logs a message at the Debug level using the given format. This is a slower
@@ -106,6 +124,24 @@ func (l *Logger) DPanic(msg string, fields ...zap.Field) {
 	if l != nil {
 		l.zap.DPanic(msg, fields...)
 	}
+}
+
+func (l *Logger) WithOptions(opts ...zap.Option) *Logger {
+	if l != nil {
+		return &Logger{zap: l.zap.WithOptions(opts...), Config: l.Config}
+	}
+	return nil
+}
+
+func (l *Logger) WithConfig(configs ...LoggerConfig) (*Logger, error) {
+	if l == nil {
+		return nil, nil
+	}
+	l2, err := NewLogger(configs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Logger{zap: l2.zap.Named(l.zap.Name()), Config: l2.Config}, nil
 }
 
 // DebugError returns a zap field that can be used to log an error whose presence

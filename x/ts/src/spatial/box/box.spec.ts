@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, test, expect, it } from "vitest";
+import { describe, expect, it,test } from "vitest";
 
 import * as box from "@/spatial/box/box";
 import * as location from "@/spatial/location/location";
@@ -235,6 +235,215 @@ describe("Box", () => {
       expect(box.topRight(b2)).toEqual({ x: 10, y: 10 });
       expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 20 });
       expect(box.bottomRight(b2)).toEqual({ x: 10, y: 20 });
+    });
+  });
+  describe("truncate", () => {
+    it("should truncte the precision of the coordinates", () => {
+      const b = box.construct(
+        { x: 0.123456, y: 0.123456 },
+        { x: 10.123456, y: 10.123456 },
+      );
+      const b2 = box.truncate(b, 2);
+      expect(box.topLeft(b2)).toEqual({ x: 0.12, y: 0.12 });
+      expect(box.topRight(b2)).toEqual({ x: 10.12, y: 0.12 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0.12, y: 10.12 });
+      expect(box.bottomRight(b2)).toEqual({ x: 10.12, y: 10.12 });
+    });
+  });
+  describe("intersection", () => {
+    it("should return the intersection of two boxes", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.construct(5, 5, 15, 15);
+      const b3 = box.intersection(b, b2);
+      expect(box.topLeft(b3)).toEqual({ x: 5, y: 5 });
+      expect(box.topRight(b3)).toEqual({ x: 10, y: 5 });
+      expect(box.bottomLeft(b3)).toEqual({ x: 5, y: 10 });
+      expect(box.bottomRight(b3)).toEqual({ x: 10, y: 10 });
+    });
+    it("should return a zero box if there is no intersection", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.construct(15, 15, 20, 20);
+      const b3 = box.intersection(b, b2);
+      expect(box.topLeft(b3)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b3)).toEqual({ x: 0, y: 0 });
+      expect(box.bottomLeft(b3)).toEqual({ x: 0, y: 0 });
+      expect(box.bottomRight(b3)).toEqual({ x: 0, y: 0 });
+    });
+  });
+  describe("area", () => {
+    it("should return the area of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      expect(box.area(b)).toBe(100);
+    });
+  });
+  describe("areaIsZero", () => {
+    it("should return true if the area is zero", () => {
+      const b = box.construct(0, 0, 0, 0);
+      expect(box.areaIsZero(b)).toBe(true);
+    });
+    it("should return false if the area is not zero", () => {
+      const b = box.construct(0, 0, 10, 10);
+      expect(box.areaIsZero(b)).toBe(false);
+    });
+  });
+  describe("isBox", () => {
+    it("should return true if the value is a box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      expect(box.isBox(b)).toBe(true);
+    });
+    it("should return false if the value is not a box", () => {
+      expect(box.isBox({})).toBe(false);
+    });
+  });
+  describe("yBounds", () => {
+    it("should return the y bounds of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      expect(box.yBounds(b)).toEqual({ lower: 0, upper: 10 });
+    });
+  });
+  describe("xBounds", () => {
+    it("should return the x bounds of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      expect(box.xBounds(b)).toEqual({ lower: 0, upper: 10 });
+    });
+  });
+  describe("contains", () => {
+    describe("inclusive of border", () => {
+      it("should return true if the box completely contains the other box", () => {
+        const b = box.construct(0, 0, 20, 20);
+        const b2 = box.construct(5, 5, 15, 15);
+        expect(box.contains(b, b2)).toBe(true);
+      });
+      it("should return true if the box completely contains the other box", () => {
+        const b = box.construct(0, 0, 20, 20);
+        const b2 = box.construct(5, 5, 14, 14);
+        expect(box.contains(b, b2)).toBe(true);
+      });
+      it("should return false if the box does not completely contain the other box", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const b2 = box.construct(5, 5, 15, 15);
+        expect(box.contains(b, b2)).toBe(false);
+      });
+      it("should return true if the two boxes are equal", () => {
+        const b = box.construct(0, 0, 10, 10);
+        expect(box.contains(b, b)).toBe(true);
+      });
+      it("should return true if the box contains the point", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const p = { x: 5, y: 5 };
+        expect(box.contains(b, p)).toBe(true);
+      });
+      it("should return false if the box does not contain the point", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const p = { x: 15, y: 15 };
+        expect(box.contains(b, p)).toBe(false);
+      });
+      it("should return true if the point is on the border", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const p = { x: 10, y: 10 };
+        expect(box.contains(b, p)).toBe(true);
+      });
+    });
+    describe("exclusive of border", () => {
+      it("should return false if the box completely contains the other box", () => {
+        const b = box.construct(0, 0, 20, 20);
+        const b2 = box.construct(5, 5, 15, 15);
+        expect(box.contains(b, b2, false)).toBe(false);
+      });
+      it("should return true if the box completely contains the other box", () => {
+        const b = box.construct(0, 0, 20, 20);
+        const b2 = box.construct(5, 5, 14, 14);
+        expect(box.contains(b, b2, false)).toBe(true);
+      });
+      it("should return false if the box does not completely contain the other box", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const b2 = box.construct(5, 5, 15, 15);
+        expect(box.contains(b, b2, false)).toBe(false);
+      });
+      it("should return false if the two boxes are equal", () => {
+        const b = box.construct(0, 0, 10, 10);
+        expect(box.contains(b, b, false)).toBe(false);
+      });
+      it("should return false if the box contains the point", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const p = { x: 5, y: 5 };
+        expect(box.contains(b, p, false)).toBe(true);
+      });
+      it("should return false if the box does not contain the point", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const p = { x: 15, y: 15 };
+        expect(box.contains(b, p, false)).toBe(false);
+      });
+      it("should return false if the point is on the border", () => {
+        const b = box.construct(0, 0, 10, 10);
+        const p = { x: 10, y: 10 };
+        expect(box.contains(b, p, false)).toBe(false);
+      });
+    });
+  });
+  describe("css", () => {
+    it("should return the box as an object of css properties", () => {
+      const b = box.construct(0, 0, 10, 10);
+      expect(box.css(b)).toEqual({
+        left: 0,
+        top: 0,
+        width: 10,
+        height: 10,
+      });
+    });
+  });
+  describe("copy", () => {
+    it("should return a copy of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.copy(b);
+      expect(box.equals(b, b2)).toBe(true);
+    });
+  });
+  describe("edgePoints", () => {
+    interface Spec {
+      box: box.Box;
+      loc: location.Location;
+      expected: [xy.XY, xy.XY];
+    }
+
+    const SPECS: Spec[] = [
+      {
+        box: box.construct(0, 0, 10, 10),
+        loc: "top",
+        expected: [
+          { x: 0, y: 0 },
+          { x: 10, y: 0 },
+        ],
+      },
+      {
+        box: box.construct(0, 0, 10, 10),
+        loc: "bottom",
+        expected: [
+          { x: 0, y: 10 },
+          { x: 10, y: 10 },
+        ],
+      },
+      {
+        box: box.construct(0, 0, 10, 10),
+        loc: "left",
+        expected: [
+          { x: 0, y: 0 },
+          { x: 0, y: 10 },
+        ],
+      },
+      {
+        box: box.construct(0, 0, 10, 10),
+        loc: "right",
+        expected: [
+          { x: 10, y: 0 },
+          { x: 10, y: 10 },
+        ],
+      },
+    ];
+    SPECS.forEach(({ box: b, loc, expected }) => {
+      test(`edgePoints-${loc}`, () => {
+        expect(box.edgePoints(b, loc)).toEqual(expected);
+      });
     });
   });
 });

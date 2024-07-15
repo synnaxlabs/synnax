@@ -11,7 +11,7 @@ package gorp
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
 

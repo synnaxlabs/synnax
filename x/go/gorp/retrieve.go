@@ -12,9 +12,11 @@ package gorp
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
+	"fmt"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/types"
 )
 
 // Retrieve is a query that retrieves Entries from the DB.
@@ -25,10 +27,20 @@ func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
 	return Retrieve[K, E]{Params: make(query.Parameters)}
 }
 
+type filterOptions struct {
+	required bool
+}
+
+type FilterOption func(*filterOptions)
+
+func Required() FilterOption {
+	return func(o *filterOptions) { o.required = true }
+}
+
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
-func (r Retrieve[K, E]) Where(filter func(*E) bool) Retrieve[K, E] {
-	addFilter[K](r.Params, filter)
+func (r Retrieve[K, E]) Where(filter func(*E) bool, opts ...FilterOption) Retrieve[K, E] {
+	addFilter[K](r.Params, filter, opts)
 	return r
 }
 
@@ -94,21 +106,33 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 
 const filtersKey query.Parameter = "filters"
 
-type filters[K Key, E Entry[K]] []func(*E) bool
+type filter[K Key, E Entry[K]] struct {
+	filterOptions
+	f func(*E) bool
+}
+
+type filters[K Key, E Entry[K]] []filter[K, E]
 
 func (f filters[K, E]) exec(entry *E) bool {
 	if len(f) == 0 {
 		return true
 	}
-	for _, filter := range f {
-		if filter(entry) {
-			return true
+	match := false
+	for _, fil := range f {
+		if fil.f(entry) {
+			match = true
+		} else if fil.required {
+			return false
 		}
 	}
-	return false
+	return match
 }
 
-func addFilter[K Key, E Entry[K]](q query.Parameters, filter func(*E) bool) {
+func addFilter[K Key, E Entry[K]](
+	q query.Parameters,
+	filterFunc func(*E) bool,
+	options []FilterOption,
+) {
 	var f filters[K, E]
 	rf, ok := q.Get(filtersKey)
 	if !ok {
@@ -116,7 +140,11 @@ func addFilter[K Key, E Entry[K]](q query.Parameters, filter func(*E) bool) {
 	} else {
 		f = rf.(filters[K, E])
 	}
-	f = append(f, filter)
+	opts := &filterOptions{}
+	for _, o := range options {
+		o(opts)
+	}
+	f = append(f, filter[K, E]{f: filterFunc, filterOptions: *opts})
 	q.Set(filtersKey, f)
 }
 
@@ -272,8 +300,11 @@ func filterRetrieve[K Key, E Entry[K]](
 	if entries.isMultiple {
 		return nil
 	}
-	//if entries.changes == 0 {
-	//	return errors.Wrapf(query.NotFound, "no entries found")
-	//}
+	if entries.changes == 0 {
+		return errors.Wrapf(
+			query.NotFound,
+			fmt.Sprintf("no %s found matching query", types.PluralName[E]()),
+		)
+	}
 	return nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { specZ, type CrudeSpec } from "@/status/aether/types";
+import { type CrudeSpec,specZ } from "@/status/aether/types";
 
 export const aggregatorStateZ = z.object({
   statuses: specZ.array(),

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,30 +14,40 @@ import { Icon } from "@/button/Icon";
 import { CSS } from "@/css";
 import { type Input } from "@/input";
 
-export interface ToggleExtensionProps extends Input.Control<boolean> {
+export interface ToggleExtensionProps extends Input.Control<boolean, boolean> {
   checkedVariant?: ButtonProps["variant"];
   uncheckedVariant?: ButtonProps["variant"];
+  rightClickToggle?: boolean;
 }
 
 const toggleFactory =
   <E extends Pick<ButtonProps, "className" | "variant" | "onClick">>(
     Base: FunctionComponent<E>,
-  ): FunctionComponent<Omit<E, "value" | "onChange"> & ToggleExtensionProps> =>
+  ): FunctionComponent<ToggleExtensionProps & Omit<E, "value" | "onChange">> =>
   // eslint-disable-next-line react/display-name
   ({
     value,
     onClick,
+    onChange,
     checkedVariant = "filled",
     uncheckedVariant = "outlined",
+    rightClickToggle = false,
     ...props
   }) => (
-    // @ts-expect-error
+    // @ts-expect-error - generic component issues
     <Base
       {...props}
       checked={value}
       onClick={(e) => {
         onClick?.(e);
-        props.onChange(!value);
+        if (rightClickToggle) return;
+        onChange(!value);
+      }}
+      onContextMenu={(e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!rightClickToggle) return;
+        onChange(!value);
       }}
       className={CSS(CSS.B("btn-toggle"), props.className)}
       variant={value ? checkedVariant : uncheckedVariant}
@@ -60,6 +70,12 @@ export type ToggleProps = Omit<Parameters<typeof Toggle>[0], "value" | "onChange
   ToggleExtensionProps;
 Toggle.displayName = "ButtonToggle";
 
+export type ToggleIconProps = Omit<
+  Parameters<typeof ToggleIcon>[0],
+  "value" | "onChange"
+> &
+  ToggleExtensionProps;
+
 /**
  * Use.IconToggle renders a button that can be toggled on and off, and only
  * renders an icon. It implements the InputControlProps interface, so it can be used
@@ -74,9 +90,4 @@ Toggle.displayName = "ButtonToggle";
  */
 
 export const ToggleIcon = toggleFactory(Icon);
-export type ToggleIconProps = Omit<
-  Parameters<typeof ToggleIcon>[0],
-  "value" | "onChange"
-> &
-  ToggleExtensionProps;
 ToggleIcon.displayName = "ButtonToggleIcon";

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,39 +7,51 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type StreamClient } from "@synnaxlabs/freighter";
+import { type StreamClient, UnaryClient } from "@synnaxlabs/freighter";
 import {
-  type CrudeTimeStamp,
   type CrudeSeries,
   type CrudeTimeRange,
+  type CrudeTimeStamp,
   type MultiSeries,
+  TimeRange,
+  TimeSpan,
 } from "@synnaxlabs/x";
 
-import { type KeysOrNames, type KeyOrName, type Params } from "@/channel/payload";
-import { type Retriever, analyzeParams } from "@/channel/retriever";
+import { type Key, type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";
+import { analyzeChannelParams, type Retriever } from "@/channel/retriever";
+import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
-import { Iterator } from "@/framer/iterator";
+import { Iterator, IteratorConfig } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
-import { Writer, WriterMode, type WriterConfig } from "@/framer/writer";
+import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 
 export class Client {
-  private readonly stream: StreamClient;
+  private readonly streamClient: StreamClient;
+  // private readonly unaryClient: UnaryClient;
   private readonly retriever: Retriever;
+  private readonly deleter: Deleter;
 
-  constructor(stream: StreamClient, retriever: Retriever) {
-    this.stream = stream;
+  constructor(stream: StreamClient, unary: UnaryClient, retriever: Retriever) {
+    this.streamClient = stream;
+    // this.unaryClient = unary;
     this.retriever = retriever;
+    this.deleter = new Deleter(unary);
   }
 
   /**
    * Opens a new iterator over the given channels within the provided time range.
    *
    * @param tr - A time range to iterate over.
-   * @param keys - A list of channel keys to iterate over.
-   * @returns a new {@link TypedIterator}.
+   * @param channels - A list of channels (by name or key) to iterate over.
+   * @param opts - see {@link IteratorConfig}
+   * @returns a new {@link Iterator}.
    */
-  async openIterator(tr: CrudeTimeRange, channels: Params): Promise<Iterator> {
-    return await Iterator._open(tr, channels, this.retriever, this.stream);
+  async openIterator(
+    tr: CrudeTimeRange,
+    channels: Params,
+    opts?: IteratorConfig,
+  ): Promise<Iterator> {
+    return await Iterator._open(tr, channels, this.retriever, this.streamClient, opts);
   }
 
   /**
@@ -47,10 +59,12 @@ export class Client {
    *
    * @param config - The configuration for the created writer, see documentation for
    * writerConfig for more detail.
-   * @returns a new {@link RecordWriter}.
+   * @returns a new {@link Writer}.
    */
-  async openWriter(config: WriterConfig): Promise<Writer> {
-    return await Writer._open(this.retriever, this.stream, config);
+  async openWriter(config: WriterConfig | Params): Promise<Writer> {
+    if (Array.isArray(config) || typeof config !== "object")
+      config = { channels: config as Params };
+    return await Writer._open(this.retriever, this.streamClient, config);
   }
 
   /***
@@ -75,12 +89,12 @@ export class Client {
    * and then will start reading new values.
    *
    */
-  async openStreamer(config: StreamerConfig): Promise<Streamer>;
+  async openStreamer(config: StreamerConfig | Params): Promise<Streamer>;
 
   async openStreamer(config: StreamerConfig | Params): Promise<Streamer> {
-    const isObject = typeof config === "object";
-    if (Array.isArray(config) || !isObject) config = { channels: config as Params };
-    return await Streamer._open(this.retriever, this.stream, config as StreamerConfig);
+    if (Array.isArray(config) || typeof config !== "object")
+      config = { channels: config as Params };
+    return await Streamer._open(this.retriever, this.streamClient, config);
   }
 
   async write(
@@ -133,10 +147,12 @@ export class Client {
       start,
       channels: channels as Params,
       mode: WriterMode.PersistOnly,
+      errOnUnauthorized: true,
+      enableAutoCommit: true,
+      autoIndexPersistInterval: TimeSpan.MAX,
     });
     try {
       await w.write(channels as Params, data);
-      await w.commit();
     } finally {
       await w.close();
     }
@@ -147,7 +163,7 @@ export class Client {
   async read(tr: CrudeTimeRange, channels: Params): Promise<Frame>;
 
   async read(tr: CrudeTimeRange, channels: Params): Promise<MultiSeries | Frame> {
-    const { single } = analyzeParams(channels);
+    const { single } = analyzeChannelParams(channels);
     const fr = await this.readFrame(tr, channels);
     if (single) return fr.get(channels as KeyOrName);
     return fr;
@@ -162,5 +178,18 @@ export class Client {
       await i.close();
     }
     return frame;
+  }
+
+  async delete(channels: Params, timeRange: TimeRange): Promise<void> {
+    const { normalized, variant } = analyzeChannelParams(channels);
+    if (variant === "keys")
+      return await this.deleter.delete({
+        keys: normalized as Key[],
+        bounds: timeRange,
+      });
+    return await this.deleter.delete({
+      names: normalized as string[],
+      bounds: timeRange,
+    });
   }
 }

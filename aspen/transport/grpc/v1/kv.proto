@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option go_package = "github.com/synnaxlabs/aspen/transport/grpc/v1";
+
 package aspen.v1;
 
 import "google/protobuf/empty.proto";

@@ -16,32 +16,32 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 )
 
 var _ = Describe("Ranger", Ordered, func() {
 	var (
-		db  *gorp.DB
-		svc *ranger.Service
-		w   ranger.Writer
-		tx  gorp.Tx
+		db     *gorp.DB
+		svc    *ranger.Service
+		w      ranger.Writer
+		tx     gorp.Tx
+		closer io.Closer
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-		}))
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{DB: db, Ontology: otg, Group: g}))
+		closer = xio.MultiCloser{db, otg, g, svc}
 	})
 	AfterAll(func() {
-		Expect(db.Close()).To(Succeed())
+		Expect(closer.Close()).To(Succeed())
 	})
 	BeforeEach(func() {
 		tx = db.OpenTx()

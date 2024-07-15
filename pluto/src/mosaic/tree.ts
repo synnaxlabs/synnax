@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,7 +45,7 @@ export const insertTab = (
 
   // If we're not dropping the tab in the center,
   // and we have no tabs in the current node,
-  // we can't split the node (because on side would be empty),
+  // we can't split the node (because one side would be empty),
   // so we do nothing.
   if (node.tabs == null || node.tabs.length === 0) return root;
 
@@ -121,9 +121,9 @@ export const removeTab = (root: Node, tabKey: string): [Node, string | null] => 
   if (node == null) return [root, null];
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
-  const gced = gc(root);
-  const selected = node.selected ?? findSelected(gced);
-  return [gced, selected];
+  root = gc(root);
+  const selected = node.selected ?? findSelected(root);
+  return [root, selected];
 };
 
 export const findSelected = (root: Node): string | null => {
@@ -222,6 +222,7 @@ const findNodeOrAncestor = (root: Node, key: number): Node => {
 const gc = (root: Node): Node => {
   let gced = true;
   while (gced) [root, gced] = _gc(root);
+  if (root.first == null && root.last == null) root.key = 1;
   return root;
 };
 
@@ -287,3 +288,16 @@ const splitArrangement = (
 };
 
 const shallowCopyNode = (node: Node): Node => deep.copy(node);
+
+export const mapNodes = <O>(root: Node, fn: (node: Node) => O, acc: O[] = []): O[] => {
+  acc.push(fn(root));
+  if (root.first != null) mapNodes(root.first, fn, acc);
+  if (root.last != null) mapNodes(root.last, fn, acc);
+  return acc;
+};
+
+export const forEachNode = (root: Node, fn: (node: Node) => void): void => {
+  fn(root);
+  if (root.first != null) forEachNode(root.first, fn);
+  if (root.last != null) forEachNode(root.last, fn);
+};

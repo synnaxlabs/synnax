@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,20 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, type ReactElement } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import { Align, Status, Text } from "@synnaxlabs/pluto";
+import { type FC, type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
-import { PID } from "@/pid";
-// import { Table } from "@/table";
-import { create } from "@/vis/create";
-
-import { LayoutSelector } from "./LayoutSelector";
-import { type LayoutType } from "./types";
+import { Schematic } from "@/schematic";
+import { type LayoutType } from "@/vis/types";
 
 export const VisToolbarTitle = (): ReactElement => (
   <ToolbarTitle icon={<Icon.Visualize />}>Visualization</ToolbarTitle>
@@ -35,15 +31,16 @@ const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
-    <LayoutSelector layoutKey={layoutKey} />
+    {/* <LayoutSelector layoutKey={layoutKey} /> */}
   </Align.Space>
 );
 
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
-  pid: PID.Toolbar,
+  schematic: Schematic.Toolbar,
   lineplot: LinePlot.Toolbar,
   vis: SelectVis,
 };
+
 const NoVis = (): ReactElement => {
   const placer = Layout.usePlacer();
   return (
@@ -55,7 +52,7 @@ const NoVis = (): ReactElement => {
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
-        <Text.Link level="p" onClick={() => placer(create({}))}>
+        <Text.Link level="p" onClick={() => placer(Layouts.createSelector({}))}>
           create a new one.
         </Text.Link>
       </Align.Center>

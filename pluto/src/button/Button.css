@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -28,7 +28,9 @@
     background: var(--pluto-primary-z);
     border: var(--pluto-border);
     border-color: var(--pluto-primary-z) !important;
-    color: var(--pluto-text-on-primary);
+    & * {
+        color: var(--pluto-text-on-primary) !important;
+    }
 
     &:hover:not(.pluto--disabled) {
         background: var(--pluto-primary-p1);
@@ -39,11 +41,36 @@
         background: var(--pluto-primary-m1);
         border-color: var(--pluto-primary-m1) !important;
     }
-}
 
-.pluto-btn--filled path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: inherit !important;
-    fill: inherit !important;
+    &.pluto--warning {
+        background: var(--pluto-warning-z);
+        border-color: var(--pluto-warning-z) !important;
+
+        &:hover:not(.pluto--disabled) {
+            background: var(--pluto-warning-p1);
+            border-color: var(--pluto-warning-p1) !important;
+        }
+
+        &:active:not(.pluto--disabled) {
+            background: var(--pluto-warning-m1);
+            border-color: var(--pluto-warning-m1) !important;
+        }
+    }
+
+    &.pluto--error {
+        background: var(--pluto-error-z);
+        border-color: var(--pluto-error-z) !important;
+
+        &:hover:not(.pluto--disabled) {
+            background: var(--pluto-error-p1);
+            border-color: var(--pluto-error-p1) !important;
+        }
+
+        &:active:not(.pluto--disabled) {
+            background: var(--pluto-error-m1);
+            border-color: var(--pluto-error-m1) !important;
+        }
+    }
 }
 
 /* |||| OUTLINED |||| */
@@ -51,6 +78,16 @@
 .pluto-btn--outlined {
     background: var(--pluto-gray-l0);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
+
+    &.pluto--warning {
+        border-color: var(--pluto-warning-z) !important;
+        color: var(--pluto-warning-z);
+    }
+
+    &.pluto--error {
+        border-color: var(--pluto-error-z) !important;
+        color: var(--pluto-error-z);
+    }
 
     &:hover:not(.pluto--disabled) {
         background: var(--pluto-gray-l2);
@@ -61,13 +98,6 @@
         background: var(--pluto-gray-l3);
         border-color: var(--pluto-gray-l5) !important;
     }
-}
-
-.pluto-btn--outlined
-    svg:not(.logo)
-    :is(path, circle):is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: inherit !important;
-    fill: inherit !important;
 }
 
 .pluto-btn--filled,
@@ -99,11 +129,28 @@
     }
 }
 
-.pluto-btn-icon.pluto-btn--text
-    svg:not(.logo)
-    path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: inherit !important;
-    fill: inherit !important;
+/** |||| SUGGESTION |||| */
+
+.pluto-btn--suggestion {
+    background: none;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l5);
+    border-style: dashed;
+    filter: opacity(0.85);
+
+    &:hover:not(.pluto--disabled) {
+        background: var(--pluto-gray-l2);
+        border-color: var(--pluto-gray-l5-90);
+    }
+
+    &:active:not(.pluto--disabled) {
+        background: var(--pluto-gray-l3);
+        border-color: var(--pluto-gray-l6);
+    }
+
+    &.pluto--disabled {
+        color: var(--pluto-gray-l5);
+    }
 }
 
 /* |||| ICON |||| */

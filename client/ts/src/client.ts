@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod";
 
 import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
+import { control } from "@/control";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { hardware } from "@/hardware";
@@ -26,8 +28,20 @@ import { Transport } from "@/transport";
 import { workspace } from "@/workspace";
 
 export const synnaxPropsZ = z.object({
-  host: z.string().min(1),
-  port: z.number().or(z.string()),
+  host: z
+    .string({
+      required_error: "Host is required",
+    })
+    .min(1, "Host is required"),
+  port: z
+    .number({
+      required_error: "Port is required",
+    })
+    .or(
+      z.string({
+        required_error: "Port is required",
+      }),
+    ),
   username: z.string().optional(),
   password: z.string().optional(),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
@@ -46,7 +60,6 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
  * @property connectivity - Client for retrieving connectivity information.
  * @property ontology - Client for querying the cluster's ontology.
  */
-// eslint-disable-next-line import/no-default-export
 export default class Synnax extends framer.Client {
   readonly createdAt: TimeStamp;
   readonly props: ParsedSynnaxProps;
@@ -58,6 +71,7 @@ export default class Synnax extends framer.Client {
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
+  readonly control: control.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -69,7 +83,7 @@ export default class Synnax extends framer.Client {
    * @param props.password - Password for authentication. Not required if the
    * cluster is insecure.
    * @param props.connectivityPollFrequency - Frequency at which to poll the
-   * cluster for connectivity information. Defaults to 5 seconds.
+   * cluster for connectivity information. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster
    * must be configured to support TLS. Defaults to false.
    *
@@ -92,8 +106,8 @@ export default class Synnax extends framer.Client {
     const chRetriever = new channel.CacheRetriever(
       new channel.ClusterRetriever(transport.unary),
     );
-    const chCreator = new channel.Writer(transport.unary);
-    super(transport.stream, chRetriever);
+    const chCreator = new channel.Writer(transport.unary, chRetriever);
+    super(transport.stream, transport.unary, chRetriever);
     this.createdAt = TimeStamp.now();
     this.props = props;
     this.auth = auth_;
@@ -104,35 +118,26 @@ export default class Synnax extends framer.Client {
       connectivityPollFrequency,
       props.name,
     );
+    this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
-    const rangeRetriever = new ranger.Retriever(transport.unary);
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary, this);
     this.ranges = new ranger.Client(
       this,
-      rangeRetriever,
       rangeWriter,
       this.transport.unary,
       chRetriever,
       this.labels,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
-    const devices = new device.Client(
-      new device.Retriever(this.transport.unary),
-      new device.Writer(this.transport.unary),
-      this,
-    );
-    const taskRetriever = new task.Retriever(this.transport.unary);
-    const taskWriter = new task.Writer(this.transport.unary);
-    const tasks = new task.Client(taskRetriever, taskWriter);
-    const racks = new rack.Client(
-      new rack.Retriever(this.transport.unary),
-      new rack.Writer(this.transport.unary),
-      this,
-      taskWriter,
-      taskRetriever,
-    );
+    const devices = new device.Client(this.transport.unary, this);
+    const tasks = new task.Client(this.transport.unary, this);
+    const racks = new rack.Client(this.transport.unary, this, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
+  }
+
+  get key(): string {
+    return this.createdAt.valueOf().toString();
   }
 
   close(): void {

@@ -1,0 +1,7 @@
+{
+    "vitest.disableWorkspaceWarning": true,
+    "cSpell.words": [
+        "caseconv",
+        "zodutil"
+    ]
+}

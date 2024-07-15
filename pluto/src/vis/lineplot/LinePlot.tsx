@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,49 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/lineplot/LinePlot.css";
+
+import { box, deep, type Destructor, direction, location, xy } from "@synnaxlabs/x";
 import {
+  createContext,
   type CSSProperties,
   type DetailedHTMLProps,
   type HTMLAttributes,
   type PropsWithChildren,
   type ReactElement,
-  createContext,
   useCallback,
   useContext as reactUseContext,
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
-
-import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useEffectCompare, useCombinedStateAndRef } from "@/hooks";
+import { useEffectCompare } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { lineplot } from "@/vis/lineplot/aether";
 import {
-  type GridPositionSpec,
-  filterGridPositions,
+  filterGridEntries,
+  type GridEntrySpec,
   type GridSpec,
 } from "@/vis/lineplot/aether/grid";
-
-import "@/vis/lineplot/LinePlot.css";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
 export interface LinePlotContextValue {
-  setAxis: (meta: GridPositionSpec) => void;
-  removeAxis: (key: string) => void;
+  setGridEntry: (meta: GridEntrySpec) => void;
+  removeGridEntry: (key: string) => void;
   setLine: (meta: LineSpec) => void;
   removeLine: (key: string) => void;
   lines: LineSpec[];
   setViewport: (viewport: Viewport.UseEvent) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => Destructor;
+  setHold: (hold: boolean) => void;
 }
 
 const Context = createContext<LinePlotContextValue | null>(null);
@@ -67,22 +68,19 @@ export const useViewport = (handle: Viewport.UseHandler): void => {
   useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
 };
 
-export const useGridPosition = (
-  meta: GridPositionSpec,
-  component: string,
-): CSSProperties => {
-  const { setAxis, removeAxis } = useContext(component);
+export const useGridEntry = (meta: GridEntrySpec, component: string): CSSProperties => {
+  const { setGridEntry, removeGridEntry } = useContext(component);
   const { key } = meta;
   useEffectCompare(
     () => {
       location.outer.parse(meta.loc);
-      setAxis(meta);
+      setGridEntry(meta);
     },
     ([a], [b]) => deep.equal(a, b),
     [meta],
   );
   useEffect(() => {
-    return () => removeAxis(key);
+    return () => removeGridEntry(key);
   }, []);
   const dir = direction.swap(location.direction(meta.loc));
   const gridArea =
@@ -102,9 +100,10 @@ type LineState = LineSpec[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">,
+    Partial<Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">>,
     HTMLDivProps {
   resizeDebounce?: number;
+  onHold?: (hold: boolean) => void;
 }
 
 export const LinePlot = Aether.wrap<LinePlotProps>(
@@ -113,14 +112,15 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     aetherKey,
     style,
     resizeDebounce: debounce = 0,
-    clearOverScan,
+    clearOverScan = xy.ZERO,
     children,
-    hold,
+    hold = false,
+    onHold,
     ...props
   }): ReactElement => {
-    const [lines, setLines, linesRef] = useCombinedStateAndRef<LineState>([]);
+    const [lines, setLines] = useState<LineState>([]);
 
-    const aetherMemoProps = useMemoDeepEqualProps({ clearOverScan, hold });
+    const memoProps = useMemoDeepEqualProps({ clearOverScan, hold });
 
     const [{ path }, { grid }, setState] = Aether.use({
       aetherKey,
@@ -130,14 +130,11 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         container: box.ZERO,
         viewport: box.DECIMAL,
         grid: {},
-        ...aetherMemoProps,
+        ...memoProps,
       },
     });
 
-    useEffect(
-      () => setState((prev) => ({ ...prev, ...aetherMemoProps })),
-      [aetherMemoProps],
-    );
+    useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
     const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 
@@ -171,10 +168,10 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setState],
     );
 
-    const ref = Canvas.useRegion(handleResize);
+    const ref = Canvas.useRegion(handleResize, { debounce });
 
-    const setAxis: LinePlotContextValue["setAxis"] = useCallback(
-      (meta: GridPositionSpec) =>
+    const setGridEntry: LinePlotContextValue["setGridEntry"] = useCallback(
+      (meta: GridEntrySpec) =>
         setState((prev) => ({
           ...prev,
           grid: { ...prev.grid, [meta.key]: meta },
@@ -182,7 +179,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setState],
     );
 
-    const removeAxis = useCallback(
+    const removeGridEntry = useCallback(
       (key: string) =>
         setState((prev) => {
           const { [key]: _, ...grid } = prev.grid;
@@ -205,24 +202,34 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
     const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
 
+    const setHold = useCallback(
+      (hold: boolean) => {
+        setState((prev) => ({ ...prev, hold }));
+        onHold?.(hold);
+      },
+      [setState, onHold],
+    );
+
     const contextValue = useMemo<LinePlotContextValue>(
       () => ({
         lines,
-        setAxis,
-        removeAxis,
+        setGridEntry,
+        removeGridEntry,
         setLine,
         removeLine,
         setViewport,
         addViewportHandler,
+        setHold,
       }),
       [
         lines,
-        setAxis,
-        removeAxis,
+        setGridEntry,
+        removeGridEntry,
         setLine,
         removeLine,
         setViewport,
         addViewportHandler,
+        setHold,
       ],
     );
 
@@ -242,20 +249,20 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 );
 
 const buildPlotGrid = (grid: GridSpec): CSSProperties => {
-  const builder = CSS.newGridBuilder();
-  filterGridPositions("top", grid).forEach(({ key, size }) =>
-    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
+  const b = CSS.newGridBuilder();
+  filterGridEntries("top", grid).forEach(({ key, size }) =>
+    b.row(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterGridPositions("bottom", grid).forEach(({ key, size }) =>
-    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
+  b.row("plot-start", "plot-end", "minmax(0, 1fr)");
+  filterGridEntries("bottom", grid).forEach(({ key, size }) =>
+    b.row(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  filterGridPositions("left", grid).forEach(({ key, size }) =>
-    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
+  filterGridEntries("left", grid).forEach(({ key, size }) =>
+    b.col(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterGridPositions("right", grid).forEach(({ key, size }) =>
-    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
+  b.col("plot-start", "plot-end", "minmax(0, 1fr)");
+  filterGridEntries("right", grid).forEach(({ key, size }) =>
+    b.col(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  return builder.build();
+  return b.build();
 };

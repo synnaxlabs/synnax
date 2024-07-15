@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
+import { type dimensions, type xy } from "@synnaxlabs/x";
 
-import { Event, Runtime } from "@/runtime";
-import { StoreState } from "@/state";
-import { WindowProps } from "@/window";
-import { dimensions, xy } from "@synnaxlabs/x";
+import { type Event, type Runtime } from "@/runtime";
+import { type StoreState } from "@/state";
+import { type WindowProps } from "@/window";
 
 export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
   implements Runtime<S, A>
@@ -33,6 +33,10 @@ export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
     this._label = initialProps.key;
   }
 
+  async configure(): Promise<void> {
+    return;
+  }
+
   isMain(): boolean {
     return this._isMain;
   }
@@ -41,7 +45,7 @@ export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
     return this._label;
   }
 
-  async emit(event: Omit<Event<S, A>, "emitter">, to?: string): Promise<void> {
+  async emit(event: Omit<Event<S, A>, "emitter">): Promise<void> {
     this.emissions.push({ ...event, emitter: this.label() });
     return await Promise.resolve();
   }

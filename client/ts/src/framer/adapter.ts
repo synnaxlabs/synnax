@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeSeries, Series } from "@synnaxlabs/x";
+import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
 import {
   type Key,
+  type KeyOrName,
   type Name,
   type Params,
-  type KeyOrName,
   type Payload,
 } from "@/channel/payload";
-import { type Retriever, analyzeParams, retrieveRequired } from "@/channel/retriever";
+import {
+  analyzeChannelParams,
+  type Retriever,
+  retrieveRequired,
+} from "@/channel/retriever";
 import { ValidationError } from "@/errors";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 
@@ -38,10 +42,10 @@ export class ReadFrameAdapter {
   }
 
   async update(channels: Params): Promise<void> {
-    const { variant, normalized } = analyzeParams(channels);
+    const { variant, normalized } = analyzeChannelParams(channels);
     if (variant === "keys") {
       this.adapter = null;
-      this.keys = normalized;
+      this.keys = normalized as Key[];
       return;
     }
     const fetched = await this.retriever.retrieve(normalized);
@@ -111,12 +115,12 @@ export class WriteFrameAdapter {
         Received a single channel name or key but no series.
         `);
       if (Array.isArray(series)) {
-        if (series.length > 1) {
+        if (series.some((s) => s instanceof Series || Array.isArray(s))) {
           throw new ValidationError(`
           Received a single channel name or key but multiple series.
           `);
         }
-        series = series[0] as CrudeSeries;
+        series = series as CrudeSeries;
       }
       const pld = await this.fetchChannel(columnsOrData);
       const s = new Series({ data: series as CrudeSeries, dataType: pld.dataType });

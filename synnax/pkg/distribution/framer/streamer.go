@@ -140,22 +140,6 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		controlStateKey:    s.controlStateKey,
 		sendControlDigests: lo.Contains(cfg.Keys, s.controlStateKey),
 	}
-	anyLeased := lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() && k != s.controlStateKey })
-	now := telem.Now()
-	if anyLeased && !cfg.Start.IsZero() && cfg.Start.Before(now) {
-		iter, err := s.NewStreamIterator(ctx, IteratorConfig{
-			Keys: cfg.Keys,
-			// Read from just after now so we make sure we get all data.
-			Bounds: cfg.Start.Range(now.Add(5 * telem.Second)),
-		})
-		if err != nil {
-			return nil, err
-		}
-		iterReq, iterRes := confluence.Attach(iter, 30)
-		l.iter.flow = iter
-		l.iter.requests = iterReq
-		l.iter.responses = iterRes
-	}
 	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys})
 	if err != nil {
 		return nil, err

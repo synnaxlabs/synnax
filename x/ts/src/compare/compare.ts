@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Primitive, isStringer, type PrimitiveRecord } from "@/primitive";
+import { isStringer, type Primitive } from "@/primitive";
 import { type spatial } from "@/spatial";
 
 export type CompareF<T> = (a: T, b: T) => number;
@@ -20,10 +20,7 @@ export type CompareF<T> = (a: T, b: T) => number;
  * This is used to determine the type of comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-export const newF = <T extends Primitive>(
-  v: T,
-  reverse: boolean = false,
-): CompareF<T> => {
+export const newF = <T>(v: T, reverse: boolean = false): CompareF<T> => {
   const t = isStringer(v) ? "stringer" : typeof v;
   let f: CompareF<T>;
   switch (t) {
@@ -35,16 +32,19 @@ export const newF = <T extends Primitive>(
         (a as string).toString().localeCompare((b as string).toString());
       break;
     case "number":
-      f = (a: T, b: T) => (a as number) - (b as number);
+      f = (a: T, b: T) => Number(a) - Number(b);
       break;
     case "bigint":
-      f = (a: T, b: T) => ((a as bigint) - (b as bigint) > BigInt(0) ? 1 : -1);
+      f = (a: T, b: T) => (BigInt(a as number) - BigInt(b as number) > 0n ? 1 : -1);
       break;
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);
       break;
+    case "undefined":
+      f = () => 0;
+      break;
     default:
-      console.warn("sortFunc: unknown type");
+      console.warn(`sortFunc: unknown type ${t}`);
       return () => -1;
   }
   return reverse ? reverseF(f) : f;
@@ -58,7 +58,7 @@ export const newF = <T extends Primitive>(
  * comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-export const newFieldF = <T extends PrimitiveRecord>(
+export const newFieldF = <T>(
   key: keyof T,
   value: T,
   reverse?: boolean,
@@ -120,3 +120,30 @@ export const isLessThan = (n: number): boolean => n < EQUAL;
 export const isGreaterThan = (n: number): boolean => n > EQUAL;
 
 export const isGreaterThanEqual = (n: number): boolean => n >= EQUAL;
+
+export const stringsWithNumbers = (a: string, b: string): number => {
+  const alphaNumericRegex = /([a-zA-Z]+)|(\d+)/g;
+
+  // Remove separators and split into parts
+  const aParts = a.replace(/[\s_.\-]+/g, "").match(alphaNumericRegex);
+  const bParts = b.replace(/[\s_.\-]+/g, "").match(alphaNumericRegex);
+
+  if (!aParts || !bParts) return 0;
+
+  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+    const aPart = aParts[i];
+    const bPart = bParts[i];
+
+    if (isNaN(Number(aPart)) && isNaN(Number(bPart))) {
+      const localeComparison = aPart.localeCompare(bPart);
+      if (localeComparison !== 0) return localeComparison;
+    } else if (!isNaN(Number(aPart)) && !isNaN(Number(bPart))) {
+      const numComparison = Number(aPart) - Number(bPart);
+      if (numComparison !== 0) return numComparison;
+    } else {
+      return isNaN(Number(aPart)) ? -1 : 1;
+    }
+  }
+
+  return aParts.length - bParts.length;
+};

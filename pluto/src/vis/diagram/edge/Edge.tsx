@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/diagram/edge/Edge.css";
+
+import { box, direction, location, xy } from "@synnaxlabs/x";
 import {
   type DragEvent,
   Fragment,
@@ -14,14 +17,12 @@ import {
   useCallback,
   useRef,
 } from "react";
-
-import { box, direction, location, xy } from "@synnaxlabs/x";
 import {
   BaseEdge,
-  type EdgeProps as RFEdgeProps,
-  useReactFlow,
   type ConnectionLineComponentProps,
+  type EdgeProps as RFEdgeProps,
   type Position,
+  useReactFlow,
 } from "reactflow";
 
 import { Color } from "@/color";
@@ -30,10 +31,7 @@ import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Key } from "@/triggers/triggers";
 import { connector } from "@/vis/diagram/edge/connector";
-
-import { selectNodeBox } from "../util";
-
-import "@/vis/diagram/edge/Edge.css";
+import { selectNodeBox } from "@/vis/diagram/util";
 
 interface CurrentlyDragging {
   segments: connector.Segment[];

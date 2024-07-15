@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CSSProperties,
-  type ReactElement,
-  useEffect,
-  useState,
-  createContext,
-  type PropsWithChildren,
-} from "react";
+import "@/list/Column.css";
 
 import { Icon } from "@synnaxlabs/media";
 import {
+  type ArrayTransform,
   compare,
   convertRenderV,
   type Key,
-  type ArrayTransform,
   type Keyed,
   type RenderableValue,
 } from "@synnaxlabs/x";
+import {
+  createContext,
+  type CSSProperties,
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useState,
+} from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -35,8 +36,6 @@ import { type ItemProps } from "@/list/types";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { type RenderProp } from "@/util/renderProp";
-
-import "@/list/Column.css";
 
 type RenderF<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = RenderProp<{
   key: string | number | symbol;
@@ -62,6 +61,7 @@ export interface ColumnSpec<K extends Key = Key, E extends Keyed<K> = Keyed<K>> 
   width?: number;
   cWidth?: number;
   shade?: Text.Shade;
+  weight?: Text.Weight;
 }
 
 interface ColumnContextValue<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
@@ -217,6 +217,7 @@ const ListColumnValue = <K extends Key, E extends Keyed<K>>({
       level="p"
       style={style}
       shade={col.shade}
+      weight={col.weight}
     >
       {convertRenderV(rv as RenderableValue)}
     </Text.Text>
@@ -227,6 +228,7 @@ const columnWidths = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
   columns: Array<ColumnSpec<K, E>>,
   data: E[],
   font: string,
+  padding: number = 30,
 ): Array<ColumnSpec<K, E>> => {
   const le = longestEntries(data, columns);
   return columns.map((col) => {
@@ -234,7 +236,7 @@ const columnWidths = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
     else {
       const { width: labelWidth } = Text.dimensions(col.name, font);
       const { width: entryWidth } = Text.dimensions(le[col.key as keyof E], font);
-      col.cWidth = Math.max(labelWidth, entryWidth) * 1.1;
+      col.cWidth = Math.max(labelWidth, entryWidth) + padding;
     }
     return col;
   });
@@ -262,9 +264,12 @@ const sortTransform =
     k: keyof E,
     dir: boolean,
   ): ArrayTransform<E> =>
-  (data: E[]) => {
-    if (data.length === 0) return data;
-    return [...data].sort(compare.newFieldF(k, data[0], !dir));
+  ({ data }) => {
+    if (data.length === 0) return { data, transformed: false };
+    return {
+      data: [...data].sort(compare.newFieldF(k, data[0], !dir)),
+      transformed: true,
+    };
   };
 
 export const Column = {
@@ -276,12 +281,12 @@ export const Column = {
   Header,
   /**
    * The item to use for a column list. This should be used as the child render prop
-   * in a list render implmentation e.g. {@link List.Core.Virtual}.
+   * in a list render implementation e.g. {@link List.Core.Virtual}.
    *
    * @param props - implements the {@link ItemProps} interface. All these props
    * should be provided by the list render implementation.
    */
   Item,
   /** The default height of a column list item. */
-  itemHeight: 36,
+  itemHeight: 5.5 * 6,
 };

@@ -10,32 +10,32 @@
 package httputil
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 )
 
-// EncoderDecoder is an interface that extends binary.EncoderDecoder to
+// EncoderDecoder is an interface that extends binary.Codec to
 // add an HTTP content-type.
 type EncoderDecoder interface {
 	ContentType() string
-	binary.EncoderDecoder
+	binary.Codec
 }
 
 type typedEncoderDecoder struct {
 	ct string
-	binary.EncoderDecoder
+	binary.Codec
 }
 
 func (t typedEncoderDecoder) ContentType() string { return t.ct }
 
 var (
 	JSONEncoderDecoder = typedEncoderDecoder{
-		ct:             "application/json",
-		EncoderDecoder: &binary.JSONEncoderDecoder{},
+		ct:    "application/json",
+		Codec: &binary.JSONEncoderDecoder{},
 	}
 	MsgPackEncoderDecoder = typedEncoderDecoder{
-		ct:             "application/msgpack",
-		EncoderDecoder: &binary.MsgPackEncoderDecoder{},
+		ct:    "application/msgpack",
+		Codec: &binary.MsgPackEncoderDecoder{},
 	}
 )
 
@@ -50,7 +50,7 @@ func DetermineEncoderDecoder(contentType string) (EncoderDecoder, error) {
 			return ecd, nil
 		}
 	}
-	return nil, errors.New("[encoding] - unable to determine encoding type")
+	return nil, errors.Newf("[encoding] - unable to determine encoding type for %s", contentType)
 }
 
 func SupportedContentTypes() []string {

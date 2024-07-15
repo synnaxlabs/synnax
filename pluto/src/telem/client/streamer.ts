@@ -1,6 +1,15 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { alamos } from "@synnaxlabs/alamos";
-import { type framer, type channel, type Synnax } from "@synnaxlabs/client";
-import { compare, type AsyncDestructor, type Required } from "@synnaxlabs/x";
+import { type channel, type framer, type Synnax } from "@synnaxlabs/client";
+import { type AsyncDestructor, compare, type Required } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
 import { type Cache } from "@/telem/client/cache/cache";
@@ -26,6 +35,7 @@ export class Streamer {
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
   private streamerRunLoop: Promise<void> | null = null;
   private streamer: framer.Streamer | null = null;
+  private closed = false;
 
   constructor(props: StreamerProps) {
     this.props = {
@@ -75,6 +85,7 @@ export class Streamer {
   }
 
   private async updateStreamer(): Promise<void> {
+    if (this.closed) return;
     const {
       instrumentation: { L },
       core,
@@ -139,7 +150,7 @@ export class Streamer {
         });
       }
     } catch (e) {
-      L.error("streamer run loop failed", { error: e });
+      L.error("streamer run loop failed", { error: e }, true);
       throw e;
     }
   }
@@ -147,5 +158,6 @@ export class Streamer {
   async close(): Promise<void> {
     this.streamer?.close();
     if (this.streamerRunLoop != null) await this.streamerRunLoop;
+    this.closed = true;
   }
 }

@@ -11,12 +11,12 @@ package ranger
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/label"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -36,6 +36,8 @@ type Range struct {
 	Name string `json:"name" msgpack:"name"`
 	// TimeRange is the range of time occupied by the range.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+	// Color is the color used to represent the range in the UI.
+	Color string `json:"color" msgpack:"color"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}
@@ -58,7 +60,25 @@ func (r Range) Get(ctx context.Context, key []byte) ([]byte, error) {
 			Entry(&res).
 			Exec(ctx, r.tx)
 	)
+	if errors.Is(err, query.NotFound) {
+		return nil, errors.Wrapf(err, "key %s not found on range", key)
+	}
 	return res.Value, err
+}
+
+func (r Range) ListMetaData() (map[string]string, error) {
+	var res []keyValue
+	if err := gorp.NewRetrieve[[]byte, keyValue]().
+		WherePrefix(r.Key[:]).
+		Entries(&res).
+		Exec(context.Background(), r.tx); err != nil {
+		return nil, err
+	}
+	meta := make(map[string]string, len(res))
+	for _, kv := range res {
+		meta[string(kv.Key)] = string(kv.Value)
+	}
+	return meta, nil
 }
 
 func (r Range) Set(ctx context.Context, key, value []byte) error {

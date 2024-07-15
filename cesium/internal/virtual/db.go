@@ -11,66 +11,121 @@ package virtual
 
 import (
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/version"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"sync"
+	"sync/atomic"
 )
 
 type controlEntity struct {
-	ck    core.ChannelKey
-	align telem.Alignment
+	ck        core.ChannelKey
+	alignment telem.AlignmentPair
 }
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
-type openEntityCount struct {
+type entityCount struct {
 	sync.RWMutex
 	openWriters int
 }
 
-func (c *openEntityCount) Add(delta int) {
-	c.Lock()
-	c.openWriters += delta
-	c.Unlock()
+func (s *entityCount) add(delta int) {
+	s.Lock()
+	s.openWriters += delta
+	s.Unlock()
 }
 
 type DB struct {
 	Config
-	controller *controller.Controller[*controlEntity]
-	mu         *openEntityCount
+	controller  *controller.Controller[*controlEntity]
+	entityCount *entityCount
+	wrapError   func(error) error
+	closed      *atomic.Bool
 }
+
+var dbClosed = core.EntityClosed("virtual.db")
 
 type Config struct {
 	alamos.Instrumentation
+	FS      xfs.FS
 	Channel core.Channel
 }
 
-func Open(cfg Config) (db *DB, err error) {
-	if !cfg.Channel.Virtual {
-		return nil, errors.Wrap(validate.Error, "channel is not virtual")
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
+
+// Validate implements config.Config.
+func (cfg Config) Validate() error {
+	v := validate.New("cesium.virtual")
+	validate.NotNil(v, "FS", cfg.FS)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (cfg Config) Override(other Config) Config {
+	cfg.FS = override.Nil(cfg.FS, other.FS)
+	if cfg.Channel.Key == 0 {
+		cfg.Channel = other.Channel
+	}
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	return cfg
+}
+
+func Open(configs ...Config) (db *DB, err error) {
+	cfg, err := config.New(DefaultConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	c, err := controller.New[*controlEntity](controller.Config{
+		Concurrency:     control.Shared,
+		Instrumentation: cfg.Instrumentation,
+	})
+	if err != nil {
+		return nil, err
 	}
 	return &DB{
-		Config:     cfg,
-		controller: controller.New[*controlEntity](cfg.Channel.Concurrency),
-		mu:         &openEntityCount{},
+		Config:      cfg,
+		controller:  c,
+		wrapError:   core.NewErrorWrapper(cfg.Channel),
+		entityCount: &entityCount{},
+		closed:      &atomic.Bool{},
 	}, nil
+}
+
+func (db *DB) CheckMigration(ecd binary.Codec) error {
+	if db.Channel.Version != version.Current {
+		db.Channel.Version = version.Current
+		return meta.Create(db.FS, ecd, db.Channel)
+	}
+	return nil
 }
 
 func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
 }
 
-func (db *DB) TryClose() error {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.mu.openWriters > 0 {
-		return errors.Newf(fmt.Sprintf("[cesium] - cannot close channel because there are currently %d unclosed writers accessing it", db.mu.openWriters))
+func (db *DB) Close() error {
+	if db.closed.Load() {
+		return nil
 	}
-	return db.Close()
+	db.entityCount.RLock()
+	defer db.entityCount.RUnlock()
+	if db.entityCount.openWriters > 0 {
+		return db.wrapError(errors.Newf(fmt.Sprintf("cannot close channel because there are %d unclosed writers accessing it", db.entityCount.openWriters)))
+	}
+	db.closed.Store(true)
+	return nil
 }
-
-func (db *DB) Close() error { return nil }

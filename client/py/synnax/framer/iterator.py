@@ -10,7 +10,7 @@
 from enum import Enum
 
 from alamos import NOOP, Instrumentation, trace
-from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
+from freighter import EOF, Payload, Stream, StreamClient
 
 from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
@@ -45,6 +45,7 @@ class _Request(Payload):
     bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
     keys: ChannelKeys | None = None
+    chunk_size: int | None = None
 
 
 class _Response(Payload):
@@ -72,18 +73,21 @@ class Iterator:
     tr: TimeRange
     instrumentation: Instrumentation
     value: Frame
+    _chunk_size: int
 
     def __init__(
         self,
         tr: TimeRange,
         client: StreamClient,
         adapter: ReadFrameAdapter,
+        chunk_size: int = 1e5,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self.tr = tr
         self.instrumentation = instrumentation
         self.__adapter = adapter
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
+        self._chunk_size = chunk_size
         self.__open()
 
     @trace("debug", "open")
@@ -94,7 +98,12 @@ class Iterator:
         :param keys: The keys of the channels to iterate over.
         :param tr: The time range to iterate over.
         """
-        self._exec(command=_Command.OPEN, bounds=self.tr, keys=self.__adapter.keys)
+        self._exec(
+            command=_Command.OPEN,
+            bounds=self.tr,
+            keys=self.__adapter.keys,
+            chunk_size=self._chunk_size,
+        )
         self.value = Frame()
 
     @trace("debug")
@@ -123,7 +132,7 @@ class Iterator:
         :returns: False if a segment satisfying the request can't be found for a particular
         channel or the iterator has accumulated an error.
         """
-        return self._exec(command=_Command.NEXT, span=span)
+        return self._exec(command=_Command.PREV, span=span)
 
     @trace("debug")
     def seek_first(self) -> bool:
@@ -148,7 +157,7 @@ class Iterator:
         return self._exec(command=_Command.SEEK_LAST)
 
     @trace("debug")
-    def seek_lt(self, stamp: TimeStamp) -> bool:
+    def seek_le(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is less than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
         considered valid until a call to first, last, next, prev, prev_span, next_span, or next_range.
@@ -180,7 +189,7 @@ class Iterator:
     @trace("debug")
     def close(self):
         """Close closes the iterator. An iterator MUST be closed after use, and this method
-        should probably be placed in a 'finally' block. If the iterator is not closed, it make
+        should probably be placed in a 'finally' block. If the iterator is not closed, it may
         leak resources and threads.
         """
         exc = self.__stream.close_send()

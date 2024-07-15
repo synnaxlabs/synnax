@@ -4,6 +4,8 @@ package api.v1;
 
 import "google/protobuf/empty.proto";
 
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
+
 service HardwareCreateTaskService {
     rpc Exec(HardwareCreateTaskRequest) returns (HardwareCreateTaskResponse);
 }
@@ -55,6 +57,7 @@ message HardwareCreateRackResponse {
 
 message HardwareRetrieveRackRequest {
     repeated uint32 keys = 1;
+    repeated string names = 2;
 }
 
 message HardwareRetrieveRackResponse {
@@ -70,6 +73,7 @@ message Task {
     string name = 2;
     string type = 3;
     string config = 4;
+    bool internal = 5;
 }
 
 message HardwareCreateTaskRequest {
@@ -83,6 +87,8 @@ message HardwareCreateTaskResponse {
 message HardwareRetrieveTaskRequest {
     uint32 rack = 1;
     repeated uint64 keys = 2;
+    repeated string names = 3;
+    repeated string types = 4;
 }
 
 message HardwareRetrieveTaskResponse {
@@ -96,9 +102,12 @@ message HardwareDeleteTaskRequest {
 message Device {
     string key = 1;
     string name = 2;
-    string make = 3;
-    string model = 4;
-    string properties = 5;
+    uint32 rack = 3;
+    string location = 4;
+    string identifier = 5;
+    string make = 6;
+    string model = 7;
+    string properties = 8;
 }
 
 message HardwareCreateDeviceRequest {

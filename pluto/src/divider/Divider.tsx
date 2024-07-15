@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/divider/Divider.css";
+
+import { type direction, location } from "@synnaxlabs/x/spatial";
 import { type HTMLAttributes, type PropsWithChildren, type ReactElement } from "react";
 
-import { type direction } from "@synnaxlabs/x";
-
 import { CSS } from "@/css";
-
-import "@/divider/Divider.css";
 
 /** The props for the {@link Divider} component. */
 export interface DividerProps
   extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   direction?: direction.Direction;
-  padded?: boolean;
+  padded?: boolean | location.Location;
 }
 
 /**
@@ -33,14 +32,18 @@ export const Divider = ({
   className,
   padded = false,
   ...props
-}: DividerProps): ReactElement => (
-  <div
-    className={CSS(
-      CSS.B("divider"),
-      CSS.dir(direction),
-      padded && CSS.BM("divider", "padded"),
-      className,
-    )}
-    {...props}
-  />
-);
+}: DividerProps): ReactElement => {
+  if (padded === true) padded = "center";
+  return (
+    <div
+      className={CSS(
+        CSS.B("divider"),
+        CSS.dir(direction),
+        padded !== false && CSS.BM("divider", "padded"),
+        typeof padded === "string" && CSS.loc(padded),
+        className,
+      )}
+      {...props}
+    />
+  );
+};

@@ -22,7 +22,7 @@ type Frame struct {
 
 func NewFrame(keys []ChannelKey, series []telem.Series) Frame {
 	if len(keys) != len(series) {
-		panic("[cesium] - Keys and telemetry series in a frame must be of the same length")
+		panic("keys and telemetry series in a frame must be of the same length")
 	}
 	kf := Frame{Keys: keys, Series: series}
 	return kf
@@ -87,7 +87,19 @@ func (f Frame) Even() bool {
 	return true
 }
 
-// Len returns the length of the first series in the frame.
+// SquashSameKeyData is meant for testing use only. It is NOT optimized.
+func (f Frame) SquashSameKeyData(key ChannelKey) (data []byte) {
+	for i := 0; i < len(f.Keys); i++ {
+		if f.Keys[i] == key {
+			data = append(data, f.Series[i].Data...)
+		}
+	}
+
+	return
+}
+
+// Len returns the length of all series in the frame,
+// if a series has a different length, Len panics.
 func (f Frame) Len() int64 {
 	f.assertEven("Len")
 	if len(f.Series) == 0 {

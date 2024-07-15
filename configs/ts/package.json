@@ -1,11 +1,10 @@
 {
-    "name": "@synnaxlabs/tsconfig",
-    "version": "0.0.2",
-    "private": false,
-    "publishConfig": {
-        "access": "public"
-    },
-    "dependencies": {
-        "typescript": "^5.4.5"
-    }
+  "name": "@synnaxlabs/tsconfig",
+  "version": "0.0.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "typescript": "^5.4.5"
+  }
 }

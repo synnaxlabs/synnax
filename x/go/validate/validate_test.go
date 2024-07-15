@@ -19,7 +19,7 @@ var _ = Describe("Validate", func() {
 	Describe("Ternay", func() {
 		It("Should accumulate the error if the condition is met", func() {
 			v := validate.New("demo")
-			v.Ternaryf(true, "error")
+			v.Ternaryf("field", true, "error")
 			executed := false
 			v.Funcf(func() bool {
 				executed = true

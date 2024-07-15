@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useState, useLayoutEffect } from "react";
+import "@/nav/Drawer.css";
 
 import { type box, location } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useLayoutEffect,useState } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
 import { Eraser } from "@/vis/eraser";
-
-import "@/nav/Drawer.css";
 
 export interface DrawerItem {
   key: string;
@@ -80,9 +79,10 @@ export const Drawer = Aether.wrap<DrawerProps>(
       setEnabled(activeItem != null);
     }, [activeItem, setEnabled]);
     if (activeItem == null) return null;
-    const { content, ...rest } = activeItem;
+    const { content, key, ...rest } = activeItem;
     return (
       <Resize.Single
+        key={key}
         className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
         collapseThreshold={collapseThreshold}
         onCollapse={handleCollapse}

@@ -10,7 +10,8 @@
 package node
 
 import (
-	"math"
+	"github.com/synnaxlabs/x/mathutil"
+	"github.com/synnaxlabs/x/types"
 	"strconv"
 
 	"github.com/synnaxlabs/x/address"
@@ -18,11 +19,11 @@ import (
 	"github.com/synnaxlabs/x/version"
 )
 
-type Key uint16
+type Key types.Uint12
 
 const (
 	Bootstrapper Key = 1
-	Free         Key = math.MaxUint16
+	Free             = Key(mathutil.MaxUint12)
 )
 
 func (k Key) Parse(str string) (Key, error) {

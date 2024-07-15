@@ -58,6 +58,9 @@ func resolveChannelKey(
 	if key != 0 {
 		return key, nil
 	}
+	if name == "" {
+		return 0, nil
+	}
 	var ch channel.Channel
 	err := svc.NewRetrieve().WhereNames(name).Entry(&ch).Exec(ctx, nil)
 	return ch.Key(), err
@@ -79,6 +82,7 @@ func (s *Provider) Subscribe(
 	sCtx signal.Context,
 	configs ...ObservableSubscriberConfig,
 ) (observe.Observable[[]change.Change[[]byte, struct{}]], error) {
+	var err error
 	cfg, err := config.New(DefaultObservableSubscriberConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -91,8 +95,15 @@ func (s *Provider) Subscribe(
 	if err != nil {
 		return nil, err
 	}
+	keys := make([]channel.Key, 0, 2)
+	if cfg.SetChannelKey != 0 {
+		keys = append(keys, cfg.SetChannelKey)
+	}
+	if cfg.DeleteChannelKey != 0 {
+		keys = append(keys, cfg.DeleteChannelKey)
+	}
 	streamer, err := s.Framer.NewStreamer(sCtx, framer.StreamerConfig{
-		Keys:  []channel.Key{cfg.SetChannelKey, cfg.DeleteChannelKey},
+		Keys:  keys,
 		Start: telem.TimeStampMax,
 	})
 	if err != nil {

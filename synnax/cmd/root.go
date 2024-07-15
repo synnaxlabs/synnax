@@ -10,9 +10,10 @@
 package cmd
 
 import (
-	"go.uber.org/zap"
 	"os"
 	"strings"
+
+	"go.uber.org/zap"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -57,12 +58,12 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 		viper.AddConfigPath(home)
-		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".synnax")
 	}
 	viper.SetEnvPrefix("synnax")
 	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	if err := viper.ReadInConfig(); err != nil {
 		zap.S().Error("failed to read config", zap.Error(err))
 	}

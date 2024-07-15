@@ -11,6 +11,7 @@ package address
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -27,6 +28,15 @@ func (a Address) String() string { return string(a) }
 func (a Address) PortString() string {
 	str := strings.Split(string(a), ":")
 	return ":" + str[1]
+}
+
+func (a Address) Port() int {
+	str := strings.Split(string(a), ":")
+	p, err := strconv.Atoi(str[1])
+	if err != nil {
+		return 0
+	}
+	return p
 }
 
 func (a Address) HostString() string {

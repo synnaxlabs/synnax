@@ -13,21 +13,14 @@
       "import": "./dist/index.js"
     }
   },
-  "devDependencies": {
+  "dependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
-    "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.4.5",
-    "vite": "5.1.2",
-    "vite-plugin-dts": "3.7.2",
-    "vite-tsconfig-paths": "4.3.1"
+    "vite": "5.2.11",
+    "vite-plugin-dts": "3.8.2",
+    "vite-tsconfig-paths": "4.3.2"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "peerDependencies": {
-    "typescript": "^5.3.3",
-    "vite": "^5.1.2",
-    "vite-plugin-dts": "^3.7.2",
-    "vite-tsconfig-paths": "^4.3.1"
-  }
+  "types": "dist/index.d.ts"
 }

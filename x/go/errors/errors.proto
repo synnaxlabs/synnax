@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package errors;
+
+option go_package = "github.com/synnaxlabs/x/errors";
+
+message PBPayload {
+  string Type = 1;
+  string Data = 2;
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -9,15 +9,35 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto--warning .pluto-input__internal {
+    border-color: var(--pluto-warning-z-65) !important;
+}
+
+.pluto--error .pluto-input__internal {
+    border-color: var(--pluto-error-z-65) !important;
+}
+
 .pluto-input {
     color: var(--pluto-text-color);
     margin: 0;
     width: 100%;
+    flex-shrink: 0;
+    overflow: hidden;
 
     & .pluto-input__internal {
         position: relative;
+        height: 100%;
         background: var(--pluto-gray-l1);
         flex-grow: 1;
+    }
+
+    &.pluto-input--disabled {
+        & .pluto-input__placeholder * {
+            color: var(--pluto-gray-l5) !important;
+        }
+        & .pluto-input__internal {
+            border-color: var(--pluto-gray-l3);
+        }
     }
 
     & input {
@@ -34,10 +54,12 @@
 
         &::placeholder {
             color: transparent;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
     }
 
-    & > .pluto-input__internal:focus-within{
+    & > .pluto-input__internal:focus-within {
         border-color: var(--pluto-primary-z) !important;
         & input {
             outline: none;
@@ -62,6 +84,12 @@
         line-height: var(--pluto-h5-line-height);
     }
 
+    &.pluto--huge input {
+        font-size: var(--pluto-h2-size);
+        font-weight: var(--pluto-h2-weight);
+        line-height: var(--pluto-h2-line-height);
+    }
+
     &:not(:focus-within) .pluto--centered {
         justify-content: center;
     }
@@ -75,7 +103,8 @@
     /* z-index of placeholder is above that of input, so we move it a bit to the right
     to make sure the cursor doesn't look weird. */
     padding-left: 1.75rem;
-    width: 100%;
+    width: calc(100% - 1.5rem);
+    overflow: hidden;
     display: flex;
     align-items: center;
     pointer-events: none;
@@ -121,6 +150,7 @@
     & .pluto-input__internal {
         border: none !important;
         background: none !important;
+        height: initial !important;
     }
 
     & input {
@@ -134,7 +164,6 @@
         }
     }
 }
-
 
 input[type="number"]::-webkit-inner-spin-button {
     /* stylelint-disable-next-line property-no-vendor-prefix */

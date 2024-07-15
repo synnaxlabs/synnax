@@ -11,43 +11,49 @@ package freighter
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/x/errors"
 	"io"
+	"strings"
 )
-
-const freighterError ferrors.Type = "freighter"
 
 var (
 	// EOF is returned when either the receiving or sending end of a Stream
 	// exits normally.
-	EOF = ferrors.Typed(io.EOF, freighterError)
+	EOF = io.EOF
 	// StreamClosed is returned when a caller attempts to send or receive a message
 	// from a stream that is already closed.
-	StreamClosed = ferrors.Typed(errors.New("[freighter] - stream closed"), freighterError)
+	StreamClosed = errors.New("[freighter] - stream closed")
 )
 
-func encodeErr(_ context.Context, err error) (ferrors.Payload, bool) {
-	tErr, ok := err.(ferrors.Error)
-	if !ok || tErr.FreighterType() != freighterError {
-		return ferrors.Payload{}, false
+const (
+	freighterErrorType    = "freighter."
+	eofErrorType          = freighterErrorType + "eof"
+	streamClosedErrorType = freighterErrorType + "stream_closed"
+)
+
+func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
+	if errors.Is(err, EOF) {
+		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
-	return ferrors.Payload{Type: freighterError, Data: err.Error()}, true
+	if errors.Is(err, StreamClosed) {
+		return errors.Payload{Type: streamClosedErrorType, Data: err.Error()}, true
+	}
+	return errors.Payload{}, false
 }
 
-func decodeErr(ctx context.Context, pld ferrors.Payload) (error, bool) {
-	if pld.Type != freighterError {
-		return nil, false
-	}
-	switch pld.Data {
-	case EOF.Error():
+func decodeErr(_ context.Context, pld errors.Payload) (error, bool) {
+	switch pld.Type {
+	case eofErrorType:
 		return EOF, true
-	case StreamClosed.Error():
+	case streamClosedErrorType:
 		return StreamClosed, true
 	}
-	panic("unknown error")
+	if strings.HasPrefix(pld.Type, freighterErrorType) {
+		return errors.New(pld.Data), true
+	}
+	return nil, false
 }
 
 func init() {
-	ferrors.Register(encodeErr, decodeErr)
+	errors.Register(encodeErr, decodeErr)
 }

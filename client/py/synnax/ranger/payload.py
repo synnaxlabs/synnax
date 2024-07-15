@@ -24,6 +24,7 @@ class RangePayload(Payload):
     key: UUID = UUID(int=0)
     name: str = ""
     time_range: TimeRange
+    color: str = "#000000"
 
 
 RangeKey = UUID

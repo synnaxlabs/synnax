@@ -1,88 +1,80 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "productName": "Synnax",
+  "version": "../package.json",
   "build": {
     "beforeBuildCommand": "pnpm build-vite",
     "beforeDevCommand": "pnpm dev-vite",
-    "devPath": "http://localhost:5173",
-    "distDir": "../dist"
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173"
   },
-  "package": {
-    "productName": "Synnax",
-    "version": "0.21.5"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": true,
-      "shell": {
-        "all": true,
-        "scope": [
-          {
-            "name": "bin/sy",
-            "sidecar": true,
-            "args": ["start", "-i", "-l","localhost:9090", "-d", {"validator": "\\S+"}]
-          }
-        ]
-      }
+  "bundle": {
+    "active": true,
+    "category": "DeveloperTool",
+    "copyright": "",
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
     },
-    "bundle": {
-      "active": true,
-      "category": "DeveloperTool",
-      "copyright": "",
+    "longDescription": "",
+    "macOS": {
+      "entitlements": null,
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null
+    },
+    "resources": [],
+    "shortDescription": "",
+    "linux": {
       "deb": {
         "depends": []
-      },
-      "externalBin": [
-            "bin/sy"
-      ],
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "identifier": "com.synnaxlabs.dev",
-      "longDescription": "",
-      "macOS": {
-        "entitlements": null,
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "resources": [],
-      "shortDescription": "",
-      "targets": "all",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
       }
-    },
-    "security": {
-      "csp": null,
-      "dangerousUseHttpScheme": true
-    },
+    }
+  },
+  "identifier": "com.synnaxlabs.dev",
+  "plugins": {
     "updater": {
-      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4NDVGQTU1RTMxN0M3MjAKUldRZ3h4ZmpWZnBGeUpLeHNMdlE0aGNUcHZrU3M0REpxMGtJdmN2ZGs0OVBUQ0Nrb3Z5SFdacjEK",
       "endpoints": [
         "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json"
-      ],
-      "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4NDVGQTU1RTMxN0M3MjAKUldRZ3h4ZmpWZnBGeUpLeHNMdlE0aGNUcHZrU3M0REpxMGtJdmN2ZGs0OVBUQ0Nrb3Z5SFdacjEK"
+      ]
     },
+    "deep-link": {
+      "mobile": [],
+      "desktop": {
+        "schemes": ["synnax"]
+      }
+    }
+  },
+  "app": {
     "windows": [
       {
+        "label": "main",
         "fullscreen": false,
         "height": 810,
         "resizable": true,
         "title": "Synnax",
         "width": 1080,
-        "fileDropEnabled": false,
         "minWidth": 625,
         "minHeight": 375,
-        "visible": true,
-        "acceptFirstMouse": true
+        "visible": false,
+        "acceptFirstMouse": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "dragDropEnabled": false
       }
-    ]
+    ],
+    "security": {
+      "csp": null
+    }
   }
 }

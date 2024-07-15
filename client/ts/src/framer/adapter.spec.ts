@@ -1,4 +1,13 @@
-import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { DataType, Series, TimeStamp } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -114,5 +123,37 @@ describe("WriteFrameAdapter", () => {
     expect(res.series).toHaveLength(1);
     expect(res.get(timeCh.key)).toHaveLength(1);
     expect(res.get(timeCh.key).at(0)).toEqual(ts);
+  });
+
+  it("should correctly adapt a name and JSON value", async () => {
+    const jsonChannel = await client.channels.create({
+      name: `json-${Math.random()}-${TimeStamp.now().toString()}`,
+      dataType: DataType.JSON,
+      virtual: true,
+    });
+    const adapter = await WriteFrameAdapter.open(client.channels.retriever, [
+      jsonChannel.key,
+    ]);
+    const res = await adapter.adapt(jsonChannel.name, [{ dog: "blue" }]);
+    expect(res.columns).toHaveLength(1);
+    expect(res.series).toHaveLength(1);
+    expect(res.get(jsonChannel.key)).toHaveLength(1);
+    expect(res.get(jsonChannel.key).at(0)).toEqual({ dog: "blue" });
+  });
+
+  it("should correctly adapt a name and a json typed series", async () => {
+    const jsonChannel = await client.channels.create({
+      name: `json-${Math.random()}-${TimeStamp.now().toString()}`,
+      dataType: DataType.JSON,
+      virtual: true,
+    });
+    const adapter = await WriteFrameAdapter.open(client.channels.retriever, [
+      jsonChannel.key,
+    ]);
+    const res = await adapter.adapt(jsonChannel.name, new Series([{ dog: "blue" }]));
+    expect(res.columns).toHaveLength(1);
+    expect(res.series).toHaveLength(1);
+    expect(res.get(jsonChannel.key)).toHaveLength(1);
+    expect(res.get(jsonChannel.key).at(0)).toEqual({ dog: "blue" });
   });
 });

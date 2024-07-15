@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, toArray } from "@synnaxlabs/x";
+import { TimeRange } from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 export const keyZ = z.string().uuid();
@@ -21,6 +22,7 @@ export const payloadZ = z.object({
   key: keyZ,
   name: z.string().min(1),
   timeRange: TimeRange.z,
+  color: z.string().optional(),
 });
 export type Payload = z.infer<typeof payloadZ>;
 
@@ -29,7 +31,7 @@ export const newPayloadZ = payloadZ.extend({
 });
 export type NewPayload = z.infer<typeof newPayloadZ>;
 
-export type ParamAnalsysisResult =
+export type ParamAnalysisResult =
   | {
       single: true;
       variant: "keys";
@@ -55,7 +57,7 @@ export type ParamAnalsysisResult =
       actual: Names;
     };
 
-export const analyzeParams = (params: Params): ParamAnalsysisResult => {
+export const analyzeParams = (params: Params): ParamAnalysisResult => {
   const normal = toArray(params) as Keys | Names;
   if (normal.length === 0) {
     throw new Error("Range params must not be empty");
@@ -66,5 +68,5 @@ export const analyzeParams = (params: Params): ParamAnalsysisResult => {
     variant: isKey ? "keys" : "names",
     normalized: normal,
     actual: params,
-  } as const as ParamAnalsysisResult;
+  } as const as ParamAnalysisResult;
 };

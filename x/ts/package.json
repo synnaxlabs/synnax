@@ -1,7 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "private": false,
-  "version": "0.16.1",
+  "version": "0.25.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
@@ -21,23 +20,168 @@
     "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "dependencies": {
-    "async-mutex": "^0.4.1",
     "js-convert-case": "^4.2.0",
-    "nanoid": "^3.3.7",
-    "typescript": "^5.4.5",
-    "zod": "3.22.4"
+    "nanoid": "^5.0.7",
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^20.12.7",
-    "@vitest/coverage-v8": "1.2.2",
-    "eslint": "^8.57.0",
+    "@types/node": "^20.14.9",
+    "@vitest/coverage-v8": "^1.6.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "vite": "5.1.2",
-    "vitest": "1.2.2"
+    "typescript": "^5.5.3",
+    "vite": "5.3.3",
+    "vitest": "^1.6.0"
   },
-  "main": "dist/x.cjs",
-  "module": "dist/x.js",
-  "types": "dist/index.d.ts"
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/src/index.d.ts"
+    },
+    "./binary": {
+      "import": "./dist/binary.js",
+      "require": "./dist/binary.cjs",
+      "types": "./dist/src/binary/index.d.ts"
+    },
+    "./compare": {
+      "import": "./dist/compare.js",
+      "require": "./dist/compare.cjs",
+      "types": "./dist/src/compare/index.d.ts"
+    },
+    "./deep": {
+      "import": "./dist/deep.js",
+      "require": "./dist/deep.cjs",
+      "types": "./dist/src/deep/index.d.ts"
+    },
+    "./kv": {
+      "import": "./dist/kv.js",
+      "require": "./dist/kv.cjs",
+      "types": "./dist/src/kv/index.d.ts"
+    },
+    "./runtime": {
+      "import": "./dist/runtime.js",
+      "require": "./dist/runtime.cjs",
+      "types": "./dist/src/runtime/index.d.ts"
+    },
+    "./observe": {
+      "import": "./dist/observe.js",
+      "require": "./dist/observe.cjs",
+      "types": "./dist/src/observe/index.d.ts"
+    },
+    "./box": {
+      "import": "./dist/box.js",
+      "require": "./dist/box.cjs",
+      "types": "./dist/src/spatial/box/index.d.ts"
+    },
+    "./bounds": {
+      "import": "./dist/bounds.js",
+      "require": "./dist/bounds.cjs",
+      "types": "./dist/src/spatial/bounds/index.d.ts"
+    },
+    "./dimensions": {
+      "import": "./dist/dimensions.js",
+      "require": "./dist/dimensions.cjs",
+      "types": "./dist/src/spatial/dimensions/index.d.ts"
+    },
+    "./direction": {
+      "import": "./dist/direction.js",
+      "require": "./dist/direction.cjs",
+      "types": "./dist/src/spatial/direction/index.d.ts"
+    },
+    "./location": {
+      "import": "./dist/location.js",
+      "require": "./dist/location.cjs",
+      "types": "./dist/src/spatial/location/index.d.ts"
+    },
+    "./position": {
+      "import": "./dist/position.js",
+      "require": "./dist/position.cjs",
+      "types": "./dist/src/spatial/position/index.d.ts"
+    },
+    "./scale": {
+      "import": "./dist/scale.js",
+      "require": "./dist/scale.cjs",
+      "types": "./dist/src/spatial/scale/index.d.ts"
+    },
+    "./xy": {
+      "import": "./dist/xy.js",
+      "require": "./dist/xy.cjs",
+      "types": "./dist/src/spatial/xy/index.d.ts"
+    },
+    "./spatial": {
+      "import": "./dist/spatial.js",
+      "require": "./dist/spatial.cjs",
+      "types": "./dist/src/spatial/index.d.ts"
+    },
+    "./telem": {
+      "import": "./dist/telem.js",
+      "require": "./dist/telem.cjs",
+      "types": "./dist/src/telem/index.d.ts"
+    },
+    "./url": {
+      "import": "./dist/url.js",
+      "require": "./dist/url.cjs",
+      "types": "./dist/src/url/index.d.ts"
+    },
+    "./worker": {
+      "import": "./dist/worker.js",
+      "require": "./dist/worker.cjs",
+      "types": "./dist/src/worker/index.d.ts"
+    },
+    "./destructor": {
+      "import": "./dist/destructor.js",
+      "require": "./dist/destructor.cjs",
+      "types": "./dist/src/destructor.d.ts"
+    },
+    "./debounce": {
+      "import": "./dist/debounce.js",
+      "require": "./dist/debounce.cjs",
+      "types": "./dist/src/debounce/index.d.ts"
+    },
+    "./toArray": {
+      "import": "./dist/toArray.js",
+      "require": "./dist/toArray.cjs",
+      "types": "./dist/src/toArray.d.ts"
+    },
+    "./search": {
+      "import": "./dist/search.js",
+      "require": "./dist/search.cjs",
+      "types": "./dist/src/search.d.ts"
+    },
+    "./unique": {
+      "import": "./dist/unique.js",
+      "require": "./dist/unique.cjs",
+      "types": "./dist/src/unique.d.ts"
+    },
+    "./record": {
+      "import": "./dist/record.js",
+      "require": "./dist/record.cjs",
+      "types": "./dist/src/record.d.ts"
+    },
+    "./change": {
+      "import": "./dist/change.js",
+      "require": "./dist/change.cjs",
+      "types": "./dist/src/change/index.d.ts"
+    },
+    "./identity": {
+      "import": "./dist/identity.js",
+      "require": "./dist/identity.cjs",
+      "types": "./dist/src/identity.d.ts"
+    },
+    "./caseconv": {
+      "import": "./dist/caseconv.js",
+      "require": "./dist/caseconv.cjs",
+      "types": "./dist/src/caseconv/index.d.ts"
+    },
+    "./zodutil": {
+      "import": "./dist/zodutil.js",
+      "require": "./dist/zodutil.cjs",
+      "types": "./dist/src/zodutil/index.d.ts"
+    }
+  }
 }

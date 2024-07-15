@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
-import { TimeStamp, type CrudeTimeStamp } from "@synnaxlabs/x";
+import { EOF, errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { observe } from "@synnaxlabs/x";
+import { type CrudeTimeStamp, TimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Key, type Params } from "@/channel/payload";
@@ -66,8 +67,9 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     try {
       const frame = await this.read();
       return { done: false, value: frame };
-    } catch (EOF) {
-      return { done: true, value: undefined };
+    } catch (err) {
+      if (EOF.matches(err)) return { done: true, value: undefined };
+      throw err;
     }
   }
 
@@ -86,5 +88,28 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 
   [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
     return this;
+  }
+}
+
+export class ObservableStreamer<V = Frame>
+  extends observe.Observer<Frame, V>
+  implements observe.ObservableAsyncCloseable<V>
+{
+  private readonly streamer: Streamer;
+  private readonly closePromise: Promise<void>;
+
+  constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
+    super(transform);
+    this.streamer = streamer;
+    this.closePromise = this.stream();
+  }
+
+  async close(): Promise<void> {
+    this.streamer.close();
+    await this.closePromise;
+  }
+
+  private async stream(): Promise<void> {
+    for await (const frame of this.streamer) this.notify(frame);
   }
 }

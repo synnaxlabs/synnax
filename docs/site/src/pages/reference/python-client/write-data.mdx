@@ -27,7 +27,7 @@ examples:
 import synnax as sy
 
 # Create the index
-timestamps = client.indexes.create(
+timestamps = client.channels.create(
     name="timestamps",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True
@@ -36,8 +36,15 @@ timestamps = client.indexes.create(
 # Create the temperature channel
 my_precise_tc = client.channels.create(
     name="my_precise_tc",
-    data_type=np.float32,
-    index=timestamps
+    data_type=sy.DataType.FLOAT32,
+    index=timestamps.key
+)
+
+# Create the pressure channel
+my_precise_tc = client.channels.create(
+    name="my_precise_pt",
+    data_type=sy.DataType.FLOAT32,
+    index=timestamps.key
 )
 ```
 
@@ -50,16 +57,16 @@ from datetime import datetime
 # Our temperature data.
 temperatures = [55, 55.1, 55.7, 57.2, 58.1]
 start = sy.TimeStamp.now()
-timestamps = [
-    first,
-    first + 1 * sy.TimeSpan.HOUR,
-    first + 2 * sy.TimeSpan.HOUR,
-    first + 3 * sy.TimeSpan.HOUR,
-    first + 4 * sy.TimeSpan.HOUR,
+times = [
+    start,
+    start + 1 * sy.TimeSpan.HOUR,
+    start + 2 * sy.TimeSpan.HOUR,
+    start + 3 * sy.TimeSpan.HOUR,
+    start + 4 * sy.TimeSpan.HOUR,
 ]
 
 # Write the timestamps to the index
-timestamps.write(start, timestamps)
+timestamps.write(start, times)
 
 # Write the data to the channel
 my_precise_tc.write(start, temperatures)
@@ -129,7 +136,7 @@ We'll use the following set of channels for this example:
 import synnax as sy
 
 # Create the index
-timestamps = client.indexes.create(
+timestamps = client.channels.create(
     name="timestamps",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True
@@ -138,7 +145,7 @@ timestamps = client.indexes.create(
 # Create the temperature channel
 my_precise_tc = client.channels.create(
     name="my_precise_tc",
-    data_type=np.float32,
+    data_type=sy.DataType.FLOAT32,
     index=timestamps
 )
 ```

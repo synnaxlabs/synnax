@@ -77,11 +77,11 @@ func Open(configs ...Config) (*Relay, error) {
 	r := &Relay{ins: cfg.Instrumentation}
 
 	tpr := newTapper(cfg)
-	peerDemands := confluence.NewStream[demand](defaultBuffer)
-	peerDemands.SetOutletAddress("peer-demands")
-	peerDemands.Acquire(1)
-	tpr.InFrom(peerDemands)
-	r.demands = peerDemands
+	demands := confluence.NewStream[demand](defaultBuffer)
+	demands.SetOutletAddress("peer-demands")
+	demands.Acquire(1)
+	tpr.InFrom(demands)
+	r.demands = demands
 
 	r.delta = confluence.NewDynamicDeltaMultiplier[Response](20 * time.Millisecond)
 	writes := confluence.NewStream[Response](defaultBuffer)
@@ -103,7 +103,8 @@ func Open(configs ...Config) (*Relay, error) {
 
 func (r *Relay) Close() error {
 	r.demands.Close()
-	return r.wg.Wait()
+	err := r.wg.Wait()
+	return err
 }
 
 func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {

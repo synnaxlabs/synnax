@@ -1,0 +1,285 @@
+name: Deploy - Console
+on:
+  push:
+    branches:
+      - rc
+      - main
+  pull_request:
+    branches:
+      - rc
+      - main
+  workflow_dispatch:
+permissions:
+  contents: write
+env:
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
+      VERSION: ${{ steps.version.outputs.VERSION }}
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Get Version
+        id: version
+        working-directory: ./console
+        run: |
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=$(node -p "require('./package.json').version")-rc" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            changed:
+              - "console/**"
+              - "pluto/**"
+              - "client/ts/**"
+              - "freighter/ts/**"
+              - "x/ts/**"
+              - ".github/workflows/deploy.console.yaml"
+
+  create-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+    needs: setup
+    env:
+      VERSION: ${{ needs.setup.outputs.VERSION }}
+    outputs:
+      release_id: ${{ steps.create-release.outputs.result }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Create Release
+        id: create-release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const  { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            })
+            const release = releases.find(r => r.tag_name === `console-v${process.env.VERSION}`)
+            if (release != null) return release.id
+            const { data: { id } }  = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `console-v${process.env.VERSION}`,
+              name: `Synnax Console v${process.env.VERSION}`,
+              draft: false,
+              prerelease: false,
+            })
+            return id
+
+  build-tauri:
+    needs: setup
+    if: needs.setup.outputs.changed == 'true'
+    env:
+      SYNNAX_TS_ENV: prod
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ macos-12, windows-latest ]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Adjust Auto Updater URL for Release Candidate
+        if: github.event_name == 'push' && github.ref == 'refs/heads/rc'
+        working-directory: ./console/src-tauri
+        run: |
+          jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
+          rm tauri.conf.json
+          mv temp.json tauri.conf.json
+
+      - name: Install Rust Stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: console/src-tauri -> target
+          key: ${{ runner.os }}
+
+      - name: Turbo Cache
+        uses: actions/cache@v3
+        with:
+          path: .turbo-cache
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Install Dependencies
+        run: pnpm i
+
+
+      - name: Build Pluto
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:pluto
+    
+      - name: Build Drift
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:drift
+
+      # We need to build the console separately WITHOUT turbo repo because of strange
+      # incompatibility issues with rust builds.
+    
+      - name: Build Console
+        if: needs.setup.outputs.changed == 'true'
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+        working-directory: ./console
+        run: pnpm build
+
+      - name: Upload MacOS Release Asset
+        if: github.event_name == 'push' &&  matrix.platform == 'macos-12'
+        run: |
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64.dmg
+
+
+      - name: Upload Windows Release Asset
+        if: github.event_name == 'push' && matrix.platform == 'windows-latest'
+        run: |
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.zip
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.zip.sig
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.nsis.zip
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.nsis.zip.sig
+
+  publish-release:
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id != ''
+    needs: [ create-release, build-tauri, setup ]
+    env:
+      VERSION: ${{ needs.setup.outputs.VERSION }}
+      PURE_VERSION: ${{ needs.setup.outputs.PURE_VERSION }}
+      RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Publish Release
+        id: publish-release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: process.env.RELEASE_ID,
+                draft: false,
+                prerelease: false,
+            })
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Add Auto Update JSON File
+        id: auto-update-json-file
+        uses: actions/github-script@v6
+        env:
+          release_id: ${{ needs.create-release.outputs.release_id }}
+        with:
+          script: |
+            const fs = await import("fs");
+
+            const pureVersion = process.env.PURE_VERSION;
+            const version = process.env.VERSION;
+            const {
+              repo: { repo, owner },
+            } = context;
+
+            const baseURL = `https://github.com/${owner}/${repo}/releases/download/console-v${version}/`;
+
+            const darwinURL = baseURL + "Synnax.app.tar.gz";
+            const darwinSig = await github.request(`GET ${darwinURL}.sig`);
+            const windowsURL = baseURL + `Synnax_${pureVersion}_x64_en-US.msi.zip`;
+            const windowsSig = await github.request(`GET ${windowsURL}.sig`);
+            const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+            const ecd = new TextDecoder();
+
+            const data = {
+              version: `v${pureVersion}`,
+              notes: "Synnax Update",
+              pub_date,
+              platforms: {
+                "darwin-x86_64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
+                },
+                "linux-x86_64": {
+                  signature: "not_supported_and_tauri_requires_an_entry",
+                  url: darwinURL,
+                },
+                "windows-x86_64": {
+                  signature: ecd.decode(windowsSig.data),
+                  url: windowsURL,
+                },
+              },
+            };
+
+            fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2));
+
+      - name: Commit & Push Auto Update JSON File on RC
+        id: commit-auto-update-json-file-rc
+        if: github.ref == 'refs/heads/rc'
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "*"
+          default_author: github_actor
+          message: "Auto Update JSON File"
+          pull: "--commit --no-edit"
+          push: "origin rc --force"
+
+      - name: Commit & Push Auto Update JSON File on Main
+        id: commit-auto-update-json-file-main
+        if: github.ref == 'refs/heads/main'
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "*"
+          default_author: github_actor
+          message: "Auto Update JSON File"
+          pull: "--commit --no-edit"
+          push: "origin main --force"
+      
+

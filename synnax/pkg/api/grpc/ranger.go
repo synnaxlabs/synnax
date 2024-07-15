@@ -14,9 +14,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/go/v1"
+	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/telem/telempb"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"go/types"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -475,7 +475,7 @@ func translateRangeForward(r api.Range) *gapi.Range {
 	return &gapi.Range{
 		Key:       r.Key.String(),
 		Name:      r.Name,
-		TimeRange: telempb.TranslateTimeRangeForward(r.TimeRange),
+		TimeRange: telem.TranslateTimeRangeForward(r.TimeRange),
 	}
 }
 
@@ -495,7 +495,7 @@ func translateRangeBackward(r *gapi.Range) (or api.Range, err error) {
 		}
 	}
 	or.Name = r.Name
-	or.TimeRange = telempb.TranslateTimeRangeBackward(r.TimeRange)
+	or.TimeRange = telem.TranslateTimeRangeBackward(r.TimeRange)
 	return
 }
 

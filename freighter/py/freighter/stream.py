@@ -30,9 +30,15 @@ class AsyncStreamReceiver(Protocol[RS]):
 class StreamReceiver(Protocol[RS]):
     """Protocol for an entity that receives a stream of responses."""
 
-    def receive(self) -> tuple[RS, None] | tuple[None, Exception]:
+    def receive(
+        self,
+        timeout: float | None = None
+    ) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
+
+        :param timeout: the maximum amount of time to wait for a response. If None, the
+        method will block indefinitely. Not all implementations support this parameter.
 
         :returns freighter.errors.EOF: if the server closed the stream nominally.
         :returns Exception: if the server closed the stream abnormally,

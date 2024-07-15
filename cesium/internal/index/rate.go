@@ -11,27 +11,36 @@ package index
 
 import (
 	"context"
+	"fmt"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Rate struct {
-	Rate telem.Rate
+	Rate    telem.Rate
+	Channel core.Channel
 }
 
 var _ Index = Rate{}
 
-// Distance implements Index.
-func (r Rate) Distance(_ context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, error) {
+func (r Rate) Distance(_ context.Context, tr telem.TimeRange, _ bool) (DistanceApproximation, DomainBounds, error) {
 	return Between(
 		int64(r.Rate.ClosestGE(tr.Start).Span(r.Rate.ClosestLE(tr.End))/r.Rate.Period()),
 		int64(r.Rate.ClosestLE(tr.Start).Span(r.Rate.ClosestGE(tr.End))/r.Rate.Period()),
-	), nil
+	), DomainBounds{}, nil
 }
 
-// Stamp implements Searcher.
 func (r Rate) Stamp(_ context.Context, ref telem.TimeStamp, distance int64, _ bool) (TimeStampApproximation, error) {
 	return Between(
 		r.Rate.ClosestLE(ref).Add(r.Rate.Span(int(distance))),
 		r.Rate.ClosestGE(ref).Add(r.Rate.Span(int(distance))),
 	), nil
+}
+
+func (r Rate) Info() string {
+	return fmt.Sprintf("rate index: %v", r.Channel)
+}
+
+func (r Rate) Domain(_ context.Context, ref telem.TimeStamp) (DomainBounds, error) {
+	return ExactDomainBounds(0), nil
 }

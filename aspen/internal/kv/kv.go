@@ -11,16 +11,16 @@ package kv
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errutil"
+	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"io"
 
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -134,7 +134,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	db_.config.L.Info("opening cluster DB", db_.config.Report().ZapFields()...)
+	db_.config.L.Debug("opening cluster DB", db_.config.Report().ZapFields()...)
 
 	st := newStore()
 
@@ -259,7 +259,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 }
 
 func (d *DB) Close() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors2.NewCatcher(errors2.WithAggregation())
 	c.Exec(d.shutdown.Close)
 	c.Exec(d.DB.Close)
 	return c.Error()

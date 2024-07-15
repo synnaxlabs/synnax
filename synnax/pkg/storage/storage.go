@@ -21,12 +21,13 @@ package storage
 
 import (
 	"github.com/synnaxlabs/cesium"
+	errors2 "github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
-	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/samber/lo"
@@ -34,7 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/kv"
@@ -86,7 +87,7 @@ func (s *Storage) Gorpify() *gorp.DB {
 		gorp.WithEncoderDecoder(&binary.TracingEncoderDecoder{
 			Level:           alamos.Bench,
 			Instrumentation: s.Instrumentation,
-			EncoderDecoder:  &binary.MsgPackEncoderDecoder{},
+			Codec:           &binary.MsgPackEncoderDecoder{},
 		}),
 	)
 }
@@ -98,7 +99,7 @@ func (s *Storage) Close() error {
 	// We execute with aggregation here to ensure that we close all engines and release
 	// the lock regardless if one engine fails to close. This may cause unexpected
 	// behavior in the future, so we need to track it.
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors2.NewCatcher(errors2.WithAggregation())
 	c.Exec(s.TS.Close)
 	c.Exec(s.KV.Close)
 	c.Exec(s.lock.Close)
@@ -149,10 +150,10 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements Config.
 func (cfg Config) Validate() error {
 	v := validate.New("storage")
-	v.Ternaryf(!*cfg.MemBacked && cfg.Dirname == "", "dirname must be set")
-	v.Ternaryf(!lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
-	v.Ternaryf(!lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
-	v.Ternary(cfg.Perm == 0, "insufficient permission bits on directory")
+	v.Ternaryf("dirname", !*cfg.MemBacked && cfg.Dirname == "", "dirname must be set")
+	v.Ternaryf("kvEngine", !lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
+	v.Ternaryf("tsEngine", !lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
+	v.Ternary("permissions", cfg.Perm == 0, "insufficient permission bits on directory")
 	return v.Error()
 }
 
@@ -179,7 +180,12 @@ func Open(cfg Config) (s *Storage, err error) {
 
 	s = &Storage{Config: cfg}
 
-	s.L.Info("opening storage", cfg.Report().ZapFields()...)
+	if *cfg.MemBacked {
+		s.L.Info("starting with memory-backed storage. no data will be persisted")
+	} else {
+		s.L.Info("starting in directory", zap.String("dirname", cfg.Dirname))
+	}
+	s.L.Debug("config", cfg.Report().ZapFields()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use XFS for the time-series engine, as we

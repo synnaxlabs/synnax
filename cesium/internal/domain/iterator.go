@@ -25,7 +25,7 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
-var IteratorClosedError = core.EntityClosed("domain.iterator")
+var errIteratorClosed = core.EntityClosed("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
@@ -134,7 +134,7 @@ func (i *Iterator) Prev() bool {
 // not accumulated an error. Returns false otherwise.
 func (i *Iterator) Valid() bool { return i.valid }
 
-func (i *Iterator) Position() int { return i.position }
+func (i *Iterator) Position() uint32 { return uint32(i.position) }
 
 // TimeRange returns the time interval occupied by current domain.
 func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
@@ -142,9 +142,10 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 // NewReader returns a new Reader that can be used to read telemetry from the current
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same domain.
+// Note that the caller is responsible for closing the reader.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
-		return nil, IteratorClosedError
+		return nil, errIteratorClosed
 	}
 	return i.readerFactory(ctx, i.value)
 }

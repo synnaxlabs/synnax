@@ -10,15 +10,17 @@
 package cesium_test
 
 import (
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,16 +29,20 @@ import (
 
 var _ = Describe("Control", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS:"+fsName, Ordered, func() {
-			var db *cesium.DB
+			var (
+				db      *cesium.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
 			BeforeAll(func() {
+				fs, cleanUp = makeFS()
 				db = openDBOnFS(fs)
 				Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32)).To(Succeed())
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Single Channel, Two Writer Contention", func() {
 				It("Should work", func() {
@@ -49,7 +55,8 @@ var _ = Describe("Control", func() {
 						Start:             start,
 						Channels:          []cesium.ChannelKey{ch1},
 						Authorities:       []control.Authority{control.Absolute - 2},
-						ErrOnUnauthorized: config.True(),
+						ErrOnUnauthorized: config.False(),
+						SendAuthErrors:    config.True(),
 					}))
 					By("Opening the second writer")
 					w2 := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{
@@ -57,7 +64,8 @@ var _ = Describe("Control", func() {
 						ControlSubject:    control.Subject{Name: "Writer Two"},
 						Channels:          []cesium.ChannelKey{ch1},
 						Authorities:       []control.Authority{control.Absolute - 2},
-						ErrOnUnauthorized: config.True(),
+						ErrOnUnauthorized: config.False(),
+						SendAuthErrors:    config.True(),
 					}))
 					streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{math.MaxUint32},
@@ -94,7 +102,7 @@ var _ = Describe("Control", func() {
 						Command: cesium.WriterError,
 					}
 					Eventually(w2Out.Outlet()).Should(Receive(&r))
-					Expect(errors.Is(r.Err, controller.Unauthorized("Writer Two", ch1))).To(BeTrue())
+					Expect(r.Err).To(HaveOccurredAs(control.Unauthorized))
 
 					By("Updating the second writer's authorities")
 					w2In.Inlet() <- cesium.WriterRequest{
@@ -138,9 +146,50 @@ var _ = Describe("Control", func() {
 					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
 				})
 			})
-			Describe("Creating update channel with key 0", func() {
-				It("Should not allow it", func() {
-					Expect(db.ConfigureControlUpdateChannel(ctx, 0).Error()).To(ContainSubstring("key must be positive"))
+			Describe("Control states", func() {
+				It("Should get the control states of channels", func() {
+					var k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: k1, Virtual: true, DataType: telem.StringT},
+						cesium.Channel{Key: k2, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: k3, DataType: telem.Int64T, Index: k2},
+					)).To(Succeed())
+					w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Start:          0,
+						Channels:       []core.ChannelKey{k1, k2},
+						ControlSubject: control.Subject{Key: "1111", Name: "writer1"},
+						Authorities:    []control.Authority{control.Absolute - 1},
+					}))
+					w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Start:          2,
+						Channels:       []core.ChannelKey{k2, k3},
+						ControlSubject: control.Subject{Key: "2222", Name: "writer2"},
+						Authorities:    []control.Authority{control.Absolute},
+					}))
+
+					t := db.ControlStates().Transfers
+					Expect(t).To(HaveLen(4))
+					names := lo.Map(t, func(t controller.Transfer, _ int) string {
+						return t.To.Subject.Name
+					})
+					Expect(names).To(ConsistOf("writer1", "writer2", "writer2", "cesium_internal_control_digest"))
+
+					Expect(w1.Close()).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
+				})
+			})
+			Describe("Error paths", func() {
+				It("Should not allow control channel with key 0", func() {
+					Expect(db.ConfigureControlUpdateChannel(ctx, 0)).To(MatchError(ContainSubstring("key:must be positive")))
+				})
+				It("Should not allow configuring a control channel with datatype not string", func() {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					})).To(Succeed())
+					Expect(db.ConfigureControlUpdateChannel(ctx, key)).To(MatchError(ContainSubstring("must be a string virtual")))
 				})
 			})
 		})

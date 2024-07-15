@@ -46,8 +46,9 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	sender.Transform = newStorageResponseTranslator(sf.HostResolver.HostKey())
 
 	iter, err := sf.TS.NewStreamIterator(ts.IteratorConfig{
-		Channels: req.Keys.Storage(),
-		Bounds:   req.Bounds,
+		Channels:      req.Keys.Storage(),
+		Bounds:        req.Bounds,
+		AutoChunkSize: req.ChunkSize,
 	})
 	if err != nil {
 		return err
@@ -57,8 +58,8 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	plumber.SetSegment[ts.IteratorRequest, ts.IteratorResponse](pipe, "storage", iter)
 	plumber.SetSource[ts.IteratorRequest](pipe, "receiver", receiver)
 	plumber.SetSink[ts.IteratorResponse](pipe, "sender", sender)
-	plumber.MustConnect[Request](pipe, "receiver", "storage", 1)
-	plumber.MustConnect[Response](pipe, "storage", "sender", 1)
+	plumber.MustConnect[ts.IteratorRequest](pipe, "receiver", "storage", 1)
+	plumber.MustConnect[ts.IteratorResponse](pipe, "storage", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return sCtx.Wait()
 }

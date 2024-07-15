@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -12,18 +12,40 @@
 .pluto-tree {
     height: 100%;
 
-    & button {
+    &.pluto--rules:hover .pluto-btn {
+        &:is(.pluto--selected, :hover, .pluto-depth--0, .pluto--dragging-over)::after {
+            display: none;
+        }
+        &::after {
+            opacity: 1;
+        }
+    }
+
+    & .pluto-btn {
         border-radius: 0;
         width: 100%;
+        border-bottom: none !important;
 
-        & .pluto-caret path {
+        & .pluto-caret-animated path {
             fill: var(--pluto-gray-l6) !important;
+        }
+        &::after {
+            transition: opacity 0.2s;
+            content: "";
+            position: absolute;
+            opacity: 0;
+            top: 0;
+            bottom: 0;
+            left: var(--pluto-tree-indicator-offset);
+            width: 1px;
+            background: var(--pluto-gray-l3);
+            z-index: -1;
         }
     }
 
     .pluto--dragging-over {
         background: var(--pluto-gray-l3);
-        box-shadow: 0 0.3rem 0 var(--pluto-primary-z);
+        box-shadow: inset 0 -0.3rem 0 var(--pluto-primary-z);
     }
 
     .pluto-loading-indicator {

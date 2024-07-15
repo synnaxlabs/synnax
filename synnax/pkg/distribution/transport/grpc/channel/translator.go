@@ -14,21 +14,22 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/go/channel/v1"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type (
 	createMessageTranslator struct{}
 	deleteRequestTranslator struct{}
+	renameMessageTranslator struct{}
 )
 
 var (
 	_ fgrpc.Translator[channel.CreateMessage, *channelv1.CreateMessage] = (*createMessageTranslator)(nil)
 	_ fgrpc.Translator[channel.DeleteRequest, *channelv1.DeleteRequest] = (*deleteRequestTranslator)(nil)
+	_ fgrpc.Translator[channel.RenameRequest, *channelv1.RenameRequest] = (*renameMessageTranslator)(nil)
 )
 
-// Forward implements the fgrpc.Translator interface.
 func (c createMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
@@ -48,7 +49,6 @@ func (c createMessageTranslator) Forward(
 	return tr, nil
 }
 
-// Backward implements the fgrpc.Translator interface.
 func (c createMessageTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.CreateMessage,
@@ -56,11 +56,11 @@ func (c createMessageTranslator) Backward(
 	var tr channel.CreateMessage
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
-			LocalKey:    uint16(ch.StorageKey),
+			LocalKey:    channel.LocalKey(ch.StorageKey),
 			Name:        ch.Name,
 			Leaseholder: dcore.NodeKey(ch.NodeId),
 			DataType:    telem.DataType(ch.DataType),
-			LocalIndex:  uint16(ch.StorageIndex),
+			LocalIndex:  channel.LocalKey(ch.StorageIndex),
 			IsIndex:     ch.IsIndex,
 			Rate:        telem.Rate(ch.Rate),
 		})
@@ -68,18 +68,36 @@ func (c createMessageTranslator) Backward(
 	return tr, nil
 }
 
-// Forward
 func (d deleteRequestTranslator) Forward(
 	_ context.Context,
 	msg channel.DeleteRequest,
 ) (*channelv1.DeleteRequest, error) {
-	return &channelv1.DeleteRequest{Keys: channel.Keys(msg.Keys).Uint32()}, nil
+	return &channelv1.DeleteRequest{Keys: msg.Keys.Uint32()}, nil
 }
 
-// Backward
 func (d deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.DeleteRequest,
 ) (channel.DeleteRequest, error) {
 	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys)}, nil
+}
+
+func (r renameMessageTranslator) Forward(
+	_ context.Context,
+	msg channel.RenameRequest,
+) (*channelv1.RenameRequest, error) {
+	return &channelv1.RenameRequest{
+		Names: msg.Names,
+		Keys:  msg.Keys.Uint32(),
+	}, nil
+}
+
+func (r renameMessageTranslator) Backward(
+	_ context.Context,
+	msg *channelv1.RenameRequest,
+) (channel.RenameRequest, error) {
+	return channel.RenameRequest{
+		Names: msg.Names,
+		Keys:  channel.KeysFromUint32(msg.Keys),
+	}, nil
 }

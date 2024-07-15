@@ -20,7 +20,6 @@ package writer
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -34,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -42,6 +42,7 @@ import (
 
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
+	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
@@ -61,9 +62,15 @@ type Config struct {
 	// absolute authority for all channels.
 	// [OPTIONAL]
 	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	// ErrOnUnauthorized controls whether the writer will return an error when
+	// attempting to write to a channel that it does not have authority over.
+	// In non-control scenarios, this value should be set to true. In scenarios
+	// that require control handoff, this value should be set to false.
+	// [OPTIONAL] - Defaults to False
+	ErrOnUnauthorized *bool
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
-	// [OPTIONAL]
+	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
@@ -108,6 +115,7 @@ func DefaultConfig() Config {
 			Key: uuid.New().String(),
 		},
 		Authorities:              []control.Authority{control.Absolute},
+		ErrOnUnauthorized:        config.False(),
 		Mode:                     ts.WriterPersistStream,
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -131,6 +139,7 @@ func (c Config) toStorage() ts.WriterConfig {
 		Channels:                 c.Keys.Storage(),
 		Start:                    c.Start,
 		Authorities:              c.Authorities,
+		ErrOnUnauthorized:        c.ErrOnUnauthorized,
 		Mode:                     c.Mode,
 		EnableAutoCommit:         c.EnableAutoCommit,
 		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
@@ -141,8 +150,9 @@ func (c Config) toStorage() ts.WriterConfig {
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
-	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
+	validate.NotEmptyString(v, "ControlSubject.Task", c.ControlSubject.Key)
 	v.Ternaryf(
+		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
 		"authorities must be a single authority or a slice of authorities with the same length as keys",
 	)
@@ -156,6 +166,7 @@ func (c Config) Override(other Config) Config {
 	c.Keys = override.Slice(c.Keys, other.Keys.Unique())
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
+	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
@@ -249,7 +260,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	res := confluence.NewStream[Response]()
 	seg.InFrom(req)
 	seg.OutTo(res)
-	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
+	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnFail())
 	return &Writer{
 		requests:  req,
 		responses: res,
@@ -288,7 +299,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeKeys()), v.signal),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), v.signal),
 	)
 
 	switchTargets := make([]address.Address, 0, 3)

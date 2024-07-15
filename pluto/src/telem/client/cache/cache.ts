@@ -1,25 +1,31 @@
-import { TimeSpan, UnexpectedError, type channel } from "@synnaxlabs/client";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type channel, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import { type Required } from "@synnaxlabs/x";
 
+import { DynamicProps } from "@/telem/client/cache/dynamic";
 import {
-  type StaticProps,
   DEFAULT_STATIC_PROPS,
+  type StaticProps,
   zeroCacheGCMetrics,
 } from "@/telem/client/cache/static";
 import { Unary } from "@/telem/client/cache/unary";
 
-export const CACHE_BUFFER_SIZE = 10000;
+export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 
 /** Props for instantiating an @see Cache */
-export interface CacheProps extends StaticProps {
+export interface CacheProps
+  extends StaticProps,
+    Partial<Pick<DynamicProps, "dynamicBufferSize">> {
   /** Used to populate new cache entries with relevant info about the channel */
   channelRetriever: channel.Retriever;
-  /**
-   * Sets the size of the buffer in the dynamic cache
-   * TODO: At some point this value should be calculated dynamically using heuristics
-   * @default 10000
-   */
-  dynamicBufferSize?: number;
   /**
    * Sets the interval at which the cache will garbage collect, removing data that
    * currently in use by the rest of hte program.
@@ -91,10 +97,14 @@ export class Cache {
       totalGCMetrics.purgedSeries += res.purgedSeries;
       totalGCMetrics.purgedBytes = totalGCMetrics.purgedBytes.add(res.purgedBytes);
     });
-    L.info("garbage collection complete", {
-      purgedSeries: totalGCMetrics.purgedSeries,
-      purgedBytes: totalGCMetrics.purgedBytes.toString(),
-    });
+    L.info(
+      "garbage collection complete",
+      {
+        purgedSeries: totalGCMetrics.purgedSeries,
+        purgedBytes: totalGCMetrics.purgedBytes.toString(),
+      },
+      true,
+    );
   }
 
   /**

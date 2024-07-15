@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,7 @@
 
 import { describe, expect, it, test } from "vitest";
 
+import { type NumberCouple } from "@/spatial/base";
 import * as bounds from "@/spatial/bounds/bounds";
 
 describe("Bounds", () => {
@@ -26,10 +27,30 @@ describe("Bounds", () => {
         expect(bound.upper).toEqual(2);
       });
     });
+    it("should accept two arguments", () => {
+      const bound = bounds.construct(1, 2);
+      expect(bound.lower).toEqual(1);
+      expect(bound.upper).toEqual(2);
+    });
     it("should consider a single argument as the upper bound", () => {
       const bound = bounds.construct(1);
       expect(bound.lower).toEqual(0);
       expect(bound.upper).toEqual(1);
+    });
+  });
+  describe("equals", () => {
+    it("should return true if the bounds are equal", () => {
+      const a = bounds.construct([1, 2]);
+      const b = bounds.construct([1, 2]);
+      expect(bounds.equals(a, b)).toEqual(true);
+    });
+    it("should return true if both bounds are undefined", () => {
+      expect(bounds.equals(undefined, undefined)).toEqual(true);
+    });
+    it("should return false if the bounds are not equal", () => {
+      const a = bounds.construct([1, 2]);
+      const b = bounds.construct([1, 3]);
+      expect(bounds.equals(a, b)).toEqual(false);
     });
   });
   describe("contains", () => {
@@ -206,194 +227,299 @@ describe("Bounds", () => {
         [[[3, 7]], 8, { index: 1, position: 0 }],
       ];
     SPECS.forEach(([b, target, expected]) => {
-      test(`should return ${expected} for ${b} and ${target}`, () => {
+      test(`should return ${JSON.stringify(expected)} for ${JSON.stringify(b)} and ${target}`, () => {
         expect(bounds.findInsertPosition(b, target)).toEqual(expected);
       });
     });
   });
   describe("insert", () => {
     describe("formal cases", () => {
-      test("insert before adjacent upper", () => {
-        const b: bounds.Crude[] = [
-          [2, 3],
-          [3, 4],
-          [5, 6],
-        ];
-        const v: bounds.Crude = [1, 2];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 1, upper: 2 },
-          { lower: 2, upper: 3 },
-          { lower: 3, upper: 4 },
-          { lower: 5, upper: 6 },
-        ]);
+      interface Spec {
+        name: string;
+        b: Array<NumberCouple<bigint | number>>;
+        v: NumberCouple<bigint | number>;
+        result: Array<bounds.Bounds<bigint | number>>;
+        focus?: boolean;
+      }
+
+      const SPECS: Spec[] = [
+        {
+          name: "insert before adjacent upper",
+          b: [
+            [2, 3],
+            [3, 4],
+            [5, 6],
+          ],
+          v: [1, 2],
+          result: [
+            { lower: 1, upper: 2 },
+            { lower: 2, upper: 3 },
+            { lower: 3, upper: 4 },
+            { lower: 5, upper: 6 },
+          ],
+        },
+        {
+          name: "insert in-between with no overlap",
+          b: [
+            [2, 3],
+            [3, 4],
+            [7, 8],
+          ],
+          v: [5, 6],
+          result: [
+            { lower: 2, upper: 3 },
+            { lower: 3, upper: 4 },
+            { lower: 5, upper: 6 },
+            { lower: 7, upper: 8 },
+          ],
+        },
+        {
+          name: "insert in-between adjacent lower and upper",
+          b: [
+            [2, 3],
+            [3, 4],
+            [5, 6],
+          ],
+          v: [4, 5],
+          result: [
+            { lower: 2, upper: 3 },
+            { lower: 3, upper: 4 },
+            { lower: 4, upper: 5 },
+            { lower: 5, upper: 6 },
+          ],
+        },
+        {
+          name: "insert in-between adjacent lower and upper",
+          b: [
+            [2, 3],
+            [3, 4],
+            [5, 6],
+          ],
+          v: [4, 5],
+          result: [
+            { lower: 2, upper: 3 },
+            { lower: 3, upper: 4 },
+            { lower: 4, upper: 5 },
+            { lower: 5, upper: 6 },
+          ],
+        },
+        {
+          name: "insert in-between adjacent lower not upper",
+          b: [
+            [2, 3],
+            [3, 4],
+            [7, 8],
+          ],
+          v: [4, 6],
+          result: [
+            { lower: 2, upper: 3 },
+            { lower: 3, upper: 4 },
+            { lower: 4, upper: 6 },
+            { lower: 7, upper: 8 },
+          ],
+        },
+        {
+          name: "insert in-between overlap lower adjacent upper",
+          b: [
+            [2, 4],
+            [5, 6],
+            [7, 8],
+          ],
+          v: [3, 5],
+          result: [
+            { lower: 2, upper: 4 },
+            { lower: 4, upper: 5 },
+            { lower: 5, upper: 6 },
+            { lower: 7, upper: 8 },
+          ],
+        },
+        {
+          name: "insert in-between adjacent lower contain 1 adjacent upper",
+          b: [
+            [2, 4],
+            [5, 6],
+            [7, 8],
+          ],
+          v: [4, 7],
+          result: [
+            { lower: 2, upper: 4 },
+            { lower: 4, upper: 7 },
+            { lower: 7, upper: 8 },
+          ],
+        },
+        {
+          name: "insert in-between overlap lower consume 1 adjacent upper",
+          b: [
+            [2, 4],
+            [5, 6],
+            [7, 8],
+          ],
+          v: [3, 7],
+          result: [
+            { lower: 2, upper: 4 },
+            { lower: 4, upper: 7 },
+            { lower: 7, upper: 8 },
+          ],
+        },
+        {
+          name: "insert in-between replace 1",
+          b: [
+            [2, 4],
+            [5, 6],
+            [7, 8],
+          ],
+          v: [5, 6],
+          result: [
+            { lower: 2, upper: 4 },
+            { lower: 5, upper: 6 },
+            { lower: 7, upper: 8 },
+          ],
+        },
+        {
+          name: "insert before overlap first",
+          b: [[3, 7]],
+          v: [1, 4],
+          result: [
+            { lower: 1, upper: 3 },
+            { lower: 3, upper: 7 },
+          ],
+        },
+        {
+          name: "insert before no adjacent",
+          b: [[3, 7]],
+          v: [1, 2],
+          result: [
+            { lower: 1, upper: 2 },
+            { lower: 3, upper: 7 },
+          ],
+        },
+        {
+          name: "insert after no adjacent",
+          b: [[3, 7]],
+          v: [8, 9],
+          result: [
+            { lower: 3, upper: 7 },
+            { lower: 8, upper: 9 },
+          ],
+        },
+        {
+          name: "insert after adjacent upper",
+          b: [[3, 7]],
+          v: [7, 9],
+          result: [
+            { lower: 3, upper: 7 },
+            { lower: 7, upper: 9 },
+          ],
+        },
+        {
+          name: "insert after overlap last",
+          b: [[3, 7]],
+          v: [5, 9],
+          result: [
+            { lower: 3, upper: 7 },
+            { lower: 7, upper: 9 },
+          ],
+        },
+        {
+          name: "regression 1",
+          b: [
+            [0, 47040],
+            [47040, 47240],
+            [47240, 47280],
+            [47280, 47320],
+            [47320, 47400],
+          ],
+          v: [47066, 47066 + 354],
+          result: [
+            { lower: 0, upper: 47040 },
+            { lower: 47040, upper: 47240 },
+            { lower: 47240, upper: 47066 + 354 },
+          ],
+        },
+      ];
+
+      describe("number", () => {
+        SPECS.forEach(({ name, b, v, result, focus }) => {
+          (focus === true ? test.only : test)(name, () => {
+            expect(bounds.insert(b, v)).toEqual(result);
+          });
+        });
       });
-      test("insert in-between with no overlap", () => {
-        const b: bounds.Crude[] = [
-          [2, 3],
-          [3, 4],
-          [7, 8],
-        ];
-        const v: bounds.Crude = [5, 6];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 2, upper: 3 },
-          { lower: 3, upper: 4 },
-          { lower: 5, upper: 6 },
-          { lower: 7, upper: 8 },
-        ]);
-      });
-      test("insert in-between adjacent lower and upper", () => {
-        const b: bounds.Crude[] = [
-          [2, 3],
-          [3, 4],
-          [5, 6],
-        ];
-        const v: bounds.Crude = [4, 5];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 2, upper: 3 },
-          { lower: 3, upper: 4 },
-          { lower: 4, upper: 5 },
-          { lower: 5, upper: 6 },
-        ]);
-      });
-      test("insert in-between adjacent lower not upper", () => {
-        const b: bounds.Crude[] = [
-          [2, 3],
-          [3, 4],
-          [7, 8],
-        ];
-        const v: bounds.Crude = [4, 6];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 2, upper: 3 },
-          { lower: 3, upper: 4 },
-          { lower: 4, upper: 6 },
-          { lower: 7, upper: 8 },
-        ]);
-      });
-      test("insert in-between overlap lower adjacent upper", () => {
-        const b: bounds.Crude[] = [
-          [2, 4],
-          [5, 6],
-          [7, 8],
-        ];
-        const v: bounds.Crude = [3, 5];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 2, upper: 4 },
-          { lower: 4, upper: 5 },
-          { lower: 5, upper: 6 },
-          { lower: 7, upper: 8 },
-        ]);
-      });
-      test("insert in-between adjacent lower contain 1 adjacent upper", () => {
-        const b: bounds.Crude[] = [
-          [2, 4],
-          [5, 6],
-          [7, 8],
-        ];
-        const v: bounds.Crude = [4, 7];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 2, upper: 4 },
-          { lower: 4, upper: 7 },
-          { lower: 7, upper: 8 },
-        ]);
-      });
-      test("insert in-between overlap lower consume 1 adjacent upper", () => {
-        const b: bounds.Crude[] = [
-          [2, 4],
-          [5, 6],
-          [7, 8],
-        ];
-        const v: bounds.Crude = [3, 7];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 2, upper: 4 },
-          { lower: 4, upper: 7 },
-          { lower: 7, upper: 8 },
-        ]);
-      });
-      test("insert in-between replace 1", () => {
-        const b: bounds.Crude[] = [
-          [2, 4],
-          [5, 6],
-          [7, 8],
-        ];
-        const v: bounds.Crude = [5, 6];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 2, upper: 4 },
-          { lower: 5, upper: 6 },
-          { lower: 7, upper: 8 },
-        ]);
-      });
-      test("insert before overlap first", () => {
-        const b: bounds.Crude[] = [[3, 7]];
-        const v: bounds.Crude = [1, 4];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 1, upper: 3 },
-          { lower: 3, upper: 7 },
-        ]);
-      });
-      test("insert before no adjacent", () => {
-        const b: bounds.Crude[] = [[3, 7]];
-        const v: bounds.Crude = [1, 2];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 1, upper: 2 },
-          { lower: 3, upper: 7 },
-        ]);
-      });
-      test("insert after no adjacent", () => {
-        const b: bounds.Crude[] = [[3, 7]];
-        const v: bounds.Crude = [8, 9];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 3, upper: 7 },
-          { lower: 8, upper: 9 },
-        ]);
-      });
-      test("insert after adjacent upper", () => {
-        const b: bounds.Crude[] = [[3, 7]];
-        const v: bounds.Crude = [7, 9];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 3, upper: 7 },
-          { lower: 7, upper: 9 },
-        ]);
-      });
-      test("insert after overlap last", () => {
-        const b: bounds.Crude[] = [[3, 7]];
-        const v: bounds.Crude = [5, 9];
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 3, upper: 7 },
-          { lower: 7, upper: 9 },
-        ]);
+      describe("bigint", () => {
+        SPECS.forEach(({ name, b, v, result, focus }) => {
+          (focus === true ? test.only : test)(name, () => {
+            b = b.map(([l, u]) => [BigInt(l), BigInt(u)]);
+            v = [BigInt(v[0]), BigInt(v[1])];
+            result = result.map(({ lower, upper }) => ({
+              lower: BigInt(lower),
+              upper: BigInt(upper),
+            }));
+            expect(bounds.insert(b, v)).toEqual(result);
+          });
+        });
       });
     });
-    describe("regressions", () => {
-      it("should insert a value into a sorted array of bounds", () => {
-        const b: bounds.Crude[] = [
-          { lower: 0, upper: 47040 },
-          { lower: 47040, upper: 47240 },
-          { lower: 47240, upper: 47280 },
-          { lower: 47280, upper: 47320 },
-          { lower: 47320, upper: 47400 },
-        ];
-        const v: bounds.Crude = { lower: 47066, upper: 47066 + 354 };
-        const result = bounds.insert(b, v);
-        expect(result).toEqual([
-          { lower: 0, upper: 47040 },
-          { lower: 47040, upper: 47240 },
-          { lower: 47240, upper: 47066 + 354 },
-        ]);
+  });
+  describe("linspace", () => {
+    it("should generate the correct array", () => {
+      const b = bounds.construct([1, 3]);
+      const result = bounds.linspace(b);
+      expect(result).toEqual([1, 2]);
+    });
+  });
+  describe("clamp", () => {
+    it("should clamp the provided target to the bounds", () => {
+      const b = bounds.construct([1, 3]);
+      expect(bounds.clamp(b, 0)).toEqual(1);
+      expect(bounds.clamp(b, 2)).toEqual(2);
+      expect(bounds.clamp(b, 4)).toEqual(2);
+    });
+  });
+  describe("exposure", () => {
+    interface Spec {
+      name: string;
+      bg: bounds.Crude;
+      filter: bounds.Crude;
+      result: number;
+    }
+    const SPECS: Spec[] = [
+      {
+        name: "full exposure",
+        bg: [1, 3],
+        filter: [1, 3],
+        result: 1,
+      },
+      {
+        name: "no exposure",
+        bg: [1, 3],
+        filter: [4, 5],
+        result: 0,
+      },
+      {
+        name: "partial exposure",
+        bg: [1, 3],
+        filter: [2, 4],
+        result: 0.5,
+      },
+      {
+        name: "partial exposure",
+        bg: [1, 3],
+        filter: [0, 2],
+        result: 0.5,
+      },
+      {
+        name: "full exposure",
+        bg: [1, 3],
+        filter: [0, 4],
+        result: 1,
+      },
+    ];
+    SPECS.forEach(({ name, bg, filter, result }) => {
+      test(name, () => {
+        expect(bounds.exposure(bounds.construct(bg), bounds.construct(filter))).toEqual(
+          result,
+        );
       });
-      it("should insert a value into a sorted array of bounds", () => {});
     });
   });
 });

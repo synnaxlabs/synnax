@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,11 +9,10 @@
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
 
-import { type ID } from "@/ontology/payload";
-
 import { Group } from "@/ontology/group/group";
 import { type Payload } from "@/ontology/group/payload";
 import { Writer } from "@/ontology/group/writer";
+import { type ID } from "@/ontology/payload";
 
 export class Client {
   private readonly creator: Writer;
@@ -22,8 +21,8 @@ export class Client {
     this.creator = new Writer(unary);
   }
 
-  async create(parent: ID, name: string): Promise<Group> {
-    return this.sugar(await this.creator.create(parent, name));
+  async create(parent: ID, name: string, key?: string): Promise<Group> {
+    return this.sugar(await this.creator.create(parent, name, key));
   }
 
   async rename(key: string, name: string): Promise<void> {

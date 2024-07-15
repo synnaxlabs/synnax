@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { unknown, z } from "zod";
+import { z } from "zod";
 
 import type * as bounds from "@/spatial/bounds/bounds";
 import type * as dimensions from "@/spatial/dimensions/dimensions";
@@ -116,22 +116,22 @@ export const construct = (
 };
 
 export interface Resize {
-  /** 
+  /**
    * Sets the dimensions of the box to the given dimensions.
    * @example resize(b, { width: 10, height: 10 }) // Sets the box to a 10x10 box.
    */
   (b: Crude, dims: dimensions.Dimensions | dimensions.Signed): Box;
-  /** 
-   * Sets the dimension along the given direction to the given amount. 
+  /**
+   * Sets the dimension along the given direction to the given amount.
    * @example resize(b, "x", 10) // Sets the width of the box to 10.
    * @example resize(b, "y", 10) // Sets the height of the box to 10.
-  */
+   */
   (b: Crude, direction: direction.Direction, amount: number): Box;
 }
 
 export const resize: Resize = (
-  b: Crude, 
-  dims: dimensions.Dimensions | dimensions.Signed | direction.Direction, 
+  b: Crude,
+  dims: dimensions.Dimensions | dimensions.Signed | direction.Direction,
   amount?: number,
 ): Box => {
   const b_ = construct(b);
@@ -147,28 +147,32 @@ export const resize: Resize = (
     );
   }
   return construct(b_.one, dims, undefined, undefined, b_.root);
-}
+};
 
 /**
  * Checks if a box contains a point or another box.
  *
- * @param value - The point or box to check.
+ * @param container - The container box to check against.
+ * @param value - The point or box to check if it is contained in the container.
+ * @param inclusive - Whether the edges of the box are inclusive or exclusive.
  * @returns true if the box inclusively contains the point or box and false otherwise.
  */
-export const contains = (b: Crude, value: Box | xy.XY): boolean => {
-  const b_ = construct(b);
+export const contains = (container: Crude, value: Box | xy.XY, inclusive: boolean = true): boolean => {
+  const b_ = construct(container);
+  let comp = (a: number, b: number) => a < b;
+  if (inclusive) comp = (a: number, b: number) => a <= b;
   if ("one" in value)
     return (
-      left(value) >= left(b_) &&
-      right(value) <= right(b_) &&
-      top(value) >= top(b_) &&
-      bottom(value) <= bottom(b_)
+      comp(left(b_), left(value)) &&
+      comp(right(value), right(b_)) &&
+      comp(top(b_), top(value)) &&
+      comp(bottom(value), bottom(b_))
     );
   return (
-    value.x >= left(b_) &&
-    value.x <= right(b_) &&
-    value.y >= top(b_) &&
-    value.y <= bottom(b_)
+    comp(left(b_), value.x) &&
+    comp(value.x, right(b_)) &&
+    comp(top(b_), value.y) &&
+    comp(value.y, bottom(b_))
   );
 };
 
@@ -240,26 +244,30 @@ export const loc = (b: Crude, loc: location.Location): number => {
     : f(b_.one.y, b_.two.y);
 };
 
-export const locPoint = (b: Box, loc_: location.Location): xy.XY => {
-  const l = loc(b, loc_);
-  if (location.X_LOCATIONS.includes(loc_ as location.X))
-    return { x: l, y: center(b).y };
-  return { x: center(b).x, y: l };
-};
-
-export const isZero = (b: Box): boolean => {
+/** @returns true if the area of the box is 0 and false otherwise. */
+export const areaIsZero = (b: Box): boolean => {
   return b.one.x === b.two.x && b.one.y === b.two.y;
 };
 
+/** @returns the width of the box. */
 export const width = (b: Crude): number => dim(b, "x");
 
+/** @returns the height of the box. */
 export const height = (b: Crude): number => dim(b, "y");
 
+/**
+ * @returns the signed width of the box, which will be negative if the x value of the
+ * first coordinate is less than the x value of the second coordinate.
+ */
 export const signedWidth = (b: Crude): number => {
   const b_ = construct(b);
   return b_.two.x - b_.one.x;
 };
 
+/**
+ * @returns the signed height of the box, which will be negative if the y value of the
+ * first coordinate is less than the y value of the second coordinate.
+ */
 export const signedHeight = (b: Crude): number => {
   const b_ = construct(b);
   return b_.two.y - b_.one.y;
@@ -299,11 +307,23 @@ export const y = (b: Crude): number => {
 
 export const root = (b: Crude): xy.XY => ({ x: x(b), y: y(b) });
 
+/**
+ * @returns the bounds of the box along the x axis i.e. if the box root is top left,
+ * the lower bound is the x coordinate of the left side of the box and the upper bound
+ * is the x coordinate of the right side of the box.
+ * @param b - The box to get the bounds of.
+ */
 export const xBounds = (b: Crude): bounds.Bounds => {
   const b_ = construct(b);
   return { lower: b_.one.x, upper: b_.two.x };
 };
 
+/**
+ * @returns the bounds of the box along the y axis i.e. if the box root is top left,
+ * the lower bound is the y coordinate of the top side of the box and the upper bound
+ * is the y coordinate of the bottom side of the box.
+ * @param b - The box to get the bounds of.
+ */
 export const yBounds = (b: Crude): bounds.Bounds => {
   const b_ = construct(b);
   return { lower: b_.one.y, upper: b_.two.y };
@@ -311,24 +331,20 @@ export const yBounds = (b: Crude): bounds.Bounds => {
 
 export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
 
-/**
- * Reposition a box so that it is visible within a given bound.
- *
- * @param target The box to reposition - Only works if the root is topLeft
- * @param bound The box to reposition within - Only works if the root is topLeft
- *
- * @returns the repsoitioned box and a boolean indicating if the box was repositioned
- * or not.
- */
-export const positionSoVisible = (target_: Crude, bound_: Crude): [Box, boolean] => {
-  const target = construct(target_);
-  const bound = construct(bound_);
-  if (contains(bound, target)) return [target, false];
-  let nextPos: xy.XY;
-  if (right(target) > width(target))
-    nextPos = xy.construct({ x: x(target) - width(target), y: y(target) });
-  else nextPos = xy.construct({ x: x(target), y: y(target) - height(target) });
-  return [construct(nextPos, dims(target)), true];
+export const edgePoints = (b: Crude, loc: location.Location): [xy.XY, xy.XY] => {
+  const b_ = construct(b);
+  const x = location.X_LOCATIONS.includes(loc as location.X)
+    ? "x"
+    : location.Y_LOCATIONS.includes(loc as location.Y)
+      ? "y"
+      : null;
+  if (x === null) throw new Error(`Invalid location: ${location}`);
+  const f = loc === "top" || loc === "left" ? Math.min : Math.max;
+  const one = { ...b_.one };
+  const two = { ...b_.two };
+  one[x] = f(b_.one[x], b_.two[x]);
+  two[x] = f(b_.one[x], b_.two[x]);
+  return [one, two];
 };
 
 /**
@@ -346,6 +362,7 @@ export const positionInCenter = (target_: Crude, bound_: Crude): Box => {
   return construct({ x: x_, y: y_ }, dims(target));
 };
 
+/** */
 export const isBox = (value: unknown): value is Box => {
   if (typeof value !== "object" || value == null) return false;
   return "one" in value && "two" in value && "root" in value;
@@ -360,7 +377,11 @@ interface Translate {
   (b: Crude, direction: direction.Direction, amount: number): Box;
 }
 
-export const translate = (b: Crude, t: xy.XY | direction.Direction, amount?: number): Box => {
+export const translate: Translate = (
+  b: Crude,
+  t: xy.Crude | direction.Direction,
+  amount?: number,
+): Box => {
   if (typeof t === "string") {
     if (amount == null) throw new Error(`Undefined amount passed into box.translate`);
     const dir = direction.construct(t);
@@ -376,17 +397,26 @@ export const translate = (b: Crude, t: xy.XY | direction.Direction, amount?: num
   );
 };
 
-export const intersect = (a: Box, b: Box): Box => {
+/** @returns a box representing the intersection of the two given boxes. */
+export const intersection = (a: Box, b: Box): Box => {
   const x = Math.max(left(a), left(b));
   const y = Math.max(top(a), top(b));
   const x2 = Math.min(right(a), right(b));
   const y2 = Math.min(bottom(a), bottom(b));
+  if (x > x2 || y > y2) return ZERO;
   return construct({ x, y }, { x: x2, y: y2 }, undefined, undefined, a.root);
 };
 
+/** @returns the area of the box. */
 export const area = (b: Box): number => width(b) * height(b);
 
-export const truncate = (b: Box, precision: number = 0): Box => {
+/**
+ * Truncates the coordinates of the box to the given precision.
+ * @param b - The box to truncate.
+ * @param precision - The number of decimal places to truncate to.
+ * @returns the truncated box.
+ */
+export const truncate = (b: Crude, precision: number): Box => {
   const b_ = construct(b);
   return construct(
     xy.truncate(b_.one, precision),
@@ -397,6 +427,24 @@ export const truncate = (b: Box, precision: number = 0): Box => {
   );
 };
 
+/**
+ * Constructs a box from a particular corner, and then reinterprets the box in order
+ * to define it from a different corner.
+ *
+ * @example
+ * const b = box.construct(0, 0, 10, 10, location.BOTTOM_LEFT, location.TOP_LEFT);
+ * // b is now a box rooted in the top left corner with it's first coordinate at
+ * // (0, 10) and it's second coordinate at (10, 0).
+ *
+ * @param x - The x coordinate of the first point.
+ * @param y - The y coordinate of the first point.
+ * @param width - The width of the box.
+ * @param height - The height of the box.
+ * @param currRoot - The current root of the box i.e. the corner that x and y represent.
+ * @param newRoot - The new root of the box i.e. the corner that the box should be
+ * reinterpreted from.
+ * @returns the box reinterpreted from the new root.
+ */
 export const constructWithAlternateRoot = (
   x: number,
   y: number,

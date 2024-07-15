@@ -1075,7 +1075,22 @@ DataType._TO_NUMPY = {
     DataType.UINT16: np.dtype(np.uint16),
     DataType.UINT8: np.dtype(np.uint8),
 }
-DataType._FROM_NUMPY = {v: k for k, v in DataType._TO_NUMPY.items()}
+DataType._FROM_NUMPY = {
+    np.dtype(np.float64): DataType.FLOAT64,
+    np.dtype(np.float32): DataType.FLOAT32,
+    np.dtype(np.int64): DataType.INT64,
+    np.dtype(np.int32): DataType.INT32,
+    np.dtype(np.int16): DataType.INT16,
+    np.dtype(np.int8): DataType.INT8,
+    np.dtype(np.uint64): DataType.UINT64,
+    np.dtype(np.uint32): DataType.UINT32,
+    np.dtype(np.uint16): DataType.UINT16,
+    np.dtype(np.uint8): DataType.UINT8,
+    np.dtype(np.bool_): DataType.UINT8,
+    np.dtype(np.datetime64): DataType.TIMESTAMP,
+    np.dtype(np.str_): DataType.STRING,
+}
+
 DataType._DENSITIES = {
     DataType.UUID: Density.BIT128,
     DataType.FLOAT64: Density.BIT64,

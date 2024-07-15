@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Series, typedArrayZ, Rate, DataType, TimeRange, bounds } from "@synnaxlabs/x";
+import { bounds,DataType, Rate, Series, TimeRange, typedArrayZ } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
-  type SeriesSourceSpec,
   type NumberSource,
-  type SeriesSource,
-  type Spec,
-  type Telem,
-  type StringSourceSpec,
   type NumberSourceSpec,
+  type SeriesSource,
+  type SeriesSourceSpec,
+  type Spec,
+  type StringSourceSpec,
+  type Telem,
 } from "@/telem/aether/telem";
 
 export class StaticFactory implements Factory {
@@ -49,6 +49,7 @@ export type FixedArrayProps = z.input<typeof fixedSeriesPropsZ>;
 
 class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
   data: Series[];
+  schema = fixedSeriesPropsZ;
 
   static readonly TYPE = "static-series";
 

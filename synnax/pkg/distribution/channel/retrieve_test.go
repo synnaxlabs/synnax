@@ -141,6 +141,43 @@ var _ = Describe("getAttributes", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resChannels).To(HaveLen(2))
 		})
+		It("Should return a well formatted error if a channel cannot be found by its key", func() {
+			var resChannels []channel.Channel
+			err := services[1].
+				NewRetrieve().
+				WhereKeys(435).
+				Entries(&resChannels).
+				Exec(ctx, nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Channels with keys [435] not found"))
+
+		})
+		It("Should correctly filter channels by search term", func() {
+			created := []channel.Channel{
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32T,
+					Name:     "SG-----222",
+				},
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32T,
+					Name:     "SG-----223",
+				},
+			}
+			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			Expect(err).ToNot(HaveOccurred())
+			var resChannels []channel.Channel
+			err = services[1].
+				NewRetrieve().
+				Search("SG-----222").
+				Entries(&resChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resChannels)).To(BeNumerically(">", 0))
+			Expect(resChannels[0].Name).To(Equal("SG-----222"))
+
+		})
 	})
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func() {

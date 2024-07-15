@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EffectCallback, useRef, useEffect } from "react";
+import { type AsyncDestructor } from "@synnaxlabs/x";
+import { type EffectCallback, useEffect, useRef } from "react";
+import { useDispatch } from "react-redux";
 
 import { useSelectWindow } from "@/react/selectors";
-import { useDispatch } from "react-redux";
 import { completeProcess, registerProcess } from "@/state";
-import { AsyncDestructor, Destructor } from "@synnaxlabs/x";
 
 /**
  * A hook that allows a user to tap into the lifecycle of a window.
@@ -35,15 +35,21 @@ export const useWindowLifecycle = (cb: EffectCallback, key?: string): void => {
       const c = cb();
       if (c != null) destructor.current = c;
       dispatch(registerProcess({ key: win.key }));
-    } else if ((stage === "closing" || stage === "reloading") && destructor.current != null) {
+    } else if (
+      (stage === "closing" || stage === "reloading") &&
+      destructor.current != null
+    ) {
       destructor.current();
       destructor.current = null;
       dispatch(completeProcess({ key: win.key }));
     }
-  }, [win])
+  }, [win]);
 };
 
-export const useAsyncWindowLifecycle = (cb: () => (Promise<AsyncDestructor | undefined>), key?: string): void => {
+export const useAsyncWindowLifecycle = (
+  cb: () => Promise<AsyncDestructor | undefined>,
+  key?: string,
+): void => {
   const win = useSelectWindow(key);
   const dispatch = useDispatch();
   const destructor = useRef<AsyncDestructor | null>(null);
@@ -53,20 +59,27 @@ export const useAsyncWindowLifecycle = (cb: () => (Promise<AsyncDestructor | und
     const { stage } = win;
     if (stage === "created" && destructor.current == null) {
       promiseOut.current = true;
-      cb().then((d) => {
-        destructor.current = d ?? (async () => {});
-        dispatch(registerProcess({ key: win.key }));
-      }).finally(() => {
-        promiseOut.current = false;
-      });
-    } else if ((stage === "closing" || stage === "reloading") && destructor.current != null) {
+      cb()
+        .then((d) => {
+          destructor.current = d ?? (async () => {});
+          dispatch(registerProcess({ key: win.key }));
+        })
+        .finally(() => {
+          promiseOut.current = false;
+        });
+    } else if (
+      (stage === "closing" || stage === "reloading") &&
+      destructor.current != null
+    ) {
       const f = destructor.current;
       destructor.current = null;
-      f().then(() => {
-        destructor.current = null;
-      }).finally(() => {
-        dispatch(completeProcess({ key: win.key }));
-      });
+      f()
+        .then(() => {
+          destructor.current = null;
+        })
+        .finally(() => {
+          dispatch(completeProcess({ key: win.key }));
+        });
     }
-  }, [win])
-}
+  }, [win]);
+};

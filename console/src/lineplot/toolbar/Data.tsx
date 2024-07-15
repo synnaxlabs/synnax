@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
-
 import { type channel } from "@synnaxlabs/client";
 import { Align } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { type AxisKey, type XAxisKey, type YAxisKey } from "@/lineplot/axis";
+import {
+  SelectAxisInputItem,
+  SelectMultipleAxesInputItem,
+} from "@/lineplot/SelectAxis";
 import { useSelect } from "@/lineplot/selectors";
 import { setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { useSelectMultiple } from "@/range/selectors";
-import { Vis } from "@/vis";
-import { type AxisKey, type XAxisKey, type YAxisKey } from "@/vis/axis";
 
 export interface DataProps {
   layoutKey: string;
@@ -61,18 +63,20 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
 
   return (
     <Align.Space style={{ padding: "2rem", width: "100%" }}>
-      <Vis.SelectMultipleAxesInputItem
+      <SelectMultipleAxesInputItem
         axis={"y1"}
         onChange={handleYChannelSelect}
         value={vis.channels.y1}
         align="center"
         grow
+        select={{ location: "top" }}
       />
-      <Vis.SelectMultipleAxesInputItem
+      <SelectMultipleAxesInputItem
         axis={"y2"}
         onChange={handleYChannelSelect}
         value={vis.channels.y2}
         grow
+        select={{ location: "top" }}
       />
       <Align.Space direction="x" grow wrap>
         <Range.SelectMultipleInputItem
@@ -81,11 +85,12 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
           value={vis.ranges.x1}
           grow
         />
-        <Vis.SelectAxisInputItem
+        <SelectAxisInputItem
           axis={"x1"}
           onChange={handleXChannelSelect}
           value={vis.channels.x1}
           grow
+          select={{ location: "top" }}
         />
       </Align.Space>
     </Align.Space>

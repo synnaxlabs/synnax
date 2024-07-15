@@ -11,8 +11,9 @@ package channel
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/gorp"
 	"strings"
+
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type Writer interface {
@@ -20,10 +21,12 @@ type Writer interface {
 	CreateIfNameDoesntExist(ctx context.Context, c *Channel) error
 	CreateManyIfNamesDontExist(ctx context.Context, channels *[]Channel) error
 	CreateMany(ctx context.Context, channels *[]Channel) error
-	Delete(ctx context.Context, key Key) error
-	DeleteMany(ctx context.Context, keys []Key) error
-	DeleteByName(ctx context.Context, name string) error
-	DeleteManyByNames(ctx context.Context, names []string) error
+	Delete(ctx context.Context, key Key, allowInternal bool) error
+	DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error
+	DeleteByName(ctx context.Context, name string, allowInternal bool) error
+	DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error
+	Rename(ctx context.Context, key Key, newName string, allowInternal bool) error
+	RenameMany(ctx context.Context, keys []Key, newNames []string, allowInternal bool) error
 }
 
 type writer struct {
@@ -55,20 +58,38 @@ func (w writer) CreateMany(ctx context.Context, channels *[]Channel) error {
 	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), false)
 }
 
-func (w writer) Delete(ctx context.Context, key Key) error {
-	return w.DeleteMany(ctx, []Key{key})
+func (w writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
+	return w.DeleteMany(ctx, []Key{key}, allowInternal)
 }
 
-func (w writer) DeleteMany(ctx context.Context, keys []Key) error {
-	return w.proxy.delete(ctx, w.tx, keys)
+func (w writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
+	return w.proxy.delete(ctx, w.tx, keys, allowInternal)
 }
 
-func (w writer) DeleteByName(ctx context.Context, name string) error {
-	return w.DeleteManyByNames(ctx, []string{name})
+func (w writer) DeleteByName(ctx context.Context, name string, allowInternal bool) error {
+	return w.DeleteManyByNames(ctx, []string{name}, allowInternal)
 }
 
-func (w writer) DeleteManyByNames(ctx context.Context, names []string) error {
-	return w.proxy.deleteByName(ctx, w.tx, names)
+func (w writer) DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error {
+	return w.proxy.deleteByName(ctx, w.tx, names, allowInternal)
+}
+
+func (w writer) Rename(
+	ctx context.Context,
+	key Key,
+	newName string,
+	allowInternal bool,
+) error {
+	return w.RenameMany(ctx, []Key{key}, []string{newName}, allowInternal)
+}
+
+func (w writer) RenameMany(
+	ctx context.Context,
+	keys []Key,
+	newNames []string,
+	allowInternal bool,
+) error {
+	return w.proxy.rename(ctx, w.tx, keys, newNames, allowInternal)
 }
 
 func applyAdjustments(c Channel) Channel {

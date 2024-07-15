@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/resize/Multiple.css";
+
+import { box, direction, math,type xy } from "@synnaxlabs/x";
 import {
   Children,
   type ForwardedRef,
   forwardRef,
+  type RefObject,
   useCallback,
-  useState,
   useEffect,
   useRef,
-  type RefObject,
+  useState,
 } from "react";
-
-import { box, direction, type xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Core } from "@/resize/Core";
-
-import "@/resize/Multiple.css";
 
 /** Props for the {@link Resize.Multiple} component. */
 export interface MultipleProps extends Align.SpaceProps {
@@ -161,6 +160,15 @@ export const Multiple = forwardRef(
     const dir = direction.construct(direction_);
     const children = Children.toArray(_children);
 
+    /**
+     * You may be wondering, why on earth are we doing this? Well, the answer is that
+     * if you're moving elements within the resize multiple, and the sizes are all the
+     * same, any resize observers will not trigger. The slight offset ensures that if
+     * a re-ordering occurs, the resize observers will trigger and everything will
+     * be in sync.
+     */
+    sizeDistribution = slightlyOffsetEvenDistribution(sizeDistribution);
+
     return (
       <Align.Space
         {...props}
@@ -200,6 +208,18 @@ const calculateInitialSizeDistribution = (
     return [...initial, ...Array(gap).fill(remaining / gap)];
   }
   return initial.map(() => 1 / count);
+};
+
+const DELTA = 0.001;
+
+const slightlyOffsetEvenDistribution = (sizes: number[]): number[] => {
+  if (sizes.every((v) => math.closeTo(v, 1 / sizes.length), DELTA))
+    return sizes.map((v, i) => {
+      if (i % 2 === 0) return v + DELTA;
+      if (i === sizes.length - 1) return v;
+      return v - DELTA;
+    });
+  return sizes;
 };
 
 const handleResize = (

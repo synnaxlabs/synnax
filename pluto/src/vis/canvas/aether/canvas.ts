@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -50,9 +50,9 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
         );
       renderCtx = render.Context.create(
         this.ctx,
-        glCanvas,
-        lower2dCanvas,
-        upper2dCanvas,
+        glCanvas as OffscreenCanvas,
+        lower2dCanvas as OffscreenCanvas,
+        upper2dCanvas as OffscreenCanvas,
         os,
       );
       Context.create(this.ctx);

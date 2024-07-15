@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { DataType, Synnax, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 // This example demonstrates the basics of reading and writing data from an index and data
@@ -21,7 +30,7 @@ const timeChannel = await client.channels.create({
 });
 
 // Create a channel that will be used to store our data.
-const indexChannel = await client.channels.create({
+const dataChannel = await client.channels.create({
     name: "basic_read_write_data",
     isIndex: false,
     dataType: DataType.FLOAT32,
@@ -32,7 +41,7 @@ const indexChannel = await client.channels.create({
 
 const N_SAMPLES = 5000;
 
-// We'll start our write at the current time. This timestamp should be the same as or 
+// We'll start our write at the current time. This timestamp should be the same as or
 // just before the first timestamp we write.
 const start = TimeStamp.now();
 
@@ -45,14 +54,14 @@ const data = Float32Array.from({ length: N_SAMPLES }, (_, i) => Math.sin(i / 100
 // otherwise writing the data will fail. Notice how we align the writes with the 'start'
 // timestamp.
 await timeChannel.write(start, time);
-await indexChannel.write(start, data);
+await dataChannel.write(start, data);
 
 // Define the time range to read the data back from
 const tr = new TimeRange(start, start.add(TimeSpan.milliseconds(N_SAMPLES)));
 
 // Read the data back. The order doesn't matter here.
 const readTime = await timeChannel.read(tr);
-const readData = await indexChannel.read(tr);
+const readData = await dataChannel.read(tr);
 
 // Print out some information.
 console.log({

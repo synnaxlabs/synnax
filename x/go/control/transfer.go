@@ -9,14 +9,21 @@
 
 package control
 
-import "github.com/samber/lo"
+import (
+	"fmt"
+)
 
 type Subject struct {
 	Key  string `json:"key" msgpack:"key"`
 	Name string `json:"name" msgpack:"name"`
 }
 
-func (s Subject) String() string { return lo.Ternary(s.Name != "", s.Name, s.Key) }
+func (s Subject) String() string {
+	if s.Name != "" {
+		return fmt.Sprintf("[%s]<%s>", s.Name, s.Key)
+	}
+	return fmt.Sprintf("<%s>", s.Key)
+}
 
 type State[R comparable] struct {
 	Subject   Subject   `json:"subject" msgpack:"subject"`

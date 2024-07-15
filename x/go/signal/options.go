@@ -9,7 +9,10 @@
 
 package signal
 
-import "github.com/synnaxlabs/alamos"
+import (
+	"github.com/synnaxlabs/alamos"
+	"go.uber.org/zap"
+)
 
 type Option func(o *options)
 
@@ -19,6 +22,7 @@ type options struct {
 
 func WithInstrumentation(i alamos.Instrumentation) Option {
 	return func(o *options) {
+		i.L = i.L.WithOptions(zap.AddCallerSkip(3))
 		o.Instrumentation = i
 	}
 }

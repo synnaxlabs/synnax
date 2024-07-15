@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,9 +36,9 @@ export const equal = <
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;
   for (const key of aKeys) {
-    // @ts-expect-error
+    // @ts-expect-error - indexing nested value.
     const aVal = a[key];
-    // @ts-expect-error
+    // @ts-expect-error - indexing nested value.
     const bVal = b[key];
     if (typeof aVal === "object" && typeof bVal === "object") {
       if (!equal(aVal, bVal)) return false;
@@ -56,9 +56,9 @@ export const partialEqual = <T extends unknown | DeepEqualBaseRecord | Primitive
   const partialKeys = Object.keys(partial);
   if (partialKeys.length > baseKeys.length) return false;
   for (const key of partialKeys) {
-    // @ts-expect-error
+    // @ts-expect-error - indexing nested value.
     const baseVal = base[key];
-    // @ts-expect-error
+    // @ts-expect-error - indexing nested value.
     const partialVal = partial[key];
     if (typeof baseVal === "object" && typeof partialVal === "object") {
       if (!partialEqual(baseVal, partialVal)) return false;

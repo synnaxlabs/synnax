@@ -17,6 +17,7 @@ from synnax.channel.writer import ChannelWriter
 from synnax.config import try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
 from synnax.framer import Client
+from synnax.framer.deleter import Deleter
 from synnax.hardware.client import Client as HardwareClient
 from synnax.hardware.retrieve import Retriever as HardwareRetriever
 from synnax.hardware.writer import Writer as HardwareWriter
@@ -56,7 +57,7 @@ class Synnax(Client):
     signals: Registry
     hardware: HardwareClient
 
-    __client: Transport
+    _transport: Transport
 
     def __init__(
         self,
@@ -99,11 +100,19 @@ class Synnax(Client):
             ClusterChannelRetriever(self._transport.unary, instrumentation),
             instrumentation,
         )
-        ch_creator = ChannelWriter(self._transport.unary, instrumentation)
+        deleter = Deleter(self._transport.unary, instrumentation)
+        ch_creator = ChannelWriter(
+            self._transport.unary,
+            instrumentation,
+            ch_retriever,
+        )
         super().__init__(
-            client=self._transport.stream,
+            stream_client=self._transport.stream,
             async_client=self._transport.stream_async,
+            unary_client=self._transport.unary,
             retriever=ch_retriever,
+            deleter=deleter,
+            instrumentation=instrumentation,
         )
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,7 +32,8 @@ describe("Accordion", () => {
     expect(c.getByText("Pane 1")).toBeTruthy();
     const parent = c.getByText("Pane 1 Content").parentElement;
     expect(parent).toBeTruthy();
-    expect(parent?.style.height).toBe("50%");
+    // Intentionally a little bit off
+    expect(parent?.style.height).toBe("50.1%");
   });
   it("should render the correct expand/contract icons", () => {
     const c = render(<Accordion.Accordion data={data} />);

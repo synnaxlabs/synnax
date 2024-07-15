@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // This example demonstrates how to write data to an index channel and its corresponding
 // data channel in Synnax in a streaming fashion. Streaming data is ideal for live
 // applications (such as data acquisition from a sensor) or for very large datasets that
@@ -35,20 +44,20 @@ const dataChannel2 = await client.channels.create({
 }, { retrieveIfNameExists: true });
 
 
-// We'll start our write at the current time. This timestamps should be the same as or 
+// We'll start our write at the current time. This timestamps should be the same as or
 // just before the first timestamp we write.
 const start = TimeStamp.now();
 
-// Set a rough rate of 20 Hz. This won't be exact because we're sleeping for a fixed 
+// Set a rough rate of 20 Hz. This won't be exact because we're sleeping for a fixed
 // amount of time, but it's close enough for demonstration purposes.
 const roughRate = Rate.hz(25);
 
-// Make the writer commit every 500 samples. This will make the data available for 
+// Make the writer commit every 500 samples. This will make the data available for
 // historical reads every 500 samples.
 const commitInterval = 500;
 
 const writer = await client.openWriter({
-    start, 
+    start,
     channels: [timeChannel.key, dataChannel1.key, dataChannel2.key],
 });
 
@@ -66,9 +75,9 @@ try {
             [dataChannel2.key]: data2,
         });
 
-        if (i % 60 == 0) 
+        if (i % 60 == 0)
             console.log(`Writing sample ${i} at ${timestamp.toISOString()}`)
-        
+
         // Commit the writer. This method will return false if the commit fails i.e.
         // we've mad an invalid write or someone has already written to this region.
         if (i % commitInterval == 0 && !await writer.commit()) {

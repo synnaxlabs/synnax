@@ -10,9 +10,7 @@
 package api
 
 import (
-	"github.com/go-playground/validator/v10"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -25,18 +23,16 @@ import (
 // for particular API services (if they so require them).
 type Provider struct {
 	Config
-	Validation validationProvider
-	db         dbProvider
-	user       userProvider
-	access     AccessProvider
-	auth       authProvider
-	cluster    clusterProvider
-	ontology   OntologyProvider
+	db       dbProvider
+	user     userProvider
+	access   AccessProvider
+	auth     authProvider
+	cluster  clusterProvider
+	ontology OntologyProvider
 }
 
 func NewProvider(cfg Config) Provider {
 	p := Provider{Config: cfg}
-	p.Validation = validationProvider{validator: newValidator()}
 	p.db = dbProvider{DB: gorp.Wrap(cfg.Storage.KV)}
 	p.user = userProvider{user: cfg.User}
 	p.access = AccessProvider{enforcer: cfg.Enforcer}
@@ -44,20 +40,6 @@ func NewProvider(cfg Config) Provider {
 	p.cluster = clusterProvider{cluster: cfg.Cluster}
 	p.ontology = OntologyProvider{Ontology: cfg.Ontology}
 	return p
-}
-
-// validationProvider provides the global API validator to services.
-type validationProvider struct {
-	validator *validator.Validate
-}
-
-// Validate validates the provided struct. If Validation is successful, returns errors.Nil,
-// otherwise, returns an errors.Validation error containing the fields that failed Validation.
-func (vp *validationProvider) Validate(v any) error {
-	if err := vp.validator.Struct(v); err != nil {
-		return errors.Validation(err)
-	}
-	return nil
 }
 
 // dbProvider provides exposes the cluster-wide key-value store to API services.

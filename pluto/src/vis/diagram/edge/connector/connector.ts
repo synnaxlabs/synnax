@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy, location, box, direction } from "@synnaxlabs/x";
+import { box, direction, location, xy } from "@synnaxlabs/x";
 
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;
@@ -47,9 +47,9 @@ const internalChangeOrientation = (
   { orientation, segments }: ChangeOrientationProps,
   reverse: boolean,
 ): Segment[] => {
-  const stumpIdx = reverse ? segments.length - 1 : 0;
+  const stumschematicx = reverse ? segments.length - 1 : 0;
   let next = [...segments];
-  const stump = next[stumpIdx];
+  const stump = next[stumschematicx];
   const currOrientation = segmentOrientation(stump);
   if (currOrientation === orientation) return next;
   const dir = direction.construct(orientation);
@@ -162,7 +162,7 @@ export const segmentsToPoints = (
     } as const as xy.XY);
 
     return points;
-  } catch (e) {
+  } catch {
     return [];
   }
 };
@@ -270,7 +270,7 @@ const removeSameOrientationSegments = (segments: Segment[]): Segment[] => {
     if (i === 0 || seg.direction !== prevSeg.direction) return false;
 
     if (i === 1) {
-      const stumpIdx = i - 1;
+      const stumschematicx = i - 1;
       const segIdx = i;
       const stumpOrientation = segmentOrientation(prevSeg);
       const segOrientation = segmentOrientation(seg);
@@ -285,16 +285,16 @@ const removeSameOrientationSegments = (segments: Segment[]): Segment[] => {
       if (Math.abs(prevSeg.length) === STUMP_LENGTH) return false;
 
       const stumpLength = setOrientationOnLength(stumpOrientation, STUMP_LENGTH);
-      const delta = next[stumpIdx].length - stumpLength;
+      const delta = next[stumschematicx].length - stumpLength;
       const nextLength = next[segIdx].length + delta;
       if (Math.abs(nextLength) < STUMP_LENGTH) return false;
-      next[stumpIdx] = { ...next[stumpIdx], length: stumpLength };
+      next[stumschematicx] = { ...next[stumschematicx], length: stumpLength };
       next[segIdx] = { ...next[segIdx], length: nextLength };
       return true;
     }
 
     if (i === segments.length - 1) {
-      const stumpIdx = i;
+      const stumschematicx = i;
       const segIdx = i - 1;
       const stumpOrientation = segmentOrientation(seg);
       const segOrientation = segmentOrientation(prevSeg);
@@ -310,10 +310,10 @@ const removeSameOrientationSegments = (segments: Segment[]): Segment[] => {
       if (Math.abs(seg.length) === STUMP_LENGTH) return false;
 
       const stumpLength = setOrientationOnLength(stumpOrientation, STUMP_LENGTH);
-      const delta = next[stumpIdx].length - stumpLength;
+      const delta = next[stumschematicx].length - stumpLength;
       const nextLength = next[segIdx].length + delta;
       if (Math.abs(nextLength) < STUMP_LENGTH) return false;
-      next[stumpIdx] = { ...next[stumpIdx], length: stumpLength };
+      next[stumschematicx] = { ...next[stumschematicx], length: stumpLength };
       next[segIdx] = { ...next[segIdx], length: nextLength };
       return true;
     }
@@ -575,29 +575,29 @@ const moveNodeInDirection = (
   const swappedDirection = direction.swap(dir);
   // We'd always like to adjust the stump closest to the node if possible, but only
   // if compressing it won't make it too small OR cause it to reverse its orientation.
-  const stumpIdx = reverse ? segments.length - 1 : 0;
-  const stump = segments[stumpIdx];
+  const stumschematicx = reverse ? segments.length - 1 : 0;
+  const stump = segments[stumschematicx];
   if (canAdjustStump(dir, stump, delta)) {
-    segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
+    segments[stumschematicx] = { ...stump, length: stump.length - delta[dir] };
     return segments;
   }
 
-  const oppositeStumpIdx = reverse ? 0 : segments.length - 1;
+  const oppositeStumschematicx = reverse ? 0 : segments.length - 1;
   const isX = (seg: Segment): boolean => seg.direction === dir;
-  const idxToAdjust = findNonTargetIdx(segments, isX, reverse, stumpIdx);
-  if (idxToAdjust === oppositeStumpIdx) {
-    const oppositeStump = segments[oppositeStumpIdx];
+  const idxToAdjust = findNonTargetIdx(segments, isX, reverse, stumschematicx);
+  if (idxToAdjust === oppositeStumschematicx) {
+    const oppositeStump = segments[oppositeStumschematicx];
     if (canAdjustStump(dir, oppositeStump, delta)) {
-      segments[oppositeStumpIdx] = {
+      segments[oppositeStumschematicx] = {
         ...oppositeStump,
         length: oppositeStump.length - delta[dir],
       };
       return segments;
     } else {
       if (stump.direction === dir)
-        segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
+        segments[stumschematicx] = { ...stump, length: stump.length - delta[dir] };
       else
-        segments[oppositeStumpIdx] = {
+        segments[oppositeStumschematicx] = {
           ...oppositeStump,
           length: oppositeStump.length - delta[dir],
         };
@@ -618,7 +618,7 @@ const moveNodeInDirection = (
     } else {
       if (stump.direction === dir) {
         // just adjust the stump
-        segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
+        segments[stumschematicx] = { ...stump, length: stump.length - delta[dir] };
         return segments;
       } else {
         return [

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,15 +10,15 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   channel,
+  control,
+  framer,
   Series,
   type Synnax,
   TimeStamp,
-  framer,
-  Authority,
   UnexpectedError,
-  control,
 } from "@synnaxlabs/client";
-import { type Destructor, compare } from "@synnaxlabs/x";
+import { compare, type Destructor } from "@synnaxlabs/x";
+import { control as xControl } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -126,7 +126,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected`,
+        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected.`,
         variant: "warning",
       });
 
@@ -135,7 +135,7 @@ export class Controller
       const needsControlOf = this.state.needsControlOf;
       if (needsControlOf.length === 0)
         return addStatus({
-          message: `Cannot acquire control on ${this.state.name} - no channels to control!`,
+          message: `Cannot acquire control on ${this.state.name} because there are no channels to control.`,
           variant: "warning",
         });
 
@@ -177,7 +177,7 @@ export class Controller
     await this.writer?.write(frame);
   }
 
-  async setAuthority(channels: channel.Keys, value: Authority): Promise<void> {
+  async setAuthority(channels: channel.Keys, value: control.Authority): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.setAuthority(
       Object.fromEntries(channels.map((k) => [k, value])),
@@ -284,7 +284,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 });
 
 export const acquireChannelControlPropsZ = z.object({
-  authority: z.number().default(Authority.Absolute.valueOf()),
+  authority: z.number().default(control.Authority.Absolute.valueOf()),
   channel: z.number(),
 });
 
@@ -366,7 +366,7 @@ export class AuthoritySource
     if (this.valid) return;
     const { channel: ch } = this.props;
     this.stopListening?.();
-    const filter = control.filterTransfersByChannelKey(ch);
+    const filter = xControl.filterTransfersByChannelKey(ch);
     this.stopListening = this.prov.onChange((t) => {
       if (filter(t).length === 0) return;
       this.notify?.();

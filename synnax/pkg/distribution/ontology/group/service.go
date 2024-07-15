@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 	"io"
 )
@@ -61,7 +62,7 @@ func OpenService(configs ...Config) (*Service, error) {
 
 func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {
 	err = s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
-	if g.Key != uuid.Nil || err != nil {
+	if !errors.Is(err, query.NotFound) {
 		return g, err
 	}
 	return s.NewWriter(nil).Create(ctx, groupName, parent)
@@ -75,6 +76,13 @@ func (s *Service) NewRetrieve() Retrieve {
 	return newRetrieve(s.DB)
 }
 
+func (s *Service) Close() error {
+	if s.signals != nil {
+		return s.signals.Close()
+	}
+	return nil
+}
+
 type Writer struct {
 	tx  gorp.Tx
 	otg ontology.Writer
@@ -86,10 +94,31 @@ func (w Writer) Create(
 	name string,
 	parent ontology.ID,
 ) (g Group, err error) {
-	//if err = w.validateNoChildrenWithName(ctx, name, parent); err != nil {
-	//	return
-	//}
 	g.Key = uuid.New()
+	g.Name = name
+	id := OntologyID(g.Key)
+	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
+		return
+	}
+	if err = w.otg.DefineResource(ctx, id); err != nil {
+		return
+	}
+	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, id); err != nil {
+		return
+	}
+	return g, err
+}
+
+func (w Writer) CreateWithKey(
+	ctx context.Context,
+	key uuid.UUID,
+	name string,
+	parent ontology.ID,
+) (g Group, err error) {
+	g.Key = key
+	if key == uuid.Nil {
+		g.Key = uuid.New()
+	}
 	g.Name = name
 	id := OntologyID(g.Key)
 	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {

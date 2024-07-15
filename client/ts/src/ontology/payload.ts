@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { change,UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
+
+export type ResourceChange = change.Change<ID, Resource>;
+export type ResourceSet = change.Set<ID, Resource>;
+export type ResourceDelete = change.Delete<ID, Resource>;
+export type RelationshipChange = change.Change<Relationship, undefined>;
+export type RelationshipSet = change.Set<Relationship, undefined>;
+export type RelationshipDelete = change.Delete<Relationship, undefined>;
 
 const resourceTypeZ = z.union([
   z.literal("label"),
@@ -20,24 +28,22 @@ const resourceTypeZ = z.union([
   z.literal("range-alias"),
   z.literal("user"),
   z.literal("workspace"),
-  z.literal("pid"),
+  z.literal("schematic"),
   z.literal("lineplot"),
-  z.literal("rack")
+  z.literal("rack"),
+  z.literal("device"),
+  z.literal("task"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
-export const idZ = z.object({
-  type: resourceTypeZ,
-  key: z.string(),
-});
+export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
+
+export type IDPayload = z.infer<typeof idZ>;
 
 export const stringIDZ = z.string().transform((v) => {
   const [type, key] = v.split(":");
-  return {
-    type: type as ResourceType,
-    key,
-  };
+  return { type: type as ResourceType, key };
 });
 
 export const crudeIDZ = z.union([stringIDZ, idZ]);
@@ -93,8 +99,8 @@ export const resourceSchemaZ = z
   .object({
     id: ID.z,
     name: z.string(),
-    schema: schemaZ.optional(),
-    data: z.record(z.unknown()).optional(),
+    schema: schemaZ.optional().nullable(),
+    data: z.record(z.unknown()).optional().nullable(),
   })
   .transform((resource) => {
     return {
@@ -103,7 +109,10 @@ export const resourceSchemaZ = z
     };
   });
 
-export type Resource = z.infer<typeof resourceSchemaZ>;
+export type Resource<T extends UnknownRecord = UnknownRecord> = Omit<
+  z.output<typeof resourceSchemaZ>,
+  "data"
+> & { data?: T | null };
 
 export const relationshipSchemaZ = z.object({
   from: ID.z,

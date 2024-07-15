@@ -1,0 +1,98 @@
+cc_library(
+    name = "driver",
+    srcs = [
+        "config.cpp",
+    ],
+    hdrs = [
+        "config.h",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:linux": ["-std=c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/breaker",
+        "//driver/config",
+        "//driver/heartbeat",
+        "//driver/opc",
+        "//driver/task",
+        "@com_github_google_glog//:glog",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "test_driver",
+    size = "small",
+    srcs = [
+        "config_test.cpp",
+        "task_context_test.cpp",
+        "task_manager_test.cpp",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "driver_main",
+    srcs = select({
+        "//conditions:default":["main.cpp"],
+    }),
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:linux": ["-std=c++20"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "/DEFAULTLIB:ws2_32.lib",
+            "/DEFAULTLIB:iphlpapi.lib",
+            "/DEFAULTLIB:psapi.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = select({
+        "@platforms//os:windows": [
+            "//driver",
+            "//driver/breaker",
+            "//driver/meminfo",
+            "//driver/ni",
+            "//driver/opc",
+            "//driver/task",
+            "@com_github_gflags_gflags//:gflags",
+            "@com_github_google_glog//:glog",
+            "@mbedtls_win",
+        ],
+        "@platforms//os:linux": [
+            "//driver",
+            "//driver/breaker",
+            "//driver/meminfo",
+            "//driver/ni",
+            "//driver/opc",
+            "//driver/task",
+            "@com_github_gflags_gflags//:gflags",
+            "@com_github_google_glog//:glog",
+            "@mbedtls_linux",
+        ],
+        "//conditions:default": [
+            "//driver",
+            "//driver/breaker",
+            "//driver/meminfo",
+            "//driver/ni",
+            "//driver/opc",
+            "//driver/task",
+            "@com_github_gflags_gflags//:gflags",
+            "@com_github_google_glog//:glog",
+            "@mbedtls_macos",
+        ],
+    }),
+)

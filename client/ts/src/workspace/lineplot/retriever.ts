@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,24 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import {
-  type LinePlot,
-  type Params,
-  linePlotZ,
-} from "@/workspace/lineplot/payload";
+import { type LinePlot, linePlotZ, type Params } from "@/workspace/lineplot/payload";
 
-const reqZ = z.object({
-  keys: z.string().array(),
-});
+const reqZ = z.object({ keys: z.string().array() });
 
-type Request = z.infer<typeof reqZ>;
-
-const resZ = z.object({
-  linePlots: linePlotZ.array(),
-});
+const resZ = z.object({ linePlots: linePlotZ.array() });
 
 export class Retriever {
   private readonly ENDPOINT = "/workspace/lineplot/retrieve";
@@ -37,12 +27,8 @@ export class Retriever {
 
   async retrieve(params: Params): Promise<LinePlot[]> {
     const normalized = toArray(params);
-    return (await sendRequired(
-      this.client, 
-      this.ENDPOINT, 
-      { keys: normalized }, 
-      reqZ, 
-      resZ
-    )).linePlots;
+    return (
+      await sendRequired(this.client, this.ENDPOINT, { keys: normalized }, reqZ, resZ)
+    ).linePlots;
   }
 }

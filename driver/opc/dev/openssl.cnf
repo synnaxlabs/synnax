@@ -1,0 +1,30 @@
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = req_ext
+x509_extensions = v3_ca # The extensions to add to the self-signed cert
+
+[req_distinguished_name]
+countryName = Country Name (2 letter code)
+countryName_default = US
+stateOrProvinceName = State or Province Name (full name)
+stateOrProvinceName_default = California
+localityName = Locality Name (eg, city)
+localityName_default = San Francisco
+organizationName = Organization Name (eg, company)
+organizationName_default = Example Corp
+organizationalUnitName = Organizational Unit Name (eg, section)
+organizationalUnitName_default = IT Department
+commonName = Common Name (eg, fully qualified host name)
+commonName_max = 64
+
+[req_ext]
+subjectAltName = @alt_names
+
+[v3_ca]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = server.example.com
+DNS.2 = client.example.com
+DNS.3 = Emilianos-MacBook-Pro-2.local
+URI.1 = urn:myselfsignedserver@Emilianos-MacBook-Pro-2.local

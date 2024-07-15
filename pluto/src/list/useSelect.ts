@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Key, type Keyed, type Optional, toArray, unique } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
-
-import { type Key, type Keyed, unique, toArray, type Optional } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks/ref";
 import { Triggers } from "@/triggers";
@@ -29,20 +28,25 @@ export interface UseSelectOnChangeExtra<
   entries: E[];
 }
 
-export interface UseSelectSingleAllowNoneProps<K extends Key, E extends Keyed<K>> {
-  data: E[];
+interface BaseProps<K extends Key, E extends Keyed<K>> {
+  data?: E[] | (() => E[]);
   replaceOnSingle?: boolean;
+}
+
+export interface UseSelectSingleAllowNoneProps<K extends Key, E extends Keyed<K>>
+  extends BaseProps<K, E> {
   allowMultiple: false;
-  allowNone?: true | undefined;
+  allowNone?: true;
+  autoSelectOnNone?: boolean;
   value: K | null;
   onChange: (next: K | null, extra: UseSelectOnChangeExtra<K, E>) => void;
 }
 
-export interface UseSelectSingleDisallowNoneProps<K extends Key, E extends Keyed<K>> {
-  data: E[];
-  replaceOnSingle?: boolean;
+export interface UseSelectSingleDisallowNoneProps<K extends Key, E extends Keyed<K>>
+  extends BaseProps<K, E> {
   allowMultiple: false;
-  allowNone: false;
+  allowNone: false | undefined;
+  autoSelectOnNone?: boolean;
   value: K;
   onChange: (next: K, extra: UseSelectOnChangeExtra<K, any>) => void;
 }
@@ -56,19 +60,29 @@ export type UseSelectSingleProps<K extends Key, E extends Keyed<K>> = Optional<
   "allowNone"
 >;
 
-export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>> {
-  data: E[] | (() => E[]);
+export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>>
+  extends BaseProps<K, E> {
   allowMultiple?: true;
-  replaceOnSingle?: boolean;
   allowNone?: boolean;
+  autoSelectOnNone?: boolean;
   value: K | K[];
   onChange: (next: K[], extra: UseSelectOnChangeExtra<K, E>) => void;
 }
 
 /** Props for the {@link useSelect} hook. */
 export type UseSelectProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> =
-  | UseSelectSingleInternalProps<K, E>
+  | UseSelectSingleProps<K, E>
   | UseSelectMultipleProps<K, E>;
+
+export type FlexUseSelectProps<K extends Key, E extends Keyed<K>> = {
+  data?: E[] | (() => E[]);
+  value: K | K[] | null;
+  allowMultiple?: boolean;
+  allowNone?: boolean;
+  autoSelectOnNone?: boolean;
+  replaceOnSingle?: boolean;
+  onChange: (next: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => void;
+};
 
 /** Return value for the {@link useSelect} hook. */
 export interface UseSelectMultipleReturn<K extends Key = Key> {
@@ -78,7 +92,15 @@ export interface UseSelectMultipleReturn<K extends Key = Key> {
 
 export const selectValueIsZero = <K extends Key>(
   value: K | K[] | null,
-): value is null | K[] => value == null || (Array.isArray(value) && value.length === 0);
+): value is null | K[] => {
+  if (value == null) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "string") return value.length === 0;
+  return false;
+};
+
+const DEFAULT_PROPS_DATA: any[] = [];
+const DEFAULT_PROPS_VALUE: any[] = [];
 
 /**
  * Implements generic selection over a collection of keyed records. The hook
@@ -106,15 +128,17 @@ export const selectValueIsZero = <K extends Key>(
  * @returns clear - A callback that can be used to clear the selection.
  */
 export const useSelect = <K extends Key, E extends Keyed<K>>({
-  data: propsData,
-  value: propsValue = [],
+  data: propsData = DEFAULT_PROPS_DATA,
+  value: propsValue = DEFAULT_PROPS_VALUE,
   allowMultiple,
   allowNone,
   replaceOnSingle = false,
+  autoSelectOnNone = false,
   onChange,
-}: UseSelectProps<K, E>): UseSelectMultipleReturn<K> => {
+}: UseSelectProps<K, E> | FlexUseSelectProps<K, E>): UseSelectMultipleReturn<K> => {
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
+  const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
 
   const valueRef = useSyncedRef(propsValue);
   const dataRef = useSyncedRef(propsData);
@@ -124,7 +148,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       valueRef.current = next;
       if (next.length === 0 && allowNone !== false) {
         if (allowMultiple !== false) return onChange([], extra);
-        return onChange(null, extra);
+        return onChange(null as unknown as K, extra);
       }
       if (allowMultiple !== false) return onChange(next, extra);
       if (next.length > 0) return onChange(next[0], extra);
@@ -137,8 +161,14 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
     if (!Array.isArray(data)) data = data();
     // If for some reason the value is empty and it shouldn't be, automatically set
     // it to the new value..
-    if (selectValueIsZero(propsValue) && allowNone === false && data.length > 0) {
+    if (
+      selectValueIsZero(propsValue) &&
+      allowNone === false &&
+      data.length > 0 &&
+      autoSelectOnNone
+    ) {
       const first = data[0];
+      shiftValueRef.current = first.key;
       handleChange([first.key], {
         entries: [first],
         clicked: first.key,
@@ -154,8 +184,14 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       if (!Array.isArray(data)) data = data();
       let nextSelected: K[] = [];
       const value = toArray(valueRef.current).filter((v) => v != null) as K[];
-      if (allowMultiple === false) {
-        nextSelected = value.includes(key) ? [] : [key];
+      // Simple case. If we can't allow multiple, then just toggle the key.
+      if (allowMultiple === false) nextSelected = value.includes(key) ? [] : [key];
+      // If the control key is held, we can still allow multiple selection.
+      else if (ctrl.current.held && replaceOnSingle) {
+        // Remove the key if it's already selected.
+        if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+        // Add it if its not.
+        else nextSelected = [...value, key];
       } else if (shift.current.held && shiftValue !== null) {
         // We might select in reverse order, so we need to sort the indexes.
         const [start, end] = [
@@ -180,7 +216,15 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
         else nextSelected = [...value, key];
       }
       const v = unique(nextSelected);
-      if (allowNone === false && v.length === 0) return;
+      if (allowNone === false && v.length === 0) {
+        // If we're not allowed to have no select, still call handleChange with the same
+        // value. This is useful when you want to close a dialog on selection.
+        return handleChange(value, {
+          entries: data.filter(({ key }) => value.includes(key)),
+          clicked: key,
+          clickedIndex: data.findIndex(({ key: k }) => k === key),
+        });
+      }
       if (v.length === 0) shiftValueRef.current = null;
       handleChange(v, {
         entries: data.filter(({ key }) => nextSelected.includes(key)),
@@ -188,7 +232,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
         clickedIndex: data.findIndex(({ key: k }) => k === key),
       });
     },
-    [valueRef, dataRef, handleChange, allowMultiple],
+    [valueRef, dataRef, handleChange, allowMultiple, allowNone],
   );
 
   const clear = useCallback(

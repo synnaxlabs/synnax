@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -39,8 +39,8 @@
 
 .pluto-macos-control:disabled {
     border: none;
-    background: var(--pluto-gray-l3);
-    border-color: var(--pluto-gray-l3);
+    background: var(--pluto-gray-l4);
+    border-color: var(--pluto-gray-l5);
     & * {
         display: none;
     }
@@ -63,6 +63,6 @@
     }
 }
 
-.pluto-macos-control:active {
+.pluto-macos-control:active:not(:disabled) {
     filter: brightness(0.8);
 }

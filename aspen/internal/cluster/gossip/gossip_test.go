@@ -11,11 +11,12 @@ package gossip_test
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -51,6 +52,7 @@ var _ = Describe("OperationSender", func() {
 			gossipCtx, cancel = signal.WithCancel(ctx)
 			var err error
 			g1, err = gossip.New(gossip.Config{
+				Instrumentation: PanicLogger(),
 				Store:           sOne,
 				TransportClient: net.UnaryClient(),
 				TransportServer: t1,
@@ -58,6 +60,7 @@ var _ = Describe("OperationSender", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			_, err = gossip.New(gossip.Config{
+				Instrumentation: PanicLogger(),
 				Store:           sTwo,
 				TransportClient: net.UnaryClient(),
 				TransportServer: t2,
@@ -86,9 +89,10 @@ var _ = Describe("OperationSender", func() {
 				g.Expect(sOne.CopyState().Nodes[2].Heartbeat.Version).To(Equal(uint32(0)))
 			}).Should(Succeed())
 		})
-		It("Should return an error when an invalid message is received", func() {
-			_, err := net.UnaryClient().Send(context.Background(), t2.Address, gossip.Message{})
-			Expect(err).To(HaveOccurred())
+		It("Should DPanic when an invalid message is received", func() {
+			Expect(func() {
+				net.UnaryClient().Send(context.Background(), t2.Address, gossip.Message{})
+			}).To(Panic())
 		})
 	})
 })

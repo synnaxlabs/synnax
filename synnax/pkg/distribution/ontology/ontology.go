@@ -26,11 +26,11 @@ package ontology
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -135,12 +135,16 @@ type Writer interface {
 	// incoming and outgoing relationships.  If the resource does not exist,
 	// DeleteResource does nothing.
 	DeleteResource(ctx context.Context, id ID) error
+	// DeleteManyResources deletes multiple resources with the given IDs along with all of
+	// their incoming and outgoing relationships. If any of the resources do not exist,
+	// DeleteManyResources does nothing.
+	DeleteManyResources(ctx context.Context, ids []ID) error
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given Keys. If the relationship already exists, DefineRelationship
 	// does nothing.
 	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DefineFromOneToManyRelationships defines a directional relationship of type t from
-	// the resource with the given Key to multiple resources. If any of the relationships
+	// the resource with the given Task to multiple resources. If any of the relationships
 	// already exist, DefineFromOneToManyRelationships does nothing.
 	DefineFromOneToManyRelationships(ctx context.Context, from ID, t RelationshipType, to []ID) error
 	// DeleteRelationship deletes the relationship with the given Keys and type. If the
@@ -186,6 +190,7 @@ func (o *Ontology) RegisterService(s Service) {
 	if !*o.Config.EnableSearch {
 		return
 	}
+	o.search.Register(context.TODO(), *s.Schema())
 
 	o.search.Go.Go(func(ctx context.Context) error {
 		n, err := s.OpenNexter()

@@ -6,10 +6,9 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-
+from __future__ import annotations
 
 from typing import overload
-
 from numpy import ndarray
 from pydantic import PrivateAttr
 
@@ -24,8 +23,8 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
-from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
-from synnax.framer.client import Client
+from synnax.exceptions import NotFoundError, MultipleFoundError, ValidationError
+from synnax.framer.client import Client as FrameClient
 from synnax.telem import (
     CrudeDataType,
     CrudeRate,
@@ -36,6 +35,8 @@ from synnax.telem import (
     TimeRange,
 )
 
+from synnax.util.normalize import normalize
+
 
 class Channel(ChannelPayload):
     """A channel is a logical collection of samples emitted by or representing the
@@ -43,7 +44,8 @@ class Channel(ChannelPayload):
     introduction to channels and how they work.
     """
 
-    ___frame_client: Client | None = PrivateAttr(None)
+    ___frame_client: FrameClient | None = PrivateAttr(None)
+    __client: ChannelClient | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -58,7 +60,9 @@ class Channel(ChannelPayload):
         index: ChannelKey = 0,
         leaseholder: int = 0,
         key: ChannelKey = 0,
-        _frame_client: Client | None = None,
+        internal: bool = False,
+        _frame_client: FrameClient | None = None,
+        _client: ChannelClient | None = None,
     ) -> None:
         """Initializes a new Channel using the given parameters. It's important to note
         that this does not create the Channel in the cluster. To create the channel,
@@ -88,8 +92,10 @@ class Channel(ChannelPayload):
             key=key,
             is_index=is_index,
             index=index,
+            internal=internal,
         )
         self.___frame_client = _frame_client
+        self.__client = _client
 
     @overload
     def read(
@@ -130,10 +136,18 @@ class Channel(ChannelPayload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self.__frame_client.write(start, data, self.key)
+        self.__frame_client.write(start, self.key, data)
+
+    def rename(self, name: ChannelName) -> None:
+        """Renames the channel.
+
+        :param name: The new name for the channel.
+        :returns: None.
+        """
+        self.__client.rename(self.key, name)
 
     @property
-    def __frame_client(self) -> Client:
+    def __frame_client(self) -> FrameClient:
         if self.___frame_client is None:
             raise ValidationError(
                 "Cannot read from or write to channel that has not been created."
@@ -161,13 +175,13 @@ class Channel(ChannelPayload):
 class ChannelClient:
     """The core py class for executing channel operations against a Synnax cluster."""
 
-    _frame_client: Client
+    _frame_client: FrameClient
     _retriever: ChannelRetriever
     _creator: ChannelWriter
 
     def __init__(
         self,
-        frame_client: Client,
+        frame_client: FrameClient,
         retriever: ChannelRetriever,
         creator: ChannelWriter,
     ):
@@ -323,6 +337,34 @@ class ChannelClient:
             raise _multiple_results_error(channel, res)
 
         raise NotFoundError(f"Channel matching '{channel}' not found.")
+
+    @overload
+    def rename(self, keys: ChannelKey, names: ChannelName) -> None:
+        """Renames a channel in the cluster.
+
+        :param keys: The key of the channel to rename.
+        :param names: The new name for the channel.
+        :returns: None.
+        """
+        ...
+
+    @overload
+    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+        """Renames one or more channels in the cluster.
+
+        :param keys: The keys of the channels to rename.
+        :param names: The new names for the channels.
+        :returns: None.
+        """
+
+    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+        """Renames one or more channels in the cluster.
+
+        :param keys: The keys of the channels to rename.
+        :param names: The new names for the channels.
+        :returns: None.
+        """
+        self._creator.rename(normalize(keys), normalize(names))
 
     def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
         return [Channel(**c.dict(), _frame_client=self._frame_client) for c in channels]

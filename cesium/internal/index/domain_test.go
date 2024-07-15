@@ -14,25 +14,28 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Domain", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
-		Describe("FS:"+fsName, func() {
+		Describe("FS:"+fsName, Ordered, func() {
 			var (
-				db  *domain.DB
-				idx index.Index
+				db      *domain.DB
+				idx     index.Index
+				fs      xfs.FS
+				cleanUp func() error
 			)
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))
+				fs, cleanUp = makeFS()
+				db = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}))
 				idx = &index.Domain{DB: db}
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Distance", func() {
 				Context("Continuous", func() {
@@ -50,13 +53,14 @@ var _ = Describe("Domain", func() {
 							expected index.DistanceApproximation,
 							expectedErr error,
 						) {
-							actual, err := idx.Distance(ctx, tr /*continuous*/, true)
+							actual, db, err := idx.Distance(ctx, tr /*continuous*/, true)
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
 							Expect(actual).To(Equal(expected))
+							Expect(db).To(Equal(index.ExactDomainBounds(0)))
 						},
 						Entry("Zero zero",
 							telem.TimeRangeZero,
@@ -130,6 +134,132 @@ var _ = Describe("Domain", func() {
 						),
 					)
 				})
+
+				// Distance does not work on discontinuous domains if the end time range
+				// is not in any domain: in backlog to be fixed.
+
+				Context("Discontinuous", func() {
+					BeforeEach(func() {
+						Expect(domain.Write(
+							ctx,
+							db,
+							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+						)).To(Succeed())
+						Expect(domain.Write(
+							ctx,
+							db,
+							(25 * telem.SecondTS).Range(30*telem.SecondTS+1),
+							telem.NewSecondsTSV(25, 26, 28, 30).Data,
+						)).To(Succeed())
+						Expect(domain.Write(
+							ctx,
+							db,
+							(40 * telem.SecondTS).Range(43*telem.SecondTS+1),
+							telem.NewSecondsTSV(40, 42, 43).Data,
+						)).To(Succeed())
+					})
+					DescribeTable("Discontinuous",
+						func(
+							tr telem.TimeRange,
+							expected index.DistanceApproximation,
+							db index.DomainBounds,
+							err error,
+						) {
+							actual, bounds, e := idx.Distance(ctx, tr, false)
+							if err == nil {
+								Expect(actual).To(Equal(expected))
+								Expect(db).To(Equal(bounds))
+							} else {
+								Expect(e).To(MatchError(err))
+							}
+						},
+						Entry("Zero zero",
+							telem.TimeRangeZero,
+							index.Exactly[int64](0),
+							index.ExactDomainBounds(0),
+							index.ErrDiscontinuous,
+						),
+						Entry("Exact, start and end equal",
+							(27*telem.SecondTS).SpanRange(0),
+							index.Exactly[int64](0),
+							index.ExactDomainBounds(1),
+							nil,
+						),
+						Entry("Exact, start in domain, end not in domain",
+							(15*telem.SecondTS).Range(22*telem.SecondTS),
+							index.Exactly[int64](3),
+							index.BetweenDomains(0, 1),
+							nil,
+						),
+						Entry("Inexact, start in domain, end not in domain",
+							(14*telem.SecondTS).Range(22*telem.SecondTS),
+							index.Between[int64](3, 4),
+							index.BetweenDomains(0, 1),
+							nil,
+						),
+						Entry("Exact, start in domain, end not in domain (after a domain)",
+							(15*telem.SecondTS).Range(35*telem.SecondTS),
+							index.Exactly[int64](7),
+							index.BetweenDomains(0, 2),
+							nil,
+						),
+						Entry("Inexact, start in domain end not in domain (after a domain)",
+							(14*telem.SecondTS).Range(35*telem.SecondTS),
+							index.Between[int64](7, 8),
+							index.BetweenDomains(0, 2),
+							nil,
+						),
+						Entry("Exact, start in domain, end in domain",
+							(15*telem.SecondTS).Range(42*telem.SecondTS),
+							index.Exactly[int64](8),
+							index.BetweenDomains(0, 2),
+							nil,
+						),
+						Entry("End inexact, start in domain, end in domain",
+							(15*telem.SecondTS).Range(42*telem.SecondTS+500*telem.MillisecondTS),
+							index.Between[int64](8, 9),
+							index.BetweenDomains(0, 2),
+							nil,
+						),
+						Entry("Start inexact, start in domain, end in domain",
+							(14*telem.SecondTS).Range(42*telem.SecondTS),
+							index.Between[int64](8, 9),
+							index.BetweenDomains(0, 2),
+							nil,
+						),
+						Entry("Both inexact, start in domain, end in domain",
+							(14*telem.SecondTS).Range(42*telem.SecondTS+500*telem.MillisecondTS),
+							index.Between[int64](8, 10),
+							index.BetweenDomains(0, 2),
+							nil,
+						),
+						Entry("End exact, start not in domain, end in first domain",
+							(-1*telem.SecondTS).Range(5*telem.SecondTS),
+							index.Between[int64](3, 4),
+							index.BetweenDomains(0, 0),
+							nil,
+						),
+						Entry("End inexact, start not in domain, end in first domain",
+							(-1*telem.SecondTS).Range(6*telem.SecondTS),
+							index.Between[int64](3, 5),
+							index.BetweenDomains(0, 0),
+							nil,
+						),
+						Entry("End exact, start not in domain, end not in first domain",
+							(-1*telem.SecondTS).Range(26*telem.SecondTS),
+							index.Between[int64](10, 11),
+							index.BetweenDomains(0, 1),
+							nil,
+						),
+						Entry("End inexact, start not in domain, end not in first domain",
+							(-1*telem.SecondTS).Range(27*telem.SecondTS),
+							index.Between[int64](10, 12),
+							index.BetweenDomains(0, 1),
+							nil,
+						),
+					)
+				})
 			})
 			Describe("Stamp", func() {
 				Context("Continuous", func() {
@@ -174,8 +304,8 @@ var _ = Describe("Domain", func() {
 							nil,
 						),
 						Entry("Ref in range and exact, distance out of range",
-							2*telem.SecondTS,
-							20,
+							19*telem.SecondTS,
+							4,
 							index.Exactly[telem.TimeStamp](0),
 							index.ErrDiscontinuous,
 						),
@@ -185,7 +315,187 @@ var _ = Describe("Domain", func() {
 							index.Between[telem.TimeStamp](9*telem.SecondTS, 15*telem.SecondTS),
 							nil,
 						),
+						Entry("Ref in range and inexact, distance on the edge",
+							4*telem.SecondTS,
+							6,
+							index.Exactly[telem.TimeStamp](0),
+							index.ErrDiscontinuous,
+						),
 					)
+				})
+
+				Context("Quasi-continuous (many contiguous domains)", func() {
+					BeforeEach(func() {
+						Expect(domain.Write(
+							ctx,
+							db,
+							(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+						)).To(Succeed())
+
+						Expect(domain.Write(
+							ctx,
+							db,
+							(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
+							telem.NewSecondsTSV(20, 21, 22, 23, 25, 26).Data,
+						)).To(Succeed())
+
+						Expect(domain.Write(
+							ctx,
+							db,
+							(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
+							telem.NewSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
+						)).To(Succeed())
+
+						Expect(domain.Write(
+							ctx,
+							db,
+							(40 * telem.SecondTS).Range(45*telem.SecondTS+1),
+							telem.NewSecondsTSV(40, 41, 45).Data,
+						)).To(Succeed())
+					})
+					DescribeTable("Quasi-continuous", func(
+						start telem.TimeStamp,
+						distance int,
+						expected index.TimeStampApproximation,
+						expectedErr error,
+					) {
+						actual, err := idx.Stamp(ctx, start, int64(distance), true)
+						if expectedErr != nil {
+							Expect(err).To(HaveOccurredAs(expectedErr))
+						} else {
+							Expect(err).To(BeNil())
+						}
+						Expect(actual).To(Equal(expected))
+					},
+						Entry("Zero zero",
+							0*telem.SecondTS,
+							0,
+							index.Exactly[telem.TimeStamp](0),
+							index.ErrDiscontinuous,
+						),
+						Entry("Empty range",
+							19*telem.SecondTS+1,
+							0,
+							index.Exactly(19*telem.SecondTS+1),
+							nil,
+						),
+						Entry("Ref in range and exact, distance in range",
+							2*telem.SecondTS,
+							13,
+							index.Exactly(27*telem.SecondTS),
+							nil,
+						),
+						Entry("Ref in range and exact, distance out of range",
+							2*telem.SecondTS,
+							20,
+							index.Exactly[telem.TimeStamp](0),
+							index.ErrDiscontinuous,
+						),
+						Entry("Ref in range and exact, distance out of range",
+							2*telem.SecondTS,
+							40,
+							index.Exactly[telem.TimeStamp](0),
+							index.ErrDiscontinuous,
+						),
+						Entry("Ref in range an exact, distance at the end of domain",
+							2*telem.SecondTS,
+							12,
+							index.Exactly[telem.TimeStamp](26*telem.SecondTS),
+							nil,
+						),
+						Entry("Ref in range and exact, distance at the start of domain",
+							2*telem.SecondTS,
+							13,
+							index.Exactly[telem.TimeStamp](27*telem.SecondTS),
+							nil,
+						),
+						Entry("Ref in range and inexact",
+							4*telem.SecondTS,
+							12,
+							index.Between[telem.TimeStamp](27*telem.SecondTS, 29*telem.SecondTS),
+							nil,
+						),
+						Entry("Ref in range and inexact, and end is between two domains",
+							4*telem.SecondTS,
+							11,
+							index.Between[telem.TimeStamp](26*telem.SecondTS, 27*telem.SecondTS),
+							nil,
+						),
+						Entry("Ref in range and inexact, distance out of range",
+							4*telem.SecondTS,
+							17,
+							index.Between[telem.TimeStamp](34*telem.SecondTS, 35*telem.SecondTS),
+							nil,
+						),
+						Entry("Ref in range and exact, distance partially out of range",
+							4*telem.SecondTS,
+							18,
+							index.Exactly[telem.TimeStamp](0),
+							index.ErrDiscontinuous,
+						),
+						Entry("Ref in range and exact, distance totally out of range",
+							10*telem.SecondTS,
+							50,
+							index.Exactly[telem.TimeStamp](0),
+							index.ErrDiscontinuous,
+						),
+						Entry("Ref between two domains, distance in range",
+							19*telem.SecondTS+500*telem.MillisecondTS,
+							1,
+							index.Between[telem.TimeStamp](20*telem.SecondTS, 21*telem.SecondTS),
+							nil,
+						),
+						Entry("Ref between two domains, distance 0",
+							19*telem.SecondTS+500*telem.MillisecondTS,
+							0,
+							index.Between[telem.TimeStamp](19*telem.SecondTS+500*telem.MillisecondTS, 19*telem.SecondTS+500*telem.MillisecondTS),
+							nil,
+						),
+						Entry("Ref between two domains, distance between two domains",
+							19*telem.SecondTS+500*telem.MillisecondTS,
+							6,
+							index.Between[telem.TimeStamp](26*telem.SecondTS, 27*telem.SecondTS),
+							nil,
+						),
+						Entry("Ref between two domains, distance partially out of range",
+							19*telem.SecondTS+500*telem.MillisecondTS,
+							13,
+							index.Exactly[telem.TimeStamp](0),
+							index.ErrDiscontinuous,
+						),
+					)
+				})
+				Specify("Quasi-continuous without ending domain", func() {
+					Expect(domain.Write(
+						ctx,
+						db,
+						(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
+						telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+					)).To(Succeed())
+
+					Expect(domain.Write(
+						ctx,
+						db,
+						(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
+						telem.NewSecondsTSV(20, 21, 22, 23, 25, 26).Data,
+					)).To(Succeed())
+
+					Expect(domain.Write(
+						ctx,
+						db,
+						(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
+						telem.NewSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
+					)).To(Succeed())
+
+					Expect(MustSucceed(idx.Stamp(ctx, 25*telem.SecondTS, 8, true))).To(Equal(index.Exactly[telem.TimeStamp](35 * telem.SecondTS)))
+					_, err := idx.Stamp(ctx, 25*telem.SecondTS, 9, true)
+					Expect(err).To(MatchError(index.ErrDiscontinuous))
+					approx, err := idx.Stamp(ctx, 24*telem.SecondTS, 8, true)
+					Expect(approx).To(Equal(index.Between[telem.TimeStamp](34*telem.SecondTS, 35*telem.SecondTS)))
+					Expect(err).ToNot(HaveOccurred())
+					_, err = idx.Stamp(ctx, 24*telem.SecondTS, 9, true)
+					Expect(err).To(MatchError(index.ErrDiscontinuous))
 				})
 				Context("Discontinuous", func() {
 					BeforeEach(func() {

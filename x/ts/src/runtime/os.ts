@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,10 +13,17 @@ export const OPERATING_SYSTEMS = ["MacOS", "Windows", "Linux", "Docker"] as cons
 export const osZ = z.enum(OPERATING_SYSTEMS);
 export type OS = (typeof OPERATING_SYSTEMS)[number];
 
-export interface GetOSProps {
+export type RequiredGetOSProps = {
   force?: OS;
   default?: OS;
-}
+};
+
+export type OptionalGetOSProps = {
+  force?: OS | undefined;
+  default: OS;
+};
+
+export type GetOSProps = RequiredGetOSProps | OptionalGetOSProps;
 
 let os: OS | undefined;
 
@@ -29,10 +36,15 @@ const evalOS = (): OS | undefined => {
   return undefined;
 };
 
-export const getOS = (props: GetOSProps = {}): OS | undefined => {
+export interface GetOS {
+  (props?: RequiredGetOSProps): OS;
+  (props?: OptionalGetOSProps): OS | undefined;
+}
+
+export const getOS = ((props: GetOSProps = {}): OS | undefined => {
   const { force, default: default_ } = props;
   if (force != null) return force;
   if (os != null) return os;
   os = evalOS();
   return os ?? default_;
-};
+}) as unknown as GetOS;

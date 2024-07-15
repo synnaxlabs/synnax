@@ -9,7 +9,7 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 
-import { type Middleware, type Context } from "@/middleware";
+import { type Context,type Middleware } from "@/middleware";
 
 export const middleware =
   (instrumentation: Instrumentation): Middleware =>

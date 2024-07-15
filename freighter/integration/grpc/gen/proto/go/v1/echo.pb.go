@@ -119,7 +119,7 @@ var file_v1_echo_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_v1_echo_proto_goTypes = []interface{}{
 	(*Message)(nil), // 0: integration.v1.Message
 }
-var file_v1_echo_proto_depIdxs = []int32{
+var file_v1_echo_proto_deschematicxs = []int32{
 	0, // 0: integration.v1.EchoService.Exec:input_type -> integration.v1.Message
 	0, // 1: integration.v1.EchoService.Exec:output_type -> integration.v1.Message
 	1, // [1:2] is the sub-list for method output_type
@@ -159,11 +159,11 @@ func file_v1_echo_proto_init() {
 			NumServices:   1,
 		},
 		GoTypes:           file_v1_echo_proto_goTypes,
-		DependencyIndexes: file_v1_echo_proto_depIdxs,
+		DependencyIndexes: file_v1_echo_proto_deschematicxs,
 		MessageInfos:      file_v1_echo_proto_msgTypes,
 	}.Build()
 	File_v1_echo_proto = out.File
 	file_v1_echo_proto_rawDesc = nil
 	file_v1_echo_proto_goTypes = nil
-	file_v1_echo_proto_depIdxs = nil
+	file_v1_echo_proto_deschematicxs = nil
 }

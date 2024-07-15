@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,18 +10,18 @@
 import { z } from "zod";
 
 import {
+  type ClientXY,
   clientXY,
   dimensions,
-  numberCouple,
-  xy,
-  type NumberCouple,
-  type ClientXY,
-  type XY,
-  signedDimensions,
   type Direction,
+  type NumberCouple,
+  numberCouple,
+  signedDimensions,
+  type XY,
+  xy,
 } from "@/spatial/base";
 
-export { clientXY, xy, type ClientXY as Client, type XY };
+export { type ClientXY as Client, clientXY, type XY,xy };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
@@ -60,16 +60,16 @@ export const construct = (x: Crude | Direction, y?: number): XY => {
 };
 
 /** An x and y coordinate of zero */
-export const ZERO = { x: 0, y: 0 };
+export const ZERO: XY = Object.freeze({ x: 0, y: 0 });
 
 /** An x and y coordinate of one */
-export const ONE = { x: 1, y: 1 };
+export const ONE: XY = Object.freeze({ x: 1, y: 1 });
 
 /** An x and y coordinate of infinity */
-export const INFINITY = { x: Infinity, y: Infinity };
+export const INFINITY: XY = Object.freeze({ x: Infinity, y: Infinity });
 
 /** An x and y coordinate of NaN */
-export const NAN = { x: NaN, y: NaN };
+export const NAN: XY = Object.freeze({ x: NaN, y: NaN });
 
 /** @returns true if the two XY coordinates are semantically equal. */
 export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {
@@ -86,9 +86,10 @@ export const isZero = (c: Crude): boolean => equals(c, ZERO);
  * @returns the given coordinate scaled by the given factors. If only one factor is given,
  * the y factor is assumed to be the same as the x factor.
  */
-export const scale = (c: Crude, x: number, y: number = x): XY => {
+export const scale = (c: Crude, x: number | Crude, y?: number): XY => {
   const p = construct(c);
-  return { x: p.x * x, y: p.y * y };
+  const xy = construct(x, y);
+  return { x: p.x * xy.x, y: p.y * xy.y };
 };
 
 /** @returns the given coordinate translated in the X direction by the given amount. */
@@ -138,20 +139,6 @@ export const distance = (ca: Crude, cb: Crude): number => {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 };
 
-/** @returns the magnitude of the x distance between the two given coordinates. */
-export const xDistance = (ca: Crude, cb: Crude): number => {
-  const a = construct(ca);
-  const b = construct(cb);
-  return Math.abs(a.x - b.x);
-};
-
-/** @returns the magnitude of the y distance between the two given coordinates. */
-export const yDistance = (ca: Crude, cb: Crude): number => {
-  const a = construct(ca);
-  const b = construct(cb);
-  return Math.abs(a.y - b.y);
-};
-
 /**
  * @returns the translation that would need to be applied to move the first coordinate
  * to the second coordinate.
@@ -186,6 +173,12 @@ export const css = (a: Crude): { left: number; top: number } => {
   return { left: xy.x, top: xy.y };
 };
 
+/**
+ * Truncate the given coordinates to the given precision.
+ * @param a - The coordinates to truncate.
+ * @param precision - The number of decimal places to truncate to.
+ * @returns The truncated coordinates.
+ */
 export const truncate = (a: Crude, precision: number = 0): XY => {
   const xy = construct(a);
   return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };

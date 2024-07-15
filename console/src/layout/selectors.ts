@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,13 +12,13 @@ import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
-import { type LayoutState } from "@/layout/layout";
+import { type State } from "@/layout/slice";
 import {
+  type NavDrawerEntryState,
+  type NavDrawerLocation,
+  SLICE_NAME,
   type SliceState,
   type StoreState,
-  SLICE_NAME,
-  type NavdrawerEntryState,
-  type NavdrawerLocation,
 } from "@/layout/slice";
 
 /**
@@ -35,14 +35,28 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
  * @param key - The layout key.
  * @returns The layout. Undefined if not found.
  */
-export const select = (state: StoreState, key: string): LayoutState | undefined =>
+export const select = (state: StoreState, key: string): State | undefined =>
   selectSliceState(state).layouts[key];
 
-export const selectRequired = (state: StoreState, key: string): LayoutState => {
+export const selectRequired = (state: StoreState, key: string): State => {
   const layout = select(state, key);
   if (layout == null) throw new Error(`Layout ${key} not found`);
   return layout;
 };
+
+export const selectArgs = <A>(state: StoreState, key: string): A => {
+  const layout = select(state, key);
+  return layout?.args as A;
+};
+
+export const useSelectArgs = <A>(key: string): A =>
+  useMemoSelect((state: StoreState) => selectArgs(state, key), [key]);
+
+export const selectAltKey = (state: StoreState, key: string): string | undefined =>
+  selectSliceState(state).keyToAltKey[key];
+
+export const useSelectAltKey = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectAltKey(state, key), [key]);
 
 /**
  * Selects a layout from the store by key.
@@ -50,11 +64,18 @@ export const selectRequired = (state: StoreState, key: string): LayoutState => {
  * @param key - The layout key.
  * @returns The layout. Undefined if not found.
  */
-export const useSelect = (key: string): LayoutState | undefined =>
+export const useSelect = (key: string): State | undefined =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
-export const useSelectRequired = (key: string): LayoutState =>
+export const useSelectRequired = (key: string): State =>
   useMemoSelect((state: StoreState) => selectRequired(state, key), [key]);
+
+export const selectModals = (state: StoreState): State[] =>
+  Object.values(state[SLICE_NAME].layouts).filter(
+    ({ location }) => location === "modal",
+  );
+
+export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
 
 /**
  * Selects the central layout mosaic from the store.
@@ -133,8 +154,8 @@ export const useSelectTheme = (key?: string): Theming.Theme | null | undefined =
  * selected.
  * @returns The layouts with the given keys.
  */
-export const selectMany = (state: StoreState, keys?: string[]): LayoutState[] =>
-  selectByKeys<string, LayoutState>(selectSliceState(state).layouts, keys);
+export const selectMany = (state: StoreState, keys?: string[]): State[] =>
+  selectByKeys<string, State>(selectSliceState(state).layouts, keys);
 
 /**
  * Selects layouts from the store by a set of keys. If no keys are provided, all layouts
@@ -143,13 +164,13 @@ export const selectMany = (state: StoreState, keys?: string[]): LayoutState[] =>
  * @param keys - The keys of the layouts to select. If not provided, all layouts are
  * @returns The layouts with the given keys.
  */
-export const useSelectMany = (keys?: string[]): LayoutState[] =>
+export const useSelectMany = (keys?: string[]): State[] =>
   useMemoSelect((state: StoreState) => selectMany(state, keys), [keys]);
 
 export const selectNavDrawer = (
   state: StoreState & Drift.StoreState,
-  loc: NavdrawerLocation,
-): NavdrawerEntryState | null => {
+  loc: NavDrawerLocation,
+): NavDrawerEntryState | null => {
   const winKey = selectWindowKey(state) as string;
   const navState = selectSliceState(state).nav[winKey];
   if (navState == null) return null;
@@ -157,8 +178,8 @@ export const selectNavDrawer = (
 };
 
 export const useSelectNavDrawer = (
-  loc: NavdrawerLocation,
-): NavdrawerEntryState | null =>
+  loc: NavDrawerLocation,
+): NavDrawerEntryState | null =>
   useMemoSelect(
     (state: StoreState & Drift.StoreState) => selectNavDrawer(state, loc),
     [loc],
@@ -176,17 +197,17 @@ export const selectActiveMosaicTabKey = (
 export const useSelectActiveMosaicTabKey = (): string | null =>
   useMemoSelect(selectActiveMosaicTabKey, []);
 
-export const selectActiveMosaicTab = (
+export const selectActiveMosaicLayout = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
-): LayoutState | undefined => {
+): State | undefined => {
   const activeTabKey = selectActiveMosaicTabKey(state, windowKey);
   if (activeTabKey == null) return undefined;
   return select(state, activeTabKey);
 };
 
-export const useSelectActiveMosaicLayout = (): LayoutState | undefined => {
-  return useMemoSelect(selectActiveMosaicTab, []);
+export const useSelectActiveMosaicLayout = (): State | undefined => {
+  return useMemoSelect(selectActiveMosaicLayout, []);
 };
 
 export const selectHauling = (state: StoreState): Haul.DraggingState =>

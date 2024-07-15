@@ -1,0 +1,54 @@
+cc_binary(
+    name = "server",
+    srcs = ["server.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+            "bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/opc:mbedtls",
+        "@open62541",
+    ],
+)
+
+cc_binary(
+    name = "server_encrypted",
+    srcs = ["server_encrypted.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+            "bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/opc:mbedtls",
+        "@open62541",
+    ],
+)
+
+cc_binary(
+    name = "client_encrypted",
+    srcs = ["dev/client_encrypted.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/opc:mbedtls",
+        "@open62541",
+    ],
+)

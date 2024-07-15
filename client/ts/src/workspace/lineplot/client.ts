@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x/record";
 
-import { type LinePlot, type Key, type Params } from "@/workspace/lineplot/payload";
+import { type Key, type LinePlot, type Params } from "@/workspace/lineplot/payload";
 import { Retriever } from "@/workspace/lineplot/retriever";
 import { type NewLinePlot, Writer } from "@/workspace/lineplot/writer";
 
@@ -23,8 +23,8 @@ export class Client {
     this.retriever = new Retriever(client);
   }
 
-  async create(workspace: string, pid: NewLinePlot): Promise<LinePlot> {
-    return await this.writer.create(workspace, pid);
+  async create(workspace: string, schematic: NewLinePlot): Promise<LinePlot> {
+    return await this.writer.create(workspace, schematic);
   }
 
   async rename(key: Key, name: string): Promise<void> {

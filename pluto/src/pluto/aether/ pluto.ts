@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,6 +22,7 @@ import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
+import { range } from "@/vis/lineplot/range/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { measure } from "@/vis/measure/aether";
 import { rule } from "@/vis/rule/aether";
@@ -33,7 +34,13 @@ export const render = (): void => {
   const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
   onmessage = w.handle.bind(w);
 
-  console.log("Rendering Pluto Aether");
+  // const fontFace = new FontFace(
+  //   "Inter Variable",
+  //   "local('Inter Variable'), url(https://cdn.jsdelivr.net/fontsource/fonts/inter:vf@latest/latin-wght-normal.woff2) format('woff2-variations')",
+  // );
+  // // @ts-expect-error - fontFace is not in the types of self
+  // self.fonts.add(fontFace);
+  // fontFace.load();
 
   const REGISTRY: aether.ComponentRegistry = {
     ...lineplot.REGISTRY,
@@ -53,6 +60,7 @@ export const render = (): void => {
     ...button.REGISTRY,
     ...alamos.REGISTRY,
     ...eraser.REGISTRY,
+    ...range.REGISTRY,
   };
 
   aether.render({

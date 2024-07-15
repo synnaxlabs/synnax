@@ -38,8 +38,10 @@ class Client:
     def delete_device(self, keys: list[str]):
         self.__writer.delete_device(keys)
 
-    def retrieve_rack(self, keys: list[int] | None = None) -> list[Rack]:
-        return self.__retriever.retrieve_rack(keys)
+    def retrieve_rack(
+        self, keys: list[int] | None = None, names: list[str] | None = None
+    ) -> list[Rack]:
+        return self.__retriever.retrieve_rack(keys=keys, names=names)
 
     def retrieve_task(
         self, rack: int | None = None, keys: list[int] | None = None

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,28 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
-
-import { Icon } from "@synnaxlabs/media";
-import { TimeSpan, toArray } from "@synnaxlabs/x";
-
-import { type Align } from "@/align";
-import { color } from "@/button/color";
-import { CSS } from "@/css";
-import { Text } from "@/text";
-import { Tooltip } from "@/tooltip";
-import { type ComponentSize } from "@/util/component";
-
 import "@/button/Button.css";
 
+import { Icon } from "@synnaxlabs/media";
+import { TimeSpan } from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+
+import { type Align } from "@/align";
+import { Color } from "@/color";
+import { CSS } from "@/css";
+import { status } from "@/status/aether";
+import { Text } from "@/text";
+import { Tooltip } from "@/tooltip";
+import { Triggers } from "@/triggers";
+import { type ComponentSize } from "@/util/component";
+
 /** The variant of button */
-export type Variant = "filled" | "outlined" | "text";
+export type Variant = "filled" | "outlined" | "text" | "suggestion";
 
 export interface ButtonExtensionProps {
   variant?: Variant;
   size?: ComponentSize;
   sharp?: boolean;
   loading?: boolean;
+  triggers?: Triggers.Trigger[];
+  status?: status.Variant;
 }
 
 /** The base props accepted by all button types in this directory. */
@@ -77,9 +81,12 @@ export const Button = Tooltip.wrap(
     disabled = false,
     loading = false,
     level,
+    triggers,
     startIcon = [] as ReactElement[],
     delay = 0,
     onClick,
+    color,
+    status,
     ...props
   }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
@@ -91,6 +98,12 @@ export const Button = Tooltip.wrap(
       if (span.isZero) return onClick?.(e);
     };
 
+    Triggers.use({
+      triggers,
+      // @ts-expect-error
+      callback: ({ stage }) => stage === "end" && handleClick(new MouseEvent("click")),
+    });
+
     return (
       <Text.WithIcon<"button", any>
         el="button"
@@ -99,6 +112,7 @@ export const Button = Tooltip.wrap(
           CSS.size(size),
           CSS.sharp(sharp),
           CSS.disabled(disabled),
+          status != null && CSS.M(status),
           CSS.BM("btn", variant),
           className,
         )}
@@ -107,7 +121,7 @@ export const Button = Tooltip.wrap(
         size={iconSpacing}
         onClick={handleClick}
         noWrap
-        color={color(variant, disabled, props.color, props.shade)}
+        color={Color.cssString(color)}
         startIcon={startIcon}
         {...props}
       >

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, xy } from "@synnaxlabs/x";
 import { type DragEvent, useEffect } from "react";
-
-import { xy, box } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks";
 import { type UseVirtualCursorDragProps } from "@/hooks/useCursorDrag/types";
@@ -65,10 +64,9 @@ export const useVirtualCursorDragWebView = ({
       el.requestPointerLock();
     };
 
-    // eslint-disable-next-line
     el.addEventListener("mousedown", onMouseDown);
 
-    document.addEventListener("pointerlockchange", (e) => {
+    document.addEventListener("pointerlockchange", () => {
       if (document.pointerLockElement !== el) return;
       const { start, mouseKey } = stateRef.current;
 
@@ -104,7 +102,6 @@ export const useVirtualCursorDragWebView = ({
       document.addEventListener("mouseup", handleUp, { once: true });
     });
 
-    // eslint-disable-next-line
     return () => el.removeEventListener("mousedown", onMouseDown);
   }, [onMove, onStart, onEnd]);
 };

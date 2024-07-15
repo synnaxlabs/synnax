@@ -10,17 +10,27 @@
 from __future__ import annotations
 
 from uuid import UUID
+from typing import overload
 
 import numpy as np
 from pydantic import PrivateAttr
 
-from synnax.channel import ChannelKey, ChannelName, ChannelPayload, ChannelRetriever
+from synnax.channel import (
+    ChannelKey,
+    ChannelName,
+    ChannelKeys,
+    ChannelNames,
+    ChannelParams,
+    ChannelPayload,
+    ChannelRetriever,
+)
 from synnax.exceptions import QueryError
 from synnax.framer import Client
+from synnax.framer.frame import CrudeFrame
 from synnax.ranger.alias import Aliaser
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import RangePayload
-from synnax.telem import DataType, Rate, SampleValue, Series, TimeRange
+from synnax.telem import DataType, Rate, SampleValue, Series, TimeRange, CrudeSeries
 from synnax.util.interop import overload_comparison_operators
 
 
@@ -82,6 +92,9 @@ class _InternalScopedChannel(ChannelPayload):
     def __str__(self) -> str:
         return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
 
+    def __len__(self):
+        return len(self.read())
+
 
 class ScopedChannel:
     """A channel that is scoped to a particular range. This class is returned when
@@ -113,7 +126,6 @@ class ScopedChannel:
 
     def __guard(self):
         if len(self.__internal) > 1:
-            print(self.__internal)
             raise QueryError(
                 f"""Multiple channels found for query '{self.__query}':
             {[str(ch) for ch in self.__internal]}
@@ -177,6 +189,9 @@ class ScopedChannel:
     def __iter__(self):
         return iter(self.__internal)
 
+    def __len__(self):
+        return sum(len(ch) for ch in self.__internal)
+
 
 _RANGE_NOT_CREATED = QueryError(
     """Cannot read from a range that has not been created.
@@ -210,6 +225,7 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         key: UUID = UUID(int=0),
+        color: str = "",
         *,
         _frame_client: Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
@@ -235,7 +251,7 @@ class Range(RangePayload):
             and from the cluster. This is provided by Synnax during calls to
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
         """
-        super().__init__(name=name, time_range=time_range, key=key)
+        super().__init__(name=name, time_range=time_range, key=key, color=color)
         self.__frame_client = _frame_client
         self.__channel_retriever = _channel_retriever
         self.__kv = _kv
@@ -254,8 +270,7 @@ class Range(RangePayload):
         return self.__getattr__(name)
 
     def __splice_cached(
-        self,
-        channels: list[ChannelPayload],
+        self, channels: list[ChannelPayload]
     ) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:
@@ -323,3 +338,26 @@ class Range(RangePayload):
 
     def to_payload(self) -> RangePayload:
         return RangePayload(name=self.name, time_range=self.time_range, key=self.key)
+
+    @overload
+    def write(self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries):
+        ...
+
+    @overload
+    def write(
+        self,
+        to: ChannelKeys | ChannelNames | list[ChannelPayload],
+        series: list[CrudeSeries],
+    ):
+        ...
+
+    @overload
+    def write(self, frame: CrudeFrame):
+        ...
+
+    def write(
+        self,
+        to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        series: CrudeSeries | list[CrudeSeries] | None = None,
+    ):
+        self.__frame_client.write(self.time_range.start, to, series)

@@ -1,51 +1,61 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { DataType, Rate } from "@synnaxlabs/x/telem";
 import { describe, expect, it, vi } from "vitest";
-import { newClient } from "@/setupspecs";
-import { DebouncedBatchRetriever, Retriever, analyzeParams } from "@/channel/retriever";
-import { Params, Payload } from "@/channel/payload";
-import { DataType, Rate } from "@synnaxlabs/x";
 
-
+import { type Params, type Payload } from "@/channel/payload";
+import {
+  analyzeChannelParams,
+  DebouncedBatchRetriever,
+  type RetrieveOptions,
+  type Retriever,
+} from "@/channel/retriever";
 
 class MockRetriever implements Retriever {
-  func: (channels: Params, rangeKey?: string) => Promise<Payload[]>;
+  func: (channels: Params, options?: RetrieveOptions) => Promise<Payload[]>;
 
-  constructor(func: (channels: Params, rangeKey?: string) => Promise<Payload[]>) {
+  constructor(
+    func: (channels: Params, options?: RetrieveOptions) => Promise<Payload[]>,
+  ) {
     this.func = func;
   }
 
-  async search(term: string, rangeKey?: string): Promise<Payload[]> {
+  async search(): Promise<Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
+  async page(): Promise<Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
-    return this.func(channels, rangeKey);
+  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
+    return await this.func(channels, options);
   }
-
 }
-
 
 describe("channelRetriever", () => {
   it("should batch multiple retrieve requests", async () => {
     const called = vi.fn();
     const base = new MockRetriever(async (batch): Promise<Payload[]> => {
       called(batch);
-      const {normalized} = analyzeParams(batch);
-      return normalized.map(
-        (key) =>
-          ({
-            key: key as number,
-            name: `channel-${key}`,
-            dataType: DataType.FLOAT32,
-            isIndex: false,
-            rate: Rate.hz(1),
-            leaseholder: 1,
-            index:0 
-          }),
-      );
+      const { normalized } = analyzeChannelParams(batch);
+      return normalized.map((key) => ({
+        key: key as number,
+        name: `channel-${key}`,
+        dataType: DataType.FLOAT32,
+        internal: false,
+        isIndex: false,
+        rate: Rate.hz(1),
+        leaseholder: 1,
+        index: 0,
+      }));
     });
     const retriever = new DebouncedBatchRetriever(base, 10);
     const res = await Promise.all([
@@ -61,20 +71,18 @@ describe("channelRetriever", () => {
     const called = vi.fn();
     const base = new MockRetriever(async (batch): Promise<Payload[]> => {
       called(batch);
-      const {normalized} = analyzeParams(batch);
-      return normalized.map(
-        (key) =>
-          ({
-            key: key as number,
-            name: `channel-${key}`,
-            dataType: DataType.FLOAT32,
-            isIndex: false,
-            rate: Rate.hz(1),
-            leaseholder: 1,
-            index:0 
-          }),
-      );
-    })
+      const { normalized } = analyzeChannelParams(batch);
+      return normalized.map((key) => ({
+        key: key as number,
+        name: `channel-${key}`,
+        dataType: DataType.FLOAT32,
+        internal: false,
+        isIndex: false,
+        rate: Rate.hz(1),
+        leaseholder: 1,
+        index: 0,
+      }));
+    });
     const retriever = new DebouncedBatchRetriever(base, 10);
     const res = await Promise.all([
       retriever.retrieve([1]),
@@ -86,7 +94,7 @@ describe("channelRetriever", () => {
     expect(res.map((r) => r.map((c) => c.key))).toEqual([[1], [2], [1, 2]]);
   });
   it("should throw an error if the fetch fails", async () => {
-    const base = new MockRetriever(async (batch): Promise<Payload[]> => {
+    const base = new MockRetriever(async (): Promise<Payload[]> => {
       throw new Error("failed to fetch");
     });
     const retriever = new DebouncedBatchRetriever(base, 10);

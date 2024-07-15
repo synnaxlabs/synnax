@@ -13,7 +13,7 @@ from enum import Enum
 
 import freighter
 
-_FREIGHTER_EXCEPTION_PREFIX = "sy.api."
+_FREIGHTER_EXCEPTION_PREFIX = "sy."
 
 
 @dataclass
@@ -22,52 +22,40 @@ class Field:
     message: str
 
 
-class APIErrorType(Enum):
-    GENERAL = _FREIGHTER_EXCEPTION_PREFIX + "general"
-    PARSE = _FREIGHTER_EXCEPTION_PREFIX + "parse"
-    AUTH = _FREIGHTER_EXCEPTION_PREFIX + "auth"
-    UNEXPECTED = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
-    VALIDATION = _FREIGHTER_EXCEPTION_PREFIX + "validation"
-    QUERY = _FREIGHTER_EXCEPTION_PREFIX + "query"
-    ROUTE = _FREIGHTER_EXCEPTION_PREFIX + "route"
-
-
 class ValidationError(Exception):
     """
     Raised when a validation error occurs.
     """
 
-    fields: list[Field]
-
-    def __init__(self, fields_or_message: list[dict] | str | Field):
-        if isinstance(fields_or_message, Field):
-            self.fields = [fields_or_message]
-            super(ValidationError, self).__init__(fields_or_message.message)
-        elif isinstance(fields_or_message, str):
-            self.fields = list()
-            super(ValidationError, self).__init__(fields_or_message)
-        else:
-            self.fields = [Field(f["field"], f["message"]) for f in fields_or_message]
-            super(ValidationError, self).__init__(self.__str__())
-
-    def __str__(self):
-        if len(self.fields) == 0:
-            return super().__str__()
-        return "\n".join([f"{f.field}: {f.message}" for f in self.fields])
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation"
 
 
-class GeneralError(Exception):
+class FieldError(ValidationError):
+    field: str
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation.field"
+
+    def __init__(self, field: str, message: str):
+        self.field = field
+        super().__init__(f"{field}: {message}")
+
+
+class ControlError(Exception):
     """
-    Raised when a general error occurs.
+    Raised when a control error occurs.
     """
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "control"
 
     pass
 
 
-class ParseError(Exception):
+class UnauthorizedError(ControlError):
     """
-    Raised when a parse error occurs.
+    Raised when an entity attempts to access or modify information it is not allowed.
     """
+
+    TYPE = ControlError.TYPE + ".unauthorized"
 
     pass
 
@@ -77,6 +65,8 @@ class AuthError(Exception):
     Raised when an authentication error occurs.
     """
 
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "auth"
+
     pass
 
 
@@ -84,6 +74,8 @@ class UnexpectedError(Exception):
     """
     Raised when an unexpected error occurs.
     """
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
 
     pass
 
@@ -93,6 +85,8 @@ class ContiguityError(Exception):
     Raised when time-series data is not contiguous.
     """
 
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "contiguity"
+
     pass
 
 
@@ -100,6 +94,8 @@ class QueryError(Exception):
     """
     Raised when a query error occurs, such as an item not found.
     """
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query"
 
     pass
 
@@ -109,6 +105,8 @@ class NotFoundError(QueryError):
     Raised when a query returns no results.
     """
 
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query.not_found"
+
     pass
 
 
@@ -117,6 +115,8 @@ class MultipleFoundError(QueryError):
     Raised when a query that should return a single result returns multiple.
     """
 
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query.multiple_results"
+
     pass
 
 
@@ -124,6 +124,8 @@ class RouteError(Exception):
     """
     Raised when an API routing error occurs, such as a 404.
     """
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "route"
 
     path: str
 
@@ -136,26 +138,34 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     if not encoded.type.startswith(_FREIGHTER_EXCEPTION_PREFIX):
         return None
 
-    if encoded.type == APIErrorType.GENERAL.value:
-        return GeneralError(encoded.data)
-
-    if encoded.type == APIErrorType.PARSE.value:
-        return ParseError(encoded.data)
-
-    if encoded.type == APIErrorType.AUTH.value:
+    if encoded.type.startswith(AuthError.TYPE):
         return AuthError(encoded.data)
 
-    if encoded.type == APIErrorType.UNEXPECTED.value:
+    if encoded.type.startswith(UnexpectedError.TYPE):
         return UnexpectedError(encoded.data)
 
-    if encoded.type == APIErrorType.VALIDATION.value:
+    if encoded.type.startswith(ValidationError.TYPE):
+        if encoded.type.startswith(FieldError.TYPE):
+            values = encoded.data.split(":")
+            if len(values) != 2:
+                return UnexpectedError(encoded.data)
+            return FieldError(values[0], values[1])
         return ValidationError(encoded.data)
 
-    if encoded.type == APIErrorType.QUERY.value:
+    if encoded.type.startswith(QueryError.TYPE):
+        if encoded.type.startswith(NotFoundError.TYPE):
+            return NotFoundError(encoded.data)
+        if encoded.type.startswith(MultipleFoundError.TYPE):
+            return MultipleFoundError(encoded.data)
         return QueryError(encoded.data)
 
-    if encoded.type == APIErrorType.ROUTE.value:
+    if encoded.type.startswith(RouteError.TYPE):
         return RouteError(encoded.data)
+
+    if encoded.type.startswith(ControlError.TYPE):
+        if encoded.type.startswith(UnauthorizedError.TYPE):
+            return UnauthorizedError(encoded.data)
+        return ControlError(encoded.data)
 
     return UnexpectedError(encoded.data)
 

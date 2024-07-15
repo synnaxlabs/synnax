@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,8 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, QueryError, type Synnax } from "@synnaxlabs/client";
-import { type TimeRange, type AsyncDestructor } from "@synnaxlabs/x";
+import { type AsyncDestructor } from "@synnaxlabs/x/destructor";
+import { type TimeRange } from "@synnaxlabs/x/telem";
 import { nanoid } from "nanoid/non-secure";
 
 import { cache } from "@/telem/client/cache";
@@ -40,7 +41,7 @@ export interface ReadClient {
    * @param tr  - The time range to read from.
    * @param keys - The keys of the channels to read from.
    * @returns a record with a read response for each channel in keys, regardless of
-   * whether or not data was found for the given chnannel. NOTE: Responses are not
+   * whether or not data was found for the given channel. NOTE: Responses are not
    * guaranteed to have the same topology i.e each response may contain a different
    * number of Series with different lengths. It's up to the caller to use the
    * 'alignment' field of the Series to normalize the data shape if necessary.

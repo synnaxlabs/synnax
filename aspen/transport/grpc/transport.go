@@ -125,6 +125,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			ServiceDesc: &aspenv1.PledgeService_ServiceDesc,
 		},
 		pledgeServer: &pledgeServer{
+			Internal:           true,
 			RequestTranslator:  pledgeTranslator{},
 			ResponseTranslator: pledgeTranslator{},
 			ServiceDesc:        &aspenv1.PledgeService_ServiceDesc,
@@ -143,6 +144,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			ServiceDesc: &aspenv1.ClusterGossipService_ServiceDesc,
 		},
 		gossipServer: &clusterGossipServer{
+			Internal:           true,
 			RequestTranslator:  clusterGossipTranslator{},
 			ResponseTranslator: clusterGossipTranslator{},
 			ServiceDesc:        &aspenv1.ClusterGossipService_ServiceDesc,
@@ -161,6 +163,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			ServiceDesc: &aspenv1.BatchService_ServiceDesc,
 		},
 		batchServer: &batchServer{
+			Internal:           true,
 			RequestTranslator:  batchTranslator{},
 			ResponseTranslator: batchTranslator{},
 			ServiceDesc:        &aspenv1.BatchService_ServiceDesc,
@@ -179,6 +182,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			ServiceDesc: &aspenv1.LeaseService_ServiceDesc,
 		},
 		leaseServer: &leaseServer{
+			Internal:           true,
 			RequestTranslator:  batchTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			ServiceDesc:        &aspenv1.LeaseService_ServiceDesc,
@@ -197,6 +201,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			ServiceDesc: &aspenv1.FeedbackService_ServiceDesc,
 		},
 		feedbackServer: &feedbackServer{
+			Internal:           true,
 			RequestTranslator:  feedbackTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			ServiceDesc:        &aspenv1.FeedbackService_ServiceDesc,
@@ -283,6 +288,6 @@ func (t Transport) Configure(ctx signal.Context, addr address.Address, external 
 		defer server.Stop()
 		<-ctx.Done()
 		return ctx.Err()
-	}, signal.CancelOnExitErr())
+	}, signal.CancelOnFail())
 	return nil
 }

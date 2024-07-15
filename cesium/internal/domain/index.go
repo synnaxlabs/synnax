@@ -11,8 +11,8 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
 )
@@ -21,9 +21,9 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		sync.RWMutex
-		pointers   []pointer
-		tombstones map[uint16][]pointer
+		pointers []pointer
 	}
+	deleteLock   sync.RWMutex
 	indexPersist *indexPersist
 	persistHead  int
 }
@@ -33,15 +33,13 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	_, span := idx.T.Bench(ctx, "domain/index.insert")
 	idx.mu.Lock()
 
-	defer func() {
-		idx.mu.Unlock()
-		span.End()
-	}()
+	defer span.End()
 
 	insertAt := 0
 
 	if p.fileKey == 0 {
 		idx.L.DPanic("fileKey must be set")
+		idx.mu.Unlock()
 		return span.Error(errors.New("inserted pointer cannot have key 0"))
 	}
 	if len(idx.mu.pointers) != 0 {
@@ -51,7 +49,8 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		} else if !idx.beforeFirst(p.End) {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
-				return span.Error(ErrDomainOverlap)
+				idx.mu.Unlock()
+				return span.Error(NewErrWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
 			insertAt = i + 1
 		}
@@ -68,21 +67,13 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, insertAt)
 
 	if persist {
-		return span.Error(idx.persist(ctx, idx.persistHead))
+		persistPointers := idx.indexPersist.prepare(idx.persistHead)
+		idx.mu.Unlock()
+		return persistPointers()
 	}
 
+	idx.mu.Unlock()
 	return nil
-}
-
-func (idx *index) insertTombstone(ctx context.Context, p pointer) {
-	_, span := idx.T.Bench(ctx, "domain/index.insert_tombstone")
-	idx.mu.Lock()
-	defer func() {
-		idx.mu.Unlock()
-		span.End()
-	}()
-
-	idx.mu.tombstones[p.fileKey] = append(idx.mu.tombstones[p.fileKey], p)
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -92,19 +83,26 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 	return overlap
 }
 
+func (idx *index) timeRange() telem.TimeRange {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	if len(idx.mu.pointers) == 0 {
+		return telem.TimeRangeZero
+	}
+	return idx.mu.pointers[0].Start.Range(idx.mu.pointers[len(idx.mu.pointers)-1].End)
+}
+
 func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	_, span := idx.T.Bench(ctx, "domain/index.update")
 	idx.mu.Lock()
 
-	defer func() {
-		idx.mu.Unlock()
-		span.End()
-	}()
+	defer span.End()
 
 	if len(idx.mu.pointers) == 0 {
 		// This should be inconceivable since update would not be called with no pointers.
-		idx.L.DPanic(RangeNotFound.Error())
-		return span.Error(RangeNotFound)
+		idx.L.DPanic("cannot update a database with no domains")
+		idx.mu.Unlock()
+		return span.Error(NewErrRangeNotFound(p.TimeRange))
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -115,17 +113,22 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	ptrs := idx.mu.pointers
 	oldP := ptrs[updateAt]
 	if oldP.Start != p.Start {
-		// This should never happen since update would only be called via commit, and
+		// This is inconceivable since update would only be called via commit, and
 		// commit should find the same pointer the writer has been writing to, which
 		// must have the same Start timestamp. Unhandled race conditions might cause the
 		// database to reach this inconceivable state.
-		idx.L.DPanic(RangeNotFound.Error())
-		return span.Error(RangeNotFound)
+		idx.L.DPanic("cannot update a pointer with a different start timestamp")
+		idx.mu.Unlock()
+		return span.Error(NewErrRangeNotFound(p.TimeRange))
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
-	if overlapsWithPrev || overlapsWithNext {
-		return span.Error(ErrDomainOverlap)
+	if overlapsWithPrev {
+		idx.mu.Unlock()
+		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
+	} else if overlapsWithNext {
+		idx.mu.Unlock()
+		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}
@@ -133,9 +136,12 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, updateAt)
 
 	if persist {
-		return span.Error(idx.persist(ctx, idx.persistHead))
+		persistPointers := idx.indexPersist.prepare(idx.persistHead)
+		idx.mu.Unlock()
+		return persistPointers()
 	}
 
+	idx.mu.Unlock()
 	return nil
 }
 
@@ -197,6 +203,12 @@ func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, o
 	return idx.mu.pointers[i], true
 }
 
+// unprotectedSearch returns the position in the index of a domain that overlaps with
+// the given time range. If there is no domain that contains tr, then the immediate
+// previous domain with a smaller start timestamp than the end is returned. False is
+// returned as the flag.
+// If tr is before all domains, -1 is returned.
+// If tr is after all domains, len(idx.mu.pointers) - 1 is returned.
 func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	if len(idx.mu.pointers) == 0 {
 		return -1, false
@@ -232,19 +244,6 @@ func (idx *index) read(f func()) {
 	idx.mu.RLock()
 	f()
 	idx.mu.RUnlock()
-}
-
-func (idx *index) persist(ctx context.Context, persistAtIndex int) error {
-	ctx, span := idx.T.Bench(ctx, "domain/index.persist")
-	defer span.End()
-	encoded := idx.indexPersist.encode(idx.persistHead, idx.mu.pointers)
-	idx.persistHead = len(idx.mu.pointers)
-	if len(encoded) != 0 {
-		_, err := idx.indexPersist.WriteAt(encoded, int64(persistAtIndex*pointerByteSize))
-		return span.Error(err)
-	}
-
-	return nil
 }
 
 func (idx *index) close() error {

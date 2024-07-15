@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/tag/Tag.css";
 
 import { Icon } from "@synnaxlabs/media";
+import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
-
-import "@/tag/Tag.css";
 
 export interface TagProps extends Omit<Text.TextProps, "level" | "size" | "wrap"> {
   icon?: ReactElement;
@@ -30,7 +29,6 @@ export interface TagProps extends Omit<Text.TextProps, "level" | "size" | "wrap"
 export const Tag = ({
   children = "",
   size = "medium",
-  variant = "filled",
   color,
   icon,
   onClose,

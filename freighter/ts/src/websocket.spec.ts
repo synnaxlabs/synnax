@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { URL, binary } from "@synnaxlabs/x";
+import { binary, URL } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import {
   BaseTypedError,
   EOF,
-  type TypedError,
-  registerError,
   type ErrorPayload,
+  registerError,
+  type TypedError,
 } from "@/errors";
 import { type Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";
@@ -35,9 +35,10 @@ const client = new WebSocketClient(url, new binary.JSONEncoderDecoder());
 
 class MyCustomError extends BaseTypedError {
   code: number;
+  type = "integration.error";
 
   constructor(message: string, code: number) {
-    super(message, "integration.error");
+    super(message);
     this.code = code;
   }
 }
@@ -83,12 +84,12 @@ describe("websocket", () => {
       MessageSchema,
     );
     stream.closeSend();
-    let [response, error] = await stream.receive();
+    const [response, error] = await stream.receive();
     expect(error).toBeNull();
     expect(response?.id).toEqual(0);
     expect(response?.message).toEqual("Close Acknowledged");
-    [, error] = await stream.receive();
-    expect(error).toEqual(new EOF());
+    const [, recvError] = await stream.receive();
+    expect(recvError).toEqual(new EOF());
   });
 
   test("receive error", async () => {

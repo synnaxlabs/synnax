@@ -13,10 +13,10 @@ package pebblekv
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 )

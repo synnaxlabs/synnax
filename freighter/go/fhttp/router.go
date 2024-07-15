@@ -10,6 +10,7 @@
 package fhttp
 
 import (
+	"context"
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -32,9 +33,7 @@ type RouterConfig struct {
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 // Validate implements config.Properties.
-func (r RouterConfig) Validate() error {
-	return nil
-}
+func (r RouterConfig) Validate() error { return nil }
 
 // Override implements config.Properties.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
@@ -47,17 +46,28 @@ func NewRouter(configs ...RouterConfig) *Router {
 	if err != nil {
 		panic(err)
 	}
-	return &Router{RouterConfig: cfg}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Router{
+		RouterConfig: cfg,
+		ctx:          ctx,
+		cancel:       cancel,
+	}
 }
 
 type Router struct {
 	RouterConfig
+	ctx    context.Context
+	cancel context.CancelFunc
 	routes []route
 }
 
 var _ BindableTransport = (*Router)(nil)
 
 func (r *Router) BindTo(app *fiber.App) {
+	app.Hooks().OnShutdown(func() error {
+		r.cancel()
+		return nil
+	})
 	for _, route := range r.routes {
 		if route.httpMethod == "GET" {
 			app.Get(route.path, route.handler)
@@ -91,18 +101,21 @@ func (r *Router) register(
 	})
 }
 
-func StreamServer[RQ, RS freighter.Payload](r *Router, path string) freighter.StreamServer[RQ, RS] {
+func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path string) freighter.StreamServer[RQ, RS] {
 	s := &streamServer[RQ, RS]{
+		internal:        internal,
 		Reporter:        streamReporter,
 		path:            path,
 		Instrumentation: r.Instrumentation,
+		serverCtx:       r.ctx,
 	}
 	r.register(path, "GET", s, s.fiberHandler)
 	return s
 }
 
-func UnaryServer[RQ, RS freighter.Payload](r *Router, path string) freighter.UnaryServer[RQ, RS] {
+func UnaryServer[RQ, RS freighter.Payload](r *Router, internal bool, path string) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
+		internal: internal,
 		Reporter: unaryReporter,
 		path:     path,
 		requestParser: func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (req RQ, _ error) {

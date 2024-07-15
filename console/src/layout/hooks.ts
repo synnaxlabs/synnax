@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,39 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type ReactElement, useCallback, useState } from "react";
-
 import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   type AsyncDestructor,
   type Nav,
-  OS,
   Theming,
   useAsyncEffect,
   useDebouncedCallback,
   useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-import { appWindow } from "@tauri-apps/api/window";
-import type { Theme as TauriTheme } from "@tauri-apps/api/window";
-import { useDispatch, useStore } from "react-redux";
+import { getCurrent } from "@tauri-apps/api/window";
+import { type Dispatch, type ReactElement, useCallback, useState } from "react";
+import { useDispatch } from "react-redux";
 
-import { useSyncerDispatch } from "@/hooks/dispatchers";
-import { type LayoutState } from "@/layout/layout";
-import { select, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
+import { useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
+import { State } from "@/layout/slice";
 import {
-  type NavdrawerLocation,
+  type NavDrawerLocation,
   place,
   remove,
-  resizeNavdrawer,
+  resizeNavDrawer,
   setActiveTheme,
-  setNavdrawerVisible,
+  setNavDrawerVisible,
   toggleActiveTheme,
 } from "@/layout/slice";
-import { type RootState } from "@/store";
-import { Workspace } from "@/workspace";
 
 export interface CreatorProps {
   windowKey: string;
@@ -47,10 +41,12 @@ export interface CreatorProps {
 }
 
 /** A function that creates a layout given a set of utilities. */
-export type Creator = (props: CreatorProps) => Omit<LayoutState, "windowKey">;
+export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
+
+export type PlacerArgs = Omit<State, "windowKey"> | Creator;
 
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: Omit<LayoutState, "windowKey"> | Creator) => {
+export type Placer = (layout: PlacerArgs) => {
   windowKey: string;
   key: string;
 };
@@ -69,25 +65,14 @@ export type Remover = (...keys: string[]) => void;
  * when possible, but feel free to use the second method for more dynamic layout creation.
  */
 export const usePlacer = (): Placer => {
-  const syncer = Workspace.useLayoutSyncer();
-  const dispatch = useSyncerDispatch(syncer);
-  const os = OS.use();
+  const dispatch = useDispatch();
   const windowKey = useSelectWindowKey();
   if (windowKey == null) throw new Error("windowKey is null");
   return useCallback(
     (base) => {
       const layout = typeof base === "function" ? base({ dispatch, windowKey }) : base;
-      const { key, location, window, name: title } = layout;
+      const { key } = layout;
       dispatch(place({ ...layout, windowKey }));
-      if (location === "window")
-        dispatch(
-          Drift.createWindow({
-            ...{ ...window, navTop: undefined, decorations: os !== "Windows" },
-            url: "/",
-            key,
-            title,
-          }),
-        );
       return { windowKey, key };
     },
     [dispatch, windowKey],
@@ -103,26 +88,14 @@ export const usePlacer = (): Placer => {
  * the layout is in a window, the window will also be closed.
  */
 export const useRemover = (...baseKeys: string[]): Remover => {
-  const syncer = Workspace.useLayoutSyncer();
-  const syncDispatch = useSyncerDispatch(syncer);
-  const store = useStore<RootState>();
+  const dispatch = useDispatch();
   const memoKeys = useMemoCompare(
     () => baseKeys,
     ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
     [baseKeys],
   );
   return useCallback(
-    (...keys) => {
-      keys = [...baseKeys, ...keys];
-      const s = store.getState();
-      keys.forEach((keys) => {
-        const l = select(s, keys);
-        // Even if the layout is not present, close the window for good measure.
-        if (l == null || l.location === "window")
-          store.dispatch(Drift.closeWindow({ key: keys }));
-      });
-      syncDispatch(remove({ keys }));
-    },
+    (...keys) => dispatch(remove({ keys: [...keys, ...memoKeys] })),
     [memoKeys],
   );
 };
@@ -139,7 +112,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const dispatch = useDispatch();
 
   useAsyncEffect(async () => {
-    if (appWindow.label !== Drift.MAIN_WINDOW) return;
+    if (getCurrent().label !== Drift.MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
     const cleanup = await synchronizeWithOS(dispatch);
     return cleanup;
@@ -155,7 +128,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
   const [theme, setTheme] = useState<Theming.ThemeSpec | null>(Theming.SYNNAX_LIGHT);
   useAsyncEffect(async () => {
-    const theme = matchThemeChange({ payload: await appWindow.theme() });
+    const theme = matchThemeChange({ payload: await getCurrent().theme() });
     setTheme(Theming.SYNNAX_THEMES[theme]);
   }, []);
   return {
@@ -174,15 +147,20 @@ export const useErrorThemeProvider = (): Theming.ProviderProps => {
 const matchThemeChange = ({
   payload: theme,
 }: {
-  payload: TauriTheme | null;
+  payload: string | null;
 }): keyof typeof Theming.SYNNAX_THEMES =>
   theme === "dark" ? "synnaxDark" : "synnaxLight";
 
-const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
-  await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
+const synchronizeWithOS = async (
+  dispatch: Dispatch<UnknownAction>,
+): AsyncDestructor => {
+  await getCurrent().onThemeChanged((e) =>
+    dispatch(setActiveTheme(matchThemeChange(e))),
+  );
+};
 
 const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
-  dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
+  dispatch(setActiveTheme(matchThemeChange({ payload: await getCurrent().theme() })));
 
 export interface NavMenuItem {
   key: string;
@@ -200,7 +178,7 @@ export interface UseNavDrawerReturn {
 }
 
 export const useNavDrawer = (
-  location: NavdrawerLocation,
+  location: NavDrawerLocation,
   items: NavDrawerItem[],
 ): UseNavDrawerReturn => {
   const windowKey = useSelectWindowKey() as string;
@@ -208,7 +186,7 @@ export const useNavDrawer = (
   const dispatch = useDispatch();
   const onResize = useDebouncedCallback(
     (size) => {
-      dispatch(resizeNavdrawer({ windowKey, location, size }));
+      dispatch(resizeNavDrawer({ windowKey, location, size }));
     },
     100,
     [dispatch, windowKey],
@@ -232,7 +210,7 @@ export const useNavDrawer = (
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) => dispatch(setNavdrawerVisible({ windowKey, key })),
+    onSelect: (key: string) => dispatch(setNavDrawerVisible({ windowKey, key })),
     onResize,
   };
 };

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,26 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, observe } from "@synnaxlabs/x";
+import { observe,TimeStamp } from "@synnaxlabs/x";
 
 import { color } from "@/color/core";
 import { type status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
-  type NumberSinkSpec,
   type BooleanSink,
   type BooleanSinkSpec,
-  type NumberSink,
-  type Telem,
   type BooleanSource,
   type BooleanSourceSpec,
+  type ColorSource,
+  type ColorSourceSpec,
+  type NumberSink,
+  type NumberSinkSpec,
   type NumberSource,
   type NumberSourceSpec,
-  type ColorSourceSpec,
   type Spec,
-  type ColorSource,
-  type StringSourceSpec,
   type StatusSourceSpec,
+  type StringSourceSpec,
+  type Telem,
 } from "@/telem/aether/telem";
 
 class Noop extends observe.Observer<void> implements Telem {

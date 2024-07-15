@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { themeZ, type Theme } from "@/theming/core/theme";
+import { type Theme,themeZ } from "@/theming/core/theme";
 
 const CONTEXT_KEY = "pluto-theming-context";
 

@@ -14,14 +14,18 @@ package task
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
-	tx   gorp.Tx
-	otg  ontology.Writer
-	rack rack.Writer
+	tx    gorp.Tx
+	otg   ontology.Writer
+	rack  rack.Writer
+	group group.Group
 }
 
 func (w Writer) Create(ctx context.Context, r *Task) (err error) {
@@ -32,20 +36,30 @@ func (w Writer) Create(ctx context.Context, r *Task) (err error) {
 		}
 		r.Key = NewKey(r.Rack(), localKey)
 	}
-
-	if err = gorp.NewCreate[Key, Task]().Entry(r).Exec(ctx, w.tx); err != nil {
+	r.State = nil
+	// We don't create ontology resources for internal tasks.
+	if err = gorp.NewCreate[Key, Task]().Entry(r).Exec(ctx, w.tx); err != nil || r.Internal {
 		return
 	}
 	otgID := OntologyID(r.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, rack.OntologyID(r.Rack()), ontology.ParentOf, otgID)
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
 }
 
-func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
+	q := gorp.NewDelete[Key, Task]().WhereKeys(key)
+	if !allowInternal {
+		q = q.Guard(func(t Task) error {
+			if t.Internal {
+				return errors.Wrapf(validate.Error, "internal task %v cannot be deleted", t)
+			}
+			return nil
+		})
+	}
+	if err := q.Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return gorp.NewDelete[Key, Task]().WhereKeys(key).Exec(ctx, w.tx)
+	return w.otg.DeleteResource(ctx, OntologyID(key))
 }

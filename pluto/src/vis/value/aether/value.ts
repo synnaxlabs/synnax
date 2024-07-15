@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, scale, xy } from "@synnaxlabs/x";
+import { box, scale, xy } from "@synnaxlabs/x/spatial";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -79,7 +79,7 @@ export class Value
   async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
     const { render: renderCtx, telem, theme } = this.internal;
     const b = box.construct(this.state.box);
-    if (box.isZero(b)) return;
+    if (box.areaIsZero(b)) return;
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
     const value = await telem.value();
     canvas.font = this.state.font;

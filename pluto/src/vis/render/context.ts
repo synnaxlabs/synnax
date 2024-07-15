@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type Destructor,
   box,
-  scale,
-  xy,
+  type Destructor,
   dimensions,
   type runtime,
+  scale,
+  xy,
 } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { type aether } from "@/aether/aether";
 import { color } from "@/color/core";
@@ -23,6 +22,7 @@ import { CSS } from "@/css";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";
+import { applyOverScan } from "@/vis/render/util";
 
 export type CanvasVariant = "upper2d" | "lower2d" | "gl";
 
@@ -88,7 +88,6 @@ export class Context {
     this.lower2dCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
     this.os = os;
-    this.loop = new Loop();
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
@@ -98,12 +97,28 @@ export class Context {
     if (upperCtx == null) throw new Error("Could not get 2D context");
     this.upper2d = new SugaredOffscreenCanvasRenderingContext2D(upperCtx);
 
-    const gl = this.glCanvas.getContext("webgl2", {
+    const webGlOpts: WebGLContextAttributes = {
       preserveDrawingBuffer: true,
+      powerPreference: "high-performance",
+      stencil: false,
       depth: false,
-    });
+    };
+    const gl = this.glCanvas.getContext("webgl2", webGlOpts);
     if (gl == null) throw new Error("Could not get WebGL context");
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.STENCIL_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.disable(gl.DITHER);
     this.gl = gl;
+
+    this.glCanvas.oncontextlost = console.log;
+
+    const afterRender = () => {
+      this.gl.flush();
+      this.gl.finish();
+    };
+
+    this.loop = new Loop(afterRender);
 
     this.region = box.ZERO;
     this.dpr = 1;
@@ -157,22 +172,22 @@ export class Context {
   scaleRegion(b: box.Box): scale.XY {
     return new scale.XY(
       // Accept a value in decimal.
-      scale.Scale.scale(0, 1)
+      scale.Scale.scale<number>(0, 1)
         // Turn it to pixels relative to the child width.
         .scale(box.width(b))
-        // Translate the value to the left based on the parent and childs position.
+        // Translate the value to the left based on the parent and child's position.
         .translate(box.left(b))
         // Rebound the scale to the canvas width.
         .reBound(box.width(this.region))
         // Rescale the value to clip space.
         .scale(-1, 1),
       // Accept a value in decimal.
-      scale.Scale.scale(0, 1)
+      scale.Scale.scale<number>(0, 1)
         // Turn it to pixels relative to the child height.
         .scale(box.height(b))
         // Invert the scale since we read pixels from the top.
         .invert()
-        // Translate the value to the top based on the parent and childs position.
+        // Translate the value to the top based on the parent and child's position.
         .translate(box.top(b))
         // Rebound the scale to the canvas height.
         .reBound(box.height(this.region))
@@ -185,34 +200,21 @@ export class Context {
 
   scissor(
     region: box.Box,
-    overscan: xy.XY = xy.ZERO,
+    overScan: xy.XY = xy.ZERO,
     canvases: CanvasVariant[],
   ): Destructor {
     const destructor: Destructor[] = [];
     if (canvases.includes("upper2d"))
-      destructor.push(this.scissorCanvas(this.upper2d, region, overscan));
+      destructor.push(this.upper2d.scissor(region, overScan));
     if (canvases.includes("lower2d"))
-      destructor.push(this.scissorCanvas(this.lower2d, region, overscan));
-    if (canvases.includes("gl")) destructor.push(this.scissorGL(region, overscan));
+      destructor.push(this.lower2d.scissor(region, overScan));
+    if (canvases.includes("gl")) destructor.push(this.scissorGL(region, overScan));
     return () => destructor.forEach((d) => d());
-  }
-
-  private scissorCanvas(
-    c: OffscreenCanvasRenderingContext2D,
-    region: box.Box,
-    overscan: xy.XY = xy.ZERO,
-  ): Destructor {
-    const p = new Path2D();
-    region = applyOverscan(region, overscan);
-    p.rect(...xy.couple(box.topLeft(region)), ...dimensions.couple(box.dims(region)));
-    c.save();
-    c.clip(p);
-    return () => c.restore();
   }
 
   private scissorGL(region: box.Box, overscan: xy.XY = xy.ZERO): Destructor {
     this.gl.enable(this.gl.SCISSOR_TEST);
-    region = applyOverscan(region, overscan);
+    region = applyOverScan(region, overscan);
     this.gl.scissor(
       box.left(region) * this.dpr,
       (box.height(this.region) - box.bottom(region)) * this.dpr,
@@ -236,7 +238,7 @@ export class Context {
 
   private eraseGL(box: box.Box, overscan: xy.XY = xy.ZERO): void {
     const { gl } = this;
-    const removeScissor = this.scissorGL(applyOverscan(box, overscan));
+    const removeScissor = this.scissorGL(applyOverScan(box, overscan));
     gl.clearColor(...color.ZERO.rgba1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     // See the documentation for the clear program for why this is necessary.
@@ -249,15 +251,7 @@ export class Context {
     b: box.Box,
     overscan: xy.XY = xy.ZERO,
   ): void {
-    const os = applyOverscan(b, overscan);
+    const os = applyOverScan(b, overscan);
     c.clearRect(...xy.couple(box.topLeft(os)), ...dimensions.couple(box.dims(os)));
   }
 }
-
-const applyOverscan = (b: box.Box, overscan: xy.XY): box.Box =>
-  box.construct(
-    box.left(b) - overscan.x,
-    box.top(b) - overscan.y,
-    box.width(b) + overscan.x * 2,
-    box.height(b) + overscan.y * 2,
-  );

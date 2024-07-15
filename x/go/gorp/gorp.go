@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv"
@@ -36,9 +37,9 @@ var (
 // OpenTx begins a new Tx against the DB.
 func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), options: db.options} }
 
-// WithTx executes the callback within the provided transation Tx. If the callback
-// returns an error, the transaction is aborted, no writes are comitted, and the
-// error is returned. If the callback returns nil, the transaction is comitted.
+// WithTx executes the callback within the provided transaction Tx. If the callback
+// returns an error, the transaction is aborted, no writes are committed, and the
+// error is returned. If the callback returns nil, the transaction is committed.
 func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	txn := db.OpenTx()
 	defer func() {
@@ -54,7 +55,7 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 }
 
 // OverrideTx replaces the given Tx with the DB if the given Tx is nil. This
-// method is useful for allowing a caller to execute directly agains the underlying
+// method is useful for allowing a caller to execute directly against the underlying
 // DB if they choose to do so, or to execute against a transaction if they provide one.
 func (db *DB) OverrideTx(override Tx) Tx { return OverrideTx(db, override) }
 
@@ -99,7 +100,7 @@ var _ Tx = (*tx)(nil)
 // Tools provides the tools that gorp needs to translate key-value operations
 // to strongly-typed requests. It doesn't provide any functionality itself,
 // and is instead designed to be passed to the various other types that gorp uses.
-type Tools interface{ binary.EncoderDecoder }
+type Tools interface{ binary.Codec }
 
 // BaseReader is a simple extension of the kv.Reader interface that adds
 // gorp-required tooling. For semantic purposes, it can be considered as

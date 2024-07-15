@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CSSProperties, type ReactElement, forwardRef } from "react";
+import "@/viewport/Mask.css";
 
 import { box } from "@synnaxlabs/x";
+import { type CSSProperties, forwardRef,type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type UseReturn, type Mode } from "@/viewport/use";
-
-import "@/viewport/Mask.css";
+import { type Mode,type UseReturn } from "@/viewport/use";
 
 type DivProps = React.DetailedHTMLProps<
   React.HTMLAttributes<HTMLDivElement>,
@@ -50,7 +49,7 @@ export const Mask = forwardRef<HTMLDivElement, MaskProps>(
       <div
         style={{
           ...box.css(maskBox),
-          display: box.isZero(maskBox) ? "none" : "block",
+          display: box.areaIsZero(maskBox) ? "none" : "block",
         }}
         className={CSS.BE("viewport-mask", "selection")}
       />

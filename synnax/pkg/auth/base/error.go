@@ -9,6 +9,6 @@
 
 package base
 
-import "github.com/cockroachdb/errors"
+import "github.com/synnaxlabs/x/errors"
 
 var AuthError = errors.New("auth error")

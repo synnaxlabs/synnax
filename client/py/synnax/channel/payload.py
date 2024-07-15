@@ -36,9 +36,10 @@ class ChannelPayload(Payload):
     leaseholder: int = 0
     is_index: bool = False
     index: ChannelKey = 0
+    internal: bool = False
 
     def __str__(self):
-        return f"Channel({self.key}, {self.name})"
+        return f"Channel with name {self.name} and key {self.key}"
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -67,11 +68,17 @@ def normalize_channel_params(
         return NormalizedChannelKeyResult(single=False, variant="keys", params=[])
     single = isinstance(params, (ChannelKey, ChannelName))
     if isinstance(normalized[0], str):
-        return NormalizedChannelNameResult(
-            single=single,
-            variant="names",
-            params=cast(ChannelNames, normalized),
-        )
+        try:
+            numeric_strings = [ChannelKey(s) for s in normalized]
+            return NormalizedChannelKeyResult(
+                single=single, variant="keys", params=cast(ChannelKeys, numeric_strings)
+            )
+        except ValueError:
+            return NormalizedChannelNameResult(
+                single=single,
+                variant="names",
+                params=cast(ChannelNames, normalized),
+            )
     if isinstance(normalized[0], ChannelPayload):
         return NormalizedChannelNameResult(
             single=single,

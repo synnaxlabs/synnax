@@ -11,8 +11,7 @@ package freighter_test
 
 import (
 	"context"
-	roacherrors "github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/x/errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +28,7 @@ type response struct {
 	Message string `json:"message" msgpack:"message"`
 }
 
-var myCustomError = ferrors.Typed(roacherrors.New("my custom error"), "myCustomError")
+var myCustomError = errors.New("my custom error")
 
 func TestGo(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -37,18 +36,17 @@ func TestGo(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	ferrors.Register(
-		func(_ context.Context, err error) (ferrors.Payload, bool) {
-			v, ok := err.(ferrors.Error)
-			if !ok || v.FreighterType() != "myCustomError" {
-				return ferrors.Payload{}, false
+	errors.Register(
+		func(_ context.Context, err error) (errors.Payload, bool) {
+			if errors.Is(err, myCustomError) {
+				return errors.Payload{
+					Type: "myCustomError",
+					Data: err.Error(),
+				}, true
 			}
-			return ferrors.Payload{
-				Type: "myCustomError",
-				Data: v.Error(),
-			}, true
+			return errors.Payload{}, false
 		},
-		func(ctx context.Context, f ferrors.Payload) (error, bool) {
+		func(ctx context.Context, f errors.Payload) (error, bool) {
 			if f.Type != "myCustomError" {
 				return nil, false
 			}

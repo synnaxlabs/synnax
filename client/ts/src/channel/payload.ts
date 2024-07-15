@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate } from "@synnaxlabs/x";
+import { DataType, Rate } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 export const keyZ = z.number();
@@ -27,6 +27,7 @@ export const payload = z.object({
   leaseholder: z.number(),
   index: z.number(),
   isIndex: z.boolean(),
+  internal: z.boolean(),
   alias: z.string().optional(),
 });
 
@@ -38,6 +39,8 @@ export const newPayload = payload.extend({
   index: z.number().optional(),
   rate: Rate.z.optional().default(0),
   isIndex: z.boolean().optional(),
+  internal: z.boolean().optional().default(false),
+  virtual: z.boolean().optional().default(false),
 });
 
 export type NewPayload = z.input<typeof newPayload>;

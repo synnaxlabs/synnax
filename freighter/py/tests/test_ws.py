@@ -12,28 +12,29 @@ import pytest
 import freighter.exceptions
 from freighter.context import Context
 from freighter.encoder import MsgpackEncoder
-from freighter.sync import SyncStreamClient
 from freighter.transport import AsyncNext, Next
 from freighter.url import URL
-from freighter.websocket import WebsocketClient
+from freighter.websocket import AsyncWebsocketClient, WebsocketClient
 
 from .interface import Error, Message
 
 
 @pytest.fixture
-def async_client(endpoint: URL) -> WebsocketClient:
+def async_client(endpoint: URL) -> AsyncWebsocketClient:
+    ws_endpoint = endpoint.child("stream")
+    return AsyncWebsocketClient(encoder=MsgpackEncoder(), base_url=ws_endpoint)
+
+
+@pytest.fixture
+def sync_client(endpoint: URL) -> WebsocketClient:
     ws_endpoint = endpoint.child("stream")
     return WebsocketClient(encoder=MsgpackEncoder(), base_url=ws_endpoint)
 
 
-@pytest.fixture
-def sync_client(async_client: WebsocketClient) -> SyncStreamClient:
-    return SyncStreamClient(async_client)
-
-
 @pytest.mark.ws
+@pytest.mark.asyncio
 class TestWS:
-    async def test_basic_exchange(self, async_client: WebsocketClient):
+    async def test_basic_exchange(self, async_client: AsyncWebsocketClient):
         """Should exchange ten echo messages that increment the ID."""
         stream = await async_client.stream("/echo", Message, Message)
         for i in range(10):
@@ -46,7 +47,9 @@ class TestWS:
         msg, err = await stream.receive()
         assert err is not None
 
-    async def test_receive_message_after_close(self, async_client: WebsocketClient):
+    async def test_receive_message_after_close(
+        self, async_client: AsyncWebsocketClient
+    ):
         """Should receive a message and EOF error after the server closes the
         connection."""
         stream = await async_client.stream(
@@ -70,6 +73,7 @@ class TestWS:
         assert isinstance(err, Error)
         assert err.code == 1
         assert err.message == "unexpected error"
+        await stream.close_send()
 
     async def test_middleware(self, async_client):
         dct = {"called": False}
@@ -87,8 +91,9 @@ class TestWS:
         assert dct["called"]
 
 
+@pytest.mark.ws
 class TestSyncWebsocket:
-    def test_basic_exchange(self, sync_client: SyncStreamClient):
+    def test_basic_exchange(self, sync_client: WebsocketClient):
         stream = sync_client.stream("/echo", Message, Message)
         for i in range(10):
             err = stream.send(Message(id=i, message="hello"))
@@ -102,7 +107,7 @@ class TestSyncWebsocket:
         assert msg is None
         assert err is not None
 
-    def test_repeated_receive(self, sync_client: SyncStreamClient):
+    def test_repeated_receive(self, sync_client: WebsocketClient):
         """Should receive ten messages from the server."""
         stream = sync_client.stream("/respondWithTenMessages", Message, Message)
         c = 0
@@ -115,8 +120,9 @@ class TestSyncWebsocket:
             assert msg.message == "hello"
         stream.close_send()
         assert c == 10
+        _, err = stream.receive()
 
-    def test_middleware(self, sync_client: SyncStreamClient):
+    def test_middleware(self, sync_client: WebsocketClient):
         """Should receive ten messages from the server."""
         dct = {"called": False}
 

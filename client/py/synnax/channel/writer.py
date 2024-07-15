@@ -15,8 +15,9 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelPayload,
     ChannelParams,
-    normalize_channel_params
+    normalize_channel_params,
 )
+from synnax.channel.retrieve import CacheChannelRetriever
 
 
 class _CreateRequest(Payload):
@@ -24,9 +25,6 @@ class _CreateRequest(Payload):
 
 
 _Response = _CreateRequest
-
-_CHANNEL_CREATE_ENDPOINT = "/channel/create"
-_CHANNEL_DELETE_ENDPOINT = "/channel/delete"
 
 
 class _DeleteRequest(Payload):
@@ -38,18 +36,35 @@ class _DeleteResponse(Payload):
     ...
 
 
+_CHANNEL_CREATE_ENDPOINT = "/channel/create"
+_CHANNEL_DELETE_ENDPOINT = "/channel/delete"
+_CHANNEL_RENAME_ENDPOINT = "/channel/rename"
+
+
+class _RenameRequest(Payload):
+    keys: ChannelKeys
+    names: ChannelNames
+
+
+class _RenameResponse(Payload):
+    ...
+
+
 class ChannelWriter:
     __ENDPOINT = "/channel/create"
     __client: UnaryClient
+    __cache: CacheChannelRetriever
     instrumentation: Instrumentation
 
     def __init__(
         self,
         client: UnaryClient,
         instrumentation: Instrumentation,
+        cache: CacheChannelRetriever,
     ):
         self.__client = client
         self.instrumentation = instrumentation
+        self.__cache = cache
 
     @trace("debug")
     def create(
@@ -60,6 +75,7 @@ class ChannelWriter:
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
+        self.__cache.set(res.channels)
         return res.channels
 
     @trace("debug")
@@ -69,4 +85,14 @@ class ChannelWriter:
         res, exc = self.__client.send(_CHANNEL_DELETE_ENDPOINT, req, _DeleteResponse)
         if exc is not None:
             raise exc
+        self.__cache.delete(normal.params)
+        return res
+
+    @trace("debug")
+    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+        req = _RenameRequest(keys=keys, names=names)
+        res, exc = self.__client.send(_CHANNEL_RENAME_ENDPOINT, req, _RenameResponse)
+        if exc is not None:
+            raise exc
+        self.__cache.rename(keys, names)
         return res

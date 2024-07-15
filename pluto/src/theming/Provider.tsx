@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/theming/theme.css";
+
+import { deep } from "@synnaxlabs/x";
 import {
+  createContext,
   type PropsWithChildren,
   type ReactElement,
-  createContext,
+  useCallback,
   useContext as reactUseContext,
   useEffect,
   useLayoutEffect,
   useMemo,
   useState,
-  useCallback,
 } from "react";
-
-import { deep } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -27,8 +28,6 @@ import { Input } from "@/input";
 import { type SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
-
-import "@/theming/theme.css";
 
 export interface ContextValue {
   theme: theming.Theme;
@@ -43,7 +42,7 @@ const Context = createContext<ContextValue>({
 });
 
 export interface UseProviderProps {
-  theme?: deep.Partial<theming.ThemeSpec>;
+  theme?: deep.Partial<theming.ThemeSpec> & { key: string };
   setTheme?: (key: string) => void;
   toggleTheme?: () => void;
   themes?: Record<string, theming.ThemeSpec>;
@@ -74,8 +73,13 @@ export const useProvider = ({
 
   const parsedThemes = useMemo(() => {
     if (theme != null) {
-      const synnaxLight = theming.themeZ.parse(deep.merge(theming.SYNNAX_LIGHT, theme));
-      const synnaxDark = theming.themeZ.parse(deep.merge(theming.SYNNAX_DARK, theme));
+      const synnaxLight = theming.themeZ.parse(
+        deep.override(deep.copy(theming.SYNNAX_LIGHT), theme),
+      );
+      const synnaxDark = theming.themeZ.parse(
+        deep.override(deep.copy(theming.SYNNAX_DARK), theme),
+      );
+      if (theme.key != null && theme.key.length > 0) setSelected(theme.key);
       return { synnaxLight, synnaxDark };
     }
     return Object.entries(themes).reduce<Record<string, theming.Theme>>(

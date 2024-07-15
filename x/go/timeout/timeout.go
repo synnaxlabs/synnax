@@ -9,6 +9,6 @@
 
 package timeout
 
-import "github.com/cockroachdb/errors"
+import "github.com/synnaxlabs/x/errors"
 
 var Timeout = errors.New("timeout")

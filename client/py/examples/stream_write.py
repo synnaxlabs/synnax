@@ -51,7 +51,7 @@ start = sy.TimeStamp.now()
 
 # Set a rough data rate of 20 Hz. This won't be exact because we're sleeping for a
 # fixed amount of time, but it's close enough for demonstration purposes.
-rough_rate = sy.Rate.HZ * 20
+rough_rate = sy.Rate.HZ * 50
 
 # Make the writer commit every 500 samples. This will make the data available for
 # historical reads every 500 samples.

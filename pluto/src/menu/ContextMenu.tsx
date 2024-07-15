@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/menu/ContextMenu.css";
+
+import { box, position, unique, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   type ForwardedRef,
@@ -16,15 +19,11 @@ import {
   useRef,
   useState,
 } from "react";
-
-import { box, position, unique, xy } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
 import { type RenderProp } from "@/util/renderProp";
-
-import "@/menu/ContextMenu.css";
 
 interface ContextMenuState {
   visible: boolean;
@@ -79,9 +78,10 @@ const findTarget = (target: HTMLElement): HTMLElement | null => {
 const findSelected = (target_: HTMLElement): HTMLElement[] => {
   const target = findTarget(target_);
   if (target == null) return [];
-  const selected = (target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ??
+  const selected = Array.from(target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ??
     []) as HTMLElement[];
-  return [target, ...Array.from(selected)];
+  if (selected.includes(target)) return selected;
+  return [target];
 };
 
 /**
@@ -160,6 +160,7 @@ const ContextMenuCore = (
     position: xy,
     keys,
     className,
+    cursor: _,
     ...props
   }: ContextMenuProps,
   ref: ForwardedRef<HTMLDivElement>,
@@ -190,16 +191,19 @@ const ContextMenuCore = (
 };
 
 /**
- * Menu.ContextMenu wraps a set of children with a context menu. When the user right
- * clicks within wrapped area, the provided menu will be shown. Menu.ContextMenu should
- * be used in conjunction with the Menu.useContextMenu hook.
+ * Menu.ContextMenu wraps a set of children with a context menu. When the user
+ * right clicks within wrapped area, the provided menu will be shown.
+ * Menu.ContextMenu should be used in conjunction with the Menu.useContextMenu
+ * hook.
  *
- * The rendered menu is provided with a set of keys that represent the HTML IDs of the
- * context target elements. The first target is evaluated by traversing the parents
- * of the element that was right clicked until an element with the class "pluto-context-target"
- * is found. If no such element is found, the right clicked element itself is used as
- * the target. Subsequent targets are found by querying all siblings of the first target
- * that have the "pluto-context-selected" class.
+ * The rendered menu is provided with a set of keys that represent the HTML IDs
+ * of the context target elements. The first target is evaluated by traversing
+ * the parents of the element that was right clicked until an element with the
+ * class "pluto-context-target" is found. If no such element is found, the right
+ * clicked element itself is used as the target. If this target has the class
+ * "pluto-context-selected", then subsequent targets are found by querying all
+ * siblings of the first target that have the "pluto-context-selected" class.
+ * Otherwise, the only key is the first target.
  *
  * @example <caption>Example DOM structure</caption>
  *   <div id="pluto-menu-context__container">
@@ -212,10 +216,14 @@ const ContextMenuCore = (
  *    <div className="pluto-context-target" id="3">
  *   </div>
  *
- * In the above example, the keys provided to the menu would be ["1", "2"].
+ * In the above example, the keys provided to the menu would be ["1"].
  *
- * The target resolution logic is ideal for both single and multi-select scenarios,
- * such as lists that have several selected rows that should be acted upon together.
+ * If the <div> element with id="1" had a className of "pluto-context-target
+ * pluto-context-selected" instead, the keys provided would be ["1", "2"].
+ *
+ * The target resolution logic is ideal for both single and multi-select
+ * scenarios, such as lists that have several selected rows that should be acted
+ * upon together.
  *
  * @param props - Props for the component. Expects all return values from the
  * useContextMenu hook. All non-hook and unlisted props will be spread to the

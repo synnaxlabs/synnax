@@ -13,11 +13,11 @@ import (
 	"context"
 	"crypto/tls"
 	"github.com/cockroachdb/cmux"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
@@ -101,21 +101,26 @@ func (c Config) Validate() error {
 // It can also serve secure branches behind a TLS listener.
 type Server struct {
 	Config
-	wg signal.WaitGroup
+	wg      signal.WaitGroup
+	started chan struct{}
 }
 
 // New creates a new server using the specified configuration. The server must be started
 // using the Serve method. If the configuration is invalid, an error is returned.
 func New(configs ...Config) (*Server, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
-	return &Server{Config: cfg}, err
+	return &Server{Config: cfg, started: make(chan struct{})}, err
 }
+
+// Started is a channel that can be listened to for when the server has been successfully started.
+func (s *Server) Started() <-chan struct{} { return s.started }
 
 // Serve starts the server and blocks until all branches have stopped. Only returns an
 // error if the server exits abnormally (i.e. it wil ignore any errors emitted during
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
-	s.L.Info("starting server", s.Report().ZapFields()...)
+	s.L.Info("starting server", zap.String("listen_address", s.ListenAddress.HostString()))
+	s.L.Debug("config", s.Report().ZapFields()...)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	s.wg = sCtx
 	defer cancel()
@@ -161,12 +166,14 @@ func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
 		return filterCloserError(root.Serve())
 	}, signal.WithKey("rootMux"))
 
+	close(s.started)
 	return sCtx.Wait()
 }
 
 func (s *Server) serveInsecure(sCtx signal.Context, lis net.Listener) error {
 	mux := cmux.New(lis)
 	s.startBranches(sCtx, mux /*insecureMux*/, true)
+	close(s.started)
 	return filterCloserError(mux.Serve())
 }
 

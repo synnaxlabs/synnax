@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
 import {
+  type ForwardedRef,
   type MutableRefObject,
   useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
-  type ForwardedRef,
 } from "react";
-
-import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -55,12 +55,24 @@ export interface UseReturn {
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
-const TRUNC_PRECISION = 4;
+// We truncate the viewport box at this precision to simplify diffing logs, reduce
+// unnecessary re-renders, and prevent floating point errors.
+const TRUNC_PRECISION = 6;
+// The threshold for the cursor to move before we trigger a pan calculation to update
+// the viewport. This prevents unnecessary re-renders, although increasing this value
+// also decreases the smoothness of the pan.
+const CURSOR_TRANSLATION_THRESHOLD = 2; // px
+// The threshold at which an action is considered a click, and not a drag.
+const CLICK_THRESHOLD = 5; // px
+
+const isClick = (b: box.Box): boolean =>
+  box.width(b) < CLICK_THRESHOLD && box.height(b) < CLICK_THRESHOLD;
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
 const TRIGGER_MODES = ["zoom", "pan", "select", "zoomReset"] as const;
 export const MODES = [...TRIGGER_MODES, "click"] as const;
+export const modeZ = z.enum(MODES);
 export type Mode = StringLiteral<(typeof MODES)[number]>;
 type TriggerMode = StringLiteral<(typeof TRIGGER_MODES)[number]>;
 export const MASK_MODES: Mode[] = ["zoom", "select"];
@@ -130,10 +142,16 @@ export const use = ({
   const [maskBox, setMaskBox] = useState<box.Box>(box.ZERO);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
+  // We store the START of the previous pan in statRef, which means
+  // that even if the viewport didn't change significantly, our equality
+  // comparison will still trigger a re-render. So we track the previous
+  // pan update in this ref here, that stores the result of the previous
+  // pan update.
+  const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);
 
-  useEffect(() => setStateRef(() => box.truncate(initial, 3)), [initial]);
+  useEffect(() => setStateRef(() => box.truncate(initial, TRUNC_PRECISION)), [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -169,9 +187,11 @@ export const use = ({
         return setStateRef(box.DECIMAL);
       }
 
+      const isClick_ = isClick(box_);
+
       if (stage === "end") {
         // This prevents clicks from being registered as a drag
-        if (box.width(box_) < 5 && box.height(box_) < 5) {
+        if (isClick_) {
           if (mode === "zoom") setMaskBox(box.ZERO);
           onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
           return;
@@ -179,7 +199,7 @@ export const use = ({
         return setStateRef((prev) => {
           if (mode === "pan") {
             const next = handlePan(box_, prev, canvas);
-            if (next === null) return prev;
+            if (next === null || box.equals(next, prev)) return prev;
             onChange?.({ box: next, mode, stage, cursor });
             return next;
           }
@@ -196,7 +216,7 @@ export const use = ({
       }
 
       if (MASK_MODES.includes(mode)) {
-        if (box.height(box_) < 5 && box.width(box_) < 5) return;
+        if (isClick_) return;
         return setMaskBox(
           scale.XY.scale(canvas)
             .clamp(canvas)
@@ -205,15 +225,12 @@ export const use = ({
         );
       }
 
-      setMaskBox((prev) => (!box.isZero(prev) ? box.ZERO : prev));
+      setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
+      if (xy.distance(cursor, prevCursorRef.current) < CURSOR_TRANSLATION_THRESHOLD)
+        return;
+      prevCursorRef.current = cursor;
       const next = handlePan(box_, stateRef.current, canvas);
-      if (box.equals(next, stateRef.current)) return;
-      onChange?.({
-        box: next,
-        mode,
-        stage,
-        cursor,
-      });
+      onChange?.({ box: next, mode, stage, cursor });
     },
     [
       setMaskBox,
@@ -253,9 +270,8 @@ export const use = ({
     [threshold_],
   );
 
-  const t = Triggers.useHeldRef({
-    triggers: [["Control"]],
-  });
+  const verticalTrigger = Triggers.useHeldRef({ triggers: [["Control"]] });
+  const horizontalTrigger = Triggers.useHeldRef({ triggers: [["Alt"]] });
 
   useEffect(() => {
     const handler = (e: WheelEvent): void => {
@@ -268,11 +284,14 @@ export const use = ({
       if (!box.contains(canvasBox, rawCursor) || e.target !== canvasRef.current) return;
       const s2 = constructScale(stateRef.current, box.construct(canvasRef.current));
       const cursor = s2.pos(xy.construct(e));
-      const s = scale.XY.magnify({ x: t.current.held ? 1 : sf, y: sf });
+      const s = scale.XY.magnify({
+        x: verticalTrigger.current.held ? 1 : sf,
+        y: horizontalTrigger.current.held ? 1 : sf,
+      });
       let next = s.box(stateRef.current);
       next = box.translate(next, {
-        x: t.current.held ? 0 : cursor.x * (1 - sf),
-        y: cursor.y * (1 - sf),
+        x: verticalTrigger.current.held ? 0 : cursor.x * (1 - sf),
+        y: horizontalTrigger.current.held ? 0 : cursor.y * (1 - sf),
       });
       setStateRef(next);
       onChange?.({

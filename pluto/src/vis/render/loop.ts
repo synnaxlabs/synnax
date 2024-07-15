@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -67,8 +67,8 @@ const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
  *
  * --------------------------------- VERY IMPORTANT ------------------------------
  *
- * This loop intentially permits race conditions on teh requests map access. We tried
- * lockign this with an async mutex, but this resulted in a significant performance
+ * This loop intentionally permits race conditions on the requests map access. We tried
+ * locking this with an async mutex, but this resulted in a significant performance
  * hit for high-speed rendering for live telemetry. We've decided
  *
  */
@@ -78,9 +78,11 @@ export class Loop {
   private readonly requests = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
+  private readonly afterRender?: () => void;
 
-  constructor() {
+  constructor(afterRender?: () => void) {
     void this.start();
+    this.afterRender = afterRender;
   }
 
   /**
@@ -143,6 +145,7 @@ export class Loop {
         );
       }
       this.requests.clear();
+      this.afterRender?.();
     });
   }
 

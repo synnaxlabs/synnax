@@ -72,10 +72,10 @@ If any previous versions of Synnax are installed and available on your `PATH`, y
 may need to remove them to avoid conflicts.
 
 <Note variant="warning">
-If you've also installed the [Synnax Python Client](../python-client/get-started), 
+If you've also installed the [Synnax Python Client](../python-client/get-started),
 its `synnax` command may take precedence over the one you just installed. To
 avoid conflicts, rename the binary you've just installed to something else, like
-`synnax-server` by running:
+`synnax-server` by running (you may need to use `sudo`):
 
 ```
 mv /usr/local/bin/synnax /usr/local/bin/synnax-server
@@ -193,7 +193,7 @@ avoid conflicts, rename the binary you've just installed to something else, like
 `synnax-server` by running:
 
 ```powershell
-Move-Item $env:appdata/synnax/synnax.exe $env.appdata/synnax/synnax-server.exe
+Move-Item $env:appdata/synnax/synnax.exe $env:appdata/synnax/synnax-server.exe
 ```
 
 Then, you can run the binary using `synnax-server` instead of `synnax`.

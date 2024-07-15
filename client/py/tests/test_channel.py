@@ -87,7 +87,7 @@ class TestChannelClient:
     def test_retrieve_by_key_not_found(self, client: sy.Synnax):
         """Should raise QueryError when key not found"""
         with pytest.raises(sy.NotFoundError):
-            client.channels.retrieve("1-100000")
+            client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
         self, two_channels: list[sy.Channel], client: sy.Synnax
@@ -98,11 +98,38 @@ class TestChannelClient:
         for channel in res_channels:
             assert channel.name in ["test", "test2"]
 
-    def test_retrieve_list_not_found(self, client: sy.Synnax):
+    def test_retrieve_list_of_names_not_found(self, client: sy.Synnax):
         """Should retrieve an empty list when can't find channels"""
         fake_names = ["fake1", "fake2", "fake3"]
         results = client.channels.retrieve(fake_names)
         assert len(results) == 0
+
+    def test_retrieve_list_of_keys_not_found(self, client: sy.Synnax):
+        """Should retrieve an empty list when can't find channels"""
+        fake_keys = [1234, 5781, 99123]
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(fake_keys)
+
+    def test_retrieve_numeric_string(
+        self, client: sy.Synnax, two_channels: list[sy.channel]
+    ):
+        channels = client.channels.retrieve(
+            [str(two_channels[0].key), str(two_channels[1].key)]
+        )
+        for channel in channels:
+            assert channel.name in ["test", "test2"]
+
+    def test_retrieve_bad_numeric_string(self, client: sy.Synnax):
+        ch1 = client.channels.create(
+            data_type=sy.DataType.FLOAT32, name="test1", rate=1 * sy.Rate.HZ
+        )
+        ch2 = client.channels.create(
+            data_type=sy.DataType.FLOAT32, name=str(ch1.key), rate=1 * sy.Rate.HZ
+        )
+
+        # Should get first channel since the numeric string gets converted to a key
+        result_channel = client.channels.retrieve(ch2.name)
+        assert result_channel.name == "test1"
 
     def test_retrieve_single_multiple_found(
         self,
@@ -174,3 +201,72 @@ class TestChannelClient:
         client.channels.delete(names)
         results = client.channels.retrieve(names)
         assert len(results) == 0
+
+    def test_delete_and_recreate_with_same_name(self, client: sy.Synnax):
+        name = str(uuid.uuid4())
+        ch = client.channels.create(
+            sy.Channel(
+                name=name,
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            ),
+            retrieve_if_name_exists=True,
+        )
+        ch_retrieved = client.channels.retrieve(name)
+        assert ch.key == ch_retrieved.key
+        client.channels.delete(name)
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(ch.key)
+        ch2 = client.channels.create(
+            sy.Channel(
+                name=name,
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            ),
+            retrieve_if_name_exists=True,
+        )
+        assert ch2.key != ch.key
+        ch2_retrieved = client.channels.retrieve(name)
+        assert ch2.key == ch2_retrieved.key
+        all_channels = client.channels.retrieve([".*"])
+        keys = [channel.key for channel in all_channels]
+        assert ch2.key in keys
+
+    def test_single_rename(self, client: sy.Synnax):
+        """Should rename a single channel"""
+        name = str(uuid.uuid4())
+        channel = client.channels.create(
+            sy.Channel(
+                name=name,
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            )
+        )
+        new_name = str(uuid.uuid4())
+        client.channels.rename(channel.key, new_name)
+        retrieved = client.channels.retrieve(new_name)
+        assert retrieved.name == new_name
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(name)
+
+    def test_multiple_rename(self, client: sy.Synnax):
+        """Should rename multiple channels"""
+        channels = client.channels.create(
+            [
+                sy.Channel(
+                    name="test",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name="test2",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        new_names = [str(uuid.uuid4()), str(uuid.uuid4())]
+        client.channels.rename([channel.key for channel in channels], new_names)
+        for i, name in enumerate(new_names):
+            retrieved = client.channels.retrieve(name)
+            assert retrieved.name == name

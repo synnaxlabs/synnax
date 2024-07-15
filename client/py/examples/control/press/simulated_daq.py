@@ -100,9 +100,10 @@ with client.open_streamer([c.key for c in valve_command_channels]) as streamer:
         press = 0
         while True:
             time.sleep(rate)
-
-            if streamer.received:
-                f = streamer.read()
+            while True:
+                f = streamer.read(0)
+                if f is None:
+                    break
                 for k in f.channels:
                     state[valve_command_to_response_channels[k]] = f[k][-1]
 

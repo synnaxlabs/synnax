@@ -1,0 +1,161 @@
+config_setting(
+    name = "ni_mock",
+    values = {"define": "ni_mock=true"}
+)
+
+
+cc_library(
+    name = "daqmx",
+    srcs = select({
+        "//conditions:default": ["nidaqmx_prod.cpp"],
+        ":ni_mock": ["nidaqmx_mock.cpp"],
+    }),
+    hdrs = [
+        "nidaqmx_api.h",
+        "daqmx.h"
+    ],
+
+    visibility = ["//visibility:public"],
+    deps =  select({
+        "//conditions:default": ["@nidaqmx"],
+        ":ni_mock": [],
+    }),
+)
+
+cc_library(
+    name = "syscfg",
+    srcs = select({
+        "//conditions:default": ["nisyscfg_prod.cpp"],
+        ":ni_mock": ["nisyscfg_mock.cpp"],
+    }),
+    hdrs = [
+        "nisyscfg_api.h",
+        "nisyscfg.h",
+        "nisyscfg_errors.h",
+        # "nisyscfg_wide.h", // double check why we would need this api
+    ],
+    visibility = ["//visibility:public"],
+    deps =  select({
+        "//conditions:default": ["@nisyscfg"],
+        ":ni_mock": [],
+    }),
+)
+
+
+cc_library(
+    name = "ni",
+    srcs = [
+        "analog_read.cpp",
+        "digital_read.cpp",
+        "digital_write.cpp",
+        "task.cpp",
+        "factory.cpp",
+        "scanner.cpp",
+        "ni.cpp", 
+    ],
+    hdrs = select({
+        "@platforms//os:windows": [
+            "ni.h",
+            "scale.h",
+            "ai_channels.h",
+            "error.h",
+            "//driver/task",
+            "//driver/pipeline",
+            "//client/cpp:synnax",
+            "ts_queue.h",
+            "dll_check_windows.h",
+        ],
+        "//conditions:default": [
+            "ni.h",
+            "scale.h",
+            "ai_channels.h",
+            "error.h",
+            "//driver/task",
+            "//driver/pipeline",
+            "//client/cpp:synnax",
+            "ts_queue.h",
+            "dll_check_linux.h",
+        ],
+    }),
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    
+    linkopts =   select({
+        "@platforms//os:windows": ["user32.lib"],
+        "//conditions:default": [],
+    }),
+
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "daqmx",
+        "syscfg",
+        "//driver/breaker",
+        "//driver/errors",
+        "//driver/pipeline",
+        "//client/cpp:synnax",
+        "//driver/loop",
+        "//driver/config",
+        "//driver/task",
+        "@nlohmann_json//:json",
+    ],
+)
+
+
+cc_test(
+    name = "analog_read_test",
+    srcs = [
+        "analog_read_test.cpp",
+    ],
+    copts = ["/std:c++20"],
+    deps = [
+        "ni",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "digital_read_test",
+    srcs = [
+        "digital_read_test.cpp",
+    ],
+    copts = ["/std:c++20"],
+    deps = [
+        "ni",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+
+cc_test(
+    name = "scanner_test",
+    srcs = [
+        "scanner_test.cpp",
+    ],
+    deps = [
+        "ni",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    copts = ["/std:c++20"],
+)
+
+cc_test(
+    name = "task_test",
+    srcs = [
+        "task_test.cpp",
+    ],
+    deps = [
+        "ni",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    copts = ["/std:c++20"],
+)

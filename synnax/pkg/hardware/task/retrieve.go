@@ -13,6 +13,7 @@ package task
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
@@ -31,6 +32,14 @@ func (r Retrieve) Search(term string) Retrieve {
 	return r
 }
 
+func (r Retrieve) WhereNames(names ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(m *Task) bool {
+		ok := lo.Contains(names, m.Name)
+		return ok
+	})
+	return r
+}
+
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
@@ -39,7 +48,14 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 func (r Retrieve) WhereRack(key rack.Key) Retrieve {
 	r.gorp = r.gorp.Where(func(m *Task) bool {
 		return m.Rack() == key
-	})
+	}, gorp.Required())
+	return r
+}
+
+func (r Retrieve) WhereTypes(types ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(m *Task) bool {
+		return lo.Contains(types, m.Type)
+	}, gorp.Required())
 	return r
 }
 
@@ -55,6 +71,11 @@ func (r Retrieve) Entries(racks *[]Task) Retrieve {
 
 func (r Retrieve) Limit(limit int) Retrieve {
 	r.gorp = r.gorp.Limit(limit)
+	return r
+}
+
+func (r Retrieve) WhereInternal(internal bool) Retrieve {
+	r.gorp = r.gorp.Where(func(m *Task) bool { return m.Internal == internal })
 	return r
 }
 

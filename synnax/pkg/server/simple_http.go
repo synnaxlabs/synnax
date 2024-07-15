@@ -12,7 +12,7 @@ package server
 import (
 	"context"
 	"github.com/cockroachdb/cmux"
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errors"
 	"net/http"
 )
 

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type Span as OtelSpan,
-  type Tracer as OtelTracer,
-  context,
-  SpanStatusCode,
-  propagation,
   type AttributeValue,
+  context,
+  propagation,
+  type Span as OtelSpan,
+  SpanStatusCode,
+  type Tracer as OtelTracer,
 } from "@opentelemetry/api";
 
 import {
@@ -182,7 +182,7 @@ export class NoopSpan implements Span {
     this.key = key;
   }
 
-  set(key: string, value: AttributeValue): void {}
+  set(): void {}
 
   recordError(_?: Error | null): void {}
 }

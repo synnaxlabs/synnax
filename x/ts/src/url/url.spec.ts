@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -41,7 +41,7 @@ describe("URL", () => {
       pathPrefix: "api",
     });
     expect(endpoint.child("test").replace({ protocol: "https" }).toString()).toEqual(
-      "https://localhost:8080/api/test"
+      "https://localhost:8080/api/test",
     );
   });
 });

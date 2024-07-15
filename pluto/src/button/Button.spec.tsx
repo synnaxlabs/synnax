@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
-
 import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AiOutlineAim } from "react-icons/ai";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it, vitest } from "vitest";
 
 import { Button } from "@/button";
@@ -27,7 +25,7 @@ describe("Button", () => {
     it("should render a button with the provided icon", () => {
       const c = render(
         <Button.Icon size="small">
-          <AiOutlineAim aria-label="icon" />
+          <svg aria-label="icon" />
         </Button.Icon>,
       );
       expect(c.getByLabelText("icon")).toBeTruthy();

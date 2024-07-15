@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,8 +9,8 @@
 
 import {
   type ArrayTransform,
-  type Keyed,
   type Key,
+  type Keyed,
   type TermSearcher,
 } from "@synnaxlabs/x";
 import Fuse, { type IFuseOptions } from "fuse.js";
@@ -18,10 +18,7 @@ import Fuse, { type IFuseOptions } from "fuse.js";
 import { proxyMemo } from "@/memo";
 
 /** Props for the {@link createFilterTransform} function. */
-export interface CreateFilterTransformProps<
-  K extends Key,
-  E extends Keyed<K>,
-> {
+export interface CreateFilterTransformProps<K extends Key, E extends Keyed<K>> {
   term: string;
   searcher?: TermSearcher<string, K, E> | ((data: E[]) => TermSearcher<string, K, E>);
 }
@@ -32,15 +29,14 @@ const defaultOpts: IFuseOptions<unknown> = {
 
 export const fuseFilter =
   (opts?: IFuseOptions<unknown>) =>
-  <K extends Key, E extends Keyed<K>>(
-    data: E[],
-  ): TermSearcher<string, K, E> => {
+  <K extends Key, E extends Keyed<K>>(data: E[]): TermSearcher<string, K, E> => {
     const fuse = new Fuse(data, {
       keys: Object.keys(data[0]),
       ...defaultOpts,
       ...opts,
     });
     return {
+      type: "fuse",
       page: (page: number, perPage: number) =>
         data.slice(page * perPage, (page + 1) * perPage),
       search: (term: string) => fuse.search(term).map(({ item }) => item),
@@ -67,10 +63,10 @@ export const createFilterTransform = <K extends Key, E extends Keyed<K>>({
   term,
   searcher = defaultFilter<K, E>,
 }: CreateFilterTransformProps<K, E>): ArrayTransform<E> =>
-  proxyMemo((data) => {
+  proxyMemo(({ data }) => {
     if (typeof searcher === "function") {
-      if (term.length === 0 || data?.length === 0) return data;
-      return searcher(data).search(term);
+      if (term.length === 0 || data?.length === 0) return { data, transformed: false };
+      return { data: searcher(data).search(term), transformed: true };
     }
-    return searcher.search(term);
+    return { data: searcher.search(term), transformed: true };
   });

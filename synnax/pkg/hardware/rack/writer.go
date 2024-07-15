@@ -14,14 +14,12 @@ package rack
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
-	group  group.Group
 	newKey func() (Key, error)
 }
 
@@ -32,14 +30,14 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 			return
 		}
 	}
+	if err := r.Validate(); err != nil {
+		return err
+	}
 	if err = gorp.NewCreate[Key, Rack]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	otgID := OntologyID(r.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
-		return err
-	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineResource(ctx, otgID)
 }
 
 func (w Writer) Delete(ctx context.Context, key Key) error {

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,27 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Children, cloneElement, type ReactNode, type ReactElement } from "react";
+import "@/text/WithIcon.css";
 
 import { toArray } from "@synnaxlabs/x";
+import { Children, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { type text } from "@/text/core";
-import { type CoreProps, Text } from "@/text/Text";
+import { type CoreProps, evalColor, Text } from "@/text/Text";
 import { isValidElement } from "@/util/children";
 
-import "@/text/WithIcon.css";
+interface IconProps {
+  key?: string | number;
+  color?: string;
+  style?: React.CSSProperties;
+}
+
+type IconElement = ReactElement<IconProps>;
 
 export type WithIconProps<
   E extends Align.SpaceElementType = "div",
   L extends text.Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
   CoreProps<L> & {
-    startIcon?: false | ReactElement | ReactElement[];
-    endIcon?: false | ReactElement | ReactElement[];
+    startIcon?: false | IconElement | IconElement[];
+    endIcon?: false | IconElement | IconElement[];
     divided?: boolean;
     noWrap?: boolean;
   };
@@ -48,9 +54,9 @@ export const WithIcon = <
   weight,
   ...props
 }: WithIconProps<E, L>): ReactElement => {
-  const color = Color.cssString(crudeColor);
-  const startIcons = startIcon != null && formatIcons(startIcon, color);
-  const endIcons = endIcon != null && formatIcons(endIcon, color);
+  const color = evalColor(crudeColor, shade);
+  const startIcons = Children.toArray(startIcon);
+  const endIcons = Children.toArray(endIcon);
   const formatted = formatChildren(level, children, color, shade, weight);
   return (
     // @ts-expect-error - level type errors
@@ -65,6 +71,7 @@ export const WithIcon = <
       size="small"
       align="center"
       {...props}
+      style={{ ...props.style, color }}
     >
       {startIcons}
       {divided && startIcon != null && <Divider.Divider direction="y" />}
@@ -75,27 +82,12 @@ export const WithIcon = <
   );
 };
 
-const formatIcons = (
-  icon: false | ReactElement | ReactElement[],
-  color?: string,
-): ReactElement[] => {
-  if (icon === false) return [];
-  return (Children.toArray(icon) as ReactElement[]).map((icon, i) =>
-    cloneElement(icon, {
-      key: i,
-      ...icon.props,
-      color,
-      style: { ...icon.props.style },
-    }),
-  );
-};
-
 export const formatChildren = <L extends text.Level>(
   level: L,
   children: ReactNode = [],
   color?: string,
   shade?: number,
-  weight?: number,
+  weight?: text.Weight,
 ): ReactElement | ReactElement[] => {
   const arr = toArray(children);
   const o: ReactElement[] = [];

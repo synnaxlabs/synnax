@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,10 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray, type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x/record";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { type Workspace, workspaceZ, keyZ, workspaceRemoteZ } from "./payload";
+import {
+  keyZ,
+  type Workspace,
+  workspaceRemoteZ,
+  workspaceZ,
+} from "@/workspace/payload";
 
 const newWorkspaceZ = workspaceZ.partial({ key: true }).transform((w) => ({
   ...w,

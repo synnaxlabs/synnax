@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
-  TimeSpan,
-  TimeStamp,
   bounds,
   box,
-  scale,
   direction,
+  scale,
   throttle,
+  TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -195,7 +195,7 @@ export class CoreAxis<
     const [bounds, err] = await this.bounds(hold, fetchDataBounds);
     const dir = direction.swap(direction.construct(this.state.location));
     return [
-      scale.Scale.scale(bounds)
+      scale.Scale.scale<number>(bounds)
         .scale(1)
         .translate(-box.root(viewport)[dir])
         .magnify(1 / box.dim(viewport, dir)),

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/menu/Item.css";
+
 import { type FunctionComponent, type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useMenuContext } from "@/menu/Menu";
-
-import "@/menu/Item.css";
 
 const menuItemFactory =
   <E extends Pick<Button.ButtonProps, "className" | "onClick" | "size">>(
@@ -35,7 +35,7 @@ const menuItemFactory =
     };
     const _selected = selected === itemKey;
     return (
-      // @ts-expect-error
+      // @ts-expect-error - generic element props
       <Base
         level={level}
         {...rest}

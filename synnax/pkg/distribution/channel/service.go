@@ -11,6 +11,9 @@ package channel
 
 import (
 	"context"
+
+	"github.com/synnaxlabs/x/types"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -25,6 +28,7 @@ type Service interface {
 	Readable
 	Writeable
 	ontology.Service
+	Group() group.Group
 }
 
 type Writeable interface {
@@ -54,12 +58,13 @@ type service struct {
 var _ Service = (*service)(nil)
 
 type ServiceConfig struct {
-	HostResolver core.HostResolver
-	ClusterDB    *gorp.DB
-	TSChannel    *ts.DB
-	Transport    Transport
-	Ontology     *ontology.Ontology
-	Group        *group.Service
+	HostResolver     core.HostResolver
+	ClusterDB        *gorp.DB
+	TSChannel        *ts.DB
+	Transport        Transport
+	Ontology         *ontology.Ontology
+	Group            *group.Service
+	IntOverflowCheck func(ctx context.Context, count types.Uint20) error
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -70,6 +75,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "IntOverflowCheck", c.IntOverflowCheck)
 	return v.Error()
 }
 
@@ -80,6 +86,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
 	return c
 }
 
@@ -92,22 +99,21 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	var g group.Group
+	var group group.Group
 	if cfg.Group != nil {
-		g, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-		if err != nil {
+		if group, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID); err != nil {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(cfg, g)
+	proxy, err := newLeaseProxy(cfg, group)
 	if err != nil {
 		return nil, err
 	}
-
 	s := &service{
 		DB:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
+		group: group,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
@@ -120,4 +126,27 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
-func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
+func (s *service) Group() group.Group { return s.group }
+
+func (s *service) NewRetrieve() Retrieve {
+	return Retrieve{
+		gorp:                      gorp.NewRetrieve[Key, Channel](),
+		tx:                        s.DB,
+		otg:                       s.otg,
+		validateRetrievedChannels: s.validateChannels,
+	}
+}
+
+func (s *service) validateChannels(ctx context.Context, channels []Channel) (res []Channel, err error) {
+	res = make([]Channel, 0, len(channels))
+	for i, key := range KeysFromChannels(channels) {
+		if s.proxy.external.Contains(key.LocalKey()) {
+			channelNumber := s.proxy.external.NumLessThan(key.LocalKey()) + 1
+			if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(channelNumber)); err != nil {
+				return
+			}
+		}
+		res = append(res, channels[i])
+	}
+	return
+}

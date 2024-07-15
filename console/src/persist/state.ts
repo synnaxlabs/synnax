@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type UnknownAction,
+  type Action,
   type Dispatch,
   type Middleware,
   type MiddlewareAPI,
-  type Action,
+  type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
-import { appWindow } from "@tauri-apps/api/window";
+import { getCurrent } from "@tauri-apps/api/window";
 
 import { TauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
@@ -48,18 +48,25 @@ interface StateVersionValue {
 
 const KEEP_HISTORY = 4;
 
+export const hardClearAndReload = () => {
+  const appWindow = getCurrent();
+  if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
+  const db = new TauriKV();
+  db.clear().finally(() => {
+    window.location.reload();
+  });
+};
+
 export const open = async <S extends RequiredState>({
   exclude = [],
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
+  const appWindow = getCurrent();
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
-  let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
-  if (state != null && migrator != null) {
-    state = migrator(state);
-    await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
-  }
+
+  console.log(`Latest database version key is ${version}`);
 
   const revert = async (): Promise<void> => {
     if (appWindow.label !== MAIN_WINDOW) return;
@@ -69,11 +76,11 @@ export const open = async <S extends RequiredState>({
   };
 
   const clear = async (): Promise<void> => {
-    if (appWindow.label !== MAIN_WINDOW) return;
-    for (let i = version; i >= version - KEEP_HISTORY - 1; i--)
-      await db.delete(persistedStateKey(i));
-    version = 0;
-    await db.set(DB_VERSION_KEY, { version });
+    if (appWindow.label === MAIN_WINDOW) {
+      await db.clear();
+      version = 0;
+      await db.set(DB_VERSION_KEY, { version });
+    }
     window.location.reload();
   };
 
@@ -84,10 +91,24 @@ export const open = async <S extends RequiredState>({
     // when we do deep deletes.
     const deepCopy = deep.copy(store.getState());
     const filtered = deep.deleteD<S>(deepCopy, ...exclude);
-    db.set(persistedStateKey(version), filtered).catch(console.error);
-    db.set(DB_VERSION_KEY, { version }).catch(console.error);
-    db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
+    void (async () => {
+      await db.set(persistedStateKey(version), filtered).catch(console.error);
+      await db.set(DB_VERSION_KEY, { version }).catch(console.error);
+      await db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
+    })();
   }, 500);
+
+  let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
+  if (state != null && migrator != null) {
+    try {
+      state = migrator(state);
+    } catch (e) {
+      console.error("unable to apply migrations. continuing with undefined state.");
+      console.error(e);
+      state = undefined;
+    }
+    await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
+  }
 
   return [
     state,

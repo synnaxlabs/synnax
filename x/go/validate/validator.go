@@ -10,35 +10,43 @@
 package validate
 
 import (
-	"github.com/cockroachdb/errors"
+	"context"
+	"fmt"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
 	"reflect"
+	"strings"
 )
 
 type Validator struct {
 	scope string
-	errutil.Catch
+	errors.Catcher
 }
 
 func New(scope string) *Validator {
-	return &Validator{scope: scope, Catch: *errutil.NewCatch()}
+	return &Validator{scope: scope, Catcher: *errors.NewCatcher()}
 }
 
 // Ternary adds the error with the given message to the validator if the condition
 // is true.
-func (v *Validator) Ternary(cond bool, msg string) bool {
+func (v *Validator) Ternary(field string, cond bool, msg string) bool {
 	v.Exec(func() error {
-		return lo.Ternary(cond, v.New(msg), nil)
+		return lo.Ternary[error](cond, FieldError{
+			Field:   field,
+			Message: msg,
+		}, nil)
 	})
 	return v.Error() != nil
 }
 
-func (v *Validator) Ternaryf(cond bool, format string, args ...any) bool {
+func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any) bool {
 	v.Exec(func() error {
-		err := lo.Ternary(cond, v.Newf(format, args...), nil)
+		err := lo.Ternary[error](cond, FieldError{
+			Field:   field,
+			Message: fmt.Sprintf(format, args...),
+		}, nil)
 		return err
 	})
 	return v.Error() != nil
@@ -66,56 +74,103 @@ func (v *Validator) Func(f func() bool, msg string) bool {
 	return v.Error() != nil
 }
 
-var (
-	Error = errors.New("validation error")
-)
+var Error = errors.New("validation error")
 
-func NotNil(v *Validator, name string, value any) bool {
+type FieldError struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+}
+
+func (fe FieldError) Error() string { return fe.Field + ":" + fe.Message }
+
+func encode(_ context.Context, err error) (errors.Payload, bool) {
+	var fe FieldError
+	if errors.As(err, &fe) {
+		return errors.Payload{
+			Type: "sy.validation.field",
+			Data: fe.Error(),
+		}, true
+	}
+	if errors.Is(err, Error) {
+		return errors.Payload{
+			Type: "sy.validation",
+			Data: err.Error(),
+		}, true
+	}
+	return errors.Payload{}, false
+}
+
+func decode(_ context.Context, p errors.Payload) (error, bool) {
+	switch p.Type {
+	case "sy.validation.field":
+		values := strings.Split(p.Data, ": ")
+		if len(values) < 2 {
+			return errors.Wrapf(Error, p.Data), true
+		}
+		return FieldError{Field: values[0], Message: values[1]}, true
+	case "sy.validation":
+		return errors.Wrapf(Error, p.Data), true
+	default:
+		return nil, false
+	}
+}
+
+func init() { errors.Register(encode, decode) }
+
+func NotNil(v *Validator, field string, value any) bool {
 	isNil := value == nil || (reflect.ValueOf(value).Kind() == reflect.Ptr && reflect.ValueOf(value).IsNil())
-	return v.Ternaryf(isNil, "%s must be non-nil", name)
+	return v.Ternary(field, isNil, "must be non-nil")
 }
 
-func Positive[T types.Numeric](v *Validator, name string, value T) bool {
-	return v.Ternaryf(value <= 0, "%s must be positive", name)
+func Positive[T types.Numeric](v *Validator, field string, value T) bool {
+	return v.Ternaryf(field, value <= 0, "must be positive")
 }
 
-func GreaterThan[T types.Numeric](v *Validator, name string, value T, threshold T) bool {
-	return v.Ternaryf(value <= threshold, "%s must be greater than %d", name, threshold)
+func GreaterThan[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+	return v.Ternaryf(field, value <= threshold, "must be greater than %v", threshold)
 }
 
-func GreaterThanEq[T types.Numeric](v *Validator, name string, value T, threshold T) bool {
+func GreaterThanEq[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
 	return v.Ternaryf(
+		field,
 		value < threshold,
-		"%s must be greater than or equal to %d", name, threshold)
-}
-
-func NonZero[T types.Numeric](v *Validator, name string, value T) bool {
-	return v.Ternaryf(
-		value == 0,
-		"%s must be non-zero", name)
-}
-
-func NonZeroable(v *Validator, name string, value override.Zeroable) bool {
-	return v.Ternaryf(
-		value.IsZero(),
-		"%s must be non-zero", name,
+		"must be greater than or equal to %v", threshold,
 	)
 }
 
-func NonNegative[T types.Numeric](v *Validator, name string, value T) bool {
-	return v.Ternaryf(
-		value < 0,
-		"%s must be non-negative", name)
+func LessThan[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+	return v.Ternaryf(field, value >= threshold, "must be less than %v", threshold)
 }
 
-func NotEmptySlice[T any](v *Validator, name string, value []T) bool {
+func LessThanEq[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
 	return v.Ternaryf(
-		len(value) == 0,
-		"%s must be non-empty", name)
+		field,
+		value > threshold,
+		"must be less than or equal to %v", threshold)
 }
 
-func NotEmptyString[T ~string](v *Validator, name string, value T) bool {
-	return v.Ternaryf(value == "", "%s must be set", name)
+func NonZero[T types.Numeric](v *Validator, field string, value T) bool {
+	return v.Ternaryf(
+		field,
+		value == 0,
+		"must be non-zero",
+	)
+}
+
+func NonZeroable(v *Validator, field string, value override.Zeroable) bool {
+	return v.Ternary(field, value.IsZero(), "must be non-zero")
+}
+
+func NonNegative[T types.Numeric](v *Validator, field string, value T) bool {
+	return v.Ternary(field, value < 0, "field must be non-negative")
+}
+
+func NotEmptySlice[T any](v *Validator, field string, value []T) bool {
+	return v.Ternary(field, len(value) == 0, "must be non-empty")
+}
+
+func NotEmptyString[T ~string](v *Validator, field string, value T) bool {
+	return v.Ternary(field, value == "", "field must be set")
 }
 
 func MapDoesNotContainF[K comparable, V any](

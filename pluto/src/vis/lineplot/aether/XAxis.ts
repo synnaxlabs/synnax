@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, type scale } from "@synnaxlabs/x";
+import { type bounds, type scale, TimeRange } from "@synnaxlabs/x";
 
 import { type FindResult } from "@/vis/line/aether/line";
 import {
   type AxisRenderProps,
-  coreAxisStateZ,
   CoreAxis,
+  coreAxisStateZ,
 } from "@/vis/lineplot/aether/axis";
-import { type YAxis } from "@/vis/lineplot/aether/YAxis";
+import { YAxis } from "@/vis/lineplot/aether/YAxis";
+import { range } from "@/vis/lineplot/range/aether";
 
 export const xAxisStateZ = coreAxisStateZ;
 
-export interface XAxisRenderProps extends AxisRenderProps {}
+export interface XAxisRenderProps extends AxisRenderProps {
+  exposure: number;
+}
 
-export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
+export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
   schema = coreAxisStateZ;
 
@@ -34,6 +37,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
     );
     this.renderAxis(props, dataToDecimal.reverse());
     await this.renderYAxes(props, dataToDecimal);
+    await this.renderRangeAnnotations(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
@@ -62,7 +66,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
     );
     if (error != null) throw error;
     const p = { ...props, xDataToDecimalScale };
-    const prom = this.children.map(async (el) => await el.findByXValue(p, target));
+    const prom = this.yAxes.map(async (el) => await el.findByXValue(p, target));
     return (await Promise.all(prom)).flat();
   }
 
@@ -71,10 +75,37 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
     xDataToDecimalScale: scale.Scale,
   ): Promise<void> {
     const p = { ...props, xDataToDecimalScale };
-    await Promise.all(this.children.map(async (el) => await el.render(p)));
+    await Promise.all(this.yAxes.map(async (el) => await el.render(p)));
+  }
+
+  get yAxes(): readonly YAxis[] {
+    return this.childrenOfType<YAxis>(YAxis.TYPE);
+  }
+
+  get rangeAnnotations(): readonly range.Provider[] {
+    return this.childrenOfType<range.Provider>(range.Provider.TYPE);
+  }
+
+  private async renderRangeAnnotations(
+    props: XAxisRenderProps,
+    xDataToDecimalScale: scale.Scale,
+  ): Promise<void> {
+    const [bound, err] = await this.bounds(props.hold, this.dataBounds.bind(this));
+    if (err != null) throw err;
+    await Promise.all(
+      this.rangeAnnotations.map(
+        async (el) =>
+          await el.render({
+            dataToDecimalScale: xDataToDecimalScale,
+            region: props.plot,
+            viewport: props.viewport,
+            timeRange: new TimeRange(bound.lower, bound.upper),
+          }),
+      ),
+    );
   }
 
   private async dataBounds(): Promise<bounds.Bounds[]> {
-    return await Promise.all(this.children.map(async (el) => await el.xBounds()));
+    return await Promise.all(this.yAxes.map(async (el) => await el.xBounds()));
   }
 }

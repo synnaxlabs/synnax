@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,32 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/* eslint-disable @typescript-eslint/no-throw-literal */
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
+import { control } from "@synnaxlabs/x";
 import {
-  TimeStamp,
-  type CrudeTimeStamp,
-  toArray,
   type CrudeSeries,
+  type CrudeTimeStamp,
   TimeSpan,
-} from "@synnaxlabs/x";
+  TimeStamp,
+} from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
-  type KeysOrNames,
   type Key,
   type KeyOrName,
+  type KeysOrNames,
   type Params,
 } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
-import { Authority } from "@/control/authority";
-import {
-  subjectZ as controlSubjectZ,
-  type Subject as ControlSubject,
-} from "@/control/state";
 import { WriteFrameAdapter } from "@/framer/adapter";
-import { frameZ, type CrudeFrame } from "@/framer/frame";
+import { type CrudeFrame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
@@ -41,7 +36,6 @@ enum Command {
   Commit = 2,
   Error = 3,
   SetAuthority = 4,
-  SetMode = 5,
 }
 
 export enum WriterMode {
@@ -50,14 +44,15 @@ export enum WriterMode {
   StreamOnly = 3,
 }
 
-export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT : TimeSpan = new TimeSpan(-1);
+export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
-  controlSubject: controlSubjectZ.optional(),
+  controlSubject: control.subjectZ.optional(),
   keys: z.number().array().optional(),
-  authorities: Authority.z.array().optional(),
+  authorities: control.Authority.z.array().optional(),
   mode: z.nativeEnum(WriterMode).optional(),
+  errOnUnauthorized: z.boolean().optional(),
   enableAutoCommit: z.boolean().optional(),
   autoIndexPersistInterval: TimeSpan.z.optional(),
 });
@@ -84,22 +79,25 @@ export interface WriterConfig {
   // start sets the starting timestamp for the first sample in the writer.
   start?: CrudeTimeStamp;
   // controlSubject sets the control subject of the writer.
-  controlSubject?: ControlSubject;
+  controlSubject?: control.Subject;
   // authorities set the control authority to set for each channel on the writer.
   // Defaults to absolute authority. If not working with concurrent control,
   // it's best to leave this as the default.
-  authorities?: Authority | Authority[];
+  authorities?: control.Authority | control.Authority[];
   // mode sets the persistence and streaming mode of the writer. The default
   // mode is WriterModePersistStream.
   mode?: WriterMode;
+  // errOnUnauthorized sets whether the writer raises an error when it attempts to write
+  // to a channel without permission.
+  errOnUnauthorized?: boolean,
   //  enableAutoCommit determines whether the writer will automatically commit.
   //  If enableAutoCommit is true, then the writer will commit after each write, and
   //  will flush that commit to index after the specified autoIndexPersistInterval.
-  enableAutoCommit?: boolean
+  enableAutoCommit?: boolean;
   // autoIndexPersistInterval sets the interval at which commits to the index will be
   // persisted. To persist every commit to guarantee minimal loss of data, set
   // auto_index_persist_interval to AlwaysAutoIndexPersist.
-  autoIndexPersistInterval?: TimeSpan
+  autoIndexPersistInterval?: TimeSpan;
 }
 
 /**
@@ -159,11 +157,12 @@ export class Writer {
     {
       channels,
       start = TimeStamp.now(),
-      authorities = Authority.Absolute,
+      authorities = control.Authority.Absolute,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
+      errOnUnauthorized = false,
       enableAutoCommit = false,
-      autoIndexPersistInterval = TimeSpan.SECOND
+      autoIndexPersistInterval = TimeSpan.SECOND,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteFrameAdapter.open(retriever, channels);
@@ -177,6 +176,7 @@ export class Writer {
         controlSubject: subject,
         authorities: toArray(authorities),
         mode,
+        errOnUnauthorized,
         enableAutoCommit,
         autoIndexPersistInterval,
       },
@@ -219,21 +219,13 @@ export class Writer {
     return true;
   }
 
-  async setAuthority(value: Record<Key, Authority>): Promise<boolean> {
+  async setAuthority(value: Record<Key, control.Authority>): Promise<boolean> {
     const res = await this.execute({
       command: Command.SetAuthority,
       config: {
         keys: Object.keys(value).map((k) => Number(k)),
         authorities: Object.values(value),
       },
-    });
-    return res.ack;
-  }
-
-  async setMode(mode: WriterMode): Promise<boolean> {
-    const res = await this.execute({
-      command: Command.SetMode,
-      config: { mode },
     });
     return res.ack;
   }
@@ -272,7 +264,7 @@ export class Writer {
   }
 
   async execute(req: Request): Promise<Response> {
-    // @ts-expect-error
+    // @ts-expect-error - frame payload adjustments
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();

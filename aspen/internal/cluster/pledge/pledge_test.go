@@ -11,7 +11,6 @@ package pledge_test
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"sync"
@@ -135,7 +135,7 @@ var _ = Describe("PledgeServer", func() {
 				Expect(res.Key).To(Equal(node.Key(10)))
 			})
 		})
-		Context("Responsible is Missing UniqueNodeKeys", func() {
+		Context("Responsible is Missing UniqueLeaseholders", func() {
 			It("Should correctly assign an Name", func() {
 				var (
 					nodes      = make(node.Group)
@@ -196,7 +196,7 @@ var _ = Describe("PledgeServer", func() {
 				Expect(res.Key).To(BeNumerically(">=", node.Key(11)))
 			})
 		})
-		Context("Too Few Healthy UniqueNodeKeys To Form a Quorum", func() {
+		Context("Too Few Healthy UniqueLeaseholders To Form a Quorum", func() {
 			It("Should return an errQuorumUnreachable", func() {
 				var (
 					numCandidates = 10

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -79,7 +79,7 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  */
 export class TimeStamp implements Stringer {
   private readonly value: bigint;
-  readonly encodeValue: true = true;
+  readonly encodeValue = true;
 
   constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
     if (value == null) this.value = TimeStamp.now().valueOf();
@@ -157,11 +157,11 @@ export class TimeStamp implements Stringer {
       case "preciseTime":
         return this.timeString(true, tzInfo);
       case "date":
-        return this.dateString(tzInfo);
+        return this.dateString();
       case "preciseDate":
-        return `${this.dateString(tzInfo)} ${this.timeString(true, tzInfo)}`;
+        return `${this.dateString()} ${this.timeString(true, tzInfo)}`;
       case "dateTime":
-        return `${this.dateString(tzInfo)} ${this.timeString(false, tzInfo)}`;
+        return `${this.dateString()} ${this.timeString(false, tzInfo)}`;
       default:
         return this.toISOString(tzInfo);
     }
@@ -177,7 +177,7 @@ export class TimeStamp implements Stringer {
     return milliseconds ? iso.slice(11, 23) : iso.slice(11, 19);
   }
 
-  private dateString(tzInfo: TZInfo = "UTC"): string {
+  private dateString(): string {
     const date = this.date();
     const month = date.toLocaleString("default", { month: "short" });
     const day = date.toLocaleString("default", { day: "numeric" });
@@ -327,7 +327,7 @@ export class TimeStamp implements Stringer {
    * @returns The number of milliseconds since the unix epoch.
    */
   milliseconds(): number {
-    return Number(this.valueOf() / TimeStamp.MILLISECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
   }
 
   toString(): string {
@@ -463,7 +463,7 @@ export class TimeStamp implements Stringer {
 /** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan implements Stringer {
   private readonly value: bigint;
-  readonly encodeValue: true = true;
+  readonly encodeValue = true;
 
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());
@@ -533,31 +533,31 @@ export class TimeSpan implements Stringer {
 
   /** @returns the decimal number of days in the timespan */
   get days(): number {
-    return Number(this.valueOf() / TimeSpan.DAY.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
   }
 
   /** @returns the decimal number of hours in the timespan */
   get hours(): number {
-    return Number(this.valueOf() / TimeSpan.HOUR.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.HOUR.valueOf());
   }
 
   /** @returns the decimal number of minutes in the timespan */
   get minutes(): number {
-    return Number(this.valueOf() / TimeSpan.MINUTE.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MINUTE.valueOf());
   }
 
   /** @returns The number of seconds in the TimeSpan. */
   get seconds(): number {
-    return Number(this.valueOf() / TimeSpan.SECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
   }
 
   /** @returns The number of milliseconds in the TimeSpan. */
   get milliseconds(): number {
-    return Number(this.valueOf() / TimeSpan.MILLISECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MILLISECOND.valueOf());
   }
 
   get microseconds(): number {
-    return Number(this.valueOf() / TimeSpan.MICROSECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MICROSECOND.valueOf());
   }
 
   get nanoseconds(): number {
@@ -964,17 +964,35 @@ export class TimeRange implements Stringer {
    * @param other - The other TimeRange to compare to.
    * @returns True if the two TimeRanges overlap, false otherwise.
    */
-  overlapsWith(other: TimeRange): boolean {
+  overlapsWith(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
     other = other.makeValid();
     const rng = this.makeValid();
-    if (other.start.equals(rng.start)) return true;
-    if (other.end.equals(this.start) || other.start.equals(this.end)) return false;
-    return (
-      this.contains(other.end) ||
-      this.contains(other.start) ||
-      other.contains(this.start) ||
-      other.contains(this.end)
-    );
+
+    if (this.equals(other)) return true;
+
+    // If the ranges touch at their boundaries, they do not overlap.
+    if (other.end.equals(rng.start) || rng.end.equals(other.start)) return false;
+
+    // Determine the actual overlapping range
+    const startOverlap = TimeStamp.max(rng.start, other.start);
+    const endOverlap = TimeStamp.min(rng.end, other.end);
+
+    // If end of overlap is before start, then they don't overlap at all
+    if (endOverlap.before(startOverlap)) return false;
+
+    // Calculate the duration of the overlap
+    const overlapDuration = new TimeSpan(endOverlap.sub(startOverlap));
+
+    // Compare the overlap duration with delta
+    return overlapDuration.greaterThanOrEqual(delta);
+  }
+
+  roughlyEquals(other: TimeRange, delta: TimeSpan): boolean {
+    let startDist = this.start.sub(other.start).valueOf();
+    let endDist = this.end.sub(other.end).valueOf();
+    if (startDist < 0) startDist = -startDist;
+    if (endDist < 0) endDist = -endDist;
+    return startDist <= delta.valueOf() && endDist <= delta.valueOf();
   }
 
   contains(other: TimeRange): boolean;
@@ -1074,6 +1092,28 @@ export class DataType extends String implements Stringer {
     const v = DataType.DENSITIES.get(this.toString());
     if (v == null) throw new Error(`unable to find density for ${this.valueOf()}`);
     return v;
+  }
+
+  /** @returns true if the data type can be cast to the other data type without loss of precision. */
+  canSafelyCastTo(other: DataType): boolean {
+    if (this.equals(other)) return true;
+    if (
+      (this.isVariable && !other.isVariable) ||
+      (!this.isVariable && other.isVariable)
+    )
+      return false;
+    if ((this.isFloat && other.isInteger) || (this.isInteger && other.isFloat)) {
+      return this.density.valueOf() < other.density.valueOf();
+    }
+    if ((this.isFloat && other.isFloat) || (this.isInteger && other.isInteger))
+      return this.density.valueOf() <= other.density.valueOf();
+    return false;
+  }
+
+  /** @returns true if the data type can be cast to the other data type, even if there is a loss of precision. */
+  canCastTo(other: DataType): boolean {
+    if (this.isNumeric && other.isNumeric) return true;
+    return this.equals(other);
   }
 
   /**

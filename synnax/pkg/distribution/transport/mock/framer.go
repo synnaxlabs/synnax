@@ -10,8 +10,8 @@
 package mock
 
 import (
-	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -22,12 +22,15 @@ type FramerNetwork struct {
 	Iterator *FramerIteratorNetwork
 	Writer   *FramerWriterNetwork
 	Relay    *FramerRelayNetwork
+	Deleter  *FramerDeleterNetwork
 }
 
 func NewFramerNetwork() *FramerNetwork {
 	return &FramerNetwork{
-		Iterator: NewFramerIteratorNetwork(),
-		Writer:   NewFramerWriterNetwork(),
+		Iterator: NewIteratorNetwork(),
+		Writer:   NewWriterNetwork(),
+		Relay:    NewRelayNetwork(),
+		Deleter:  NewDeleterNetwork(),
 	}
 }
 
@@ -43,6 +46,7 @@ type FramerTransport struct {
 	iterator iterator.Transport
 	writer   writer.Transport
 	relay    relay.Transport
+	deleter  deleter.Transport
 }
 
 var (
@@ -55,54 +59,4 @@ func (c FramerTransport) Writer() writer.Transport { return c.writer }
 
 func (c FramerTransport) Relay() relay.Transport { return c.relay }
 
-type FramerIteratorNetwork struct {
-	Internal *fmock.Network[iterator.Request, iterator.Response]
-}
-
-func (c *FramerIteratorNetwork) New(addr address.Address, buffers ...int) iterator.Transport {
-	return &FramerIteratorTransport{
-		client: c.Internal.StreamClient(buffers...),
-		server: c.Internal.StreamServer(addr, buffers...),
-	}
-}
-
-func NewFramerIteratorNetwork() *FramerIteratorNetwork {
-	return &FramerIteratorNetwork{Internal: fmock.NewNetwork[iterator.Request, iterator.Response]()}
-}
-
-type FramerIteratorTransport struct {
-	client iterator.TransportClient
-	server iterator.TransportServer
-}
-
-var _ iterator.Transport = (*FramerIteratorTransport)(nil)
-
-func (c FramerIteratorTransport) Client() iterator.TransportClient { return c.client }
-
-func (c FramerIteratorTransport) Server() iterator.TransportServer { return c.server }
-
-type FramerWriterNetwork struct {
-	Internal *fmock.Network[writer.Request, writer.Response]
-}
-
-func (c *FramerWriterNetwork) New(addr address.Address, buffers ...int) writer.Transport {
-	return &FramerWriterTransport{
-		client: c.Internal.StreamClient(buffers...),
-		server: c.Internal.StreamServer(addr, buffers...),
-	}
-}
-
-func NewFramerWriterNetwork() *FramerWriterNetwork {
-	return &FramerWriterNetwork{Internal: fmock.NewNetwork[writer.Request, writer.Response]()}
-}
-
-type FramerWriterTransport struct {
-	client writer.TransportClient
-	server writer.TransportServer
-}
-
-var _ writer.Transport = (*FramerWriterTransport)(nil)
-
-func (c FramerWriterTransport) Client() writer.TransportClient { return c.client }
-
-func (c FramerWriterTransport) Server() writer.TransportServer { return c.server }
+func (c FramerTransport) Deleter() deleter.Transport { return c.deleter }

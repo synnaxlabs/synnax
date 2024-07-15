@@ -1,9 +1,12 @@
 syntax = "proto3";
 
-import "ferrors/v1/ferrors.proto";
-import "telempb/telem.proto";
+import "x/go/errors/errors.proto";
+import "x/go/telem/telem.proto";
+import "google/protobuf/empty.proto";
 
 package ts.v1;
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1";
 
 service IteratorService {
     rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}
@@ -13,8 +16,9 @@ message IteratorRequest {
     int32 command = 1;
     int64 stamp = 2;
     int64 span = 3;
-    telem.TimeRange bounds = 4;
+    telem.PBTimeRange bounds = 4;
     repeated uint32 keys = 6;
+    int64 chunk_size = 7;
 }
 
 message IteratorResponse {
@@ -24,7 +28,7 @@ message IteratorResponse {
     int32 node_key =43;
     bool ack = 5;
     int32 seq_num = 6;
-    ferrors.v1.ErrorPayload error = 7;
+    errors.PBPayload error = 7;
 }
 
 
@@ -38,12 +42,12 @@ message RelayRequest {
 
 message RelayResponse {
     Frame frame = 1;
-    ferrors.v1.ErrorPayload error = 2;
+    errors.PBPayload error = 2;
 }
 
 message Frame {
     repeated uint32 keys = 1;
-    repeated telem.Series series = 2;
+    repeated telem.PBSeries series = 2;
 }
 
 service WriterService {
@@ -66,7 +70,17 @@ message WriterResponse {
     bool ack = 2;
     int32 seq_num = 3;
     int32 node_key = 4;
-    ferrors.v1.ErrorPayload error = 5;
+    errors.PBPayload error = 5;
     int64 time_stamp = 6;
+}
+
+service DeleteService {
+    rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message DeleteRequest {
+    repeated uint32 keys = 1;
+    repeated string names = 2;
+    telem.PBTimeRange bounds = 3;
 }
 

@@ -61,6 +61,9 @@ landing/
 
 synnax-data/**
 
+synnax/pkg/hardware/embedded/assets/**
+!synnax/pkg/hardware/embedded/assets/.gitkeep
+
 # |||||| BAZEL ||||||
 # Ignore all bazel-* symlinks. There is no full list since this can change
 # based on the name of the directory bazel is cloned into.
@@ -80,6 +83,16 @@ synnax-data/**
 
 **/bin/**
 !**/bin/.gitkeep
+
+# |||| DEPENDENCIES ||||
+
+mbedtls-*
+!mbedtls-install
+mbedtls-install/**
+driver/vendor/mbedtls/mbedtls-install/**
+driver/vendor/open62541/mbedtls-install/**
+!mbedtls-install/.gitkeep
+driver/vendor/mbedtls/mbedtls
 
 # |||| PROFILING ||||
 **/mem.out

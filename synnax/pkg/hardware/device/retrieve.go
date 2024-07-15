@@ -13,6 +13,7 @@ package device
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -32,6 +33,16 @@ func (r Retrieve) Search(term string) Retrieve {
 
 func (r Retrieve) WhereKeys(keys ...string) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
+	return r
+}
+
+func (r Retrieve) WhereMakes(make ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(make, d.Make) })
+	return r
+}
+
+func (r Retrieve) WhereNames(names ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(names, d.Name) })
 	return r
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,30 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   Button,
   Color,
   Divider,
   Header,
   Input,
-  Status,
-  Select,
-  Align,
-  Theming,
   Menu,
+  Select,
+  Status,
   Text,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { nanoid } from "nanoid/non-secure";
+import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
+import { AXIS_KEYS, AxisKey } from "@/lineplot/axis";
 import { useSelect } from "@/lineplot/selectors";
-import { type RuleState, removeRule, setRule } from "@/lineplot/slice";
-import { Vis } from "@/vis";
+import { removeRule, type RuleState, setRule } from "@/lineplot/slice";
 
 export interface AnnotationsProps {
   layoutKey: string;
@@ -93,7 +92,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
     );
   };
 
-  const handleAxisChange = (axis: Vis.AxisKey): void => {
+  const handleAxisChange = (axis: AxisKey): void => {
     dispatch(
       setRule({
         key: layoutKey,
@@ -200,8 +199,8 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
               onChange={handleAxisChange}
               value={selectedRule.axis}
               columns={[{ key: "name", name: "Axis" }]}
-              data={Vis.AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
-              tagKey="name"
+              data={AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
+              entryRenderKey="name"
               allowNone={false}
             />
           </Input.Item>

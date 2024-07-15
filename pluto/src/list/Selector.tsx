@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Key, type Keyed, nullToArr } from "@synnaxlabs/x";
 import {
   createContext,
+  memo,
   type PropsWithChildren,
+  type ReactElement,
   useContext,
   useMemo,
-  type ReactElement,
 } from "react";
-
-import { type Key, type Keyed, nullToArr } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks";
 import { useGetTransformedData } from "@/list/Data";
@@ -34,7 +34,7 @@ interface SelectUtilContextValue<K extends Key = Key> {
 export type SelectorProps<
   K extends Key = Key,
   E extends Keyed<K> = Keyed<K>,
-> = PropsWithChildren<Omit<UseSelectProps<K, E>, "data">>;
+> = PropsWithChildren<UseSelectProps<K, E>>;
 
 const SelectionContext = createContext<SelectContextValue>({
   selected: [],
@@ -61,37 +61,44 @@ export const useSelectionUtils = <K extends Key = Key>(): SelectUtilContextValue
  * @param props - The props for the List.Selector component. These props are identical
  * to the props for {@link useSelect} hook.
  */
-export const Selector = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  value,
-  children,
-  ...props
-}: SelectorProps<K, E>): ReactElement => {
-  const getData = useGetTransformedData<K, E>();
-  const { onSelect, clear } = useSelect<K, E>({
-    data: getData,
+const Base = memo(
+  <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     value,
-    ...props,
-  } as const as UseSelectProps<K, E>);
-  const selectedRef = useSyncedRef(value);
-  const ctxValue: SelectContextValue<K> = useMemo(
-    () => ({ selected: nullToArr(value) }),
-    [value],
-  );
-  const utilCtxValue: SelectUtilContextValue<K> = useMemo(
-    () => ({
-      onSelect,
-      clear,
-      getSelected: () => nullToArr(selectedRef.current),
-    }),
-    [onSelect, clear],
-  );
-  return (
-    <SelectionUtilContext.Provider
-      value={utilCtxValue as unknown as SelectUtilContextValue}
-    >
-      <SelectionContext.Provider value={ctxValue as unknown as SelectContextValue}>
-        {children}
-      </SelectionContext.Provider>
-    </SelectionUtilContext.Provider>
-  );
-};
+    children,
+    ...props
+  }: SelectorProps<K, E>): ReactElement => {
+    const getData = useGetTransformedData<K, E>();
+    const { onSelect, clear } = useSelect<K, E>({
+      ...props,
+      value,
+      data: getData,
+    } as const as UseSelectProps<K, E>);
+    const selectedRef = useSyncedRef(value);
+    const ctxValue: SelectContextValue<K> = useMemo(
+      () => ({ selected: nullToArr(value) }),
+      [value],
+    );
+    const utilCtxValue: SelectUtilContextValue<K> = useMemo(
+      () => ({
+        onSelect,
+        clear,
+        getSelected: () => nullToArr(selectedRef.current),
+      }),
+      [onSelect, clear],
+    );
+    return (
+      <SelectionUtilContext.Provider
+        value={utilCtxValue as unknown as SelectUtilContextValue}
+      >
+        <SelectionContext.Provider value={ctxValue as unknown as SelectContextValue}>
+          {children}
+        </SelectionContext.Provider>
+      </SelectionUtilContext.Provider>
+    );
+  },
+);
+Base.displayName = "List.Selector";
+
+export const Selector = Base as <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
+  props: SelectorProps<K, E>,
+) => ReactElement;

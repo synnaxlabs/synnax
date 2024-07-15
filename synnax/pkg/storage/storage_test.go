@@ -15,8 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 	"os"
 	"path/filepath"
 )
@@ -83,15 +81,16 @@ var _ = Describe("storage", func() {
 	Describe("ServiceConfig", func() {
 		DescribeTable("Validate", func(
 			spec func(cfg storage.Config) storage.Config,
-			nil bool,
+			contains string,
 		) {
 			iCfg := storage.DefaultConfig
 			iCfg.Dirname = "foo"
 			err := spec(iCfg).Validate()
-			if nil {
+			if contains == "" {
 				Expect(err).ToNot(HaveOccurred())
 			} else {
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(contains))
 			}
 		},
 			Entry("Directory not set",
@@ -100,7 +99,7 @@ var _ = Describe("storage", func() {
 					*cfg.MemBacked = false
 					return cfg
 				},
-				false,
+				"dirname",
 			),
 			Entry("Directory not set, mem-backed",
 				func(cfg storage.Config) storage.Config {
@@ -108,21 +107,21 @@ var _ = Describe("storage", func() {
 					*cfg.MemBacked = true
 					return cfg
 				},
-				true,
+				"",
 			),
 			Entry("Invalid key-value engine",
 				func(cfg storage.Config) storage.Config {
 					cfg.KVEngine = 12
 					return cfg
 				},
-				false,
+				"key-value engine",
 			),
 			Entry("Invalid permissions",
 				func(cfg storage.Config) storage.Config {
 					cfg.Perm = 0
 					return cfg
 				},
-				false,
+				"permissions",
 			),
 		)
 	})

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Stream, EOF } from "@synnaxlabs/freighter";
+import { EOF, type Stream } from "@synnaxlabs/freighter";
 import { type z } from "zod";
-
-import { UnexpectedError } from "@/errors";
 
 export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
   readonly name: string;
@@ -33,19 +31,18 @@ export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
 
   async closeAndAck(): Promise<void> {
     this.stream.closeSend();
-    const [res, err] = await this.stream.receive();
-    if (res != null)
-      throw new UnexpectedError(
-        `${this.name} received unexpected response on closure. 
-        Please report this error to the Synnax team.`,
-      );
-    if (err == null)
-      throw new UnexpectedError(
-        `${this.name} received unexpected null error on closure. 
-        Please report this error to Synnax team.
-      `,
-      );
-    if (!(err instanceof EOF)) throw err;
+    while (true) {
+      const [res, err] = await this.stream.receive();
+      if (res != null)
+        console.warn(
+          `${this.name} received unexpected response on closure. 
+        Please report this error to the Synnax team. ${JSON.stringify(res)}`,
+        );
+      if (err != null) {
+        if (EOF.matches(err)) return;
+        throw err;
+      }
+    }
   }
 
   closeSend(): void {

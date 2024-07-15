@@ -16,7 +16,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errors"
 	"io"
 )
 

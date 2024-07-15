@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,7 @@
 
 import { type Key } from "@/deep/path";
 
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
 export const deleteD = <T extends any, D extends number = 5>(
   target: T,
   ...keys: Array<Key<T, D>>
@@ -17,9 +18,8 @@ export const deleteD = <T extends any, D extends number = 5>(
     let curr: any = target;
     const arr = key.split(".");
     arr.forEach((k, i) => {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       if (i === arr.length - 1) delete curr[k];
-      else curr = curr[k];
+      else if (k in curr) curr = curr[k];
     });
   });
   return target;

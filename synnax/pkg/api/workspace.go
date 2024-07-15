@@ -12,7 +12,6 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/x/gorp"
@@ -40,9 +39,9 @@ type WorkspaceCreateResponse struct {
 }
 
 func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateRequest) (res WorkspaceCreateResponse, err error) {
-	userKey, err_ := user.FromOntologyID(getSubject(ctx))
-	if err_ != nil {
-		return res, errors.Unexpected(err_)
+	userKey, err := user.FromOntologyID(getSubject(ctx))
+	if err != nil {
+		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		for _, w := range req.Workspaces {

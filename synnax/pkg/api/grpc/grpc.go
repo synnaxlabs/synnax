@@ -25,6 +25,10 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = append(transports, newRanger(&a))
 	transports = append(transports, newHardware(&a))
 
+	// Channel
+	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
+	a.ChannelRetrieveGroup = fnoop.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse]{}
+
 	// AUTH
 	a.AuthChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
 	a.AuthChangePassword = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
@@ -51,13 +55,13 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.WorkspaceRename = fnoop.UnaryServer[api.WorkspaceRenameRequest, types.Nil]{}
 	a.WorkspaceSetLayout = fnoop.UnaryServer[api.WorkspaceSetLayoutRequest, types.Nil]{}
 
-	// PID
-	a.PIDCreate = fnoop.UnaryServer[api.PIDCreateRequest, api.PIDCreateResponse]{}
-	a.PIDDelete = fnoop.UnaryServer[api.PIDDeleteRequest, types.Nil]{}
-	a.PIDRetrieve = fnoop.UnaryServer[api.PIDRetrieveRequest, api.PIDRetrieveResponse]{}
-	a.PIDRename = fnoop.UnaryServer[api.PIDRenameRequest, types.Nil]{}
-	a.PIDSetData = fnoop.UnaryServer[api.PIDSetDataRequest, types.Nil]{}
-	a.PIDCopy = fnoop.UnaryServer[api.PIDCopyRequest, api.PIDCopyResponse]{}
+	// Schematic
+	a.SchematicCreate = fnoop.UnaryServer[api.SchematicCreateRequest, api.SchematicCreateResponse]{}
+	a.SchematicDelete = fnoop.UnaryServer[api.SchematicDeleteRequest, types.Nil]{}
+	a.SchematicRetrieve = fnoop.UnaryServer[api.SchematicRetrieveRequest, api.SchematicRetrieveResponse]{}
+	a.SchematicRename = fnoop.UnaryServer[api.SchematicRenameRequest, types.Nil]{}
+	a.SchematicSetData = fnoop.UnaryServer[api.SchematicSetDataRequest, types.Nil]{}
+	a.SchematicCopy = fnoop.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse]{}
 
 	// LINE PLOT
 	a.LinePlotCreate = fnoop.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse]{}

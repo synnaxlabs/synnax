@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement } from "react";
+import "@/vis/Canvas.css";
 
 import { Canvas as Core } from "@synnaxlabs/pluto";
-
-import "@/vis/Canvas.css";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 export const Canvas = ({ children }: PropsWithChildren): ReactElement => (
   <Core.Canvas className="console-vis__canvas">{children}</Core.Canvas>

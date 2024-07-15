@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option go_package = "github.com/synnaxlabs/freighter/integration/grpc/v1";
+
 package integration.v1;
 
 service EchoService {

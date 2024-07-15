@@ -12,7 +12,7 @@ package alamos
 import (
 	"context"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.opentelemetry.io/otel/propagation"
@@ -171,7 +171,7 @@ func (s span) Error(err error, exclude ...error) error {
 		return err
 	}
 	s.otel.RecordError(err)
-	if !errutil.IsAny(err, exclude...) {
+	if !errors.IsAny(err, exclude...) {
 		s.Status(Error)
 	}
 	return err

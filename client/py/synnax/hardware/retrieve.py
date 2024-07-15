@@ -32,6 +32,7 @@ class _RetrieveDeviceResponse(Payload):
 
 class _RetrieveRackRequest(Payload):
     keys: list[int] | None = None
+    names: list[str] | None = None
 
 
 class _RetrieveRackResponse(Payload):
@@ -86,10 +87,14 @@ class Retriever:
         return res.devices
 
     @trace("debug")
-    def retrieve_rack(self, keys: list[int] | None = None) -> list[Rack]:
+    def retrieve_rack(
+        self,
+        keys: list[int] | None = None,
+        names: list[str] | None = None,
+    ) -> list[Rack]:
         res, exc = self.__client.send(
             RETRIEVE_RACK_ENDPOINT,
-            _RetrieveRackRequest(keys=keys),
+            _RetrieveRackRequest(keys=keys, names=names),
             _RetrieveRackResponse,
         )
         if exc is not None:

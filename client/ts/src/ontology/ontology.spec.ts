@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test, it } from "vitest";
+import { describe, expect, it,test } from "vitest";
 
 import { ontology } from "@/ontology";
 import { newClient } from "@/setupspecs";
@@ -42,6 +42,22 @@ describe("Ontology", () => {
       expect(parents.length).toEqual(1);
       expect(parents[0].name).toEqual(name);
     });
+  });
+  describe("page", () => {
+    it("should return a page of resources", async () => {
+      for (let i = 0; i < 10; i++)
+        await client.ontology.groups.create(ontology.Root, randomName());
+      const page = await client.ontology.page(0, 5);
+      expect(page.length).toEqual(5);
+      const page2 = await client.ontology.page(5, 5);
+      expect(page2.length).toEqual(5);
+      const page1Keys = page.map((r) => r.key);
+      const page2Keys = page2.map((r) => r.key);
+      const intersection = page1Keys.filter((key) => page2Keys.includes(key));
+      expect(intersection.length).toEqual(0);
+    });
+  });
+  describe("write", () => {
     test("add children", async () => {
       const name = randomName();
       const g = await client.ontology.groups.create(ontology.Root, name);

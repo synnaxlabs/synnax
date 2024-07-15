@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// This is the client library for gRPC freighter.
+// This is the client library for grpc freighter.
 // It contains the standard freighter interface.
-#include "freighter/gRPC/client.h"
+#include "freighter/fgrpc/client.h"
 
 // Our generated proto file that we wish to send. 
 #include "src/protos/message_service.grpc.pb.h"
@@ -19,14 +19,14 @@
 #include <iostream>
 
 // To make code cleaner, we always want to use type aliuses. 
-// The gRPC client object takes four template types: 
+// The grpc client object takes four template types:
 // response_t, request_t, stream_t, err_t, and rpc_t.
 
 // response_t: The proto compiled response type.
-using response_t = masa::Data;
+using RQ = masa::Data;
 
 // request_t: The proto compiled request type.
-using request_t = masa::Data;
+using RS = masa::Data;
 
 // err_t: In this case, grpc::Status. DO NOT use another type.
 using err_t = grpc::Status;
@@ -34,13 +34,13 @@ using err_t = grpc::Status;
 // rpc_t: the service defined in our proto file.
 using rpc_t = masa::Communication;
 
-// stream_t: a gRPCStreamer of type gRPCStreamer<response_t, request_t, err_t, rpc_t>
-using stream_t = gRPCStreamer<response_t, request_t, err_t, rpc_t>;
+// stream_t: a grpcStreamer of type grpcStreamer<response_t, request_t, err_t, rpc_t>
+using stream_t = grpcStreamer<RQ, RS, err_t, rpc_t>;
 
 int main()
 {
     // We start by creating a client object with our templates.
-    auto client = gRPC<response_t, request_t, stream_t, err_t, rpc_t>();
+    auto client = grpc<RQ, RS, stream_t, err_t, rpc_t>();
 
     // We then choose the target that we want to send to.
     std::string target("localhost:8080");

@@ -1,34 +1,39 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in
+// the file licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business
+// Source License, use of this software will be governed by the Apache License,
+// Version 2.0, included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import "@/cluster/Connect.css";
 
-import { synnaxPropsZ } from "@synnaxlabs/client";
 import type { connection, SynnaxProps } from "@synnaxlabs/client";
-import { Nav, componentRenderProp, Status, Form } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Input } from "@synnaxlabs/pluto/input";
-import { Case } from "@synnaxlabs/x";
+import { synnaxPropsZ } from "@synnaxlabs/client";
+import {
+  Align,
+  Button,
+  componentRenderProp,
+  Form,
+  Input,
+  Nav,
+  Status,
+} from "@synnaxlabs/pluto";
+import { caseconv } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { statusVariants } from "@/cluster/Badges";
 import { useSelectMany } from "@/cluster/selectors";
-import { setActive, set } from "@/cluster/slice";
+import { set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import type { Layout } from "@/layout";
 
-import "@/cluster/Connect.css";
-
-export const connectWindowLayout: Layout.LayoutState = {
+export const connectWindowLayout: Layout.State = {
   key: "connectCluster",
   windowKey: "connectCluster",
   type: "connectCluster",
@@ -38,21 +43,17 @@ export const connectWindowLayout: Layout.LayoutState = {
     resizable: false,
     size: { height: 430, width: 650 },
     navTop: true,
-    transparent: true,
   },
 };
 
 /**
- * ConnectCluster implements the LayoutRenderer component type to provide a form for
+ * Connect implements the LayoutRenderer component type to provide a form for
  * connecting to a cluster.
- *
- * @param props - The standard LayoutRendererProps.
  */
 export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
-
   const names = useSelectMany().map((c) => c.name);
 
   const formSchema = synnaxPropsZ.omit({ connectivityPollFrequency: true }).extend({
@@ -61,9 +62,23 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
     }),
   });
 
+  const methods = Form.use<typeof formSchema>({
+    schema: formSchema,
+    values: {
+      name: "",
+      host: "",
+      port: "",
+      username: "",
+      password: "",
+      secure: false,
+    },
+  });
+
   const handleSubmit = (): void => {
     void (async () => {
-      if (!methods.validate()) return;
+      if (!methods.validate()) {
+        return;
+      }
       const data = methods.value();
       setConnState(null);
       setLoading("submit");
@@ -82,21 +97,11 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
     })();
   };
 
-  const methods = Form.use<typeof formSchema>({
-    schema: formSchema,
-    values: {
-      name: "",
-      host: "",
-      port: 9090,
-      username: "",
-      password: "",
-      secure: false,
-    },
-  });
-
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
-      if (!methods.validate()) return;
+      if (!methods.validate()) {
+        return;
+      }
       setConnState(null);
       setLoading("test");
       const state = await testConnection(methods.value() as SynnaxProps);
@@ -121,11 +126,11 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             </Form.Field>
           </Align.Space>
           <Form.Field<string> path="username">
-            {(p) => <Input.Text placeholder="Harry" {...p} />}
+            {(p) => <Input.Text placeholder="synnax" {...p} />}
           </Form.Field>
           <Align.Space direction="x">
             <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
-              {(p) => <Input.Text {...p} placeholder="Seldon" type="password" />}
+              {(p) => <Input.Text {...p} placeholder="seldon" type="password" />}
             </Form.Field>
             <Form.Field<boolean> path="secure">
               {componentRenderProp(Input.Switch)}
@@ -138,7 +143,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           {connState != null && (
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
-                ? Case.capitalize(connState.status)
+                ? caseconv.capitalize(connState.status)
                 : connState.message}
             </Status.Text>
           )}
@@ -152,7 +157,6 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           >
             Test Connection
           </Button.Button>
-
           <Button.Button
             onClick={handleSubmit}
             loading={loading === "submit"}

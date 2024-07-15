@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,81 +7,94 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useRef } from "react";
+import "@/range/EditLayout.css";
 
 import { TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Form, Nav, Synnax, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { type ReactElement, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
+import { type TimeRange as TimeRangeT } from "@/range/migrations";
 import { useSelect } from "@/range/selectors";
 import { add } from "@/range/slice";
 
-import "@/range/EditLayout.css";
-
 const formSchema = z.object({
   name: z.string().min(1, "Name must not be empty"),
-  start: z.number().int(),
-  end: z.number().int(),
+  timeRange: z.object({
+    start: z.number().int(),
+    end: z.number().int(),
+  }),
   labels: z.string().array(),
 });
 
-const CREATE_RANGE_WINDOW_KEY = "defineRange";
+export const EDIT_LAYOUT_TYPE = "editRange";
 
-export const editLayout = (name: string = "Create Range"): Layout.LayoutState => ({
-  key: CREATE_RANGE_WINDOW_KEY,
-  type: CREATE_RANGE_WINDOW_KEY,
-  windowKey: CREATE_RANGE_WINDOW_KEY,
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+
+export const createEditLayout = (
+  name: string = "Range.Create",
+  timeRange?: TimeRangeT,
+): Layout.State => ({
+  key: EDIT_LAYOUT_TYPE,
+  type: EDIT_LAYOUT_TYPE,
+  windowKey: EDIT_LAYOUT_TYPE,
   name,
-  location: "window",
+  icon: "Range",
+  location: "modal",
   window: {
     resizable: false,
-    size: { height: 280, width: 700 },
+    size: { height: 290, width: 700 },
     navTop: true,
-    transparent: true,
   },
+  args: timeRange,
 });
 
 type DefineRangeFormProps = z.infer<typeof formSchema>;
 
-export const EditLayout = (props: Layout.RendererProps): ReactElement => {
+export const Edit = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const range = useSelect(layoutKey);
+  const args = Layout.useSelectArgs<TimeRangeT>(layoutKey);
   const client = Synnax.use();
-  const isCreate = layoutKey === CREATE_RANGE_WINDOW_KEY;
+  const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
   const initialValues = useQuery<DefineRangeFormProps>({
     queryKey: ["range", layoutKey],
     queryFn: async () => {
-      if (isCreate)
+      if (isCreate) {
         return {
           name: "",
-          start: now,
-          end: now,
           labels: [],
+          timeRange: args ?? {
+            start: now,
+            end: now,
+          },
         };
+      }
       if (range == null || range.persisted) {
         if (client == null) throw new UnexpectedError("Client is not available");
         const rng = await client.ranges.retrieve(layoutKey);
         return {
           name: rng.name,
-          start: Number(rng.timeRange.start.valueOf()),
-          end: Number(rng.timeRange.end.valueOf()),
+          timeRange: {
+            start: Number(rng.timeRange.start.valueOf()),
+            end: Number(rng.timeRange.end.valueOf()),
+          },
           labels: [],
         };
       }
       if (range.variant !== "static") throw new UnexpectedError("Range is not static");
       return {
         name: range.name,
-        start: range.timeRange.start,
-        end: range.timeRange.end,
+        timeRange: range.timeRange,
         labels: [],
       };
     },
@@ -109,18 +122,19 @@ const EditLayoutForm = ({
   isRemoteEdit,
   onClose,
 }: EditLayoutFormProps): ReactElement => {
-  const methods = Form.use({ values: initialValues, schema: formSchema });
+  const methods = Form.use({ values: initialValues, schema: formSchema, sync: true });
   const dispatch = useDispatch();
   const client = Synnax.use();
-  const isCreate = layoutKey === CREATE_RANGE_WINDOW_KEY;
+  const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (persist: boolean) => {
       if (!methods.validate()) return;
-      let { start, end, name } = methods.value();
-      const startTS = new TimeStamp(start, "UTC");
-      const endTS = new TimeStamp(end, "UTC");
-      name = name.trim();
+      const values = methods.value();
+      const { timeRange } = methods.value();
+      const startTS = new TimeStamp(timeRange.start, "UTC");
+      const endTS = new TimeStamp(timeRange.end, "UTC");
+      const name = values.name.trim();
       const key = isCreate ? uuidv4() : layoutKey;
       const persisted = persist || isRemoteEdit;
       const tr = new TimeRange(startTS, endTS);
@@ -148,7 +162,12 @@ const EditLayoutForm = ({
 
   return (
     <Align.Space className={CSS.B("range-edit-layout")} grow>
-      <Align.Space className="console-form" justify="center" grow>
+      <Align.Space
+        className="console-form"
+        justify="center"
+        style={{ padding: "1rem 3rem" }}
+        grow
+      >
         <Form.Form {...methods}>
           <Form.Field<string> path="name">
             {(p) => (
@@ -162,31 +181,37 @@ const EditLayoutForm = ({
             )}
           </Form.Field>
           <Align.Space direction="x" size="large">
-            <Form.Field<number> path="start" label="From">
+            <Form.Field<number> path="timeRange.start" label="From">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
             <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
-            <Form.Field<number> path="end" label="To">
+            <Form.Field<number> path="timeRange.end" label="To">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
+          <Text.Text shade={7} level="small">
+            To Save
+          </Text.Text>
+        </Nav.Bar.Start>
         <Nav.Bar.End style={{ padding: "1rem" }}>
+          <Button.Button variant="outlined" onClick={() => mutate(false)}>
+            Save {!isRemoteEdit && "Locally"}
+          </Button.Button>
           {(isCreate || !isRemoteEdit) && (
             <Button.Button
               onClick={() => mutate(true)}
-              variant="outlined"
               disabled={client == null || isPending}
               loading={isPending}
+              triggers={[SAVE_TRIGGER]}
             >
               Save to Synnax
             </Button.Button>
           )}
-          <Button.Button onClick={() => mutate(false)}>
-            Save {!isRemoteEdit && "Locally"}
-          </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
     </Align.Space>

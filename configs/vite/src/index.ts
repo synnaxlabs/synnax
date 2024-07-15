@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,6 +28,10 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
     name: "vite-plugin-lib:alias",
     enforce: "pre",
     config: async (config) => {
+      const prod = isProd();
+      console.log(
+        `\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`,
+      );
       const tsconfigPath = path.resolve(config.root ?? ".", "tsconfig.json");
       const { baseUrl, paths } = await readConfig(tsconfigPath);
       if (baseUrl == null || paths == null) return config;
@@ -49,14 +53,14 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
           alias: [...existingAlias, ...aliasOptions],
         },
         build: {
-          sourcemap: true,
-          minify: true,
+          sourcemap: !isProd(),
+          minify: isProd(),
           lib: {
             name,
             formats: ["es", "cjs"],
             fileName: (format) => {
               if (format === "es") return `${name}.js`;
-              else return `${name}.${format}`
+              else return `${name}.${format}`;
             },
             entry: path.resolve(config.root ?? ".", "src/index.ts"),
             ...config.build?.lib,
@@ -96,4 +100,8 @@ const readConfig = async (configPath: string): Promise<CompilerOptions> => {
     logError(`Could not read tsconfig.json: ${message}.`);
     return {};
   }
+};
+
+export const isProd = () => {
+  return process.env.SYNNAX_TS_ENV === "prod";
 };

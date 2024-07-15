@@ -1,0 +1,32 @@
+cc_library(
+    name = "meminfo",
+    srcs = select({
+        "@bazel_tools//src/conditions:windows": ["meminfo_windows.cpp"],
+        "@bazel_tools//src/conditions:darwin": ["meminfo_macos.cpp"],
+        "//conditions:default": ["meminfo_linux.cpp"],
+    }),
+    hdrs = ["meminfo.h"],
+    copts = select({
+        "@platforms//os:windows": [
+            "/std:c++20",
+            "/DWINDOWS",
+        ],
+        "@platforms//os:osx": ["-DMACOS"],
+        "//conditions:default": ["-DLINUX"],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:psapi.lib"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@bazel_tools//src/conditions:windows": [
+            "//driver/loop",
+            "//driver/pipeline",
+        ],
+        "//conditions:default": [
+            "//driver/loop",
+            "//driver/pipeline",
+        ],
+    }),
+)

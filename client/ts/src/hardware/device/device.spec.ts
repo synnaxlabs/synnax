@@ -25,7 +25,7 @@ describe("Device", () => {
           name: "test",
           make: "ni",
           model: "dog",
-          properties: "dog",
+          properties: { cat: "dog" },
         });
         expect(d.key).toEqual("SN222");
         expect(d.name).toBe("test");
@@ -42,7 +42,7 @@ describe("Device", () => {
           name: "test",
           make: "ni",
           model: "dog",
-          properties: "dog",
+          properties: { cat: "dog" },
         });
         const retrieved = await client.hardware.devices.retrieve(d.key);
         expect(retrieved.key).toBe(d.key);

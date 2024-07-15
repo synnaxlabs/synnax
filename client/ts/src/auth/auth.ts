@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,20 +10,8 @@
 import type { Middleware, UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { AuthError } from "@/errors";
+import { InvalidTokenError } from "@/errors";
 import { user } from "@/user";
-
-export const tokenMiddleware =
-  (token: () => Promise<string>): Middleware =>
-  async (md, next) => {
-    try {
-      const tk = await token();
-      md.params.Authorization = `Bearer ${tk}`;
-    } catch (err) {
-      return [md, err as Error];
-    }
-    return await next(md);
-  };
 
 export const insecureCredentialsZ = z.object({
   username: z.string(),
@@ -40,45 +28,60 @@ export type TokenResponse = z.infer<typeof tokenResponseZ>;
 
 const LOGIN_ENDPOINT = "/auth/login";
 
+const MAX_RETRIES = 3;
+
 export class Client {
-  private token: string | undefined;
+  token: string | undefined;
   private readonly client: UnaryClient;
-  authenticating: Promise<void> | undefined;
+  private readonly credentials: InsecureCredentials;
+  private authenticating: Promise<Error | null> | undefined;
   authenticated: boolean;
   user: user.Payload | undefined;
+  private retryCount: number;
 
   constructor(client: UnaryClient, credentials: InsecureCredentials) {
     this.client = client;
     this.authenticated = false;
-    this.authenticate(credentials);
-  }
-
-  authenticate(credentials: InsecureCredentials): void {
-    this.authenticating = new Promise((resolve, reject) => {
-      this.client
-        .send<typeof insecureCredentialsZ, typeof tokenResponseZ>(
-          LOGIN_ENDPOINT,
-          credentials,
-          insecureCredentialsZ,
-          tokenResponseZ,
-        )
-        .then(([res, err]) => {
-          if (err != null) return reject(err);
-          this.token = res?.token;
-          this.user = res?.user;
-          this.authenticated = true;
-          resolve();
-        })
-        .catch(reject);
-    });
+    this.credentials = credentials;
+    this.retryCount = 0;
   }
 
   middleware(): Middleware {
-    return tokenMiddleware(async () => {
-      if (!this.authenticated) await this.authenticating;
-      if (this.token == null)
-        throw new AuthError("[auth] - attempting to authenticate without a token");
-      return this.token;
-    });
+    const mw: Middleware = async (reqCtx, next) => {
+      if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
+        if (this.authenticating == null)
+          this.authenticating = new Promise((resolve, reject) => {
+            this.client
+              .send(
+                LOGIN_ENDPOINT,
+
+                this.credentials,
+                insecureCredentialsZ,
+                tokenResponseZ,
+              )
+              .then(([res, err]) => {
+                if (err != null) return resolve(err);
+                this.token = res?.token;
+                this.user = res?.user;
+                this.authenticated = true;
+                resolve(null);
+              })
+              .catch(reject);
+          });
+        const err = await this.authenticating;
+        if (err != null) return [reqCtx, err];
+      }
+      reqCtx.params.Authorization = `Bearer ${this.token}`;
+      const [resCtx, err] = await next(reqCtx);
+      if (InvalidTokenError.matches(err) && this.retryCount < MAX_RETRIES) {
+        this.authenticated = false;
+        this.authenticating = undefined;
+        this.retryCount += 1;
+        return mw(reqCtx, next);
+      }
+      this.retryCount = 0;
+      return [resCtx, err];
+    };
+    return mw;
   }
 }

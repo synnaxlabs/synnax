@@ -12,7 +12,6 @@ package iterator
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
@@ -23,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -31,8 +31,9 @@ import (
 )
 
 type Config struct {
-	Keys   channel.Keys    `json:"keys" msgpack:"keys"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	Keys      channel.Keys    `json:"keys" msgpack:"keys"`
+	Bounds    telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	ChunkSize int64           `json:"chunk_size" msgpack:"chunk_size"`
 }
 
 type ServiceConfig struct {
@@ -98,7 +99,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (*Iterator, error) {
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)
 	stream.OutTo(res)
-	stream.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
+	stream.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnFail())
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
@@ -120,7 +121,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needPeerRouting {
 		routeInletTo = peerSenderAddr
-		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, batch.Peers)
+		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, cfg.ChunkSize, batch.Peers)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +136,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needGatewayRouting {
 		routeInletTo = gatewayIterAddr
-		gatewayIter, err := s.newGateway(Config{Keys: batch.Gateway, Bounds: cfg.Bounds})
+		gatewayIter, err := s.newGateway(Config{Keys: batch.Gateway, Bounds: cfg.Bounds, ChunkSize: cfg.ChunkSize})
 		if err != nil {
 			return nil, err
 		}
@@ -161,7 +162,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeKeys())),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders())),
 	)
 
 	plumber.MultiRouter[Response]{

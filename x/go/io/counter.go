@@ -11,6 +11,8 @@ package io
 
 import (
 	"encoding/binary"
+	"github.com/synnaxlabs/x/errors"
+	"io"
 	"sync"
 )
 
@@ -24,12 +26,27 @@ type Int32Counter struct {
 
 // NewInt32Counter opens a new, atomic counter backed by the given file. The counter
 // must have exclusive write access to the file.
-func NewInt32Counter(f ReaderAtWriterAtCloser) *Int32Counter {
-	i := &Int32Counter{
+// If the file already exists, then it reads and initializes the wrapped value to the
+// value stored in the file.
+func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
+	c := &Int32Counter{
 		f:   f,
 		buf: make([]byte, 4),
 	}
-	return i
+
+	wrapped, err := c.load()
+	if errors.Is(err, io.EOF) {
+		return c, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &Int32Counter{
+		wrapped: wrapped,
+		f:       f,
+		buf:     make([]byte, 4),
+	}, nil
 }
 
 // Add increments the counter by the provided delta.

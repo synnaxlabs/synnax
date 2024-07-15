@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeStamp } from "@synnaxlabs/x";
-import { describe, test, expect, it } from "vitest";
+import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
+import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { QueryError } from "@/errors";
+import { NotFoundError, QueryError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -87,8 +87,7 @@ describe("Channel", () => {
         dataType: DataType.FLOAT32,
         index: timeIndexChannel.key,
       });
-
-      const sensors = await client.channels.create([sensorOne, sensorTwo, sensorThree]);
+      await client.channels.create([sensorOne, sensorTwo, sensorThree]);
     });
     describe("retrieveIfNameExists", () => {
       it("should retrieve the existing channel when it exists", async () => {
@@ -185,7 +184,7 @@ describe("Channel", () => {
   });
   test("retrieve by key - not found", async () => {
     await expect(async () => await client.channels.retrieve("1-1000")).rejects.toThrow(
-      QueryError,
+      NotFoundError,
     );
   });
   test("retrieve by name", async () => {
@@ -218,6 +217,46 @@ describe("Channel", () => {
       await expect(
         async () => await client.channels.retrieve(channel.key),
       ).rejects.toThrow(QueryError);
+    });
+  });
+  describe("rename", async () => {
+    test("single rename", async () => {
+      const channel = await client.channels.create({
+        name: "test",
+        leaseholder: 1,
+        rate: Rate.hz(1),
+        dataType: DataType.FLOAT32,
+      });
+      await client.channels.rename(channel.key, "test2");
+      const renamed = await client.channels.retrieve(channel.key);
+      expect(renamed.name).toEqual("test2");
+    });
+    test("multiple rename", async () => {
+      const channels = await client.channels.create([
+        {
+          name: "test1",
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        },
+        {
+          name: "test2",
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        },
+      ]);
+      // Retrieve channels here to ensure we check for cache invalidation
+      const initial = await client.channels.retrieve(channels.map((c) => c.key));
+      expect(initial[0].name).toEqual("test1");
+      expect(initial[1].name).toEqual("test2");
+      await client.channels.rename(
+        channels.map((c) => c.key),
+        ["test3", "test4"],
+      );
+      const renamed = await client.channels.retrieve(channels.map((c) => c.key));
+      expect(renamed[0].name).toEqual("test3");
+      expect(renamed[1].name).toEqual("test4");
     });
   });
 });

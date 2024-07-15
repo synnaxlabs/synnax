@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,60 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { Dispatch, PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
-import type { PayloadAction } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
-import { migrate, type deep, type location } from "@synnaxlabs/x";
+import { Haul, Mosaic } from "@synnaxlabs/pluto";
+import { type deep, type location } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
+import { ComponentType } from "react";
 
-import { type LayoutState } from "@/layout/layout";
+import * as latest from "@/layout/migrations";
 
-/** The state of the layout slice */
-export interface SliceState extends migrate.Migratable {
-  /** The current theme. */
-  activeTheme: string;
-  /**
-   * A record of theme keys to themes. The active theme is guaranteed to be present
-   * in this record. */
-  themes: Record<string, Theming.ThemeSpec>;
-  /**
-   * A record of layout keys to layouts. These represent the properties of all layouts
-   * currently rendered in the mosaic or in external windows.
-   */
-  layouts: Record<string, LayoutState>;
-  hauling: Haul.DraggingState;
-  mosaics: Record<string, MosaicState>;
-  nav: { main: MainNavState } & Record<string, PartialNavState>;
-  alreadyCheckedGetStarted: boolean;
-}
-
-export interface MosaicState {
-  activeTab: string | null;
-  root: Mosaic.Node;
-}
-
-export interface MainNavState {
-  drawers: NavDrawerState;
-}
-
-export interface PartialNavState {
-  drawers: Partial<NavDrawerState>;
-}
-
-export type NavdrawerLocation = "right" | "left" | "bottom";
-
-export interface NavDrawerState {
-  left: NavdrawerEntryState;
-  right: NavdrawerEntryState;
-  bottom: NavdrawerEntryState;
-}
-
-export interface NavdrawerEntryState {
-  activeItem: string | null;
-  menuItems: string[];
-  size?: number;
-}
+export type State<A = any> = latest.State<A>;
+export type SliceState = latest.SliceState;
+export type NavDrawerLocation = latest.NavDrawerLocation;
+export type NavDrawerEntryState = latest.NavDrawerEntryState;
+export type WindowProps = latest.WindowProps;
+export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const ZERO_MOSAIC_STATE = latest.ZERO_MOSAIC_STATE;
+export const MAIN_LAYOUT = latest.MAIN_LAYOUT;
+export const migrateSlice = latest.migrateSlice;
 
 /**
  * The name of the layout slice in a larger store.
@@ -77,76 +42,12 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const MAIN_LAYOUT: LayoutState = {
-  name: "Main",
-  key: "main",
-  type: "main",
-  location: "window",
-  windowKey: MAIN_WINDOW,
-  window: {
-    navTop: false,
-  },
-};
-
-const ZERO_MOSAIC_STATE: MosaicState = {
-  activeTab: null,
-  root: {
-    key: 1,
-    tabs: [],
-  },
-};
-
-const MIGRATIONS: migrate.Migrations = {
-  "0.0.0": (state: SliceState): SliceState => ({
-    ...state,
-    themes: {
-      synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
-      synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
-    },
-    version: "0.1.0",
-  }),
-};
-
-export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
-
-export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.1.0",
-  activeTheme: "synnaxDark",
-  themes: Theming.SYNNAX_THEMES,
-  alreadyCheckedGetStarted: false,
-  layouts: {
-    main: MAIN_LAYOUT,
-  },
-  mosaics: {
-    main: ZERO_MOSAIC_STATE,
-  },
-  hauling: Haul.ZERO_DRAGGING_STATE,
-  nav: {
-    main: {
-      drawers: {
-        left: {
-          activeItem: null,
-          menuItems: ["clusters", "resources"],
-        },
-        right: {
-          activeItem: null,
-          menuItems: ["range"],
-        },
-        bottom: {
-          activeItem: null,
-          menuItems: ["visualization"],
-        },
-      },
-    },
-  },
-};
-
 export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<StoreState>>;
 
 /** Signature for the placeLayout action. */
-export type PlacePayload = LayoutState;
+export type PlacePayload = State;
 /** Signature for the removeLayout action. */
 export interface RemovePayload {
   keys: string[];
@@ -173,39 +74,85 @@ interface RenamePayload {
   name: string;
 }
 
-interface ResizeNavdrawerPayload {
+interface ResizeNavDrawerPayload {
   windowKey: string;
-  location: NavdrawerLocation;
+  location: NavDrawerLocation;
   size: number;
 }
+
+interface SetAltKeyPayload {
+  key: string;
+  altKey: string;
+}
+
 interface SetHaulingPayload extends Haul.DraggingState {}
 
-export interface SetNavDrawerPayload extends NavdrawerEntryState {
-  location: NavdrawerLocation;
+export interface SetNavDrawerPayload extends NavDrawerEntryState {
+  location: NavDrawerLocation;
   windowKey: string;
 }
 
-export interface SetSlicePayload {
+export interface SetWorkspacePayload {
   keepNav?: boolean;
   slice: SliceState;
 }
 
-interface SetNavdrawerVisiblePayload {
+interface SetNavDrawerVisiblePayload {
   windowKey: string;
   key?: string;
-  location?: NavdrawerLocation;
+  location?: NavDrawerLocation;
   value?: boolean;
 }
+
+interface SetArgsPayload<T = unknown> {
+  key: string;
+  args: T;
+}
+
+export const GET_STARTED_LAYOUT_TYPE = "getStarted";
+
+const purgeEmptyMosaics = (state: SliceState) => {
+  Object.entries(state.mosaics).forEach(([key, mosaic]) => {
+    if (key === MAIN_WINDOW || !Mosaic.isEmpty(mosaic.root)) return;
+    delete state.mosaics[key];
+    delete state.layouts[key];
+    delete state.nav[key];
+  });
+};
+
+const select = (state: SliceState, key: string): State | null => {
+  const layout = state.layouts[key];
+  if (layout == null) {
+    const altKey = state.altKeyToKey[key];
+    if (altKey == null) return null;
+    const altLayout = state.layouts[altKey];
+    return altLayout ?? null;
+  }
+  return layout;
+};
+
+const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State> =>
+  Object.fromEntries(
+    Object.entries(layouts).filter(
+      ([, layout]) =>
+        layout.location === "window" && layout.type !== MOSAIC_WINDOW_TYPE,
+    ),
+  );
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
     place: (state, { payload: layout }: PayloadAction<PlacePayload>) => {
-      const { key, location, name, tab } = layout;
+      const { location, name, tab } = layout;
+      let key = layout.key;
 
-      const prev = state.layouts[key];
+      const prev = select(state, key);
       const mosaic = state.mosaics[layout.windowKey];
+      if (prev != null) {
+        key = prev.key;
+        layout.key = prev.key;
+      }
 
       if (layout.type === MOSAIC_WINDOW_TYPE) state.mosaics[key] = ZERO_MOSAIC_STATE;
 
@@ -242,33 +189,45 @@ export const { actions, reducer } = createSlice({
 
       state.layouts[key] = layout;
       state.mosaics[layout.windowKey] = mosaic;
+      if (layout.type !== MOSAIC_WINDOW_TYPE) purgeEmptyMosaics(state);
     },
     setHauled: (state, { payload }: PayloadAction<SetHaulingPayload>) => {
       state.hauling = payload;
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((contentKey) => {
-        const layout = state.layouts[contentKey];
+        const layout = select(state, contentKey);
         if (layout == null) return;
         const mosaic = state.mosaics[layout.windowKey];
         if (layout == null || mosaic == null) return;
         const { location } = layout;
         if (location === "mosaic")
-          [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, contentKey);
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-        delete state.layouts[contentKey];
+          [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, layout.key);
+
+        delete state.layouts[layout.key];
         state.mosaics[layout.windowKey] = mosaic;
+        purgeEmptyMosaics(state);
       });
+    },
+    setAltKey: (
+      state,
+      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
+    ) => {
+      const layout = select(state, key);
+      if (layout == null) return;
+      state.altKeyToKey[altKey] = key;
+      state.keyToAltKey[key] = altKey;
     },
     moveMosaicTab: (
       state,
       { payload: { tabKey, windowKey, key, loc } }: PayloadAction<MoveMosaicTabPayload>,
     ) => {
-      const layout = state.layouts[tabKey];
+      const layout = select(state, tabKey);
+      if (layout == null) return;
       const prevWindowKey = layout.windowKey;
       if (windowKey == null || prevWindowKey === windowKey) {
         const mosaic = state.mosaics[prevWindowKey];
-        [mosaic.root] = Mosaic.moveTab(mosaic.root, tabKey, loc, key);
+        [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key);
         state.mosaics[prevWindowKey] = mosaic;
         return;
       }
@@ -277,7 +236,7 @@ export const { actions, reducer } = createSlice({
       state.mosaics[prevWindowKey] = prevMosaic;
       const mosaic = state.mosaics[windowKey];
       if (mosaic.activeTab == null) mosaic.activeTab = tabKey;
-      state.layouts[tabKey].windowKey = windowKey;
+      state.layouts[layout.key].windowKey = windowKey;
 
       const mosaicTab = {
         closable: true,
@@ -288,16 +247,19 @@ export const { actions, reducer } = createSlice({
 
       mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
       state.mosaics[windowKey] = mosaic;
+      purgeEmptyMosaics(state);
     },
     selectMosaicTab: (
       state,
       { payload: { tabKey } }: PayloadAction<SelectMosaicTabPayload>,
     ) => {
-      const { windowKey } = state.layouts[tabKey];
+      const layout = select(state, tabKey);
+      if (layout == null) return;
+      const { windowKey } = layout;
       const mosaic = state.mosaics[windowKey];
       if (mosaic.activeTab === tabKey) return;
-      mosaic.root = Mosaic.selectTab(mosaic.root, tabKey);
-      mosaic.activeTab = tabKey;
+      mosaic.root = Mosaic.selectTab(mosaic.root, layout.key);
+      mosaic.activeTab = layout.key;
       state.mosaics[windowKey] = mosaic;
     },
     resizeMosaicTab: (
@@ -312,11 +274,11 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { key: tabKey, name } }: PayloadAction<RenamePayload>,
     ) => {
-      const layout = state.layouts[tabKey];
+      const layout = select(state, tabKey);
       if (layout == null) return;
       const mosaic = state.mosaics[layout.windowKey];
       layout.name = name;
-      mosaic.root = Mosaic.renameTab(mosaic.root, tabKey, name);
+      mosaic.root = Mosaic.renameTab(mosaic.root, layout.key, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
     setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
@@ -334,24 +296,24 @@ export const { actions, reducer } = createSlice({
       const next = keys[(index + 1) % keys.length];
       state.activeTheme = next;
     },
-    setNavdrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
+    setNavDrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
       const { windowKey, location, ...rest } = payload;
       if (!(windowKey in state.nav)) state.nav[windowKey] = { drawers: {} };
       state.nav[windowKey].drawers[location] = rest;
     },
-    resizeNavdrawer: (
+    resizeNavDrawer: (
       state,
-      { payload: { windowKey, location, size } }: PayloadAction<ResizeNavdrawerPayload>,
+      { payload: { windowKey, location, size } }: PayloadAction<ResizeNavDrawerPayload>,
     ) => {
       const navState = state.nav[windowKey];
       if (navState?.drawers[location] == null) return;
-      (navState.drawers[location] as NavdrawerEntryState).size = size;
+      (navState.drawers[location] as NavDrawerEntryState).size = size;
     },
-    setNavdrawerVisible: (
+    setNavDrawerVisible: (
       state,
       {
         payload: { windowKey, key, location, value },
-      }: PayloadAction<SetNavdrawerVisiblePayload>,
+      }: PayloadAction<SetNavDrawerVisiblePayload>,
     ) => {
       let navState = state.nav[windowKey];
       if (navState == null) {
@@ -377,7 +339,7 @@ export const { actions, reducer } = createSlice({
         else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
         else drawer.activeItem = null;
       } else {
-        throw new Error("setNavdrawerVisible requires either a key or location");
+        throw new Error("setNavDrawerVisible requires either a key or location");
       }
     },
     maybeCreateGetStartedTab: (state) => {
@@ -393,39 +355,53 @@ export const { actions, reducer } = createSlice({
         state.mosaics[MAIN_WINDOW].root,
         {
           closable: true,
-          tabKey: "getStarted",
+          tabKey: GET_STARTED_LAYOUT_TYPE,
           name: "Get Started",
           editable: false,
         },
       );
       state.layouts.getStarted = {
         name: "Get Started",
-        key: "getStarted",
+        key: GET_STARTED_LAYOUT_TYPE,
         location: "mosaic",
-        type: "getStarted",
+        type: GET_STARTED_LAYOUT_TYPE,
         windowKey: MAIN_WINDOW,
       };
     },
     setWorkspace: (
       state,
-      { payload: { slice, keepNav = true } }: PayloadAction<SetSlicePayload>,
+      { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
     ) => {
-      return {
+      return migrateSlice({
         ...slice,
+        layouts: {
+          ...layoutsToPreserve(state.layouts),
+          ...slice.layouts,
+          main: MAIN_LAYOUT,
+        },
         hauling: state.hauling,
         themes: state.themes,
         activeTheme: state.activeTheme,
         nav: keepNav ? state.nav : slice.nav,
-      };
+      });
     },
     clearWorkspace: (state) => {
       return {
         ...ZERO_SLICE_STATE,
+        layouts: {
+          ...layoutsToPreserve(state.layouts),
+          main: MAIN_LAYOUT,
+        },
         hauling: state.hauling,
         themes: state.themes,
         activeTheme: state.activeTheme,
         nav: state.nav,
       };
+    },
+    setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
+      const layout = select(state, key);
+      if (layout == null) return;
+      layout.args = args;
     },
   },
 });
@@ -433,33 +409,73 @@ export const { actions, reducer } = createSlice({
 export const {
   place,
   remove,
+  setAltKey,
   toggleActiveTheme,
   setActiveTheme,
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,
   rename,
-  setNavdrawer,
-  resizeNavdrawer,
-  setNavdrawerVisible,
+  setNavDrawer,
+  resizeNavDrawer,
+  setNavDrawerVisible,
   maybeCreateGetStartedTab,
   setHauled,
   setWorkspace,
   clearWorkspace,
 } = actions;
 
+export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>
+  actions.setArgs(pld) as PayloadAction<SetArgsPayload<T>>;
+
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
-const MOSAIC_WINDOW_TYPE = "mosaic";
+export const MOSAIC_WINDOW_TYPE = "mosaic";
 
-export const createMosaicWindow = (): Omit<LayoutState, "windowKey"> => ({
-  key: nanoid(),
+export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
+  key: `${MOSAIC_WINDOW_TYPE}-${nanoid()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",
   window: {
+    ...window,
     size: { width: 800, height: 600 },
     navTop: true,
+    visible: true,
+    showTitle: false,
   },
 });
+
+/**
+ * The props passed to a LayoutRenderer. Note that these props are minimal and only focus
+ * on providing information that either allows the renderer to perform more data selections
+ * from other locations in state OR allows the renderer to perform actions that may have
+ * polymorphic behavior depending the layout location (i.e. closing a layout might remove
+ * it from the mosaic or close the window, depending on the location).
+ *
+ * The goal here is to separate the rendering logic for a particular layout from its location
+ * allowing us to mix and move layouts around the UI with ease.
+ */
+export interface RendererProps {
+  /** The unique key of the layout. */
+  layoutKey: string;
+  /**
+   * onClose should be called when the layout is ready to be closed. This function is
+   * polymorphic and may have different behavior depending on the location of the layout.
+   * For example, if the layout is in a window, onClose will close the window. If the
+   * layout is in the mosaic, onClose will remove the layout from the mosaic.
+   */
+  onClose: () => void;
+}
+
+export interface OnCloseProps {
+  dispatch: Dispatch<UnknownAction>;
+  layoutKey: string;
+}
+
+/**
+ * A React component that renders a layout for a given type. All layouts in state are
+ * rendered by a layout renderer of a specific type.
+ */
+export type Renderer = ComponentType<RendererProps>;

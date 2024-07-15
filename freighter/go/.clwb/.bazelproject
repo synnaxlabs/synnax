@@ -1,17 +1,18 @@
-directories:
-  # Add the directories you want added as source here
-  # By default, we've added your entire workspace ('.')
-  ferrors
+# This is a projectview file generated automatically during bazel project auto-import 
+# For more documentation, please visit https://ij.bazel.build/docs/project-views.html
+# If your repository contains predefined .projectview files, you use 'import' directive to include them.
+# Otherwise, please specify 'directories' and 'targets' you want to be imported
+# 
+# By default we keep your 'directories' and 'targets' sections empty, so nothing is imported.
+# Please uncomment them and put the correct data there, and then run 'Sync' again
 
-# Automatically includes all relevant targets under the 'directories' above
+directories:
+  .
+  -bazel-bin
+  -bazel-out
+  -bazel-testlogs
+
 derive_targets_from_directories: true
 
-targets:
-  # If source code isn't resolving, add additional targets that compile it here
-
-additional_languages:
-  # Uncomment any additional languages you want supported
-  # dart
-  # javascript
-  # python
-  # typescript
+# targets: 
+#  <your directory here>

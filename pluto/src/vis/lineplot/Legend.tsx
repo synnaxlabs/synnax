@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/legend/Container.css";
+
 import { type ReactElement } from "react";
 
 import { Legend as Core } from "@/vis/legend";
 import { type LineSpec, useContext } from "@/vis/lineplot/LinePlot";
-
-import "@/vis/legend/Container.css";
 
 export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryChange"> {
   onLineChange?: (line: LineSpec) => void;

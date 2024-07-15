@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -15,16 +15,52 @@
     }
 }
 
+.pluto-dropdown__bg {
+    &:not(.pluto--visible) {
+        display: none;
+    }
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    background: var(--pluto-gray-l3-40);
+
+    .pluto-dropdown__dialog {
+        top: 25%;
+        border-radius: 1rem;
+        background: var(--pluto-gray-l1);
+        backdrop-filter: saturate(300%) blur(5rem);
+    }
+
+    @media (max-height: 800px) {
+        .pluto-dropdown__dialog {
+            top: 10%;
+        }
+    }
+}
+
 .pluto-dropdown__dialog {
-    max-height: 360px;
     position: fixed;
     box-shadow: var(--pluto-shadow-menu);
     overflow: hidden;
-    background: var(--pluto-gray-l1);
-    border-radius: 6px;
 
-    & .pluto-pack.pluto--rounded {
+    & > .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;
+    }
+
+    &:not(.pluto--modal) {
+        background: var(--pluto-gray-l1);
+        backdrop-filter: saturate(180%) blur(5rem);
+        max-height: 360px;
+        &.pluto-height-small {
+            max-height: 200px;
+        }
+
+        &.pluto-height-large {
+            max-height: 480px;
+        }
     }
 
     &.pluto--floating {

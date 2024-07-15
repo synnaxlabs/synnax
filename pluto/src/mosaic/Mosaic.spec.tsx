@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
-
 import { render } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Mosaic } from "@/mosaic";
 
 const TestMosaic = (props: Mosaic.UseProps): ReactElement => {
   const props_ = Mosaic.use(props);
-  return <Mosaic.Mosaic {...props_} />;
+  return <Mosaic.Mosaic {...props_}>{() => <></>}</Mosaic.Mosaic>;
 };
 
 describe("Mosaic", () => {
@@ -427,10 +426,10 @@ describe("Mosaic", () => {
         },
       };
       const { getByText } = render(<TestMosaic initialTree={initialTree} />);
-      expect(getByText("Tab 1 Content")).toBeTruthy();
-      expect(getByText("Tab 2 Content")).toBeTruthy();
-      expect(getByText("Tab 3 Content")).toBeTruthy();
-      expect(getByText("Tab 4 Content")).toBeTruthy();
+      expect(getByText("Tab 1")).toBeTruthy();
+      expect(getByText("Tab 2")).toBeTruthy();
+      expect(getByText("Tab 3")).toBeTruthy();
+      expect(getByText("Tab 4")).toBeTruthy();
     });
   });
 });

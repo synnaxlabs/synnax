@@ -11,6 +11,9 @@ package iterator_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -19,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	. "github.com/synnaxlabs/x/testutil"
-	"testing"
+	"github.com/synnaxlabs/x/types"
 )
 
 var (
@@ -34,6 +37,7 @@ func TestIterator(t *testing.T) {
 type serviceContainer struct {
 	channel channel.Service
 	iter    *iterator.Service
+	writer  *writer.Service
 }
 
 func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
@@ -41,7 +45,8 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		builder    = mock.NewCoreBuilder(core.Config{})
 		services   = make(map[core.NodeKey]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
-		iterNet    = tmock.NewFramerIteratorNetwork()
+		iterNet    = tmock.NewIteratorNetwork()
+		writerNet  = tmock.NewWriterNetwork()
 	)
 	for i := 0; i < n; i++ {
 		var (
@@ -49,16 +54,23 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			cont serviceContainer
 		)
 		cont.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-			HostResolver: c.Cluster,
-			ClusterDB:    c.Storage.Gorpify(),
-			Transport:    channelNet.New(c.Config.AdvertiseAddress),
-			TSChannel:    c.Storage.TS,
+			HostResolver:     c.Cluster,
+			ClusterDB:        c.Storage.Gorpify(),
+			Transport:        channelNet.New(c.Config.AdvertiseAddress),
+			TSChannel:        c.Storage.TS,
+			IntOverflowCheck: func(ctx context.Context, count types.Uint20) error { return nil },
 		}))
 		cont.iter = MustSucceed(iterator.OpenService(iterator.ServiceConfig{
 			TS:            c.Storage.TS,
 			ChannelReader: cont.channel,
 			HostResolver:  c.Cluster,
 			Transport:     iterNet.New(c.Config.AdvertiseAddress),
+		}))
+		cont.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
+			TS:            c.Storage.TS,
+			ChannelReader: cont.channel,
+			HostResolver:  c.Cluster,
+			Transport:     writerNet.New(c.Config.AdvertiseAddress),
 		}))
 		services[c.Cluster.HostKey()] = cont
 	}

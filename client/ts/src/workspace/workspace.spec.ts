@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, test, expect } from "vitest";
+import { describe, expect,test } from "vitest";
 
 import { newClient } from "@/setupspecs";
 
@@ -19,10 +19,10 @@ describe("Workspace", () => {
   describe("create", () => {
     test("create one", async () => {
       const ws = await client.workspaces.create({
-        name: "PID",
+        name: "Schematic",
         layout: { one: 1 },
       });
-      expect(ws.name).toEqual("PID");
+      expect(ws.name).toEqual("Schematic");
       expect(ws.key).not.toEqual(ZERO_UUID);
       expect(ws.layout.one).toEqual(1);
     });
@@ -30,18 +30,18 @@ describe("Workspace", () => {
   describe("rename", () => {
     test("rename one", async () => {
       const ws = await client.workspaces.create({
-        name: "PID",
+        name: "Schematic",
         layout: { one: 1 },
       });
-      await client.workspaces.rename(ws.key, "PID2");
+      await client.workspaces.rename(ws.key, "Schematic2");
       const res = await client.workspaces.retrieve(ws.key);
-      expect(res.name).toEqual("PID2");
+      expect(res.name).toEqual("Schematic2");
     });
   });
   describe("setLayout", () => {
     test("set layout", async () => {
       const ws = await client.workspaces.create({
-        name: "PID",
+        name: "Schematic",
         layout: { one: 1 },
       });
       await client.workspaces.setLayout(ws.key, { two: 2 });
@@ -52,7 +52,7 @@ describe("Workspace", () => {
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({
-        name: "PID",
+        name: "Schematic",
         layout: { one: 1 },
       });
       await client.workspaces.delete(ws.key);

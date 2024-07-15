@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,17 +11,17 @@ import { type Viewport } from "@synnaxlabs/pluto";
 import { type bounds } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
+import { AxisKey, XAxisRecord } from "@/lineplot/axis";
 import {
-  type State,
-  type SliceState,
-  type StoreState,
-  SLICE_NAME,
-  type ToolbarState,
   type ControlState,
   type SelectionState,
+  SLICE_NAME,
+  type SliceState,
+  type State,
+  type StoreState,
+  type ToolbarState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
-import { type Vis } from "@/vis";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -34,7 +34,7 @@ export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
-export const selectRanges = (key: string): Vis.XAxisRecord<Range.Range[]> => {
+export const selectRanges = (key: string): XAxisRecord<Range.Range[]> => {
   return useMemoSelect(
     (state: StoreState & Range.StoreState) => {
       const p = select(state, key);
@@ -73,13 +73,13 @@ export const useSelectSelection = (key: string): SelectionState =>
 export const selectAxisBounds = (
   state: StoreState,
   key: string,
-  axisKey: Vis.AxisKey,
+  axisKey: AxisKey,
 ): bounds.Bounds => {
   const p = select(state, key);
   return p.axes.axes[axisKey].bounds;
 };
 
-export const useSelectAxisBounds = (key: string, axisKey: Vis.AxisKey): bounds.Bounds =>
+export const useSelectAxisBounds = (key: string, axisKey: AxisKey): bounds.Bounds =>
   useMemoSelect(
     (state: StoreState) => selectAxisBounds(state, key, axisKey),
     [key, axisKey],

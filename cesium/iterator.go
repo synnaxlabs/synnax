@@ -22,7 +22,7 @@ import (
 
 const AutoSpan = unary.AutoSpan
 
-var IteratorClosedError = core.EntityClosed("cesium.iterator")
+var errIteratorClosed = core.EntityClosed("cesium.iterator")
 
 type Iterator struct {
 	inlet    confluence.Inlet[IteratorRequest]
@@ -34,10 +34,10 @@ type Iterator struct {
 	closed   bool
 }
 
-func wrapStreamIterator(wrap *streamIterator) *Iterator {
+func wrapStreamIterator(internal *streamIterator) *Iterator {
 	ctx, cancel := signal.Isolated()
-	req, res := confluence.Attach[IteratorRequest, IteratorResponse](wrap, 1)
-	wrap.Flow(ctx)
+	req, res := confluence.Attach[IteratorRequest, IteratorResponse](internal, 1)
+	internal.Flow(ctx)
 	return &Iterator{
 		inlet:    req,
 		outlet:   res,
@@ -48,6 +48,11 @@ func wrapStreamIterator(wrap *streamIterator) *Iterator {
 
 // Next reads all data occupying the next span of time, returning true
 // if the iterator has not been exhausted and has not accumulated an error.
+// Note: If the internal iterators have different views, then they will each read the
+// next span of time, ending at different times. For example, if the iterator on channel
+// 1 has view [00:01, 00:02) while the iterator on channel 2 has view [00:03, 00:04),
+// then they will read [00:02, 00:07) and [00:04, 00:09), respectively, after a call to
+// Next(5).
 func (i *Iterator) Next(span telem.TimeSpan) bool {
 	return i.exec(IteratorRequest{Command: IterNext, Span: span})
 }
@@ -89,7 +94,8 @@ func (i *Iterator) Valid() bool {
 	return ok
 }
 
-// SetBounds implements Iterator.
+// SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
+// valid until a seeking call is made.
 func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 	i.exec(IteratorRequest{Command: IterSetBounds, Bounds: bounds})
 }
@@ -116,7 +122,7 @@ func (i *Iterator) exec(req IteratorRequest) bool {
 
 func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 	if i.closed {
-		return false, IteratorClosedError
+		return false, errIteratorClosed
 	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req

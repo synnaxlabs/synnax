@@ -37,10 +37,7 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(l.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
-		return
-	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineResource(ctx, otgID)
 }
 
 func (w Writer) CreateMany(
@@ -121,7 +118,7 @@ func (w Writer) RemoveLabel(
 
 func (w Writer) validate(l Label) error {
 	v := validate.New("label.Label")
-	validate.NotNil(v, "Key", l.Key)
+	validate.NotNil(v, "Task", l.Key)
 	validate.NotEmptyString(v, "Name", l.Name)
 	validate.NonZeroable(v, "Color", l.Color)
 	return v.Error()

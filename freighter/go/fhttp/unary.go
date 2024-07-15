@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"github.com/synnaxlabs/x/errors"
 	"net/http"
 	"strings"
 
@@ -21,7 +22,6 @@ import (
 
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
 )
@@ -30,6 +30,7 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	requestParser func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (RQ, error)
+	internal      bool
 	path          string
 	handle        func(ctx context.Context, rq RQ) (RS, error)
 }
@@ -59,8 +60,8 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		}),
 	)
 	setResponseCtx(c, oMD)
-	fErr := ferrors.Encode(err)
-	if fErr.Type == ferrors.TypeNil {
+	fErr := errors.Encode(c.Context(), err, s.internal)
+	if fErr.Type == errors.TypeNil {
 		return encodeAndWrite(c, ecd, res)
 	}
 	c.Status(fiber.StatusBadRequest)
@@ -108,11 +109,11 @@ func (u *unaryClient[RQ, RS]) Send(
 			}
 
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
-				var pld ferrors.Payload
+				var pld errors.Payload
 				if err := u.ecd.DecodeStream(nil, httpRes.Body, &pld); err != nil {
 					return oMD, err
 				}
-				return oMD, ferrors.Decode(pld)
+				return oMD, errors.Decode(ctx, pld)
 			}
 			return oMD, u.ecd.DecodeStream(nil, httpRes.Body, &res)
 		}),

@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 
+import { NotFoundError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -19,6 +21,10 @@ describe("Rack", () => {
       const r = await client.hardware.racks.create({ name: "test" });
       expect(r.key).toBeGreaterThan(0n);
     });
+    it("should return an error if the rack doesn't have a name", async () => {
+      // @ts-expect-error - Testing for error
+      await expect(client.hardware.racks.create({})).rejects.toThrow(ZodError);
+    });
   });
   describe("retrieve", () => {
     it("should retrieve a rack by its key", async () => {
@@ -27,6 +33,13 @@ describe("Rack", () => {
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toBe("test");
     });
+    it("should retrieve a rack by its name", async () => {
+      const name = `TimeStamp.now().toString()}-${Math.random()}`;
+      const r = await client.hardware.racks.create({ name });
+      const retrieved = await client.hardware.racks.retrieve(name);
+      expect(retrieved.key).toBe(r.key);
+      expect(retrieved.name).toEqual(name);
+    });
   });
   describe("tasks", () => {
     it("should list the tasks on a rack", async () => {
@@ -34,5 +47,11 @@ describe("Rack", () => {
       const tasks = await r.listTasks();
       expect(tasks).toHaveLength(0);
     });
-  })
+    it("should throw an error if a task cannot be found by name", async () => {
+      const r = await client.hardware.racks.create({ name: "test" });
+      await expect(
+        async () => await r.retrieveTaskByName("nonexistent"),
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
 });

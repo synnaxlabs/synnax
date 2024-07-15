@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { type FindResult } from "@/vis/line/aether/line";
-import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
+import { calculatePlotBox, gridEntrySpecZ } from "@/vis/lineplot/aether/grid";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
@@ -26,7 +26,7 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().optional().default(false),
-  grid: z.record(gridPositionSpecZ),
+  grid: z.record(gridEntrySpecZ),
   clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });
 
@@ -38,13 +38,18 @@ interface InternalState {
 
 type Children = XAxis | tooltip.Tooltip | measure.Measure;
 
+const calculateExposure = (viewport: box.Box, region: box.Box): number => {
+  const vpArea = box.width(viewport) * Math.sqrt(box.height(viewport));
+  const regArea = box.width(region) * Math.sqrt(box.height(region));
+  return vpArea / regArea;
+};
+
 export class LinePlot extends aether.Composite<
   typeof linePlotStateZ,
   InternalState,
   Children
 > {
   static readonly TYPE: string = "LinePlot";
-  private readonly eraser: render.Eraser = new render.Eraser();
 
   schema = linePlotStateZ;
 
@@ -62,13 +67,21 @@ export class LinePlot extends aether.Composite<
   }
 
   async findByXDecimal(x: number): Promise<FindResult[]> {
-    const props = { ...this.state, plot: this.calculatePlot() };
+    const props = {
+      ...this.state,
+      plot: this.calculatePlot(),
+      exposure: this.exposure,
+    };
     const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXDecimal(props, x));
     return (await Promise.all(p)).flat();
   }
 
   async findByXValue(x: number): Promise<FindResult[]> {
-    const props = { ...this.state, plot: this.calculatePlot() };
+    const props = {
+      ...this.state,
+      plot: this.calculatePlot(),
+      exposure: this.exposure,
+    };
     const p = this.axes.flatMap(async (a) => await a.findByXValue(props, x));
     return (await Promise.all(p)).flat();
   }
@@ -85,11 +98,20 @@ export class LinePlot extends aether.Composite<
     return this.childrenOfType<measure.Measure>(measure.Measure.TYPE);
   }
 
+  private get exposure(): number {
+    return calculateExposure(this.state.viewport, this.state.container);
+  }
+
   private async renderAxes(
     plot: box.Box,
     canvases: render.CanvasVariant[],
   ): Promise<void> {
-    const p = { ...this.state, plot, canvases };
+    const p = {
+      ...this.state,
+      plot,
+      canvases,
+      exposure: this.exposure,
+    };
     await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
   }
 
@@ -155,8 +177,13 @@ export class LinePlot extends aether.Composite<
       await this.renderAxes(plot, canvases);
       await this.renderTooltips(plot, canvases);
       await this.renderMeasures(plot, canvases);
+      renderCtx.gl.finish();
       renderCtx.gl.flush();
+      renderCtx.gl.finish();
     } catch (e) {
+      const err = e as Error;
+      // TODO: Remove this temp fix after we resolve actual error.
+      if (err.message.toLowerCase().includes("bigint")) return;
       this.internal.aggregate({
         key: `${this.type}-${this.key}`,
         variant: "error",
@@ -168,9 +195,8 @@ export class LinePlot extends aether.Composite<
     }
     instrumentation.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
-    return async ({ canvases }) => {
+    return async ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
-    };
   }
 
   requestRender(priority: render.Priority, reason: string): void {

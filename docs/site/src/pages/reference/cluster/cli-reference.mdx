@@ -74,7 +74,7 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
         {
             option: "--verbose/-v",
             default: "false",
-            description: "Enables verbose logging for diagnostic purposes.",
+            description: "Enables human-readable logging.",
         },
         {
             option: "--insecure/-i",
@@ -127,7 +127,17 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
         {
             option: "--password",
             default: "seldon",
-            description: "Password for the database root user."
+            description: "Password for the database root user.",
+        },
+        {
+            option: "--license-key",
+            default: "\"\"",
+            description: "License key to use Synnax outside of demo mode.",
+        },
+        {
+            option: "--debug",
+            default: "false",
+            description: "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
         }
     ]}
 />
@@ -202,7 +212,11 @@ Command line flags will take precedence over environment variables.
         {
             option: "--password",
             env: "SYNNAX_PASSWORD",
-        }
+        },
+        {
+            option: "--license-key",
+            env: "SYNNAX_LICENSE_KEY",
+        },
     ]}
 />
 
@@ -250,7 +264,8 @@ tabs={[
     "node-cert": "node.crt",
     "node-key": "node.key",
     "username": "synnax",
-    "password": "seldon"
+    "password": "seldon",
+    "license-key": "000000-00000000-0000000000",
 }
 ```
 </slot>
@@ -271,6 +286,7 @@ node-cert: node.crt
 node-key: node.key
 username: synnax
 password: seldon
+license-key: 000000-00000000-0000000000
 ```
 </slot>
 <slot slot="toml">
@@ -288,6 +304,7 @@ node-cert = "node.crt"
 node-key = "node.key"
 username = "synnax"
 password = "seldon"
+license-key = "000000-00000000-0000000000"
 ```
 </slot>
 </Tabs>

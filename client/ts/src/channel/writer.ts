@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,12 +11,14 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import {
+  Key,
+  keyZ,
+  type NewPayload,
+  newPayload,
   type Payload,
   payload,
-  newPayload,
-  type NewPayload,
-  keyZ,
 } from "@/channel/payload";
+import { CacheRetriever } from "@/channel/retriever";
 
 const createReqZ = z.object({ channels: newPayload.array() });
 const createResZ = z.object({ channels: payload.array() });
@@ -27,28 +29,35 @@ const deleteReqZ = z.object({
 });
 const deleteResZ = z.object({});
 
+const renameReqZ = z.object({
+  keys: keyZ.array(),
+  names: z.string().array(),
+});
+const renameResZ = z.object({});
+
 const CREATE_ENDPOINT = "/channel/create";
 const DELETE_ENDPOINT = "/channel/delete";
+const RENAME_ENDPOINT = "/channel/rename";
 
 export type DeleteProps = z.input<typeof deleteReqZ>;
+export type RenameProps = z.input<typeof renameReqZ>;
 
 export class Writer {
   private readonly client: UnaryClient;
+  private readonly cache: CacheRetriever;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, cache: CacheRetriever) {
     this.client = client;
+    this.cache = cache;
   }
 
   async create(channels: NewPayload[]): Promise<Payload[]> {
-    return (
-      await sendRequired<typeof createReqZ, typeof createResZ>(
-        this.client,
-        CREATE_ENDPOINT,
-        { channels },
-        createReqZ,
-        createResZ,
-      )
-    ).channels;
+    const { channels: created } = await sendRequired<
+      typeof createReqZ,
+      typeof createResZ
+    >(this.client, CREATE_ENDPOINT, { channels }, createReqZ, createResZ);
+    this.cache.set(created);
+    return created;
   }
 
   async delete(props: DeleteProps): Promise<void> {
@@ -59,5 +68,18 @@ export class Writer {
       deleteReqZ,
       deleteResZ,
     );
+    if (props.keys != null) this.cache.delete(props.keys);
+    if (props.names != null) this.cache.delete(props.names);
+  }
+
+  async rename(keys: Key[], names: string[]): Promise<void> {
+    await sendRequired<typeof renameReqZ, typeof renameResZ>(
+      this.client,
+      RENAME_ENDPOINT,
+      { keys, names },
+      renameReqZ,
+      renameResZ,
+    );
+    this.cache.rename(keys, names);
   }
 }

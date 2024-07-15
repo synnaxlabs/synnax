@@ -362,7 +362,7 @@ var file_v1_kv_proto_goTypes = []interface{}{
 	(*Operation)(nil),       // 3: aspen.v1.Operation
 	(*emptypb.Empty)(nil),   // 4: google.protobuf.Empty
 }
-var file_v1_kv_proto_depIdxs = []int32{
+var file_v1_kv_proto_deschematicxs = []int32{
 	1, // 0: aspen.v1.FeedbackMessage.digests:type_name -> aspen.v1.OperationDigest
 	3, // 1: aspen.v1.BatchRequest.operations:type_name -> aspen.v1.Operation
 	0, // 2: aspen.v1.FeedbackService.Exec:input_type -> aspen.v1.FeedbackMessage
@@ -444,11 +444,11 @@ func file_v1_kv_proto_init() {
 			NumServices:   3,
 		},
 		GoTypes:           file_v1_kv_proto_goTypes,
-		DependencyIndexes: file_v1_kv_proto_depIdxs,
+		DependencyIndexes: file_v1_kv_proto_deschematicxs,
 		MessageInfos:      file_v1_kv_proto_msgTypes,
 	}.Build()
 	File_v1_kv_proto = out.File
 	file_v1_kv_proto_rawDesc = nil
 	file_v1_kv_proto_goTypes = nil
-	file_v1_kv_proto_depIdxs = nil
+	file_v1_kv_proto_deschematicxs = nil
 }

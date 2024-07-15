@@ -10,9 +10,9 @@
 package falamos
 
 import (
-	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"strings"
+
+	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -143,11 +143,14 @@ func (c carrier) Keys() []string {
 }
 
 func log(ctx freighter.Context, err error, cfg Config) {
-	logF := lo.Ternary(err == nil, cfg.L.Info, cfg.L.Warn)
-	logF(ctx.Target.String(),
+	args := []zap.Field{
 		zap.String("protocol", ctx.Protocol),
 		zap.Stringer("variant", ctx.Variant),
 		zap.Stringer("role", ctx.Role),
-		zap.Error(err),
-	)
+	}
+	if err != nil {
+		cfg.L.Warn(ctx.Target.String(), append(args, zap.String("error", err.Error()))...)
+	} else {
+		cfg.L.Debug(ctx.Target.String(), args...)
+	}
 }

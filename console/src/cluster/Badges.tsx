@@ -1,21 +1,20 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in
+// the file licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business
+// Source License, use of this software will be governed by the Apache License,
+// Version 2.0, included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/cluster/Badges.css";
 
 import type { connection } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { Case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
-
-import "@/cluster/Badges.css";
 
 /** Props for the ConnectionStateBadge component. */
 export interface ConnectionStateBadgeProps {
@@ -30,8 +29,8 @@ export const statusVariants: Record<connection.Status, Status.Variant> = {
 };
 
 /**
- * A simple badge that displays the connection state of a cluster using an informative
- * text, icon, and color.
+ * A simple badge that displays the connection state of a cluster using an
+ * informative text, icon, and color.
  * @param props - The props of the component.
  * @param props.state - The connection state of the cluster.
  */
@@ -43,16 +42,12 @@ export const ConnectionStatusBadge = ({
     variant={statusVariants[status]}
     justify="center"
   >
-    {Case.capitalize(status)}
+    {caseconv.capitalize(status)}
   </Status.Text>
 );
 
 /**
  * Displays the connection state of the cluster.
- *
- * @param props - The props of the component.
- * @param props.key - The key of the cluster to display. If not provided, the active
- * cluster will be used.
  */
 export const ConnectionBadge = (): ReactElement => {
   const state = Synnax.useConnectionState();

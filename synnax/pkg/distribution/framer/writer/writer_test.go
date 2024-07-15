@@ -25,7 +25,7 @@ import (
 	"io"
 )
 
-var _ = Describe("TypedWriter", func() {
+var _ = Describe("Writer", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func() scenario{
 			gatewayOnlyScenario,
@@ -76,8 +76,10 @@ var _ = Describe("TypedWriter", func() {
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
 			})
-			Expect(err).To(HaveOccurredAs(validate.Error))
-			Expect(err.Error()).To(ContainSubstring("keys"))
+			Expect(err).To(Equal(validate.FieldError{
+				Field:   "keys",
+				Message: "must be non-empty",
+			}))
 		})
 		It("Should return an error if the channel can't be found", func() {
 			_, err := s.service.New(ctx, writer.Config{
@@ -88,7 +90,7 @@ var _ = Describe("TypedWriter", func() {
 				Start: 10 * telem.SecondTS,
 			})
 			Expect(err).To(HaveOccurredAs(query.NotFound))
-			Expect(err.Error()).To(ContainSubstring("channel"))
+			Expect(err.Error()).To(ContainSubstring("Channel"))
 			Expect(err.Error()).To(ContainSubstring("22"))
 			Expect(err.Error()).ToNot(ContainSubstring("1"))
 		})

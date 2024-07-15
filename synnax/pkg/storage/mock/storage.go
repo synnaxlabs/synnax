@@ -12,7 +12,7 @@ package mock
 import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"os"
 )
@@ -68,7 +68,7 @@ func (b *Builder) Cleanup() error {
 // Close closes all stores provisioned by the Builder. Close is not safe to call concurrently
 // with any other Builder or provisioned Storage methods.
 func (b *Builder) Close() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, store := range b.Stores {
 		c.Exec(store.Close)
 	}

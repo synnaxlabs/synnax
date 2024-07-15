@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
-import { Align, Button, Form, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Align, Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -21,25 +20,29 @@ import { type SliceState } from "@/layout/slice";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
 
+export const CREATE_LAYOUT_TYPE = "createWorkspace";
+
 export const createWindowLayout = (
-  name: string = "Create Workspace",
-): Layout.LayoutState => ({
-  key: "createWorkspace",
-  type: "createWorkspace",
-  windowKey: "createWorkspace",
+  name: string = "Workspace.Create",
+): Layout.State => ({
+  key: CREATE_LAYOUT_TYPE,
+  type: CREATE_LAYOUT_TYPE,
+  windowKey: CREATE_LAYOUT_TYPE,
   name,
-  location: "window",
+  icon: "Workspace",
+  location: "modal",
   window: {
     resizable: false,
     size: { height: 225, width: 625 },
     navTop: true,
-    transparent: true,
   },
 });
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Workspace must hav a name" }),
+  name: z.string().min(1, { message: "Workspace must have a name" }),
 });
+
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   const methods = Form.use({
@@ -71,7 +74,12 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   return (
     <Align.Space style={{ height: "100%" }}>
-      <Align.Space className="console-form" justify="center" grow>
+      <Align.Space
+        className="console-form"
+        style={{ padding: "1rem 3rem" }}
+        justify="center"
+        grow
+      >
         <Form.Form {...methods}>
           <Form.Field<string> path="name">
             {(p) => (
@@ -87,13 +95,20 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.End style={{ padding: "1rem" }}>
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
+          <Text.Text shade={7} level="small">
+            To Save
+          </Text.Text>
+        </Nav.Bar.Start>
+        <Nav.Bar.End style={{ padding: "1rem", paddingRight: "1.5rem" }}>
           <Button.Button
             type="submit"
             form="create-workspace"
             loading={isPending}
             disabled={isPending}
             onClick={() => mutate()}
+            triggers={[SAVE_TRIGGER]}
           >
             Save
           </Button.Button>

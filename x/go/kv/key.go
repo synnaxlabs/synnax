@@ -12,12 +12,12 @@ package kv
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 )
 
 func CompositeKey(elems ...interface{}) ([]byte, error) {
 	b := new(bytes.Buffer)
-	c := errutil.NewCatch()
+	c := errors.NewCatcher()
 	for _, e := range elems {
 		switch e.(type) {
 		case string:

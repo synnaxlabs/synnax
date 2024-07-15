@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,15 +10,16 @@
 import type { UnknownAction } from "@reduxjs/toolkit";
 import { describe, expect, it, vi } from "vitest";
 
-import { listen, StoreDispatch, StoreStateGetter } from "@/listener";
+import { listen, type StoreDispatch, type StoreStateGetter } from "@/listener";
 import { MockRuntime } from "@/mock/runtime";
-import { initialState, StoreState } from "@/state";
+import { initialState, type StoreState } from "@/state";
 
 const state = {
   drift: initialState,
 };
 
-const mockStoreFn = (): StoreStateGetter<StoreState> & StoreDispatch<UnknownAction> => ({
+const mockStoreFn = (): StoreStateGetter<StoreState> &
+  StoreDispatch<UnknownAction> => ({
   getState: () => state,
   dispatch: vi.fn(),
 });
@@ -62,7 +63,7 @@ describe("listener", () => {
         listen(
           communicator,
           () => ({ getState: () => state, dispatch }),
-          () => {}
+          () => {},
         );
         communicator.subscribeCallback({ emitter: "test", action: { type: "test" } });
         expect(dispatch).toHaveBeenCalledWith({
@@ -75,7 +76,7 @@ describe("listener", () => {
         listen(
           communicator,
           () => undefined,
-          () => {}
+          () => {},
         );
         communicator.subscribeCallback({ emitter: "test", action: { type: "test" } });
         expect(dispatch).not.toHaveBeenCalled();

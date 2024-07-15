@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,7 +31,7 @@ export class Instrumentation {
     logger = Logger.NOOP,
     tracer = Tracer.NOOP,
     noop = false,
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+     
     __meta,
   }: InstrumentationOptions) {
     this.meta = __meta ?? new Meta(key, key, serviceName, noop);
@@ -40,7 +40,7 @@ export class Instrumentation {
   }
 
   child(key: string): Instrumentation {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+     
     const __meta = this.meta.child(key);
     return new Instrumentation({ __meta, tracer: this.T, logger: this.L });
   }

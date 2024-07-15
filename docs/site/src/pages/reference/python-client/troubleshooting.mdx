@@ -109,7 +109,7 @@ your `PATH` variable for any other Python installations and remove them.
 
 On MacOS we recommend using [homebrew](https://brew.sh/) to install Python.
 Homebrew makes configuring newer Python versions much easier than using the
-installer. 
+installer.
 
 To install Python, make sure you have homebrew installed and run the following
 command:
@@ -117,6 +117,8 @@ command:
 ```bash
 brew install python
 ```
+
+<Divider.Divider direction="x" />
 
 ## Incorrect Python Version or Command Not Found
 
@@ -170,7 +172,7 @@ If you've checked for alternative commands and still get an older version or a
 To fix this issue, you'll first need to find where Python is installed on your
 system. If you've used homebrew, it's likely that Python is installed in
 `/opt/homebrew/bin/python{version}` where `{version}` is the version of Python
-you have installed. 
+you have installed.
 
 If you used Anaconda or the official installer, Python may be installed
 elsewhere.
@@ -211,10 +213,12 @@ check the contents of your `PATH` variable by running:
 echo $PATH
 ```
 
+<Divider.Divider direction="x" />
+
 ## Synnax Command Not Found
 
 If you've installed Synnax using `pip`, you may get a `command not found` error
-when running the `synnax` command. 
+when running the `synnax` command.
 
 ### Check Your pip Version
 
@@ -254,9 +258,16 @@ before running the `synnax` command.
 
 ## Installing Python
 
-Ubuntu 22.04 comes with Python 3.10 pre-installed. If you're using an older
-version of Ubuntu or want the latest version of Python, we recommend using the
-`deadsnakes` PPA along with `apt`.
+If you're using Amazon Linux on an EC2 instance or another Red hat-based distribution,
+then you may install python using `yum`.
+
+```bash
+sudo yum install python3.11.x86_64 python3.11-devel.x86_64 python3.11-pip.noarch
+```
+
+If you are using Ubuntu, Ubuntu 22.04 comes with Python 3.10 pre-installed.
+If you're using an older version of Ubuntu or want the latest version of Python, we
+recommend using the `deadsnakes` PPA along with `apt`.
 
 First we need to update the local package index:
 
@@ -296,8 +307,10 @@ python3.11 --version
 
 <Note variant="info">
 If you have multiple versions of Python installed, running the `python` command
-may point to an older version than the most recent one available. 
+may point to an older version than the most recent one available.
 </Note>
+
+<Divider.Divider direction="x" />
 
 ## Incorrect Python Version or Command Not Found
 

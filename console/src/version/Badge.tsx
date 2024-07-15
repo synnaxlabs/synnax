@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,26 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
-import { Text } from "@synnaxlabs/pluto";
-import { type Optional } from "@synnaxlabs/x";
-
-import { CSS } from "@/css";
-import { useSelect } from "@/version/selectors";
-
 import "@/version/Badge.css";
 
-type BadgeProps<L extends Text.Level> = Optional<Text.TextProps<L>, "level">;
+import { Button } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-export const Badge = <L extends Text.Level>({
-  level = "p",
-  ...props
-}: BadgeProps<L>): ReactElement => {
+import { Layout } from "@/layout";
+import { infoLayout } from "@/version/Info";
+import { useSelect } from "@/version/selectors";
+import { useCheckForUpdates } from "@/version/Updater";
+
+export const Badge = (): ReactElement => {
   const v = useSelect();
+  const placer = Layout.usePlacer();
+  const updateAvailable = useCheckForUpdates();
   return (
-    <Text.Text className={CSS.B("version-badge")} level={level} {...props}>
+    <Button.Button
+      onClick={() => placer(infoLayout)}
+      variant="text"
+      size="medium"
+      color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-text-color)"}
+    >
       {"v" + v}
-    </Text.Text>
+    </Button.Button>
   );
 };

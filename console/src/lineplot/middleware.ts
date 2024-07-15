@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,21 +10,21 @@
 import { Layout } from "@/layout";
 import { select, selectSliceState } from "@/lineplot/selectors";
 import {
-  type CreatePayload,
-  type RemovePayload,
-  type StoreState,
-  type SetLinePayload,
-  type SetRangesPayload,
-  type SetXChannelPayload,
-  type SetYChannelsPayload,
   actions,
+  type CreatePayload,
   remove,
+  type RemovePayload,
   setLine,
+  type SetLinePayload,
   setRanges,
+  type SetRangesPayload,
   setXChannel,
+  type SetXChannelPayload,
   setYChannels,
+  type SetYChannelsPayload,
+  type StoreState,
 } from "@/lineplot/slice";
-import { type MiddlewareEffect, effectMiddleware } from "@/middleware";
+import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 import { Range } from "@/range";
 
 export const assignColorsEffect: MiddlewareEffect<
@@ -72,7 +72,7 @@ export const assignActiveRangeEffect: MiddlewareEffect<
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  Layout.RemovePayload | Layout.SetSlicePayload,
+  Layout.RemovePayload | Layout.SetWorkspacePayload,
   RemovePayload
 > = ({ action, dispatch, getState }) => {
   const state = getState();

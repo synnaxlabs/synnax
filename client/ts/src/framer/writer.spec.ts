@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
 import { type channel } from "@/channel";
+import { UnauthorizedError } from "@/errors";
 import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
@@ -68,7 +69,11 @@ describe("Writer", () => {
     });
     test("write with auto commit on", async () => {
       const ch = await newChannel();
-      const writer = await client.openWriter({ start: 0, channels: ch.key, enableAutoCommit: true });
+      const writer = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        enableAutoCommit: true,
+      });
       try {
         await writer.write(ch.key, randomSeries(10, ch.dataType));
       } finally {
@@ -76,30 +81,82 @@ describe("Writer", () => {
       }
       expect(true).toBeTruthy();
 
-      const f = await client.read(new TimeRange(0, TimeStamp.seconds(10)), ch.key)
-      expect(f.length).toEqual(10)
-    })
+      const f = await client.read(new TimeRange(0, TimeStamp.seconds(10)), ch.key);
+      expect(f.length).toEqual(10);
+    });
     test("write with auto commit and alwaysPersist", async () => {
       const ch = await newChannel();
-      const writer = await client.openWriter({ start: 0, channels: ch.key,
-        enableAutoCommit: true, autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT});
+      const writer = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        enableAutoCommit: true,
+        autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
+      });
       try {
         await writer.write(ch.key, randomSeries(10, ch.dataType));
       } finally {
         await writer.close();
       }
       expect(true).toBeTruthy();
-    })
+    });
     test("write with auto commit and a set interval", async () => {
       const ch = await newChannel();
-      const writer = await client.openWriter({ start: 0, channels: ch.key,
-        enableAutoCommit: true, autoIndexPersistInterval: TimeSpan.milliseconds(100)});
+      const writer = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        enableAutoCommit: true,
+        autoIndexPersistInterval: TimeSpan.milliseconds(100),
+      });
       try {
         await writer.write(ch.key, randomSeries(10, ch.dataType));
       } finally {
         await writer.close();
       }
       expect(true).toBeTruthy();
+    });
+    test("write with errOnUnauthorized", async () => {
+      const ch = await newChannel();
+      const w1 = await client.openWriter({
+        start: new TimeStamp(TimeSpan.milliseconds(500)),
+        channels: ch.key,
+      });
+
+      await expect(
+        client.openWriter({
+          start: 0,
+          channels: ch.key,
+          errOnUnauthorized: true,
+        }),
+      ).rejects.toThrow(UnauthorizedError);
+      await w1.close();
+    });
+    test("setAuthority", async () => {
+      const ch = await newChannel();
+      const w1 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 10,
+        enableAutoCommit: true,
+      })
+      const w2 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 20,
+        enableAutoCommit: true,
+      })
+
+      await w1.write(ch.key, randomSeries(10, ch.dataType))
+      let f = await ch.read(TimeRange.MAX)
+      expect(f.length).toEqual(0)
+
+      await w1.setAuthority({[ch.key]: 100});
+      await w1.write(ch.key, randomSeries(10, ch.dataType))
+
+      f = await ch.read(TimeRange.MAX)
+      expect(f.length).toEqual(10)
+
+      await w1.close()
+      await w2.close()
     })
   });
   describe("Client", () => {

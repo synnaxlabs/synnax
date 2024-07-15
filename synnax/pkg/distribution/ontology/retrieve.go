@@ -77,10 +77,10 @@ func (r Retrieve) IncludeSchema(includeSchema bool) Retrieve {
 	return r
 }
 
-// IncludeFieldData includes the field data of the resource in the results based on the
+// ExcludeFieldData includes the field data of the resource in the results based on the
 // provided predicate.
-func (r Retrieve) IncludeFieldData(includeFieldData bool) Retrieve {
-	setIncludeFieldData(r.query.Current().Params, includeFieldData)
+func (r Retrieve) ExcludeFieldData(excludeFieldData bool) Retrieve {
+	setExcludeFieldData(r.query.Current().Params, excludeFieldData)
 	return r
 }
 
@@ -188,14 +188,14 @@ func getTraverser(q query.Parameters) Traverser {
 
 const includeFieldDataOptKey = "includeFieldData"
 
-func setIncludeFieldData(q query.Parameters, b bool) {
+func setExcludeFieldData(q query.Parameters, b bool) {
 	q.Set(includeFieldDataOptKey, b)
 }
 
-func getIncludeFieldData(q query.Parameters) bool {
+func getExcludeFieldData(q query.Parameters) bool {
 	v, ok := q.Get(includeFieldDataOptKey)
 	if !ok {
-		return true
+		return false
 	}
 	return v.(bool)
 }
@@ -220,19 +220,19 @@ func (r Retrieve) retrieveEntities(
 	tx gorp.Tx,
 ) ([]Resource, error) {
 	entries := gorp.GetEntries[ID, Resource](clause.Params)
-	includeFieldData := getIncludeFieldData(clause.Params)
+	excludeFieldData := getExcludeFieldData(clause.Params)
 	includeSchema := getIncludeSchema(clause.Params)
 	for j, res := range entries.All() {
 		if res.ID.IsZero() {
 			return nil, query.NotFound
 		}
 		var err error
-		if includeFieldData || includeSchema {
+		if (!excludeFieldData) || includeSchema {
 			res, err = r.registrar.retrieveResource(ctx, res.ID, tx)
 			if err != nil {
 				return nil, err
 			}
-			if !includeFieldData {
+			if excludeFieldData {
 				res.Data = nil
 			}
 			if !includeSchema {

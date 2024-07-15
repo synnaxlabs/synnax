@@ -46,7 +46,7 @@ func (c Config) Validate() error {
 	v := validate.New("ranger")
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "ArrayIndex", c.Group)
 	return v.Error()
 }
 
@@ -99,8 +99,8 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
 	activeRangeCDC, err := cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
 		Name:          "sy_active_range",
-		SetChannel:    channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT},
-		DeleteChannel: channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT},
+		SetChannel:    channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT, Internal: true},
+		DeleteChannel: channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT, Internal: true},
 		Observable:    s.activeRangeObservable,
 	})
 	if err != nil {

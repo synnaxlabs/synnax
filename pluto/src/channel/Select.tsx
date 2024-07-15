@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
-
 import { type channel } from "@synnaxlabs/client";
 import { nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { useActiveRange, useAliases } from "@/channel/AliasProvider";
 import { HAUL_TYPE } from "@/channel/types";
@@ -18,6 +17,7 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
 import { type List } from "@/list";
+import { useMemoDeepEqualProps } from "@/memo";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
@@ -67,6 +67,7 @@ export interface SelectMultipleProps
     "columns" | "searcher"
   > {
   columns?: string[];
+  searchOptions?: channel.RetrieveOptions;
 }
 
 const DEFAULT_FILTER = ["name", "alias"];
@@ -86,15 +87,22 @@ export const SelectMultiple = ({
   onChange,
   className,
   value,
+  searchOptions,
   ...props
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
+  const memoSearchOptions = useMemoDeepEqualProps(searchOptions);
   const searcher = useMemo(
-    () => client?.channels.newSearcherUnderRange(activeRange),
-    [client, activeRange],
+    () =>
+      client?.channels.newSearcherWithOptions({
+        rangeKey: activeRange,
+        internal: false,
+        ...memoSearchOptions,
+      }),
+    [client, activeRange, memoSearchOptions],
   );
   const emptyContent =
     client != null ? undefined : (
@@ -150,7 +158,7 @@ export const SelectMultiple = ({
     [startDrag, handleSuccessfulDrop],
   );
 
-  const tagKey = useCallback(
+  const entryRenderKey = useCallback(
     (e: channel.Payload) => aliases[e.key] ?? e.name,
     [aliases],
   );
@@ -165,7 +173,7 @@ export const SelectMultiple = ({
       onChange={onChange}
       columns={columns}
       emptyContent={emptyContent}
-      tagKey={tagKey}
+      entryRenderKey={entryRenderKey}
       {...dropProps}
       {...props}
     />
@@ -175,6 +183,7 @@ export const SelectMultiple = ({
 export interface SelectSingleProps
   extends Omit<Select.SingleProps<channel.Key, channel.Payload>, "columns"> {
   columns?: string[];
+  searchOptions?: channel.RetrieveOptions;
 }
 
 export const SelectSingle = ({
@@ -183,16 +192,22 @@ export const SelectSingle = ({
   value,
   className,
   data,
+  searchOptions,
   ...props
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
+  const memoSearchOptions = useMemoDeepEqualProps(searchOptions);
   const searcher = useMemo(() => {
     if (data != null && data.length > 0) return undefined;
-    return client?.channels.newSearcherUnderRange(activeRange);
-  }, [client, activeRange, data?.length]);
+    return client?.channels.newSearcherWithOptions({
+      rangeKey: activeRange,
+      internal: false,
+      ...memoSearchOptions,
+    });
+  }, [client, activeRange, data?.length, memoSearchOptions]);
 
   const emptyContent =
     client != null ? undefined : (
@@ -235,7 +250,7 @@ export const SelectSingle = ({
     [startDrag, value],
   );
 
-  const tagKey = useCallback(
+  const entryRenderKey = useCallback(
     (e: channel.Payload) => aliases[e.key] ?? e.name,
     [aliases],
   );
@@ -251,7 +266,7 @@ export const SelectSingle = ({
       searcher={searcher}
       columns={columns}
       emptyContent={emptyContent}
-      tagKey={tagKey}
+      entryRenderKey={entryRenderKey}
       {...dragProps}
       {...props}
     />

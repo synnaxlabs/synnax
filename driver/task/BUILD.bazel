@@ -1,0 +1,18 @@
+cc_library(
+    name = "task",
+    srcs = ["manager.cpp"],
+    hdrs = ["task.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:linux": ["-std=c++20"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/breaker",
+        "//driver/config",
+        "@com_github_google_glog//:glog",
+        "@nlohmann_json//:json",
+    ],
+)

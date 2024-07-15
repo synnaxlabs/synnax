@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare, type Key, type Keyed } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
-
-import { type Keyed, type Key } from "@synnaxlabs/x";
 
 import { DataProvider } from "@/list/Data";
 import { InfiniteProvider } from "@/list/Infinite";
+import { useMemoCompare } from "@/memo";
 
 export interface ListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends PropsWithChildren<unknown> {
   data?: E[];
   emptyContent?: ReactElement;
+  omit?: K[];
 }
 
 /**
@@ -36,10 +37,22 @@ export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   data,
   emptyContent,
+  omit,
 }: ListProps<K, E>): ReactElement => {
+  const omittedData = useMemoCompare(
+    () => (omit != null ? data?.filter((e) => !omit.includes(e.key)) : data),
+    ([prevOmit, prevData], [omit, data]) => {
+      let omitsEqual = false;
+      if (prevOmit != null && omit != null) {
+        omitsEqual = compare.unorderedPrimitiveArrays(prevOmit, omit) === compare.EQUAL;
+      } else omitsEqual = prevOmit == omit;
+      return prevData === data && omitsEqual;
+    },
+    [omit, data] as [K[] | undefined, E[] | undefined],
+  );
   return (
     <InfiniteProvider>
-      <DataProvider<K, E> data={data} emptyContent={emptyContent}>
+      <DataProvider<K, E> data={omittedData} emptyContent={emptyContent}>
         {children}
       </DataProvider>
     </InfiniteProvider>

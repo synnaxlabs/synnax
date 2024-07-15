@@ -11,77 +11,110 @@ package index
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
+	"fmt"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
 
 type Domain struct {
 	alamos.Instrumentation
-	DB *domain.DB
+	DB      *domain.DB
+	Channel core.Channel
 }
 
 var _ Index = (*Domain)(nil)
 
 // Distance implements Index.
-func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
+func (i *Domain) Distance(
+	ctx context.Context,
+	tr telem.TimeRange,
+	continuous bool,
+) (approx DistanceApproximation, domainBounds DomainBounds, err error) {
 	var startApprox, endApprox DistanceApproximation
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
-	var iter = i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
+	iter := i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
+	// Case 1 - If the domain with the given time range doesn't exist in the database, then
+	// there's nothing we can do.
+	// Case 2 - If the domain exists, but it doesn't contain the entire time range,
+	// then it's discontinuous, and we return early if the user doesn't want discontinuous
+	// results.
 	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
-		err = ErrDiscontinuous
+		err = NewErrDiscontinuousTR(tr)
 		return
 	}
 
+	// If the time range is zero, then the distance is zero.
 	if tr.IsZero() {
+		domainBounds = ExactDomainBounds(iter.Position())
 		return
 	}
 
+	// Open a new reader on the domain at the start of the range.
 	r, err := iter.NewReader(ctx)
 	if err != nil {
 		return
 	}
+	defer func() { err = errors.CombineErrors(err, r.Close()) }()
 
 	startApprox, err = i.search(tr.Start, r)
 	if err != nil {
 		return
 	}
 
+	// If the current domain contains the end of the time range, then everything
+	// is continuous and within the current domain.
 	if iter.TimeRange().ContainsStamp(tr.End) || tr.End == iter.TimeRange().End {
 		endApprox, err = i.search(tr.End, r)
 		approx = Between(
 			endApprox.Lower-startApprox.Upper,
 			endApprox.Upper-startApprox.Lower,
 		)
+		domainBounds = ExactDomainBounds(iter.Position())
 		return
 	} else if continuous {
-		err = ErrDiscontinuous
+		err = NewErrDiscontinuousTR(tr)
 		return
 	}
 
-	l := r.Len() / 8
-	startToFirstEnd := Between(l-startApprox.Upper, l-startApprox.Lower)
-	var gap int64 = 0
+	var (
+		// Length of the current domain
+		l = r.Len() / int64(telem.TimeStampT.Density())
+		// The accumulated gap as we move through domains
+		gap int64 = 0
+		// Distance from the end of the domain to the start approximation.
+		startToFirstEnd = Between(
+			l-startApprox.Upper,
+			l-startApprox.Lower,
+		)
+	)
+	domainBounds.Lower = iter.Position()
 
 	for {
 		if !iter.Next() {
 			if continuous {
-				err = ErrDiscontinuous
+				err = NewErrDiscontinuousTR(tr)
 				return
 			}
 			approx = Between(
-				startToFirstEnd.Lower+(iter.Len()/8)+gap,
-				startToFirstEnd.Lower+(iter.Len()/8)+gap,
+				startToFirstEnd.Lower+gap,
+				startToFirstEnd.Upper+gap,
 			)
+			domainBounds.Upper = iter.Position()
 			return
 		}
+		domainBounds.Upper = iter.Position()
 		if iter.TimeRange().ContainsStamp(tr.End) {
+			if err = r.Close(); err != nil {
+				return
+			}
 			r, err = iter.NewReader(ctx)
 			if err != nil {
 				return
@@ -96,7 +129,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 			)
 			return
 		}
-		gap += iter.Len()
+		gap += iter.Len() / 8
 	}
 }
 
@@ -112,10 +145,16 @@ func (i *Domain) Stamp(
 
 	iter := i.DB.NewIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 
-	if !iter.SeekFirst(ctx) ||
-		!iter.TimeRange().ContainsStamp(ref) ||
-		(offset >= iter.Len()/8 && continuous) {
-		err = ErrDiscontinuous
+	if !iter.SeekFirst(ctx) {
+		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp start timestamp %s", ref)
+		return
+	}
+
+	effectiveDomainBounds, effectiveDomainLen := resolveEffectiveDomain(iter)
+
+	if !effectiveDomainBounds.ContainsStamp(ref) ||
+		(continuous && offset >= effectiveDomainLen/8) {
+		err = NewErrDiscontinuousStamp(offset, effectiveDomainLen/8)
 		return
 	}
 
@@ -124,22 +163,44 @@ func (i *Domain) Stamp(
 		return
 	}
 
+	if !iter.SeekFirst(ctx) {
+		// No reason this SeekFirst should fail since it was called before.
+		panic("iterator seekFirst failed in stamp")
+	}
+
 	r, err := iter.NewReader(ctx)
 	if err != nil {
 		return
 	}
+	defer func() { err = errors.CombineErrors(err, r.Close()) }()
 	startApprox, err := i.search(ref, r)
 	if err != nil {
 		return
 	}
 
+	// endOffset is the upper-bound distance of the desired sample from the start of the
+	// domain.
 	endOffset := startApprox.Upper + offset
+
+	// If the upper and lower bounds are exact of the startOffset are exact, then if the
+	// lower is out of the file, the stamp is discontinuous.
+	// If they are not exact, and the lower bound is the last sample, then the upper
+	// bound must be discontinuous as well.
+	if continuous {
+		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen/8) ||
+			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen/8-1) {
+			err = NewErrDiscontinuousStamp(startApprox.Upper+offset, effectiveDomainLen/8)
+			return
+		}
+	}
+
 	gap := iter.Len() / 8
 	if endOffset >= iter.Len()/8 {
 		for {
 			if !iter.Next() {
+				// exhausted
 				if continuous {
-					err = ErrDiscontinuous
+					err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp end with offset %d", offset)
 					return
 				}
 				approx = Between(iter.TimeRange().End, telem.TimeStampMax)
@@ -147,6 +208,9 @@ func (i *Domain) Stamp(
 			}
 			gap += iter.Len() / 8
 			if endOffset < gap {
+				if err = r.Close(); err != nil {
+					return
+				}
 				r, err = iter.NewReader(ctx)
 				if err != nil {
 					return
@@ -155,18 +219,59 @@ func (i *Domain) Stamp(
 				break
 			}
 		}
-
 	}
 
-	lowerTs, err := readStamp(r, (endOffset-(startApprox.Upper-startApprox.Lower))*8, make([]byte, 8))
-	if err != nil {
-		return
-	}
 	upperTs, err := readStamp(r, (endOffset)*8, make([]byte, 8))
 	if err != nil {
 		return
 	}
-	return Between(lowerTs, upperTs), nil
+
+	if endOffset-(startApprox.Upper-startApprox.Lower) >= 0 {
+		// normal case
+		lowerTs, err := readStamp(r, (endOffset-(startApprox.Upper-startApprox.Lower))*8, make([]byte, 8))
+
+		return Between(lowerTs, upperTs), err
+	}
+
+	// Edge case: end timestamps are split between two different files, so we must go
+	// back to read the lower bound.
+	if !iter.Prev() {
+		i.L.DPanic("iterator prev failed in stamp")
+		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp end with offset %d", offset)
+		return
+	}
+	if err = r.Close(); err != nil {
+		return
+	}
+	r, err = iter.NewReader(ctx)
+	if err != nil {
+		return
+	}
+
+	lowerTs, err := readStamp(r, iter.Len()+(endOffset-(startApprox.Upper-startApprox.Lower))*8, make([]byte, 8))
+	return Between(lowerTs, upperTs), err
+}
+
+// resolveEffectiveDomain returns the TimeRange and length of the underlying domain(s).
+// The effective domain can be many continuous domains as long as they're immediately
+// continuous, i.e. the end of one domain is the start of the other.
+func resolveEffectiveDomain(i *domain.Iterator) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
+	effectiveDomainBounds = i.TimeRange()
+	effectiveDomainLen = i.Len()
+
+	for {
+		currentDomainEnd := i.TimeRange().End
+		if !i.Next() {
+			return
+		}
+		nextDomainStart := i.TimeRange().Start
+
+		if currentDomainEnd != nextDomainStart {
+			return
+		}
+		effectiveDomainBounds.End = i.TimeRange().End
+		effectiveDomainLen += i.Len()
+	}
 }
 
 // search returns an approximation for the number of samples before a given timestamp. If the
@@ -199,4 +304,8 @@ func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproxima
 func readStamp(r io.ReaderAt, offset int64, buf []byte) (telem.TimeStamp, error) {
 	_, err := r.ReadAt(buf, offset)
 	return telem.UnmarshalF[telem.TimeStamp](telem.TimeStampT)(buf), err
+}
+
+func (i *Domain) Info() string {
+	return fmt.Sprintf("domain index: %v", i.Channel)
 }

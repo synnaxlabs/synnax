@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-
-import { ONTOLOGY_SERVICE as CHANNEL_ONTOLOGY_SERVICE } from "@/channel/ontology";
-import { Cluster } from "@/cluster";
+import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
+import { ClusterServices } from "@/cluster/services";
 import { Group } from "@/group";
-import { LinePlot } from "@/lineplot";
+import { Device } from "@/hardware/device";
+import { Task } from "@/hardware/task";
+import { LinePlotServices } from "@/lineplot/services";
+import { Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
-import { type Service } from "@/ontology/service";
-import { PID } from "@/pid";
-import { ONTOLOGY_SERVICE as RANGE_ONTOLOGY_SERVICE } from "@/range/ontology";
+import { RangeServices } from "@/range/services";
+import { SchematicServices } from "@/schematic/services";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
 
-export const EMPTY_ONTOLOGY_SERVICE: Service = {
+export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
   type: "rack",
   icon: <></>,
   hasChildren: true,
@@ -31,21 +31,23 @@ export const EMPTY_ONTOLOGY_SERVICE: Service = {
   onSelect: () => {},
   haulItems: () => [],
   allowRename: () => false,
-  onRename: () => {},
+  onRename: undefined,
 };
 
-export const SERVICES: Record<ontology.ResourceType, Service> = {
-  pid: PID.ONTOLOGY_SERVICE,
-  channel: CHANNEL_ONTOLOGY_SERVICE,
-  cluster: Cluster.ONTOLOGY_SERVICE,
+export const SERVICES: Ontology.Services = {
+  schematic: SchematicServices.ONTOLOGY_SERVICE,
+  cluster: ClusterServices.ONTOLOGY_SERVICE,
   user: User.ONTOLOGY_SERVICE,
   builtin: Builtin.ONTOLOGY_SERVICE,
   node: Node.ONTOLOGY_SERVICE,
   group: Group.ONTOLOGY_SERVICE,
-  range: RANGE_ONTOLOGY_SERVICE,
+  range: RangeServices.ONTOLOGY_SERVICE,
   workspace: Workspace.ONTOLOGY_SERVICE,
-  lineplot: LinePlot.ONTOLOGY_SERVICE,
+  lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": EMPTY_ONTOLOGY_SERVICE,
   label: EMPTY_ONTOLOGY_SERVICE,
   rack: EMPTY_ONTOLOGY_SERVICE,
+  task: Task.ONTOLOGY_SERVICE,
+  device: Device.ONTOLOGY_SERVICE,
+  channel: ChannelServices.ONTOLOGY_SERVICE,
 };
