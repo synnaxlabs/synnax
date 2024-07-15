@@ -344,7 +344,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		key := fr.Keys[i]
 		uWriter, ok := w.internal[key]
 
-		if !ok {
+		if !ok || series.Len() == 0 {
 			continue
 		}
 
@@ -370,6 +370,9 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 }
 
 func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
+	if w.sampleCount == 0 {
+		return w.start, nil
+	}
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
 		return 0, err
