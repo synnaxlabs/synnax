@@ -205,5 +205,5 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     }
     std::ostringstream oss_uint8;
     oss_uint8 << s_uint8;
-    ASSERT_EQ(oss_uint8.str(), "Series(type: uint8, size: 3, cap: 3, data: [\x1 \x2 \x3 ])");
+    ASSERT_EQ(oss_uint8.str(), "Series(type: uint8, size: 3, cap: 3, data: [1 2 3 ])");
 }
