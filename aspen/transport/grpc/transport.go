@@ -278,7 +278,6 @@ func (t Transport) Configure(sCtx signal.Context, addr address.Address, external
 	if err != nil {
 		return err
 	}
-	// HERE
 	sCtx.Go(func(ctx context.Context) (err error) {
 		go func() {
 			err = server.Serve(lis)
@@ -289,6 +288,10 @@ func (t Transport) Configure(sCtx signal.Context, addr address.Address, external
 		defer server.Stop()
 		<-ctx.Done()
 		return ctx.Err()
-	}, signal.CancelOnFail())
+	},
+		signal.CancelOnFail(),
+		signal.RecoverWithErrOnPanic(),
+		signal.WithMaxRestart(signal.InfiniteRestart),
+	)
 	return nil
 }

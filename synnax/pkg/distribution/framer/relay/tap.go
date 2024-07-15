@@ -175,8 +175,7 @@ func (t *tapper) tapInto(
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.Instrumentation.Child(fmt.Sprintf("tap-%v", nodeKey))),
 	)
-	// HERE
-	tp.Flow(sCtx)
+	tp.Flow(sCtx, confluence.RecoverWithErrOnPanic())
 	return tapController{Inlet: requests, closer: signal.NewShutdown(sCtx, cancel)}, nil
 }
 

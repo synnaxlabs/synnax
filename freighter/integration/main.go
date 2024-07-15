@@ -37,7 +37,6 @@ func main() {
 
 	err := func() error {
 		sCtx, cancel := xsig.Isolated()
-		// HERE
 		sCtx.Go(func(ctx context.Context) error {
 			return app.Listen(":8080")
 		})

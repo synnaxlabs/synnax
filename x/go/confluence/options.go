@@ -46,6 +46,24 @@ func CancelOnFail() Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.CancelOnFail()) }
 }
 
+func RecoverWithErrOnPanic() Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.RecoverWithErrOnPanic())
+	}
+}
+
+func RecoverWithoutErrOnPanic() Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.RecoverWithoutErrOnPanic())
+	}
+}
+
+func WithMaxRestart(maxRestart int) Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.WithMaxRestart(maxRestart))
+	}
+}
+
 func WithAddress(addr address.Address) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.WithKey(string(addr))) }
 }

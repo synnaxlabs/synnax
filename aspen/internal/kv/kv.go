@@ -253,8 +253,10 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		Capacity:     1,
 	}.MustRoute(pipe)
 
-	// HERE
-	pipe.Flow(sCtx)
+	pipe.Flow(sCtx,
+		confluence.RecoverWithErrOnPanic(),
+		confluence.WithMaxRestart(signal.InfiniteRestart),
+	)
 
 	return db_, nil
 }

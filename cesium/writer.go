@@ -37,10 +37,10 @@ func wrapStreamWriter(internal StreamWriter) *Writer {
 	res := confluence.NewStream[WriterResponse](1)
 	internal.InFrom(req)
 	internal.OutTo(res)
-	// HERE
 	internal.Flow(
 		sCtx,
 		confluence.CloseInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
 	)
 	return &Writer{requests: req, responses: res, wg: sCtx}
 }

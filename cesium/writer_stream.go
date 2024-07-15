@@ -106,7 +106,6 @@ type streamWriter struct {
 func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
-	// HERE
 	sCtx.Go(func(ctx context.Context) error {
 		for {
 			select {

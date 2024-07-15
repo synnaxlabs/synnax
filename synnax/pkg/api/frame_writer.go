@@ -148,8 +148,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", 1)
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
-	// HERE
-	pipe.Flow(ctx, confluence.CloseInletsOnExit())
+	pipe.Flow(ctx, confluence.CloseInletsOnExit(), confluence.RecoverWithErrOnPanic())
 	err = ctx.Wait()
 	return err
 }

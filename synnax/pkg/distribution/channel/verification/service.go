@@ -86,7 +86,6 @@ func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
 			return service, nil
 		}
 		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
-		// HERE - CHANGED
 		sCtx.Go(service.logTheDog, signal.RecoverWithErrOnPanic())
 		return service, nil
 	}

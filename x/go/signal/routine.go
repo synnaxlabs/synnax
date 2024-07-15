@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
+	"math"
 	"runtime/pprof"
 	"strconv"
 )
@@ -65,6 +66,10 @@ const (
 	propagatePanic panicPolicy = iota
 	recoverNoErr
 	recoverErr
+)
+
+const (
+	InfiniteRestart int = math.MaxInt - 1
 )
 
 const (
@@ -339,6 +344,9 @@ func (r *routine) goRun(f func(context.Context) error) {
 			r.ctx.mu.Unlock()
 			r.ctx.internal.Go(func() (err error) {
 				for i := 0; i < r.maxRestart+1; i++ {
+					if r.maxRestart == InfiniteRestart {
+						i = 0
+					}
 					restart := false
 					if r.maxRestart != 0 && i != r.maxRestart {
 						// Before reaching the "last straw", restart the goroutine if
@@ -352,6 +360,9 @@ func (r *routine) goRun(f func(context.Context) error) {
 									return
 								}
 								err = r.maybeRecover(e)
+							} else {
+								// No panic, therefore no restart.
+								restart = false
 							}
 						}()
 						err = f(ctx)

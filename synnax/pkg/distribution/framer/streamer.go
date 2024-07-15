@@ -83,7 +83,6 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			confluence.Drain(l.iter.responses)
 		}
 
-		// HERE
 		l.relay.flow.Flow(sCtx, append(opts, confluence.WithAddress("relay-reader"))...)
 
 		if l.sendControlDigests {

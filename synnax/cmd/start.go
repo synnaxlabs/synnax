@@ -118,7 +118,6 @@ func start(cmd *cobra.Command) {
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
-	// HERE
 	sCtx.Go(func(ctx context.Context) (err error) {
 
 		secProvider, err := configureSecurity(ins, insecure)
@@ -280,7 +279,10 @@ func start(cmd *cobra.Command) {
 
 		<-ctx.Done()
 		return err
-	}, xsignal.WithKey("start"))
+	},
+		xsignal.WithKey("start"),
+		xsignal.RecoverWithErrOnPanic(),
+	)
 
 	select {
 	case <-interruptC:

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 	"runtime/pprof"
+	"sync"
 	"time"
 )
 
@@ -278,6 +279,73 @@ var _ = Describe("Signal", func() {
 			Expect(counter).To(Equal(101))
 		})
 
+		It("Should indefinitely restart", func() {
+			var (
+				done = make(chan struct{})
+				wg   = sync.WaitGroup{}
+				f    = func(ctx context.Context) error {
+					select {
+					case <-ctx.Done():
+						return nil
+					default:
+						panic("panicking")
+					}
+				}
+			)
+
+			ctx, cancel := signal.Isolated()
+			ctx.Go(f, signal.WithMaxRestart(signal.InfiniteRestart))
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ctx.Wait()
+				close(done)
+			}()
+
+			cancel()
+			wg.Wait()
+			Eventually(done).Should(BeClosed())
+		})
+
+	})
+
+	Describe("Regression", func() {
+		// This test was added to address the bug where if maxRestart is set, even in
+		// the case where the goroutine did not panic, it would attempt to restart.
+		// This is not the desired behaviour since a goroutine should not attempt to
+		// restart if it did not panic.
+		It("Should NOT restart if there was not a panic - definite restart", func() {
+			var (
+				counter = 0
+				f       = func(ctx context.Context) error {
+					counter += 1
+					return nil
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			ctx.Go(f, signal.WithMaxRestart(10000))
+
+			Expect(ctx.Wait()).To(Succeed())
+			Expect(counter).To(Equal(1))
+		})
+
+		It("Should NOT restart if there was not a panic - infinite restart", func() {
+			var (
+				counter = 0
+				f       = func(ctx context.Context) error {
+					counter += 1
+					return nil
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			ctx.Go(f, signal.WithMaxRestart(signal.InfiniteRestart))
+
+			Expect(ctx.Wait()).To(Succeed())
+			Expect(counter).To(Equal(1))
+		})
 	})
 
 })

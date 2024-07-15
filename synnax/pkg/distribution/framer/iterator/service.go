@@ -99,8 +99,12 @@ func (s *Service) New(ctx context.Context, cfg Config) (*Iterator, error) {
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)
 	stream.OutTo(res)
-	// HERE
-	stream.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnFail())
+	stream.Flow(
+		sCtx,
+		confluence.CloseInletsOnExit(),
+		confluence.CancelOnFail(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
