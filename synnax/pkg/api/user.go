@@ -49,7 +49,7 @@ func (s *UserService) Login(ctx context.Context, cred auth.InsecureCredentials) 
 	if err != nil {
 		return tr, err
 	}
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: []ontology.ID{user.OntologyID(u.Key)},
@@ -67,7 +67,7 @@ type RegistrationRequest struct {
 // Register registers new user with the provided credentials. If successful, returns a
 // response containing a valid JWT along with the user's details.
 func (s *UserService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{user.OntologyID(uuid.Nil)},
@@ -99,7 +99,7 @@ func (s *UserService) ChangePassword(ctx context.Context, cpr ChangePasswordRequ
 	if err != nil {
 		return types.Nil{}, err
 	}
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  "change_password",
 		Objects: []ontology.ID{user.OntologyID(u.Key)},
@@ -124,7 +124,7 @@ func (s *UserService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 	if err != nil {
 		return types.Nil{}, err
 	}
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  "change_username",
 		Objects: []ontology.ID{user.OntologyID(u.Key)},

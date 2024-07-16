@@ -20,9 +20,15 @@ import (
 )
 
 type AccessService struct {
-	internal *rbac.Service
 	accessProvider
 	dbProvider
+}
+
+func NewAccessService(p Provider) *AccessService {
+	return &AccessService{
+		accessProvider: p.access,
+		dbProvider:     p.db,
+	}
 }
 
 type (
@@ -33,7 +39,7 @@ type (
 )
 
 func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
-	if err := a.enforcer.Enforce(ctx, access.Request{
+	if err := a.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Objects: []ontology.ID{{Type: rbac.OntologyType}},
 		Action:  access.Create,
@@ -42,7 +48,7 @@ func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicy
 	}
 	results := make([]rbac.Policy, len(req.Policies))
 	if err := a.WithTx(ctx, func(tx gorp.Tx) error {
-		w := a.internal.NewWriter(tx)
+		w := a.access.NewWriter(tx)
 		for i, p := range req.Policies {
 			if p.Key == uuid.Nil {
 				p.Key = uuid.New()
@@ -64,7 +70,7 @@ type AccessDeletePolicyRequest struct {
 }
 
 func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
-	if err := a.enforcer.Enforce(ctx, access.Request{
+	if err := a.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Objects: rbac.OntologyIDs(req.Keys),
 		Action:  access.Delete,
@@ -72,7 +78,7 @@ func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 		return types.Nil{}, err
 	}
 	return types.Nil{}, a.WithTx(ctx, func(tx gorp.Tx) error {
-		w := a.internal.NewWriter(tx)
+		w := a.access.NewWriter(tx)
 		for _, key := range req.Keys {
 			if err := w.Delete(ctx, key); err != nil {
 				return err
@@ -95,13 +101,13 @@ func (a *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
-	if err = a.internal.NewRetrieve().
+	if err = a.access.NewRetriever().
 		WhereSubject(req.Subject).
 		Entries(&res.Policies).
 		Exec(ctx, nil); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
-	if err = a.enforcer.Enforce(ctx, access.Request{
+	if err = a.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: rbac.OntologyIDsFromPolicies(res.Policies),

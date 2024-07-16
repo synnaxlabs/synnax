@@ -77,7 +77,7 @@ func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ error) {
-	if err := s.enforcer.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{{Type: channel.OntologyType}},
@@ -219,7 +219,7 @@ func (s *ChannelService) Retrieve(
 			}
 		}
 	}
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: channel.OntologyIDsFromChannels(resChannels),
@@ -283,7 +283,7 @@ func (s *ChannelService) Delete(
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
-				if err := s.enforcer.Enforce(ctx, access.Request{
+				if err := s.access.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
 					Action:  access.Delete,
 					Objects: req.Keys.OntologyIDs(),
@@ -300,7 +300,7 @@ func (s *ChannelService) Delete(
 				if err != nil {
 					return err
 				}
-				if err = s.enforcer.Enforce(ctx, access.Request{
+				if err = s.access.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
 					Action:  access.Delete,
 					Objects: channel.OntologyIDsFromChannels(res),

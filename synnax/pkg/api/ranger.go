@@ -50,7 +50,7 @@ type (
 )
 
 func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res RangeCreateResponse, _ error) {
-	if err := s.enforcer.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{{Type: ranger.OntologyType}},
@@ -101,7 +101,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	if err != nil {
 		return RangeRetrieveResponse{}, err
 	}
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: ranger.OntologyIDsFromRanges(resRanges),
@@ -117,7 +117,7 @@ type RangeRenameRequest struct {
 }
 
 func (s *RangeService) Rename(ctx context.Context, req RangeRenameRequest) (res types.Nil, _ error) {
-	if err := s.enforcer.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Rename,
 		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
@@ -134,7 +134,7 @@ type RangeDeleteRequest struct {
 }
 
 func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res types.Nil, _ error) {
-	if err := s.enforcer.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: ranger.OntologyIDs(req.Keys),

@@ -17,34 +17,34 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Retrieve struct {
+type Retriever struct {
 	baseTx gorp.Tx
 	gorp   gorp.Retrieve[uuid.UUID, Policy]
 }
 
-func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
+func (s *Service) NewRetriever() Retriever {
+	return Retriever{
 		baseTx: s.DB,
 		gorp:   gorp.NewRetrieve[uuid.UUID, Policy](),
 	}
 }
 
-func (r Retrieve) WhereSubject(subject ontology.ID) Retrieve {
+func (r Retriever) WhereSubject(subject ontology.ID) Retriever {
 	r.gorp = r.gorp.Where(func(p *Policy) bool { return lo.Contains(p.Subjects, subject) })
 	return r
 }
 
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
 	return r.gorp.Exec(ctx, tx)
 }
 
-func (r Retrieve) Entry(p *Policy) Retrieve {
+func (r Retriever) Entry(p *Policy) Retriever {
 	r.gorp = r.gorp.Entry(p)
 	return r
 }
 
-func (r Retrieve) Entries(ps *[]Policy) Retrieve {
+func (r Retriever) Entries(ps *[]Policy) Retriever {
 	r.gorp = r.gorp.Entries(ps)
 	return r
 }

@@ -42,7 +42,7 @@ type (
 )
 
 func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateRequest) (res WorkspaceCreateResponse, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{workspace.OntologyID(uuid.Nil)},
@@ -72,7 +72,7 @@ type WorkspaceRenameRequest struct {
 }
 
 func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
-	if err := s.enforcer.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Rename,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
@@ -90,7 +90,7 @@ type WorkspaceSetLayoutRequest struct {
 }
 
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
@@ -133,7 +133,7 @@ func (s *WorkspaceService) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	err = q.Entries(&res.Workspaces).Exec(ctx, nil)
-	if eErr := s.enforcer.Enforce(ctx, access.Request{
+	if eErr := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: workspace.OntologyIDsFromWorkspaces(res.Workspaces),
@@ -148,7 +148,7 @@ type WorkspaceDeleteRequest struct {
 }
 
 func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (res types.Nil, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: workspace.OntologyIDs(req.Keys),

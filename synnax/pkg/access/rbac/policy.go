@@ -42,6 +42,9 @@ func (p Policy) GorpKey() uuid.UUID { return p.Key }
 func (p Policy) SetOptions() []interface{} { return nil }
 
 // Matches returns true if the policy matches the given access.Request.
+// In more detail, this means that there exists a policy where the request's subject is
+// in the matched policy's subject, the request's object is in the matched policy's
+// object, and the request's action is in the matched policy's actions.
 func (p Policy) Matches(req access.Request) bool {
 	if !lo.Contains(p.Subjects, req.Subject) {
 		return false

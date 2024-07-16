@@ -44,7 +44,7 @@ type (
 )
 
 func (s *SchematicService) Create(ctx context.Context, req SchematicCreateRequest) (res SchematicCreateResponse, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{schematic.OntologyID(uuid.Nil)},
@@ -68,7 +68,7 @@ type SchematicRenameRequest struct {
 }
 
 func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (res types.Nil, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Rename,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
@@ -86,7 +86,7 @@ type SchematicSetDataRequest struct {
 }
 
 func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
@@ -113,7 +113,7 @@ func (s *SchematicService) Retrieve(ctx context.Context, req SchematicRetrieveRe
 	if err != nil {
 		return SchematicRetrieveResponse{}, err
 	}
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: schematic.OntologyIDs(req.Keys),
@@ -128,7 +128,7 @@ type SchematicDeleteRequest struct {
 }
 
 func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteRequest) (res types.Nil, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: schematic.OntologyIDs(req.Keys),
@@ -152,7 +152,7 @@ type (
 )
 
 func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (res SchematicCopyResponse, err error) {
-	if err = s.enforcer.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},

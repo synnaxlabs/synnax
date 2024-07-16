@@ -59,7 +59,7 @@ func (s *FrameService) FrameDelete(
 	ctx context.Context,
 	req FrameDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.enforcer.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: req.Keys.OntologyIDs(),

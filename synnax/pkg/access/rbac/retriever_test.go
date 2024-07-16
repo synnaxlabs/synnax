@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,14 +34,12 @@ var _ = Describe("Writer", func() {
 	AfterEach(func() {
 		Expect(db.Close()).To(Succeed())
 	})
-	It("Should create a new policy", func() {
+	It("Should retrieve a policy", func() {
+		// Giving a user the rights to change their own password
 		Expect(writer.Create(ctx, &changePasswordPolicy)).To(Succeed())
-	})
-	It("Should delete a policy", func() {
-		Expect(writer.Create(ctx, &changePasswordPolicy)).To(Succeed())
-		Expect(writer.Delete(ctx, changePasswordPolicy.Key)).To(Succeed())
-
-		var p rbac.Policy
-		Expect(retriever.Entry(&p).WhereSubject(userID).Exec(ctx, nil)).To(MatchError(query.NotFound))
+		var policy rbac.Policy
+		err := retriever.Entry(&policy).WhereSubject(userID).Exec(ctx, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(policy).To(Equal(changePasswordPolicy))
 	})
 })

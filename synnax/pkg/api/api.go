@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
-	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -58,7 +58,7 @@ type Config struct {
 	Label         *label.Service
 	Hardware      *hardware.Service
 	Authenticator auth.Authenticator
-	Enforcer      access.Enforcer
+	Access        *rbac.Service
 	Cluster       dcore.Cluster
 	Insecure      *bool
 }
@@ -80,7 +80,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "workspace", c.Workspace)
 	validate.NotNil(v, "token", c.Token)
 	validate.NotNil(v, "authenticator", c.Authenticator)
-	validate.NotNil(v, "enforcer", c.Enforcer)
+	validate.NotNil(v, "access", c.Access)
 	validate.NotNil(v, "cluster", c.Cluster)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "schematic", c.Schematic)
@@ -103,7 +103,7 @@ func (c Config) Override(other Config) Config {
 	c.Workspace = override.Nil(c.Workspace, other.Workspace)
 	c.Token = override.Nil(c.Token, other.Token)
 	c.Authenticator = override.Nil(c.Authenticator, other.Authenticator)
-	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
+	c.Access = override.Nil(c.Access, other.Access)
 	c.Cluster = override.Nil(c.Cluster, other.Cluster)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -430,6 +430,7 @@ func New(configs ...Config) (API, error) {
 	}
 	api := API{config: cfg, provider: NewProvider(cfg)}
 	api.Auth = NewUserService(api.provider)
+	api.Access = NewAccessService(api.provider)
 	api.Telem = NewFrameService(api.provider)
 	api.Channel = NewChannelService(api.provider)
 	api.Connectivity = NewConnectivityService(api.provider)
