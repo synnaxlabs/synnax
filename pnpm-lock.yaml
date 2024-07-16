@@ -550,9 +550,6 @@ importers:
       mathjs:
         specifier: ^13.0.1
         version: 13.0.1
-      nanoid:
-        specifier: ^5.0.7
-        version: 5.0.7
       proxy-memoize:
         specifier: 1.2.0
         version: 1.2.0
