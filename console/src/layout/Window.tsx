@@ -119,23 +119,8 @@ export const Window = (): ReactElement | null => {
           maximized && CSS.BM("main", "maximized"),
         )}
         onDragOver={(event) => {
-          if (
-            event.dataTransfer.effectAllowed === "all" &&
-            dragging.current.items.length === 0
-          ) {
-            ctx?.start(
-              {
-                type: "offscreen",
-                key: "offscreen",
-              },
-              [
-                {
-                  type: Haul.FILE_TYPE,
-                  key: "file",
-                },
-              ],
-            );
-          }
+          if (Haul.isFileDrag(event, dragging.current))
+            ctx?.start(Haul.ZERO_ITEM, [Haul.FILE]);
         }}
       >
         <NavTop title={layout.name} {...layout.window} />
