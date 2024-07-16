@@ -76,6 +76,12 @@ jobs:
     runs-on: "Ubuntu"
     timeout-minutes: 1440
     steps:
+      - name: Set up Python
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
       - name: Checkout Repository
         uses: actions/checkout@v3
 
