@@ -41,7 +41,6 @@ var _ = Describe("Writer", func() {
 	It("Should delete a policy", func() {
 		Expect(writer.Create(ctx, &changePasswordPolicy)).To(Succeed())
 		Expect(writer.Delete(ctx, changePasswordPolicy.Key)).To(Succeed())
-
 		var p rbac.Policy
 		Expect(retriever.Entry(&p).WhereSubject(userID).Exec(ctx, nil)).To(MatchError(query.NotFound))
 	})

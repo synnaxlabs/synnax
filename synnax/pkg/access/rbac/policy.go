@@ -18,6 +18,8 @@ import (
 )
 
 // Policy is a simple access control policy in the RBAC model.
+// A policy sets an action that is allowed. All other accesses except for those
+// specified by a policy are denied by default.
 type Policy struct {
 	// Key is a unique uuid to identify the policy.
 	Key uuid.UUID
@@ -27,10 +29,6 @@ type Policy struct {
 	Objects []ontology.ID `json:"object" msgpack:"object"`
 	// Actions is the list of actions that the policy applies to
 	Actions []access.Action `json:"actions" msgpack:"actions"`
-	// Effect is the effect of the policy. For example, a policy
-	// could explicitly allow or deny access to the specified subject-object-action
-	// combinations.
-	Effect access.Effect `json:"effect" msgpack:"effect"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}
@@ -41,24 +39,46 @@ func (p Policy) GorpKey() uuid.UUID { return p.Key }
 // SetOptions implements the gorp.Entry interface.
 func (p Policy) SetOptions() []interface{} { return nil }
 
-// Matches returns true if the policy matches the given access.Request.
-// In more detail, this means that there exists a policy where the request's subject is
-// in the matched policy's subject, the request's object is in the matched policy's
-// object, and the request's action is in the matched policy's actions.
-func (p Policy) Matches(req access.Request) bool {
-	if !lo.Contains(p.Subjects, req.Subject) {
-		return false
+// AllowRequest returns true if the policies allow the given access.Request.
+//
+// For a request to be allowed:
+//   - The request's subject must have object-action pairs for each object specified in
+//     the request for the action specified in the request.
+//   - An object-action pair is a pair with the specified action in the request and an
+//     object that is either a type object with the correct type, or an object that
+//     exactly matches one of the requested objects.
+func AllowRequest(req access.Request, policies []Policy) bool {
+	requestedObjects := make(map[ontology.ID]struct{})
+	for _, o := range req.Objects {
+		requestedObjects[o] = struct{}{}
 	}
-	for _, filterObj := range req.Objects {
-		if filterObj.IsType() {
-			for _, obj := range p.Objects {
-				if filterObj.Type != obj.Type {
-					return false
-				}
+
+	for _, policy := range policies {
+		if !lo.Contains(policy.Subjects, req.Subject) || !lo.Contains(policy.Actions, req.Action) {
+			if !lo.Contains(policy.Objects, AllowAll) {
+				// incorrect subject or action that is not an allowAll
+				continue
 			}
-		} else if !lo.Contains(p.Objects, filterObj) {
-			return false
+		}
+
+		for _, o := range policy.Objects {
+			if o.Type == AllowAll.Type {
+				// If the subject has an AllowAll policy, allow all requests.
+				return true
+			}
+			if o.IsType() {
+				// If an object applies to an entire type, then all requested objects
+				// of that type may be satisfied.
+				for requestedO, _ := range requestedObjects {
+					if requestedO.Type == o.Type {
+						delete(requestedObjects, requestedO)
+					}
+				}
+			} else {
+				delete(requestedObjects, o)
+			}
 		}
 	}
-	return lo.Contains(p.Actions, req.Action)
+
+	return len(requestedObjects) == 0
 }
