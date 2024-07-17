@@ -83,8 +83,7 @@
       "node-fetch": "2.6.11",
       "prettier": "3.3.2",
       "@tauri-apps/api": "^2.0.0-beta.14",
-      "eslint": "^9.6.0",
-      "nanoid": "^3.0.0"
+      "eslint": "^9.6.0"
     }
   },
   "packageManager": "pnpm@9.4.0",
