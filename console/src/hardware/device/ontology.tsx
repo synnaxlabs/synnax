@@ -15,7 +15,6 @@ import { nanoid } from "nanoid";
 import { ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
-import { Confirm } from "@/confirm";
 import { Group } from "@/group";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
@@ -39,6 +38,7 @@ const CONTEXT_MENUS: Record<
   (props: Ontology.TreeContextMenuProps) => ReactElement | null
 > = {
   [NI.MAKE]: NI.Device.ContextMenuItems,
+  [OPC.MAKE]: OPC.Device.ContextMenuItems,
 };
 
 export const handleSelect: Ontology.HandleSelect = () => {};
@@ -94,6 +94,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   if (nodes.length === 0) return null;
   const singleResource = nodes.length === 1;
+  const first = resources[0];
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
@@ -119,9 +120,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Menu.RenameItem />
           <PMenu.Divider />
-          <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
-            Configure
-          </PMenu.Item>
+          {first.data?.configured !== true && (
+            <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
+              Configure
+            </PMenu.Item>
+          )}
         </>
       )}
       <PMenu.Divider />

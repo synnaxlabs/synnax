@@ -15,7 +15,7 @@ import {
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
+import { caseconv, deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
 import { FC, ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -55,7 +55,7 @@ interface ChannelListContextMenuProps<T> {
   value: T[];
   onSelect: (keys: string[], index: number) => void;
   remove: (indices: number[]) => void;
-  onDuplicate: (indices: number[]) => void;
+  onDuplicate?: (indices: number[]) => void;
   path: string;
 }
 
@@ -76,7 +76,7 @@ export const ChannelListContextMenu = <
     remove(indices);
     onSelect([], -1);
   };
-  const handleDuplicate = () => onDuplicate(indices);
+  const handleDuplicate = () => onDuplicate?.(indices);
   const handleDisable = () =>
     value.forEach((_, i) => {
       if (!indices.includes(i)) return;
@@ -102,9 +102,11 @@ export const ChannelListContextMenu = <
       <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
         Remove
       </Menu.Item>
-      <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
-        Duplicate
-      </Menu.Item>
+      {onDuplicate != null && (
+        <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+          Duplicate
+        </Menu.Item>
+      )}
       <Menu.Divider />
       {allowDisable && (
         <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
@@ -154,7 +156,7 @@ export const useObserveState = <T extends ParserErrorsDetails>(
       if (state.variant !== "error") clearStatuses();
       else if (state.details != null && state.details.errors != null) {
         state.details.errors.forEach((e) => {
-          const path = `config.${deep.pathToCamel(e.path)}`;
+          const path = `config.${caseconv.snakeToCamel(e.path)}`;
           setStatus(path, { variant: "error", message: "" });
         });
       }
@@ -256,6 +258,7 @@ export const EnableDisableButton = ({
   <Button.Toggle
     checkedVariant="outlined"
     uncheckedVariant="outlined"
+    className={CSS.B("enable-disable-button")}
     value={value}
     size="small"
     onClick={(e) => e.stopPropagation()}
