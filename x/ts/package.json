@@ -22,7 +22,6 @@
   "dependencies": {
     "js-convert-case": "^4.2.0",
     "nanoid": "^5.0.7",
-    "nanoid-dictionary": "5.0.0-beta.1",
     "zod": "3.23.8"
   },
   "devDependencies": {
