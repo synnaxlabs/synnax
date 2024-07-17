@@ -12,13 +12,13 @@
 #include "nlohmann/json.hpp"
 #include <vector>
 
-#ifdef _WIN32
-#include "dll_check_windows.h"
-#else
-#include "dll_check_linux.h"
-#endif
+// #ifdef _WIN32
+// #include "dll_check_windows.h"
+// #else
+// #include "dll_check_linux.h"
+// #endif
 
-ni::Factory::Factory() {
+bool ni::Factory::dlls_exist(){
     std::vector<std::string> dlls = {
         "nicaiu.dll",
         "nipalu.dll",
@@ -38,12 +38,17 @@ ni::Factory::Factory() {
         "niprtsiu.dll"
     };
 
-    this->dlls_present = true;
+    bool d = true;
     for (const auto &dll: dlls) 
         if (!does_dll_exist(dll.c_str())) 
-            this->dlls_present = false;
+            d = false;
     
-    if (this->dlls_present) LOG(INFO) << "[ni] All required DLLs found.";
+    if (d) LOG(INFO) << "[ni] All required DLLs found.";
+    return d;
+}
+
+ni::Factory::Factory() {
+    this->dlls_present = dlls_exist();
 }
 
 
@@ -56,14 +61,14 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
         return {nullptr, false};
     }
 
-    if (task.type == "ni_scanner")
-        return {ni::ScannerTask::configure(ctx, task), true};
-    if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
-        return {ni::ReaderTask::configure(ctx, task), true};
+    // if (task.type == "ni_scanner")
+    //     return {ni::ScannerTask::configure(ctx, task), true};
+    // if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
+    //     return {ni::ReaderTask::configure(ctx, task), true};
     if (task.type == "ni_digital_write")
         return {ni::WriterTask::configure(ctx, task), true};
-    else
-        LOG(ERROR) << "[ni] Unknown task type: " << task.type << std::endl;
+    
+    LOG(ERROR) << "[ni] Unknown task type: " << task.type << std::endl;
     return {nullptr, false};
 }
 
@@ -79,7 +84,7 @@ ni::Factory::configureInitialTasks(
                 std::endl;
         return {};
     }
-    // generate task list
+    // // generate task list
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 
     // check for existing tasks

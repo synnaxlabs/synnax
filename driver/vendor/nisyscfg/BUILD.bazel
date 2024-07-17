@@ -2,4 +2,9 @@ cc_library(
     name = "nisyscfg",
     srcs = ["nisyscfg.lib"],
     visibility = ["//visibility:public"],
+    linkstatic = 0,
+    linkopts = select({
+        "@platforms//os:windows": ["/DELAYLOAD:nisyscfg.dll", "delayimp.lib"],
+        "//conditions:default": [],
+    }),
 )
