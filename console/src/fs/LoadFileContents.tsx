@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Input, state } from "@synnaxlabs/pluto";
+import { Align, Button, Input } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";

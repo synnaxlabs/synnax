@@ -352,7 +352,7 @@ export class Series<T extends TelemValue = TelemValue> {
       .decode(this.buffer)
       .split("\n")
       .slice(0, -1)
-      .map((s) => schema.parse(caseconv.toCamel(JSON.parse(s))));
+      .map((s) => schema.parse(caseconv.snakeToCamel(JSON.parse(s))));
   }
 
   /** @returns the time range of this array. */
@@ -530,7 +530,7 @@ export class Series<T extends TelemValue = TelemValue> {
     const slice = this.data.slice(start, end);
     if (this.dataType.equals(DataType.STRING))
       return new TextDecoder().decode(slice) as unknown as T;
-    return caseconv.toCamel(
+    return caseconv.snakeToCamel(
       JSON.parse(new TextDecoder().decode(slice)),
     ) as unknown as T;
   }
@@ -736,7 +736,10 @@ class JSONSeriesIterator implements Iterator<unknown> {
   next(): IteratorResult<object> {
     const next = this.wrapped.next();
     if (next.done === true) return { done: true, value: undefined };
-    return { done: false, value: caseconv.toCamel(JSON.parse(next.value)) };
+    return {
+      done: false,
+      value: caseconv.snakeToCamel(JSON.parse(next.value)) as object,
+    };
   }
 
   [Symbol.iterator](): Iterator<object> {

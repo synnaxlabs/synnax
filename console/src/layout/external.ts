@@ -16,4 +16,5 @@ export * from "@/layout/palette";
 export * from "@/layout/Selector";
 export * from "@/layout/selectors";
 export * from "@/layout/slice";
+export * from "@/layout/slice";
 export * from "@/layout/Window";

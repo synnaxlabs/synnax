@@ -24,7 +24,7 @@ binary.ENCODERS.forEach((e) => {
       const sample = {
         channelKey: "test",
         timeStamp: 123,
-        value: new Array([1, 2, 3]),
+        value: [1, 2, 3],
       };
       const encoded = e.encode(sample);
       expect(e.decode(encoded, sampleSchema)).toEqual(sample);

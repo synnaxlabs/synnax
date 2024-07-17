@@ -22,7 +22,7 @@
     "watch:media": "npx turbo watch --filter media",
     "watch:alamos": "npx turbo watch --filter @synnaxlabs/alamos",
     "dev:pluto": "npx turbo dev --filter @synnaxlabs/pluto",
-    "dev:console": "npx turbo dev --filter console",
+    "dev:console": "npx turbo dev --filter @synnaxlabs/console",
     "dev:console-vite": "npx turbo dev-vite --filter console",
     "dev:docs": "npx turbo dev --filter @synnaxlabs/docs",
     "dev:landing": "npx turbo dev --filter @synnaxlabs/landing",

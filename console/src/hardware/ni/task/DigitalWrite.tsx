@@ -9,16 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Button,
-  Channel,
-  Form,
-  Header,
-  List,
-  Menu,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Channel, Form, Header, List, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -48,6 +39,7 @@ import {
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
+  EnableDisableButton,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -479,31 +471,10 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <Button.Toggle
-        checkedVariant="outlined"
-        uncheckedVariant="outlined"
+      <EnableDisableButton
         value={childValues.enabled}
-        size="small"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(v) => {
-          ctx.set(`${path}.${props.index}.enabled`, v);
-        }}
-        tooltip={
-          <Text.Text level="small" style={{ maxWidth: 300 }}>
-            Data acquisition for this channel is{" "}
-            {childValues.enabled ? "enabled" : "disabled"}. Click to
-            {childValues.enabled ? " disable" : " enable"} it.
-          </Text.Text>
-        }
-      >
-        <Status.Text
-          variant={childValues.enabled ? "success" : "disabled"}
-          level="small"
-          align="center"
-        >
-          {childValues.enabled ? "Enabled" : "Disabled"}
-        </Status.Text>
-      </Button.Toggle>
+        onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+      />
     </List.ItemFrame>
   );
 };

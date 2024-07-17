@@ -1,7 +1,7 @@
 import { PayloadAction } from "@reduxjs/toolkit";
 import { Synnax } from "@synnaxlabs/client";
 import { Status, Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { compare, id, migrate } from "@synnaxlabs/x";
+import { id, migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 

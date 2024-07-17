@@ -1,0 +1,21 @@
+.console-task-configure.console-opcua {
+    .console-browser {
+        max-width: 30%;
+        width: 100%;
+        flex-basis: 200px;
+    }
+    .console-channels {
+        height: 100%;
+        .pluto-menu-context__container {
+            max-height: calc(100% - 200px);
+        }
+        &.console-dragging {
+            border-color: var(--pluto-primary-z);
+        }
+        .console-channel-form {
+            padding: 2rem;
+            border-top: var(--pluto-border);
+            flex-basis: 200px;
+        }
+    }
+}
