@@ -9,9 +9,8 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
@@ -78,7 +77,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to delete devices`,
         description: e.message,

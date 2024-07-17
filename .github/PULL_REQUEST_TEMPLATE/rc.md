@@ -166,6 +166,8 @@ I can successfully:
   view.
 - [ ] Create a new schematic from the command search bar.
 - [ ] Move the schematic to a new mosaic.
+- [ ] Download a schematic from the context menu.
+- [ ] Drag a schematic from the files folder into the mosaic and have it load.
 - [ ] Rename a schematic in the resources view.
 - [ ] Delete a schematic in the resources context menu.
 - [ ] Snapshot a schematic in the resources context menu.
@@ -184,6 +186,7 @@ I can successfully:
 - [ ] Delete a workspace in the resources view.
 - [ ] Create a new line plot in a workspace.
 - [ ] Create a new schematic in a workspace.
+- [ ] Import a schematic from the context menu.
 - [ ] Rename a line plot in a workspace.
 - [ ] Rename a schematic in a workspace.
 - [ ] Delete a line plot in a workspace.

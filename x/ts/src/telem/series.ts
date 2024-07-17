@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { nanoid } from "nanoid/non-secure";
 import { type z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
+import { id } from "@/id";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
@@ -136,7 +136,7 @@ export class Series<T extends TelemValue = TelemValue> {
       sampleOffset = 0,
       glBufferUsage = "static",
       alignment = 0n,
-      key = nanoid(),
+      key = id.id(),
     } = props;
     const { data } = props;
 
