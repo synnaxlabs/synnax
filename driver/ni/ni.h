@@ -554,8 +554,6 @@ public:
     configureInitialTasks(const std::shared_ptr<task::Context> &ctx,
                           const synnax::Rack &rack) override;
 
-    static bool dlls_exist();
-
 private:
     bool dlls_present = false;
 

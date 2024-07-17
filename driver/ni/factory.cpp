@@ -18,37 +18,8 @@
 // #include "dll_check_linux.h"
 // #endif
 
-bool ni::Factory::dlls_exist(){
-    std::vector<std::string> dlls = {
-        "nicaiu.dll",
-        "nipalu.dll",
-        "nimdbgu.dll",
-        "nidmxfu.dll",
-        "niorbu.dll",
-        "nimxdfu.dll",
-        "nimru2u.dll",
-        "nipalut.dll",
-        "nicrtsiu.dll",
-        "nimhwcfu.dll",
-        "nidimu.dll",
-        "nirpc.dll",
-        "nimdnsResponder.dll",
-        "nirocoapi.dll",
-        "nisysapi.dll",
-        "niprtsiu.dll",
-     };
-
-    bool d = true;
-    for (const auto &dll: dlls) 
-        if (!does_dll_exist(dll.c_str())) 
-            d = false;
-    
-    if (d) LOG(INFO) << "[ni] All required DLLs found.";
-    return d;
-}
-
 ni::Factory::Factory() {
-    this->dlls_present = dlls_exist();
+    this->dlls_present = ni::dlls_available();
 }
 
 

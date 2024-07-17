@@ -94,16 +94,11 @@ int main(int argc, char *argv[]) {
         std::move(heartbeat_factory),
     };
     
-    try {
-        if(ni::dlls_available()){
-            std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
-            factories.push_back(std::move(ni_factory));
-        }
-    } catch( const std::exception & e){
-        LOG(ERROR) << "[driver] unhandled exception while constructing ni factory " << e.what();
-    } catch(...){
-        LOG(ERROR) << "[driver] unhandled unknown exception while constructing ni factory";
+    if(ni::dlls_available()){
+        std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
+        factories.push_back(std::move(ni_factory));
     }
+
     
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
         std::move(factories)
