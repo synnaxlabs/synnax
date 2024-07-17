@@ -11,7 +11,7 @@ import { NotFoundError } from "@synnaxlabs/client";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
-import { moveMosaicTab } from "@/layout/slice";
+// import { moveMosaicTab } from "@/layout/slice";
 import { parser } from "@/schematic/migrations";
 import { create } from "@/schematic/Schematic";
 import { select } from "@/schematic/selectors";
@@ -26,7 +26,7 @@ export const fileHandler: Layout.FileHandler = async ({
   client,
   workspaceKey,
   confirm,
-  dispatch,
+  // dispatch,
   store,
 }): Promise<boolean> => {
   const newState = parser(file);
@@ -34,6 +34,10 @@ export const fileHandler: Layout.FileHandler = async ({
   const creator = create({
     ...newState,
     name,
+    tab: {
+      mosaicKey: mosaicKey,
+      location: loc,
+    },
   });
   const key = newState.key;
   const existingState = select(store.getState(), key);
@@ -60,22 +64,14 @@ export const fileHandler: Layout.FileHandler = async ({
       );
     } catch (e) {
       if (!NotFoundError.matches(e)) throw e;
-      if (workspaceKey == null) throw Error("Workspace key is required.");
-      await client.workspaces.schematic.create(workspaceKey, {
-        name,
-        data: newState as unknown as UnknownRecord,
-        ...newState,
-      });
+      if (workspaceKey != null)
+        await client.workspaces.schematic.create(workspaceKey, {
+          name,
+          data: newState as unknown as UnknownRecord,
+          ...newState,
+        });
     }
   }
-  const windowKey = placer(creator).windowKey;
-  dispatch(
-    moveMosaicTab({
-      key: mosaicKey,
-      windowKey,
-      tabKey: newState.key,
-      loc,
-    }),
-  );
+  placer(creator).windowKey;
   return true;
 };
