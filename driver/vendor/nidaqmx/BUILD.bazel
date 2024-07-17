@@ -1,10 +1,6 @@
 cc_library(
-    name = "nidaqmx",
-    srcs = ["NIDAQmx.lib"],
-    visibility = ["//visibility:public"],
-    linkstatic = 0,
-    linkopts = select({
-        "@platforms//os:windows": ["/DELAYLOAD:NIDAQmx.dll", "delayimp.lib"],
-        "//conditions:default": [],
-    }),
+    name="nidaqmx",
+    srcs=["NIDAQmx.lib"],
+    visibility=["//visibility:public"],
+    linkstatic=0,
 )
