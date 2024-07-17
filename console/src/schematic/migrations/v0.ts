@@ -23,6 +23,15 @@ export type NodeProps = object & {
   color?: Color.Crude;
 };
 
+export const nodePropsZ = z.object({}).and(
+  z
+    .object({
+      key: Schematic.typeZ,
+      color: Color.crudeZ,
+    })
+    .passthrough(),
+);
+
 export const stateZ = z.object({
   version: z.literal("0.0.0"),
   editable: z.boolean(),
@@ -32,7 +41,7 @@ export const stateZ = z.object({
   viewport: Diagram.viewportZ,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(Diagram.edgeZ),
-  props: z.record(z.string(), z.unknown()),
+  props: z.record(z.string(), nodePropsZ),
   control: control.statusZ,
   controlAcquireTrigger: z.number(),
 });

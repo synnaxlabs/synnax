@@ -135,7 +135,7 @@ export const nodeZ = z.object({
    */
   zIndex: z.number().optional(),
 
-  id: z.string(),
+  id: z.string().optional(),
   type: z.string().optional(),
   data: z.unknown().optional(),
   width: z.number().optional().nullable(),
