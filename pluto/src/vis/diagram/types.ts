@@ -14,86 +14,120 @@ import { z } from "zod";
 import { Color } from "@/color";
 import { connector } from "@/vis/diagram/edge/connector";
 
-/** The current viewport state of the diagram */
-export interface Viewport {
-  /*
-   * The top-left pixel offset of the diagram pan position.
-   * Note that this offset is unscaled by zoom.
-   * */
-  position: xy.XY;
-  /**
-   * A decimal of the current diagram zoom. Larger values represent magnification.
-   */
-  zoom: number;
-}
-
+/**
+ * The current viewport state of the diagram.
+ */
 export const viewportZ = z.object({
+  /*
+   * The top-left pixel offset of the diagram pan position. Note that this
+   * offset is unscaled by zoom.
+   */
   position: xy.xy,
+
+  /**
+   * A decimal of the current diagram zoom. Larger values represent
+   * magnification.
+   */
   zoom: z.number(),
 });
 
-/** Pluto specific info passed to the 'data' attribute on rf.Edge */
-export interface RFEdgeData {
-  /** The color of the edge. */
-  color: Color.Crude;
-  /** A list of segments representing the structure of the edge connector. */
-  segments: connector.Segment[];
-}
+/**
+ * The current viewport state of the diagram.
+ */
+export type Viewport = z.infer<typeof viewportZ>;
 
+/**
+ * Pluto specific info passed to the 'data' attribute on rf.Edge.
+ */
 export const rfEdgeDataZ = z.object({
+  /**
+   * The color of the edge.
+   */
   color: Color.crudeZ,
+
+  /**
+   * A list of segments representing the structure of the edge connector.
+   */
   segments: z.array(connector.segmentZ),
 });
 
-/** The properties for an edge within a diagram. */
-export interface Edge extends RFEdgeData {
-  /** A unique key for identifying the edge within the diagram. */
-  key: string;
-  /** The key of the source node for the edge. */
-  source: string;
-  /** The key of the target node for the edge. */
-  target: string;
-  /** Whether the edge is currently selected. */
-  selected: boolean;
-  /**
-   * The id of handle on the source node that the edge is connected to. Note that this
-   * id is unique only within the source node.
-   */
-  sourceHandle?: string | null;
-  /**
-   * The id of the handle on the target node that the edge is connected to. Note that this id
-   * is unique only within the target node.
-   */
-  targetHandle?: string | null;
-}
+/**
+ * Pluto specific info passed to the 'data' attribute on rf.Edge.
+ */
+export type RFEdgeData = z.infer<typeof rfEdgeDataZ>;
 
+/*
+ * The properties for an edge within a diagram.
+ */
 export const edgeZ = rfEdgeDataZ.extend({
+  /**
+   * A unique key for identifying the edge within the diagram.
+   */
   key: z.string(),
+
+  /**
+   * The key of the source node for the edge.
+   */
   source: z.string(),
+
+  /**
+   * The key of the target node for the edge.
+   */
   target: z.string(),
+
+  /**
+   * Whether the edge is currently selected.
+   */
   selected: z.boolean(),
-  sourceHandle: z.string().nullable(),
-  targetHandle: z.string().nullable(),
+
+  /**
+   * The id of handle on the source node that the edge is connected to. Note
+   * that this id is unique only within the source node.
+   */
+  sourceHandle: z.string().nullable().optional(),
+
+  /**
+   * The id of the handle on the target node that the edge is connected to. Note
+   * that this id is unique only within the target node.
+   */
+  targetHandle: z.string().nullable().optional(),
 });
 
-/** The properties for a node within a diagram. */
-export interface Node {
-  /** A unique key for identifying the node within the diagram. */
-  key: string;
-  /** The XY coordinate of the top left corner of the node. Unscaled by the viewport. */
-  position: xy.XY;
-  /** Whether the node is currently selected. */
-  selected?: boolean;
-  /** An optional z-index for the node. */
-  zIndex?: number;
-}
+/**
+ * The properties for an edge within a diagram.
+ */
+export type Edge = z.infer<typeof edgeZ>;
 
+/**
+ * The properties for a node within a diagram.
+ */
 export const nodeZ = z.object({
+  /**
+   * A unique key for identifying the node within the diagram.
+   */
   key: z.string(),
+
+  /**
+   * The XY coordinate of the top left corner of the node. Unscaled by the
+   * viewport.
+   */
   position: xy.xy,
+
+  /**
+   * Whether the node is currently selected.
+   */
   selected: z.boolean().optional(),
+
+  /**
+   * An optional z-index for the node.
+   */
   zIndex: z.number().optional(),
 });
+
+/**
+ * The properties for a node within a diagram.
+ */
+export type Node = z.infer<typeof nodeZ>;
 
 /**
  * Translates nodes from their pluto representation to their react-flow representation.

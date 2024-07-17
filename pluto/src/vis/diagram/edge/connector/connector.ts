@@ -114,15 +114,12 @@ export const prepareNode = ({
   };
 };
 
-export interface Segment {
-  direction: direction.Direction;
-  length: number;
-}
-
 export const segmentZ = z.object({
   direction: direction.direction,
   length: z.number(),
 });
+
+export type Segment = z.infer<typeof segmentZ>;
 
 export const travelSegments = (source: xy.XY, ...segments: Segment[]): xy.XY => {
   let current = source;
