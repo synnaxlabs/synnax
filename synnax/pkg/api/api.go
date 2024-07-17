@@ -270,6 +270,7 @@ func (a *API) BindTo(t Transport) {
 		// RANGE
 		t.RangeCreate,
 		t.RangeRetrieve,
+		t.RangeDelete,
 		t.RangeKVGet,
 		t.RangeKVSet,
 		t.RangeKVDelete,
@@ -313,6 +314,7 @@ func (a *API) BindTo(t Transport) {
 
 		// HARDWARE
 		t.HardwareCreateRack,
+		t.HardwareDeleteRack,
 		t.HardwareRetrieveRack,
 		t.HardwareDeleteTask,
 		t.HardwareCreateTask,

@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"go/types"
@@ -67,13 +66,6 @@ type RegistrationRequest struct {
 // Register registers new user with the provided credentials. If successful, returns a
 // response containing a valid JWT along with the user's details.
 func (s *UserService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{user.OntologyID(uuid.Nil)},
-	}); err != nil {
-		return tr, err
-	}
 	return tr, s.WithTx(ctx, func(txn gorp.Tx) error {
 		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
 			return err
