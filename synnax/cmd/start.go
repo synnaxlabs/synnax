@@ -414,15 +414,14 @@ func maybeProvisionRootUser(
 	if err != nil || exists {
 		return err
 	}
+
+	// Register the user first.
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err = authSvc.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
 		}
 		userObj := user.User{Username: creds.Username}
-		if err = userSvc.NewWriter(tx).Create(
-			ctx,
-			&userObj,
-		); err != nil {
+		if err = userSvc.NewWriter(tx).Create(ctx, &userObj); err != nil {
 			return err
 		}
 		return accessSvc.NewWriter(tx).Create(

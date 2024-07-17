@@ -50,7 +50,7 @@ func (s *UserService) Login(ctx context.Context, cred auth.InsecureCredentials) 
 		return tr, err
 	}
 	if err = s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
+		Subject: user.OntologyID(u.Key),
 		Action:  access.Retrieve,
 		Objects: []ontology.ID{user.OntologyID(u.Key)},
 	}); err != nil {

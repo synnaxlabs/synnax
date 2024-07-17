@@ -90,7 +90,7 @@ func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 
 type (
 	AccessRetrievePolicyRequest struct {
-		Subject ontology.ID `json:"subject" msgpack:"subject""`
+		Subject ontology.ID `json:"subject" msgpack:"subject"`
 	}
 	AccessRetrievePolicyResponse struct {
 		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
@@ -101,6 +101,8 @@ func (a *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
+	res.Policies = make([]rbac.Policy, 0)
+
 	if err = a.access.NewRetriever().
 		WhereSubject(req.Subject).
 		Entries(&res.Policies).

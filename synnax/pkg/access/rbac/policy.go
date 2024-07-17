@@ -22,11 +22,11 @@ import (
 // specified by a policy are denied by default.
 type Policy struct {
 	// Key is a unique uuid to identify the policy.
-	Key uuid.UUID
+	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Subjects it the list of subjects that the policy applies to
-	Subjects []ontology.ID `json:"subject" msgpack:"subject"`
+	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
 	// Objects is the list of objects that the policy applies to
-	Objects []ontology.ID `json:"object" msgpack:"object"`
+	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions that the policy applies to
 	Actions []access.Action `json:"actions" msgpack:"actions"`
 }

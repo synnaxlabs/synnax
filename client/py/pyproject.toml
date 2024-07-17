@@ -72,6 +72,7 @@ markers = [
     "auth: mark test as an auth test",
     "internal: mark test as an internal test",
     "tsconvert: mark test as a tsconvert test",
+    "access: mark test as an access test",
     "cli"
 ]
 
