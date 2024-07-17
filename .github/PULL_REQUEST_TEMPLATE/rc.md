@@ -255,6 +255,9 @@ I can successfully:
 - [ ] Save device configuration.
 - [ ] Not see chassis devices connected to the machine
 - [ ] See devices connected to a chassis
+- [ ] Run the driver without the Daqmx and Syscfg libraries installed on the machine.
+- [ ] Get feedback when trying to create an NI task on a machine that doesn't have the 
+  required libraries installed.
 
 #### Read Task
 
