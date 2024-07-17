@@ -220,23 +220,23 @@ importers:
         specifier: ^2.0.0-beta.14
         version: 2.0.0-beta.14
       '@tauri-apps/plugin-deep-link':
-        specifier: 2.0.0-beta.8
-        version: 2.0.0-beta.8
+        specifier: 2.0.0-beta.9
+        version: 2.0.0-beta.9
       '@tauri-apps/plugin-dialog':
-        specifier: 2.0.0-beta.6
-        version: 2.0.0-beta.6
+        specifier: 2.0.0-beta.7
+        version: 2.0.0-beta.7
       '@tauri-apps/plugin-fs':
-        specifier: 2.0.0-beta.6
-        version: 2.0.0-beta.6
+        specifier: 2.0.0-beta.7
+        version: 2.0.0-beta.7
       '@tauri-apps/plugin-process':
-        specifier: 2.0.0-beta.6
-        version: 2.0.0-beta.6
+        specifier: 2.0.0-beta.7
+        version: 2.0.0-beta.7
       '@tauri-apps/plugin-store':
-        specifier: 2.0.0-beta.6
-        version: 2.0.0-beta.6
+        specifier: 2.0.0-beta.7
+        version: 2.0.0-beta.7
       '@tauri-apps/plugin-updater':
-        specifier: 2.0.0-beta.6
-        version: 2.0.0-beta.6
+        specifier: 2.0.0-beta.7
+        version: 2.0.0-beta.7
       async-mutex:
         specifier: ^0.5.0
         version: 0.5.0
@@ -2474,23 +2474,23 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
-  '@tauri-apps/plugin-deep-link@2.0.0-beta.8':
-    resolution: {integrity: sha512-lFpMaz2pmbz6YbMEWaokR7nQ3UMgYjIqzFt+EWDdFJsM5hTnLf72/4hK++WHgXepXhZbPWcm5PLL6BtibXebyA==}
+  '@tauri-apps/plugin-deep-link@2.0.0-beta.9':
+    resolution: {integrity: sha512-phYfWEv3wOzswCUYumQCFiQDddUGeNVRpbtgF/658SCweFzgye09o/Qkq98XjjzE1qDswO9EofdUkrQ4QIG+Tw==}
 
-  '@tauri-apps/plugin-dialog@2.0.0-beta.6':
-    resolution: {integrity: sha512-Rw8C8t/0y3QExEinp+cAOZi/BDt0c9jifv0bS3WDCwQt9ANdmfCWKamsIhqwemt3MjepkU2RV8bvphzoWlbOGw==}
+  '@tauri-apps/plugin-dialog@2.0.0-beta.7':
+    resolution: {integrity: sha512-myywwpsKbquDDzl5zaOmmLLv5O8EJ/GgHDAoVSPwO97R4iWzkDvj3HFF91tNh7i25Tu/bP6jYPAdZA1NCRxxtg==}
 
-  '@tauri-apps/plugin-fs@2.0.0-beta.6':
-    resolution: {integrity: sha512-R7M5wggENzJhiA0HwP63AzdF6uzdXRYe0z+ETSue9gvJmqKtqVp+qx9JLsWSfwENHy8RDKmrnuDL18kx/Q2aFA==}
+  '@tauri-apps/plugin-fs@2.0.0-beta.7':
+    resolution: {integrity: sha512-hsZyhzvy+xtRfbrKI2rmU1ZfmgbSs7Zu/6a12MFlJKVzqXmUwJvggcjYdm1cEFdLbnOOsszENXbwMnkzmxtirA==}
 
-  '@tauri-apps/plugin-process@2.0.0-beta.6':
-    resolution: {integrity: sha512-Rem3r8lGe6ZSvncqIV9xpq2hOey7krMoPh5nu7WxbR73LOSkRBUDaYMvZjXu1DrJ3LEyXxo48sp76+9MW2Rp/w==}
+  '@tauri-apps/plugin-process@2.0.0-beta.7':
+    resolution: {integrity: sha512-iK4HYnzeyqAZE5HAKd0mDI7ekYXUqA9azjA9AgL4LscOEHma1XGEP0DlcHn+RrXIvVbI4LwCol9DSNNoIrB0+w==}
 
-  '@tauri-apps/plugin-store@2.0.0-beta.6':
-    resolution: {integrity: sha512-EBMGUYeeLoJwFbUMdj0PhS7YGih2jhYr/cCHRXZgAhaXTsXdrE7SyW5QfgcMyZH6y7u1gywiIbMIsnjABVOJ7Q==}
+  '@tauri-apps/plugin-store@2.0.0-beta.7':
+    resolution: {integrity: sha512-OgeicsLfN7/u/vfxhzJfsZsNfVJWrhmwhEn2oK4OJ1kvkrGbkfK0/ZORSkmqbpByI6hXWYZrbeyXDuVIefVWAQ==}
 
-  '@tauri-apps/plugin-updater@2.0.0-beta.6':
-    resolution: {integrity: sha512-CKgVNsbpGPp8yIUWitszdQ2DVglRZ8jescxacJ43HkaI7oz26EQPL3VwPjjwIQ1RX166JQcNJuM8grcZd8QjBg==}
+  '@tauri-apps/plugin-updater@2.0.0-beta.7':
+    resolution: {integrity: sha512-wnIVPPMuD33Wf8Q1CyvAQLAT2sVH0sefTNrYF5ITqzUxzeH54MaiVIu+e8/zBaRFcuBpJv7exljLlrcNW47ybQ==}
 
   '@testing-library/dom@10.3.0':
     resolution: {integrity: sha512-pT/TYB2+IyMYkkB6lqpkzD7VFbsR0JBJtflK3cS68sCNWxmOhWwRm1XvVHlseNEorsNcxkYsb4sRDV3aNIpttg==}
@@ -8587,27 +8587,27 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.0.0-beta.17
       '@tauri-apps/cli-win32-x64-msvc': 2.0.0-beta.17
 
-  '@tauri-apps/plugin-deep-link@2.0.0-beta.8':
+  '@tauri-apps/plugin-deep-link@2.0.0-beta.9':
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.14
 
-  '@tauri-apps/plugin-dialog@2.0.0-beta.6':
+  '@tauri-apps/plugin-dialog@2.0.0-beta.7':
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.14
 
-  '@tauri-apps/plugin-fs@2.0.0-beta.6':
+  '@tauri-apps/plugin-fs@2.0.0-beta.7':
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.14
 
-  '@tauri-apps/plugin-process@2.0.0-beta.6':
+  '@tauri-apps/plugin-process@2.0.0-beta.7':
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.14
 
-  '@tauri-apps/plugin-store@2.0.0-beta.6':
+  '@tauri-apps/plugin-store@2.0.0-beta.7':
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.14
 
-  '@tauri-apps/plugin-updater@2.0.0-beta.6':
+  '@tauri-apps/plugin-updater@2.0.0-beta.7':
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.14
 
