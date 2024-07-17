@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@/caseconv";
 import { type Join } from "@/join";
 import { type UnknownRecord } from "@/record";
 

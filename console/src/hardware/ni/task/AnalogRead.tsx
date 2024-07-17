@@ -9,7 +9,7 @@
 
 import { NotFoundError, QueryError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";

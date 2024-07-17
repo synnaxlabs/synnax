@@ -169,7 +169,7 @@ export interface TreeProps
   children?: RenderProp<ItemProps>;
   virtual?: boolean;
   showRules?: boolean;
-  loading?: string;
+  loading?: string | null | false;
 }
 
 export type Item = FC<ItemProps>;
