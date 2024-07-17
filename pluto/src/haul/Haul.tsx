@@ -35,7 +35,7 @@ import { z } from "zod";
 import { type state } from "@/state";
 
 export const itemZ = z.object({
-  key: z.string().or(z.number()).or(z.symbol()),
+  key: z.string().or(z.number()),
   type: z.string(),
   elementID: z.string().optional(),
   data: z.record(z.unknown()).optional(),

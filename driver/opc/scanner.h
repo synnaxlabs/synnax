@@ -11,20 +11,29 @@
 
 #include <string>
 #include <memory>
+#include <utility>
 #include "opc.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"
 #include "driver/config/config.h"
+#include "include/open62541/types.h"
+#include "driver/opc/util.h"
 
 using json = nlohmann::json;
 
 namespace opc {
-struct ScannnerScanCommandArgs {
+struct ScannerScanCommandArgs {
     ConnectionConfig connection;
+    std::string node_id;
+    UA_NodeId node{};
 
-    explicit ScannnerScanCommandArgs(config::Parser parser) : connection(
-        ConnectionConfig(parser.child("connection"))) {
+    explicit ScannerScanCommandArgs(config::Parser parser) : connection(
+        ConnectionConfig(parser.child("connection"))),
+        node_id(parser.optional<std::string>("node_id", ""))
+    {
+        if (node_id.empty()) node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+        else node = parseNodeId("node_id", parser);
     }
 };
 
@@ -35,7 +44,7 @@ class Scanner final : public task::Task {
 public:
     explicit Scanner(
         std::shared_ptr<task::Context> ctx,
-        synnax::Task task) : ctx(ctx), task(task) {
+        synnax::Task task) : ctx(std::move(ctx)), task(std::move(task)) {
     }
 
     static std::unique_ptr<task::Task> configure(
@@ -49,14 +58,10 @@ public:
 
     void stop() override {
     }
-
 private:
     std::shared_ptr<task::Context> ctx;
     const synnax::Task task;
-    int max_depth = 10;
-
     void scan(const task::Command &cmd) const;
-
     void testConnection(const task::Command &cmd) const;
 };
 }

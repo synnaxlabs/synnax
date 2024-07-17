@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-export type Key = string | number | symbol;
+export type Key = string | number;
 
 export type UnknownRecord = Record<Key, unknown>;
 

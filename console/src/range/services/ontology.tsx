@@ -10,7 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
+import { type Haul, Icon as PIcon, Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -213,7 +213,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
-      <PMenu.Divider />
       {isSingle && (
         <>
           {resources[0].id.key !== activeRange?.key && (
@@ -223,17 +222,28 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
           </PMenu.Item>
-          <PMenu.Divider />
         </>
       )}
+      <PMenu.Divider />
       {layout?.type === "lineplot" && (
-        <PMenu.Item itemKey="addToActivePlot" startIcon={<Icon.Visualize />}>
+        <PMenu.Item
+          itemKey="addToActivePlot"
+          startIcon={
+            <PIcon.Icon topRight={<Icon.Range />}>
+              <Icon.Visualize key="plot" />
+            </PIcon.Icon>
+          }
+        >
           Add to {layout.name}
         </PMenu.Item>
       )}
       <PMenu.Item
         itemKey="addToNewPlot"
-        startIcon={[<Icon.Add key="add" />, <Icon.Visualize key="plot" />]}
+        startIcon={
+          <PIcon.Create>
+            <Icon.Visualize key="plot" />
+          </PIcon.Create>
+        }
       >
         Add to New Plot
       </PMenu.Item>
