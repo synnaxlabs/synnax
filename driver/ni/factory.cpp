@@ -49,7 +49,7 @@ ni::Factory::configureInitialTasks(
                 std::endl;
         return {};
     }
-    // // generate task list
+    // generate task list
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 
     // check for existing tasks
