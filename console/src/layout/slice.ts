@@ -109,7 +109,6 @@ export interface FileHandlerProps {
   confirm: CreateConfirmModal;
   client: Synnax | null;
   workspaceKey: string | null;
-  dispatch: Dispatch<UnknownAction>;
 }
 
 export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;

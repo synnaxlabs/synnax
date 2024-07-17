@@ -11,7 +11,7 @@ import { xy } from "@synnaxlabs/x";
 import type * as rf from "reactflow";
 import { z } from "zod";
 
-import { Color } from "@/color";
+import { color } from "@/color/core";
 import { connector } from "@/vis/diagram/edge/connector";
 
 /**
@@ -43,7 +43,7 @@ export const rfEdgeDataZ = z.object({
   /**
    * The color of the edge.
    */
-  color: Color.crudeZ,
+  color: color.crudeZ,
 
   /**
    * A list of segments representing the structure of the edge connector.
@@ -74,6 +74,18 @@ export const edgeZ = rfEdgeDataZ.extend({
    * The key of the target node for the edge.
    */
   target: z.string(),
+
+  segments: z.array(connector.segmentZ),
+
+  color: color.crudeZ,
+
+  id: z.string(),
+  data: z
+    .object({
+      segments: z.array(connector.segmentZ),
+      color: color.crudeZ,
+    })
+    .optional(),
 
   /**
    * Whether the edge is currently selected.
@@ -122,6 +134,12 @@ export const nodeZ = z.object({
    * An optional z-index for the node.
    */
   zIndex: z.number().optional(),
+
+  id: z.string(),
+  type: z.string().optional(),
+  data: z.unknown().optional(),
+  width: z.number().optional().nullable(),
+  height: z.number().optional().nullable(),
 });
 
 /**
@@ -159,7 +177,7 @@ export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
 /** Translates edges from their react-flow representation to their pluto representation */
 export const translateEdgesBackward = (
   edges: Array<rf.Edge<RFEdgeData>>,
-  defaultColor: Color.Crude,
+  defaultColor: color.Crude,
 ): Edge[] =>
   edges.map((edge) => {
     if (edge.data == null) edge.data = { segments: [], color: defaultColor };
@@ -196,5 +214,5 @@ export const nodeConverter = (
 export const edgeConverter = (
   edges: Edge[],
   f: (edges: rf.Edge[]) => rf.Edge[],
-  color: Color.Crude,
+  color: color.Crude,
 ): Edge[] => translateEdgesBackward(f(translateEdgesForward(edges)), color);

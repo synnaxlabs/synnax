@@ -164,7 +164,6 @@ export const Mosaic = memo((): ReactElement => {
               client,
               workspaceKey,
               loc,
-              dispatch,
             });
           })
           .catch((e) => console.error(e));

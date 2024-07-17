@@ -11,7 +11,6 @@ import { NotFoundError } from "@synnaxlabs/client";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
-// import { moveMosaicTab } from "@/layout/slice";
 import { parser } from "@/schematic/migrations";
 import { create } from "@/schematic/Schematic";
 import { select } from "@/schematic/selectors";
@@ -26,7 +25,6 @@ export const fileHandler: Layout.FileHandler = async ({
   client,
   workspaceKey,
   confirm,
-  // dispatch,
   store,
 }): Promise<boolean> => {
   const newState = parser(file);
@@ -72,6 +70,6 @@ export const fileHandler: Layout.FileHandler = async ({
         });
     }
   }
-  placer(creator).windowKey;
+  placer(creator);
   return true;
 };
