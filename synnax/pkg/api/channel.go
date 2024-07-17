@@ -92,7 +92,7 @@ func (s *ChannelService) Create(
 		translated[i].Internal = false
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err = s.internal.NewWriter(tx).CreateMany(ctx, &translated)
+		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
 		res.Channels = translateChannelsForward(translated)
 		return err
 	})
@@ -203,7 +203,9 @@ func (s *ChannelService) Retrieve(
 	if req.Internal != nil {
 		q = q.WhereInternal(*req.Internal)
 	}
-	err := q.Exec(ctx, nil)
+	if err := q.Exec(ctx, nil); err != nil {
+		return ChannelRetrieveResponse{}, err
+	}
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
 		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, i int) bool {
@@ -219,14 +221,14 @@ func (s *ChannelService) Retrieve(
 			}
 		}
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: channel.OntologyIDsFromChannels(resChannels),
 	}); err != nil {
 		return ChannelRetrieveResponse{}, err
 	}
-	return ChannelRetrieveResponse{Channels: oChannels}, err
+	return ChannelRetrieveResponse{Channels: oChannels}, nil
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {

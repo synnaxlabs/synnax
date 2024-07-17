@@ -107,8 +107,8 @@ class TestChannelClient:
     def test_retrieve_list_of_keys_not_found(self, client: sy.Synnax):
         """Should retrieve an empty list when can't find channels"""
         fake_keys = [1234, 5781, 99123]
-        with pytest.raises(sy.NotFoundError):
-            client.channels.retrieve(fake_keys)
+        results = client.channels.retrieve(fake_keys)
+        assert len(results) == 0
 
     def test_retrieve_numeric_string(
         self, client: sy.Synnax, two_channels: list[sy.channel]
