@@ -12,12 +12,6 @@
 #include "nlohmann/json.hpp"
 #include <vector>
 
-// #ifdef _WIN32
-// #include "dll_check_windows.h"
-// #else
-// #include "dll_check_linux.h"
-// #endif
-
 ni::Factory::Factory() {
     this->dlls_present = ni::dlls_available();
 }
