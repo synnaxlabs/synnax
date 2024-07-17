@@ -14,7 +14,7 @@ build/
 *.test
 synnax-data
 ../certs
-synnax
+/synnax
 
 # |||| INTELLIJ  ||||
 .idea/

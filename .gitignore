@@ -31,8 +31,8 @@ nyc_output
 
 # |||| TURBO REPO ||||
 
-.turbo/
-.turbo-cache/
+**/.turbo/
+**/.turbo-cache/
 
 # |||| LOGS ||||
 
