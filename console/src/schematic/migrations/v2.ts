@@ -15,17 +15,20 @@ import * as v1 from "@/schematic/migrations/v1";
 export const stateZ = v1.stateZ.omit({ version: true }).extend({
   version: z.literal("2.0.0"),
   key: z.string(),
+  type: z.literal("schematic"),
 });
 
 export interface State extends Omit<v1.State, "version"> {
   version: "2.0.0";
   key: string;
+  type: "schematic";
 }
 
 export const ZERO_STATE: State = {
   ...v1.ZERO_STATE,
   version: "2.0.0",
   key: "",
+  type: "schematic",
 };
 
 export const sliceStateZ = v1.sliceStateZ.omit({ version: true }).extend({
@@ -43,6 +46,7 @@ export const stateMigration = migrate.createMigration<v1.State, State>({
     ...state,
     version: "2.0.0",
     key: "",
+    type: "schematic",
   }),
 });
 

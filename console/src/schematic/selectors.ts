@@ -85,12 +85,11 @@ export const selectNodeProps = (
   return schematic.props[key];
 };
 
-export const useSelectNodeProps = (layoutKey: string, key: string): NodeProps => {
-  return useMemoSelect(
+export const useSelectNodeProps = (layoutKey: string, key: string): NodeProps =>
+  useMemoSelect(
     (state: StoreState) => selectNodeProps(state, layoutKey, key),
     [layoutKey, key],
   );
-};
 
 export const selectToolbar = (state: StoreState): ToolbarState =>
   selectSliceState(state).toolbar;

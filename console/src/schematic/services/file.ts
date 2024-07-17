@@ -17,7 +17,7 @@ import { create } from "@/schematic/Schematic";
 import { select } from "@/schematic/selectors";
 import { remove } from "@/schematic/slice";
 
-export const FileHandler: Layout.FileHandler = async ({
+export const fileHandler: Layout.FileHandler = async ({
   mosaicKey,
   file,
   placer,

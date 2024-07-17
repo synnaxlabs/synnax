@@ -75,15 +75,18 @@ const useHaulState: state.PureUse<Haul.DraggingState> = () => {
   return [hauled, onHauledChange];
 };
 
-const MainUnderContext = (): ReactElement => {
-  const theme = Layout.useThemeProvider();
-  const cluster = Cluster.useSelect();
-  const activeRange = Range.useSelect();
+const useBlockDefaultDropBehavior = (): void =>
   useEffect(() => {
     const doc = document.documentElement;
     doc.addEventListener("dragover", (e) => e.preventDefault());
     doc.addEventListener("drop", (e) => e.preventDefault());
   }, []);
+
+const MainUnderContext = (): ReactElement => {
+  const theme = Layout.useThemeProvider();
+  const cluster = Cluster.useSelect();
+  const activeRange = Range.useSelect();
+  useBlockDefaultDropBehavior();
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider
