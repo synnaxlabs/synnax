@@ -99,6 +99,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       if (!methods.validate("connection") || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const task = await rack.retrieveTaskByName("opc Scanner");
+      await new Promise((r) => setTimeout(r, 100));
       const t = await task.executeCommandSync<TestConnCommandResponse>(
         "test_connection",
         { connection: methods.get("connection").value },
