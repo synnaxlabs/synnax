@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-/* .console-input-file-path {
+.console-input-file-path {
     overflow: hidden;
     .console-path {
         padding: 0 1.25rem;
@@ -26,4 +26,4 @@
         --pluto-bg: var(--pluto-gray-l1);
         background: var(--pluto-bg);
     }
-} */
+}
