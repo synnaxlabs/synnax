@@ -16,7 +16,7 @@ import {
   Policy,
   policyZ,
 } from "@/access/payload";
-import {toArray} from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x";
 
 export const newPolicyPayloadZ = policyZ.extend({key: keyZ.optional()})
 

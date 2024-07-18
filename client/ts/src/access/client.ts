@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {type UnaryClient} from "@synnaxlabs/freighter";
-import {toArray} from "@synnaxlabs/x/toArray";
+import { type UnaryClient } from "@synnaxlabs/freighter";
+import { toArray } from "@synnaxlabs/x/toArray";
 
-import {Key, Policy } from "@/access/payload";
-import {Retriever} from "@/access/retriever";
-import {NewPolicyPayload, Writer} from "@/access/writer";
-import {IDPayload} from "@/ontology/payload";
+import { Key, Policy } from "@/access/payload";
+import { Retriever } from "@/access/retriever";
+import { NewPolicyPayload, Writer } from "@/access/writer";
+import { IDPayload } from "@/ontology/payload";
 
 export class Client {
   private readonly client: UnaryClient;
