@@ -239,7 +239,6 @@ export const DefaultItem = memo(
       const selectedItems = getSourceData().filter((item) =>
         selectedItemKeys.includes(item.key),
       );
-      console.log(selectedItemKeys.includes(key));
       if (selectedItemKeys.includes(key)) {
         const selectedHaulItems = selectedItems
           .map(({ key, haulItems, depth }) => [
