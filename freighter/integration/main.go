@@ -18,6 +18,7 @@ import (
 	xsig "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -32,6 +33,7 @@ func main() {
 	g := grpc.NewServer()
 	s := igrp.New()
 	s.BindTo(g)
+	configureInstrumentation()
 
 	err := func() error {
 		sCtx, cancel := xsig.Isolated()
@@ -58,4 +60,12 @@ func main() {
 	if err != nil {
 		zap.S().Fatalw("failed to start server", "error", err)
 	}
+}
+
+func configureInstrumentation() {
+	l, err := zap.NewDevelopmentConfig().Build()
+	if err != nil {
+		log.Fatal(err)
+	}
+	zap.ReplaceGlobals(l)
 }

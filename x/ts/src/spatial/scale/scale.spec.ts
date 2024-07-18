@@ -10,15 +10,15 @@
 import { describe, expect, it, test } from "vitest";
 
 import * as box from "@/spatial/box/box";
-import { Scale,XY } from "@/spatial/scale/scale";
+import { Scale, XY } from "@/spatial/scale/scale";
 
-type ScaleSpec = [name: string, scale: Scale, i: number, o: number];
+type ScaleSpec = [name: string, scale: Scale<number>, i: number, o: number];
 
 describe("Scale", () => {
   describe("Scale", () => {
-    const simpleScale = Scale.scale(0, 10).scale(0, 1);
-    const translateScale = Scale.scale(0, 10).translate(5).scale(0, 1);
-    const translateMagnifyScale = Scale.scale(0, 10)
+    const simpleScale = Scale.scale<number>(0, 10).scale(0, 1);
+    const translateScale = Scale.scale<number>(0, 10).translate(5).scale(0, 1);
+    const translateMagnifyScale = Scale.scale<number>(0, 10)
       .translate(5)
       .magnify(2)
       .scale(0, 1);

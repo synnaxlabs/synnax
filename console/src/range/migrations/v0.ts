@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const baseRangeZ = z.object({
@@ -16,12 +16,14 @@ export const baseRangeZ = z.object({
   persisted: z.boolean(),
 });
 
+export const timeRangeZ = z.object({
+  start: z.number(),
+  end: z.number(),
+});
+
 export const staticRangeZ = baseRangeZ.extend({
   variant: z.literal("static"),
-  timeRange: z.object({
-    start: z.number(),
-    end: z.number(),
-  }),
+  timeRange: timeRangeZ,
 });
 
 export const dynamicRangeZ = baseRangeZ.extend({
@@ -30,6 +32,8 @@ export const dynamicRangeZ = baseRangeZ.extend({
 });
 
 export const rangeZ = z.union([staticRangeZ, dynamicRangeZ]);
+
+export type TimeRange = z.infer<typeof timeRangeZ>;
 
 export type StaticRange = z.infer<typeof staticRangeZ>;
 
@@ -41,7 +45,6 @@ export const sliceStateZ = z.object({
   version: z.literal("0.0.0"),
   activeRange: z.string().nullable(),
   ranges: z.record(rangeZ),
-  buffer: staticRangeZ.partial().nullable(),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;
@@ -49,7 +52,6 @@ export type SliceState = z.infer<typeof sliceStateZ>;
 export const ZERO_SLICE_STATE: SliceState = {
   version: "0.0.0",
   activeRange: null,
-  buffer: null,
   ranges: {
     rolling30s: {
       key: "recent",

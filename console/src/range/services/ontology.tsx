@@ -10,22 +10,21 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
+import { type Haul, Icon as PIcon, Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { toArray } from "@synnaxlabs/x";
+import { errors, id, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { createEditLayout } from "@/range/EditLayout";
+import { select, useSelect } from "@/range/selectors";
 import { type Range } from "@/range/slice";
-import { select } from "@/range/selectors";
 import { add, rename, setActive, type StoreState } from "@/range/slice";
 
 const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
@@ -77,7 +76,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to activate range`,
         description: e.message,
@@ -88,7 +87,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
     mutationFn: async ({ selection, client, store }) => {
-      const active = Layout.selectActiveMosaicTab(store.getState());
+      const active = Layout.selectActiveMosaicLayout(store.getState());
       if (active == null) return;
       const res = selection.resources[0];
       await fetchIfNotInState(store, client, res.id.key);
@@ -103,7 +102,7 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -128,7 +127,7 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -136,9 +135,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
   }).mutate;
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes, setNodes }, selection: { resources } }) => {
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = useConfirmDelete({ type: "Range" });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+      if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
@@ -155,18 +156,20 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       { addStatus, selection: { resources }, state: { setNodes } },
       prevNodes,
     ) => {
+      if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       let message = "Failed to delete ranges";
       if (resources.length === 1)
         message = `Failed to delete range ${resources[0].name}`;
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message,
         description: e.message,
       });
     },
   }).mutate;
+};
 
 const handleEdit = ({
   selection: { resources },
@@ -179,19 +182,18 @@ const handleEdit = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { selection, store } = props;
-  const state = store.getState();
-  const activeRange = select(state);
-  const layout = Layout.selectActiveMosaicTab(state);
-  const { resources, nodes } = selection;
-  const clusterKey = Cluster.useSelectActiveKey();
-
+  const {
+    selection,
+    selection: { resources, nodes },
+  } = props;
+  const activeRange = useSelect();
+  const layout = Layout.useSelectActiveMosaicLayout();
   const del = useDelete();
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
   const activate = useActivate();
   const groupFromSelection = Group.useCreateFromSelection();
-
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(nodes[0].key),
@@ -200,10 +202,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     addToNewPlot: () => addToNewPlot(props),
     edit: () => handleEdit(props),
     group: () => groupFromSelection(props),
-    link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/range/${resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
-    },
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
   };
   const isSingle = resources.length === 1;
   return (
@@ -222,13 +225,24 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       )}
       <PMenu.Divider />
       {layout?.type === "lineplot" && (
-        <PMenu.Item itemKey="addToActivePlot" startIcon={<Icon.Visualize />}>
+        <PMenu.Item
+          itemKey="addToActivePlot"
+          startIcon={
+            <PIcon.Icon topRight={<Icon.Range />}>
+              <Icon.Visualize key="plot" />
+            </PIcon.Icon>
+          }
+        >
           Add to {layout.name}
         </PMenu.Item>
       )}
       <PMenu.Item
         itemKey="addToNewPlot"
-        startIcon={[<Icon.Add key="add" />, <Icon.Visualize key="plot" />]}
+        startIcon={
+          <PIcon.Create>
+            <Icon.Visualize key="plot" />
+          </PIcon.Create>
+        }
       >
         Add to New Plot
       </PMenu.Item>

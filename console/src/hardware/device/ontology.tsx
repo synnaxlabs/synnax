@@ -9,11 +9,10 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { errors, id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
-import { FC, ReactElement } from "react";
+import { ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { NI } from "@/hardware/ni";
@@ -21,6 +20,7 @@ import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/ontology/hooks";
 
 type DeviceLayoutCreator = (
   device: string,
@@ -37,6 +37,7 @@ const CONTEXT_MENUS: Record<
   (props: Ontology.TreeContextMenuProps) => ReactElement | null
 > = {
   [NI.MAKE]: NI.Device.ContextMenuItems,
+  [OPC.MAKE]: OPC.Device.ContextMenuItems,
 };
 
 export const handleSelect: Ontology.HandleSelect = () => {};
@@ -56,10 +57,12 @@ const handleConfigure = ({
   })();
 };
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: ({ state: { nodes, setNodes }, selection: { resources } }) => {
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = useConfirmDelete({ type: "Device" });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
+      if (!(await confirm(resources))) throw errors.CANCELED;
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -71,33 +74,39 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+      if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to delete devices`,
         description: e.message,
       });
     },
   }).mutate;
+};
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { selection } = props;
-  const { nodes } = selection;
-  if (selection.nodes.length === 0) return null;
-  const singleResource = selection.nodes.length === 1;
-  const clusterKey = Cluster.useSelectActiveKey();
+  const {
+    selection,
+    selection: { nodes, resources },
+  } = props;
+  if (nodes.length === 0) return null;
+  const singleResource = nodes.length === 1;
+  const first = resources[0];
   const del = useDelete();
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => del(props),
-    link: () => {
-      const toCopy = `synnax://cluster/${clusterKey}/device/${selection.resources[0].id.key}`;
-      void navigator.clipboard.writeText(toCopy);
-    },
+    link: () =>
+      handleLink({
+        name: resources[0].name,
+        resource: resources[0].id.payload,
+      }),
     rename: () => Tree.startRenaming(nodes[0].key),
   };
-  const make = selection.resources[0].data?.make;
+  const make = resources[0].data?.make;
   let customMenuItems: ReactElement | null = null;
   if (make != null) {
     const C = CONTEXT_MENUS[make as string];
@@ -110,9 +119,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Menu.RenameItem />
           <PMenu.Divider />
-          <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
-            Configure
-          </PMenu.Item>
+          {first.data?.configured !== true && (
+            <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
+              Configure
+            </PMenu.Item>
+          )}
         </>
       )}
       <PMenu.Divider />

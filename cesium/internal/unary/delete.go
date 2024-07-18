@@ -11,6 +11,7 @@ package unary
 
 import (
 	"context"
+	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/control"
@@ -92,7 +93,9 @@ func (db *DB) calculateStartOffset(
 			return offset, ts, err
 		}
 		if !approxStamp.Exact() {
-			panic("cannot find exact timestamp")
+			msg := fmt.Sprintf("cannot stamp deletion start %d offset from start %v", offset-1, domainStart)
+			db.L.DPanic(msg)
+			return offset, ts, errors.New(msg)
 		}
 		ts = approxStamp.Upper + 1
 	}
@@ -121,7 +124,9 @@ func (db *DB) calculateEndOffset(
 			return offset, ts, err
 		}
 		if !approxStamp.Exact() {
-			panic("cannot find exact timestamp")
+			msg := fmt.Sprintf("cannot stamp deletion start %d offset from start %v", offset, domainStart)
+			db.L.DPanic(msg)
+			return offset, ts, errors.New(msg)
 		}
 		ts = approxStamp.Upper
 	}

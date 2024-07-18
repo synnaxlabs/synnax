@@ -14,12 +14,13 @@ import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import { type Haul, Pluto, type state, type Triggers } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
+import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
 import { NI } from "@/hardware/ni";
@@ -49,6 +50,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
+  ...Confirm.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -73,10 +75,18 @@ const useHaulState: state.PureUse<Haul.DraggingState> = () => {
   return [hauled, onHauledChange];
 };
 
+const useBlockDefaultDropBehavior = (): void =>
+  useEffect(() => {
+    const doc = document.documentElement;
+    doc.addEventListener("dragover", (e) => e.preventDefault());
+    doc.addEventListener("drop", (e) => e.preventDefault());
+  }, []);
+
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
+  useBlockDefaultDropBehavior();
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/vis/diagram/aether/types";
 export * from "@/vis/diagram/align";
 export * from "@/vis/diagram/Diagram";
-export type { Edge, Node, Viewport } from "@/vis/diagram/types";
 export * from "@/vis/diagram/util";

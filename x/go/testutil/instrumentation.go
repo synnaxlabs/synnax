@@ -10,6 +10,8 @@
 package testutil
 
 import (
+	"fmt"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -97,4 +99,19 @@ func Instrumentation(key string, configs ...InstrumentationConfig) alamos.Instru
 	}
 
 	return alamos.New(key, options...)
+}
+
+// PanicLogger returns an Instrumentation instance that only contains a logger that
+// only logs above PanicLevel and panics on DPanic.
+func PanicLogger() alamos.Instrumentation {
+	cfg := zap.NewDevelopmentConfig()
+	cfg.Level.SetLevel(zap.PanicLevel)
+	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+		ZapConfig: cfg,
+	}))
+
+	return alamos.New(
+		fmt.Sprintf("cesium-testing-%s", uuid.New().String()),
+		alamos.WithLogger(l),
+	)
 }

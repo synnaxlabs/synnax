@@ -2,6 +2,7 @@ import { migrate } from "@synnaxlabs/x";
 
 import * as v0 from "@/lineplot/migrations/v0";
 import * as v1 from "@/lineplot/migrations/v1";
+import * as v2 from "@/lineplot/migrations/v2";
 
 export const titleStateZ = v0.titleStateZ;
 export type TitleState = v0.TitleState;
@@ -19,10 +20,10 @@ export const selectionStateZ = v0.selectionStateZ;
 export type SelectionState = v0.SelectionState;
 export const ZERO_SELECTION_STATE = v0.ZERO_SELECTION_STATE;
 
-export type AxisState = v0.AxisState;
-export const ZERO_AXIS_STATE = v0.ZERO_AXIS_STATE;
-export type AxesState = v0.AxesState;
-export const ZERO_AXES_STATE = v0.ZERO_AXES_STATE;
+export type AxisState = v2.AxisState;
+export const ZERO_AXIS_STATE = v2.ZERO_AXIS_STATE;
+export type AxesState = v2.AxesState;
+export const ZERO_AXES_STATE = v2.ZERO_AXES_STATE;
 
 export const lineStateZ = v0.lineStateZ;
 export type LineState = v0.LineState;
@@ -48,9 +49,9 @@ export const rangesStateZ = v0.rangesStateZ;
 export type RangesState = v0.RangesState;
 export const ZERO_RANGES_STATE = v0.ZERO_RANGES_STATE;
 
-export const stateZ = v1.stateZ;
-export type State = v1.State;
-export const ZERO_STATE = v1.ZERO_STATE;
+export const stateZ = v2.stateZ;
+export type State = v2.State;
+export const ZERO_STATE = v2.ZERO_STATE;
 
 export const toolbarTabZ = v0.toolbarTabZ;
 export type ToolbarTab = v0.ToolbarTab;
@@ -66,28 +67,30 @@ export const controlStateZ = v0.controlStateZ;
 export type ControlState = v0.ControlState;
 export const ZERO_CONTROL_STATE = v0.ZERO_CONTROL_SATE;
 
-export const sliceStateZ = v1.sliceStateZ;
-export type SliceState = v1.SliceState;
-export const ZERO_SLICE_STATE = v1.ZERO_SLICE_STATE;
+export const sliceStateZ = v2.sliceStateZ;
+export type SliceState = v2.SliceState;
+export const ZERO_SLICE_STATE = v2.ZERO_SLICE_STATE;
 
-export type AnyState = v0.State | v1.State;
-export type AnySliceState = v0.SliceState | v1.SliceState;
+export type AnyState = v0.State | v1.State | v2.State;
+export type AnySliceState = v0.SliceState | v1.SliceState | v2.SliceState;
 
 export const STATE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.stateMigration,
+  "1.0.0": v2.stateMigration,
 };
 
-export const migrateState = migrate.migrator<AnyState, v1.State>({
+export const migrateState = migrate.migrator<AnyState, v2.State>({
   name: "lineplot.state",
   migrations: STATE_MIGRATIONS,
-  def: v1.ZERO_STATE,
+  def: v2.ZERO_STATE,
 });
 
 export const SLICE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.sliceMigration,
+  "1.0.0": v2.sliceMigration,
 };
 
-export const migrateSlice = migrate.migrator<AnySliceState, v1.SliceState>({
+export const migrateSlice = migrate.migrator<AnySliceState, v2.SliceState>({
   name: "lineplot.slice",
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,

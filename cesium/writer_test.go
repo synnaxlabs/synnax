@@ -249,6 +249,38 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 						Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 					})
+					It("Should not write an empty frame", func() {
+
+						var (
+							rate1 = GenerateChannelKey()
+							rate2 = GenerateChannelKey()
+						)
+						By("Creating a channel")
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{Key: rate1, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+							cesium.Channel{Key: rate2, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{rate1, rate2},
+							Start:    10 * telem.SecondTS,
+						}))
+
+						By("Writing data")
+						ok := w.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{rate1, rate2},
+							[]telem.Series{
+								{DataType: "int64"},
+								{DataType: "int64"},
+							},
+						))
+						Expect(ok).To(BeTrue())
+						end, ok := w.Commit()
+						Expect(ok).To(BeTrue())
+						Expect(end).To(Equal(10 * telem.SecondTS))
+
+						Expect(w.Close()).To(Succeed())
+					})
 				})
 				Describe("Auto-commit", func() {
 					Describe("Indexed channels", func() {
@@ -644,7 +676,9 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize)))
+							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -742,7 +776,9 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit: should not commit a tiny domain", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(80*telem.ByteSize)))
+							cesium.WithFileSize(80*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -839,7 +875,9 @@ var _ = Describe("Writer Behavior", func() {
 
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(64*telem.ByteSize)))
+							cesium.WithFileSize(64*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						By("Asserting that upon writing to the channels, the writes go to appropriate files", func() {
 							w = MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
@@ -902,7 +940,9 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("Without AutoCommit", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize)))
+							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -996,7 +1036,9 @@ var _ = Describe("Writer Behavior", func() {
 					It("Should not break when auto committing to not all channels", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize)))
+							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithInstrumentation(PanicLogger()),
+						))
 
 						var (
 							index2 = GenerateChannelKey()
@@ -1037,6 +1079,64 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						))).To(BeTrue())
 						Expect(w.Close()).To(Succeed())
+					})
+				})
+				Describe("Set authority", func() {
+					It("Should set the authority of writers", func() {
+						var (
+							key  = GenerateChannelKey()
+							key2 = GenerateChannelKey()
+						)
+						By("Creating a channel")
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.TimeStampT},
+							cesium.Channel{Key: key2, Virtual: true, DataType: telem.StringT},
+						)).To(Succeed())
+						w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       []cesium.ChannelKey{key, key2},
+							Start:          10 * telem.SecondTS,
+							Authorities:    []control.Authority{control.Authority(100), control.Authority(110)},
+							SendAuthErrors: config.True(),
+						}))
+
+						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       []cesium.ChannelKey{key, key2},
+							Start:          10 * telem.SecondTS,
+							Authorities:    []control.Authority{control.Authority(110), control.Authority(100)},
+							SendAuthErrors: config.True(),
+						}))
+
+						w1.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{
+								telem.NewSeriesV[int64](1, 2, 3, 4),
+							}),
+						)
+						Expect(w1.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						Expect(w1.SetAuthority(cesium.WriterConfig{Channels: []cesium.ChannelKey{key, key2}, Authorities: []control.Authority{control.Absolute, control.Authority(0)}})).To(BeTrue())
+						Expect(w1.Error()).ToNot(HaveOccurred())
+
+						w2.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{
+								telem.NewSeriesV[int64](1, 3, 4),
+							},
+						))
+						Expect(w2.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						w1.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{key2},
+							[]telem.Series{
+								{DataType: telem.StringT, Data: []byte("hehe")},
+							},
+						))
+
+						Expect(w1.Error()).To(HaveOccurredAs(control.Unauthorized))
+
+						Expect(w1.Close()).To(Succeed())
+						Expect(w2.Close()).To(Succeed())
 					})
 				})
 			})

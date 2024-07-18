@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Primitive, type UnknownRecord } from "@synnaxlabs/x";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 export type State = Primitive | UnknownRecord;
 export type SetFunc<S, PS = S> = (prev: PS) => S;

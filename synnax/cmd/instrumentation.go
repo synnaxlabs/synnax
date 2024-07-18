@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/cmd/internal/invariants"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -45,7 +46,7 @@ func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 	}
 }
 
-func configureLogger() (*alamos.Logger, error) {
+func configureLogger() (logger *alamos.Logger, err error) {
 	verbose := viper.GetBool("verbose")
 	debug := viper.GetBool("debug")
 	var cfg zap.Config
@@ -54,6 +55,8 @@ func configureLogger() (*alamos.Logger, error) {
 	} else {
 		cfg = zap.NewProductionConfig()
 	}
+	cfg.Development = invariants.IsDevelopment
+
 	if verbose || debug {
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
@@ -65,7 +68,13 @@ func configureLogger() (*alamos.Logger, error) {
 		cfg.DisableStacktrace = true
 		cfg.DisableCaller = true
 	}
-	return alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg})
+	logger, err = alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg})
+	if err != nil {
+		return
+	}
+
+	zap.ReplaceGlobals(logger.Zap())
+	return
 }
 
 func newPrettyLogger() *zap.Logger {

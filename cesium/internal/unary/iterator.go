@@ -52,9 +52,12 @@ type Iterator struct {
 
 const AutoSpan telem.TimeSpan = -1
 
+// SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
+// valid until a seeking call is made.
 func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.bounds = tr
 	i.internal.SetBounds(tr)
+	i.seekReset(i.bounds.End)
 }
 
 func (i *Iterator) Bounds() telem.TimeRange { return i.bounds }
@@ -89,13 +92,17 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 		return false
 	}
 
-	if i.bounds.OverlapsWith(ts.SpanRange(0)) {
+	ok := i.internal.SeekLE(ctx, ts)
+
+	if i.internal.TimeRange().OverlapsWith(ts.SpanRange(0)) {
+		// If the provided ts is in the seeked domain, set the view to be ts.
 		i.seekReset(ts)
 	} else {
-		i.seekReset(i.bounds.End)
+		// Otherwise, set the view to the end of the seeked domain or bounds, whichever
+		// one is earlier.
+		i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).End)
 	}
-
-	return i.internal.SeekLE(ctx, ts)
+	return ok
 }
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
@@ -104,13 +111,17 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 		return false
 	}
 
-	if i.bounds.OverlapsWith(ts.SpanRange(0)) {
+	ok := i.internal.SeekGE(ctx, ts)
+
+	if i.internal.TimeRange().OverlapsWith(ts.SpanRange(0)) {
+		// If the provided ts is in the seeked domain, set the view to be ts.
 		i.seekReset(ts)
 	} else {
-		i.seekReset(i.bounds.Start)
+		// Otherwise, set the view to the start of the seeked domain or bounds, whichever
+		// one is later.
+		i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	}
-
-	return i.internal.SeekGE(ctx, ts)
+	return ok
 }
 
 // Next moves the iterator forward by span. More specifically, if the current view is

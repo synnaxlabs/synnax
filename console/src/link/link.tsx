@@ -19,6 +19,7 @@ import {
   useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -27,22 +28,22 @@ import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 
 export interface HandlerProps {
-  resource: string;
-  resourceKey: string;
+  addStatus: (status: Status.CrudeSpec) => void;
   client: Synnax;
   dispatch: Dispatch<UnknownAction>;
   placer: Layout.Placer;
-  addStatus: (status: Status.CrudeSpec) => void;
+  resource: string;
+  resourceKey: string;
   windowKey: string;
 }
 
 export type Handler = (props: HandlerProps) => Promise<boolean>;
 
-export interface UseDeepLinkProps {
+export interface UseDeepProps {
   handlers: Handler[];
 }
 
-export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
+export const useDeep = ({ handlers }: UseDeepProps): void => {
   const client = PSynnax.use();
   const clientRef = useSyncedRef(client);
   const addStatus = Status.useAggregator();
@@ -55,7 +56,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
   const addOpenUrlErrorStatus = () => {
     addStatus({
       variant: "error",
-      key: "openUrlError",
+      key: id.id(),
       message: openUrlErrorMessage,
     });
   };
@@ -89,7 +90,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
       const addClusterErrorStatus = () => {
         addStatus({
           variant: "error",
-          key: "openUrlError-${clusterKey}",
+          key: id.id(),
           message: `Cannot open URL, Cluster with key ${clusterKey} not found`,
         });
       };
@@ -123,7 +124,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
           return;
       addStatus({
         variant: "error",
-        key: "openUrlError-ResourceNotFound-",
+        key: id.id(),
         message: `Cannot open link, ${resource} is unknown`,
       });
     });
@@ -136,3 +137,48 @@ export const CopyMenuItem = (): ReactElement => (
     Copy link
   </Menu.Item>
 );
+
+export interface CopyToClipboardProps {
+  clusterKey?: string;
+  name: string;
+  resource?: {
+    key: string;
+    type: string;
+  };
+}
+
+export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) => {
+  const activeClusterKey = Cluster.useSelectActiveKey();
+  const addStatus = Status.useAggregator();
+  return ({ resource, name, clusterKey }) => {
+    let url = "synnax://cluster/";
+    const key = clusterKey ?? activeClusterKey;
+    if (key == null) {
+      addStatus({
+        variant: "error",
+        key: id.id(),
+        message: `Failed to copy link to ${name} to clipboard`,
+        description: "No active cluster found",
+      });
+      return;
+    }
+    url += key;
+    if (resource != undefined) url += `/${resource.type}/${resource.key}`;
+    navigator.clipboard.writeText(url).then(
+      () => {
+        addStatus({
+          variant: "success",
+          key: id.id(),
+          message: `Link to ${name} copied to clipboard.`,
+        });
+      },
+      () => {
+        addStatus({
+          variant: "error",
+          key: id.id(),
+          message: `Failed to copy link to ${name} to clipboard.`,
+        });
+      },
+    );
+  };
+};

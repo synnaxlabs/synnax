@@ -28,6 +28,9 @@ type File interface {
 	// rendering the next read to EOF and write to leave null bytes between.
 	// This is the default behavior of the os.File implementation, and the memFS
 	// implementation has been adapted to match this behaviour.
+	//
+	// In addition, the Windows implementation of FS allows a file without write
+	// permissions to be truncated whereas Unix and our memFS implementation do not.
 	Truncate(size int64) error
 	Stat() (os.FileInfo, error)
 	Sync() error

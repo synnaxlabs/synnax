@@ -43,6 +43,8 @@ import {
 } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { Confirm } from "@/confirm";
+import { CreateConfirmModal } from "@/confirm/Confirm";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
@@ -272,8 +274,10 @@ const PalletteDialogContent = ({
 
   useLayoutEffect(() => setSourceData(mode === "command" ? commands : []), [mode]);
 
+  const confirm = Confirm.useModal();
+
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
-    () => ({ store, placeLayout }),
+    () => ({ store, placeLayout, confirm }),
     [store, placeLayout],
   );
 
@@ -282,7 +286,7 @@ const PalletteDialogContent = ({
       close();
       if (mode === "command") {
         const entry = entries[0];
-        (entry as Command).onSelect({ store, placeLayout });
+        (entry as Command).onSelect(cmdSelectCtx);
       } else {
         if (client == null) return;
         const id = new ontology.ID(key);
@@ -442,6 +446,7 @@ export interface ResourceListItemProps
 export interface CommandSelectionContext {
   store: RootStore;
   placeLayout: Layout.Placer;
+  confirm: CreateConfirmModal;
 }
 
 interface CommandActionProps {

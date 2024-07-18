@@ -7,5 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const camelToTitle = (str: string): string =>
-  str.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
+import { Confirm, LAYOUT_TYPE } from "@/confirm/Confirm";
+import { Layout } from "@/layout";
+
+export { useModal } from "@/confirm/Confirm";
+
+export const LAYOUTS: Record<string, Layout.Renderer> = {
+  [LAYOUT_TYPE]: Confirm,
+};

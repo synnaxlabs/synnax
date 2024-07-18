@@ -17,6 +17,7 @@ import {
   ButtonForm,
   CommonNonToggleForm,
   CommonToggleForm,
+  LightForm,
   SolenoidValveForm,
   type SymbolFormProps,
   TankForm,
@@ -35,14 +36,23 @@ import {
   type ButtonProps,
   Cap,
   CapPreview,
+  CavityPump,
+  CavityPumpPreview,
+  type CavityPumpProps,
   CheckValve,
   CheckValvePreview,
   type CheckValveProps,
+  ElectricRegulator,
+  ElectricRegulatorPreview,
+  type ElectricRegulatorProps,
   Filter,
   FilterPreview,
   type FilterProps,
   FourWayValve,
   FourWayValvePreview,
+  Light,
+  LightPreview,
+  type LightProps,
   ManualValve,
   ManualValvePreview,
   type ManualValveProps,
@@ -52,6 +62,9 @@ import {
   Orifice,
   OrificePreview,
   type OrificeProps,
+  PistonPump,
+  PistonPumpPreview,
+  type PistonPumpProps,
   Pump,
   PumpPreview,
   type PumpProps,
@@ -61,9 +74,18 @@ import {
   ReliefValve,
   ReliefValvePreview,
   type ReliefValveProps,
+  RotaryMixer,
+  RotaryMixerPreview,
+  type RotaryMixerProps,
+  ScrewPump,
+  ScrewPumpPreview,
+  type ScrewPumpProps,
   SolenoidValve,
   SolenoidValvePreview,
   type SolenoidValveProps,
+  StaticMixer,
+  StaticMixerPreview,
+  type StaticMixerProps,
   Switch,
   SwitchPreview,
   type SwitchProps,
@@ -74,6 +96,9 @@ import {
   ThreeWayValve,
   ThreeWayValvePreview,
   type ThreeWayValveProps,
+  VacuumPump,
+  VacuumPumpPreview,
+  type VacuumPumpProps,
   Value,
   ValuePreview,
   type ValueProps,
@@ -96,29 +121,37 @@ const Z_INDEX_UPPER = 4;
 const Z_INDEX_LOWER = 2;
 
 const VARIANTS = [
-  "threeWayValve",
-  "valve",
-  "solenoidValve",
-  "fourWayValve",
-  "angledValve",
-  "pump",
-  "tank",
-  "reliefValve",
-  "regulator",
-  "burstDisc",
-  "cap",
-  "manualValve",
-  "filter",
-  "needleValve",
-  "checkValve",
-  "orifice",
   "angledReliefValve",
-  "value",
+  "angledValve",
+  "burstDisc",
   "button",
+  "cap",
+  "cavityPump",
+  "checkValve",
+  "electricRegulator",
+  "filter",
+  "fourWayValve",
+  "light",
+  "manualValve",
+  "needleValve",
+  "orifice",
+  "pistonPump",
+  "pump",
+  "regulator",
+  "reliefValve",
+  "rotaryMixer",
+  "screwPump",
+  "solenoidValve",
+  "staticMixer",
   "switch",
+  "tank",
+  "threeWayValve",
+  "vacuumPump",
+  "value",
+  "valve",
 ] as const;
 
-const typeZ = z.enum(VARIANTS);
+export const typeZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof typeZ>;
 
 const ZERO_TOGGLE_PROPS = {
@@ -189,14 +222,14 @@ const valve: Spec<ValveProps> = {
 };
 
 const solenoidValve: Spec<SolenoidValveProps> = {
-  name: "Pneumatic Valve",
+  name: "Solenoid Valve",
   key: "solenoidValve",
   Form: SolenoidValveForm,
   Symbol: SolenoidValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     label: {
-      label: "Pneumatic Valve",
+      label: "Solenoid Valve",
       level: "p",
       orientation: "top",
     },
@@ -265,6 +298,25 @@ const pump: Spec<PumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const screwPump: Spec<ScrewPumpProps> = {
+  name: "Screw Pump",
+  key: "screwPump",
+  Form: CommonToggleForm,
+  Symbol: ScrewPump,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Screw Pump",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: ScrewPumpPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const tank: Spec<TankProps> = {
   name: "Tank",
   key: "tank",
@@ -320,6 +372,24 @@ const regulator: Spec<RegulatorProps> = {
     orientation: "left",
   }),
   Preview: RegulatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const electricRegulator: Spec<ElectricRegulatorProps> = {
+  name: "Electric Regulator",
+  key: "electricRegulator",
+  Form: CommonNonToggleForm,
+  Symbol: ElectricRegulator,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Electric Regulator",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+  }),
+  Preview: ElectricRegulatorPreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -552,25 +622,159 @@ const switch_: Spec<SwitchProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const vacuumPump: Spec<VacuumPumpProps> = {
+  name: "Vacuum Pump",
+  key: "vacuumPump",
+  Symbol: VacuumPump,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Vacuum Pump",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: VacuumPumpPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const cavityPump: Spec<CavityPumpProps> = {
+  name: "Cavity Pump",
+  key: "cavityPump",
+  Symbol: CavityPump,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Cavity Pump",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: CavityPumpPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const pistonPump: Spec<PistonPumpProps> = {
+  name: "Piston Pump",
+  key: "pistonPump",
+  Symbol: PistonPump,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Piston Pump",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: PistonPumpPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const staticMixer: Spec<StaticMixerProps> = {
+  name: "Static Mixer",
+  key: "staticMixer",
+  Symbol: StaticMixer,
+  Form: CommonNonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Static Mixer",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+  }),
+  Preview: StaticMixerPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const rotaryMixer: Spec<RotaryMixerProps> = {
+  name: "Rotary Mixer",
+  key: "rotaryMixer",
+  Symbol: RotaryMixer,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Rotary Mixer",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: RotaryMixerPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const light: Spec<LightProps> = {
+  name: "Light",
+  key: "light",
+  Symbol: Light,
+  Form: LightForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    label: {
+      label: "Light",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+    units: "psi",
+    source: telem.sourcePipeline("boolean", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "threshold",
+        },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: 0 }),
+        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+      },
+      outlet: "threshold",
+    }),
+  }),
+  Preview: LightPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
-  threeWayValve,
+  light,
+  switch: switch_,
+  button,
+  tank,
   valve,
   solenoidValve,
+  threeWayValve,
   fourWayValve,
   angledValve,
-  pump,
-  tank,
+  manualValve,
+  needleValve,
   reliefValve,
+  angledReliefValve,
+  checkValve,
   regulator,
+  electricRegulator,
+  pump,
+  pistonPump,
+  screwPump,
+  cavityPump,
+  vacuumPump,
+  staticMixer,
+  rotaryMixer,
   burstDisc,
   cap,
-  manualValve,
   filter,
-  needleValve,
-  checkValve,
   orifice,
-  angledReliefValve,
-  button,
-  switch: switch_,
 };

@@ -299,6 +299,7 @@ describe("line", () => {
           xSeries,
           ySeries,
           downSample,
+          0,
           TimeSpan.ZERO,
         );
         expect(drawOperations.length).toBe(expected.length);

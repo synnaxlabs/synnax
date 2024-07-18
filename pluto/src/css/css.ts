@@ -13,7 +13,6 @@ import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
 import { type ComponentSize } from "@/util/component";
-import { act } from '@testing-library/react';
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;

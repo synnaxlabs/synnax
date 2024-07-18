@@ -25,43 +25,105 @@
 /* |||| FILLED |||| */
 
 .pluto-btn--filled {
-    background: var(--pluto-primary-z);
+    --pluto-bg: var(--pluto-primary-z);
+    background: var(--pluto-bg);
     border: var(--pluto-border);
-    border-color: var(--pluto-primary-z) !important;
-    color: var(--pluto-text-on-primary);
+    border-color: var(--pluto-bg) !important;
+    & * {
+        color: var(--pluto-text-on-primary) !important;
+    }
 
     &:hover:not(.pluto--disabled) {
-        background: var(--pluto-primary-p1);
-        border-color: var(--pluto-primary-p1) !important;
+        --pluto-bg: var(--pluto-primary-p1);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
     }
 
     &:active:not(.pluto--disabled) {
-        background: var(--pluto-primary-m1);
-        border-color: var(--pluto-primary-m1) !important;
+        --pluto-bg: var(--pluto-primary-m1);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
+    }
+
+    &.pluto--warning {
+        --pluto-bg: var(--pluto-warning-z);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
+
+        &:hover:not(.pluto--disabled) {
+            --pluto-bg: var(--pluto-warning-p1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
+        }
+
+        &:active:not(.pluto--disabled) {
+            --pluto-bg: var(--pluto-warning-m1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
+        }
+    }
+
+    &.pluto--error {
+        --pluto-bg: var(--pluto-error-z);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
+
+        &:hover:not(.pluto--disabled) {
+            --pluto-bg: var(--pluto-error-p1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
+        }
+
+        &:active:not(.pluto--disabled) {
+            --pluto-bg: var(--pluto-error-m1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
+        }
     }
 }
 
 /* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
-    background: var(--pluto-gray-l0);
+    --pluto-bg: var(--pluto-gray-l0);
+    background: var(--pluto-bg);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 
+    &.pluto--warning {
+        border-color: var(--pluto-warning-z) !important;
+        color: var(--pluto-warning-z);
+    }
+
+    &.pluto--error {
+        border-color: var(--pluto-error-z) !important;
+        color: var(--pluto-error-z);
+    }
+
     &:hover:not(.pluto--disabled) {
-        background: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l2);
+        background: var(--pluto-bg);
         border-color: var(--pluto-gray-l4) !important;
     }
 
     &:active:not(.pluto--disabled) {
-        background: var(--pluto-gray-l3);
+        --pluto-bg: var(--pluto-gray-l3);
+        background: var(--pluto-bg);
         border-color: var(--pluto-gray-l5) !important;
     }
+}
+
+.pluto-btn.pluto--disabled {
+    & * {
+        color: var(--pluto-gray-l5) !important;
+    }
+    color: var(--pluto-gray-l5);
 }
 
 .pluto-btn--filled,
 .pluto-btn--outlined {
     &.pluto--disabled {
-        background: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l2);
+        background: var(--pluto-bg);
         color: var(--pluto-gray-l5);
         border: var(--pluto-border);
         border-color: var(--pluto-gray-l3) !important;
@@ -75,15 +137,13 @@
     border: none;
 
     &:hover:not(.pluto--disabled) {
-        background: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l2);
+        background: var(--pluto-bg);
     }
 
     &:active:not(.pluto--disabled) {
-        background: var(--pluto-gray-l3);
-    }
-
-    &.pluto--disabled {
-        color: var(--pluto-gray-l5);
+        --pluto-bg: var(--pluto-gray-l3);
+        background: var(--pluto-bg);
     }
 }
 

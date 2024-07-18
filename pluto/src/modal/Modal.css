@@ -11,14 +11,22 @@
     background: var(--pluto-gray-l3-40);
 
     .pluto-modal__dialog {
+        container-type: inline-size;
         position: absolute;
         top: 25%;
-        border-radius: 1rem;
-        background: var(--pluto-gray-l1);
+        transform: translateY(-25%);
+        background: var(--pluto-gray-l0);
         backdrop-filter: saturate(300%) blur(5rem);
-        border: var(--pluto-border-l4);
         box-shadow: var(--pluto-shadow-menu);
-        overflow: hidden;
+        min-width: 400px;
+        min-height: 150px;
+
+        & > div {
+            border: var(--pluto-border-l4);
+            border-radius: 1rem;
+            overflow: hidden;
+            height: 100%;
+        }
     }
 
     @media (max-height: 800px) {

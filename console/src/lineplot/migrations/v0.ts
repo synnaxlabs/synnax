@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Text, Viewport } from "@synnaxlabs/pluto";
-import { bounds, box, dimensions, direction, migrate, xy } from "@synnaxlabs/x";
+import { bounds, box, dimensions, direction, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {

@@ -1,7 +1,7 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
 import { theming } from "@synnaxlabs/pluto/ether";
-import { location, migrate } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const placementLocationZ = z.union([

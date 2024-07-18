@@ -98,12 +98,17 @@ func (f Frame) SquashSameKeyData(key ChannelKey) (data []byte) {
 	return
 }
 
+// Len is meant for testing use only.
 func (f Frame) Len() int64 {
 	f.assertEven("Len")
 	if len(f.Series) == 0 {
 		return 0
 	}
 	return f.Series[0].Len()
+}
+
+func (f Frame) Empty() bool {
+	return len(f.Series) == 0
 }
 
 func (f Frame) assertEven(method string) {

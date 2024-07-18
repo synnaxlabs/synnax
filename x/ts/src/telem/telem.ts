@@ -1063,7 +1063,7 @@ export class DataType extends String implements Stringer {
     return v;
   }
 
-  equals(other: DataType): boolean {
+  equals(other: CrudeDataType): boolean {
     return this.valueOf() === other.valueOf();
   }
 

@@ -42,8 +42,8 @@ func NewOptions(opts []Option) *Options {
 
 type Option func(fo *Options)
 
-func CancelOnExitErr() Option {
-	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.CancelOnExitErr()) }
+func CancelOnFail() Option {
+	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.CancelOnFail()) }
 }
 
 func WithAddress(addr address.Address) Option {
