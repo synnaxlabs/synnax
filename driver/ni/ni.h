@@ -576,7 +576,27 @@ static inline bool dlls_available(){
         "nimdnsResponder.dll",
         "nirocoapi.dll",
         "nisysapi.dll",
-        "niprtsiu.dll"
+        "niprtsiu.dll",
+        "nicdru.dll",
+        "nicpcie.dll",
+        "nimxif.dll",
+        "nicmmu.dll",
+        "nipxices.dll",
+        "nicsru.dll",
+        "nisdsapi.dll",
+        "nicdxu.dll",
+        "nicdccu.dll",
+        "nisdlib.dll",
+        "nieccu.dll",
+        "nicntdrv.dll",
+        "niemru.dll",
+        "nicmru.dll",
+        "nilmsu.dll",
+        "nisdigu.dll",
+        "nisciu.dll",
+        "nistc3ru.dll",
+        "nixfmrru.dll",
+        "nixsru.dll",
     };
 
     bool d = true;
