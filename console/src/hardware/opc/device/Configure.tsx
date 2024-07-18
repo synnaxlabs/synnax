@@ -163,7 +163,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
               placeholder: "name",
             }}
           />
-
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
               <Input.Text placeholder="opc.tcp://localhost:4840" autoFocus {...p} />

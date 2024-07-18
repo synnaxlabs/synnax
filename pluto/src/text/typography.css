@@ -31,7 +31,8 @@ textarea {
 }
 
 h1,
-.pluto-text--h1 {
+.pluto-text--h1,
+.pluto-text--h1 * {
     font-size: var(--pluto-h1-size);
     line-height: var(--pluto-h1-line-height);
     font-weight: var(--pluto-h1-weight);

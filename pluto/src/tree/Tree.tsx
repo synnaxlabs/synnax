@@ -61,6 +61,7 @@ export interface UseReturn {
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   expand: (key: string) => void;
   contract: (key: string) => void;
+  clearExpanded: () => void;
   nodes: FlattenedNode[];
 }
 
@@ -128,6 +129,8 @@ export const use = (props: UseProps): UseReturn => {
     [setExpanded],
   );
 
+  const clearExpanded = useCallback(() => setExpanded([]), [setExpanded]);
+
   return {
     onSelect: handleSelect,
     selected,
@@ -135,6 +138,7 @@ export const use = (props: UseProps): UseReturn => {
     contract: handleContract,
     expand: handleExpand,
     nodes: flat,
+    clearExpanded,
   };
 };
 
@@ -235,6 +239,7 @@ export const DefaultItem = memo(
       const selectedItems = getSourceData().filter((item) =>
         selectedItemKeys.includes(item.key),
       );
+      console.log(selectedItemKeys.includes(key));
       if (selectedItemKeys.includes(key)) {
         const selectedHaulItems = selectedItems
           .map(({ key, haulItems, depth }) => [
@@ -250,7 +255,7 @@ export const DefaultItem = memo(
       startDrag(
         [
           { type: HAUL_TYPE, key, data: { depth } },
-          ...haulItems.map((item) => ({ ...item, data: { depth } })),
+          ...haulItems.map((item) => ({ ...item, data: { ...item.data, depth } })),
         ],
         (props) => onSuccessfulDrop?.(key, props),
       );
@@ -325,6 +330,7 @@ export const Tree = ({
   useMargin = false,
   showRules = false,
   virtual = true,
+  clearExpanded: ___,
   expand: __,
   contract: _,
   emptyContent,

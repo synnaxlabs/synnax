@@ -35,6 +35,7 @@ import { CSS } from "@/css";
 import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
+import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import {
   Read,
   READ_TYPE,
@@ -55,7 +56,7 @@ import {
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 
 export const configureReadLayout = (create: boolean = false): Layout.State => ({
   name: "Configure OPC UA Read Task",
@@ -214,6 +215,8 @@ const Wrapped = ({
 
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
+  const placer = Layout.usePlacer();
+
   return (
     <Align.Space
       className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
@@ -239,6 +242,19 @@ const Wrapped = ({
                   {...p}
                   allowNone={false}
                   searchOptions={{ makes: ["opc"] }}
+                  emptyContent={
+                    <Align.Center>
+                      <Text.Text shade={6} level="p">
+                        No OPC UA servers found.
+                      </Text.Text>
+                      <Text.Link
+                        level="p"
+                        onClick={() => placer(createConfigureLayout())}
+                      >
+                        Connect a new server.
+                      </Text.Link>
+                    </Align.Center>
+                  }
                 />
               )}
             </Form.Field>

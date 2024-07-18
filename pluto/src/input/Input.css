@@ -32,10 +32,22 @@
     }
 
     &.pluto-input--disabled {
+        * {
+            cursor: not-allowed;
+        }
         & .pluto-input__placeholder * {
             color: var(--pluto-gray-l5) !important;
         }
         & .pluto-input__internal {
+            background-color: var(--pluto-gray-l1);
+            opacity: 0.8;
+            background: repeating-linear-gradient(
+                -45deg,
+                var(--pluto-gray-l3-60),
+                var(--pluto-gray-l3-60) 0.5rem,
+                var(--pluto-gray-l1) 0.5rem,
+                var(--pluto-gray-l1) 4rem
+            );
             border-color: var(--pluto-gray-l3);
         }
     }
