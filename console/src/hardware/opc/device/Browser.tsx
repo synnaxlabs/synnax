@@ -1,5 +1,13 @@
 import { Icon } from "@synnaxlabs/media";
-import { Align, Icon as PIcon, Synnax, Text, TimeSpan, Tree } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Icon as PIcon,
+  Status,
+  Synnax,
+  Text,
+  TimeSpan,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ReactElement, useEffect, useState } from "react";
@@ -40,9 +48,13 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
 
   const expand = useMutation({
     mutationKey: [client?.key, scanTask?.key, device?.key],
-    mutationFn: async (props: Optional<Tree.HandleExpandProps, "clicked">) => {
+    mutationFn: async (
+      props: Optional<Tree.HandleExpandProps, "clicked"> & { delay?: number },
+    ) => {
       if (scanTask?.key == null || props.action === "contract" || device == null)
         return;
+      if (props.delay != null)
+        await new Promise((resolve) => setTimeout(resolve, props.delay));
       const isRoot = props.clicked == null;
       const nodeID = isRoot ? "" : parseNodeID(props.clicked as string);
       const { connection } = device.properties;
@@ -68,6 +80,7 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
         haulItems: [{ key: node.nodeId, type: "opc", data: node }],
       }));
       setLoading(undefined);
+      setInitialLoading(false);
       if (isRoot) setNodes(newNodes);
       else
         setNodes([
@@ -80,15 +93,34 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
     },
   });
 
-  useEffect(() => {
-    if (device == null || scanTask == null) return;
-    expand.mutate({ action: "expand", current: [] });
-  }, [device, scanTask?.key]);
-
   const treeProps = Tree.use({ nodes, onExpand: expand.mutate });
 
-  return (
-    <Align.Space direction="y" grow style={{ height: "100%", overflow: "hidden" }}>
+  const [initialLoading, setInitialLoading] = useState(false);
+
+  useEffect(() => {
+    if (device == null || scanTask == null) return;
+    setInitialLoading(true);
+    expand.mutate({ action: "expand", current: [], delay: 200 });
+    treeProps.clearExpanded();
+  }, [device, scanTask?.key, treeProps.clearExpanded]);
+
+  let content: ReactElement | null = null;
+  if (initialLoading)
+    content = (
+      <Align.Center style={{ width: "100%", height: "100%" }}>
+        <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l5)" />
+      </Align.Center>
+    );
+  else if (expand.isError)
+    content = (
+      <Align.Center style={{ width: "100%", height: "100%" }}>
+        <Status.Text variant="error" shade={6} level="p">
+          Error loading nodes. {expand.error?.message}
+        </Status.Text>
+      </Align.Center>
+    );
+  else
+    content = (
       <Tree.Tree
         loading={loading}
         emptyContent={
@@ -102,6 +134,11 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
         }
         {...treeProps}
       />
+    );
+
+  return (
+    <Align.Space direction="y" grow style={{ height: "100%", overflow: "hidden" }}>
+      {content}
     </Align.Space>
   );
 };

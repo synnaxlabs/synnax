@@ -112,6 +112,13 @@
     }
 }
 
+.pluto-btn.pluto--disabled {
+    & * {
+        color: var(--pluto-gray-l5) !important;
+    }
+    color: var(--pluto-gray-l5);
+}
+
 .pluto-btn--filled,
 .pluto-btn--outlined {
     &.pluto--disabled {
@@ -137,10 +144,6 @@
     &:active:not(.pluto--disabled) {
         --pluto-bg: var(--pluto-gray-l3);
         background: var(--pluto-bg);
-    }
-
-    &.pluto--disabled {
-        color: var(--pluto-gray-l5);
     }
 }
 
