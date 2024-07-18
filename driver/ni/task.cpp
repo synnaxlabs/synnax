@@ -29,6 +29,14 @@ ni::ScannerTask::ScannerTask(
         .scale = 1.2,
     });
 
+    if(!scanner.ok()) {
+        ctx->setState({
+            .task = task.key,
+            .variant = "error",
+            .details = {"message", "failed to initialize scanner"}
+        });
+        return; 
+    }
     this->breaker.start();
     thread = std::thread(&ni::ScannerTask::run, this);
 }

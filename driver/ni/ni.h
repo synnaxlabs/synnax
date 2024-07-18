@@ -577,6 +577,7 @@ static inline bool dlls_available(){
         "nirocoapi.dll",
         "nisysapi.dll",
         "niprtsiu.dll",
+        
         "nicdru.dll",
         "nicpcie.dll",
         "nimxif.dll",

@@ -70,6 +70,7 @@ ni::Scanner::~Scanner() {
 }
 
 void ni::Scanner::scan() {
+    if(!this->ok_state) return;
     NISysCfgResourceHandle resource = NULL;
 
     // first find hardware
@@ -192,7 +193,7 @@ void ni::Scanner::create_devices() {
 }
 
 bool ni::Scanner::ok() {
-    return ok_state;
+    return this->ok_state;
 }
 
 json ni::Scanner::get_devices() {
