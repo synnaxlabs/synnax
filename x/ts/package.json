@@ -20,6 +20,7 @@
     "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "dependencies": {
+    "js-convert-case": "^4.2.0",
     "nanoid": "^5.0.7",
     "zod": "3.23.8"
   },

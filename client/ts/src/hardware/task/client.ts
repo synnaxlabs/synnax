@@ -9,11 +9,11 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { binary, type observe } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
-import { nanoid } from "nanoid/non-secure";
 import { z } from "zod";
 
 import { framer } from "@/framer";
@@ -153,7 +153,7 @@ export class Task<
 
   async executeCommand(type: string, args?: UnknownRecord): Promise<string> {
     const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
-    const key = nanoid();
+    const key = id.id();
     await writer.write(TASK_CMD_CHANNEL, [{ task: this.key, type, key, args }]);
     await writer.close();
     return key;

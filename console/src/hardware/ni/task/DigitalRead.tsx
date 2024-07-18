@@ -21,9 +21,8 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, primitiveIsZero } from "@synnaxlabs/x";
+import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
@@ -66,7 +65,7 @@ export const configureDigitalReadLayout = (
 ): Layout.State<ConfigureDigitalReadArgs> => ({
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
-  key: nanoid(),
+  key: id.id(),
   windowKey: DIGITAL_READ_TYPE,
   location: "mosaic",
   args: { create },
@@ -295,7 +294,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       ...deep.copy(ZERO_DI_CHAN),
       port: 0,
       line: availableLine,
-      key: nanoid(),
+      key: id.id(),
     });
   };
   const menuProps = Menu.useContextMenu();
@@ -313,7 +312,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             onDuplicate={(indices) => {
               const newChannels = indices.map((i) => ({
                 ...value[i],
-                key: nanoid(),
+                key: id.id(),
               }));
               push(newChannels);
             }}

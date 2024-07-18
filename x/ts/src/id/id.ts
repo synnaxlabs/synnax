@@ -7,4 +7,8 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-export * as Confirm from "@/confirm/external";
+import { customAlphabet, type nanoid } from "nanoid/non-secure";
+
+const alphanumeric = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+export const id = customAlphabet(alphanumeric, 11) as typeof nanoid;

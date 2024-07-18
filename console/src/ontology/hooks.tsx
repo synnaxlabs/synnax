@@ -22,7 +22,7 @@ export const useConfirmDelete = ({
 }: UseConfirmDeleteProps) => {
   const confirm = Confirm.useModal();
   return async (resources: ontology.Resource[]): Promise<boolean> => {
-    let message = `Are you sure you want to delete ${resources.length} ${type}s?`;
+    let message = `Are you sure you want to delete ${resources.length} ${type.toLowerCase()}s?`;
     if (resources.length === 1)
       message = `Are you sure you want to delete ${resources[0].name}?`;
     return await confirm(

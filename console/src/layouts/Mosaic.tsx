@@ -23,6 +23,7 @@ import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
+import { Confirm } from "@/confirm";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
@@ -37,8 +38,10 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
+import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
+import { Workspace } from "@/workspace";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
@@ -55,7 +58,6 @@ export const Mosaic = memo((): ReactElement => {
   const [windowKey, mosaic] = useSelectMosaic();
   const store = useStore();
   const activeTab = useSelectActiveMosaicTabKey();
-
   const client = Synnax.use();
   const placer = usePlacer();
   const dispatch = useDispatch();
@@ -138,6 +140,38 @@ export const Mosaic = memo((): ReactElement => {
     [dispatch, windowKey],
   );
 
+  const workspaceKey = Workspace.useSelectActiveKey();
+  const confirm = Confirm.useModal();
+
+  const handleFileDrop = useCallback(
+    (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
+      const files = Array.from(event.dataTransfer.files);
+      if (files.length === 0) return;
+      files.forEach((file) => {
+        if (file.type !== "application/json") return;
+        file
+          ?.arrayBuffer()
+          .then((b) => {
+            const fileAsJSON = JSON.parse(new TextDecoder().decode(b));
+            const name = file.name.slice(0, -5);
+            SchematicServices.fileHandler({
+              mosaicKey: nodeKey,
+              file: fileAsJSON,
+              placer,
+              name,
+              store,
+              confirm,
+              client,
+              workspaceKey,
+              loc,
+            });
+          })
+          .catch((e) => console.error(e));
+      });
+    },
+    [dispatch],
+  );
+
   return (
     <Core.Mosaic
       root={mosaic}
@@ -149,6 +183,7 @@ export const Mosaic = memo((): ReactElement => {
       onRename={handleRename}
       onCreate={handleCreate}
       activeTab={activeTab ?? undefined}
+      onFileDrop={handleFileDrop}
     >
       {({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />}
     </Core.Mosaic>
@@ -187,3 +222,5 @@ export const Window = memo(({ layoutKey }: Layout.RendererProps): ReactElement =
   );
 });
 Window.displayName = "MosaicWindow";
+
+export const FILE_HANDLERS = [SchematicServices.fileHandler];

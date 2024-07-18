@@ -42,6 +42,12 @@
 #include "driver/errors/errors.h"
 #include "driver/loop/loop.h"
 
+#ifdef _WIN32
+#include "dll_check_windows.h"
+#else
+#include "dll_check_linux.h"
+#endif
+
 namespace ni {
 inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Volts", DAQmx_Val_Volts},
@@ -550,5 +556,36 @@ public:
 
 private:
     bool dlls_present = false;
+
 };
+
+static inline bool dlls_available(){
+        std::vector<std::string> dlls = {
+        "nicaiu.dll",
+        "nipalu.dll",
+        "nimdbgu.dll",
+        "nidmxfu.dll",
+        "niorbu.dll",
+        "nimxdfu.dll",
+        "nimru2u.dll",
+        "nipalut.dll",
+        "nicrtsiu.dll",
+        "nimhwcfu.dll",
+        "nidimu.dll",
+        "nirpc.dll",
+        "nimdnsResponder.dll",
+        "nirocoapi.dll",
+        "nisysapi.dll",
+        "niprtsiu.dll"
+    };
+
+    bool d = true;
+    for (const auto &dll: dlls) 
+        if (!does_dll_exist(dll.c_str())) 
+            d = false;
+    
+    if (d) LOG(INFO) << "[ni] All required DLLs found.";
+    return d;
+}
+
 }

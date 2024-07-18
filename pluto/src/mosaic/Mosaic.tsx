@@ -22,7 +22,6 @@ import {
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { type CanDrop } from "@/haul/Haul";
 import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
 import { Portal } from "@/portal";
@@ -33,12 +32,13 @@ import { Tabs } from "@/tabs";
 export interface MosaicProps
   extends Omit<
     Tabs.TabsProps,
-    "onDrop" | "tabs" | "onResize" | "onCreate" | "children"
+    "onDrop" | "tabs" | "onResize" | "onCreate" | "children" | "onDragOver"
   > {
   root: Node;
   onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
+  onFileDrop?: (key: number, loc: location.Location, event: DragEvent) => void;
   children: Tabs.RenderProp;
   activeTab?: string;
 }
@@ -162,7 +162,13 @@ Dropping an item with this signature will call the {@link Mosaic} onCreate handl
 export const HAUL_CREATE_TYPE = "pluto-mosaic-tab-create";
 
 /** Checks whether the tab can actually be dropped in this location or not */
-const validDrop = (tabs: Tabs.Tab[], dragging: Haul.Item[]): boolean => {
+const validDrop = (
+  tabs: Tabs.Tab[],
+  dragging: Haul.Item[],
+  hasFileDrop?: boolean,
+): boolean => {
+  const hasFiles = Haul.filterByType(Haul.FILE_TYPE, dragging).length > 0;
+  if (hasFiles && hasFileDrop) return true;
   const drop = Haul.filterByType(HAUL_DROP_TYPE, dragging).map((t) => t.key);
   const willHaveTabRemaining = tabs.filter((t) => !drop.includes(t.tabKey)).length > 0;
   const create = Haul.filterByType(HAUL_CREATE_TYPE, dragging);
@@ -179,21 +185,31 @@ const TabLeaf = memo(
     onCreate,
     portalNodes,
     activeTab,
+    onFileDrop,
     ...props
   }: TabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
 
     const [dragMask, setDragMask] = useState<location.Location | null>(null);
 
-    const canDrop: CanDrop = useCallback(({ items }) => validDrop(tabs, items), [tabs]);
+    const hasFileDrop = onFileDrop != null;
+    const canDrop: Haul.CanDrop = useCallback(
+      ({ items }) => validDrop(tabs, items, hasFileDrop),
+      [tabs, hasFileDrop],
+    );
 
     const handleDrop = useCallback(
       ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
         if (event == null) return [];
         setDragMask(null);
-        const dropped = Haul.filterByType(HAUL_DROP_TYPE, items);
+        const hasFiles = Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
         const loc =
           tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
+        if (hasFiles) {
+          onFileDrop?.(key, loc, event);
+          return items;
+        }
+        const dropped = Haul.filterByType(HAUL_DROP_TYPE, items);
         if (dropped.length > 0) {
           const tabKey = dropped.map(({ key }) => key)[0];
           onDrop(key, tabKey as string, loc);

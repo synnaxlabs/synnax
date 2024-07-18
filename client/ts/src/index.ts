@@ -9,8 +9,7 @@
 
 export * from "@/channel";
 export { Channel } from "@/channel/client";
-export type { SynnaxProps } from "@/client";
-export { default as Synnax, synnaxPropsZ } from "@/client";
+export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
 export {

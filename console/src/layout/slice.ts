@@ -7,14 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Dispatch, PayloadAction, UnknownAction } from "@reduxjs/toolkit";
-import { createSlice } from "@reduxjs/toolkit";
+import {
+  createSlice,
+  type Dispatch,
+  type PayloadAction,
+  type Store,
+  type UnknownAction,
+} from "@reduxjs/toolkit";
+import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic } from "@synnaxlabs/pluto";
-import { type deep, type location } from "@synnaxlabs/x";
-import { nanoid } from "nanoid/non-secure";
+import { type deep, id, type location } from "@synnaxlabs/x";
 import { ComponentType } from "react";
 
+import { CreateConfirmModal } from "@/confirm/Confirm";
+import { type Placer } from "@/layout/hooks";
 import * as latest from "@/layout/migrations";
 
 export type State<A = any> = latest.State<A>;
@@ -48,10 +55,12 @@ export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
 
 /** Signature for the placeLayout action. */
 export type PlacePayload = State;
+
 /** Signature for the removeLayout action. */
 export interface RemovePayload {
   keys: string[];
 }
+
 /** Signature for the setTheme action. */
 export type SetActiveThemePayload = string | undefined;
 
@@ -61,14 +70,17 @@ export interface MoveMosaicTabPayload {
   key: number;
   loc: location.Location;
 }
+
 interface ResizeMosaicTabPayload {
   windowKey: string;
   key: number;
   size: number;
 }
+
 interface SelectMosaicTabPayload {
   tabKey: string;
 }
+
 interface RenamePayload {
   key: string;
   name: string;
@@ -86,6 +98,20 @@ interface SetAltKeyPayload {
 }
 
 interface SetHaulingPayload extends Haul.DraggingState {}
+
+export interface FileHandlerProps {
+  mosaicKey: number;
+  file: any;
+  loc: location.Location;
+  name: string;
+  placer: Placer;
+  store: Store;
+  confirm: CreateConfirmModal;
+  client: Synnax | null;
+  workspaceKey: string | null;
+}
+
+export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
   location: NavDrawerLocation;
@@ -434,7 +460,7 @@ export type Payload = Action["payload"];
 export const MOSAIC_WINDOW_TYPE = "mosaic";
 
 export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
-  key: `${MOSAIC_WINDOW_TYPE}-${nanoid()}`,
+  key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",

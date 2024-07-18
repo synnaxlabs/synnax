@@ -17,9 +17,8 @@ import {
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { errors, UnknownRecord } from "@synnaxlabs/x";
+import { errors, id, UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
@@ -142,7 +141,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       if (resources.length === 1)
         message = `Failed to delete channel ${resources[0].name}`;
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message,
         description: e.message,
@@ -170,7 +169,7 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to set alias for ${first.name}`,
         description: e.message,
@@ -194,7 +193,7 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to rename ${first.name}`,
         description: e.message,
@@ -219,7 +218,7 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to remove alias on ${first.name}`,
         description: e.message,

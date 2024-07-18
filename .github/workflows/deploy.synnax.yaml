@@ -142,11 +142,11 @@ jobs:
 
       - name: Build Driver on Windows
         if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=false
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define use_ni=true
 
       - name: Build Driver on on Mac and Ubuntu
         if: matrix.platform != 'windows-latest' && needs.setup.outputs.changed == 'true'
-        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+        run: bazel build --enable_platform_specific_config //driver:driver_main --define use_ni=false
 
       - name: Determine Executable Name
         id: executable

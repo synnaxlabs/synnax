@@ -11,11 +11,11 @@ import { channel, DataType, TimeRange } from "@synnaxlabs/client";
 import {
   type AsyncDestructor,
   bounds,
+  id,
   Series,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -31,7 +31,7 @@ import { client } from "@/telem/client";
 describe("remote", () => {
   describe("StreamChannelValue", () => {
     class MockClient implements client.Client {
-      key: string = nanoid();
+      key: string = id.id();
 
       // Stream
       streamHandler: client.StreamHandler | null = null;
@@ -179,7 +179,7 @@ describe("remote", () => {
   });
   describe("ChannelData", () => {
     class MockClient implements client.ReadClient, client.ChannelClient {
-      key: string = nanoid();
+      key: string = id.id();
       readMock = vi.fn();
       retrieveChannelMock = vi.fn();
 
@@ -316,7 +316,7 @@ describe("remote", () => {
   });
   describe("StreamChannelData", () => {
     class MockClient implements client.Client {
-      key: string = nanoid();
+      key: string = id.id();
 
       // Stream
       streamHandler: client.StreamHandler | null = null;

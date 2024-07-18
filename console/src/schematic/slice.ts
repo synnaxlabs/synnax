@@ -12,7 +12,7 @@ import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, scale, xy } from "@synnaxlabs/x";
-import { nanoid } from "nanoid/non-secure";
+import { id } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/migrations";
 
@@ -185,7 +185,7 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
-        const key: string = nanoid();
+        const key: string = id.id();
         schematic.props[key] = state.copy.props[node.key];
         keys[node.key] = key;
         return {
@@ -196,7 +196,7 @@ export const { actions, reducer } = createSlice({
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
-        const key: string = nanoid();
+        const key: string = id.id();
         return {
           ...edge,
           key,
@@ -219,6 +219,7 @@ export const { actions, reducer } = createSlice({
       const schematic: State = {
         ...ZERO_STATE,
         ...latest.migrateState(payload),
+        key: layoutKey,
       } as State;
       if (schematic.snapshot) {
         schematic.editable = false;
@@ -243,7 +244,6 @@ export const { actions, reducer } = createSlice({
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
-
         delete state.schematics[layoutKey];
       });
     },

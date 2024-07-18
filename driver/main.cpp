@@ -88,13 +88,18 @@ int main(int argc, char *argv[]) {
     // auto meminfo_factory = std::make_unique<meminfo::Factory>();
     auto heartbeat_factory = std::make_unique<heartbeat::Factory>();
     auto opc_factory = std::make_unique<opc::Factory>();
-    std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
     std::vector<std::shared_ptr<task::Factory> > factories = {
         std::move(opc_factory),
         // std::move(meminfo_factory),
         std::move(heartbeat_factory),
-        std::move(ni_factory)
     };
+    
+    if(ni::dlls_available()){
+        std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
+        factories.push_back(std::move(ni_factory));
+    }
+
+    
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
         std::move(factories)
     );
