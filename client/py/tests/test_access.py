@@ -11,11 +11,11 @@ import uuid
 import pytest
 
 import synnax as sy
-from synnax.access.payload import OntologyID
+from synnax.ontology.id import OntologyID, channel_ontology_type
 
 
 @pytest.mark.access
-class TestChannelClient:
+class TestAccessClient:
     @pytest.fixture(scope="class")
     def two_policies(self, client: sy.Synnax) -> list[sy.Policy]:
         return client.access.create(
@@ -78,3 +78,56 @@ class TestChannelClient:
         client.access.delete(two_policies[0].key)
         with pytest.raises(sy.QueryError):
             client.access.retrieve(two_policies[0].subjects[0])
+
+
+@pytest.mark.access
+@pytest.mark.auth
+class TestAccessAuthClient:
+    def test_create_user(self, client: sy.Synnax):
+        username = str(uuid.uuid4())
+        client.auth.register(username, "pwd2")
+        sy.Synnax(
+            host="localhost",
+            port=9090,
+            username=username,
+            password="pwd2",
+        )
+
+    def test_user_privileges(self, client: sy.Synnax):
+        username = str(uuid.uuid4())
+        usr = client.auth.register(username, "pwd3")
+        client2 = sy.Synnax(
+            host="localhost",
+            port=9090,
+            username=username,
+            password="pwd3",
+        )
+
+        with pytest.raises(sy.AuthError):
+            client2.channels.create(sy.Channel(
+                name="new_channel",
+                data_type=sy.DataType.FLOAT32,
+                rate=1*sy.Rate.HZ,
+            ))
+
+        p = client.access.create(
+            subjects=[usr.ontology_id()],
+            objects=[channel_ontology_type],
+            actions=["create"],
+        )
+
+        client2.channels.create(sy.Channel(
+            name="new_channel",
+            data_type=sy.DataType.FLOAT32,
+            rate=1*sy.Rate.HZ,
+        ))
+
+        # revoke the policy
+        client.access.delete(p.key)
+
+        with pytest.raises(sy.AuthError):
+            client2.channels.create(sy.Channel(
+                name="new_channel",
+                data_type=sy.DataType.FLOAT32,
+                rate=1*sy.Rate.HZ,
+            ))

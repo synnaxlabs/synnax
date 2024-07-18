@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { z } from "zod";
-
-export const OntologyID = z.object({
-  key: z.string().optional(),
-  type: z.string().optional(),
-});
-
-export type OntologyIDType = z.infer<typeof OntologyID>
+import { idZ } from "@/ontology/payload";
 
 export const keyZ = z.string().uuid();
 
@@ -24,8 +18,8 @@ export type Params = Key | Key[]
 
 export const policyZ = z.object({
   key: keyZ,
-  subjects: OntologyID.array(),
-  objects: OntologyID.array(),
+  subjects: idZ.array(),
+  objects: idZ.array(),
   actions: z.string().array(),
 });
 

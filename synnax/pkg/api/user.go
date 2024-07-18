@@ -48,13 +48,6 @@ func (s *UserService) Login(ctx context.Context, cred auth.InsecureCredentials) 
 	if err != nil {
 		return tr, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: user.OntologyID(u.Key),
-		Action:  access.Retrieve,
-		Objects: []ontology.ID{user.OntologyID(u.Key)},
-	}); err != nil {
-		return tr, err
-	}
 	return s.tokenResponse(u)
 }
 
@@ -63,7 +56,7 @@ type RegistrationRequest struct {
 	auth.InsecureCredentials
 }
 
-// Register registers new user with the provided credentials. If successful, returns a
+// Register registers a new user with the provided credentials. If successful, returns a
 // response containing a valid JWT along with the user's details.
 func (s *UserService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, err error) {
 	return tr, s.WithTx(ctx, func(txn gorp.Tx) error {

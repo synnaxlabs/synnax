@@ -9,16 +9,11 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { nullableArrayZ } from "@/util/zod";
-import {
-  OntologyID,
-  OntologyIDType,
-  Policy,
-  policyZ
-} from "@/access/payload";
-import {NotFoundError} from "@/errors";
+import { Policy, policyZ } from "@/access/payload";
+import { NotFoundError } from "@/errors";
+import { IDPayload, idZ } from "@/ontology/payload";
 
-const reqZ = z.object({subject: OntologyID})
+const reqZ = z.object({subject: idZ})
 
 type Request = z.infer<typeof reqZ>;
 
@@ -34,7 +29,7 @@ export class Retriever {
     this.client = client;
   }
 
-  async retrieve(id: OntologyIDType): Promise<Policy[]> {
+  async retrieve(id: IDPayload): Promise<Policy[]> {
     const res = await this.execute({subject: id});
     if(res.length == 0){
       throw new NotFoundError(`Policy with subject ${id} not found`)

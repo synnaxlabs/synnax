@@ -10,10 +10,10 @@
 import {type UnaryClient} from "@synnaxlabs/freighter";
 import {toArray} from "@synnaxlabs/x/toArray";
 
-import {Key, OntologyIDType, Policy, policyZ} from "@/access/payload";
+import {Key, Policy } from "@/access/payload";
 import {Retriever} from "@/access/retriever";
 import {NewPolicyPayload, Writer} from "@/access/writer";
-import {NewLabelPayload} from "@/label/writer";
+import {IDPayload} from "@/ontology/payload";
 
 export class Client {
   private readonly client: UnaryClient;
@@ -43,7 +43,7 @@ export class Client {
   }
 
   async retrieve(
-    subject: OntologyIDType,
+    subject: IDPayload,
   ): Promise<Policy[]> {
     return await this.retriever.retrieve(subject);
   }

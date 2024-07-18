@@ -27,6 +27,7 @@ export const tokenResponseZ = z.object({
 export type TokenResponse = z.infer<typeof tokenResponseZ>;
 
 const LOGIN_ENDPOINT = "/auth/login";
+const REGISTER_ENDPOINT = "/auth/register"
 
 const MAX_RETRIES = 3;
 
@@ -83,5 +84,19 @@ export class Client {
       return [resCtx, err];
     };
     return mw;
+  }
+
+  async register(username: string, password: string): Promise<user.Payload>{
+    const [res, err] = await this.client.send(
+        REGISTER_ENDPOINT,
+      {username: username, password: password},
+        insecureCredentialsZ,
+        tokenResponseZ,
+      )
+
+    if (err != null) {
+      throw err
+    }
+    return res.user
   }
 }

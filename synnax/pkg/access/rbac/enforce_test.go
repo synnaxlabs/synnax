@@ -67,6 +67,10 @@ var _ = Describe("enforcer", func() {
 					Subjects: []ontology.ID{user3},
 					Objects:  []ontology.ID{rbac.AllowAll},
 				},
+				{
+					Subjects: []ontology.ID{user1},
+					Objects:  []ontology.ID{{Key: "label1", Type: "label"}},
+				},
 			}
 			for _, p := range policies {
 				Expect(writer.Create(ctx, &p)).To(Succeed())
@@ -108,6 +112,19 @@ var _ = Describe("enforcer", func() {
 				Subject: user1,
 				Objects: []ontology.ID{userObject, rbacObject},
 				Action:  "update",
+			}, false),
+			Entry("No action in policy = allow all", access.Request{
+				Subject: user1,
+				Objects: []ontology.ID{{Key: "label1", Type: "label"}},
+				Action:  "cancel",
+			}, true),
+			Entry("No action in request", access.Request{
+				Subject: user1,
+				Objects: []ontology.ID{{Key: "label1", Type: "label"}},
+			}, true),
+			Entry("No action in request", access.Request{
+				Subject: user1,
+				Objects: []ontology.ID{rbacObject},
 			}, false),
 		)
 	})

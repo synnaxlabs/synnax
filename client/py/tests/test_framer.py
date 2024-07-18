@@ -346,33 +346,6 @@ class TestDeleter:
             TimeStamp(1 * TimeSpan.SECOND), TimeStamp(2 * TimeSpan.SECOND) + 1
         )
 
-    def test_delete_by_name(self, channel: sy.Channel, client: sy.Synnax):
-        with client.open_writer(0, channel.key) as w:
-            data = np.random.rand(51).astype(np.float64)
-            w.write(pd.DataFrame({channel.key: data}))
-            w.commit()
-
-        client.delete(
-            [channel.name],
-            TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)),
-        )
-
-        data = channel.read(TimeRange.MAX)
-        assert data.size == 26 * 8
-        assert data.time_range == TimeRange(
-            TimeStamp(1 * TimeSpan.SECOND), TimeStamp(2 * TimeSpan.SECOND) + 1
-        )
-
-    def test_delete_channel_not_found_name(
-        self, channel: sy.Channel, client: sy.Synnax
-    ):
-        client.write(0, channel.key, np.random.rand(50).astype(np.float64))
-        with pytest.raises(sy.NotFoundError):
-            client.delete([channel.name, "kaka"], TimeRange.MAX)
-
-        data = channel.read(TimeRange.MAX)
-        assert data.size == 50 * 8
-
     def test_delete_channel_not_found_key(self, channel: sy.Channel, client: sy.Synnax):
         client.write(0, channel.key, np.random.rand(50).astype(np.float64))
         with pytest.raises(sy.NotFoundError):

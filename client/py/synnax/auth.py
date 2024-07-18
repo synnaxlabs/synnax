@@ -70,7 +70,8 @@ def maybe_refresh_token(
 
 
 class AuthenticationClient:
-    _ENDPOINT = "/auth/login"
+    _LOGIN_ENDPOINT = "/auth/login"
+    _REGISTER_ENDPOINT = "/auth/register"
 
     client: UnaryClient
     username: str
@@ -90,7 +91,7 @@ class AuthenticationClient:
 
     def authenticate(self) -> None:
         res, exc = self.client.send(
-            self._ENDPOINT,
+            self._LOGIN_ENDPOINT,
             InsecureCredentials(username=self.username, password=self.password),
             TokenResponse,
         )
@@ -99,6 +100,17 @@ class AuthenticationClient:
         assert res is not None
         self.token = res.token
         self.user = res.user
+
+    def register(self, username: str, password: str) -> UserPayload:
+        res, exc = self.client.send(
+            self._REGISTER_ENDPOINT,
+            InsecureCredentials(username=username, password=password),
+            TokenResponse,
+        )
+        if exc is not None:
+            raise exc
+        assert res is not None
+        return res.user
 
     def get_token(self) -> str:
         return self.token

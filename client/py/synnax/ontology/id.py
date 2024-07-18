@@ -7,13 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import Payload
-from synnax.ontology.id import OntologyID
+from pydantic import BaseModel
 
 
-class UserPayload(Payload):
-    key: str
-    username: str
+class OntologyID(BaseModel):
+    key: str | None = ""
+    type: str | None = ""
 
-    def ontology_id(self) -> OntologyID:
-        return OntologyID(key=self.key, type="user")
+
+user_ontology_type = OntologyID(type="user")
+channel_ontology_type = OntologyID(type="channel")
+policy_ontology_type = OntologyID(type="policy")

@@ -56,6 +56,7 @@ class Synnax(Client):
 
     channels: ChannelClient
     access: PolicyClient
+    auth: AuthenticationClient
     ranges: RangeClient
     control: ControlClient
     signals: Registry
@@ -100,6 +101,16 @@ class Synnax(Client):
             max_retries=max_retries,
             instrumentation=instrumentation,
         )
+        if opts.username != "" or opts.password != "":
+            self.auth = AuthenticationClient(
+                transport=self._transport.unary,
+                username=opts.username,
+                password=opts.password,
+            )
+            self.auth.authenticate()
+            self._transport.use(*self.auth.middleware())
+            self._transport.use_async(*self.auth.async_middleware())
+
         ch_retriever = CacheChannelRetriever(
             ClusterChannelRetriever(self._transport.unary, instrumentation),
             instrumentation,
@@ -166,13 +177,4 @@ def _configure_transport(
         keep_alive=keep_alive,
         max_retries=max_retries,
     )
-    if opts.username != "" or opts.password != "":
-        auth = AuthenticationClient(
-            transport=t.unary,
-            username=opts.username,
-            password=opts.password,
-        )
-        auth.authenticate()
-        t.use(*auth.middleware())
-        t.use_async(*auth.async_middleware())
     return t

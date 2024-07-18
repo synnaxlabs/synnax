@@ -13,7 +13,8 @@ from typing import Protocol, cast
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient
-from synnax.access.payload import OntologyID, PolicyPayload
+from synnax.access.payload import Policy
+from synnax.ontology.id import OntologyID
 
 
 class _Request(Payload):
@@ -21,7 +22,7 @@ class _Request(Payload):
 
 
 class _Response(Payload):
-    policies: list[PolicyPayload] | None
+    policies: list[Policy] | None
 
 
 class PolicyRetriever:
@@ -38,7 +39,7 @@ class PolicyRetriever:
         self.instrumentation = instrumentation
 
     @trace("debug")
-    def retrieve(self, subject: OntologyID) -> list[PolicyPayload]:
+    def retrieve(self, subject: OntologyID) -> list[Policy]:
         return self.__execute(
             _Request(subject=subject)
         )
@@ -46,7 +47,7 @@ class PolicyRetriever:
     def __execute(
         self,
         req: _Request,
-    ) -> list[PolicyPayload]:
+    ) -> list[Policy]:
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc

@@ -54,9 +54,15 @@ func AllowRequest(req access.Request, policies []Policy) bool {
 	}
 
 	for _, policy := range policies {
-		if !lo.Contains(policy.Subjects, req.Subject) || !lo.Contains(policy.Actions, req.Action) {
+		if !lo.Contains(policy.Subjects, req.Subject) {
+			// Policy not pertaining to requested subject.
+			continue
+		}
+		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) {
+			// If the requested action is not described by the current policy,
+			// skip the policy.
+			// Unless the policy is an AllowAll, in which case do not skip.
 			if !lo.Contains(policy.Objects, AllowAll) {
-				// incorrect subject or action that is not an allowAll
 				continue
 			}
 		}

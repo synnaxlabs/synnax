@@ -9,9 +9,17 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import { QueryError } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { AuthError, QueryError } from "@/errors";
+import { HOST, newClient, PORT } from "@/setupspecs";
 import { v4 as uuid } from 'uuid';
+import {
+  ChannelOntologyType,
+  LabelOntologyType,
+  UserOntologyType
+} from "@/ontology/payload";
+import Synnax from "@/client";
+import { Channel } from "@/channel/client";
+import { DataType, Rate } from "@synnaxlabs/x";
 
 const client = newClient();
 
@@ -19,25 +27,25 @@ describe("Channel", () => {
   describe("create", () => {
     test("create one", async () => {
       const policy = await client.access.create({
-        subjects: [{type: "user", key: "1"}],
-        objects: [{type: "user", key: "2"}, {type: "channel", key: "3"}],
+        subjects: [{type: UserOntologyType, key: "1"}],
+        objects: [{type: UserOntologyType, key: "2"}, {type: ChannelOntologyType, key: "3"}],
         actions: ["update"],
       });
       expect(policy.key).not.toEqual("")
-      expect(policy.subjects).toEqual([{type: "user", key: "1"}]);
-      expect(policy.objects).toEqual([{type: "user", key: "2"}, {type: "channel", key: "3"}]);
+      expect(policy.subjects).toEqual([{type: UserOntologyType, key: "1"}]);
+      expect(policy.objects).toEqual([{type: UserOntologyType, key: "2"}, {type: ChannelOntologyType, key: "3"}]);
       expect(policy.actions).toEqual(["update"]);
     });
     test("create many", async () => {
       const policies = await client.access.create([
         {
-          subjects: [{type: "user", key: "10"}],
-          objects: [{type: "user", key: "20"}, {type: "user", key: "21"}],
+          subjects: [{type: UserOntologyType, key: "10"}],
+          objects: [{type: UserOntologyType, key: "20"}, {type: UserOntologyType, key: "21"}],
           actions: ["update"],
         },
         {
-          subjects: [{type: "user", key: "20"}, {type: "user", key: "21"}],
-          objects: [{type: "user", key: "20"}, {type: "channel", key: "30"}],
+          subjects: [{type: UserOntologyType, key: "20"}, {type: UserOntologyType, key: "21"}],
+          objects: [{type: UserOntologyType, key: "20"}, {type: ChannelOntologyType, key: "30"}],
           actions: ["update"],
         },
       ]);
@@ -48,8 +56,8 @@ describe("Channel", () => {
     test("create instances of channels", async () => {
       const policy ={
         key: undefined,
-        subjects: [{type: "user", key: "20"}, {type: "user", key: "21"}],
-        objects: [{type: "user", key: "20"}, {type: "channel", key: "30"}],
+        subjects: [{type: UserOntologyType, key: "20"}, {type: UserOntologyType, key: "21"}],
+        objects: [{type: UserOntologyType, key: "20"}, {type: ChannelOntologyType, key: "30"}],
         actions: ["update"],
       };
 
@@ -62,13 +70,13 @@ describe("Channel", () => {
     const key1 = uuid().toString()
     const policies = [{
       key: undefined,
-      subjects: [{type: "user", key: key1}, {type: "user", key: "21"}],
-      objects: [{type: "user", key: "234"}, {type: "channel", key: "30"}],
+      subjects: [{type: UserOntologyType, key: key1}, {type: UserOntologyType, key: "21"}],
+      objects: [{type: UserOntologyType, key: "234"}, {type: ChannelOntologyType, key: "30"}],
       actions: ["update"],
     },{
       key: undefined,
-      subjects: [{type: "user", key: key1}, {type: "user", key: "22"}],
-      objects: [{type: "label", key: "23123"}, {type: "channel", key: "30"}],
+      subjects: [{type: UserOntologyType, key: key1}, {type: UserOntologyType, key: "22"}],
+      objects: [{type: LabelOntologyType, key: "23123"}, {type: ChannelOntologyType, key: "30"}],
       actions: ["delete"],
     }];
 
@@ -79,7 +87,7 @@ describe("Channel", () => {
     expect([p[0].actions, p[1].actions].sort()).toEqual([["delete"], ["update"]]);
   });
   test("retrieve by subject - not found", async () => {
-    await expect(async () => await client.access.retrieve({type: "user", key: "999"})).rejects.toThrow(
+    await expect(async () => await client.access.retrieve({type: UserOntologyType, key: "999"})).rejects.toThrow(
       QueryError,
     );
   });
@@ -88,13 +96,13 @@ describe("Channel", () => {
     test("delete one", async () => {
       const policies = [{
         key: undefined,
-        subjects: [{type: "user", key: "20"}, {type: "user", key: "21"}],
-        objects: [{type: "user", key: "20"}, {type: "channel", key: "30"}],
+        subjects: [{type: UserOntologyType, key: "20"}, {type: UserOntologyType, key: "21"}],
+        objects: [{type: UserOntologyType, key: "20"}, {type: ChannelOntologyType, key: "30"}],
         actions: ["update"],
       },{
         key: undefined,
-        subjects: [{type: "user", key: "20"}, {type: "user", key: "22"}],
-        objects: [{type: "label", key: "20"}, {type: "channel", key: "30"}],
+        subjects: [{type: UserOntologyType, key: "20"}, {type: UserOntologyType, key: "22"}],
+        objects: [{type: LabelOntologyType, key: "20"}, {type: ChannelOntologyType, key: "30"}],
         actions: ["delete"],
       }];
 
@@ -106,14 +114,12 @@ describe("Channel", () => {
     });
     test("delete many", async () => {
       const policies = [{
-        key: undefined,
-        subjects: [{type: "user", key: "20"}, {type: "user", key: "21"}],
-        objects: [{type: "user", key: "20"}, {type: "channel", key: "30"}],
+        subjects: [{type: UserOntologyType, key: "20"}, {type: UserOntologyType, key: "21"}],
+        objects: [{type: UserOntologyType, key: "20"}, {type: ChannelOntologyType, key: "30"}],
         actions: ["update"],
       },{
-        key: undefined,
-        subjects: [{type: "user", key: "20"}, {type: "user", key: "22"}],
-        objects: [{type: "label", key: "20"}, {type: "channel", key: "30"}],
+        subjects: [{type: UserOntologyType, key: "20"}, {type: UserOntologyType, key: "22"}],
+        objects: [{type: LabelOntologyType, key: "20"}, {type: ChannelOntologyType, key: "30"}],
         actions: ["delete"],
       }];
 
@@ -127,4 +133,66 @@ describe("Channel", () => {
       ).rejects.toThrow(QueryError);
     });
   });
+  describe("registration", async () => {
+    test("register a user", async () => {
+      const username = uuid().toString();
+      await client.auth!.register(username, "pwd1");
+      new Synnax({
+        host: HOST,
+        port: PORT,
+        username: username,
+        password: "pwd1",
+      });
+    })
+    test("duplicate username", async () => {
+      const username = uuid().toString();
+      await client.auth!.register(username, "pwd1");
+      await expect(client.auth!.register(username, "pwd1")).rejects.toThrow(
+        AuthError
+      );
+    })
+  })
+  describe("privilege", async () => {
+    test("new user", async () => {
+      const username = uuid().toString()
+      const user2 = await client.auth?.register(username, "pwd1");
+      expect(user2).toBeDefined();
+      const client2 = new Synnax({
+        host: HOST,
+        port: PORT,
+        username: username,
+        password: "pwd1",
+      });
+
+      await expect (client2.channels.create(
+        new Channel({
+        dataType:DataType.FLOAT64,
+        rate: Rate.hz(1),
+        name: "my_channel",
+      }))).rejects.toThrow(AuthError);
+
+      const p = await client.access.create({
+        subjects: [{type: UserOntologyType, key: user2!.key}],
+        objects: [{type: ChannelOntologyType}],
+        actions: ["create"]
+      })
+
+      await client2.channels.create(
+        new Channel({
+          dataType:DataType.FLOAT64,
+          rate: Rate.hz(1),
+          name: "my_channel",
+        }))
+
+      // Remove privileges
+      await client.access.delete(p.key)
+
+      await expect (client2.channels.create(
+        new Channel({
+          dataType:DataType.FLOAT64,
+          rate: Rate.hz(1),
+          name: "my_channel",
+        }))).rejects.toThrow(AuthError);
+    })
+  })
 });

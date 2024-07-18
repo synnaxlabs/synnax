@@ -10,10 +10,11 @@
 package access
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/auth/base"
 	"github.com/synnaxlabs/x/errors"
 )
 
 var (
-	Denied        = errors.New("access denied")
+	Denied        = errors.Wrap(base.AuthError, "access denied")
 	Granted error = nil
 )

@@ -11,17 +11,11 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel
-
 from freighter import Payload
+from synnax.ontology.id import OntologyID
 
 
-class OntologyID(BaseModel):
-    key: str | None = ""
-    type: str | None = ""
-
-
-class PolicyPayload(Payload):
+class Policy(Payload):
     key: uuid.UUID | None = None
     subjects: list[OntologyID] = None
     objects: list[OntologyID] = None

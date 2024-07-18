@@ -10,11 +10,11 @@ import uuid
 
 from alamos import Instrumentation, trace, NOOP
 from freighter import Payload, UnaryClient
-from synnax.access.payload import PolicyPayload
+from synnax.access.payload import Policy
 
 
 class _CreateRequest(Payload):
-    policies: list[PolicyPayload]
+    policies: list[Policy]
 
 
 _CreateResponse = _CreateRequest
@@ -47,8 +47,8 @@ class PolicyWriter:
     @trace("debug")
     def create(
         self,
-        policies: list[PolicyPayload],
-    ) -> list[PolicyPayload]:
+        policies: list[Policy],
+    ) -> list[Policy]:
         req = _CreateRequest(policies=policies)
         res, exc = self.__client.send(_POLICY_CREATE_ENDPOINT, req, _CreateResponse)
         if exc is not None:

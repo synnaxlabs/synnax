@@ -99,7 +99,7 @@ export default class Synnax extends framer.Client {
     transport.use(errorsMiddleware);
     let auth_: auth.Client | undefined;
     if (username != null && password != null) {
-      const auth_ = new auth.Client(transport.unary, {
+      auth_ = new auth.Client(transport.unary, {
         username,
         password,
       });
