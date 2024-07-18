@@ -114,6 +114,7 @@
 
 .pluto-btn.pluto--disabled {
     & * {
+        cursor: not-allowed;
         color: var(--pluto-gray-l5) !important;
     }
     color: var(--pluto-gray-l5);

@@ -32,6 +32,9 @@
     }
 
     &.pluto-input--disabled {
+        & * {
+            cursor: not-allowed;
+        }
         & .pluto-input__placeholder * {
             color: var(--pluto-gray-l5) !important;
         }
