@@ -30,9 +30,9 @@ export interface UseEvent {
 
 export interface UseProps {
   triggers?: Trigger[];
-  callback?: (e: UseEvent) => void;
   region?: RefObject<HTMLElement>;
   loose?: boolean;
+  callback?: (e: UseEvent) => void;
 }
 
 export const use = ({ triggers, callback: f, region, loose }: UseProps): void => {

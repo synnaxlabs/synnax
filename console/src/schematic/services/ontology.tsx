@@ -12,6 +12,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
 
 import { Menu } from "@/components/menu";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
@@ -21,6 +23,7 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { create } from "@/schematic/Schematic";
+import { select } from "@/schematic/selectors";
 import { type State } from "@/schematic/slice";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -117,6 +120,33 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
   }).mutate;
 
+const useDownload = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    mutationFn: async ({ client, selection: { resources }, store }) => {
+      let state = select(store.getState(), resources[0].id.key);
+      if (state == null) {
+        const schematic = await client.workspaces.schematic.retrieve(
+          resources[0].id.key,
+        );
+        state = schematic.data as unknown as State;
+      }
+      const savePath = await save({
+        defaultPath: `${resources[0].name}.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      })
+      if (savePath == null) return;
+      const data = new TextEncoder().encode(JSON.stringify(state));
+      await writeFile(savePath, data);
+    },
+    onError: (err, { addStatus }) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to download schematic",
+        description: err.message,
+      });
+    },
+  }).mutate;
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { resources },
@@ -125,12 +155,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useRangeSnapshot();
+  const download = useDownload();
   const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu("schematic.menu", {
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
+    download: () => download(props),
     link: () =>
       handleLink({
         name: resources[0].name,
@@ -153,6 +185,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
+          <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+            Download as JSON
+          </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>

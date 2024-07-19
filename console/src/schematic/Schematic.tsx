@@ -19,13 +19,12 @@ import {
   Schematic as Core,
   Text,
   Theming,
+  Triggers,
   usePrevious,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { Triggers } from "@synnaxlabs/pluto/triggers";
-import { box, deep, type UnknownRecord } from "@synnaxlabs/x";
-import { nanoid } from "nanoid/non-secure";
+import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -102,8 +101,9 @@ const SymbolRenderer = ({
   selected,
   layoutKey,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
-  const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
-
+  const nodeProps = useSelectNodeProps(layoutKey, symbolKey);
+  if (nodeProps == null) return null;
+  const { key, ...props } = nodeProps;
   const dispatch = useSyncComponent(layoutKey);
 
   const handleChange = useCallback(
@@ -120,6 +120,7 @@ const SymbolRenderer = ({
   );
 
   const C = Core.SYMBOLS[key as Core.Variant];
+
   if (C == null) {
     throw new Error(`Symbol ${key} not found`);
   }
@@ -231,7 +232,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         dispatch(
           addElement({
             key: layoutKey,
-            elKey: nanoid(),
+            elKey: id.id(),
             node: {
               position: pos,
               zIndex: spec.zIndex,

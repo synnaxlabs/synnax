@@ -60,9 +60,6 @@ import { type RenderProp } from "@/util/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
-import { Edge as EdgeComponent } from "@/vis/diagram/edge";
-import { type connector } from "@/vis/diagram/edge/connector";
-import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
 import {
   type Edge,
   edgeConverter,
@@ -73,7 +70,10 @@ import {
   translateViewportBackward,
   translateViewportForward,
   type Viewport,
-} from "@/vis/diagram/types";
+} from "@/vis/diagram/aether/types";
+import { Edge as EdgeComponent } from "@/vis/diagram/edge";
+import { type connector } from "@/vis/diagram/edge/connector";
+import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
 
 export interface SymbolProps {
   symbolKey: string;

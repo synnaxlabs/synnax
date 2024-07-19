@@ -7,13 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/fs/LoadFileContents.css";
+
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Input, state } from "@synnaxlabs/pluto";
+import { Align, Button, Input } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
+
+import { CSS } from "@/css";
 
 export interface InputFilePathProps
   extends Input.Control<string>,
@@ -33,10 +37,10 @@ export const InputFilePath = ({
     })();
   };
   return (
-    <Align.Pack direction="x" {...props}>
+    <Align.Pack className={CSS.B("input-file-path")} {...props}>
       <Button.Button
         level="p"
-        style={{ padding: "0 1.25rem", background: "var(--pluto-gray-l1)" }}
+        className={CSS.B("path")}
         variant="outlined"
         shade={path == null ? 7 : 9}
         grow
@@ -52,8 +56,8 @@ export const InputFilePath = ({
       </Button.Button>
       <Button.Button
         variant="outlined"
+        className={CSS.B("select")}
         onClick={handleClick}
-        style={{ background: "var(--pluto-gray-l1)" }}
       >
         Select file
       </Button.Button>

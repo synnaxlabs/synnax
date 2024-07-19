@@ -10,11 +10,10 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
+import { type Haul, Icon as PIcon, Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { errors, toArray } from "@synnaxlabs/x";
+import { errors, id, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
@@ -77,7 +76,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to activate range`,
         description: e.message,
@@ -103,7 +102,7 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -128,7 +127,7 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -163,7 +162,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (resources.length === 1)
         message = `Failed to delete range ${resources[0].name}`;
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message,
         description: e.message,
@@ -213,7 +212,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
-      <PMenu.Divider />
       {isSingle && (
         <>
           {resources[0].id.key !== activeRange?.key && (
@@ -223,17 +221,28 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
           </PMenu.Item>
-          <PMenu.Divider />
         </>
       )}
+      <PMenu.Divider />
       {layout?.type === "lineplot" && (
-        <PMenu.Item itemKey="addToActivePlot" startIcon={<Icon.Visualize />}>
+        <PMenu.Item
+          itemKey="addToActivePlot"
+          startIcon={
+            <PIcon.Icon topRight={<Icon.Range />}>
+              <Icon.Visualize key="plot" />
+            </PIcon.Icon>
+          }
+        >
           Add to {layout.name}
         </PMenu.Item>
       )}
       <PMenu.Item
         itemKey="addToNewPlot"
-        startIcon={[<Icon.Add key="add" />, <Icon.Visualize key="plot" />]}
+        startIcon={
+          <PIcon.Create>
+            <Icon.Visualize key="plot" />
+          </PIcon.Create>
+        }
       >
         Add to New Plot
       </PMenu.Item>

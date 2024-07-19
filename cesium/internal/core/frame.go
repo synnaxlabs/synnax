@@ -108,6 +108,10 @@ func (f Frame) Len() int64 {
 	return f.Series[0].Len()
 }
 
+func (f Frame) Empty() bool {
+	return len(f.Series) == 0
+}
+
 func (f Frame) assertEven(method string) {
 	if !f.Even() {
 		panic("[telem] - cannot call " + method + " on uneven frame")

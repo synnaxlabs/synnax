@@ -10,7 +10,16 @@
 import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
-import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem";
+import {
+  CrudeDataType,
+  DataType,
+  Density,
+  Rate,
+  Size,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@/telem";
 
 describe("TimeStamp", () => {
   test("construct", () => {
@@ -530,6 +539,20 @@ describe("DataType", () => {
         }
       }
     });
+  });
+
+  describe("equals", () => {
+    const TESTS: [DataType, CrudeDataType, boolean][] = [
+      [DataType.INT32, DataType.INT32, true],
+      [DataType.INT32, DataType.INT64, false],
+      [DataType.INT32, "int32", true],
+      [DataType.INT32, "int64", false],
+    ];
+    TESTS.forEach(([dt, other, expected]) =>
+      it(`should return ${expected} when comparing ${dt.toString()} to ${other}`, () => {
+        expect(dt.equals(other)).toBe(expected);
+      }),
+    );
   });
 });
 

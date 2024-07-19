@@ -14,6 +14,7 @@ import { type FC, type ReactElement } from "react";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
+import { Selector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Schematic } from "@/schematic";
 import { type LayoutType } from "@/vis/types";
@@ -26,19 +27,10 @@ interface ToolbarProps {
   layoutKey: string;
 }
 
-const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
-    <ToolbarHeader>
-      <VisToolbarTitle />
-    </ToolbarHeader>
-    {/* <LayoutSelector layoutKey={layoutKey} /> */}
-  </Align.Space>
-);
-
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
   schematic: Schematic.Toolbar,
   lineplot: LinePlot.Toolbar,
-  vis: SelectVis,
+  vis: ({ layoutKey }) => <Selector layoutKey={layoutKey} onClose={() => {}} />,
 };
 
 const NoVis = (): ReactElement => {

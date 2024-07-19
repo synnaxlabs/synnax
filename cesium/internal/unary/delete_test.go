@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -903,6 +904,58 @@ var _ = Describe("Delete", func() {
 			Context("Error paths", func() {
 				It("Should error when the end timestamp is earlier than start timestamp", func() {
 					Expect(rateDB.Delete(ctx, telem.TimeRange{Start: 30 * telem.SecondTS, End: 20 * telem.SecondTS})).To(MatchError(ContainSubstring("after delete end")))
+				})
+			})
+
+			Describe("Regression", func() {
+				// This test addresses a bug where if an index is split into two domains
+				// to describe a data channel, and a call to delete that crosses the
+				// two domains would result in a discontinuous error.
+				//
+				// This was critical since while for smaller sample sizes, a data domain
+				// would not cross two indices, file cutoff makes this a very common
+				// case: writing float32 data, which has a higher density than TimeStamps,
+				// always gets cut off after Timestamp data. This makes it so that
+				// after enough samples, the index will almost always be split into two
+				// for one data domain.
+				It("Should work when the index is split into two domains", func() {
+					var (
+						iKey     = testutil.GenerateChannelKey()
+						dbKey    = testutil.GenerateChannelKey()
+						indexDB2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("index")),
+							Channel: core.Channel{
+								Key:      iKey,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        40 * telem.ByteSize,
+						}))
+						db2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("data")),
+							Channel: core.Channel{
+								Key:      dbKey,
+								DataType: telem.Int32T,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        40 * telem.ByteSize,
+						}))
+					)
+					db2.SetIndex(indexDB2.Index())
+					w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
+					MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSecondsTSV(16, 17, 18, 19, 20)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+					Expect(unary.Write(ctx, db2, 10*telem.SecondTS, telem.NewSeriesV[int32](10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+					Expect(db2.Delete(ctx, (13 * telem.SecondTS).Range(18*telem.SecondTS))).To(Succeed())
+
+					Expect(indexDB2.Close()).To(Succeed())
+					Expect(db2.Close()).To(Succeed())
 				})
 			})
 

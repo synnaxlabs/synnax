@@ -249,6 +249,38 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 						Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 					})
+					It("Should not write an empty frame", func() {
+
+						var (
+							rate1 = GenerateChannelKey()
+							rate2 = GenerateChannelKey()
+						)
+						By("Creating a channel")
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{Key: rate1, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+							cesium.Channel{Key: rate2, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{rate1, rate2},
+							Start:    10 * telem.SecondTS,
+						}))
+
+						By("Writing data")
+						ok := w.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{rate1, rate2},
+							[]telem.Series{
+								{DataType: "int64"},
+								{DataType: "int64"},
+							},
+						))
+						Expect(ok).To(BeTrue())
+						end, ok := w.Commit()
+						Expect(ok).To(BeTrue())
+						Expect(end).To(Equal(10 * telem.SecondTS))
+
+						Expect(w.Close()).To(Succeed())
+					})
 				})
 				Describe("Auto-commit", func() {
 					Describe("Indexed channels", func() {

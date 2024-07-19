@@ -41,12 +41,23 @@ func (i *Domain) Distance(
 	iter := i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
-	// Case 1 - If the domain with the given time range doesn't exist in the database, then
-	// there's nothing we can do.
-	// Case 2 - If the domain exists, but it doesn't contain the entire time range,
-	// then it's discontinuous, and we return early if the user doesn't want discontinuous
+	if !iter.SeekFirst(ctx) {
+		// If the domain with the given time range doesn't exist in the database, then
+		// there's nothing we can do.
+		err = NewErrDiscontinuousTR(tr)
+		return
+	}
+
+	effectiveDomainBounds, _ := resolveEffectiveDomain(iter)
+	if !iter.SeekFirst(ctx) {
+		// Reset the iterator position after using it to determine effective bound.
+		i.L.DPanic("iterator seekFirst failed in stamp")
+	}
+
+	// If the timerange is not contained within the effective domain, then it's
+	// discontinuous, and we return early if the user doesn't want discontinuous
 	// results.
-	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
+	if !effectiveDomainBounds.ContainsRange(tr) && continuous {
 		err = NewErrDiscontinuousTR(tr)
 		return
 	}
@@ -69,9 +80,9 @@ func (i *Domain) Distance(
 		return
 	}
 
-	// If the current domain contains the end of the time range, then everything
-	// is continuous and within the current domain.
 	if iter.TimeRange().ContainsStamp(tr.End) || tr.End == iter.TimeRange().End {
+		// If the current domain contains the end of the time range, then everything
+		// is continuous and within the current domain.
 		endApprox, err = i.search(tr.End, r)
 		approx = Between(
 			endApprox.Lower-startApprox.Upper,
@@ -80,8 +91,13 @@ func (i *Domain) Distance(
 		domainBounds = ExactDomainBounds(iter.Position())
 		return
 	} else if continuous {
-		err = NewErrDiscontinuousTR(tr)
-		return
+		// Otherwise, unless the effective domain contains the end of the time range
+		// the distance is discontinuous
+		if !effectiveDomainBounds.ContainsStamp(tr.End) &&
+			effectiveDomainBounds.End != iter.TimeRange().End {
+			err = NewErrDiscontinuousTR(tr)
+			return
+		}
 	}
 
 	var (
@@ -98,7 +114,7 @@ func (i *Domain) Distance(
 	domainBounds.Lower = iter.Position()
 
 	for {
-		if !iter.Next() {
+		if !iter.Next() || (continuous && !effectiveDomainBounds.ContainsRange(iter.TimeRange())) {
 			if continuous {
 				err = NewErrDiscontinuousTR(tr)
 				return
@@ -164,8 +180,8 @@ func (i *Domain) Stamp(
 	}
 
 	if !iter.SeekFirst(ctx) {
-		// No reason this SeekFirst should fail since it was called before.
-		panic("iterator seekFirst failed in stamp")
+		// Reset the iterator position after using it to determine effective bound.
+		i.L.DPanic("iterator seekFirst failed in stamp")
 	}
 
 	r, err := iter.NewReader(ctx)
