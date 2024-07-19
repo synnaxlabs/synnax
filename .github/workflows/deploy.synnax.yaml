@@ -142,7 +142,7 @@ jobs:
 
       - name: Build Driver on Windows
         if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
-        run: bazel --output_user_root=C:/tmp build --linkopts /debug --enable_platform_specific_config //driver:driver_main --define use_ni=true
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define use_ni=true
 
       - name: Build Driver on on Mac and Ubuntu
         if: matrix.platform != 'windows-latest' && needs.setup.outputs.changed == 'true'
