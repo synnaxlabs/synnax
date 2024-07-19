@@ -4,6 +4,7 @@ title: "Querying Data"
 heading: "Querying Data Using Ranges"
 description: "Learn how to create and find data ranges in Synnax."
 ---
+
 import { Divider } from "@synnaxlabs/pluto"
 import { Video } from "@/components/Media"
 import { Table } from "@/components/Table"
@@ -13,37 +14,31 @@ query sections of your cluster's data.
 
 <Divider.Divider direction="x" />
 
-## Prerequisites
-
-This page assumes you've already:
-
--   [Installed the Synnax Console](get-started)
--   [Connected to a cluster](connect-a-cluster)
-
-<Divider.Divider direction="x" />
-
 ## Defining New Ranges
 
 The primary means for accessing data in the Synnax console is through ranges. A
-range is identified by a start timestamp, end timestamp, and name. You can read
-more conceptually about ranges [here](/reference/concepts/read-ranges).
+range is identified by a start timestamp, end timestamp, and name.
 
 ### Local Ranges
 
 Local ranges exist only within your console, and are not persisted to the
 cluster. They're quite useful for quickly exploring data, and can eventually be
-converted to persisted ranges if you so desire. To create a local range, click
-the "Add Range" button in the ranges toolbar:
+converted to persisted ranges if you desire. To create a local range, click the
+"Add Range" button in the ranges toolbar, and then click "Save Locally":
 
 <Video client:only="react" id="console/new-range" />
+
+{/* TODO: change video to new range format */}
 
 ### Persisted Ranges
 
 Persisted ranges are saved permanently to the cluster, and can be accessed by
 other members of your organization. Creating a persisted range is the same as
-creating a local range, but you'll click the "Save Permanently" button instead.
+creating a local range, but you'll click the "Save Permanently" button instead:
 
 <Video client:only="react" id="console/new-permanent-range" />
+
+{/* TODO: Change video */}
 
 ### Parameters for Creating a Range
 
@@ -52,7 +47,6 @@ creating a local range, but you'll click the "Save Permanently" button instead.
         {
             key: "name",
             name: "Name",
-            width: 125,
         },
         {
             key: "description",
@@ -62,25 +56,15 @@ creating a local range, but you'll click the "Save Permanently" button instead.
     data={[
         {
             name: "Name",
-            description: "A human-readable name for identifying the range",
+            description: "A name for identifying the range.",
         },
         {
-            name: "Start Date",
-            description: "The start date of the range.",
+            name: "From",
+            description: "The date and time when the range starts.",
         },
         {
-            name: "Start Time",
-            description:
-                "The start time of the range. This value is inclusive, meaning any samples with a timestamp equal to the start time will be included in the range.",
-        },
-        {
-            name: "End Date",
-            description: "The end date of the range.",
-        },
-        {
-            name: "End Time",
-            description:
-                "The end time of the range. This value is exclusive, meaning any samples with a timestamp equal to the end time will not be included in the range.",
+            name: "To",
+            description: "The date and time when the range ends.",
         },
     ]}
 />
@@ -89,18 +73,22 @@ creating a local range, but you'll click the "Save Permanently" button instead.
 
 ## Finding Existing Ranges
 
-There are two ways to find existing ranges in the console. The resources tool
+There are two ways to find existing ranges in the console.: the resources tool
 bar and the command and search palette.
 
-### Through the Resources Toolbar
+### Resources Toolbar
 
 The resources toolbar is located on the left side of the console, and can be
 used to browse all of your cluster's resources, including ranges. All of your
 ranges can be found under the "Ranges" section.
 
-<Video client:only="react" id="console/range-resources" style={{width: "50%", marginLeft: "25%"}}/>
+<Video
+  client:only="react"
+  id="console/range-resources"
+  style={{width: "50%", marginLeft: "25%"}}
+/>
 
-We can load a specific range into our ranges table by double clicking on it.
+We can load a specific range into our ranges toolbar by double clicking on it.
 
 ### Through the Command and Search Palette
 

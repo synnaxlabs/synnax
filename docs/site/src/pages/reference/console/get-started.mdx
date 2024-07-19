@@ -5,10 +5,10 @@ heading: "The Synnax Console"
 description: "Learn how to install and use the Synnax Console."
 ---
 
-import { Align } from "@synnaxlabs/pluto/align";
+import { Align, Divider } from "@synnaxlabs/pluto";
+
 import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
 import { Image } from "@/components/Media";
-import { Divider } from "@synnaxlabs/pluto";
 
 The Synnax Console is a desktop application for visualizing data, controlling
 hardware, and managing a Synnax cluster. This page will get you started with
@@ -25,8 +25,8 @@ Install the console by downloading the latest release for your operating system:
 <br />
 <Align.Space direction="y" justify="center" align="center">
   <SynnaxConsoleDownloadButton client:load />
-  <small>Releases for other operating systems and older versions can be found on the
-  [releases page](https://github.com/synnaxlabs/synnax/releases). </small>
+  <small>Releases for other operating systems and older versions can be found on
+  the [releases page](https://github.com/synnaxlabs/synnax/releases).</small>
 </Align.Space>
 <br />
 <br />
@@ -40,5 +40,6 @@ screen:
 
 ## Next Steps
 
-Now that you've installed the console, [connect it to a Synnax cluster](connect-a-cluster)
-to start visualizing data and controlling hardware.
+Now that you've installed the console, [connect it to a Synnax
+cluster](/reference/console/connect-a-cluster) to start visualizing data and
+controlling hardware.

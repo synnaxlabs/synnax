@@ -3,23 +3,13 @@ layout: "@/layouts/MainLayout.astro"
 title: "Connect a Cluster"
 description: "Learn how to connect a cluster using the Synnax Console."
 ---
+
+import { Divider, Text } from "@synnaxlabs/pluto";
+
 import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
-
 import { Video } from "@/components/Media";
-import { Table } from "@/components/Table";
 import Note from "@/components/Note.astro";
-import { Text } from "@synnaxlabs/pluto";
-import { Divider } from "@synnaxlabs/pluto";
-
-<Divider.Divider direction="x" />
-
-## Prerequisites
-
-This page assumes you've already:
-
-- [Started a cluster](/reference/cluster/quick-start)
-- [Installed the Synnax console](get-started)
+import { Table } from "@/components/Table";
 
 <Divider.Divider direction="x" />
 
@@ -29,7 +19,7 @@ Adding a new cluster is as simple as clicking the **Add Cluster** button in the
 top right corner of the cluster toolbar and entering your connection parameters,
 as shown below.
 
-<Video client:only="react" id="console/connect-a-cluster" />
+<Video client:only="react" id="console/cluster/connect" />
 
 This will add a new cluster to the list and set it as active. The console
 continuously monitors the connection to the cluster and displays it in the
@@ -63,16 +53,16 @@ bottom right corner of the UI.
     },
     {
       name: "Username",
-      description: "The username to use when connecting to the cluster. If you didn't set a username when starting the cluster, this defaults to 'synnax'."
+      description: "The username to use when connecting to the cluster."
     },
     {
       name: "Password",
-      description: "The password to use when connecting to the cluster. If you didn't set a password when starting the cluster, this defaults to 'seldon'."
+      description: "The password to use when connecting to the cluster."
     },
     {
       name: "Secure",
       description:
-        "A boolean value indicating whether to use TLS when connecting to the cluster. This parameter only works with secure clusters."
+        "Whether to use TLS when connecting to the cluster. This parameter only works with secure clusters."
     }
   ]}
 />
@@ -90,20 +80,36 @@ To connect, enter the following parameters:
 - __Port__: 9090
 - __Username__: synnax
 - __Password__: seldon
-- __Secure__: True
+- __Secure__: true
 
 <Divider.Divider direction="x" />
 
-## Switching Clusters
+## Cluster Toolbar
 
-If you have multiple clusters, you can switch between them by double clicking on
-the cluster you'd like to to connect in the toolbar:
+The cluster toolbar is located at the bottom right of the screen. From this
+toolbar, you can add clusters, switch between them, and more.
 
-<Video client:only="react" id="console/switch-clusters" />
+If you have multiple clusters, you can switch between them by clicking on the
+cluster you'd like to connect to in the toolbar:
+
+<Video client:only="react" id="console/cluster/switch" />
+
+Right-clicking on a cluster in the toolbar will open a context menu with options
+to connect from, disconnect from, rename, and remove the cluster.
+
+<Video client:only="react" id="console/cluster/context-menu" />
+
+You can also copy a link to the cluster from the context menu. Opening this link
+will open the Synnax Console with the cluster already connected.
+
+<Note variant="warning">
+Currently, opening by link is only supported on Mac. Other platforms are planned
+to be supported in the future.
+</Note>
 
 <Divider.Divider direction="x" />
 
 ## Next Steps
 
-You can find a basic overview of the console UI on the [UI overview](ui-overview)
-page.
+You can find a basic overview of the console UI on the [UI
+overview](/reference/console/ui-overview) page.
