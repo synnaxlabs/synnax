@@ -30,9 +30,7 @@ export class Deleter {
    */
   private readonly client: UnaryClient;
 
-  constructor(
-    client: UnaryClient,
-  ) {
+  constructor(client: UnaryClient) {
     this.client = client;
   }
 

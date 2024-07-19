@@ -101,7 +101,7 @@ class PolicyClient:
         raise NotFoundError(f"Policy with subject '{subject}' not found.")
 
     @trace("debug")
-    def delete(self, keys: uuid.UUID|list[uuid.UUID]) -> None:
+    def delete(self, keys: uuid.UUID | list[uuid.UUID]) -> None:
         res, exc = self.__client.send(
             self.__DELETE_ENDPOINT,
             _DeleteRequest(keys=[keys] if isinstance(keys, uuid.UUID) else keys),
@@ -110,4 +110,3 @@ class PolicyClient:
         if exc is not None:
             raise exc
         return res
-

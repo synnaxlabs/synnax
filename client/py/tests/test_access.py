@@ -22,12 +22,18 @@ class TestAccessClient:
             [
                 sy.Policy(
                     subjects=[OntologyID(type="user", key=str(uuid.uuid4()))],
-                    objects=[OntologyID(type="channel", key=str(uuid.uuid4())), OntologyID(type="label", key=str(uuid.uuid4()))],
+                    objects=[
+                        OntologyID(type="channel", key=str(uuid.uuid4())),
+                        OntologyID(type="label", key=str(uuid.uuid4())),
+                    ],
                     actions=["create"],
                 ),
                 sy.Policy(
                     subjects=[OntologyID(type="user", key=str(uuid.uuid4()))],
-                    objects=[OntologyID(type="channel", key=str(uuid.uuid4())), OntologyID(type="label", key=str(uuid.uuid4()))],
+                    objects=[
+                        OntologyID(type="channel", key=str(uuid.uuid4())),
+                        OntologyID(type="label", key=str(uuid.uuid4())),
+                    ],
                     actions=["create"],
                 ),
             ]
@@ -42,7 +48,10 @@ class TestAccessClient:
     def test_create_single(self, client: sy.Synnax):
         p = sy.Policy(
             subjects=[OntologyID(type="user", key=str(uuid.uuid4()))],
-            objects=[OntologyID(type="channel", key=str(uuid.uuid4())), OntologyID(type="label", key=str(uuid.uuid4()))],
+            objects=[
+                OntologyID(type="channel", key=str(uuid.uuid4())),
+                OntologyID(type="label", key=str(uuid.uuid4())),
+            ],
             actions=["create"],
         )
         policy = client.access.create(p)
@@ -55,13 +64,19 @@ class TestAccessClient:
         resourceID = str(uuid.uuid4())
         policy = client.access.create(
             subjects=[OntologyID(type="user", key=resourceID)],
-            objects=[OntologyID(type="channel", key=resourceID), OntologyID(type="label", key=resourceID)],
+            objects=[
+                OntologyID(type="channel", key=resourceID),
+                OntologyID(type="label", key=resourceID),
+            ],
             actions=["create"],
         )
         assert policy.key != ""
         assert policy.actions == ["create"]
         assert policy.subjects == [OntologyID(type="user", key=resourceID)]
-        assert policy.objects == [OntologyID(type="channel", key=resourceID), OntologyID(type="label", key=resourceID)]
+        assert policy.objects == [
+            OntologyID(type="channel", key=resourceID),
+            OntologyID(type="label", key=resourceID),
+        ]
 
     def test_retrieve_by_subject(
         self, two_policies: list[sy.Policy], client: sy.Synnax
@@ -104,11 +119,13 @@ class TestAccessAuthClient:
         )
 
         with pytest.raises(sy.AuthError):
-            client2.channels.create(sy.Channel(
-                name="new_channel",
-                data_type=sy.DataType.FLOAT32,
-                rate=1*sy.Rate.HZ,
-            ))
+            client2.channels.create(
+                sy.Channel(
+                    name="new_channel",
+                    data_type=sy.DataType.FLOAT32,
+                    rate=1 * sy.Rate.HZ,
+                )
+            )
 
         p = client.access.create(
             subjects=[usr.ontology_id()],
@@ -116,18 +133,22 @@ class TestAccessAuthClient:
             actions=["create"],
         )
 
-        client2.channels.create(sy.Channel(
-            name="new_channel",
-            data_type=sy.DataType.FLOAT32,
-            rate=1*sy.Rate.HZ,
-        ))
+        client2.channels.create(
+            sy.Channel(
+                name="new_channel",
+                data_type=sy.DataType.FLOAT32,
+                rate=1 * sy.Rate.HZ,
+            )
+        )
 
         # revoke the policy
         client.access.delete(p.key)
 
         with pytest.raises(sy.AuthError):
-            client2.channels.create(sy.Channel(
-                name="new_channel",
-                data_type=sy.DataType.FLOAT32,
-                rate=1*sy.Rate.HZ,
-            ))
+            client2.channels.create(
+                sy.Channel(
+                    name="new_channel",
+                    data_type=sy.DataType.FLOAT32,
+                    rate=1 * sy.Rate.HZ,
+                )
+            )
