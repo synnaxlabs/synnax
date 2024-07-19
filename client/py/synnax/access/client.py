@@ -10,28 +10,52 @@ from __future__ import annotations
 
 import uuid
 
+from alamos import Instrumentation, NOOP, trace
+from freighter import Payload, UnaryClient
 from synnax.access.payload import Policy
-from synnax.access.retrieve import PolicyRetriever
-from synnax.access.writer import PolicyWriter
 from synnax.exceptions import NotFoundError
 from synnax.ontology.id import OntologyID
 
 
+class _RetrieveRequest(Payload):
+    subject: OntologyID
+
+
+class _RetrieveResponse(Payload):
+    policies: list[Policy] | None
+
+
+class _CreateRequest(Payload):
+    policies: list[Policy]
+
+
+_CreateResponse = _CreateRequest
+
+
+class _DeleteRequest(Payload):
+    keys: list[uuid.UUID]
+
+
+class _DeleteResponse(Payload):
+    ...
+
+
 class PolicyClient:
-    _retriever: PolicyRetriever
-    _writer: PolicyWriter
+    __CREATE_ENDPOINT = "/access/policy/create"
+    __RETRIEVE_ENDPOINT = "/access/policy/retrieve"
+    __DELETE_ENDPOINT = "/access/policy/delete"
+    __client: UnaryClient
+    instrumentation: Instrumentation
 
     def __init__(
         self,
-        retriever: PolicyRetriever,
-        creator: PolicyWriter,
+        client: UnaryClient,
+        instrumentation: Instrumentation = NOOP,
     ):
-        self._retriever = retriever
-        self._writer = creator
+        self.__client = client
+        self.instrumentation = instrumentation
 
-    def delete(self, keys: uuid.UUID|list[uuid.UUID]) -> None:
-        self._writer.delete([keys] if isinstance(keys, uuid.UUID) else keys)
-
+    @trace("debug")
     def create(
         self,
         policies: Policy | list[Policy] | None = None,
@@ -53,13 +77,37 @@ class PolicyClient:
         else:
             _policies = policies
 
-        created = self._writer.create(_policies)
-        return created if isinstance(policies, list) else created[0]
+        req = _CreateRequest(policies=_policies)
+        res, exc = self.__client.send(self.__CREATE_ENDPOINT, req, _CreateResponse)
+        if exc is not None:
+            raise exc
 
+        return res.policies[0] if len(res.policies) == 1 else res.policies
+
+    @trace("debug")
     def retrieve(self, subject: OntologyID) -> Policy | list[Policy]:
-        res = self._retriever.retrieve(subject)
-        if len(res) > 1:
+        res, exc = self.__client.send(
+            self.__RETRIEVE_ENDPOINT,
+            _RetrieveRequest(subject=subject),
+            _RetrieveResponse,
+        )
+        if exc is not None:
+            raise exc
+
+        if len(res.policies) > 1:
             return res
-        elif len(res) == 1:
-            return res[0]
+        elif len(res.policies) == 1:
+            return res.policies[0]
         raise NotFoundError(f"Policy with subject '{subject}' not found.")
+
+    @trace("debug")
+    def delete(self, keys: uuid.UUID|list[uuid.UUID]) -> None:
+        res, exc = self.__client.send(
+            self.__DELETE_ENDPOINT,
+            _DeleteRequest(keys=[keys] if isinstance(keys, uuid.UUID) else keys),
+            _DeleteResponse,
+        )
+        if exc is not None:
+            raise exc
+        return res
+

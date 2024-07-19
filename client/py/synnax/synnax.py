@@ -10,8 +10,6 @@
 from alamos import NOOP, Instrumentation
 from freighter import URL
 from synnax import PolicyClient
-from synnax.access.retrieve import PolicyRetriever
-from synnax.access.writer import PolicyWriter
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
@@ -146,10 +144,7 @@ class Synnax(Client):
             HardwareWriter(client=self._transport.unary),
             HardwareRetriever(client=self._transport.unary),
         )
-        self.access = PolicyClient(
-            PolicyRetriever(client=self._transport.unary),
-            PolicyWriter(client=self._transport.unary),
-        )
+        self.access = PolicyClient(self._transport.unary, instrumentation)
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or

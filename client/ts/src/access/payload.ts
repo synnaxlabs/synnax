@@ -22,5 +22,8 @@ export const policyZ = z.object({
   objects: idZ.array(),
   actions: z.string().array(),
 });
-
 export type Policy = z.infer<typeof policyZ>
+
+export const newPolicyPayloadZ = policyZ.extend({key: keyZ.optional()})
+export type NewPolicyPayload = z.infer<typeof newPolicyPayloadZ>
+

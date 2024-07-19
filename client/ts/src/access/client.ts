@@ -7,25 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x/toArray";
+import {sendRequired, type UnaryClient} from "@synnaxlabs/freighter";
+import {toArray} from "@synnaxlabs/x/toArray";
 
-import { Key, Policy } from "@/access/payload";
-import { Retriever } from "@/access/retriever";
-import { NewPolicyPayload, Writer } from "@/access/writer";
-import { IDPayload } from "@/ontology/payload";
+import {
+  Key,
+  keyZ,
+  NewPolicyPayload,
+  newPolicyPayloadZ,
+  Policy,
+  policyZ
+} from "@/access/payload";
+import {IDPayload, idZ} from "@/ontology/payload";
+import {z} from "zod";
+import {NotFoundError} from "@/errors";
+
+const CREATE_ENDPOINT = "/access/policy/create";
+const DELETE_ENDPOINT = "/access/policy/delete";
+const RETRIEVE_ENDPOINT = "/access/policy/retrieve";
+
+const createReqZ = z.object({policies: newPolicyPayloadZ.array()});
+const createResZ = z.object({policies: policyZ.array()});
+
+const deleteReqZ = z.object({keys: keyZ.array()});
+const deleteResZ = z.object({});
+
+const retrieveReqZ = z.object({subject: idZ})
+const retrieveResZ = z.object({
+  policies: policyZ.array().optional().default([]),
+});
 
 export class Client {
   private readonly client: UnaryClient;
-  readonly retriever: Retriever;
-  readonly writer: Writer;
 
   constructor(
     client: UnaryClient,
   ) {
-    this.retriever = new Retriever(client);
     this.client = client;
-    this.writer = new Writer(client);
   }
 
   async create(policies: NewPolicyPayload): Promise<Policy>;
@@ -36,22 +54,47 @@ export class Client {
     policies: NewPolicyPayload | NewPolicyPayload[],
   ): Promise<Policy | Policy[]> {
     const single = !Array.isArray(policies);
-    let toCreate = toArray(policies);
-    let created: Policy[] = [];
-    created = created.concat(await this.writer.create(toCreate));
+
+    const {policies: created} = await sendRequired<
+      typeof createReqZ,
+      typeof createResZ
+    >(
+      this.client,
+      CREATE_ENDPOINT,
+      {policies: toArray(policies)},
+      createReqZ,
+      createResZ,
+    );
+
     return single ? created[0] : created;
   }
 
   async retrieve(
     subject: IDPayload,
-  ): Promise<Policy[]> {
-    return await this.retriever.retrieve(subject);
+  ): Promise<Policy | Policy[]> {
+    const {policies: retrieved} = await sendRequired<
+      typeof retrieveReqZ,
+      typeof retrieveResZ
+    >(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { subject: subject},
+      retrieveReqZ,
+      retrieveResZ,
+    );
+    if(retrieved.length == 0){
+      throw new NotFoundError(`Policy with subject ${subject} not found`)
+    }
+    return retrieved.length == 1 ? retrieved[0] : retrieved;
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    if (Array.isArray(keys)) {
-      return await this.writer.delete(keys);
-    }
-    return await this.writer.delete([keys])
+    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+      this.client,
+      DELETE_ENDPOINT,
+      {keys: toArray(keys)},
+      deleteReqZ,
+      deleteResZ,
+    );
   }
 }

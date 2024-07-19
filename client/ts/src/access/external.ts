@@ -9,5 +9,3 @@
 
 export * from "@/access/client";
 export * from "@/access/payload";
-export * from "@/access/retriever";
-export * from "@/access/writer";
