@@ -88,13 +88,12 @@ jobs:
               - "cesium/**"
               - ".github/workflows/test.integration.yaml"
 
-      - name: Set up Python
+      - name: Poetry install
         if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
+        run: poetry install
+        working-directory: ./cesium/internal/benchmark
 
       - name: Benchmark
         if: steps.filter.outputs.changed == 'true'
-        run: python ./benchmarker.py
-        working-directory: ./cesium
+        run: poetry run python benchmarker.py
+        working-directory: ./cesium/internal/benchmark

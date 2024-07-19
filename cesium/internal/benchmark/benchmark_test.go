@@ -1,6 +1,7 @@
-package cesium_test
+package benchmark_test
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/samber/lo"
@@ -50,6 +51,7 @@ var (
 	numGoRoutines     = flag.Int64("g", 1, "goroutine count")
 	streamOnly        = flag.Bool("only_stream", false, "writer streamOnly mode")
 	commitInterval    = flag.Int("commit", -1, "writer commit interval")
+	ctx               = context.TODO()
 )
 
 func BenchmarkCesium(b *testing.B) {
