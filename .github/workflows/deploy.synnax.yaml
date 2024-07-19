@@ -173,7 +173,7 @@ jobs:
         if: matrix.platform == 'windows-latest' && github.event_name == 'push' && needs.setup.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber driver_main.pdb ./bazel-bin/driver/driver_main.pdb 
+        run: gh release upload driver_main.pdb ./bazel-bin/driver/driver_main.pdb 
 
       - name: Set up Go
         if: needs.setup.outputs.changed == 'true'
