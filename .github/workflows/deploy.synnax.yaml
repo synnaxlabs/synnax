@@ -148,6 +148,12 @@ jobs:
         if: matrix.platform != 'windows-latest' && needs.setup.outputs.changed == 'true'
         run: bazel build --enable_platform_specific_config //driver:driver_main --define use_ni=false
 
+      - name: Upload Release Asset for Driver Symbols
+        if: matrix.platform == 'windows-latest' && github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main.pdb 
+
       - name: Determine Executable Name
         id: executable
         if: needs.setup.outputs.changed == 'true'
@@ -168,7 +174,8 @@ jobs:
       - name: Rename Driver
         if:  needs.setup.outputs.changed == 'true'
         run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
-
+      
+      
       - name: Set up Go
         if: needs.setup.outputs.changed == 'true'
         uses: actions/setup-go@v5
