@@ -122,6 +122,5 @@ def bench(var_of_interest, var_values):
 
 # example: testing the effect of different number of data channel
 bench("num_data_channels",
-      # [50, 100, 500, 1000, 5000, 10000],
-      [50],
+      [50, 100, 500, 1000, 5000, 10000],
       )
