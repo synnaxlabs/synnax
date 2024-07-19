@@ -63,13 +63,13 @@ jobs:
         working-directory: ./integration
 
       - name: Load test
-        if: steps.filter.outputs.changed == 'true'
+        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
         run: ./run-integration.sh tests/ws-d-r.json
         working-directory: ./integration
 
       - name: Benchmark test
         if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/benchmark-debug.json
+        run: ./run-integration.sh tests/benchmark-test.json
         working-directory: ./integration
 
   test-benchmark-cesium:
