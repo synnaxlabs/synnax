@@ -42,7 +42,7 @@ func runTest(testConfigFile string, verbose bool) (exitCode int) {
 	writeTestStart("timing.log", testConfigFile, test.Cluster, test.Setup)
 
 	// Cluster is automatically killed when ctx is canceled.
-	err, killCluster := startCluster(test.Cluster)
+	err, serverOutStream, serverErrStream, killCluster := startCluster(test.Cluster)
 	if err != nil {
 		panic(err)
 	}
@@ -50,6 +50,11 @@ func runTest(testConfigFile string, verbose bool) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("PANIC RECOVERED FOR CLEANUP FROM ERROR\n-----\n%s\n------\n", r)
+			fmt.Printf(
+				"---server stdout stream---\n%s\n---server stderr stream---\n%s\n",
+				serverOutStream.String(),
+				serverErrStream.String(),
+			)
 			exitCode = 1
 		}
 		if err := runCleanUp(test.Cleanup, verbose); err != nil {

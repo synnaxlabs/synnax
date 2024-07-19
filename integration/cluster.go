@@ -15,11 +15,10 @@ type ClusterParam struct {
 	MemFS    bool `json:"mem_fs"`
 }
 
-// startCluster starts a cluster that is sent a SIG_KILL when ctx is canceled.
-func startCluster(p ClusterParam) (error, func() error) {
+func startCluster(p ClusterParam) (error, *bytes.Buffer, *bytes.Buffer, func() error) {
 	if p == (ClusterParam{}) {
 		fmt.Printf("--cannot find cluster startup configration, skipping\n")
-		return nil, func() error { return nil }
+		return nil, nil, nil, func() error { return nil }
 	}
 
 	fmt.Printf("--starting cluster\n")
@@ -40,7 +39,7 @@ func startCluster(p ClusterParam) (error, func() error) {
 	cmd.Stdout = &stdOut
 	stdIn, err := cmd.StdinPipe()
 	if err != nil {
-		return err, func() error { return nil }
+		return err, &stdErr, &stdOut, func() error { return nil }
 	}
 
 	err = cmd.Start()
@@ -50,12 +49,12 @@ func startCluster(p ClusterParam) (error, func() error) {
 			"error in starting cluster.\nstdout: %s\nstderr: %s\n",
 			stdOut.String(),
 			stdErr.String(),
-		), func() error { return nil }
+		), &stdOut, &stdErr, func() error { return nil }
 	}
 
 	time.Sleep(5 * telem.Second.Duration())
 
-	return nil, func() (err error) {
+	return nil, &stdOut, &stdErr, func() (err error) {
 		const stopKeyword = "stop"
 		if _, err := stdIn.Write([]byte(stopKeyword)); err != nil {
 			return err

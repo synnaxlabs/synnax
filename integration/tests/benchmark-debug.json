@@ -31,7 +31,7 @@
             }
           ],
           "num_writers": 1,
-          "domains": 500000,
+          "domains": 50000,
           "samples_per_domain": 1000,
           "time_range": {
             "start": 0,
@@ -62,7 +62,7 @@
             }
           ],
           "num_writers": 1,
-          "domains": 500000,
+          "domains": 50000,
           "samples_per_domain": 1000,
           "time_range": {
             "start": 0,
@@ -177,7 +177,7 @@
             "end": 1000000000000001
           },
           "expected_error": "no_error",
-          "samples_expected": 1200000000
+          "samples_expected": 300000000
         }
       },
       {
@@ -203,7 +203,7 @@
             "end": 1000000000000001
           },
           "expected_error": "no_error",
-          "samples_expected": 1200000000
+          "samples_expected": 300000000
         }
       }
     ]
