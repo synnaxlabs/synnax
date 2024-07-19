@@ -168,6 +168,12 @@ jobs:
       - name: Rename Driver
         if:  needs.setup.outputs.changed == 'true'
         run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+      
+      - name: Upload Release Asset for Driver Symbols
+        if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: gh release upload --clobber driver_main.pdb ./bazel-bin/driver/driver_main.pdb 
 
       - name: Set up Go
         if: needs.setup.outputs.changed == 'true'
