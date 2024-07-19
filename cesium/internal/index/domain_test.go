@@ -135,9 +135,6 @@ var _ = Describe("Domain", func() {
 					)
 				})
 
-				// Distance does not work on discontinuous domains if the end time range
-				// is not in any domain: in backlog to be fixed.
-
 				Context("Discontinuous", func() {
 					BeforeEach(func() {
 						Expect(domain.Write(
@@ -256,6 +253,63 @@ var _ = Describe("Domain", func() {
 							(-1*telem.SecondTS).Range(27*telem.SecondTS),
 							index.Between[int64](10, 12),
 							index.BetweenDomains(0, 1),
+							nil,
+						),
+					)
+				})
+				Context("Effectively continuous", func() {
+					var (
+						db2  *domain.DB
+						idx2 *index.Domain
+					)
+					BeforeEach(func() {
+						db2 = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger(), FileSize: 24 * telem.ByteSize}))
+						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
+						MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 16, 17).Data))
+						Expect(w.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
+						MustSucceed(w.Write(telem.NewSecondsTSV(18, 19, 20, 22).Data))
+						Expect(w.Commit(ctx, 22*telem.SecondTS+1)).To(Succeed())
+						MustSucceed(w.Write(telem.NewSecondsTSV(25, 26).Data))
+						Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
+						Expect(domain.Write(ctx, db2, (30 * telem.SecondTS).Range(33*telem.SecondTS+1), telem.NewSecondsTSV(30, 32, 33).Data)).To(Succeed())
+						idx2 = &index.Domain{DB: db2}
+					})
+					DescribeTable("effectively continuous", func(
+						tr telem.TimeRange,
+						expected index.DistanceApproximation,
+						db index.DomainBounds,
+						err error,
+					) {
+						actual, bounds, e := idx2.Distance(ctx, tr, true)
+						if err == nil {
+							Expect(actual).To(Equal(expected))
+							Expect(db).To(Equal(bounds))
+						} else {
+							Expect(e).To(MatchError(err))
+						}
+					},
+						Entry("exact exact",
+							(19*telem.SecondTS).Range(22*telem.SecondTS),
+							index.Exactly[int64](2),
+							index.ExactDomainBounds(1),
+							nil,
+						),
+						Entry("exact exact - between domains",
+							(16*telem.SecondTS).Range(26*telem.SecondTS),
+							index.Exactly[int64](7),
+							index.BetweenDomains(0, 2),
+							nil,
+						),
+						Entry("exact exact - out of domain",
+							(16*telem.SecondTS).Range(32*telem.SecondTS),
+							index.Exactly[int64](0),
+							index.ExactDomainBounds(0),
+							index.ErrDiscontinuous,
+						),
+						Entry("inexact",
+							(12*telem.SecondTS).Range(25*telem.SecondTS+500*telem.MillisecondTS),
+							index.Between[int64](6, 8),
+							index.BetweenDomains(0, 2),
 							nil,
 						),
 					)
