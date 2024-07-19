@@ -1,10 +1,11 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "Querying Data"
-heading: "Querying Data Using Ranges"
-description: "Learn how to create and find data ranges in Synnax."
+title: "Ranges"
+heading: "Ranges"
+description: "Learn how to create and find data in Synnax."
 ---
 
+import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto"
 import { Video } from "@/components/Media"
 import { Table } from "@/components/Table"
@@ -19,26 +20,24 @@ query sections of your cluster's data.
 The primary means for accessing data in the Synnax console is through ranges. A
 range is identified by a start timestamp, end timestamp, and name.
 
-### Local Ranges
+### Creating a New Range
 
-Local ranges exist only within your console, and are not persisted to the
-cluster. They're quite useful for quickly exploring data, and can eventually be
-converted to persisted ranges if you desire. To create a local range, click the
-"Add Range" button in the ranges toolbar, and then click "Save Locally":
+Creating a range is simple: just just click the "Add Range" button in the range
+toolbar and fill in the required fields. If you would like to save the range to
+your local computer and not share it with the rest of the cluster, click "Save
+Locally". If you want the range to be saved to the whole cluster, click "Save
+Permanently".
 
-<Video client:only="react" id="console/new-range" />
+<Video client:only="react" id="console/range/create" />
 
-{/* TODO: change video to new range format */}
+### Local vs. Persisted Ranges
 
-### Persisted Ranges
-
-Persisted ranges are saved permanently to the cluster, and can be accessed by
-other members of your organization. Creating a persisted range is the same as
-creating a local range, but you'll click the "Save Permanently" button instead:
-
-<Video client:only="react" id="console/new-permanent-range" />
-
-{/* TODO: Change video */}
+The difference between local and persisted range is that local ranges are _not_
+saved to your cluster. What that means is if two users are connected to the same
+cluster, a local range created by one user will not be visible to the other
+user. When you clear the console's local storage, the local range will also be
+lost. If you want to make sure your range is always accessible, save it as a
+persisted range.
 
 ### Parameters for Creating a Range
 
@@ -73,8 +72,8 @@ creating a local range, but you'll click the "Save Permanently" button instead:
 
 ## Finding Existing Ranges
 
-There are two ways to find existing ranges in the console.: the resources tool
-bar and the command and search palette.
+There are two ways to find existing ranges in the console: the resources toolbar
+and the command and search palette.
 
 ### Resources Toolbar
 
@@ -84,19 +83,20 @@ ranges can be found under the "Ranges" section.
 
 <Video
   client:only="react"
-  id="console/range-resources"
+  id="console/range/resources"
   style={{width: "50%", marginLeft: "25%"}}
 />
 
-We can load a specific range into our ranges toolbar by double clicking on it.
+We can load a specific range into our ranges toolbar by clicking on it.
 
-### Through the Command and Search Palette
+### Command and Search Palette
 
 The command and search palette is located in the top center of the console, and
 can be used to search for cluster resources and execute commands. We can find a
 permanently saved range just by typing its name into the palette.
 
-<Video client:only="react" id="console/ranges-palette" />
+<Video client:only="react" id="console/range/palette" />
 
-Use the arrow keys to navigate the results, and press enter to load the range
-you're interested in. You can also hover and click using your mouse.
+Use the arrow keys to navigate the results, and press <Icon.Keyboard.Return />
+to load the range you're interested in. You can also hover and click using your
+mouse.

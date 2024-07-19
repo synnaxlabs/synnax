@@ -19,8 +19,8 @@ export const consoleNav: PageNavNode = {
       name: "Get Started",
     },
     {
-      key: "/reference/console/connect-a-cluster",
-      href: "/reference/console/connect-a-cluster",
+      key: "/reference/console/clusters",
+      href: "/reference/console/clusters",
       name: "Connect a Cluster",
     },
     {
@@ -34,8 +34,8 @@ export const consoleNav: PageNavNode = {
       name: "Workspaces",
     },
     {
-      key: "/reference/console/querying-data",
-      href: "/reference/console/querying-data",
+      key: "/reference/console/ranges",
+      href: "/reference/console/ranges",
       name: "Querying Data Using Ranges",
     },
     {

@@ -7,7 +7,6 @@ description: "Learn how to navigate the Synnax console UI."
 
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
-
 import { Image, Video } from "@/components/Media";
 import Note from "@/components/Note.astro";
 import Table from "@/components/Table.astro";
@@ -52,7 +51,7 @@ users, and workspaces.
       cluster.</td>
     </tr>
     <tr>
-      <td><a href="/reference/console/querying-data">Ranges</a></td>
+      <td><a href="/reference/console/ranges">Ranges</a></td>
       <td>Ranges are saved times that you can use when loading data to
       view.</td>
     </tr>
@@ -76,12 +75,10 @@ users, and workspaces.
 
 ### <Icon.Range /> Ranges
 
-The [range toolbar](/reference/console/querying-data) allows you to create,
+The [range toolbar](/reference/console/ranges) allows you to create,
 view, and access the ranges you're interested in visualizing. 
 
-<Video client:only="react" id="console/new-range" />
-
-{/* TODO: change the video to have updated range view */}
+<Video client:only="react" id="console/range/create" />
 
 ### <Icon.Task /> Tasks
 
@@ -92,7 +89,7 @@ resume the current tasks happening on the cluster.
 
 ### <Icon.Visualize /> Visualizations
 
-This visualization toolbar allows you to edit the properties of [line
+The visualization toolbar allows you to edit the properties of [line
 plots](/reference/console/line-plot) and
 [schematics](/reference/console/schematic).
 
@@ -100,7 +97,7 @@ plots](/reference/console/line-plot) and
 
 ### <Icon.Cluster /> Clusters
 
-The [cluster toolbar](/reference/console/connect-a-cluster) allows you to switch
+The [cluster toolbar](/reference/console/clusters) allows you to switch
 the current cluster that you are connected to and add new clusters.
 
 <Video client:only="react" id="console/cluster/connect" />
@@ -139,18 +136,18 @@ clicking the <Icon.QuestionMark/> icon.
 
 The search toolbar at the top can be used to search for resources or to toggle
 commands. Searching for resouces can be done by searching or pressing
-<Icon.Keyboard.Control/> + `P` (Windows) / <Icon.Keyboard.Command /> + `P`
-(MacOS). As an example of searching for resources, you could search for a test
-range and then automatically add it as the active range:
+<Icon.Keyboard.Control/>+`P` (Windows) / <Icon.Keyboard.Command />+`P` (MacOS).
+As an example of searching for resources, you could search for a test range and
+then automatically add it as the active range:
 
 <Video client:only="react" id="console/ui-overview-toolbar-open-range" />
 
 <Icon.Keyboard.Return />
 
 The search toolbar can run commands by entering a `>` into the toolbar or by
-pressing <Icon.Keyboard.Control /> + <Icon.Keyboard.Shift /> + `P` (Windows) /
-<Icon.Keyboard.Command /> + <Icon.Keyboard.Shift /> + `P` (MacOS). This allows
-you to run commands such as toggling the color theme, creating a visualization,
+pressing <Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) /
+<Icon.Keyboard.Command />+<Icon.Keyboard.Shift />+`P` (MacOS). This allows you
+to run commands such as toggling the color theme, creating a visualization,
 adding a range, or opening the documentation:
 
 <Video client:only="react" id="console/ui-overview-toolbar-command" />
