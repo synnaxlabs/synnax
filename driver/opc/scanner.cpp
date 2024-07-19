@@ -173,6 +173,7 @@ void Scanner::scan(const task::Command &cmd) const {
         .variant = "success",
         .details = DeviceProperties(args.connection, *scan_ctx->channels).toJSON(),
     });
+    delete scan_ctx;
 }
 
 void Scanner::testConnection(const task::Command &cmd) const {
