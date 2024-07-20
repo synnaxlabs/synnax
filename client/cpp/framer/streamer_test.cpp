@@ -55,3 +55,44 @@ TEST(FramerTests, testStreamBasic) {
     auto wsErr = streamer.close();
     ASSERT_FALSE(wsErr) << wsErr.message();
 }
+
+///@brief test streamer set channels after construction.
+TEST(FramerTests, testStreamSetChannels) {
+    auto client = new_test_client();
+    auto [data, cErr] = client.channels.create(
+        "data",
+        synnax::FLOAT32,
+        1 * synnax::HZ);
+    ASSERT_FALSE(cErr) << cErr.message();
+    auto now = synnax::TimeStamp::now();
+    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+        {data.key},
+        now,
+        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
+        synnax::ControlSubject{"test_writer"}
+    });
+    ASSERT_FALSE(wErr) << wErr.message();
+
+    auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
+        {},
+    });
+
+    auto setErr = streamer.setChannels({data.key});
+    ASSERT_FALSE(setErr) << setErr.message();
+
+    auto frame = synnax::Frame(1);
+    frame.add(
+        data.key,
+        synnax::Series(std::vector<std::float_t>{1.0}));
+    ASSERT_TRUE(writer.write(std::move(frame)));
+    auto [res_frame, recErr] = streamer.read();
+    ASSERT_FALSE(recErr) << recErr.message();
+
+    ASSERT_EQ(res_frame.size(), 1);
+    ASSERT_EQ(res_frame.series->at(0).values<float>()[0], 1.0);
+
+    auto wcErr = writer.close();
+    ASSERT_FALSE(cErr) << cErr.message();
+    auto wsErr = streamer.close();
+    ASSERT_FALSE(wsErr) << wsErr.message();
+}
