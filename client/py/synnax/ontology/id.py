@@ -13,8 +13,3 @@ from pydantic import BaseModel
 class OntologyID(BaseModel):
     key: str | None = ""
     type: str | None = ""
-
-
-user_ontology_type = OntologyID(type="user")
-channel_ontology_type = OntologyID(type="channel")
-policy_ontology_type = OntologyID(type="policy")

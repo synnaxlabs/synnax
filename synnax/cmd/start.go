@@ -13,11 +13,12 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -161,9 +162,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		accessSvc, err := rbac.NewService(rbac.Config{
-			DB: gorpDB,
-		})
+		accessSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
 		if err != nil {
 			return err
 		}

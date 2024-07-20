@@ -25,6 +25,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
 from synnax.exceptions import NotFoundError, MultipleFoundError, ValidationError
 from synnax.framer.client import Client as FrameClient
+from synnax.ontology.id import OntologyID
 from synnax.telem import (
     CrudeDataType,
     CrudeRate,
@@ -36,6 +37,9 @@ from synnax.telem import (
 )
 
 from synnax.util.normalize import normalize
+
+
+channel_ontology_type = OntologyID(type="channel")
 
 class Channel(ChannelPayload):
     """A channel is a logical collection of samples emitted by or representing the

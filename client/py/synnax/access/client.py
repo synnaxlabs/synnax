@@ -40,6 +40,9 @@ class _DeleteResponse(Payload):
     ...
 
 
+policy_ontology_type = OntologyID(type="policy")
+
+
 class PolicyClient:
     __CREATE_ENDPOINT = "/access/policy/create"
     __RETRIEVE_ENDPOINT = "/access/policy/retrieve"

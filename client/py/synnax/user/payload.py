@@ -10,6 +10,8 @@
 from freighter import Payload
 from synnax.ontology.id import OntologyID
 
+user_ontology_type = OntologyID(type="user")
+
 
 class UserPayload(Payload):
     key: str

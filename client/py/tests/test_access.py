@@ -11,7 +11,8 @@ import uuid
 import pytest
 
 import synnax as sy
-from synnax.ontology.id import OntologyID, channel_ontology_type
+from synnax.channel.client import channel_ontology_type
+from synnax.ontology.id import OntologyID
 
 
 @pytest.mark.access

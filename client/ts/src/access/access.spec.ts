@@ -11,7 +11,6 @@ import { describe, expect, it, test } from "vitest";
 
 import { AuthError, QueryError } from "@/errors";
 import { HOST, newClient, PORT } from "@/setupspecs";
-import { v4 as uuid } from 'uuid';
 import {
   ChannelOntologyType,
   LabelOntologyType,
@@ -19,7 +18,8 @@ import {
 } from "@/ontology/payload";
 import Synnax from "@/client";
 import { Channel } from "@/channel/client";
-import { DataType, Rate } from "@synnaxlabs/x";
+import { DataType, Rate, id } from "@synnaxlabs/x";
+import { Policy } from "@/access/payload";
 
 const client = newClient();
 
@@ -67,7 +67,7 @@ describe("Channel", () => {
     });
   });
   test("retrieve by subject", async () => {
-    const key1 = uuid().toString()
+    const key1 = id.id()
     const policies = [{
       key: undefined,
       subjects: [{type: UserOntologyType, key: key1}, {type: UserOntologyType, key: "21"}],
@@ -82,7 +82,7 @@ describe("Channel", () => {
 
     await client.access.create(policies)
 
-    const p = await client.access.retrieve(policies[0].subjects[0]);
+    const p = await client.access.retrieve(policies[0].subjects[0]) as Policy[];
     expect(p).toHaveLength(2);
     expect([p[0].actions, p[1].actions].sort()).toEqual([["delete"], ["update"]]);
   });
@@ -135,7 +135,7 @@ describe("Channel", () => {
   });
   describe("registration", async () => {
     test("register a user", async () => {
-      const username = uuid().toString();
+      const username = id.id();
       await client.auth!.register(username, "pwd1");
       new Synnax({
         host: HOST,
@@ -145,7 +145,7 @@ describe("Channel", () => {
       });
     })
     test("duplicate username", async () => {
-      const username = uuid().toString();
+      const username = id.id();
       await client.auth!.register(username, "pwd1");
       await expect(client.auth!.register(username, "pwd1")).rejects.toThrow(
         AuthError
@@ -154,7 +154,7 @@ describe("Channel", () => {
   })
   describe("privilege", async () => {
     test("new user", async () => {
-      const username = uuid().toString()
+      const username = id.id()
       const user2 = await client.auth?.register(username, "pwd1");
       expect(user2).toBeDefined();
       const client2 = new Synnax({

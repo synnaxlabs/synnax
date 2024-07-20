@@ -15,12 +15,15 @@ import synnax
 from synnax import telem
 from synnax.channel import Channel
 
+HOST = "localhost"
+PORT = 9090
+
 
 @pytest.fixture(scope="session")
 def client() -> synnax.Synnax:
     return synnax.Synnax(
-        host="localhost",
-        port=9090,
+        host=HOST,
+        port=PORT,
         username="synnax",
         password="seldon",
         secure=False,

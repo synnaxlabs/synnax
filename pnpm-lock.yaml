@@ -93,12 +93,6 @@ importers:
       async-mutex:
         specifier: ^0.5.0
         version: 0.5.0
-      nanoid:
-        specifier: ^5.0.7
-        version: 5.0.7
-      uuid:
-        specifier: ^9.0.1
-        version: 9.0.1
       zod:
         specifier: 3.23.8
         version: 3.23.8
