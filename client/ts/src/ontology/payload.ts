@@ -55,7 +55,7 @@ export const DeviceOntologyType = "device" as ResourceType;
 export const TaskOntologyType = "task" as ResourceType;
 export const PolicyOntologyType = "policy" as ResourceType;
 
-export const idZ = z.object({ type: resourceTypeZ, key: z.string().optional() });
+export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
 
 export type IDPayload = z.infer<typeof idZ>;
 
