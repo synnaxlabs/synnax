@@ -2,17 +2,14 @@
 layout: "@/layouts/MainLayout.astro"
 title: "OPC UA | Connect Server"
 heading: "Connect to an OPC UA Server"
-description: "Learn how to connect to a server using the Synnax OPC UA driver."
+description: "Connect to an OPC UA server using Synnax."
 ---
-import { Text, Divider } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Divider } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
 import { StepText } from "@/components/StepText";
-import { Icon } from "@synnaxlabs/media";
 import Table from "@/components/Table.astro";
-import Note from "@/components/Note.astro";
 
-The first step to acquiring data from your PLC is to connect to to an OPC UA
-server running on the device. 
+The first step to acquiring data from your PLC is to connect to an OPC UA server.
 
 <Divider.Divider direction="x" />
 
@@ -21,34 +18,31 @@ server running on the device.
 Before you can connect to an OPC UA server, you'll need to have the following
 configured:
 
-1. A Synnax [deployment](/reference/cluster/quick-start) running on your
-   network.
-2. The [Synnax Console](/reference/console/get-started) installed on your
-   machine.
-3. An OPC UA compliant server running on your device. This server should be
-reachable from the Synnax database deployment.
+1. A [Synnax cluster](/reference/cluster/quick-start) running on your network.
+2. The [Synnax Console](/reference/console/get-started) installed on your machine.
+3. An OPC UA compliant server running on your network. This OPC UA server must be
+   reachable by the Synnax cluster.
 
 <Divider.Divider direction="x" />
 
-## <StepText level="h2" step={1}>Open the Connection Dialog</StepText>
+## <StepText level="h2" step={1}> Open the Connection Dialog </StepText>
 
-We'll use the console's configuration workflow to connect to your server. To
-kick things off, open the console and click on the Quick Search & Command
-Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
-Windows/Linux or `Cmd+Shift+P` on macOS.
+We'll use the console's configuration workflow to connect to your server. To kick things
+off, open the console and click on the search and command palette at the top. You can
+also open this palette with `Ctrl+Shift+P` (Windows/Linux) / `Cmd+Shift+P` (MacOS).
 
-In command mode (enabled when the first character in the input is ">"), type
-"OPC UA". You'll see an option called "Connect a New Server". Select this open
-to open the server configuration dialog.
+In command mode (enabled when the first character in the input is ">"), type "OPC UA".
+You'll see an option called "Connect an OPC UA Server". Select this open to open the
+server configuration dialog.
 
-<Video client:only="react" id="device-drivers/opcua/configure/open-connect" />
+<Video client:only="react" id="device-drivers/opc-ua/connect-server/open-modal" />
 
 <Divider.Divider direction="x" />
 
-## <StepText level="h2" step={2}>Configure the Connection</StepText>
+## <StepText level="h2" step={2}> Configure the Connection </StepText>
 
-The dialog will prompt you to enter the connection parameters to your server.
-Here's a reference for each of the fields you'll need to fill:
+The dialog will prompt you to enter the connection parameters to your server. Here's a
+reference for each of the fields you'll need to fill:
 
 <Table>
     <thead>
@@ -60,205 +54,66 @@ Here's a reference for each of the fields you'll need to fill:
     <tbody>
         <tr>
             <td>Name</td>
-            <td>A human-readable name for your server. We'll use this to identify and manage the server in the console.</td>
+            <td>A name for your server. We'll use this to identify and manage the server
+            in the console.</td>
         </tr>
         <tr>
             <td>Endpoint</td>
-            <td>The endpoint URL for your server. This should be it's reachable address on the network, and typically begins with `opc.tcp://`.</td>
+            <td>The endpoint URL for your server. This should be it's reachable address
+            on the network, and typically begins with `opc.tcp://`.</td>
         </tr>
         <tr>
             <td>Username</td>
-            <td>The username to use when connecting to the server. This is optional and can be left blank.</td>
+            <td>The username to use when connecting to the server. This is optional and
+            can be left blank.</td>
         </tr>
         <tr>
             <td>Password</td>
-            <td>The password to use when connecting to the server. This is optional and can be left blank.</td>
+            <td>The password to use when connecting to the server. This is optional and
+            can be left blank.</td>
         </tr>
         <tr>
             <td>Security Mode</td>
             <td>
-                The security mode to use when connecting to the server. This should match the security mode configured on the server:
+                The security mode to use when connecting to the server. This should
+                match the security mode configured on the server:
                 - **None**: No security is applied.
-                - **Sign**: Messages are signed but not encrypted. Requires authentication but does not guarantee confidentiality.
-                - **SignAndEncrypt**: Messages are signed and encrypted, ensuring authenticity and confidentiality.
+                - **Sign**: Messages are signed but not encrypted. Requires
+                  authentication but does not guarantee confidentiality.
+                - **SignAndEncrypt**: Messages are signed and encrypted, ensuring
+                  authenticity and confidentiality.
             </td>
         </tr>
         <tr>
             <td>Security Policy</td>
             <td>
-                The security policy to use when connecting to the server. This should match the security policy configured on the server:
+                The security policy to use when connecting to the server. This should
+                match the security policy configured on the server:
                 - **None**: No security is applied.
                 - **Basic128Rsa15**: Basic 128-bit encryption using RSA-15.
                 - **Basic256**: Basic 256-bit encryption.
                 - **Basic256Sha256**: Basic 256-bit encryption with SHA-256.
-                - **Aes128Sha256RsaOaep**: 128-bit AES encryption with SHA-256 and RSA OAEP.
+                - **Aes128Sha256RsaOaep**: 128-bit AES encryption with SHA-256 and RSA
+                  OAEP.
                 - **Aes256Sha256RsaPss**: 256-bit AES encryption with SHA-256 and RSA PSS.
             </td>
         </tr>
     </tbody>
 </Table>
 
-### <StepText level="h3" step={2.1}>Test the Connection</StepText>
-
-Before moving on to the next step, make sure to use the "Test Connection" button
-to verify that the console can connect to the server. Here's a quick video to
-show you how to do this:
-
-<Video client:only="react" id="device-drivers/opcua/configure/connect-server" />
-
 <Divider.Divider direction="x" />
 
-After you've successfully connected the server, hit "Next" to continue to the
-next step in the workflow. 
+## <StepText level="h2" step={3}> Save the Connection </StepText>
 
-## <StepText level="h2" step={3}>Create Synnax Channels</StepText>
+You can use the "Test Connection" button to verify that the server is connected to the
+Synnax cluster. When you are ready to connect the server, click "Save".
 
-The next step in the workflow is to create the channels in the Synnax database
-that correspond to the nodes on your server. Synnax will automatically scan your
-server for nodes and present them as a list along with their data types, paths,
-and browseable names.
-
-### <StepText level="h3" step={3.1}>Identify Sampling Groups</StepText>
-
-Channels in the configuration dialog are organized into **sampling groups**.
-Each group has a special "Index" channel that is used to store the timestamps for
-the samples recorded by each channel in the group. Indexes are identified by a
-green <span style={{color: "var(--pluto-secondary-z)"}}>Index</span> badge
-underneath their data type.
-
-The important rule to remember is that **all channels in a group must be sampled
-together**. For example, if you have a `temperature` and a `pressure` channel in
-the same group, both channels must be samples at the same rate. It's not possible
-to sample `temperature` at 1 kHz and `pressure` at 10 Hz in the same group.
-
-It is possible, however, to disable sampling for a channel when configuring a
-[task](/reference/device-drivers/opcua/read-task). For example, you could read
-from the `temperature` channel without reading from the `pressure` channel. As
-long as you don't write to two different channels with the same index at the
-same time, Synnax is happy.
-
-We've automatically placed all detected channels into a single group. To create
-additional sampling groups, click the `+` button in the groups section of the
-dialog. You can then drag and drop channels between groups to organize them as
-needed.
-
-By default, we place all of the channels into a single sample sampling group.
-You can create additional groups by using the `+` button in the groups section
-of the configuration dialog. Then, drag and drop channels between groups to
-organize them as needed.
-
-<Note variant="info">
-When in doubt, separate channels into different groups.
-Although it incurs a performance and storage overhead to store the timestamps
-for each group, it provides a higher degree of flexibility in the future.
-</Note>
-
-<Video client:only="react" id="device-drivers/opcua/configure/sampling-groups" />
-
-### <StepText level="h3" step={3.2}>Remove Undesired Channels</StepText>
-
-If you have channels that you don't want to create in Synnax, simply select them
-(using standard `Shift` and `Ctrl`/`Cmd` modifiers), right click, and select
-"Remove". This will remove the channel from the list and prevent it from being
-created in the database.
-
-<Video client:only="react" id="device-drivers/opcua/configure/remove-channels"
-/>
-
-The namespace and the numeric identifier of the OPCUA node associated with the
-Synnax channel is displayed below the name labeled as `NS` and `I` respectively. 
-
-### <StepText level="h3" step={3.3}>Edit Channel Properties</StepText>
-
-To edit the properties of a channel, simply select it and it's properties will
-appear in the bottom panel. Feel free to adjust the name, data type, and
-corresponding node as needed.
-
-<Video client:only="react" id="device-drivers/opcua/configure/channel-props" />
-
-<Note variant="warning">
-Be careful when changing the data type of the channel. Some data types will not
-have the sufficient precision to store the data from your node. If you're ok
-with the loss of precision, Synnax will automatically convert the data to the
-new type when it reads from the OPC UA server.
-</Note>
-
-### <StepText level="h3" step={3.4}>Correctly Configure Indexes</StepText>
-
-By default, we add a generically named `Time` index to each group (we recommend
-renaming this to something more specific such as `my_opc_server_g1_time`). By
-default, this index will have its timestamps generated by the Synnax driver
-instead of reading them from the OPC UA server. This works for low-timing
-precision applications.
-
-For high data rates and precise applications, we recommend reading timing
-information from the server, delete this channel, find the correct node you'd
-like to read timestamps from, and toggle the switch in its properties to mark it
-as an index.
-
-Synnax stores timestamps as 64-bit precision integers in nanoseconds from the
-unix epoch in UTC. We recommend using OPC UA's `DateTime` data type for
-timestamps. We'll automatically convert these values to the correct format when
-we read them from the server. It's also possible to use `Int64` or `UInt64` data
-types, but you'll need to ensure that the server records the timestamps in the
-correct format.
-
-<Video client:only="react" id="device-drivers/opcua/configure/edit-index" />
-
-<Divider.Divider direction="x" />
-
-## Considerations for High Data Rates 
-
-For most use cases, Synnax is configured to read data from your server in single
-sample batches. Depending on the PLC, OPC UA Server, and network configuration,
-this configuration works well for applications up to 250 Hz. 
-
-For higher data rates, we recommend configuring your server to expose data in
-arrays. Synnax can then read these arrays in as 'chunks', reading many samples
-with a single request. We've successfully tested this configuration up to 10
-kHz. Correctly setting up your PLC to record data in an array based
-configuration is more complicated. Here's how to do it:
-
-### <StepText level="h3" step={3.5}>Configure Channels for Array Nodes</StepText>
-
-In your PLC software, configure your OPC UA server to expose arrays of samples
-as nodes as opposed to single samples. We recommend the length of these arrays
-to be a multiple between 20 and 30 times smaller than your desired sampling
-rates. For example, if you want to sample at 1 kHz, we recommend setting the
-array length to 33 samples (~1000/30). This means that Synnax will read 33
-samples in a batch, streaming them at a rate of 33 Hz for visualization and
-real-time analysis.
-
-For array based sampling to work correctly, **all nodes in the sampling group
-must be array nodes, and all nodes in the group must have the same length**.
-
-### <StepText level="h3" step={3.6}>Timing Considerations</StepText>
-
-When using array based sampling, we highly recommend reading the timestamps from
-the OPC UA server. Synnax cannot determine the correct timestamps for each
-sample in the array, and will interpolate based on the time of the request and
-the data rate. 
-
-We recommend setting up a node containing an array of `DateTime` values, and
-marking that as your index for the sampling group. Here's an example
-configuration for high sampling from two data channels and a timestamp channel:
-
-<Image client:only="react"
-id="device-drivers/opcua/configure/high-rate-example-config" />
-
-<Divider.Divider direction="x" />
-
-## <StepText level="h2" step={4}>Confirm</StepText>
-
-After you've defined your sampling groups, hit "Next" to move to the
-confirmation dialog. Once you're ready to proceed, hit "Configure" and Synnax
-will create the channels in the database. Once that process completes, press
-"Done" to close the dialog.
+<Video client:only="react" id="device-drivers/opc-ua/connect-server/save" />
 
 <Divider.Divider direction="x" />
 
 ## Next Steps
 
-Now that you've connected to your server and created channels, it's time to set
-up data acquisition tasks. We recommend starting with the [Read
-Task](/reference/device-drivers/opcua/read-task) to read data from your server.
+Now that you're connected to your server, it's time to set up data acquisition tasks. We
+recommend starting with the [Read Task](/reference/device-drivers/opc-ua/read-task) to
+read data from your server.
