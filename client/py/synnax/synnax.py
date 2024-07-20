@@ -28,6 +28,7 @@ from synnax.ranger.client import RangeClient
 from synnax.signals.signals import Registry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
+from synnax.user.client import UserClient
 
 
 class Synnax(Client):
@@ -54,7 +55,7 @@ class Synnax(Client):
 
     channels: ChannelClient
     access: PolicyClient
-    auth: AuthenticationClient
+    user: UserClient
     ranges: RangeClient
     control: ControlClient
     signals: Registry
@@ -145,6 +146,7 @@ class Synnax(Client):
             HardwareRetriever(client=self._transport.unary),
         )
         self.access = PolicyClient(self._transport.unary, instrumentation)
+        self.user = UserClient(self._transport.unary)
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or

@@ -26,6 +26,7 @@ import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
+import { user } from "@/user";
 import { workspace } from "@/workspace";
 
 export const synnaxPropsZ = z.object({
@@ -67,6 +68,7 @@ export default class Synnax extends framer.Client {
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client | undefined;
+  readonly user: user.Client;
   readonly access: access.Client;
   readonly connectivity: connection.Checker;
   readonly ontology: ontology.Client;
@@ -132,6 +134,7 @@ export default class Synnax extends framer.Client {
       this.labels,
     );
     this.access = new access.Client(this.transport.unary);
+    this.user = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
     const devices = new device.Client(this.transport.unary, this);
     const tasks = new task.Client(this.transport.unary, this);

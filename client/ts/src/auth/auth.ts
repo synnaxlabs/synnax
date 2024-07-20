@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
+import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { InvalidTokenError } from "@/errors";
@@ -27,7 +27,6 @@ export const tokenResponseZ = z.object({
 export type TokenResponse = z.infer<typeof tokenResponseZ>;
 
 const LOGIN_ENDPOINT = "/auth/login";
-const REGISTER_ENDPOINT = "/auth/register"
 
 const MAX_RETRIES = 3;
 
@@ -84,20 +83,5 @@ export class Client {
       return [resCtx, err];
     };
     return mw;
-  }
-
-  async register(username: string, password: string): Promise<user.Payload>{
-    const {user: usr} = await sendRequired<
-      typeof insecureCredentialsZ,
-      typeof tokenResponseZ
-    >(
-      this.client,
-        REGISTER_ENDPOINT,
-      {username: username, password: password},
-        insecureCredentialsZ,
-        tokenResponseZ,
-      )
-
-    return usr
   }
 }

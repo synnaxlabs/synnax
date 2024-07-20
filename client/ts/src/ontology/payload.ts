@@ -68,7 +68,7 @@ export const crudeIDZ = z.union([stringIDZ, idZ]);
 
 export class ID {
   type: ResourceType;
-  key?: string;
+  key: string;
 
   constructor(args: z.input<typeof crudeIDZ> | ID) {
     if (args instanceof ID) {

@@ -101,7 +101,7 @@ class TestAccessClient:
 class TestAccessAuthClient:
     def test_create_user(self, client: sy.Synnax):
         username = str(uuid.uuid4())
-        client.auth.register(username, "pwd2")
+        client.user.register(username, "pwd2")
         sy.Synnax(
             host="localhost",
             port=9090,
@@ -111,7 +111,7 @@ class TestAccessAuthClient:
 
     def test_user_privileges(self, client: sy.Synnax):
         username = str(uuid.uuid4())
-        usr = client.auth.register(username, "pwd3")
+        usr = client.user.register(username, "pwd3")
         client2 = sy.Synnax(
             host="localhost",
             port=9090,
