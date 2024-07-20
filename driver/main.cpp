@@ -94,10 +94,10 @@ int main(int argc, char *argv[]) {
         std::move(heartbeat_factory),
     };
     
-    // if(ni::dlls_available()){
-    //     std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
-    //     factories.push_back(std::move(ni_factory));
-    // }
+    if(ni::dlls_available()){
+        std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
+        factories.push_back(std::move(ni_factory));
+    }
     
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
         std::move(factories)
