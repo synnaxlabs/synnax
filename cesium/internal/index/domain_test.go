@@ -50,7 +50,7 @@ var _ = Describe("Domain", func() {
 					DescribeTable("Continuous",
 						func(
 							tr telem.TimeRange,
-							expected index.DistanceApproximation,
+							expected index.Approximation[int64],
 							expectedErr error,
 						) {
 							actual, db, err := idx.Distance(ctx, tr /*continuous*/, true)
@@ -59,7 +59,7 @@ var _ = Describe("Domain", func() {
 							} else {
 								Expect(err).To(BeNil())
 							}
-							Expect(actual).To(Equal(expected))
+							Expect(actual.Approximation).To(Equal(expected))
 							Expect(db).To(Equal(index.ExactDomainBounds(0)))
 						},
 						Entry("Zero zero",
@@ -159,13 +159,13 @@ var _ = Describe("Domain", func() {
 					DescribeTable("Discontinuous",
 						func(
 							tr telem.TimeRange,
-							expected index.DistanceApproximation,
+							expected index.Approximation[int64],
 							db index.DomainBounds,
 							err error,
 						) {
 							actual, bounds, e := idx.Distance(ctx, tr, false)
 							if err == nil {
-								Expect(actual).To(Equal(expected))
+								Expect(actual.Approximation).To(Equal(expected))
 								Expect(db).To(Equal(bounds))
 							} else {
 								Expect(e).To(MatchError(err))
@@ -276,13 +276,13 @@ var _ = Describe("Domain", func() {
 					})
 					DescribeTable("effectively continuous", func(
 						tr telem.TimeRange,
-						expected index.DistanceApproximation,
+						expected index.Approximation[int64],
 						db index.DomainBounds,
 						err error,
 					) {
 						actual, bounds, e := idx2.Distance(ctx, tr, true)
 						if err == nil {
-							Expect(actual).To(Equal(expected))
+							Expect(actual.Approximation).To(Equal(expected))
 							Expect(db).To(Equal(bounds))
 						} else {
 							Expect(e).To(MatchError(err))
@@ -431,7 +431,7 @@ var _ = Describe("Domain", func() {
 						Entry("Empty range",
 							19*telem.SecondTS+1,
 							0,
-							index.Exactly(19*telem.SecondTS+1),
+							index.Exactly(20*telem.SecondTS),
 							nil,
 						),
 						Entry("Ref in range and exact, distance in range",
@@ -503,7 +503,7 @@ var _ = Describe("Domain", func() {
 						Entry("Ref between two domains, distance 0",
 							19*telem.SecondTS+500*telem.MillisecondTS,
 							0,
-							index.Between[telem.TimeStamp](19*telem.SecondTS+500*telem.MillisecondTS, 19*telem.SecondTS+500*telem.MillisecondTS),
+							index.Between[telem.TimeStamp](20*telem.SecondTS, 20*telem.SecondTS),
 							nil,
 						),
 						Entry("Ref between two domains, distance between two domains",
