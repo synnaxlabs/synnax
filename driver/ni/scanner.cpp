@@ -62,11 +62,17 @@ ni::Scanner::Scanner(
             name;
 }
 
+void ni::Scanner::set_scan_thread(std::shared_ptr<std::thread> scan_thread) {
+    this->scan_thread = scan_thread;
+  
+}
+
 ni::Scanner::~Scanner() {
     // TODO: Error Handling
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->resources_handle);
     ni::NiSysCfgInterface::CloseHandle(this->session);
+    if(this->scan_thread && scan_thread->joinable()) scan_thread->join();
 }
 
 void ni::Scanner::scan() {
@@ -164,6 +170,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
 }
 
 void ni::Scanner::create_devices() {
+    if(!this->ok_state) return;
     for (auto &device: devices["devices"]) {
         // first  try to rereive the device and if found, do not create a new device, simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(

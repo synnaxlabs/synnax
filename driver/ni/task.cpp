@@ -38,7 +38,8 @@ ni::ScannerTask::ScannerTask(
         return; 
     }
     this->breaker.start();
-    thread = std::thread(&ni::ScannerTask::run, this);
+    thread = std::make_shared<std::thread>(&ni::ScannerTask::run, this);
+    this->scanner.set_scan_thread(thread);
 }
 
 std::unique_ptr<task::Task> ni::ScannerTask::configure(
@@ -90,8 +91,8 @@ bool ni::ScannerTask::ok() {
 }
 
 ni::ScannerTask::~ScannerTask() {
-    if(this->thread.joinable() && (this->thread.get_id() != std::this_thread::get_id())) {
-        this->thread.detach();
+    if(this->thread->joinable() && (this->thread->get_id() != std::this_thread::get_id())) {
+        this->thread->detach();
     }
 }
 

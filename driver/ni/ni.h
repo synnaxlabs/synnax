@@ -419,6 +419,8 @@ public:
 
     void create_devices();
 
+    void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
+
 private:
     json get_device_properties(NISysCfgResourceHandle resource);
 
@@ -429,6 +431,7 @@ private:
     NISysCfgEnumResourceHandle resources_handle;
     synnax::Task task;
     std::shared_ptr<task::Context> ctx;
+    std::shared_ptr<std::thread> scan_thread = nullptr; //optional scan thread a task could be running
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -463,9 +466,9 @@ private:
     ni::Scanner scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
-    std::thread thread;
+    std::shared_ptr<std::thread> thread;
     bool ok_state = true;
-    synnax::Rate scan_rate = synnax::Rate(100);
+    synnax::Rate scan_rate = synnax::Rate(1);
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
