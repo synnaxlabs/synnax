@@ -23,7 +23,7 @@ async def main():
 
     # Populating our address space
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
-    ARRAY_COUNT = 50
+    ARRAY_COUNT = 5
     arrays = list()
     for i in range(ARRAY_COUNT):
         arrays.append(await myobj.add_variable(idx, f"my_array_{i}", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Float))
@@ -45,7 +45,7 @@ async def main():
     ARRAY_SIZE = 5
     await mytimearray.write_array_dimensions([ARRAY_SIZE])
 
-    for i in range(100):
+    for i in range(5):
         # add 30 float variables t OPC
         await myobj.add_variable(idx, f"my_float_{i}", i)
 

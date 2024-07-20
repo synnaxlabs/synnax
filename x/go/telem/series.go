@@ -54,7 +54,7 @@ func (s Series) Split() [][]byte {
 	return o
 }
 
-func ValueAt[T types.Numeric](a Series, i int64) T {
-	b := a.Data[i*int64(a.DataType.Density()) : (i+1)*int64(a.DataType.Density())]
-	return UnmarshalF[T](a.DataType)(b)
+func ValueAt[T types.Numeric](s Series, i int64) T {
+	b := s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
+	return UnmarshalF[T](s.DataType)(b)
 }

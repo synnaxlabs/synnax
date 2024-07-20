@@ -10,6 +10,8 @@ import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 
+// this fixes conflicts between JSX and TS
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
 export const useSyncComponent = <P extends unknown>(
   name: string,
   layoutKey: string,

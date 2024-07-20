@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { nanoid } from "nanoid/non-secure";
 import { type z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
+import { id } from "@/id";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
@@ -136,7 +136,7 @@ export class Series<T extends TelemValue = TelemValue> {
       sampleOffset = 0,
       glBufferUsage = "static",
       alignment = 0n,
-      key = nanoid(),
+      key = id.id(),
     } = props;
     const { data } = props;
 
@@ -352,7 +352,7 @@ export class Series<T extends TelemValue = TelemValue> {
       .decode(this.buffer)
       .split("\n")
       .slice(0, -1)
-      .map((s) => schema.parse(caseconv.toCamel(JSON.parse(s))));
+      .map((s) => schema.parse(caseconv.snakeToCamel(JSON.parse(s))));
   }
 
   /** @returns the time range of this array. */
@@ -485,7 +485,7 @@ export class Series<T extends TelemValue = TelemValue> {
 
   enrich(): void {
     let _ = this.max;
-     
+
     _ = this.min;
   }
 
@@ -530,7 +530,7 @@ export class Series<T extends TelemValue = TelemValue> {
     const slice = this.data.slice(start, end);
     if (this.dataType.equals(DataType.STRING))
       return new TextDecoder().decode(slice) as unknown as T;
-    return caseconv.toCamel(
+    return caseconv.snakeToCamel(
       JSON.parse(new TextDecoder().decode(slice)),
     ) as unknown as T;
   }
@@ -736,7 +736,10 @@ class JSONSeriesIterator implements Iterator<unknown> {
   next(): IteratorResult<object> {
     const next = this.wrapped.next();
     if (next.done === true) return { done: true, value: undefined };
-    return { done: false, value: caseconv.toCamel(JSON.parse(next.value)) };
+    return {
+      done: false,
+      value: caseconv.snakeToCamel(JSON.parse(next.value)) as object,
+    };
   }
 
   [Symbol.iterator](): Iterator<object> {
