@@ -90,14 +90,13 @@ func (i *Domain) Distance(
 		)
 		domainBounds = ExactDomainBounds(iter.Position())
 		return
-	} else if continuous {
+	} else if continuous &&
+		!effectiveDomainBounds.ContainsStamp(tr.End) &&
+		effectiveDomainBounds.End != tr.End {
 		// Otherwise, unless the effective domain contains the end of the time range
 		// the distance is discontinuous
-		if !effectiveDomainBounds.ContainsStamp(tr.End) &&
-			effectiveDomainBounds.End != iter.TimeRange().End {
-			err = NewErrDiscontinuousTR(tr)
-			return
-		}
+		err = NewErrDiscontinuousTR(tr)
+		return
 	}
 
 	var (
