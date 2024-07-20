@@ -187,14 +187,20 @@ func (i *Domain) Stamp(
 		return
 	}
 	defer func() { err = errors.CombineErrors(err, r.Close()) }()
-	if offset == 0 {
-		s, err := readStamp(r, 0, make([]byte, 8))
-		return Exactly(s), err
-	}
 
 	startApprox, err := i.search(ref, r)
 	if err != nil {
 		return
+	}
+
+	if offset == 0 {
+		if !startApprox.Exact() {
+			approx.Upper, err = readStamp(r, startApprox.Upper*8, make([]byte, 8))
+			return
+		}
+		s, err := readStamp(r, startApprox.Upper*8, make([]byte, 8))
+		approx = Exactly[telem.TimeStamp](s)
+		return approx, err
 	}
 
 	// endOffset is the upper-bound distance of the desired sample from the start of the
