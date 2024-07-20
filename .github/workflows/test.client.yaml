@@ -213,7 +213,7 @@ jobs:
           repository-cache: true
 
       - name: Test
-        run: bazel test //client/...
+        run: bazel test --test_output=all //client/...
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
