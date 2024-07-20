@@ -103,9 +103,9 @@ As `tsx` files cannot be imported into web-workers, we need to be careful about 
 imports we use in different sections of the codebase. To help with this, we've
 established a "case-convention" for modules that are safe to be used in web-workers.
 
-Uppercase modules, like the `Use` module above, are **only** usable in the main thread,
-and are uppercase to satisfy the `jsx` compiler. Lowercase modules, like the `color`
-module are safe to be used in both the main and worker threads.
+Uppercase modules, like the `Button` module above, are **only** usable in the main
+thread, and are uppercase to satisfy the `jsx` compiler. Lowercase modules, like the
+`color` module are safe to be used in both the main and worker threads.
 
 This means that we **often have modules with the same name, but different casing**. For
 example, the `Color` module contains React components like the `Color.Picker` and
