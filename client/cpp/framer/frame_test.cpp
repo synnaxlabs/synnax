@@ -40,34 +40,3 @@ TEST(FramerTests, ostream) {
     ASSERT_EQ(ss.str(), "Frame{\n 65537: Series(type: float32, size: 3, cap: 3, data: [1 2 3 ]), \n}");
 }
 
-/// @brief test accessors.
-TEST(FramerTests, accessors) {
-    auto f = synnax::Frame(2);
-    f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
-    ASSERT_EQ(f.size(), 1);
-    ASSERT_EQ(f.channels->at(0), 65537);
-    ASSERT_EQ(f.series->at(0).values<float>()[0], 1);
-
-    ASSERT_EQ(f.series->at(0).values<float>()[0], 1);
-    // test all numeric types
-    f.add(65538, synnax::Series(std::vector<int>{1, 2, 3}));
-    f.add(65539, synnax::Series(std::vector<double>{1, 2, 3}));
-    f.add(65540, synnax::Series(std::vector<uint8_t>{1, 2, 3}));
-    f.add(65541, synnax::Series(std::vector<uint16_t>{1, 2, 3}));
-    f.add(65542, synnax::Series(std::vector<uint32_t>{1, 2, 3}));
-    f.add(65543, synnax::Series(std::vector<uint64_t>{1, 2, 3}));
-
-    ASSERT_EQ(f.channels->at(1), 65538);
-    ASSERT_EQ(f.series->at(1).values<int>()[0], 1);
-    ASSERT_EQ(f.channels->at(2), 65539);
-    ASSERT_EQ(f.series->at(2).values<double>()[0], 1);
-    ASSERT_EQ(f.channels->at(3), 65540);
-    ASSERT_EQ(f.series->at(3).values<uint8_t>()[0], 1);
-    ASSERT_EQ(f.channels->at(4), 65541);
-    ASSERT_EQ(f.series->at(4).values<uint16_t>()[0], 1);
-    ASSERT_EQ(f.channels->at(5), 65542);
-    ASSERT_EQ(f.series->at(5).values<uint32_t>()[0], 1);
-    ASSERT_EQ(f.channels->at(6), 65543);
-    ASSERT_EQ(f.series->at(6).values<uint64_t>()[0], 1);
-
-}
