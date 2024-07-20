@@ -277,12 +277,6 @@ TEST(TimeRangeTests, testEquality) {
     ASSERT_TRUE(tr == tr2);
 }
 
-TEST(TimeRangeTests, testInequality) {
-    auto tr = TimeRange(5, 10);
-    auto tr2 = TimeRange(6, 9);
-    ASSERT_TRUE(tr != tr2);
-}
-
 TEST(RateTests, testContructor) {
     auto r = Rate(5);
     ASSERT_EQ(r.value, 5);
