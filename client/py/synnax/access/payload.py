@@ -22,8 +22,10 @@ class Policy(Payload):
     actions: list[str] = None
 
     def __str__(self):
-        return (f"Policy with subjects {self.subjects}, objects {self.objects},"
-                f"actions {self.actions}")
+        return (
+            f"Policy with subjects {self.subjects}, objects {self.objects},"
+            f"actions {self.actions}"
+        )
 
     def __hash__(self) -> int:
         return hash(self.key)

@@ -14,7 +14,8 @@ import {
   type CrudeTimeStamp,
   type MultiSeries,
   TimeRange,
-  TimeSpan, toArray,
+  TimeSpan,
+  toArray,
 } from "@synnaxlabs/x";
 
 import { type Key, type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";
@@ -181,9 +182,9 @@ export class Client {
   }
 
   async delete(keys: Key | Key[], timeRange: TimeRange): Promise<void> {
-      return await this.deleter.delete({
-        keys: toArray(keys),
-        bounds: timeRange,
-      });
+    return await this.deleter.delete({
+      keys: toArray(keys),
+      bounds: timeRange,
+    });
   }
 }
