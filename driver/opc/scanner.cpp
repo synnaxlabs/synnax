@@ -44,15 +44,29 @@ static UA_StatusCode nodeIter(UA_NodeId child_id, UA_Boolean is_inverse,
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
-    UA_UInt32 depth;
     std::shared_ptr<std::vector<DeviceNodeProperties> > channels;
-    int max_depth;
 };
 
 // Function to recursively iterate through all children
 void iterateChildren(ScanContext *ctx, UA_NodeId node_id) {
     UA_Client_forEachChildNodeCall(ctx->client.get(), node_id, nodeIter, ctx);
 }
+
+
+std::string nodeClassToString(UA_NodeClass nodeClass) {
+    switch (nodeClass) {
+        case UA_NODECLASS_OBJECT: return "Object";
+        case UA_NODECLASS_VARIABLE: return "Variable";
+        case UA_NODECLASS_METHOD: return "Method";
+        case UA_NODECLASS_OBJECTTYPE: return "ObjectType";
+        case UA_NODECLASS_VARIABLETYPE: return "VariableType";
+        case UA_NODECLASS_DATATYPE: return "DataType";
+        case UA_NODECLASS_REFERENCETYPE: return "ReferenceType";
+        case UA_NODECLASS_VIEW: return "View";
+        default: return "Unknown";
+    }
+}
+
 
 // Callback function to handle each child node
 static UA_StatusCode nodeIter(
@@ -65,50 +79,73 @@ static UA_StatusCode nodeIter(
     auto *ctx = static_cast<ScanContext *>(handle);
     const auto ua_client = ctx->client.get();
 
-    UA_NodeClass nodeClass;
-    UA_StatusCode retval = UA_Client_readNodeClassAttribute(
-        ctx->client.get(),
-        child_id,
-        &nodeClass
-    );
-    if (retval != UA_STATUSCODE_GOOD) return retval;
+    // Prepare read request
+    UA_ReadRequest request;
+    UA_ReadRequest_init(&request);
+    request.nodesToReadSize = 3;
+    request.nodesToRead = static_cast<UA_ReadValueId *>(UA_Array_new(
+        request.nodesToReadSize, &UA_TYPES[UA_TYPES_READVALUEID]));
 
-    if (nodeClass == UA_NODECLASS_VARIABLE && child_id.namespaceIndex != 0) {
-        UA_QualifiedName browseName;
-        retval = UA_Client_readBrowseNameAttribute(ua_client, child_id, &browseName);
-        if (retval != UA_STATUSCODE_GOOD) return retval;
-        UA_Variant value;
-        UA_Variant_init(&value);
-        retval = UA_Client_readValueAttribute(ua_client, child_id, &value);
+    // Read NodeClass attribute
+    UA_ReadValueId_init(&request.nodesToRead[0]);
+    request.nodesToRead[0].nodeId = child_id;
+    request.nodesToRead[0].attributeId = UA_ATTRIBUTEID_NODECLASS;
 
-        if (retval == UA_STATUSCODE_GOOD && value.type != nullptr) {
-            auto name = std::string((char *) browseName.name.data,
-                                    browseName.name.length);
-            auto node_id = nodeIdToString(child_id);
-            auto [dt, is_array] = variant_data_type(value);
-            // std::cout << "Node id: " << node_id << " Name: " << name << " Is array: " << is_array << " Data type: " << dt.value << std::endl;
-            if (dt != synnax::DATA_TYPE_UNKNOWN && !dt.is_variable())
-                ctx->channels->push_back({
-                    dt,
-                    name,
-                    node_id,
-                    is_array
-                });
+    // Read BrowseName attribute
+    UA_ReadValueId_init(&request.nodesToRead[1]);
+    request.nodesToRead[1].nodeId = child_id;
+    request.nodesToRead[1].attributeId = UA_ATTRIBUTEID_BROWSENAME;
+
+    // Read Value attribute
+    UA_ReadValueId_init(&request.nodesToRead[2]);
+    request.nodesToRead[2].nodeId = child_id;
+    request.nodesToRead[2].attributeId = UA_ATTRIBUTEID_VALUE;
+
+    // Perform the read operation
+    UA_ReadResponse response = UA_Client_Service_read(ua_client, request);
+    UA_StatusCode status = response.responseHeader.serviceResult;
+
+    if (status == UA_STATUSCODE_GOOD) {
+        if (!response.results[0].hasValue) return response.results[0].status;
+        if (!response.results[1].hasValue) return response.results[1].status;
+        UA_NodeClass nodeClass = *static_cast<UA_NodeClass *>(response.results[0].value.
+            data);
+        UA_QualifiedName browseName = *static_cast<UA_QualifiedName *>(response.
+            results[1].value.data);
+        auto name = std::string(reinterpret_cast<char *>(browseName.name.data),
+                                browseName.name.length);
+        auto data_type = synnax::DATA_TYPE_UNKNOWN;
+        bool is_array = false;
+        if (nodeClass == UA_NODECLASS_VARIABLE && response.results[2].hasValue) {
+            // Get the data type of the variable
+            UA_Variant value;
+            UA_Variant_init(&value);
+            UA_Variant_copy(&response.results[2].value, &value);
+            auto [dt, is_arr] = variant_data_type(value);
+            data_type = dt;
+            is_array = is_arr;
+            UA_Variant_clear(&value);
+
         }
+        ctx->channels->emplace_back(
+            data_type,
+            name,
+            nodeIdToString(child_id),
+            nodeClassToString(nodeClass),
+            is_array
+        );
     }
-    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0)
-        return
-                UA_STATUSCODE_GOOD;
-    ctx->depth++;
-    iterateChildren(ctx, child_id);
-    ctx->depth--;
-    return UA_STATUSCODE_GOOD;
+
+    // Clean up
+    UA_ReadRequest_clear(&request);
+    UA_ReadResponse_clear(&response);
+
+    return status;
 }
 
 void Scanner::scan(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
-    ScannnerScanCommandArgs args(parser);
-    int max_depth = parser.optional<int>("max_depth", 6);
+    ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
             .task = task.key,
@@ -125,25 +162,23 @@ void Scanner::scan(const task::Command &cmd) const {
             .details = {{"message", err.message()}}
         });
 
-    UA_NodeId root_folder_id = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-    auto scan_ctx = new ScanContext{
+    const auto scan_ctx = new ScanContext{
         ua_client,
-        0,
         std::make_shared<std::vector<DeviceNodeProperties> >(),
-        max_depth
     };
-    iterateChildren(scan_ctx, root_folder_id);
+    iterateChildren(scan_ctx, args.node);
     ctx->setState({
         .task = task.key,
         .key = cmd.key,
         .variant = "success",
         .details = DeviceProperties(args.connection, *scan_ctx->channels).toJSON(),
     });
+    delete scan_ctx;
 }
 
 void Scanner::testConnection(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
-    ScannnerScanCommandArgs args(parser);
+    ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
             .task = task.key,

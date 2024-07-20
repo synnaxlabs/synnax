@@ -57,6 +57,7 @@ cc_binary(
             "/DEFAULTLIB:ws2_32.lib",
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
+            "/debug"
         ],
         "//conditions:default": [],
     }),

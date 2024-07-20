@@ -7,34 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, device } from "@synnaxlabs/client";
+import "@/hardware/opc/task/ReadTask.css";
+
+import { DataType, device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Button,
-  Channel,
   Device as PDevice,
   Form,
+  Haul,
   Header,
   Input,
   List,
   Menu,
-  Status,
   Synnax,
   Text,
   useAsyncEffect,
+  useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { DataType } from "@synnaxlabs/x/telem";
+import { primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
-import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
+import { Browser } from "@/hardware/opc/device/Browser";
+import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import {
   Read,
   READ_TYPE,
@@ -47,15 +48,15 @@ import {
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import {
-  ChannelListEmptyContent,
-  ChannelListHeader,
+  ChannelListContextMenu,
   Controls,
+  EnableDisableButton,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 
 export const configureReadLayout = (create: boolean = false): Layout.State => ({
   name: "Configure OPC UA Read Task",
@@ -78,52 +79,19 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
 };
 
+const schema = z.object({
+  name: z.string(),
+  config: readConfigZ,
+});
+
 const Wrapped = ({
   layoutKey,
   initialValues,
   task,
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
-  const [device, setDevice] = useState<device.Device<Device.Properties> | null>(null);
-
-  const schema = useMemo(
-    () =>
-      z.object({
-        name: z.string(),
-        config: readConfigZ.superRefine(async (cfg, ctx) => {
-          if (client == null || device == null) return;
-          for (let i = 0; i < cfg.channels.length; i++) {
-            const { channel, nodeId } = cfg.channels[i];
-            if (channel === 0 || nodeId.length === 0) continue;
-            const ch = await client.channels.retrieve(channel);
-            const node = device.properties.channels.find((c) => c.nodeId === nodeId);
-            if (node == null) return;
-            const nodeDt = new DataType(node.dataType);
-            if (!nodeDt.canCastTo(ch.dataType)) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["channels", i, "nodeId"],
-                message: `Node data type ${node.dataType} cannot be cast to channel data type ${ch.dataType}`,
-              });
-            } else if (!nodeDt.canSafelyCastTo(ch.dataType)) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["channels", i, "nodeId"],
-                message: `Node data type ${node.dataType} may not be safely cast to channel data type ${ch.dataType}`,
-                params: { variant: "warning" },
-              });
-            }
-            if (cfg.arrayMode && !node.isArray) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["channels", i, "nodeId"],
-                message: `Cannot sample from a non-array node in array mode`,
-              });
-            }
-          }
-        }),
-      }),
-    [client?.key, device?.key],
+  const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
+    undefined,
   );
 
   const methods = Form.use({ schema, values: initialValues });
@@ -151,15 +119,6 @@ const Wrapped = ({
     ),
   });
 
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(
-    initialValues.config.channels.length > 0
-      ? [initialValues.config.channels[0].key]
-      : [],
-  );
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
-    initialValues.config.channels.length > 0 ? 0 : null,
-  );
-
   const taskState = useObserveState<DigitalWriteStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
@@ -168,16 +127,81 @@ const Wrapped = ({
   );
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
 
-  const configure = useMutation({
+  const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
-      createTask({
-        key: task?.key,
-        name: methods.value().name,
-        type: READ_TYPE,
-        config: readConfigZ.parse(methods.value().config),
-      });
+      if (client == null) return;
+      const { config, name } = methods.value();
+      const dev = await client.hardware.devices.retrieve<Device.Properties>(
+        config.device,
+      );
+      let modified = false;
+      let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);
+      if (!shouldCreateIndex) {
+        try {
+          await client.channels.retrieve(dev.properties.read.index);
+        } catch (e) {
+          if (NotFoundError.matches(e)) shouldCreateIndex = true;
+          else throw e;
+        }
+      }
+      if (shouldCreateIndex) {
+        modified = true;
+        const idx = await client.channels.create({
+          name: `${dev.name} time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.read.index = idx.key;
+        dev.properties.read.channels = {};
+      }
+
+      const toCreate: ReadChannelConfig[] = [];
+      for (const ch of config.channels) {
+        if (ch.useAsIndex) continue;
+        const exKey = dev.properties.read.channels[ch.nodeId];
+        if (primitiveIsZero(exKey)) toCreate.push(ch);
+        else {
+          try {
+            const rCh = await client.channels.retrieve(exKey);
+            if (rCh.name !== ch.name) {
+              await client.channels.rename(Number(exKey), ch.name);
+            }
+          } catch (e) {
+            if (NotFoundError.matches(e)) toCreate.push(ch);
+            else throw e;
+          }
+        }
+      }
+
+      if (toCreate.length > 0) {
+        modified = true;
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: c.name,
+            dataType: "float32",
+            index: dev.properties.read.index,
+          })),
+        );
+        channels.forEach((c, i) => {
+          dev.properties.read.channels[toCreate[i].nodeId] = c.key;
+        });
+      }
+
+      if (modified)
+        await client.hardware.devices.create({
+          ...dev,
+          properties: dev.properties,
+        });
+
+      config.channels = config.channels.map((c) => ({
+        ...c,
+        channel: c.useAsIndex
+          ? dev.properties.read.index
+          : dev.properties.read.channels[c.nodeId],
+      }));
+
+      createTask({ key: task?.key, name, type: READ_TYPE, config });
     },
   });
 
@@ -191,8 +215,15 @@ const Wrapped = ({
 
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
+  const placer = Layout.usePlacer();
+
   return (
-    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
+    <Align.Space
+      className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
+      direction="y"
+      grow
+      empty
+    >
       <Align.Space direction="y" grow>
         <Form.Form {...methods}>
           <Align.Space direction="x">
@@ -203,7 +234,7 @@ const Wrapped = ({
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
               path="config.device"
-              label="Device"
+              label="OPC UA Server"
               style={{ width: "100%" }}
             >
               {(p) => (
@@ -211,6 +242,19 @@ const Wrapped = ({
                   {...p}
                   allowNone={false}
                   searchOptions={{ makes: ["opc"] }}
+                  emptyContent={
+                    <Align.Center>
+                      <Text.Text shade={6} level="p">
+                        No OPC UA servers found.
+                      </Text.Text>
+                      <Text.Link
+                        level="p"
+                        onClick={() => placer(createConfigureLayout())}
+                      >
+                        Connect a new server.
+                      </Text.Link>
+                    </Align.Center>
+                  }
                 />
               )}
             </Form.Field>
@@ -235,39 +279,25 @@ const Wrapped = ({
             </Align.Space>
           </Align.Space>
           <Align.Space
-            className={CSS.B("channel-form-container")}
             direction="x"
-            bordered
-            rounded
             grow
-            empty
+            style={{ overflow: "hidden", height: "500px" }}
           >
-            <ChannelList
-              path="config.channels"
-              selected={selectedChannels}
-              onSelect={useCallback(
-                (v, i) => {
-                  if (v.length > 0) setSelectedChannelIndex(i);
-                  else setSelectedChannelIndex(null);
-                  setSelectedChannels(v);
-                },
-                [setSelectedChannels, setSelectedChannelIndex],
-              )}
-            />
-            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
+            <Align.Space
+              className={CSS.B("browser")}
+              direction="y"
+              grow
+              bordered
+              rounded
+              style={{ overflow: "hidden", height: "100%" }}
+              empty
+            >
               <Header.Header level="h4">
-                <Header.Title weight={500}>Details</Header.Title>
+                <Header.Title weight={500}>Browser</Header.Title>
               </Header.Header>
-              <Align.Space direction="y" className={CSS.B("details")} grow>
-                {selectedChannelIndex != null && (
-                  <ChannelForm
-                    key={selectedChannelIndex}
-                    deviceProperties={device?.properties}
-                    selectedChannelIndex={selectedChannelIndex}
-                  />
-                )}
-              </Align.Space>
+              <Browser device={device} />
             </Align.Space>
+            <ChannelList path="config.channels" device={device} />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -284,80 +314,127 @@ const Wrapped = ({
 
 export interface ChannelListProps {
   path: string;
-  onSelect: (keys: string[], index: number) => void;
-  selected: string[];
+  device?: device.Device<Device.Properties>;
 }
 
-export const ChannelList = ({
-  path,
-  selected,
-  onSelect,
-}: ChannelListProps): ReactElement => {
+export const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
+  const valueRef = useSyncedRef(value);
 
   const menuProps = Menu.useContextMenu();
 
-  const handleAdd = (): void => {
-    push({
-      key: nanoid(),
-      channel: 0,
-      nodeId: "",
-      enabled: true,
-    });
-  };
+  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
+    const dropped = items.filter(
+      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+    );
+    const toAdd = dropped
+      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
+      .map((i) => {
+        const nodeId = i.data?.nodeId as string;
+        const name = i.data?.name as string;
+        return {
+          key: nodeId,
+          name,
+          nodeName: name,
+          channel: 0,
+          enabled: true,
+          nodeId,
+          useAsIndex: false,
+          dataType: i.data?.dataType ?? "float32",
+        };
+      });
+    push(toAdd);
+    return dropped;
+  }, []);
+
+  const canDrop = useCallback((state: Haul.DraggingState): boolean => {
+    const v = state.items.some(
+      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+    );
+    return v;
+  }, []);
+
+  const props = Haul.useDrop({
+    type: "opc.ReadTask",
+    canDrop,
+    onDrop: handleDrop,
+  });
+
+  const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
+
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    value.length > 0 ? [value[0].key] : [],
+  );
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+    value.length > 0 ? 0 : null,
+  );
 
   return (
-    <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+    <Align.Space
+      className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
+      grow
+      empty
+      bordered
+      rounded
+      {...props}
+    >
+      <Header.Header level="h4">
+        <Header.Title weight={500}>Channels</Header.Title>
+      </Header.Header>
       <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-          const handleSelect = (key: string): void => {
-            switch (key) {
-              case "remove": {
-                const indices = keys
-                  .map((k) => value.findIndex((v) => v.key === k))
-                  .filter((i) => i >= 0);
-                remove(indices);
-                onSelect([], 0);
-                break;
-              }
-            }
-          };
-
-          return (
-            <Menu.Menu onChange={handleSelect} level="small">
-              <Menu.Item startIcon={<Icon.Close />} itemKey="remove">
-                Remove
-              </Menu.Item>
-            </Menu.Menu>
-          );
-        }}
+        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
+          <ChannelListContextMenu
+            path={path}
+            keys={keys}
+            value={value}
+            remove={remove}
+            onSelect={(k, i) => {
+              setSelectedChannels(k);
+              setSelectedChannelIndex(i);
+            }}
+          />
+        )}
         {...menuProps}
       >
         <List.List<string, ReadChannelConfig>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <Align.Center>
+              <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+                No channels added. Drag a variable{" "}
+                <Icon.Variable
+                  style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
+                />{" "}
+                from the browser to add a channel to the task.
+              </Text.Text>
+            </Align.Center>
+          }
         >
           <List.Selector<string, ReadChannelConfig>
-            value={selected}
-            allowNone
+            value={selectedChannels}
+            allowNone={false}
+            autoSelectOnNone={false}
             allowMultiple
-            onChange={(keys, { clickedIndex }) =>
-              clickedIndex != null && onSelect(keys, clickedIndex)
-            }
+            onChange={(keys, { clickedIndex }) => {
+              if (clickedIndex == null) return;
+              setSelectedChannels(keys);
+              setSelectedChannelIndex(clickedIndex);
+            }}
             replaceOnSingle
           >
             <List.Core<string, ReadChannelConfig> grow>
-              {(props) => (
+              {({ key, ...props }) => (
                 <ChannelListItem
+                  key={key}
                   {...props}
                   path={path}
                   remove={() => {
-                    const indices = selected
+                    const indices = selectedChannels
                       .map((k) => value.findIndex((v) => v.key === k))
                       .filter((i) => i >= 0);
                     remove(indices);
-                    onSelect([], 0);
+                    setSelectedChannels([]);
+                    setSelectedChannelIndex(null);
                   }}
                 />
               )}
@@ -365,6 +442,12 @@ export const ChannelList = ({
           </List.Selector>
         </List.List>
       </Menu.ContextMenu>
+      {value.length > 0 && (
+        <ChannelForm
+          selectedChannelIndex={selectedChannelIndex}
+          deviceProperties={device?.properties}
+        />
+      )}
     </Align.Space>
   );
 };
@@ -384,9 +467,6 @@ export const ChannelListItem = ({
     optional: true,
   });
   if (childValues == null) return <></>;
-  const channelName = Channel.useName(entry.channel, "No Synnax Channel");
-  let channelColor = undefined;
-  if (channelName === "No Synnax Channel") channelColor = "var(--pluto-warning-z)";
   const opcNode =
     childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
   let opcNodeColor = undefined;
@@ -401,103 +481,73 @@ export const ChannelListItem = ({
       onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && remove?.()}
     >
       <Align.Space direction="y" size="small">
-        <Text.Text level="p" weight={500} shade={9} color={channelColor}>
-          {channelName}
-        </Text.Text>
-        <Text.Text level="small" weight={350} shade={7} color={opcNodeColor}>
-          {opcNode}
-        </Text.Text>
-      </Align.Space>
-      <Button.Toggle
-        checkedVariant="outlined"
-        uncheckedVariant="outlined"
-        value={entry.enabled}
-        size="small"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
-        tooltip={
-          <Text.Text level="small" style={{ maxWidth: 300 }}>
-            Data acquisition for this channel is{" "}
-            {entry.enabled ? "enabled" : "disabled"}. Click to
-            {entry.enabled ? " disable" : " enable"} it.
-          </Text.Text>
-        }
-      >
-        <Status.Text
-          variant={entry.enabled ? "success" : "disabled"}
-          level="small"
-          align="center"
+        <Text.WithIcon
+          startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l7)" }} />}
+          level="p"
+          weight={500}
+          shade={9}
+          align="end"
         >
-          {entry.enabled ? "Enabled" : "Disabled"}
-        </Status.Text>
-      </Button.Toggle>
+          {entry.name}
+        </Text.WithIcon>
+        <Text.WithIcon
+          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
+          level="small"
+          weight={350}
+          shade={7}
+          color={opcNodeColor}
+          size="small"
+        >
+          {entry.nodeName} {opcNode}
+        </Text.WithIcon>
+      </Align.Space>
+      <Align.Space direction="x" align="center">
+        {childValues.useAsIndex && (
+          <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
+            Index
+          </Text.Text>
+        )}
+        <EnableDisableButton
+          value={childValues.enabled}
+          onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+        />
+      </Align.Space>
     </List.ItemFrame>
   );
 };
 
 interface ChannelFormProps {
-  selectedChannelIndex: number;
+  selectedChannelIndex?: number | null;
   deviceProperties?: Device.Properties;
 }
 
-const ChannelForm = ({
-  selectedChannelIndex,
-  deviceProperties,
-}: ChannelFormProps): ReactElement => {
+const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
+  if (selectedChannelIndex == null || selectedChannelIndex == -1)
+    return (
+      <Align.Center className={CSS.B("channel-form")}>
+        <Text.Text level="p" shade={6}>
+          Select a channel to configure its properties.
+        </Text.Text>
+      </Align.Center>
+    );
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const dev = Form.useField<string>({ path: "config.device" }).value;
-  const channelPath = `${prefix}.channel`;
-  const channelValue = Form.useFieldValue<number>(channelPath);
-  const [channelRec, setChannelRec] = useState<channel.Key>(0);
-  const channelRecName = Channel.useName(channelRec, "");
-  const ctx = Form.useContext();
   return (
-    <>
-      <Form.Field<string>
-        path={`${prefix}.nodeId`}
-        label="OPC Node"
-        onChange={(v) => {
-          if (deviceProperties == null) return;
-          const defaultChan = deviceProperties.channels.find(
-            (c) => c.nodeId === v,
-          )?.synnaxChannel;
-          if (defaultChan != null) setChannelRec(defaultChan);
-        }}
-        hideIfNull
-      >
-        {(p) => <SelectNodeRemote allowNone={false} device={dev} {...p} />}
-      </Form.Field>
-      <Form.Field<number>
-        path={channelPath}
-        label="Synnax Channel"
-        hideIfNull
-        padHelpText={false}
-      >
-        {(p) => <Channel.SelectSingle allowNone={false} {...p} />}
-      </Form.Field>
-      {channelRecName.length > 0 && channelValue !== channelRec && (
-        <Align.Space direction="x" size="small">
-          <Button.Icon
-            variant="text"
-            size="small"
-            onClick={() => ctx.set(channelPath, channelRec)}
-            tooltip={"Apply recommended channel"}
-          >
-            <Icon.Bolt style={{ color: "var(--pluto-gray-l6)" }} />
-          </Button.Icon>
-          <Button.Button
-            variant="suggestion"
-            size="small"
-            style={{ width: "fit-content" }}
-            startIcon={<Icon.Channel />}
-            onClick={() => ctx.set(channelPath, channelRec)}
-            tooltip={"Apply recommended channel"}
-          >
-            {channelRecName}
-          </Button.Button>
-        </Align.Space>
-      )}
-    </>
+    <Align.Space direction="y" grow className={CSS.B("channel-form")} empty>
+      <Form.TextField
+        path={`${prefix}.name`}
+        label="Channel Name"
+        inputProps={{ variant: "natural", level: "h3" }}
+      />
+      <Form.SwitchField
+        path={`${prefix}.useAsIndex`}
+        label="Use as Index"
+        visible={(_, ctx) =>
+          DataType.TIMESTAMP.equals(
+            ctx.get<string>(`${prefix}.dataType`, { optional: true })?.value ?? "",
+          )
+        }
+      />
+    </Align.Space>
   );
 };
 

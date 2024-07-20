@@ -9,14 +9,13 @@
 
 import { NotFoundError, QueryError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep, primitiveIsZero } from "@synnaxlabs/x";
+import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
@@ -44,6 +43,7 @@ import {
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
+  EnableDisableButton,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -55,7 +55,7 @@ import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 
 export const configureAnalogReadLayout = (create: boolean = false): Layout.State => ({
   name: "Configure NI Analog Read Task",
-  key: nanoid(),
+  key: id.id(),
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
   location: "mosaic",
@@ -304,7 +304,7 @@ const availablePortFinder = (channels: Chan[]): (() => number) => {
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<Chan>({ path });
   const handleAdd = (): void => {
-    const key = nanoid();
+    const key = id.id();
     push({
       ...deep.copy(ZERO_AI_CHANNELS["ai_voltage"]),
       port: availablePortFinder(value)(),
@@ -331,7 +331,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
                   ...deep.copy(value[i]),
                   channel: 0,
                   port: pf(),
-                  key: nanoid(),
+                  key: id.id(),
                 })),
               );
             }}
@@ -396,31 +396,10 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <Align.Space direction="x" size="small">
-        <Button.Toggle
-          checkedVariant="outlined"
-          uncheckedVariant="outlined"
-          value={childValues.enabled}
-          size="small"
-          onClick={(e) => e.stopPropagation()}
-          onChange={(v) => ctx.set(`${path}.enabled`, v)}
-          tooltip={
-            <Text.Text level="small" style={{ maxWidth: 300 }}>
-              Data acquisition for this channel is{" "}
-              {childValues.enabled ? "enabled" : "disabled"}. Click to
-              {childValues.enabled ? " disable" : " enable"} it.
-            </Text.Text>
-          }
-        >
-          <Status.Text
-            variant={childValues.enabled ? "success" : "disabled"}
-            level="small"
-            align="center"
-          >
-            {childValues.enabled ? "Enabled" : "Disabled"}
-          </Status.Text>
-        </Button.Toggle>
-      </Align.Space>
+      <EnableDisableButton
+        value={childValues.enabled}
+        onChange={(v) => ctx.set(`${path}.enabled`, v)}
+      />
     </List.ItemFrame>
   );
 };

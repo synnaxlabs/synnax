@@ -12,7 +12,7 @@ import "@/button/Button.css";
 import { Icon } from "@synnaxlabs/media";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 
 import { type Align } from "@/align";
 import { Color } from "@/color";
@@ -100,8 +100,15 @@ export const Button = Tooltip.wrap(
 
     Triggers.use({
       triggers,
-      // @ts-expect-error HTMLButtonElement is not assignable to EventTarget
-      callback: ({ stage }) => stage === "end" && handleClick(new MouseEvent("click")),
+      callback: useCallback<(e: Triggers.UseEvent) => void>(
+        ({ stage }) => {
+          if (stage === "end")
+            handleClick(
+              new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
+            );
+        },
+        [handleClick],
+      ),
     });
 
     return (
