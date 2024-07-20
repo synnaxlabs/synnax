@@ -95,7 +95,7 @@ struct Frame {
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void add(const ChannelKey &chan, synnax::Series ser) const;
+    void add(const ChannelKey &chan, synnax::Series ser) const; //TODO: Why do we a non pass by ref version of this?
 
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
