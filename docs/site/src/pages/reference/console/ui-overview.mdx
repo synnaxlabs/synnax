@@ -2,7 +2,7 @@
 layout: "@/layouts/MainLayout.astro"
 title: "UI Overview"
 heading: "Console UI Overview"
-description: "Navigate the Synnax console UI."
+description: "Navigate the Synnax Console UI."
 ---
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
@@ -10,25 +10,24 @@ import { Image, Video } from "@/components/Media";
 import Note from "@/components/Note.astro";
 import Table from "@/components/Table.astro";
 
-The Synnax Console provides a flexible environment to display and interact with
-data stored and streamed through a Synnax cluster. It's interface is designed
-around two main UI elements: the central layout mosaic and side toolbars.
+The Synnax Console provides a flexible environment to display and interact with data
+stored and streamed through a Synnax cluster. It's interface is designed around two main
+UI elements: the central layout mosaic and side toolbars.
 
-The central mosaic displays visualizations such as line plots and schematics,
-while the toolbars exists to provide access to resources, data ranges, tasks,
-and visualization controls.
+The central mosaic displays visualizations such as line plots and schematics, while the
+toolbars exists to provide access to resources, data ranges, tasks, and visualization
+controls.
 
 <Divider.Divider direction="x" />
 
 ## Toolbars
 
-To kick things off, we'll walk you through each of the toolbars and their 
-functionality. 
+To kick things off, we'll walk you through each of the toolbars and their functionality. 
 
 ### <Icon.Resources /> Resources 
 
-The resource toolbar displays a file tree with folders for channels, ranges,
-users, and workspaces.
+The resource toolbar displays a file tree with folders for channels, ranges, users, and
+workspaces.
 
 <Video client:only="react" id="console/resources" />
 
@@ -46,36 +45,34 @@ users, and workspaces.
     </tr>
     <tr>
       <td><a href="/reference/device-drivers">Devices</a></td>
-      <td>Devices are the list of devices that are connected to the
-      cluster.</td>
+      <td>Devices are the list of devices that are connected to the cluster.</td>
     </tr>
     <tr>
       <td><a href="/reference/console/ranges">Ranges</a></td>
-      <td>Ranges are saved times that you can use when loading data to
-      view.</td>
+      <td>Ranges are saved times that you can use when loading data to view.</td>
     </tr>
     <tr>
       <td><a href="/reference/device-drivers">Tasks</a></td>
-      <td>Tasks are the current read and write tasks happening on devices
-      connected to the cluster.</td>
+      <td>Tasks are the current read and write tasks happening on devices connected to
+      the cluster.</td>
     </tr>
     <tr>
       <td>Users</td>
-      <td>Users are a list of all users registered in the cluster. The
-      workspaces created by the users can be found underneath their name.</td>
+      <td>Users are a list of all users registered in the cluster. The workspaces
+      created by the users can be found underneath their name.</td>
     </tr>
     <tr>
       <td><a href="/reference/console/workspaces">Workspaces</a></td>
-      <td>Workspaces list all created workspaces in the cluster. This tree
-      includes workspaces created by all users.</td>
+      <td>Workspaces list all created workspaces in the cluster. This tree includes
+      workspaces created by all users.</td>
     </tr>
   </tbody>
 </Table>
 
 ### <Icon.Range /> Ranges
 
-The [range toolbar](/reference/console/ranges) allows you to create,
-view, and access the ranges you're interested in visualizing. 
+The [range toolbar](/reference/console/ranges) allows you to create, view, and access
+the ranges you're interested in visualizing. 
 
 <Video client:only="react" id="console/ui-overview/range-toolbar" />
 
@@ -89,15 +86,14 @@ resume the current tasks happening on the cluster.
 ### <Icon.Visualize /> Visualizations
 
 The visualization toolbar allows you to edit the properties of [line
-plots](/reference/console/line-plots) and
-[schematics](/reference/console/schematics).
+plots](/reference/console/line-plots) and [schematics](/reference/console/schematics).
 
 <Video client:only="react" id="console/ui-overview/visualization-toolbar" />
 
 ### <Icon.Cluster /> Clusters
 
-The [cluster toolbar](/reference/console/clusters) allows you to switch
-the current cluster that you are connected to and add new clusters.
+The [cluster toolbar](/reference/console/clusters) allows you to switch the current
+cluster that you are connected to and add new clusters.
 
 <Video client:only="react" id="console/ui-overview/cluster-toolbar" />
 
@@ -111,8 +107,8 @@ You can easily open and close toolbars on Synnax:
 
 <Video client:only="react" id="console/ui-overview/open-toolbars" />
 
-You can close toolbars either by touching their respective icon or resizing it
-to the edge:
+You can close toolbars either by touching their respective icon or resizing it to the
+edge:
 
 <Video client:only="react" id="console/ui-overview/close-toolbars" />
 
@@ -124,8 +120,8 @@ You can also have multiple visualizations displayed at the same time:
 
 ## Getting Help
 
-The Synnax documentation website can be opened from within the console by
-clicking the <Icon.QuestionMark/> icon.
+The Synnax documentation website can be opened from within the console by clicking the
+<Icon.QuestionMark/> icon.
 
 <Video client:only="react" id="console/ui-overview/documentation" />
 
@@ -133,20 +129,19 @@ clicking the <Icon.QuestionMark/> icon.
 
 ## Search Toolbar
 
-The search toolbar at the top can be used to search for resources or to toggle
-commands. Searching for resouces can be done by searching or pressing
-<Icon.Keyboard.Control/>+`P` (Windows) / <Icon.Keyboard.Command />+`P` (MacOS).
-As an example of searching for resources, you could search for a test range and
-then automatically add it as the active range:
+The search toolbar at the top can be used to search for resources or to toggle commands.
+Searching for resouces can be done by searching or pressing <Icon.Keyboard.Control/>+`P`
+(Windows) / <Icon.Keyboard.Command />+`P` (MacOS). As an example of searching for
+resources, you could search for a test range and then automatically add it as the active
+range:
 
 <Video client:only="react" id="console/ui-overview/palette-search" />
 
 <Icon.Keyboard.Return />
 
-The search toolbar can run commands by entering a `>` into the toolbar or by
-pressing <Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) /
-<Icon.Keyboard.Command />+<Icon.Keyboard.Shift />+`P` (MacOS). This allows you
-to run commands such as toggling the color theme, creating a visualization,
-adding a range, or opening the documentation:
+The search toolbar can run commands by entering a `>` into the toolbar or by pressing
+<Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) / <Icon.Keyboard.Command
+/>+<Icon.Keyboard.Shift />+`P` (MacOS). This allows you to run commands such as toggling
+the color theme, creating a visualization, adding a range, or opening the documentation:
 
 <Video client:only="react" id="console/ui-overview/palette-command" />

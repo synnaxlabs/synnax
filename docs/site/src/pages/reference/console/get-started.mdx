@@ -2,16 +2,15 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Console"
 heading: "The Synnax Console"
-description: "Install and use the Synnax console."
+description: "Install and use the Synnax Console."
 ---
 import { Align, Divider } from "@synnaxlabs/pluto";
 import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
 import { Image } from "@/components/Media";
 
-The Synnax console is a desktop application for visualizing data, controlling
-hardware, and managing a Synnax cluster. This page will get you started with
-installing the console, and point you to the right resources for learning how to
-use it.
+The Synnax Console is a desktop application for visualizing data, controlling hardware,
+and managing a Synnax cluster. This page will get you started with installing the
+console, and point you to the right resources for learning how to use it.
 
 <Divider.Divider direction="x" />
 
@@ -23,14 +22,13 @@ Install the console by downloading the latest release for your operating system:
 <br />
 <Align.Space direction="y" justify="center" align="center">
   <SynnaxConsoleDownloadButton client:load />
-  <small>Releases for other operating systems and older versions can be found on
-  the [releases page](https://github.com/synnaxlabs/synnax/releases).</small>
+  <small>Releases for other operating systems and older versions can be found on the
+  [releases page](https://github.com/synnaxlabs/synnax/releases).</small>
 </Align.Space>
 <br />
 <br />
 
-After downloading and installing the console, you'll see the following splash
-screen:
+After downloading and installing the console, you'll see the following splash screen:
 
 <Image id="console/get-started/window" client:only="react" />
 
@@ -39,5 +37,5 @@ screen:
 ## Next Steps
 
 Now that you've installed the console, [connect it to a Synnax
-cluster](/reference/console/clusters) to start visualizing data and
-controlling hardware.
+cluster](/reference/console/clusters) to start visualizing data and controlling
+hardware.

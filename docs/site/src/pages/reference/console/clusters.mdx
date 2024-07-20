@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Clusters"
-description: "Connect to clusters in the Synnax console."
+description: "Connect to clusters in the Synnax Console."
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
@@ -13,15 +13,15 @@ import { Table } from "@/components/Table";
 
 ## Adding a New Cluster
 
-Adding a new cluster is as simple as clicking the **Add Cluster** button in the
-top right corner of the cluster toolbar and entering your connection parameters,
-as shown below.
+Adding a new cluster is as simple as clicking the **Add Cluster** button in the top
+right corner of the cluster toolbar and entering your connection parameters, as shown
+below:
 
 <Video client:only="react" id="console/clusters/connect" />
 
-This will add a new cluster to the list and set it as active. The console
-continuously monitors the connection to the cluster and displays it in the
-bottom right corner of the UI.
+This will add a new cluster to the list and set it as active. The console continuously
+monitors the connection to the cluster and displays it in the bottom right corner of the
+UI.
 
 ### Parameters
 
@@ -66,13 +66,14 @@ bottom right corner of the UI.
 />
 
 <Note variant="warning">
-The console will not connect to remote clusters (i.e. host is not 'localhost')
-started with the `--insecure` flag.
+The console will not connect to remote clusters (i.e. host is not 'localhost') started
+with the `--insecure` flag.
 </Note>
 
 ### Demo Cluster
-Synnax has a demo cluster that can be connected to which always plots some data.
-To connect, enter the following parameters:
+
+Synnax has a demo cluster that can be connected to which always plots some data. To
+connect, enter the following parameters:
 
 - **Host**: demo.synnaxlabs.com
 - **Port**: 9090
@@ -84,25 +85,25 @@ To connect, enter the following parameters:
 
 ## Cluster Toolbar
 
-The cluster toolbar is located at the bottom right of the screen. From this
-toolbar, you can add clusters, switch between them, and more.
+The cluster toolbar is located at the bottom right of the screen. From this toolbar, you
+can add clusters, switch between them, and more.
 
-If you have multiple clusters, you can switch between them by clicking on the
-cluster you'd like to connect to in the toolbar:
+If you have multiple clusters, you can switch between them by clicking on the cluster
+you'd like to connect to in the toolbar:
 
 <Video client:only="react" id="console/clusters/switch" />
 
-Right-clicking on a cluster in the toolbar will open a context menu with options
-to connect from, disconnect from, rename, and remove the cluster.
+Right-clicking on a cluster in the toolbar will open a context menu with options to
+connect from, disconnect from, rename, and remove the cluster:
 
 <Video client:only="react" id="console/clusters/context-menu" />
 
-You can also copy a link to the cluster from the context menu. Opening this link
-will open the Synnax Console with the cluster already connected.
+You can also copy a link to the cluster from the context menu. Opening this link will
+open the Synnax Console with the cluster already connected.
 
 <Note variant="warning">
-Currently, opening by link is only supported on Mac. Other platforms are planned
-to be supported in the future.
+Currently, opening by link is only supported on Mac. Other platforms are planned to be
+supported in the future.
 </Note>
 
 <Divider.Divider direction="x" />
