@@ -34,7 +34,7 @@ func (i *Domain) Distance(
 	tr telem.TimeRange,
 	continuous bool,
 ) (approx DistanceApproximation, domainBounds DomainBounds, err error) {
-	var startApprox, endApprox DistanceApproximation
+	var startApprox, endApprox Approximation[int64]
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
@@ -79,25 +79,27 @@ func (i *Domain) Distance(
 	if err != nil {
 		return
 	}
+	approx.StartExact = startApprox.Exact()
 
 	if iter.TimeRange().ContainsStamp(tr.End) || tr.End == iter.TimeRange().End {
 		// If the current domain contains the end of the time range, then everything
 		// is continuous and within the current domain.
 		endApprox, err = i.search(tr.End, r)
-		approx = Between(
+		approx.Approximation = Between(
 			endApprox.Lower-startApprox.Upper,
 			endApprox.Upper-startApprox.Lower,
 		)
+		approx.EndExact = endApprox.Exact()
+
 		domainBounds = ExactDomainBounds(iter.Position())
 		return
-	} else if continuous {
+	} else if continuous &&
+		!effectiveDomainBounds.ContainsStamp(tr.End) &&
+		effectiveDomainBounds.End != tr.End {
 		// Otherwise, unless the effective domain contains the end of the time range
 		// the distance is discontinuous
-		if !effectiveDomainBounds.ContainsStamp(tr.End) &&
-			effectiveDomainBounds.End != iter.TimeRange().End {
-			err = NewErrDiscontinuousTR(tr)
-			return
-		}
+		err = NewErrDiscontinuousTR(tr)
+		return
 	}
 
 	var (
@@ -119,7 +121,7 @@ func (i *Domain) Distance(
 				err = NewErrDiscontinuousTR(tr)
 				return
 			}
-			approx = Between(
+			approx.Approximation = Between(
 				startToFirstEnd.Lower+gap,
 				startToFirstEnd.Upper+gap,
 			)
@@ -139,7 +141,8 @@ func (i *Domain) Distance(
 			if err != nil {
 				return
 			}
-			approx = Between(
+			approx.EndExact = endApprox.Exact()
+			approx.Approximation = Between(
 				startToFirstEnd.Lower+gap+endApprox.Lower,
 				startToFirstEnd.Upper+gap+endApprox.Upper,
 			)
@@ -174,11 +177,6 @@ func (i *Domain) Stamp(
 		return
 	}
 
-	if offset == 0 {
-		approx = Exactly(ref)
-		return
-	}
-
 	if !iter.SeekFirst(ctx) {
 		// Reset the iterator position after using it to determine effective bound.
 		i.L.DPanic("iterator seekFirst failed in stamp")
@@ -189,9 +187,20 @@ func (i *Domain) Stamp(
 		return
 	}
 	defer func() { err = errors.CombineErrors(err, r.Close()) }()
+
 	startApprox, err := i.search(ref, r)
 	if err != nil {
 		return
+	}
+
+	if offset == 0 {
+		if !startApprox.Exact() {
+			approx.Upper, err = readStamp(r, startApprox.Upper*8, make([]byte, 8))
+			return
+		}
+		s, err := readStamp(r, startApprox.Upper*8, make([]byte, 8))
+		approx = Exactly[telem.TimeStamp](s)
+		return approx, err
 	}
 
 	// endOffset is the upper-bound distance of the desired sample from the start of the
@@ -292,7 +301,7 @@ func resolveEffectiveDomain(i *domain.Iterator) (effectiveDomainBounds telem.Tim
 
 // search returns an approximation for the number of samples before a given timestamp. If the
 // timestamp exists in the underlying index, the approximation will be exact.
-func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproximation, error) {
+func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
 	var (
 		start int64 = 0
 		end         = (r.Len() / 8) - 1
