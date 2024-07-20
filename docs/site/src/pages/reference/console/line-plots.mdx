@@ -1,0 +1,131 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Line Plots"
+description: "Graph data using line plots."
+---
+import { Icon } from "@synnaxlabs/media";
+import { Divider } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/Media";
+
+Line plots are the main visualization tool in the Synnax console. Line plots can
+be used to plot real-time data or historical data. They can plot one or several
+channels along the y-axes, and the x-axis can be time or another channel. An
+example line plot is shown below:
+
+<Image client:only="react" id="console/line-plots/example" />
+
+Click the visualize <Icon.Visualize /> button in the bottom-right corner to open
+the visualization toolbar.
+
+<Video client:only="react" id="console/line-plots/toolbar" />
+
+<Divider.Divider direction="x" />
+
+## Visualization Toolbar
+
+### Data Tab
+
+- **Y1** lets you select which channels to plot along the left-hand axis.
+- **Y2** lets you select which channels to plot along the right-hand axis.
+- **Ranges** lets you select which [time ranges](/reference/console/ranges) to
+  plot. Data will only be plotted that took place over these time ranges. If you
+  select multiple ranges, the x-axis will scale to accomodate both.
+    - Rolling time ranges allow you to view the most recent time increment of
+      data. These are intended for cases where you want to stream live data.
+- **X1** scales the x-axis by a channel instead of time. Note that the only data
+  shown will be the data from the time in the ranges selected.
+
+<Video client:only="react" id="console/line-plots/data-tab" />
+
+### Lines Tab
+
+- **Label** allows you to change what text appears for the channels in the line
+  plot legend. The label can be the channel name or a channel alias. Note that
+  changing the label does _not_ change the channel name.
+- **Line Width** lets you change how thick the lines are.
+- **Downsampling** lets you change how many times the channels get plotted. If
+  downsampling is 5, every 5th data point is plotted.
+- **Color** changes the color of the line on the line plot.
+
+<Video client:only="react" id="console/line-plots/lines-tab" />
+
+### Axes Tab
+
+- **Lower Bound** and **Upper Bound** set the limits for the axes. The auto
+  <Icon.Auto /> button enables auto-bounding on the line plots.
+- **Tick Spacing** determines how far apart the tick marks are in pixels on the
+  screen. Synnax will automatically determine appropriate tick increments based
+  on this information.
+- **Label** adds a title to the axis.
+- **Label Direction** determines whether the letters in the label are vertical
+  or horizontal.
+- **Label Size** determines the size of the label.
+
+<Video client:only="react" id="console/line-plots/axes-tab" />
+
+### Properties Tab
+
+- **Title** changes the title of the line plot. The title will change on the
+  workspace tab and on top of the line plot.
+- **Show Title** determines whether the title is visible on the line plot.
+- **Show Legend** determines whether the legend is viewed in the chart. If the
+  legend is visible, it can be moved to any location on the line plot.
+
+<Video client:only="react" id="console/line-plots/properties-tab" />
+
+<Divider.Divider direction="x"/>
+
+## Navigating the Line Plot
+
+In the bottom-left corner of the screen, there are options for navigating the
+line plot.
+
+### Zoom
+
+Zoom on the line plot by clicking the zoom <Icon.Zoom /> button in the or by
+pressing <Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (MacOS) and
+left click. This will adjust the axes of the line plot to the area of the box.
+
+<Video client:only="react" id="console/line-plots/zoom" />
+
+### Pan
+
+Pan the line plot by clicking the pan <Icon.Pan /> button or by pressing
+<Icon.Keyboard.Shift /> and left click.
+
+<Video client:only="react" id="console/line-plots/pan" />
+
+### Select
+
+Select data by clicking the selection <Icon.Selection /> button or by pressing
+<Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (MacOS) and left
+click. This box allows you to select data by dragging on the line plot. After
+selecting data you can right click and copy the time range to be used in Python,
+TypeScript, or ISO formats. You can also create a range from this selection.
+
+<Video client:only="react" id="console/line-plots/select" />
+
+### Reset Zoom
+
+Reset the zoom by clicking the expand <Icon.Expand /> button or by pressing
+<Icon.Keyboard.Control /> (Windows) / <Icon.Keyboard.Command /> (MacOS) and left
+click.
+
+### Show Tooltip on Hover
+
+Clicking the tooltip <Icon.Tooltip /> button will determine whether a tooltip is
+shown when hovering over navigation options.
+
+### Slope
+
+The slope <Icon.Rule /> button allows you to select two points on the line plot
+and calculate the slope between them. You can also see the difference in the x
+and y axes. To change the first point, press the `1` key and click on the line
+plot. To change the second point, press the `2` key and click on the line plot.
+
+<Video client:only="react" id="console/line-plots/slope" />
+
+### Pause Live Plotting
+
+Pressing the `H` key or clicking the pause <Icon.Pause /> button will pause live
+plotting.

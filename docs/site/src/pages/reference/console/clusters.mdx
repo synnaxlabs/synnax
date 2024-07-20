@@ -1,10 +1,9 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "Connect a Cluster"
-description: "Learn how to connect a cluster using the Synnax Console."
+title: "Clusters"
+description: "Connect to clusters in the Synnax console."
 ---
-
-import { Divider, Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
 import { Video } from "@/components/Media";
 import Note from "@/components/Note.astro";
@@ -18,7 +17,7 @@ Adding a new cluster is as simple as clicking the **Add Cluster** button in the
 top right corner of the cluster toolbar and entering your connection parameters,
 as shown below.
 
-<Video client:only="react" id="console/cluster/connect" />
+<Video client:only="react" id="console/clusters/connect" />
 
 This will add a new cluster to the list and set it as active. The console
 continuously monitors the connection to the cluster and displays it in the
@@ -75,11 +74,11 @@ started with the `--insecure` flag.
 Synnax has a demo cluster that can be connected to which always plots some data.
 To connect, enter the following parameters:
 
-- __Host__: demo.synnaxlabs.com
-- __Port__: 9090
-- __Username__: synnax
-- __Password__: seldon
-- __Secure__: true
+- **Host**: demo.synnaxlabs.com
+- **Port**: 9090
+- **Username**: synnax
+- **Password**: seldon
+- **Secure**: true
 
 <Divider.Divider direction="x" />
 
@@ -91,12 +90,12 @@ toolbar, you can add clusters, switch between them, and more.
 If you have multiple clusters, you can switch between them by clicking on the
 cluster you'd like to connect to in the toolbar:
 
-<Video client:only="react" id="console/cluster/switch" />
+<Video client:only="react" id="console/clusters/switch" />
 
 Right-clicking on a cluster in the toolbar will open a context menu with options
 to connect from, disconnect from, rename, and remove the cluster.
 
-<Video client:only="react" id="console/cluster/context-menu" />
+<Video client:only="react" id="console/clusters/context-menu" />
 
 You can also copy a link to the cluster from the context menu. Opening this link
 will open the Synnax Console with the cluster already connected.

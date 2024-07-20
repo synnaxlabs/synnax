@@ -21,7 +21,7 @@ export const consoleNav: PageNavNode = {
     {
       key: "/reference/console/clusters",
       href: "/reference/console/clusters",
-      name: "Connect a Cluster",
+      name: "Clusters",
     },
     {
       key: "/reference/console/ui-overview",
@@ -36,16 +36,16 @@ export const consoleNav: PageNavNode = {
     {
       key: "/reference/console/ranges",
       href: "/reference/console/ranges",
-      name: "Querying Data Using Ranges",
+      name: "Ranges",
     },
     {
-      key: "/reference/console/line-plot",
-      href: "/reference/console/line-plot",
+      key: "/reference/console/line-plots",
+      href: "/reference/console/line-plots",
       name: "Line Plots",
     },
     {
-      key: "/reference/console/schematic",
-      href: "/reference/console/schematic",
+      key: "/reference/console/schematics",
+      href: "/reference/console/schematics",
       name: "Schematics",
     },
   ],
