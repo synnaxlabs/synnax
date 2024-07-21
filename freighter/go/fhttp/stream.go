@@ -51,37 +51,43 @@ type message[P freighter.Payload] struct {
 
 func newCore[RQ, RS freighter.Payload](
 	ctx context.Context,
-	conn *ws.Conn,
-	ecd binary.Codec,
-	logger *zap.SugaredLogger,
+	cfg coreConfig,
 ) core[RQ, RS] {
 	ctx, cancel := context.WithCancel(ctx)
 	b := core[RQ, RS]{
-		ctx:      ctx,
-		cancel:   cancel,
-		conn:     conn,
-		ecd:      ecd,
-		contextC: make(chan struct{}),
-		logger:   logger,
+		ctx:        ctx,
+		cancel:     cancel,
+		contextC:   make(chan struct{}),
+		coreConfig: cfg,
 	}
 	go b.listenForContextCancellation()
 	return b
 }
 
+type coreConfig struct {
+	alamos.Instrumentation
+	conn          *ws.Conn
+	ecd           binary.Codec
+	writeDeadline time.Duration
+}
+
 type core[I, O freighter.Payload] struct {
+	coreConfig
 	ctx        context.Context
 	cancel     context.CancelFunc
 	contextC   chan struct{}
-	conn       *ws.Conn
-	ecd        binary.Codec
 	peerClosed error
-	logger     *zap.SugaredLogger
 }
 
 func (c *core[I, O]) send(msg message[O]) error {
 	b, err := c.ecd.Encode(nil, msg)
 	if err != nil {
 		return err
+	}
+	if c.writeDeadline > 0 {
+		if err = c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
+			return err
+		}
 	}
 	return c.conn.WriteMessage(ws.BinaryMessage, b)
 }
@@ -112,13 +118,13 @@ func (c *core[I, O]) listenForContextCancellation() {
 			ws.FormatCloseMessage(ws.CloseGoingAway, ""),
 			time.Now().Add(time.Second),
 		); err != nil && !roacherrors.Is(err, ws.ErrCloseSent) {
-			c.logger.Errorf("error sending close message: %v \n", err)
+			c.L.Error("error sending close message: %v \n", zap.Error(err))
 		}
 	}
 }
 
 type streamClient[RQ, RS freighter.Payload] struct {
-	logger *zap.SugaredLogger
+	alamos.Instrumentation
 	ecd    httputil.EncoderDecoder
 	dialer ws.Dialer
 	freighter.Reporter
@@ -152,7 +158,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
 				return oCtx, roacherrors.New("[ws] - unable to upgrade connection")
 			}
-			stream = &clientStream[RQ, RS]{core: newCore[RS, RQ](ctx, conn, s.ecd, s.logger)}
+			stream = &clientStream[RQ, RS]{core: newCore[RS, RQ](ctx, coreConfig{conn: conn, ecd: s.ecd, Instrumentation: s.Instrumentation})}
 			return oCtx, nil
 		}),
 	)
@@ -169,20 +175,16 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.peerClosed != nil {
 		return freighter.EOF
 	}
-
 	if s.sendClosed {
 		return freighter.StreamClosed
 	}
-
 	if s.ctx.Err() != nil {
 		return s.ctx.Err()
 	}
-
 	if err := s.core.send(message[RQ]{Type: messageTypeData, Payload: req}); err != nil {
 		close(s.contextC)
 		return freighter.EOF
 	}
-
 	return nil
 }
 
@@ -197,18 +199,18 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 	}
 
 	msg, err := s.core.receive()
-
+	if isRemoteContextCancellation(err) {
+		return res, s.cancelStream()
+	}
+	if err != nil {
+		return res, err
+	}
 	// A close message means the server handler exited.
 	if msg.Type == closeMessage {
 		close(s.contextC)
 		s.peerClosed = errors.Decode(s.ctx, msg.Err)
 		return res, s.peerClosed
 	}
-
-	if isRemoteContextCancellation(err) {
-		return res, s.cancelStream()
-	}
-
 	return msg.Payload, err
 }
 
@@ -222,7 +224,7 @@ func (s *clientStream[RQ, RS]) CloseSend() error {
 }
 
 func mdToHeaders(md freighter.Context) http.Header {
-	headers := http.Header{}
+	headers := make(http.Header, len(md.Params))
 	for k, v := range md.Params {
 		if vStr, ok := v.(string); ok {
 			headers[k] = []string{vStr}
@@ -235,10 +237,11 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	alamos.Instrumentation
-	serverCtx context.Context
-	path      string
-	internal  bool
-	handler   func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
+	serverCtx     context.Context
+	path          string
+	internal      bool
+	handler       func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
+	writeDeadline time.Duration
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(
@@ -246,6 +249,8 @@ func (s *streamServer[RQ, RS]) BindHandler(
 ) {
 	s.handler = handler
 }
+
+const closeReadDeadline = 500 * time.Millisecond
 
 func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	if !fiberws.IsWebSocketUpgrade(fiberCtx) {
@@ -260,59 +265,42 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	}
 	oCtx, err := s.MiddlewareCollector.Exec(
 		iMD,
-		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
-			oCtx = freighter.Context{Target: iMD.Target, Protocol: s.Reporter.Protocol, Params: make(freighter.Params)}
+		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
+			oCtx := freighter.Context{
+				Target:   iMD.Target,
+				Protocol: s.Reporter.Protocol,
+				Params:   make(freighter.Params),
+			}
 			return oCtx, fiberws.New(func(c *fiberws.Conn) {
 				if err := func() error {
-
-					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](s.serverCtx, c.Conn, ecd, zap.S())}
-
-					errPayload := errors.Encode(ctx, s.handler(stream.ctx, stream), s.internal)
-					if errPayload.Type == errors.TypeNil {
-						errPayload = errors.Encode(ctx, freighter.EOF, s.internal)
+					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](s.serverCtx, coreConfig{
+						writeDeadline: s.writeDeadline,
+						conn:          c.Conn,
+						ecd:           ecd,
+					})}
+					errPld := errors.Encode(ctx, s.handler(stream.ctx, stream), s.internal)
+					if errPld.Type == errors.TypeNil {
+						errPld = errors.Encode(ctx, freighter.EOF, s.internal)
 					}
-
 					if stream.ctx.Err() != nil {
 						return stream.ctx.Err()
 					}
-
-					if err := stream.send(message[RS]{Type: closeMessage, Err: errPayload}); err != nil {
+					if err = stream.send(message[RS]{Type: closeMessage, Err: errPld}); err != nil {
 						return err
 					}
-
 					stream.peerClosed = freighter.StreamClosed
-
-					clientCloseAck := make(chan struct{})
-
-					if err := stream.conn.WriteMessage(
+					if err = stream.conn.WriteMessage(
 						ws.CloseMessage,
 						ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
 					); err != nil {
 						return err
 					}
-
-					go func() {
-						defer close(clientCloseAck)
-						for {
-							_, err := stream.receive()
-							if ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
-								return
-							}
-							if err != nil {
-								s.L.Error("expected normal closure, received error instead", zap.Error(err))
-								return
-							}
-						}
-					}()
-
-					select {
-					case <-stream.ctx.Done():
-						break
-					case <-time.After(500 * time.Millisecond):
-						s.L.Warn("timed out waiting for client to acknowledge closure")
-						break
-					case <-clientCloseAck:
-						break
+					if err = stream.conn.SetReadDeadline(time.Now().Add(closeReadDeadline)); err != nil {
+						return err
+					}
+					if _, err = stream.receive(); err != nil &&
+						!ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
+						s.L.Error("expected normal closure, received error instead", zap.Error(err))
 					}
 					close(stream.contextC)
 					stream.cancel()
@@ -342,19 +330,18 @@ func (s *serverStream[RQ, RS]) Receive() (req RQ, err error) {
 	if s.ctx.Err() != nil {
 		return req, s.ctx.Err()
 	}
-
 	msg, err := s.core.receive()
-
+	if isRemoteContextCancellation(err) {
+		return req, s.cancelStream()
+	}
+	if err != nil {
+		return req, err
+	}
 	// A close message means the client called CloseSend.
 	if msg.Type == closeMessage {
 		s.peerClosed = freighter.EOF
 		return req, s.peerClosed
 	}
-
-	if isRemoteContextCancellation(err) {
-		return req, s.cancelStream()
-	}
-
 	return msg.Payload, err
 }
 

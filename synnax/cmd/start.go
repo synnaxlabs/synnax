@@ -54,6 +54,17 @@ import (
 	insecureGRPC "google.golang.org/grpc/credentials/insecure"
 )
 
+const stopKeyWord = "stop"
+
+func scanForStopKeyword(interruptC chan os.Signal) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if scanner.Text() == stopKeyWord {
+			interruptC <- os.Interrupt
+		}
+	}
+}
+
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
@@ -69,10 +80,6 @@ will bootstrap a new cluster.
 	Args:    cobra.NoArgs,
 	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
-
-var (
-	stopKeyWord = "stop"
-)
 
 // start a Synnax node using the configuration specified by the command line flags,
 // environment variables, and configuration files.
@@ -107,14 +114,9 @@ func start(cmd *cobra.Command) {
 	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(ins))
 	defer cancel()
 
-	go func() {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			if scanner.Text() == stopKeyWord {
-				interruptC <- os.Interrupt
-			}
-		}
-	}()
+	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
+	// It's fine to let this get garbage collected.
+	go scanForStopKeyword(interruptC)
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
@@ -125,18 +127,17 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		// An array to hold the grpcTransports we use for cluster internal communication.
-		grpcTransports := &[]fgrpc.BindableTransport{}
-
-		grpcPool := configureClientGRPC(secProvider, insecure)
+		// An array to hold the grpcServerTransports we use for cluster internal communication.
+		grpcServerTransports := &[]fgrpc.BindableTransport{}
+		grpcClientPool := configureClientGRPC(secProvider, insecure)
 
 		// Open the distribution layer.
 		storageCfg := buildStorageConfig(ins)
 		distConfig, err := buildDistributionConfig(
-			grpcPool,
+			grpcClientPool,
 			ins,
 			storageCfg,
-			grpcTransports,
+			grpcServerTransports,
 			verifier,
 		)
 		if err != nil {
@@ -235,16 +236,19 @@ func start(cmd *cobra.Command) {
 		}
 
 		// Configure the HTTP API Transport.
-		r := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
+		r := fhttp.NewRouter(fhttp.RouterConfig{
+			Instrumentation:     ins,
+			StreamWriteDeadline: 5 * time.Second,
+		})
 		_api.BindTo(httpapi.New(r))
 
 		// Configure the GRPC API Transport.
 		grpcAPI, grpcAPITrans := grpcapi.New()
-		*grpcTransports = append(*grpcTransports, grpcAPITrans...)
+		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 
 		srv, err := server.New(buildServerConfig(
-			*grpcTransports,
+			*grpcServerTransports,
 			[]fhttp.BindableTransport{r},
 			secProvider,
 			ins,

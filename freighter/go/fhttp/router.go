@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
+	"time"
 )
 
 type route struct {
@@ -28,6 +29,9 @@ type route struct {
 
 type RouterConfig struct {
 	alamos.Instrumentation
+	// StreamWriteDeadline sets the default duration for the write deadline of a stream
+	// transport. After the duration has been exceeded, the transport will be closed.
+	StreamWriteDeadline time.Duration
 }
 
 var _ config.Config[RouterConfig] = RouterConfig{}
@@ -108,6 +112,7 @@ func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path strin
 		path:            path,
 		Instrumentation: r.Instrumentation,
 		serverCtx:       r.ctx,
+		writeDeadline:   r.StreamWriteDeadline,
 	}
 	r.register(path, "GET", s, s.fiberHandler)
 	return s
