@@ -28,7 +28,7 @@ export const linkHandler: Link.Handler = async ({
   try {
     const range = await client.ranges.retrieve(resourceKey);
     dispatch(setActive(range.key));
-    add({ ranges: fromClientRange(range) });
+    dispatch(add({ ranges: fromClientRange(range) }));
     placer(
       LinePlot.create({
         name: `Plot for ${range.name}`,
