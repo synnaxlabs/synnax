@@ -25,12 +25,6 @@ export const RANGE_MIGRATIONS: migrate.Migrations = {};
 
 export const SLICE_MIGRATIONS: migrate.Migrations = {};
 
-export const migrateRange = migrate.migrator<AnyRange, Range>({
-  name: "range.range",
-  migrations: RANGE_MIGRATIONS,
-  def: v0.ZERO_RANGE,
-});
-
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   name: "range.slice",
   migrations: SLICE_MIGRATIONS,
