@@ -11,16 +11,28 @@ import { migrate } from "@synnaxlabs/x";
 
 import * as v0 from "@/range/migrations/v0";
 
-export type SliceState = v0.SliceState;
-export type Range = v0.Range;
 export type TimeRange = v0.TimeRange;
-export type DynamicRange = v0.DynamicRange;
 export type StaticRange = v0.StaticRange;
+export type DynamicRange = v0.DynamicRange;
+export type Range = v0.Range;
+export type SliceState = v0.SliceState;
+export type AnyRange = v0.Range;
+export type AnySliceState = v0.SliceState;
+
 export const ZERO_SLICE_STATE = v0.ZERO_SLICE_STATE;
 
-export const MIGRATIONS: migrate.Migrations = {};
-export const migrateSlice = migrate.migrator<SliceState, SliceState>({
+export const RANGE_MIGRATIONS: migrate.Migrations = {};
+
+export const SLICE_MIGRATIONS: migrate.Migrations = {};
+
+export const migrateRange = migrate.migrator<AnyRange, Range>({
+  name: "range.range",
+  migrations: RANGE_MIGRATIONS,
+  def: v0.ZERO_RANGE,
+});
+
+export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   name: "range.slice",
-  migrations: MIGRATIONS,
+  migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });

@@ -10,8 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Icon as PIcon, Menu as PMenu } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
+import { type Haul, Icon as PIcon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors, id, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -24,10 +23,16 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createEditLayout } from "@/range/EditLayout";
 import { select, useSelect } from "@/range/selectors";
-import { type Range } from "@/range/slice";
-import { add, rename, setActive, type StoreState } from "@/range/slice";
+import {
+  add,
+  type Range,
+  remove,
+  rename,
+  setActive,
+  type StoreState,
+} from "@/range/slice";
 
-const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
+export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
   toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
@@ -138,7 +143,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Range" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes },
+      selection: { resources },
+      store,
+    }) => {
       if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
@@ -147,17 +156,25 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
           keys: resources.map(({ id }) => id.toString()),
         }),
       ]);
+      const keys = resources.map(({ id }) => id.key);
+      store.dispatch(remove({ keys }));
       return prevNodes;
     },
     mutationFn: async ({ selection, client }) =>
       await client.ranges.delete(selection.resources.map((r) => r.id.key)),
     onError: (
       e,
-      { addStatus, selection: { resources }, state: { setNodes } },
+      { addStatus, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
-      if (prevNodes != null) setNodes(prevNodes);
+      if (prevNodes != null) {
+        setNodes(prevNodes);
+        const ranges = fromClientRange(
+          resources.map((resource) => resource.data as unknown as ranger.Range),
+        );
+        store.dispatch(add({ ranges }));
+      }
       let message = "Failed to delete ranges";
       if (resources.length === 1)
         message = `Failed to delete range ${resources[0].name}`;
