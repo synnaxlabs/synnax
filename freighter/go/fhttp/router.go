@@ -42,6 +42,7 @@ func (r RouterConfig) Validate() error { return nil }
 // Override implements config.Properties.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
+	r.StreamWriteDeadline = override.Numeric(r.StreamWriteDeadline, other.StreamWriteDeadline)
 	return r
 }
 
