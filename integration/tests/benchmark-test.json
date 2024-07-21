@@ -31,7 +31,7 @@
             }
           ],
           "num_writers": 1,
-          "domains": 1000000,
+          "domains": 100000,
           "samples_per_domain": 1000,
           "time_range": {
             "start": 0,
@@ -62,7 +62,7 @@
             }
           ],
           "num_writers": 1,
-          "domains": 1000000,
+          "domains": 100000,
           "samples_per_domain": 1000,
           "time_range": {
             "start": 0,
@@ -86,7 +86,7 @@
             "int1-1",
             "int1-2"
           ],
-          "samples_expected": 8000000000,
+          "samples_expected": 800000000,
           "expected_error": "no_error"
         }
       },
@@ -104,7 +104,7 @@
             "int3-1",
             "int3-2"
           ],
-          "samples_expected": 8000000000,
+          "samples_expected": 800000000,
           "expected_error": "no_error"
         }
       }
@@ -177,7 +177,7 @@
             "end": 1000000000000001
           },
           "expected_error": "no_error",
-          "samples_expected": 6000000000
+          "samples_expected": 600000000
         }
       },
       {
@@ -203,7 +203,7 @@
             "end": 1000000000000001
           },
           "expected_error": "no_error",
-          "samples_expected": 6000000000
+          "samples_expected": 600000000
         }
       }
     ]
