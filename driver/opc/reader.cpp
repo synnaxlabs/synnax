@@ -420,10 +420,10 @@ public:
             const auto value = *static_cast<UA_DateTime *>(val->data);
             if (s.data_type == synnax::INT64) return s.write(
                 ua_datetime_to_unix_nano(value));
-            if (s.data_type == synnax::TIMESTAMP)
-                s.write(ua_datetime_to_unix_nano(value));
-            if (s.data_type == synnax::UINT64)
-                s.write(static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
+            if (s.data_type == synnax::TIMESTAMP) return s.write(
+                ua_datetime_to_unix_nano(value));
+            if (s.data_type == synnax::UINT64) return s.write(
+                static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
             if (s.data_type == synnax::FLOAT32) return s.write(
                 static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64) return s.write(
