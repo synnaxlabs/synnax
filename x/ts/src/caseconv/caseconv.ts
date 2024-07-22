@@ -20,15 +20,18 @@ const snakeToCamelStr = (str: string): string => {
  * @param obj: object to convert keys. If `obj` isn't a json object, `null` is returned.
  * @param opt: (optional) Options parameter, default is non-recursive.
  */
-const createConverter = (f: (v: string) => string) => {
-  const converter = (obj: any, opt: Options = defaultOptions): object | null => {
+const createConverter = (
+  f: (v: string) => string,
+): (<V>(obj: V, opt?: Options) => V) => {
+  const converter = <V>(obj: V, opt: Options = defaultOptions): V => {
     if (typeof obj === "string") return f(obj) as any;
-    if (Array.isArray(obj)) return obj.map((v) => converter(v, opt));
-    if (!isValidObject(obj)) return null;
+    if (Array.isArray(obj)) return obj.map((v) => converter(v, opt)) as V;
+    if (!isValidObject(obj)) return obj;
     opt = validateOptions(opt);
     const res: any = {};
-    Object.keys(obj).forEach((key) => {
-      let value = obj[key];
+    const anyObj = obj as any;
+    Object.keys(anyObj).forEach((key) => {
+      let value = anyObj[key];
       const nkey = f(key);
       if (opt.recursive) {
         if (isValidObject(value)) {
