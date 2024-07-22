@@ -34,11 +34,11 @@ export const connectionConfigZ = z.object({
   endpoint: z.string(),
   username: z.string().optional(),
   password: z.string().optional(),
-  security_mode: securityModeZ,
-  security_policy: securityPolicyZ,
-  client_certificate: z.string().optional(),
-  client_private_key: z.string().optional(),
-  server_certificate: z.string().optional(),
+  securityMode: securityModeZ,
+  securityPolicy: securityPolicyZ,
+  clientCertificate: z.string().optional(),
+  clientPrivateKey: z.string().optional(),
+  serverCertificate: z.string().optional(),
 });
 
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
