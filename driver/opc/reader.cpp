@@ -305,6 +305,8 @@ public:
                 static_cast<int16_t>(value));
             if (s.data_type == synnax::INT64) return s.write(
                 static_cast<int64_t>(value));
+            if (s.data_type == synnax::UINT16) return s.write(
+                static_cast<uint16_t>(value));
             if (s.data_type == synnax::UINT32) return s.write(
                 static_cast<uint32_t>(value));
             if (s.data_type == synnax::UINT64) return s.write(
