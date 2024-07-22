@@ -92,11 +92,13 @@ func (skl *SkipList) search(v int) (prev *node, journey [MaxHeight]*node) {
 
 			prev.RUnlock()
 			prev = next
-			next = prev.next[level]
+			next = next.next[level]
+			next.RLock()
 		}
 		next.RUnlock()
 		journey[level] = prev
 	}
+	prev.RUnlock()
 
 	return journey[0], journey
 }
