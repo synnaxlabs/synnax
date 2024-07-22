@@ -179,7 +179,7 @@ const Wrapped = ({
         const channels = await client.channels.create(
           toCreate.map((c) => ({
             name: c.name,
-            dataType: "float32",
+            dataType: c.dataType,
             index: dev.properties.read.index,
           })),
         );
@@ -340,7 +340,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
           enabled: true,
           nodeId,
           useAsIndex: false,
-          dataType: i.data?.dataType ?? "float32",
+          dataType: (i.data?.dataType as string) ?? "float32",
         };
       });
     push(toAdd);
