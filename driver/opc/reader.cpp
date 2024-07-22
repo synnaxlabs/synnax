@@ -429,8 +429,7 @@ public:
             if (s.data_type == synnax::FLOAT64) return s.write(
                 static_cast<double>(value));
         }
-
-        LOG(ERROR) << "unsupported data type: " << val->type->typeName;
+        LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName << " for task " << task.name;
     }
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
