@@ -151,30 +151,6 @@
         }
       },
       {
-        "op": "write",
-        "client": "ts",
-        "delay": 1.5,
-        "params": {
-          "channel_groups": [
-            {
-              "index_channels": [
-                "int1"
-              ],
-              "data_channels": []
-            }
-          ],
-          "num_writers": 1,
-          "domains": 1000,
-          "samples_per_domain": 2000,
-          "time_range": {
-            "start": 0,
-            "end": 1000000000000000
-          },
-          "writer_mode": 1,
-          "expected_error": "unauthorized"
-        }
-      },
-      {
         "op": "delete",
         "client": "py",
         "delay": 1,

@@ -43,9 +43,9 @@ client = sy.Synnax(
 )
 
 
-class Write_Test():
+class WriteTest:
     _tc: TestConfig
-    
+
     def __init__(self, argv: List[str]):
         argv_counter = 1
         identifier = argv[argv_counter]
@@ -85,14 +85,18 @@ class Write_Test():
                 data_channels.append(argv[i])
             argv_counter += number_of_data
             channel_groups.append(
-                IndexWriterGroup(index_channels=index_channels, data_channels=data_channels)
+                IndexWriterGroup(
+                    index_channels=index_channels, data_channels=data_channels
+                )
             )
         self._tc = TestConfig(
             identifier=identifier,
             num_writers=num_writers,
             domains=domains,
             samples_per_domain=samples_per_domain,
-            time_range=sy.TimeRange(sy.TimeStamp(time_range_start), sy.TimeStamp(time_range_end)),
+            time_range=sy.TimeRange(
+                sy.TimeStamp(time_range_start), sy.TimeStamp(time_range_end)
+            ),
             channels=channel_groups,
             auto_commit=auto_commit,
             index_persist_interval=index_persist_interval,
@@ -100,7 +104,6 @@ class Write_Test():
             writer_mode=writer_mode,
         )
 
-        
     def test_with_timing(self):
         start = sy.TimeStamp.now()
         error_assertion_passed = False
@@ -109,30 +112,34 @@ class Write_Test():
             self.test()
         except Exception as e:
             actual_error = str(e)
-            if self._tc.expected_error != "no_error" and self._tc.expected_error in str(e):
+            if (
+                self._tc.expected_error != "no_error"
+                and self._tc.expected_error in str(e)
+            ):
                 error_assertion_passed = True
             else:
-                raise(e)
+                raise (e)
         else:
             actual_error = "no_error"
             if self._tc.expected_error == "no_error":
                 error_assertion_passed = True
         end = sy.TimeStamp.now()
 
-        err_assertion = f'''
+        err_assertion = f"""
 Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!!" if error_assertion_passed else "FAIL!!"}
-'''
+"""
 
         s = self.generate_test_report(start.span(end), err_assertion)
-        
+
         with open(FILE_NAME, "a") as f:
             f.write(s)
 
-            
     def generate_test_report(self, time: sy.TimeSpan, err_assertion: str) -> str:
-        samples = self._tc.num_channels() * self._tc.samples_per_domain * self._tc.domains
+        samples = (
+            self._tc.num_channels() * self._tc.samples_per_domain * self._tc.domains
+        )
         samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
-        s = f'''
+        s = f"""
 -- Python Write ({self._tc.identifier}) --
 Samples written: {samples:,.0f}
 Time taken: {time}
@@ -147,7 +154,7 @@ Configuration:
 \tWriter mode: {sy.WriterMode(self._tc.writer_mode).name}
 {err_assertion}
 
-'''
+"""
 
         return s
 
@@ -173,8 +180,9 @@ Configuration:
                     ts_hwm + time_span_per_domain,
                     self._tc.samples_per_domain,
                     dtype="int64",
-                    )
+                )
                 data = np.sin(0.0000000001 * timestamps)
+                ts_hwm += time_span_per_domain + 1
                 for i, writer in enumerate(writers):
                     data_dict = {}
                     for index_channel in self._tc.channels[i].index_channels:
@@ -187,7 +195,16 @@ Configuration:
                     if not self._tc.auto_commit:
                         assert writer.commit()
 
-                ts_hwm += time_span_per_domain + 1
+                    writers[i] = client.open_writer(
+                        start=ts_hwm,
+                        channels=self._tc.channels[i].together(),
+                        name=f"writer{i}",
+                        mode=self._tc.writer_mode,
+                        enable_auto_commit=self._tc.auto_commit,
+                        auto_index_persist_interval=self._tc.index_persist_interval,
+                        err_on_unauthorized=False,
+                    )
+                    writer.close()
 
         finally:
             for writer in writers:
@@ -195,7 +212,7 @@ Configuration:
 
 
 def main():
-    Write_Test(sys.argv).test_with_timing()
+    WriteTest(sys.argv).test_with_timing()
 
 
 if __name__ == "__main__":
