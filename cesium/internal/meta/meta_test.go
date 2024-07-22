@@ -52,8 +52,8 @@ var _ = Describe("Meta", Ordered, func() {
 
 			Describe("Impossible meta configurations", func() {
 				var (
-					jsonEncoder = &binary.JSONEncoderDecoder{}
-					key         = GenerateChannelKey()
+					jsonCodec = &binary.JSONCodec{}
+					key       = GenerateChannelKey()
 				)
 
 				DescribeTable("meta configs", func(badCh cesium.Channel, badField string) {
@@ -62,7 +62,7 @@ var _ = Describe("Meta", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 
 					f := MustSucceed(fs.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY))
-					encoded := MustSucceed(jsonEncoder.Encode(ctx, badCh))
+					encoded := MustSucceed(jsonCodec.Encode(ctx, badCh))
 
 					_, err := f.WriteAt(encoded, 0)
 					Expect(err).ToNot(HaveOccurred())

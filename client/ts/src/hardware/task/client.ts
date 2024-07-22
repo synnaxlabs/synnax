@@ -65,7 +65,7 @@ export const taskZ = z.object({
   config: z.record(z.unknown()).or(
     z.string().transform((c) => {
       if (c === "") return {};
-      return binary.JSON_ECD.decodeString(c);
+      return binary.JSON_CODEC.decodeString(c);
     }),
   ) as z.ZodType<UnknownRecord>,
   state: stateZ.optional().nullable(),
@@ -73,7 +73,7 @@ export const taskZ = z.object({
 
 export const newTaskZ = taskZ.omit({ key: true }).extend({
   key: taskKeyZ.transform((k) => k.toString()).optional(),
-  config: z.unknown().transform((c) => binary.JSON_ECD.encodeString(c)),
+  config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
 
 export type NewTask<

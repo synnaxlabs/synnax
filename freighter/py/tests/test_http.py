@@ -27,7 +27,7 @@ from .interface import Message
 @pytest.fixture
 def client(endpoint: URL) -> HTTPClient:
     http_endpoint = endpoint.child("unary")
-    return HTTPClient(http_endpoint, encoder.JSONEncoder())
+    return HTTPClient(http_endpoint, encoder.JSONCodec())
 
 
 @pytest.mark.http

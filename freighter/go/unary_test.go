@@ -107,7 +107,7 @@ func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unar
 	h.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := fhttp.NewRouter(fhttp.RouterConfig{})
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-		Codec: httputil.JSONEncoderDecoder,
+		Codec: httputil.JSONCodec,
 	})
 	server := fhttp.UnaryServer[request, response](router, false, "/")
 	client := fhttp.UnaryClient[request, response](factory)

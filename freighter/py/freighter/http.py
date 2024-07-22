@@ -34,25 +34,25 @@ class HTTPClient(MiddlewareCollector):
     __CONTENT_TYPE_HEADER_KEY = "Content-Type"
     __pool: PoolManager
     __endpoint: URL
-    __encoder_decoder: EncoderDecoder
+    __codec: EncoderDecoder
     __secure: bool
 
     def __init__(
         self,
         url: URL,
-        encoder_decoder: EncoderDecoder,
+        codec: EncoderDecoder,
         secure: bool = False,
         **kwargs,
     ):
         """
         :param url: The base URL for the client.
-        :param encoder_decoder: The encoder/decoder to use for the client.
+        :param codec: The encoder/decoder to use for the client.
         :param secure: Whether to use HTTPS.
         """
         super().__init__()
         self.__endpoint = url
         self.__endpoint.protocol = "https" if secure else "http"
-        self.__encoder_decoder = encoder_decoder
+        self.__codec = codec
         self.__secure = secure
         self.__pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
         urllib3.disable_warnings()
@@ -75,7 +75,7 @@ class HTTPClient(MiddlewareCollector):
     @property
     def __headers(self) -> dict[str, str]:
         return {
-            self.__CONTENT_TYPE_HEADER_KEY: self.__encoder_decoder.content_type(),
+            self.__CONTENT_TYPE_HEADER_KEY: self.__codec.content_type(),
             self.__ERROR_ENCODING_HEADER_KEY: self.__ERROR_ENCODING_HEADER_VALUE,
         }
 
@@ -96,7 +96,7 @@ class HTTPClient(MiddlewareCollector):
             out_meta_data = Context(url, self.__endpoint.protocol, role)
             data = None
             if request is not None:
-                data = self.__encoder_decoder.encode(request)
+                data = self.__codec.encode(request)
 
             head = {**self.__headers, **ctx.params}
 
@@ -113,13 +113,13 @@ class HTTPClient(MiddlewareCollector):
             out_meta_data.params = http_res.headers
 
             if http_res.status < 200 or http_res.status >= 300:
-                err = self.__encoder_decoder.decode(http_res.data, ExceptionPayload)
+                err = self.__codec.decode(http_res.data, ExceptionPayload)
                 return out_meta_data, decode_exception(err)
 
             if http_res.data is None:
                 return out_meta_data, None
 
-            res = self.__encoder_decoder.decode(http_res.data, res_t)
+            res = self.__codec.decode(http_res.data, res_t)
             return out_meta_data, None
 
         _, exc = self.exec(in_ctx, finalizer)

@@ -83,7 +83,7 @@ func (g GorpPublisherConfig[K, E]) Validate() error {
 	return v.Error()
 }
 
-var jsonEcd = binary.JSONEncoderDecoder{}
+var jsonEcd = binary.JSONCodec{}
 
 func marshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 	b, err := jsonEcd.Encode(context.TODO(), e)

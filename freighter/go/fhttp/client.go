@@ -33,7 +33,7 @@ func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryCo
 }
 
 var DefaultClientConfig = ClientFactoryConfig{
-	Codec: httputil.MsgPackEncoderDecoder,
+	Codec: httputil.MsgPackCodec,
 }
 
 type ClientFactory struct {

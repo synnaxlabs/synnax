@@ -27,7 +27,7 @@ const (
 	recovered
 )
 
-var codec = &binary.MsgPackEncoderDecoder{}
+var codec = &binary.MsgPackCodec{}
 
 type Operation struct {
 	kvx.Change

@@ -26,10 +26,10 @@ var _ = Describe("Migration Test", func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				db          *cesium.DB
-				fs          xfs.FS
-				cleanUp     func() error
-				jsonEncoder = binary.JSONEncoderDecoder{}
+				db        *cesium.DB
+				fs        xfs.FS
+				cleanUp   func() error
+				jsonCodec = binary.JSONCodec{}
 			)
 			BeforeEach(func() { fs, cleanUp = makeFS() })
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
@@ -59,7 +59,7 @@ var _ = Describe("Migration Test", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(r.Close()).To(Succeed())
 
-					err = jsonEncoder.Decode(ctx, buf, &chInMeta)
+					err = jsonCodec.Decode(ctx, buf, &chInMeta)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(chInMeta).To(Equal(chInDB))
 

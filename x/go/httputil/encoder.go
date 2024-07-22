@@ -29,23 +29,20 @@ type typedCodec struct {
 func (t typedCodec) ContentType() string { return t.ct }
 
 var (
-	JSONEncoderDecoder = typedCodec{
+	JSONCodec = typedCodec{
 		ct:    "application/json",
-		Codec: &binary.JSONEncoderDecoder{},
+		Codec: &binary.JSONCodec{},
 	}
-	MsgPackEncoderDecoder = typedCodec{
+	MsgPackCodec = typedCodec{
 		ct:    "application/msgpack",
-		Codec: &binary.MsgPackEncoderDecoder{},
+		Codec: &binary.MsgPackCodec{},
 	}
 )
 
-var encoderDecoders = []Codec{
-	JSONEncoderDecoder,
-	MsgPackEncoderDecoder,
-}
+var codecs = []Codec{JSONCodec, MsgPackCodec}
 
 func DetermineCodec(contentType string) (Codec, error) {
-	for _, ecd := range encoderDecoders {
+	for _, ecd := range codecs {
 		if ecd.ContentType() == contentType {
 			return ecd, nil
 		}
@@ -55,7 +52,7 @@ func DetermineCodec(contentType string) (Codec, error) {
 
 func SupportedContentTypes() []string {
 	var contentTypes []string
-	for _, ecd := range encoderDecoders {
+	for _, ecd := range codecs {
 		contentTypes = append(contentTypes, ecd.ContentType())
 	}
 	return contentTypes

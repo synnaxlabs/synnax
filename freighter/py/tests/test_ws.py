@@ -11,7 +11,7 @@ import pytest
 
 import freighter.exceptions
 from freighter.context import Context
-from freighter.encoder import MsgpackEncoder
+from freighter.encoder import MsgPackCodec
 from freighter.transport import AsyncNext, Next
 from freighter.url import URL
 from freighter.websocket import AsyncWebsocketClient, WebsocketClient
@@ -22,13 +22,13 @@ from .interface import Error, Message
 @pytest.fixture
 def async_client(endpoint: URL) -> AsyncWebsocketClient:
     ws_endpoint = endpoint.child("stream")
-    return AsyncWebsocketClient(encoder=MsgpackEncoder(), base_url=ws_endpoint)
+    return AsyncWebsocketClient(encoder=MsgPackCodec(), base_url=ws_endpoint)
 
 
 @pytest.fixture
 def sync_client(endpoint: URL) -> WebsocketClient:
     ws_endpoint = endpoint.child("stream")
-    return WebsocketClient(encoder=MsgpackEncoder(), base_url=ws_endpoint)
+    return WebsocketClient(encoder=MsgPackCodec(), base_url=ws_endpoint)
 
 
 @pytest.mark.ws

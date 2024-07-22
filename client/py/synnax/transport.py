@@ -13,9 +13,9 @@ from freighter import (
     AsyncMiddleware,
     AsyncStreamClient,
     HTTPClient,
-    JSONEncoder,
+    JSONCodec,
     Middleware,
-    MsgpackEncoder,
+    MsgPackCodec,
     StreamClient,
     UnaryClient,
     WebsocketClient,
@@ -48,7 +48,7 @@ class Transport:
         self.url = url.child("/api/v1/")
         ws_args = {
             "base_url": self.url,
-            "encoder": MsgpackEncoder(),
+            "encoder": MsgPackCodec(),
             "max_message_size": int(Size.MB * 5),
             "secure": secure,
             "open_timeout": open_timeout.seconds,
@@ -64,7 +64,7 @@ class Transport:
         self.stream = WebsocketClient(**ws_args)
         self.unary = HTTPClient(
             url=self.url,
-            encoder_decoder=JSONEncoder(),
+            codec=JSONCodec(),
             secure=secure,
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),
