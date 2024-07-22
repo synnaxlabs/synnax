@@ -25,7 +25,7 @@ import {
   useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { primitiveIsZero } from "@synnaxlabs/x";
+import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -157,9 +157,11 @@ const Wrapped = ({
       }
 
       const toCreate: ReadChannelConfig[] = [];
+      const existingKeys = dev.properties.read.channels;
       for (const ch of config.channels) {
         if (ch.useAsIndex) continue;
-        const exKey = dev.properties.read.channels[ch.nodeId];
+        const exKey =
+          existingKeys[ch.nodeId] ?? existingKeys[caseconv.snakeToCamel(ch.nodeId)];
         if (primitiveIsZero(exKey)) toCreate.push(ch);
         else {
           try {
