@@ -161,6 +161,7 @@ Configuration:
     def test(self):
         writers = [None] * self._tc.num_writers
         time_span_per_domain = self._tc.time_range.span / self._tc.domains
+        time_span_per_sample = time_span_per_domain / self._tc.samples_per_domain
 
         for i in range(self._tc.num_writers):
             writers[i] = client.open_writer(
@@ -177,12 +178,12 @@ Configuration:
             for _ in range(self._tc.domains):
                 timestamps = np.linspace(
                     ts_hwm,
-                    ts_hwm + time_span_per_domain,
+                    ts_hwm + (self._tc.samples_per_domain - 1) * time_span_per_sample,
                     self._tc.samples_per_domain,
                     dtype="int64",
-                )
+                    )
                 data = np.sin(0.0000000001 * timestamps)
-                ts_hwm += time_span_per_domain + 1
+                ts_hwm += time_span_per_domain
                 for i, writer in enumerate(writers):
                     data_dict = {}
                     for index_channel in self._tc.channels[i].index_channels:
@@ -195,6 +196,7 @@ Configuration:
                     if not self._tc.auto_commit:
                         assert writer.commit()
 
+                    writer.close()
                     writers[i] = client.open_writer(
                         start=ts_hwm,
                         channels=self._tc.channels[i].together(),
@@ -202,9 +204,8 @@ Configuration:
                         mode=self._tc.writer_mode,
                         enable_auto_commit=self._tc.auto_commit,
                         auto_index_persist_interval=self._tc.index_persist_interval,
-                        err_on_unauthorized=False,
+                        err_on_unauthorized=True,
                     )
-                    writer.close()
 
         finally:
             for writer in writers:

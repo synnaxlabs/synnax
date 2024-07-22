@@ -187,7 +187,7 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
           (_, k) => tsHwm.valueOf() + BigInt(k) * timeSpanPerSample,
         );
         const data = timestamps.map((ts) => Math.sin(0.000000001 * Number(ts)));
-        tsHwm = tsHwm.add(new TimeSpan(timeSpanPerDomain + 1));
+        tsHwm = tsHwm.add(timeSpanPerDomain);
 
         for (let j = 0; j < writers.length; j++) {
           const writer = writers[j];
@@ -206,6 +206,8 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
             await writer.commit();
           }
 
+          await writer.close();
+
           writers[j] = await client.openWriter({
             start: tsHwm,
             channels: this.tc.channels[j].together(),
@@ -214,7 +216,6 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
             autoIndexPersistInterval: this.tc.indexPersistInterval,
             errOnUnauthorized: false,
           });
-          await writer.close();
         }
       }
     } finally {
