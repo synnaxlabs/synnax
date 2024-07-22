@@ -62,7 +62,7 @@
           ],
           "num_writers": 3,
           "domains": 10,
-          "samples_per_domain": 2000000,
+          "samples_per_domain": 200000000,
           "time_range": {
             "start": 0,
             "end": 1000000000000000
@@ -95,7 +95,7 @@
             }
           ],
           "num_writers": 1,
-          "domains": 10000,
+          "domains": 1000000,
           "samples_per_domain": 2000,
           "time_range": {
             "start": 0,
@@ -140,7 +140,7 @@
             }
           ],
           "num_writers": 2,
-          "domains": 10000,
+          "domains": 1000000,
           "samples_per_domain": 2000,
           "time_range": {
             "start": 0,
@@ -220,7 +220,7 @@
             "int9-0",
             "int4"
           ],
-          "samples_expected": 120000000,
+          "samples_expected": 12000000000,
           "expected_error": "no_error"
         }
       },
@@ -234,7 +234,7 @@
             "int3-2",
             "int3-3"
           ],
-          "samples_expected": 80000000,
+          "samples_expected": 8000000000,
           "expected_error": "no_error"
         }
       }
@@ -364,7 +364,7 @@
             "end": 1000000000000000
           },
           "expected_error": "no_error",
-          "samples_expected": 204000000
+          "samples_expected": 20400000000
         }
       },
       {
@@ -407,7 +407,7 @@
             "end": 1000000000000000
           },
           "expected_error": "no_error",
-          "samples_expected": 204000000
+          "samples_expected": 20400000000
         }
       }
     ]
