@@ -56,8 +56,8 @@ func (d *Driver) start() error {
 	var mf func(ctx context.Context) error
 	mf = func(ctx context.Context) error {
 		d.mu.Lock()
-		ecd := &binary.JSONEncoderDecoder{}
-		b, err := ecd.Encode(ctx, d.cfg.format())
+		codec := &binary.JSONEncoderDecoder{}
+		b, err := codec.Encode(ctx, d.cfg.format())
 		if err != nil {
 			return err
 		}

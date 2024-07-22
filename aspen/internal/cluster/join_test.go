@@ -138,7 +138,7 @@ var _ = Describe("Open", func() {
 					StorageKey:           []byte("Cluster-join-test-storage"),
 					Storage:              kvDB,
 					StorageFlushInterval: cluster.FlushOnEvery,
-					EncoderDecoder:       &binary.MsgPackEncoderDecoder{},
+					Codec:                &binary.MsgPackEncoderDecoder{},
 				}
 				clusterTwo, err := cluster.Open(ctx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())

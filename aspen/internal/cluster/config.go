@@ -46,9 +46,9 @@ type Config struct {
 	// Pledge is the configuration for pledging to the Cluster upon a Open call.
 	// See the pledge package for more details on how to configure this.
 	Pledge pledge_.Config
-	// EncoderDecoder is the encoder/decoder to use for encoding and decoding the
+	// Codec is the encoder/decoder to use for encoding and decoding the
 	// Cluster state.
-	EncoderDecoder binary.Codec
+	Codec binary.Codec
 }
 
 var _ config.Config[Config] = Config{}
@@ -56,7 +56,7 @@ var _ config.Config[Config] = Config{}
 // Override implements config.Properties.
 func (cfg Config) Override(other Config) Config {
 	cfg.HostAddress = override.String(cfg.HostAddress, other.HostAddress)
-	cfg.EncoderDecoder = override.Nil(cfg.EncoderDecoder, other.EncoderDecoder)
+	cfg.Codec = override.Nil(cfg.Codec, other.Codec)
 	cfg.StorageFlushInterval = override.Numeric(cfg.StorageFlushInterval, other.StorageFlushInterval)
 	cfg.StorageKey = override.Slice(cfg.StorageKey, other.StorageKey)
 	cfg.Storage = override.Nil(cfg.Storage, other.Storage)
@@ -70,7 +70,7 @@ func (cfg Config) Override(other Config) Config {
 func (cfg Config) Validate() error {
 	v := validate.New("Cluster")
 	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)
-	validate.NotNil(v, "Codec", cfg.EncoderDecoder)
+	validate.NotNil(v, "Codec", cfg.Codec)
 	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
 	validate.NotEmptySlice(v, "LocalKey", cfg.StorageKey)
 	return v.Error()
@@ -95,7 +95,7 @@ var (
 		StorageKey:           []byte("aspen.cluster"),
 		Gossip:               gossip.DefaultConfig,
 		StorageFlushInterval: 1 * time.Second,
-		EncoderDecoder:       &binary.GobEncoderDecoder{},
+		Codec:                &binary.GobEncoderDecoder{},
 	}
 	FastConfig = DefaultConfig.Override(Config{
 		Pledge: pledge_.FastConfig,

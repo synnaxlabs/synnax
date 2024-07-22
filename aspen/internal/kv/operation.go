@@ -27,7 +27,7 @@ const (
 	recovered
 )
 
-var ecd = &binary.GobEncoderDecoder{}
+var codec = &binary.MsgPackEncoderDecoder{}
 
 type Operation struct {
 	kvx.Change
@@ -64,7 +64,7 @@ func (d Digest) apply(ctx context.Context, w kvx.Writer) error {
 	if err != nil {
 		return err
 	}
-	b, err := ecd.Encode(ctx, d)
+	b, err := codec.Encode(ctx, d)
 	if err != nil {
 		return err
 	}

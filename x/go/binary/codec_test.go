@@ -21,14 +21,14 @@ type toEncode struct {
 }
 
 var _ = Describe("Codec", func() {
-	DescribeTable("Encode + Decode", func(ecd binary.Codec) {
-		b, err := ecd.Encode(nil, toEncode{1})
+	DescribeTable("Encode + Decode", func(codec binary.Codec) {
+		b, err := codec.Encode(nil, toEncode{1})
 		Expect(err).ToNot(HaveOccurred())
 		var d toEncode
-		Expect(ecd.Decode(ctx, b, &d)).To(Succeed())
+		Expect(codec.Decode(ctx, b, &d)).To(Succeed())
 		Expect(d.Value).To(Equal(1))
 		var d2 toEncode
-		Expect(ecd.DecodeStream(nil, bytes.NewReader(b), &d2)).To(Succeed())
+		Expect(codec.DecodeStream(nil, bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2.Value).To(Equal(1))
 	},
 		Entry("Gob", &binary.GobEncoderDecoder{}),
@@ -38,18 +38,17 @@ var _ = Describe("Codec", func() {
 	)
 	Describe("PassThrough encoding and decoding", func() {
 		It("Should pass through the encoding and decoding when a byte slice is provided", func() {
-			ecd := &binary.PassThroughEncoderDecoder{Codec: &binary.GobEncoderDecoder{}}
-			b, err := ecd.Encode(nil, []byte{1, 2, 3})
+			codec := &binary.PassThroughEncoderDecoder{Codec: &binary.GobEncoderDecoder{}}
+			b, err := codec.Encode(nil, []byte{1, 2, 3})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(b).To(Equal([]byte{1, 2, 3}))
 			var d []byte
-			Expect(ecd.Decode(nil, b, &d)).To(Succeed())
+			Expect(codec.Decode(nil, b, &d)).To(Succeed())
 			Expect(d).To(Equal([]byte{1, 2, 3}))
 		})
 	})
 	Describe("Additional Error Info", func() {
-		DescribeTable("Standard Type", func(ecd binary.Codec) {
-			codec := &binary.MsgPackEncoderDecoder{}
+		DescribeTable("Standard Type", func(codec binary.Codec) {
 			_, err := codec.Encode(nil, make(chan int))
 			Expect(err).To(HaveOccurred())
 			msg := err.Error()
@@ -60,19 +59,18 @@ var _ = Describe("Codec", func() {
 			Entry("JSON", &binary.JSONEncoderDecoder{}),
 			Entry("MsgPack", &binary.MsgPackEncoderDecoder{}),
 		)
-		DescribeTable("Custom Type", func(ecd binary.Codec) {
+		DescribeTable("Custom Type", func(codec binary.Codec) {
 			type custom struct {
 				Value int
 				Chan  chan int
 			}
-			codec := &binary.MsgPackEncoderDecoder{}
 			_, err := codec.Encode(nil, custom{Chan: make(chan int)})
 			Expect(err).To(HaveOccurred())
 			msg := err.Error()
 			Expect(msg).To(ContainSubstring("failed to encode value"))
 			Expect(msg).To(ContainSubstring("kind=struct, type=binary_test.custom"))
 		},
-			Entry("Gob", &binary.GobEncoderDecoder{}),
+			// Explicit exclusion of Gob because it can encode arbitrary go types
 			Entry("JSON", &binary.JSONEncoderDecoder{}),
 			Entry("MsgPack", &binary.MsgPackEncoderDecoder{}),
 		)

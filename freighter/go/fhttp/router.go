@@ -124,7 +124,7 @@ func UnaryServer[RQ, RS freighter.Payload](r *Router, internal bool, path string
 		internal: internal,
 		Reporter: unaryReporter,
 		path:     path,
-		requestParser: func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (req RQ, _ error) {
+		requestParser: func(c *fiber.Ctx, codec httputil.Codec) (req RQ, _ error) {
 			return req, c.BodyParser(&req)
 		},
 	}

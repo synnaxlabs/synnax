@@ -14,37 +14,37 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// EncoderDecoder is an interface that extends binary.Codec to
+// Codec is an interface that extends binary.Codec to
 // add an HTTP content-type.
-type EncoderDecoder interface {
+type Codec interface {
 	ContentType() string
 	binary.Codec
 }
 
-type typedEncoderDecoder struct {
+type typedCodec struct {
 	ct string
 	binary.Codec
 }
 
-func (t typedEncoderDecoder) ContentType() string { return t.ct }
+func (t typedCodec) ContentType() string { return t.ct }
 
 var (
-	JSONEncoderDecoder = typedEncoderDecoder{
+	JSONEncoderDecoder = typedCodec{
 		ct:    "application/json",
 		Codec: &binary.JSONEncoderDecoder{},
 	}
-	MsgPackEncoderDecoder = typedEncoderDecoder{
+	MsgPackEncoderDecoder = typedCodec{
 		ct:    "application/msgpack",
 		Codec: &binary.MsgPackEncoderDecoder{},
 	}
 )
 
-var encoderDecoders = []EncoderDecoder{
+var encoderDecoders = []Codec{
 	JSONEncoderDecoder,
 	MsgPackEncoderDecoder,
 }
 
-func DetermineEncoderDecoder(contentType string) (EncoderDecoder, error) {
+func DetermineCodec(contentType string) (Codec, error) {
 	for _, ecd := range encoderDecoders {
 		if ecd.ContentType() == contentType {
 			return ecd, nil

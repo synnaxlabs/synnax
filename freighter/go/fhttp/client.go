@@ -18,22 +18,22 @@ import (
 )
 
 type ClientFactoryConfig struct {
-	EncoderDecoder httputil.EncoderDecoder
+	Codec httputil.Codec
 }
 
 func (c ClientFactoryConfig) Validate() error {
 	v := validate.New("[ws.streamClient]")
-	validate.NotNil(v, "Codec", c.EncoderDecoder)
+	validate.NotNil(v, "Codec", c.Codec)
 	return v.Error()
 }
 
 func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryConfig {
-	c.EncoderDecoder = override.Nil(c.EncoderDecoder, other.EncoderDecoder)
+	c.Codec = override.Nil(c.Codec, other.Codec)
 	return c
 }
 
 var DefaultClientConfig = ClientFactoryConfig{
-	EncoderDecoder: httputil.MsgPackEncoderDecoder,
+	Codec: httputil.MsgPackEncoderDecoder,
 }
 
 type ClientFactory struct {
@@ -49,9 +49,9 @@ func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
 }
 
 func StreamClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.StreamClient[RQ, RS] {
-	return &streamClient[RQ, RS]{ecd: c.EncoderDecoder}
+	return &streamClient[RQ, RS]{codec: c.Codec}
 }
 
 func UnaryClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
-	return &unaryClient[RQ, RS]{ecd: c.EncoderDecoder}
+	return &unaryClient[RQ, RS]{codec: c.Codec}
 }
