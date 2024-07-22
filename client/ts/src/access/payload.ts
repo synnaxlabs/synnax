@@ -9,13 +9,14 @@
 
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
 import { idZ } from "@/ontology/payload";
 
 export const keyZ = z.string().uuid();
 
-export type Key = z.infer<typeof keyZ>
+export type Key = z.infer<typeof keyZ>;
 
-export type Params = Key | Key[]
+export type Params = Key | Key[];
 
 export const policyZ = z.object({
   key: keyZ,
@@ -23,8 +24,12 @@ export const policyZ = z.object({
   objects: idZ.array(),
   actions: z.string().array(),
 });
-export type Policy = z.infer<typeof policyZ>
+export type Policy = z.infer<typeof policyZ>;
 
-export const newPolicyPayloadZ = policyZ.extend({key: keyZ.optional()})
-export type NewPolicyPayload = z.infer<typeof newPolicyPayloadZ>
+export const newPolicyPayloadZ = policyZ.extend({ key: keyZ.optional() });
+export type NewPolicyPayload = z.infer<typeof newPolicyPayloadZ>;
 
+export const PolicyOntologyType = "policy" as ontology.ResourceType;
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: PolicyOntologyType, key });

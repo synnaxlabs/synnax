@@ -62,38 +62,39 @@ class TestAccessClient:
         assert policy.objects == p.objects
 
     def test_create_from_kwargs(self, client: sy.Synnax):
-        resourceID = str(uuid.uuid4())
+        resource_id = str(uuid.uuid4())
         policy = client.access.create(
-            subjects=[OntologyID(type="user", key=resourceID)],
+            subjects=[OntologyID(type="user", key=resource_id)],
             objects=[
-                OntologyID(type="channel", key=resourceID),
-                OntologyID(type="label", key=resourceID),
+                OntologyID(type="channel", key=resource_id),
+                OntologyID(type="label", key=resource_id),
             ],
             actions=["create"],
         )
         assert policy.key != ""
         assert policy.actions == ["create"]
-        assert policy.subjects == [OntologyID(type="user", key=resourceID)]
+        assert policy.subjects == [OntologyID(type="user", key=resource_id)]
         assert policy.objects == [
-            OntologyID(type="channel", key=resourceID),
-            OntologyID(type="label", key=resourceID),
+            OntologyID(type="channel", key=resource_id),
+            OntologyID(type="label", key=resource_id),
         ]
 
     def test_retrieve_by_subject(
         self, two_policies: list[sy.Policy], client: sy.Synnax
     ) -> None:
         p = client.access.retrieve(two_policies[0].subjects[0])
-        assert p.actions == ["create"]
-        assert (p.objects[0].type, p.objects[1].type) == ("channel", "label")
+        assert len(p) == 1
+        assert p[0].actions == ["create"]
+        assert (p[0].objects[0].type, p[0].objects[1].type) == ("channel", "label")
 
     def test_retrieve_by_subject_not_found(self, client: sy.Synnax):
-        with pytest.raises(sy.NotFoundError):
-            client.access.retrieve(OntologyID(type="channel", key="hehe"))
+        res = client.access.retrieve(OntologyID(type="channel", key="hehe"))
+        assert len(res) == 0
 
     def test_delete_by_key(self, two_policies: list[sy.Policy], client: sy.Synnax):
         client.access.delete(two_policies[0].key)
-        with pytest.raises(sy.QueryError):
-            client.access.retrieve(two_policies[0].subjects[0])
+        p = client.access.retrieve(two_policies[0].subjects[0])
+        assert len(p) == 0
 
 
 @pytest.mark.access

@@ -19,7 +19,6 @@ import {
   Policy,
   policyZ,
 } from "@/access/payload";
-import { NotFoundError } from "@/errors";
 import { IDPayload, idZ } from "@/ontology/payload";
 
 const CREATE_ENDPOINT = "/access/policy/create";
@@ -67,15 +66,12 @@ export class Client {
     return single ? created[0] : created;
   }
 
-  async retrieve(subject: IDPayload): Promise<Policy | Policy[]> {
+  async retrieve(subject: IDPayload): Promise<Policy[]> {
     const { policies: retrieved } = await sendRequired<
       typeof retrieveReqZ,
       typeof retrieveResZ
     >(this.client, RETRIEVE_ENDPOINT, { subject: subject }, retrieveReqZ, retrieveResZ);
-    if (retrieved.length == 0) {
-      throw new NotFoundError(`Policy with subject ${subject} not found`);
-    }
-    return retrieved.length == 1 ? retrieved[0] : retrieved;
+    return retrieved;
   }
 
   async delete(keys: Key | Key[]): Promise<void> {

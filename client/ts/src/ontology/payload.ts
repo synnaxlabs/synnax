@@ -38,22 +38,9 @@ const resourceTypeZ = z.union([
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
-export const LabelOntologyType = "label" as ResourceType;
 export const BuiltinOntologyType = "builtin" as ResourceType;
-export const UserOntologyType = "user" as ResourceType;
 export const ClusterOntologyType = "cluster" as ResourceType;
-export const ChannelOntologyType = "channel" as ResourceType;
 export const NodeOntologyType = "node" as ResourceType;
-export const GroupOntologyType = "group" as ResourceType;
-export const RangeOntologyType = "range" as ResourceType;
-export const RangeAliasOntologyType = "range-alias" as ResourceType;
-export const WorkspaceOntologyType = "workspace" as ResourceType;
-export const SchematicOntologyType = "schematic" as ResourceType;
-export const LineplotOntologyType = "lineplot" as ResourceType;
-export const RackOntologyType = "rack" as ResourceType;
-export const DeviceOntologyType = "device" as ResourceType;
-export const TaskOntologyType = "task" as ResourceType;
-export const PolicyOntologyType = "policy" as ResourceType;
 
 export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
 

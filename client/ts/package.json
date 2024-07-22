@@ -33,7 +33,6 @@
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@types/node": "^20.14.9",
-    "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^1.6.0",
     "eslint": "^9.6.0",
     "eslint-config-synnaxlabs": "workspace:*",
