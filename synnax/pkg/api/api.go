@@ -14,6 +14,8 @@
 package api
 
 import (
+	"go/types"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -37,7 +39,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go/types"
 )
 
 // Config is all required configuration parameters and services necessary to
@@ -183,7 +184,7 @@ type Transport struct {
 	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
 	LabelSet      freighter.UnaryServer[LabelSetRequest, types.Nil]
 	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
-	// DEVICE
+	// HARDWARE
 	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
 	HardwareRetrieveRack   freighter.UnaryServer[HardwareRetrieveRackRequest, HardwareRetrieveRackResponse]
 	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
@@ -290,7 +291,7 @@ func (a *API) BindTo(t Transport) {
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
 
-		// Schematic
+		// SCHEMATIC
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
@@ -384,7 +385,7 @@ func (a *API) BindTo(t Transport) {
 	t.WorkspaceRename.BindHandler(a.Workspace.Rename)
 	t.WorkspaceSetLayout.BindHandler(a.Workspace.SetLayout)
 
-	// Schematic
+	// SCHEMATIC
 	t.SchematicCreate.BindHandler(a.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(a.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(a.Schematic.Delete)

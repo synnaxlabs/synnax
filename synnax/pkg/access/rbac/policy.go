@@ -75,7 +75,7 @@ func AllowRequest(req access.Request, policies []Policy) bool {
 			if o.IsType() {
 				// If an object applies to an entire type, then all requested objects
 				// of that type may be satisfied.
-				for requestedO, _ := range requestedObjects {
+				for requestedO := range requestedObjects {
 					if requestedO.Type == o.Type {
 						delete(requestedObjects, requestedO)
 					}
