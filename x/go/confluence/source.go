@@ -44,16 +44,22 @@ func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
 func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 	ctx context.Context,
 	v V,
-	t <-chan time.Time,
+	t time.Duration,
+	timer *time.Timer,
 ) error {
+	timerExpired := false
 	for _, inlet := range ams.Out {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-t:
-			return timeout.Timeout
+		case <-timer.C:
+			timer.Reset(t)
+			timerExpired = true
 		case inlet.Inlet() <- v:
 		}
+	}
+	if timerExpired {
+		return timeout.Timeout
 	}
 	return nil
 }
