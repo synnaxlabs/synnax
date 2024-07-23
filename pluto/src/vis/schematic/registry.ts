@@ -151,7 +151,7 @@ const VARIANTS = [
   "valve",
 ] as const;
 
-const typeZ = z.enum(VARIANTS);
+export const typeZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof typeZ>;
 
 const ZERO_TOGGLE_PROPS = {

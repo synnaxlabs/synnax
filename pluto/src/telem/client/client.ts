@@ -9,9 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, QueryError, type Synnax } from "@synnaxlabs/client";
-import { type AsyncDestructor } from "@synnaxlabs/x/destructor";
-import { type TimeRange } from "@synnaxlabs/x/telem";
-import { nanoid } from "nanoid/non-secure";
+import { type AsyncDestructor, id, type TimeRange } from "@synnaxlabs/x";
 
 import { cache } from "@/telem/client/cache";
 import { Reader } from "@/telem/client/reader";
@@ -74,11 +72,11 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
  * set, all operations will throw an error.
  */
 export class Proxy implements Client {
-  key: string = nanoid();
+  key: string = id.id();
   _client: Client | null = null;
 
   async swap(client: Client | null): Promise<void> {
-    this.key = nanoid();
+    this.key = id.id();
     await this._client?.close();
     this._client = client;
   }
@@ -122,7 +120,7 @@ interface CoreProps {
  * adding a transparent caching layer.
  */
 export class Core implements Client {
-  readonly key: string = nanoid();
+  readonly key: string = id.id();
   private readonly ins: alamos.Instrumentation;
 
   private readonly cache: cache.Cache;

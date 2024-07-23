@@ -9,7 +9,6 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
 
 /**
  * The name of the docs slice in a larger store.
@@ -48,7 +47,7 @@ export type SetLocationPayload = Location;
 
 export const MIGRATIONS: migrate.Migrations = {};
 
-export const migrateSlice = migrate.migrator<SliceState>({
+export const migrateSlice = migrate.migrator<SliceState, SliceState>({
   name: "docs.slice",
   migrations: MIGRATIONS,
   def: ZERO_SLICE_STATE,

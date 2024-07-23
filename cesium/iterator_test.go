@@ -91,8 +91,65 @@ var _ = Describe("Iterator Behavior", func() {
 
 					// Index1: 0  1  2 / _  4  _  _  7  _  9  /  10  _  12   _   _  15
 					// Data1: 10 11 12 / _ 14  _  _ 17  _ 19  /  20  _  22   _   _  25
-					// Index2: _  _  2   3  _  _  6  _  8  _  /  _  11  12  13   _  15
-					// Data2:  _  _  2   3  _  _  6  _  8  _  /  _  11  12  13   _  15
+					// Index2: _  _  2   3  _  _  6  _  8  /  _  _  11  12  13   _  15
+					// Data2:  _  _  2   3  _  _  6  _  8  /  _  _  11  12  13   _  15
+				})
+
+				Context("Basic", func() {
+					Specify("SeekLast", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{data1Key, data2Key},
+						}))
+						Expect(i.SeekLast()).To(BeTrue())
+						Expect(i.Prev(5 * telem.Second)).To(BeTrue())
+						f := i.Value()
+						Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{22, 25}))
+						Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{11, 12, 13, 15}))
+						Expect(i.Close()).To(Succeed())
+					})
+
+					Specify("SeekLE", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{data1Key, data2Key},
+						}))
+						Expect(i.SeekLE(4 * telem.SecondTS)).To(BeTrue())
+						Expect(i.Next(6 * telem.Second)).To(BeTrue())
+						f := i.Value()
+						Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{14, 17, 19}))
+						Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{6, 8}))
+						Expect(i.Close()).To(Succeed())
+					})
+
+					Specify("SeekGE", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{data1Key, data2Key},
+						}))
+						Expect(i.SeekGE(9 * telem.SecondTS)).To(BeTrue())
+						Expect(i.Next(3 * telem.Second)).To(BeTrue())
+						f := i.Value()
+						Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{19}))
+						Expect(f.Get(data1Key)[1].Data).To(EqualUnmarshal([]uint16{20}))
+						Expect(f.Get(data2Key)[0].Data).To(EqualUnmarshal([]uint16{11, 12, 13}))
+						Expect(i.Close()).To(Succeed())
+					})
+
+					Specify("SetBounds & Error", func() {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{data1Key, data2Key},
+						}))
+						Expect(i.SeekGE(12 * telem.SecondTS)).To(BeTrue())
+						Expect(i.Next(3 * telem.Second)).To(BeTrue())
+						i.SetBounds((6 * telem.SecondTS).Range(9 * telem.SecondTS))
+						Expect(i.Valid()).To(BeFalse())
+						Expect(i.Error()).ToNot(HaveOccurred())
+						Expect(i.Close()).To(Succeed())
+						Expect(i.SeekFirst()).To(BeFalse())
+						Expect(i.Error()).To(MatchError(ContainSubstring("closed")))
+					})
 				})
 
 				Specify("With bound", func() {

@@ -7,24 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, QueryError } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Button,
-  Channel,
-  Form,
-  Header,
-  List,
-  Menu,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Channel, Form, Header, List, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep, primitiveIsZero } from "@synnaxlabs/x";
+import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
@@ -49,6 +39,7 @@ import {
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
+  EnableDisableButton,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -64,7 +55,7 @@ export const configureDigitalWriteLayout = (
   create: boolean = false,
 ): Layout.State<ConfigureDigitalWriteArgs> => ({
   name: "Configure NI Digital Write Task",
-  key: nanoid(),
+  key: id.id(),
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",
@@ -340,7 +331,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       ...deep.copy(ZERO_DO_CHAN),
       port: 0,
       line: availableLine,
-      key: nanoid(),
+      key: id.id(),
     });
   };
   const menuProps = Menu.useContextMenu();
@@ -361,7 +352,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
                   ...deep.copy(value[i]),
                   stateChannel: 0,
                   cmdChannel: 0,
-                  key: nanoid(),
+                  key: id.id(),
                 })),
               );
             }}
@@ -480,31 +471,10 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <Button.Toggle
-        checkedVariant="outlined"
-        uncheckedVariant="outlined"
+      <EnableDisableButton
         value={childValues.enabled}
-        size="small"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(v) => {
-          ctx.set(`${path}.${props.index}.enabled`, v);
-        }}
-        tooltip={
-          <Text.Text level="small" style={{ maxWidth: 300 }}>
-            Data acquisition for this channel is{" "}
-            {childValues.enabled ? "enabled" : "disabled"}. Click to
-            {childValues.enabled ? " disable" : " enable"} it.
-          </Text.Text>
-        }
-      >
-        <Status.Text
-          variant={childValues.enabled ? "success" : "disabled"}
-          level="small"
-          align="center"
-        >
-          {childValues.enabled ? "Enabled" : "Disabled"}
-        </Status.Text>
-      </Button.Toggle>
+        onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+      />
     </List.ItemFrame>
   );
 };

@@ -534,6 +534,10 @@ var _ = Describe("Channel", Ordered, func() {
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch.Name).To(Equal("5"))
 				})
+				It("Should error if the channel is not found", func() {
+					key := GenerateChannelKey()
+					Expect(db.RenameChannel(ctx, key, "new_name")).To(HaveOccurredAs(cesium.ErrChannelNotFound))
+				})
 			})
 		})
 	}
