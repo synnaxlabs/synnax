@@ -17,7 +17,7 @@ from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
 from freighter.context import Context, Role
-from freighter.encoder import EncoderDecoder
+from freighter.encoder import Codec
 from freighter.exceptions import ExceptionPayload, Unreachable, decode_exception
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.unary import UnaryClient
@@ -34,13 +34,13 @@ class HTTPClient(MiddlewareCollector):
     __CONTENT_TYPE_HEADER_KEY = "Content-Type"
     __pool: PoolManager
     __endpoint: URL
-    __codec: EncoderDecoder
+    __codec: Codec
     __secure: bool
 
     def __init__(
         self,
         url: URL,
-        codec: EncoderDecoder,
+        codec: Codec,
         secure: bool = False,
         **kwargs,
     ):
