@@ -17,6 +17,7 @@ import {
   ButtonForm,
   CommonNonToggleForm,
   CommonToggleForm,
+  InputForm,
   LightForm,
   SolenoidValveForm,
   type SymbolFormProps,
@@ -638,11 +639,11 @@ const input: Spec<InputProps> = {
   name: "Input",
   key: "input",
   Symbol: Input,
-  Form: CommonNonToggleForm,
-  defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
+  Form: InputForm,
+  defaultProps: () => ({
+    units: "mV",
     ...zeroLabel("Input"),
-    ...ZERO_NUMERIC_SOURCE_PROPS,
+    ...ZERO_BOOLEAN_SINK_PROPS,
   }),
   Preview: InputPreview,
   zIndex: Z_INDEX_UPPER,

@@ -142,8 +142,10 @@
     display: flex;
     flex-direction: row;
     border: var(--pluto--border);
-    border-color: var(--pluto-gray-l9);
     border-radius: var(--pluto-border-radius);
+    border-color: var(--pluto-primary-z);
+    /* background-color: var(--pluto-primary-z-40); */
+
     border-width: 2px;
     padding: 0;
     flex-grow: 0;

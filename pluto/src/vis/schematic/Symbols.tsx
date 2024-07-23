@@ -17,6 +17,7 @@ import { Align } from "@/align";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
+import { Input as CoreInput } from "@/input";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -460,24 +461,59 @@ export const ManualValvePreview = (props: ManualValveProps): ReactElement => (
   <Primitives.ManualValve {...props} />
 );
 
-export interface InputProps extends Primitives.InputProps {
+export interface InputProps
+  extends Primitives.InputProps,
+    Omit<CoreButton.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
+  setpoint?: number;
+  control?: ControlStateProps;
 }
 
-export const Input = ({
-  label,
-  orientation,
-  onChange,
-  color,
-}: SymbolProps<InputProps>): ReactElement => (
-  <Labeled {...label} onChange={onChange}>
-    <Primitives.Input orientation={orientation} color={color} />
-  </Labeled>
+export const Input = Aether.wrap<SymbolProps<InputProps>>(
+  "Input",
+  ({
+    label,
+    aetherKey,
+    orientation,
+    control,
+    setpoint,
+    units,
+    sink,
+    onChange,
+  }): ReactElement => {
+    const [internalSetpoint, setSetpoint] = useState(setpoint);
+
+    const handleChange = (setpoint: number): void => {
+      setSetpoint(setpoint);
+    };
+
+    const { click } = CoreButton.use({ aetherKey, sink });
+
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState
+          {...control}
+          className={CSS.B("symbol")}
+          orientation={orientation}
+        >
+          <Primitives.Input onClick={click} units={units} orientation={orientation}>
+            <CoreInput.Numeric
+              onChange={handleChange}
+              value={internalSetpoint ?? 0}
+              width="10px"
+              size="small"
+              showDragHandle={false}
+            />
+          </Primitives.Input>
+        </ControlState>
+      </Labeled>
+    );
+  },
 );
 
 export const InputPreview = (props: InputProps): ReactElement => (
-  <Primitives.Input {...props}>
-    <Text.Text level="p">50.00</Text.Text>
+  <Primitives.Input units={"mV"} {...props}>
+    <Text.Text level="p">10.0</Text.Text>
   </Primitives.Input>
 );
 

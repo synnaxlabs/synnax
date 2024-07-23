@@ -985,24 +985,21 @@ export interface InputProps extends Omit<DivProps, "onClick"> {
 
 export const Input = ({
   orientation = "left",
-  color = "green",
   className,
   onClick,
   units = "mV",
-  children = <Text.Text level="p">50.01</Text.Text>,
+  children,
   dimensions = {
     width: 40,
     height: 30,
   },
   ...props
 }: InputProps): ReactElement => {
-  const borderColor = Color.cssString(color);
   return (
     <Div
       className={CSS(CSS.B("input"), className)}
       style={{
         borderStyle: "solid",
-        borderColor,
         height: dimensions?.height,
         width: "100%",
       }}

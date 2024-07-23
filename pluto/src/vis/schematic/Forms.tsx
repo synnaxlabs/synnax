@@ -320,6 +320,7 @@ interface ValueTelemFormT {
   telem: telem.StringSourceSpec;
   tooltip: string[];
 }
+
 const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<ValueTelemFormT>({ path });
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
@@ -607,6 +608,99 @@ export const ButtonForm = (): ReactElement => {
           <FormWrapper direction="x" align="stretch">
             <Align.Space direction="y" grow>
               <LabelControls path="label" />
+            </Align.Space>
+            <OrientationControl path="" />
+          </FormWrapper>
+        );
+    }
+  }, []);
+
+  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
+
+  return <Tabs.Tabs {...props} />;
+};
+
+interface InputTelemFormT {
+  control: ControlStateProps;
+  sink: telem.BooleanSinkSpec;
+}
+
+export const InputTelemForm = ({ path }: { path: string }): ReactElement => {
+  const { value, onChange } = Form.useField<InputTelemFormT>({ path });
+  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
+  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+
+  const handleSinkChange = (v: channel.Key): void => {
+    const t = telem.sinkPipeline("boolean", {
+      connections: [
+        {
+          from: "setpoint",
+          to: "setter",
+        },
+      ],
+      segments: {
+        setter: control.setChannelValue({ channel: v }),
+        setpoint: telem.setpoint({
+          truthy: 1,
+          falsy: 0,
+        }),
+      },
+      inlet: "setpoint",
+    });
+
+    const authSource = control.authoritySource({ channel: v });
+
+    const controlChipSink = control.acquireChannelControl({
+      channel: v,
+      authority: 255,
+    });
+
+    onChange({
+      ...value,
+      sink: t,
+      control: {
+        ...value.control,
+        showChip: true,
+        chip: {
+          sink: controlChipSink,
+          source: authSource,
+        },
+        showIndicator: true,
+        indicator: {
+          statusSource: authSource,
+        },
+      },
+    });
+  };
+
+  return (
+    <FormWrapper direction="y">
+      <Input.Item label="Output Channel">
+        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+      </Input.Item>
+      <Align.Space direction="x" grow></Align.Space>
+    </FormWrapper>
+  );
+};
+
+export const InputForm = (): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "control":
+        return <InputTelemForm path="" />;
+      default:
+        return (
+          <FormWrapper direction="x" align="stretch">
+            <Align.Space direction="y" grow>
+              <LabelControls path="label" />
+              <Form.Field<string>
+                path="units"
+                label="Units"
+                align="start"
+                padHelpText={false}
+              >
+                {(p) => <Input.Text {...p} />}
+              </Form.Field>
             </Align.Space>
             <OrientationControl path="" />
           </FormWrapper>
