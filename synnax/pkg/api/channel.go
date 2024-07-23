@@ -325,6 +325,13 @@ func (s *ChannelService) Rename(
 	ctx context.Context,
 	req ChannelRenameRequest,
 ) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Rename,
+		Objects: req.Keys.OntologyIDs(),
+	}); err != nil {
+		return types.Nil{}, err
+	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).RenameMany(ctx, req.Keys, req.Names, false)
 	})
@@ -339,7 +346,14 @@ type ChannelRetrieveGroupResponse struct {
 
 func (s *ChannelService) RetrieveGroup(
 	ctx context.Context,
-	_ ChannelRetrieveGroupRequest,
+	req ChannelRetrieveGroupRequest,
 ) (ChannelRetrieveGroupResponse, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: []ontology.ID{{Type: channel.OntologyType}},
+	}); err != nil {
+		return ChannelRetrieveGroupResponse{}, err
+	}
 	return ChannelRetrieveGroupResponse{Group: s.internal.Group()}, nil
 }

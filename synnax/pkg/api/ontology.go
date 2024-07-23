@@ -12,8 +12,10 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
@@ -22,12 +24,14 @@ import (
 type OntologyService struct {
 	dbProvider
 	OntologyProvider
+	accessProvider
 	group *group.Service
 }
 
 func NewOntologyService(p Provider) *OntologyService {
 	return &OntologyService{
 		OntologyProvider: p.ontology,
+		accessProvider:   p.access,
 		dbProvider:       p.db,
 		group:            p.Group,
 	}
@@ -75,7 +79,17 @@ func (o *OntologyService) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	q = q.IncludeSchema(req.IncludeSchema).ExcludeFieldData(req.ExcludeFieldData)
-	return res, q.Entries(&res.Resources).Exec(ctx, nil)
+	if err = q.Entries(&res.Resources).Exec(ctx, nil); err != nil {
+		return OntologyRetrieveResponse{}, err
+	}
+	if err = o.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: schema.ResourceIDs(res.Resources),
+	}); err != nil {
+		return OntologyRetrieveResponse{}, err
+	}
+	return res, err
 }
 
 type (
@@ -93,6 +107,13 @@ func (o *OntologyService) CreateGroup(
 	ctx context.Context,
 	req OntologyCreateGroupRequest,
 ) (res OntologyCreateGroupResponse, err error) {
+	if err = o.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{group.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
 		g, err_ := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
@@ -109,6 +130,13 @@ func (o *OntologyService) DeleteGroup(
 	ctx context.Context,
 	req OntologyDeleteGroupRequest,
 ) (res types.Nil, err error) {
+	if err = o.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Objects: group.OntologyIDs(req.Keys),
+	}); err != nil {
+		return res, err
+	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
 		return w.Delete(ctx, req.Keys...)
@@ -124,6 +152,13 @@ func (o *OntologyService) RenameGroup(
 	ctx context.Context,
 	req OntologyRenameGroupRequest,
 ) (res types.Nil, err error) {
+	if err = o.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Rename,
+		Objects: []ontology.ID{group.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
 		return w.Rename(ctx, req.Key, req.Name)
@@ -139,6 +174,13 @@ func (o *OntologyService) AddChildren(
 	ctx context.Context,
 	req OntologyAddChildrenRequest,
 ) (res types.Nil, err error) {
+	if err = o.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{req.ID},
+	}); err != nil {
+		return res, err
+	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
@@ -159,6 +201,13 @@ func (o *OntologyService) RemoveChildren(
 	ctx context.Context,
 	req OntologyRemoveChildrenRequest,
 ) (res types.Nil, err error) {
+	if err = o.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Objects: []ontology.ID{req.ID},
+	}); err != nil {
+		return res, err
+	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
@@ -180,6 +229,20 @@ func (o *OntologyService) MoveChildren(
 	ctx context.Context,
 	req OntologyMoveChildrenRequest,
 ) (res types.Nil, err error) {
+	if err = o.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Objects: []ontology.ID{req.From},
+	}); err != nil {
+		return res, err
+	}
+	if err = o.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{req.To},
+	}); err != nil {
+		return res, err
+	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
