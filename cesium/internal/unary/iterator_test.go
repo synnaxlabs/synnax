@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -716,6 +717,51 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(i.Value().Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11).Data))
 
 						Expect(i.Close()).To(Succeed())
+					})
+					It("Should auto-span through a domain split between two indices", func() {
+						var (
+							iKey     = testutil.GenerateChannelKey()
+							dbKey    = testutil.GenerateChannelKey()
+							indexDB2 = MustSucceed(unary.Open(unary.Config{
+								FS: MustSucceed(fs.Sub("index")),
+								Channel: core.Channel{
+									Key:      iKey,
+									DataType: telem.TimeStampT,
+									IsIndex:  true,
+									Index:    iKey,
+								},
+								Instrumentation: PanicLogger(),
+								FileSize:        40 * telem.ByteSize,
+							}))
+							db2 = MustSucceed(unary.Open(unary.Config{
+								FS: MustSucceed(fs.Sub("data")),
+								Channel: core.Channel{
+									Key:      dbKey,
+									DataType: telem.Int32T,
+									Index:    iKey,
+								},
+								Instrumentation: PanicLogger(),
+								FileSize:        40 * telem.ByteSize,
+							}))
+						)
+						db2.SetIndex(indexDB2.Index())
+						w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
+						MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15)))
+						MustSucceed(w.Commit(ctx))
+						MustSucceed(w.Write(telem.NewSecondsTSV(16, 17, 18, 19, 20)))
+						MustSucceed(w.Commit(ctx))
+						MustSucceed(w.Close())
+						Expect(unary.Write(ctx, db2, 10*telem.SecondTS, telem.NewSeriesV[int32](10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+						i := db2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 8})
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+						Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int32{10, 11, 12, 13, 14, 15, 16, 17}))
+						Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+						Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int32{18, 19, 20}))
+						Expect(i.Close()).To(Succeed())
+
+						Expect(db2.Close()).To(Succeed())
+						Expect(indexDB2.Close()).To(Succeed())
 					})
 				})
 			})

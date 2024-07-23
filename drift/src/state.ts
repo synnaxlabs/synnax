@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createSlice,
-  nanoid,
-  type PayloadAction,
-  type Reducer,
-} from "@reduxjs/toolkit";
-import { box, deep, type dimensions, xy } from "@synnaxlabs/x";
+import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
+import { box, deep, type dimensions, id, xy } from "@synnaxlabs/x";
 
 import {
   INITIAL_PRERENDER_WINDOW_STATE,
@@ -154,8 +149,8 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
 ): PayloadAction<T & LabelPayload> => {
   if (a.type === createWindow.type) {
     if (s.label !== MAIN_WINDOW) return a as PayloadAction<T & LabelPayload>;
-    (a.payload as CreateWindowPayload).label = nanoid();
-    (a.payload as CreateWindowPayload).prerenderLabel = nanoid();
+    (a.payload as CreateWindowPayload).label = id.id();
+    (a.payload as CreateWindowPayload).prerenderLabel = id.id();
     return a as PayloadAction<T & LabelPayload>;
   }
   if ("label" in a.payload) return a as PayloadAction<T & LabelPayload>;
@@ -228,7 +223,7 @@ const slice = createSlice({
     setWindowLabel: (s: SliceState, a: PayloadAction<SetWindowLabelPayload>) => {
       s.label = a.payload.label;
       if (s.label !== MAIN_WINDOW && !s.config.enablePrerender) return;
-      const prerenderLabel = nanoid();
+      const prerenderLabel = id.id();
       s.windows[prerenderLabel] = {
         ...INITIAL_PRERENDER_WINDOW_STATE,
         ...s.config.defaultWindowProps,
@@ -255,7 +250,6 @@ const slice = createSlice({
         return;
       }
 
-      
       const [availableLabel, available] = Object.entries(s.windows).find(
         ([, w]) => !w.reserved,
       ) ?? [null, null];

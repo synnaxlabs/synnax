@@ -10,7 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type Payload, groupZ } from "@/ontology/group/payload";
+import { groupZ,type Payload } from "@/ontology/group/payload";
 import { type ID, idZ } from "@/ontology/payload";
 
 const resZ = z.object({

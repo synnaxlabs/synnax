@@ -318,3 +318,12 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
 
   return [Math.round(h), Math.round(s), Math.round(l), a];
 };
+
+export const crudeZ = z.union([
+  hexZ,
+  rgbaZ,
+  z.instanceof(Color),
+  z.string(),
+  rgbZ,
+  crudeColor,
+]);
