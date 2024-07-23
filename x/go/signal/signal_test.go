@@ -13,6 +13,8 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/atomic"
+	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -257,7 +259,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(inc1, signal.WithMaxRestart(100), signal.RecoverWithErrOnPanic())
+			ctx.Go(inc1, signal.WithBreaker(breaker.Config{MaxRetries: 100, BaseInterval: 1 * time.Millisecond, Scale: 1.01}), signal.RecoverWithErrOnPanic())
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
 			Expect(counter).To(Equal(101))
@@ -273,7 +275,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(inc1, signal.WithMaxRestart(100), signal.RecoverWithoutErrOnPanic())
+			ctx.Go(inc1, signal.WithBreaker(breaker.Config{MaxRetries: 100, BaseInterval: 1 * time.Millisecond, Scale: 1.01}), signal.RecoverWithoutErrOnPanic())
 
 			Expect(ctx.Wait()).ToNot(HaveOccurred())
 			Expect(counter).To(Equal(101))
@@ -294,7 +296,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, cancel := signal.Isolated()
-			ctx.Go(f, signal.WithMaxRestart(signal.InfiniteRestart))
+			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: signal.InfiniteRestart, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
 
 			wg.Add(1)
 			go func() {
@@ -306,6 +308,35 @@ var _ = Describe("Signal", func() {
 			cancel()
 			wg.Wait()
 			Eventually(done).Should(BeClosed())
+		})
+
+		It("Should wait exponentially more time", func() {
+			var (
+				done         = make(chan struct{})
+				counter      = atomic.Int64Counter{}
+				succeedInTen = func(ctx context.Context) error {
+					if counter.Add(1) < 10 {
+						panic("panicking")
+					}
+					return nil
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			start := time.Now()
+			ctx.Go(
+				succeedInTen,
+				signal.WithBreaker(breaker.Config{MaxRetries: signal.InfiniteRestart, BaseInterval: 1 * time.Millisecond, Scale: 2}),
+				signal.RecoverWithErrOnPanic(),
+			)
+
+			go func() {
+				Expect(ctx.Wait()).ToNot(HaveOccurred())
+				close(done)
+			}()
+
+			Eventually(done).Should(BeClosed())
+			Expect(time.Now().Sub(start)).To(BeNumerically("~", 511*time.Millisecond, 20*time.Millisecond))
 		})
 
 	})
@@ -325,7 +356,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(f, signal.WithMaxRestart(10000))
+			ctx.Go(f, signal.WithMaxRestart(100))
 
 			Expect(ctx.Wait()).To(Succeed())
 			Expect(counter).To(Equal(1))
