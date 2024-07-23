@@ -86,7 +86,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		WriterConfig: cfg,
 		Channel:      db.Channel,
 		wrapError:    db.wrapError,
-		onClose:      func() { db.entityCount.add(-1) },
+		onClose:      func() { db.entityCount.decrement() },
 	}
 	var g *controller.Gate[*controlEntity]
 	g, transfer, err = db.controller.OpenGateAndMaybeRegister(
@@ -105,7 +105,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		}
 	}
 	w.control = g
-	db.entityCount.add(1)
+	db.entityCount.increment()
 	return w, transfer, db.wrapError(err)
 }
 

@@ -33,8 +33,8 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-	db.entityCount.add(1)
-	defer db.entityCount.add(-1)
+	db.entityCount.increment()
+	defer db.entityCount.decrement()
 	return db.wrapError(db.Domain.GarbageCollect(ctx))
 }
 

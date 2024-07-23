@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"sync"
 	"sync/atomic"
 )
 
@@ -30,17 +29,6 @@ type controlledWriter struct {
 }
 
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
-
-type entityCount struct {
-	sync.RWMutex
-	openIteratorWriters int
-}
-
-func (c *entityCount) add(delta int) {
-	c.Lock()
-	c.openIteratorWriters += delta
-	c.Unlock()
-}
 
 type DB struct {
 	Config
@@ -97,12 +85,12 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		internal:       iter,
 		IteratorConfig: cfg,
 		onClose: func() {
-			db.entityCount.add(-1)
+			db.entityCount.decrement()
 		},
 	}
 	i.SetBounds(cfg.Bounds)
 
-	db.entityCount.add(1)
+	db.entityCount.increment()
 	return i
 }
 

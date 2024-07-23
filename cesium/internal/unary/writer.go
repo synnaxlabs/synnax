@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"math"
 )
 
 type WriterConfig struct {
@@ -131,6 +130,8 @@ type Writer struct {
 	closed bool
 	// virtualAlignment tracks the alignment of the writer when persist is off.
 	virtualAlignment uint32
+	// leadingEdge uint32
+	leadingEdge uint32
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -145,7 +146,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		WriterConfig:     cfg,
 		Channel:          db.Channel,
 		idx:              db.index(),
-		decrementCounter: func() { db.entityCount.add(-1) },
+		decrementCounter: func() { db.entityCount.decrement() },
 		wrapError:        db.wrapError,
 		virtualAlignment: 0,
 	}
@@ -169,7 +170,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		}
 	}
 	w.control = g
-	db.entityCount.add(1)
+	w.leadingEdge = db.entityCount.incrementWithLeadingEdge()
 	return w, transfer, w.wrapError(err)
 }
 
@@ -202,8 +203,6 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 	return w.Channel.DataType.Density().SampleCount(telem.Size(dw.Len()))
 }
 
-const leadingEdge = math.MaxUint32
-
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if w.closed {
@@ -220,10 +219,10 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 		w.updateHwm(series)
 	}
 	if *w.Persist {
-		a = telem.NewAlignmentPair(leadingEdge, uint32(w.len(dw.Writer)))
+		a = telem.NewAlignmentPair(w.leadingEdge, uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
 	} else {
-		a = telem.NewAlignmentPair(leadingEdge, w.virtualAlignment)
+		a = telem.NewAlignmentPair(w.leadingEdge, w.virtualAlignment)
 		w.virtualAlignment += uint32(series.Len())
 	}
 	return a, w.wrapError(err)

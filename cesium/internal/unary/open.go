@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"math"
 	"sync/atomic"
 )
 
@@ -75,6 +76,8 @@ func (cfg Config) Override(other Config) Config {
 	cfg.GCThreshold = override.Numeric(cfg.GCThreshold, other.GCThreshold)
 	return cfg
 }
+
+const zeroLeadingEdge = math.MaxUint32 - 1e6
 
 func Open(configs ...Config) (*DB, error) {
 	cfg, err := config.New(DefaultConfig, configs...)

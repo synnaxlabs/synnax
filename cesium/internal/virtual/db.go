@@ -38,11 +38,12 @@ func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 type entityCount struct {
 	sync.RWMutex
 	openWriters int
+	leadingEdge uint32
 }
 
-func (s *entityCount) add(delta int) {
+func (s *entityCount) increment() {
 	s.Lock()
-	s.openWriters += delta
+	s.openWriters += 1
 	s.Unlock()
 }
 
