@@ -3,10 +3,11 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/synnaxlabs/x/errors"
+	"net/http"
 	"os/exec"
 	"time"
 
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -53,6 +54,15 @@ func startCluster(p ClusterParam) (error, *bytes.Buffer, *bytes.Buffer, func() e
 	}
 
 	time.Sleep(5 * telem.Second.Duration())
+	client := &http.Client{}
+	resp, err := client.Post("http://localhost:9090/api/v1/connectivity/check", "", nil)
+	if err != nil {
+		return errors.Wrap(err, "server did not start properly"),
+			&stdOut,
+			&stdErr,
+			func() error { return nil }
+	}
+	defer resp.Body.Close()
 
 	return nil, &stdOut, &stdErr, func() (err error) {
 		const stopKeyword = "stop"
