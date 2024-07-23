@@ -1,5 +1,5 @@
 {
-  "version": "v0.25.1",
+  "version": "v0.25.5",
   "notes": "Synnax Update",
   "pub_date": "2024-07-23T01:02:37Z",
   "platforms": {
@@ -9,7 +9,7 @@
     },
     "linux-x86_64": {
       "signature": "not_supported_and_tauri_requires_an_entry",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.25.1-rc/Synnax.app.tar.gz"
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.25.5/Synnax.app.tar.gz"
     },
     "windows-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUVqdUo5UDJtS2Iwb09MK2RaM3lCOUtEb0lsNVJ1aEsrU0Nuck9OdzJGOHRSSi9YbHp3NEsxSkpNWWYvaDFHeWFTVUhBZ2RkenJLcElQd2xMZXU0VFFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzIxNjk2MzgyCWZpbGU6U3lubmF4XzAuMjUuMV94NjRfZW4tVVMubXNpLnppcApFN21HcmZyTU42d0lRMkxNQjFidkZTWTcrbTlocHhMcjdMSzhnUjlLTENqOXhvdyszZ0RVQVFob1pBQzkwdklZV2gxcnpucmE0ZU1ZZTd3WTFGUG1DQT09Cg==",

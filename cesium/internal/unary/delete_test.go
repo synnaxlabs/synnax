@@ -13,10 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	testutil2 "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -903,6 +905,216 @@ var _ = Describe("Delete", func() {
 			Context("Error paths", func() {
 				It("Should error when the end timestamp is earlier than start timestamp", func() {
 					Expect(rateDB.Delete(ctx, telem.TimeRange{Start: 30 * telem.SecondTS, End: 20 * telem.SecondTS})).To(MatchError(ContainSubstring("after delete end")))
+				})
+			})
+
+			Describe("Regression", func() {
+				// This test addresses a bug where if an index is split into two domains
+				// to describe a data channel, and a call to delete that crosses the
+				// two domains would result in a discontinuous error.
+				//
+				// This was critical since while for smaller sample sizes, a data domain
+				// would not cross two indices, file cutoff makes this a very common
+				// case: writing float32 data, which has a higher density than TimeStamps,
+				// always gets cut off after Timestamp data. This makes it so that
+				// after enough samples, the index will almost always be split into two
+				// for one data domain.
+				It("Should work when the index is split into two domains", func() {
+					var (
+						iKey     = testutil.GenerateChannelKey()
+						dbKey    = testutil.GenerateChannelKey()
+						indexDB2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("index")),
+							Channel: core.Channel{
+								Key:      iKey,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        40 * telem.ByteSize,
+						}))
+						db2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("data")),
+							Channel: core.Channel{
+								Key:      dbKey,
+								DataType: telem.Int32T,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        40 * telem.ByteSize,
+						}))
+					)
+					db2.SetIndex(indexDB2.Index())
+					w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
+					MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSecondsTSV(16, 17, 18, 19, 20)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+					Expect(unary.Write(ctx, db2, 10*telem.SecondTS, telem.NewSeriesV[int32](10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+					Expect(db2.Delete(ctx, (13 * telem.SecondTS).Range(18*telem.SecondTS))).To(Succeed())
+
+					Expect(indexDB2.Close()).To(Succeed())
+					Expect(db2.Close()).To(Succeed())
+				})
+
+				// This test addresses a bug of the same origin as the previous one:
+				// it is important to realize that the start of the domain used to find
+				// the offset in delete is NOT necessarily the start of the domain in
+				// the index channel as well. Previously in the codebase we checked that
+				// the ensuing Stamp operation must be exact since we made that assumption,
+				// as a result, the codebase DPanic'ed when it did not need to.
+				It("Should work when the index approximation is not exact", func() {
+					var (
+						iKey     = testutil.GenerateChannelKey()
+						dbKey    = testutil.GenerateChannelKey()
+						indexDB2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("index")),
+							Channel: core.Channel{
+								Key:      iKey,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        40 * telem.ByteSize,
+						}))
+						db2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("data")),
+							Channel: core.Channel{
+								Key:      dbKey,
+								DataType: telem.Int32T,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        17 * telem.ByteSize,
+						}))
+					)
+					db2.SetIndex(indexDB2.Index())
+					w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
+					MustSucceed(w.Write(telem.NewSecondsTSV(10, 12, 14, 16, 18, 20)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSecondsTSV(22, 24, 26, 28, 30)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+					w, _ = MustSucceed2(db2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test2"}}))
+					MustSucceed(w.Write(telem.NewSeriesV[int32](10, 12, 14, 16, 18)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSeriesV[int32](20, 22, 24, 26, 28, 30)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+					Expect(db2.Delete(ctx, (20 * telem.SecondTS).Range(27*telem.SecondTS))).To(Succeed())
+
+					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
+					Expect(f.Series).To(HaveLen(2))
+					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int32{10, 12, 14, 16, 18}))
+					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int32{28, 30}))
+
+					Expect(indexDB2.Close()).To(Succeed())
+					Expect(db2.Close()).To(Succeed())
+				})
+
+				// This test addresses an edge case in the previous test, where we attempt
+				// to delete before the first element in a cut-off domain.
+				It("Should work when we delete before the first element in a cut-off domain", func() {
+					var (
+						iKey     = testutil.GenerateChannelKey()
+						dbKey    = testutil.GenerateChannelKey()
+						indexDB2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("index")),
+							Channel: core.Channel{
+								Key:      iKey,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        40 * telem.ByteSize,
+						}))
+						db2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("data")),
+							Channel: core.Channel{
+								Key:      dbKey,
+								DataType: telem.Int32T,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        17 * telem.ByteSize,
+						}))
+					)
+					db2.SetIndex(indexDB2.Index())
+					w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
+					MustSucceed(w.Write(telem.NewSecondsTSV(10, 12, 14, 16, 18, 20)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSecondsTSV(22, 24, 26, 28, 30)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+					w, _ = MustSucceed2(db2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test2"}}))
+					MustSucceed(w.Write(telem.NewSeriesV[int32](10, 12, 14, 16, 18, 20)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSeriesV[int32](22, 24, 26, 28, 30)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+					Expect(db2.Delete(ctx, (21 * telem.SecondTS).Range(27*telem.SecondTS))).To(Succeed())
+
+					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
+					Expect(f.Series).To(HaveLen(2))
+					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int32{10, 12, 14, 16, 18, 20}))
+					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int32{28, 30}))
+
+					Expect(indexDB2.Close()).To(Succeed())
+					Expect(db2.Close()).To(Succeed())
+				})
+				It("Should work when we delete at the first element in a cut-off domain", func() {
+					var (
+						iKey     = testutil.GenerateChannelKey()
+						dbKey    = testutil.GenerateChannelKey()
+						indexDB2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("index")),
+							Channel: core.Channel{
+								Key:      iKey,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        40 * telem.ByteSize,
+						}))
+						db2 = MustSucceed(unary.Open(unary.Config{
+							FS: MustSucceed(fs.Sub("data")),
+							Channel: core.Channel{
+								Key:      dbKey,
+								DataType: telem.Int32T,
+								Index:    iKey,
+							},
+							Instrumentation: PanicLogger(),
+							FileSize:        17 * telem.ByteSize,
+						}))
+					)
+					db2.SetIndex(indexDB2.Index())
+					w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
+					MustSucceed(w.Write(telem.NewSecondsTSV(10, 12, 14, 16, 18, 20)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSecondsTSV(22, 24, 26, 28, 30)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+					w, _ = MustSucceed2(db2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test2"}}))
+					MustSucceed(w.Write(telem.NewSeriesV[int32](10, 12, 14, 16, 18, 20)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSeriesV[int32](22, 24, 26, 28, 30)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+					Expect(db2.Delete(ctx, (23 * telem.SecondTS).Range(27*telem.SecondTS))).To(Succeed())
+
+					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
+					Expect(f.Series).To(HaveLen(3))
+					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int32{10, 12, 14, 16, 18, 20}))
+					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int32{22}))
+					Expect(f.Series[2].Data).To(testutil2.EqualUnmarshal([]int32{28, 30}))
+
+					Expect(indexDB2.Close()).To(Succeed())
+					Expect(db2.Close()).To(Succeed())
 				})
 			})
 
