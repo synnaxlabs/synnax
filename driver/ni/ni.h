@@ -457,6 +457,8 @@ public:
 
     void stop() override;
 
+    std::string name() override { return task.name; }
+
     bool ok();
 
     ~ScannerTask();
@@ -490,6 +492,8 @@ public:
     void start();
 
     bool ok();
+
+    std::string name() override { return task.name; }
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
@@ -531,6 +535,8 @@ public:
         const synnax::Task &task);
 
     bool ok();
+
+    std::string name() override { return task.name; }
 
 private:
     std::atomic<bool> running = false;
@@ -580,7 +586,6 @@ static inline bool dlls_available(){
         "nirocoapi.dll",
         "nisysapi.dll",
         "niprtsiu.dll",
-        
         "nicdru.dll",
         "nicpcie.dll",
         "nimxif.dll",
@@ -607,7 +612,6 @@ static inline bool dlls_available(){
     for (const auto &dll: dlls) 
         if (!does_dll_exist(dll.c_str())) 
             d = false;
-    
     if (d) LOG(INFO) << "[ni] All required DLLs found.";
     return d;
 }
