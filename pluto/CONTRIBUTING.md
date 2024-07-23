@@ -3,12 +3,12 @@
 ## Development Environment Setup
 
 To get started contributing to Pluto, read the development environment setup guide for
-[macos](../docs/tech/setup-macos.md) or [windows](../docs/tech/setup-windows.md).
+[MacOS](../docs/tech/setup-macos.md) or [Windows](../docs/tech/setup-windows.md).
 
 ## Running the Storybook
 
-Before running the storybook, you must build the upstream dependencies.
-To do this, run the following command from the root of the repository:
+Before running the storybook, you must build the upstream dependencies. To do this, run
+the following command from the root of the repository:
 
 ```bash
 pnpm build:pluto
@@ -20,10 +20,9 @@ Then, to run the storybook, run the following command from the root of the repos
 pnpm dev:pluto
 ```
 
-If you make a change to an upstream dependency, you will need to rebuild
-it in order for the changes to reflect in the development server. For more
-information on this process, see
-the [TypeScript Build Guide](../docs/tech/typescript/build.md).
+If you make a change to an upstream dependency, you will need to rebuild it in order for
+the changes to reflect in the development server. For more information on this process,
+see the [TypeScript Build Guide](../docs/tech/typescript/build.md).
 
 ### Important Note
 
@@ -59,34 +58,35 @@ To build the library, run the following command from the root of the repository:
 pnpm build:pluto
 ```
 
-# Codebase Structure
+## Codebase Structure
 
 Pluto maintains a flat directory structure that leverages ES modules as isolated units
 of functionality.
 
-## Module Naming Conventions and Imports
+### Module Naming Conventions and Imports
 
-Naming conventions are **scoped** to a module, meaning that a component's name is only
+Naming conventions are scoped to a module, meaning that a component's name is only
 unique within the module it is defined in. For example, a `ButtonIcon` component is
-within the `Use` (`button` folder) module in a file called `Icon.tsx` and the
-component is named `Icon`. When using the component in another module, we would import
-it as follows:
+within the `button` module in a file called `Icon.tsx` and the component is named
+`Icon`. When using the component in another module, we would import it as follows:
 
 ```tsx
-import {Use} from "@/button"
+import { Button } from "@/button"
 
 const MyComponent = () => {
     return (
-        <Use.Icon/>
-    )
-}
+        <Button.Icon>
+          ...
+        </Button.Icon>
+    );
+};
 ```
 
-## The Worker Component Tree
+### The Worker Component Tree
 
-**TLD;DR - Modules with uppercase names i.e. `Use` are only usable in the main
-thread, and modules with lowercase names i.e. `color` are usable in both the main and
-worker threads.**
+**TL;DR - Modules with uppercase names i.e. `Button` are only usable in the main thread,
+and modules with lowercase names i.e. `color` are usable in both the main and worker
+threads.**
 
 You may have noticed that the case of the module name is different from that of it's
 parent folder. This is intentional. Pluto heavily leverages web-workers to do data
@@ -103,7 +103,7 @@ As `tsx` files cannot be imported into web-workers, we need to be careful about 
 imports we use in different sections of the codebase. To help with this, we've
 established a "case-convention" for modules that are safe to be used in web-workers.
 
-Uppercase modules, like the `Use` module above, are **only** usable in the main
+Uppercase modules, like the `Button` module above, are **only** usable in the main
 thread, and are uppercase to satisfy the `jsx` compiler. Lowercase modules, like the
 `color` module are safe to be used in both the main and worker threads.
 
@@ -117,26 +117,18 @@ lowercase (worker thread) modules. For example, the `Color` module *re-exports* 
 `color.Color` class as `Color.Color` along with the `Color.Picker` and `Color.Swatch`
 and other main thread-specific tooling.
 
-## Z-Indexining
+### Z-Indexing
 
-<!-- Make a Table-->
-
-| Name                  | Z-Index | Notes                                                                              |
-|-----------------------|---------|------------------------------------------------------------------------------------|
-| Lower 2D Canvas       | -3      | Used for items that should render below the upper 2D and GL canvases such as Axes. |
-| GL Canvas             | -2      | WebGL rendering for lines.                                                         |
-| Upper 2D Canvas       | 3       | Upper 2D canvas for rendering items above other canvases, such as tooltips         |
-| Default HTML Tooltips | 9       | Strictly above everything                                                          |
-| Dropdown              | 5       | Above everything except for tooltips                                               |
-| Dropdown Input        | 6       | Above the dropdown to ensure shadows and border are ok.                            |
-| HTML Legend           | 4       | Above the upper and lower 2d canvases                                              |
-| Context Menu          | 8       | Above everything but below tooltips                                                |
-| Mosaic Mask           | 7       | Above everything but below tooltips and context                                    |
-| Lower P&IDElements    | 2       | Below the upper 2D canvas                                                          |
-| Upper P&ID Elements   | 4       | Above the upper P&ID elements                                                      |
-
-## Documentation
-
-We believe in keeping documentation close to the code it describes. To this end,
-documentation for a specific module is typically kept in a `README.md` file in the
-same directory as the module.
+| Name                     | Z-Index | Notes                                                                                |
+|--------------------------|---------|--------------------------------------------------------------------------------------|
+| Lower 2D Canvas          | -3      | Used for items that should render below the upper 2D and GL canvases such as `Axes`. |
+| GL Canvas                | -2      | WebGL rendering for lines.                                                           |
+| Lower Schematic Elements | 2       | Below the upper 2D canvas.                                                           |
+| Upper 2D Canvas          | 3       | Upper 2D canvas for rendering items above other canvases, such as tooltips.          |
+| HTML Legend              | 4       | Above the upper and lower 2D canvases.                                               |
+| Upper Schematic Elements | 4       | Above the upper P&ID elements.                                                       |
+| Dropdown                 | 5       | Above everything except for tooltips.                                                |
+| Dropdown Input           | 6       | Above the dropdown to ensure shadows and border are ok.                              |
+| Mosaic Mask              | 7       | Above everything but below tooltips and context.                                     |
+| Context Menu             | 8       | Above everything but below tooltips.                                                 |
+| Default HTML Tooltips    | 9       | Strictly above everything.                                                           |

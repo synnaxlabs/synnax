@@ -173,3 +173,32 @@ TEST(TestChannel, testRetrieveMany) {
         ASSERT_TRUE(found);
     }
 }
+
+/// @brief it should return the correct error when a channel cannot be found 
+/// by key multiple retrieval.
+TEST(TestChannel, testRetrieveManyNotFound) {
+    auto client = new_test_client();
+    auto [retrieved, err] = client.channels.retrieve(
+        std::vector<ChannelKey>{1, 2, 3});
+    ASSERT_TRUE(err) << err.message();
+    ASSERT_EQ(err, synnax::NOT_FOUND);
+}
+
+/// @brief multiple channels of the same name found 
+TEST(TestChannel, testRetrieveManySameName) {
+    auto client = new_test_client();
+    auto [channel, err] = client.channels.create(
+        "test",
+        synnax::FLOAT64,
+        synnax::Rate(1));
+    ASSERT_FALSE(err) << err.message();
+    auto [channel2, err2] = client.channels.create(
+        "test",
+        synnax::FLOAT64,
+        synnax::Rate(1));
+    ASSERT_FALSE(err2) << err2.message();
+    auto [retrieved, err3] = client.channels.retrieve("test");
+    ASSERT_TRUE(err3) << err3.message();
+    ASSERT_EQ(err3, synnax::QUERY_ERROR);
+}
+

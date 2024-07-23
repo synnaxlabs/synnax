@@ -257,11 +257,10 @@ public:
 
     TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
 
-    TimeSpan operator*(const unsigned long &other) const {
-        return TimeSpan(value * other);
-    }
+    TimeSpan operator*(const unsigned long &other) const { return TimeSpan(value * other); }
 
     TimeSpan operator*(const long long &other) const { return TimeSpan(value * other); }
+
 
     ////////////////////////////////// DIVISION /////////////////////////////////
 
