@@ -113,7 +113,6 @@
     border-color: var(--pluto-gray-l9);
     border-radius: var(--pluto-border-radius);
     border-width: 2px;
-    display: flex;
     padding: 0;
     flex-grow: 0;
     align-items: center;
@@ -134,6 +133,36 @@
 
         & small {
             color: var(--pluto-gray-l0);
+            font-weight: 500;
+        }
+    }
+}
+
+.pluto-input {
+    display: flex;
+    flex-direction: row;
+    border: var(--pluto--border);
+    border-color: var(--pluto-gray-l9);
+    border-radius: var(--pluto-border-radius);
+    border-width: 2px;
+    padding: 0;
+    flex-grow: 0;
+    align-items: center;
+    justify-content: center;
+
+    & .pluto-input__content {
+        padding-left: 1.5rem;
+    }
+
+    & .pluto-input__units {
+        display: flex;
+        align-items: center;
+        height: calc(100% + 2px);
+        padding: 0 1rem;
+        padding-top: 2px;
+        margin-right: -1px;
+
+        & small {
             font-weight: 500;
         }
     }

@@ -23,6 +23,7 @@ import {
   TankForm,
   ValueForm,
 } from "@/vis/schematic/Forms";
+import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import {
   AngledReliefValve,
   AngledReliefValvePreview,
@@ -50,6 +51,9 @@ import {
   type FilterProps,
   FourWayValve,
   FourWayValvePreview,
+  Input,
+  InputPreview,
+  type InputProps,
   Light,
   LightPreview,
   type LightProps,
@@ -131,6 +135,7 @@ const VARIANTS = [
   "electricRegulator",
   "filter",
   "fourWayValve",
+  "input",
   "light",
   "manualValve",
   "needleValve",
@@ -154,7 +159,34 @@ const VARIANTS = [
 export const typeZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof typeZ>;
 
-const ZERO_TOGGLE_PROPS = {
+const ZERO_PROPS = {
+  orientation: "left" as const,
+};
+
+const ZERO_NUMERIC_SOURCE_PROPS = {
+  ...ZERO_PROPS,
+  source: telem.sourcePipeline("string", {
+    connections: [
+      {
+        from: "valueStream",
+        to: "rollingAverage",
+      },
+      {
+        from: "rollingAverage",
+        to: "stringifier",
+      },
+    ],
+    segments: {
+      valueStream: telem.streamChannelValue({ channel: 0 }),
+      rollingAverage: telem.rollingAverage({ windowSize: 1 }),
+      stringifier: telem.stringifyNumber({ precision: 2 }),
+    },
+    outlet: "stringifier",
+  }),
+};
+
+const ZERO_BOOLEAN_SOURCE_PROPS = {
+  ...ZERO_PROPS,
   source: telem.sourcePipeline("boolean", {
     connections: [
       {
@@ -168,6 +200,10 @@ const ZERO_TOGGLE_PROPS = {
     },
     outlet: "threshold",
   }),
+};
+
+const ZERO_BOOLEAN_SINK_PROPS = {
+  ...ZERO_PROPS,
   sink: telem.sinkPipeline("boolean", {
     connections: [
       {
@@ -183,6 +219,23 @@ const ZERO_TOGGLE_PROPS = {
   }),
 };
 
+const ZERO_TOGGLE_PROPS = {
+  ...ZERO_BOOLEAN_SOURCE_PROPS,
+  ...ZERO_BOOLEAN_SINK_PROPS,
+};
+
+type zeroLabelReturn = {
+  label: LabelExtensionProps;
+};
+
+const zeroLabel = (label: string): zeroLabelReturn => ({
+  label: {
+    label,
+    level: "p",
+    orientation: "top",
+  },
+});
+
 const threeWayValve: Spec<ThreeWayValveProps> = {
   name: "Three Way Valve",
   key: "threeWayValve",
@@ -190,13 +243,8 @@ const threeWayValve: Spec<ThreeWayValveProps> = {
   Symbol: ThreeWayValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Three Way Valve",
-      level: "p",
-      orientation: "top",
-    },
+    ...zeroLabel("Three Way Valve"),
     ...ZERO_TOGGLE_PROPS,
-    orientation: "left",
   }),
   Preview: ThreeWayValvePreview,
   zIndex: Z_INDEX_UPPER,
@@ -209,12 +257,7 @@ const valve: Spec<ValveProps> = {
   Symbol: Valve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Valve",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: ValvePreview,
@@ -228,12 +271,7 @@ const solenoidValve: Spec<SolenoidValveProps> = {
   Symbol: SolenoidValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Solenoid Valve",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Solenoid Valve"),
     normallyOpen: false,
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -248,12 +286,7 @@ const fourWayValve: Spec<ValveProps> = {
   Symbol: FourWayValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Four Way Valve",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Four Way Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: FourWayValvePreview,
@@ -267,12 +300,7 @@ const angledValve: Spec<AngledValveProps> = {
   Symbol: AngledValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Angled Valve",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Angled Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: AngledValvePreview,
@@ -286,12 +314,7 @@ const pump: Spec<PumpProps> = {
   Symbol: Pump,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Pump",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: PumpPreview,
@@ -305,12 +328,7 @@ const screwPump: Spec<ScrewPumpProps> = {
   Symbol: ScrewPump,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Screw Pump",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Screw Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: ScrewPumpPreview,
@@ -324,16 +342,12 @@ const tank: Spec<TankProps> = {
   Symbol: Tank,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Tank",
-      level: "p",
-      orientation: "top",
-    },
+    ...zeroLabel("Tank"),
     dimensions: {
       width: 100,
       height: 200,
     },
-    orientation: "left",
+    ...ZERO_PROPS,
   }),
   Preview: TankPreview,
   zIndex: Z_INDEX_LOWER,
@@ -346,12 +360,8 @@ const reliefValve: Spec<ReliefValveProps> = {
   Symbol: ReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Relief Valve",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Relief Valve"),
+    ...ZERO_PROPS,
   }),
   Preview: ReliefValvePreview,
   zIndex: Z_INDEX_UPPER,
@@ -364,12 +374,8 @@ const regulator: Spec<RegulatorProps> = {
   Symbol: Regulator,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Regulator",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Regulator"),
+    ...ZERO_PROPS,
   }),
   Preview: RegulatorPreview,
   zIndex: Z_INDEX_UPPER,
@@ -382,12 +388,8 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
   Symbol: ElectricRegulator,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Electric Regulator",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Electric Regulator"),
+    ...ZERO_PROPS,
   }),
   Preview: ElectricRegulatorPreview,
   zIndex: Z_INDEX_UPPER,
@@ -400,12 +402,8 @@ const burstDisc: Spec<ReliefValveProps> = {
   Symbol: BurstDisc,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Burst Disc",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Burst Disc"),
+    ...ZERO_PROPS,
   }),
   Preview: BurstDiscPreview,
   zIndex: Z_INDEX_UPPER,
@@ -418,12 +416,8 @@ const cap: Spec<ReliefValveProps> = {
   Symbol: Cap,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Cap",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Cap"),
+    ...ZERO_PROPS,
   }),
   Preview: CapPreview,
   zIndex: Z_INDEX_UPPER,
@@ -436,12 +430,8 @@ const manualValve: Spec<ManualValveProps> = {
   Symbol: ManualValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Manual Valve",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Manual Valve"),
+    ...ZERO_PROPS,
   }),
   Preview: ManualValvePreview,
   zIndex: Z_INDEX_UPPER,
@@ -454,12 +444,8 @@ const filter: Spec<FilterProps> = {
   Symbol: Filter,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Filter",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Filter"),
+    ...ZERO_PROPS,
   }),
   Preview: FilterPreview,
   zIndex: Z_INDEX_UPPER,
@@ -472,11 +458,8 @@ const needleValve: Spec<NeedleValveProps> = {
   Symbol: NeedleValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Needle Valve",
-      level: "p",
-    },
-    orientation: "left",
+    ...zeroLabel("Needle Valve"),
+    ...ZERO_PROPS,
   }),
   Preview: NeedleValvePreview,
   zIndex: Z_INDEX_UPPER,
@@ -489,12 +472,8 @@ const checkValve: Spec<CheckValveProps> = {
   Symbol: CheckValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Check Valve",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Check Valve"),
+    ...ZERO_PROPS,
   }),
   Preview: CheckValvePreview,
   zIndex: Z_INDEX_UPPER,
@@ -507,12 +486,8 @@ const orifice: Spec<OrificeProps> = {
   Symbol: Orifice,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Orifice",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Orifice"),
+    ...ZERO_PROPS,
   }),
   Preview: OrificePreview,
   zIndex: Z_INDEX_UPPER,
@@ -525,12 +500,8 @@ const angledReliefValve: Spec<ReliefValveProps> = {
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Angled Relief Valve",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Angled Relief Valve"),
+    ...ZERO_PROPS,
   }),
   Preview: AngledReliefValvePreview,
   zIndex: Z_INDEX_UPPER,
@@ -546,30 +517,9 @@ const value: Spec<ValueProps> = {
     color: t.colors.gray.l9.rgba255,
     units: "psi",
     level: "h5",
-    label: {
-      label: "Value",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
-    telem: telem.sourcePipeline("string", {
-      connections: [
-        {
-          from: "valueStream",
-          to: "rollingAverage",
-        },
-        {
-          from: "rollingAverage",
-          to: "stringifier",
-        },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: 0 }),
-        stringifier: telem.stringifyNumber({ precision: 2 }),
-        rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      },
-      outlet: "stringifier",
-    }),
+    ...zeroLabel("Value"),
+    ...ZERO_PROPS,
+    telem: ZERO_NUMERIC_SOURCE_PROPS.source,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -581,25 +531,8 @@ const button: Spec<ButtonProps> = {
   Form: ButtonForm,
   Preview: ButtonPreview,
   defaultProps: () => ({
-    label: {
-      label: "Button",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
-    sink: telem.sinkPipeline("boolean", {
-      connections: [
-        {
-          from: "setpoint",
-          to: "setter",
-        },
-      ],
-      segments: {
-        setter: control.setChannelValue({ channel: 0 }),
-        setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
-      },
-      inlet: "setpoint",
-    }),
+    ...zeroLabel("Button"),
+    ...ZERO_BOOLEAN_SINK_PROPS,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -611,12 +544,7 @@ const switch_: Spec<SwitchProps> = {
   Preview: SwitchPreview,
   Form: CommonToggleForm,
   defaultProps: () => ({
-    label: {
-      label: "Switch",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,
   }),
   zIndex: Z_INDEX_UPPER,
@@ -629,12 +557,7 @@ const vacuumPump: Spec<VacuumPumpProps> = {
   Form: CommonToggleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Vacuum Pump",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Vacuum Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: VacuumPumpPreview,
@@ -648,12 +571,7 @@ const cavityPump: Spec<CavityPumpProps> = {
   Form: CommonToggleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Cavity Pump",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Cavity Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: CavityPumpPreview,
@@ -667,12 +585,7 @@ const pistonPump: Spec<PistonPumpProps> = {
   Form: CommonToggleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Piston Pump",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Piston Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: PistonPumpPreview,
@@ -686,12 +599,8 @@ const staticMixer: Spec<StaticMixerProps> = {
   Form: CommonNonToggleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Static Mixer",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Static Mixer"),
+    ...ZERO_PROPS,
   }),
   Preview: StaticMixerPreview,
   zIndex: Z_INDEX_UPPER,
@@ -704,12 +613,7 @@ const rotaryMixer: Spec<RotaryMixerProps> = {
   Form: CommonToggleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Rotary Mixer",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
+    ...zeroLabel("Rotary Mixer"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: RotaryMixerPreview,
@@ -723,28 +627,24 @@ const light: Spec<LightProps> = {
   Form: LightForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    label: {
-      label: "Light",
-      level: "p",
-      orientation: "top",
-    },
-    orientation: "left",
-    units: "psi",
-    source: telem.sourcePipeline("boolean", {
-      connections: [
-        {
-          from: "valueStream",
-          to: "threshold",
-        },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: 0 }),
-        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
-      },
-      outlet: "threshold",
-    }),
+    ...zeroLabel("Light"),
+    ...ZERO_BOOLEAN_SOURCE_PROPS,
   }),
   Preview: LightPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const input: Spec<InputProps> = {
+  name: "Input",
+  key: "input",
+  Symbol: Input,
+  Form: CommonNonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Input"),
+    ...ZERO_NUMERIC_SOURCE_PROPS,
+  }),
+  Preview: InputPreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -753,6 +653,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   light,
   switch: switch_,
   button,
+  input,
   tank,
   valve,
   solenoidValve,

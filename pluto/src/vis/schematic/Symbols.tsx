@@ -329,19 +329,17 @@ export interface TankProps extends Primitives.TankProps {
 
 export const Tank = Aether.wrap<SymbolProps<TankProps>>(
   "Tank",
-  ({ label, onChange, orientation, color, dimensions, borderRadius }): ReactElement => {
-    return (
-      <Labeled {...label} onChange={onChange}>
-        <Primitives.Tank
-          onResize={(dims) => onChange({ dimensions: dims })}
-          orientation={orientation}
-          color={color}
-          dimensions={dimensions}
-          borderRadius={borderRadius}
-        />
-      </Labeled>
-    );
-  },
+  ({ label, onChange, orientation, color, dimensions, borderRadius }): ReactElement => (
+    <Labeled {...label} onChange={onChange}>
+      <Primitives.Tank
+        onResize={(dims) => onChange({ dimensions: dims })}
+        orientation={orientation}
+        color={color}
+        dimensions={dimensions}
+        borderRadius={borderRadius}
+      />
+    </Labeled>
+  ),
 );
 
 export const TankPreview = (props: TankProps): ReactElement => (
@@ -357,13 +355,11 @@ export const ReliefValve = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<ReliefValveProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.ReliefValve orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<ReliefValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ReliefValve orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const ReliefValvePreview = (props: ReliefValveProps): ReactElement => (
   <Primitives.ReliefValve {...props} />
@@ -378,13 +374,11 @@ export const Regulator = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<RegulatorProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.Regulator orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<RegulatorProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Regulator orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const RegulatorPreview = (props: RegulatorProps): ReactElement => (
   <Primitives.Regulator {...props} />
@@ -399,13 +393,11 @@ export const ElectricRegulator = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<ElectricRegulatorProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.ElectricRegulator orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<ElectricRegulatorProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ElectricRegulator orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const ElectricRegulatorPreview = (
   props: ElectricRegulatorProps,
@@ -420,13 +412,11 @@ export const BurstDisc = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<BurstDiscProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.BurstDisc orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<BurstDiscProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.BurstDisc orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const BurstDiscPreview = (props: BurstDiscProps): ReactElement => (
   <Primitives.BurstDisc {...props} />
@@ -441,13 +431,11 @@ export const Cap = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<CapProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.Cap orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<CapProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Cap orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const CapPreview = (props: CapProps): ReactElement => (
   <Primitives.Cap {...props} />
@@ -462,16 +450,35 @@ export const ManualValve = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<ManualValveProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.ManualValve orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<ManualValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ManualValve orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const ManualValvePreview = (props: ManualValveProps): ReactElement => (
   <Primitives.ManualValve {...props} />
+);
+
+export interface InputProps extends Primitives.InputProps {
+  label?: LabelExtensionProps;
+}
+
+export const Input = ({
+  label,
+  orientation,
+  onChange,
+  color,
+}: SymbolProps<InputProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Input orientation={orientation} color={color} />
+  </Labeled>
+);
+
+export const InputPreview = (props: InputProps): ReactElement => (
+  <Primitives.Input {...props}>
+    <Text.Text level="p">50.00</Text.Text>
+  </Primitives.Input>
 );
 
 export interface FilterProps extends Primitives.FilterProps {
@@ -483,13 +490,11 @@ export const Filter = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<FilterProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.Filter orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<FilterProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Filter orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const FilterPreview = (props: FilterProps): ReactElement => (
   <Primitives.Filter {...props} />
@@ -504,13 +509,11 @@ export const NeedleValve = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<NeedleValveProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.NeedleValve orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<NeedleValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.NeedleValve orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const NeedleValvePreview = (props: NeedleValveProps): ReactElement => (
   <Primitives.NeedleValve {...props} />
@@ -525,13 +528,11 @@ export const CheckValve = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<CheckValveProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.CheckValve orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<CheckValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.CheckValve orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const CheckValvePreview = (props: CheckValveProps): ReactElement => (
   <Primitives.CheckValve {...props} />
@@ -546,13 +547,11 @@ export const Orifice = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<OrificeProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.Orifice orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<OrificeProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Orifice orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const OrificePreview = (props: OrificeProps): ReactElement => (
   <Primitives.Orifice {...props} />
@@ -567,13 +566,11 @@ export const AngledReliefValve = ({
   onChange,
   orientation,
   color,
-}: SymbolProps<AngledReliefValveProps>): ReactElement => {
-  return (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.AngledReliefValve orientation={orientation} color={color} />
-    </Labeled>
-  );
-};
+}: SymbolProps<AngledReliefValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.AngledReliefValve orientation={orientation} color={color} />
+  </Labeled>
+);
 
 export const AngledReliefValvePreview = (
   props: Primitives.AngledReliefValveProps,
@@ -724,20 +721,18 @@ const adjustBox = ({
   return box.construct(position.x, position.y, box.width(outerBox), valueBoxHeight);
 };
 
-export const ValuePreview = ({ color }: ValueProps): ReactElement => {
-  return (
-    <Primitives.Value
-      color={color}
-      dimensions={{
-        width: 60,
-        height: 25,
-      }}
-      units={"psi"}
-    >
-      <Text.Text level="p">50.00</Text.Text>
-    </Primitives.Value>
-  );
-};
+export const ValuePreview = ({ color }: ValueProps): ReactElement => (
+  <Primitives.Value
+    color={color}
+    dimensions={{
+      width: 60,
+      height: 25,
+    }}
+    units={"psi"}
+  >
+    <Text.Text level="p">50.00</Text.Text>
+  </Primitives.Value>
+);
 
 export interface SwitchProps
   extends Primitives.SwitchProps,
@@ -968,13 +963,11 @@ export interface StaticMixerProps extends Primitives.StaticMixerProps {
 
 export const StaticMixer = Aether.wrap<SymbolProps<StaticMixerProps>>(
   "statixMixer",
-  ({ label, onChange, orientation, color }): ReactElement => {
-    return (
-      <Labeled {...label} onChange={onChange}>
-        <Primitives.StaticMixer orientation={orientation} color={color} />
-      </Labeled>
-    );
-  },
+  ({ label, onChange, orientation, color }): ReactElement => (
+    <Labeled {...label} onChange={onChange}>
+      <Primitives.StaticMixer orientation={orientation} color={color} />
+    </Labeled>
+  ),
 );
 
 export const StaticMixerPreview = (props: StaticMixerProps): ReactElement => (

@@ -28,7 +28,7 @@ import {
 import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { Input } from "@/input";
+import { Input as CoreInput } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
@@ -945,17 +945,15 @@ export const Switch = ({
   enabled = false,
   onClick,
   orientation = "left",
-}: SwitchProps): ReactElement => {
-  return (
-    <Div orientation={orientation}>
-      <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} />
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      </HandleBoundary>
-    </Div>
-  );
-};
+}: SwitchProps): ReactElement => (
+  <Div orientation={orientation}>
+    <CoreInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+    </HandleBoundary>
+  </Div>
+);
 
 export interface ButtonProps extends Omit<DivProps, "onClick"> {
   label?: string;
@@ -966,19 +964,72 @@ export const Button = ({
   onClick,
   orientation = "left",
   label = "",
-}: ButtonProps): ReactElement => {
+}: ButtonProps): ReactElement => (
+  <Div orientation={orientation}>
+    <CoreButton.Button onClick={onClick}>{label}</CoreButton.Button>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+    </HandleBoundary>
+  </Div>
+);
+
+export interface InputProps extends Omit<DivProps, "onClick"> {
+  dimensions?: dimensions.Dimensions;
+  color?: Color.Crude;
+  units?: string;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+}
+
+export const Input = ({
+  orientation = "left",
+  color = "green",
+  className,
+  onClick,
+  units = "mV",
+  children = <Text.Text level="p">50.01</Text.Text>,
+  dimensions = {
+    width: 40,
+    height: 30,
+  },
+  ...props
+}: InputProps): ReactElement => {
+  const borderColor = Color.cssString(color);
   return (
-    <Div orientation={orientation}>
-      <CoreButton.Button onClick={onClick}>{label}</CoreButton.Button>
+    <Div
+      className={CSS(CSS.B("input"), className)}
+      style={{
+        borderStyle: "solid",
+        borderColor,
+        height: dimensions?.height,
+        width: "100%",
+      }}
+      orientation={orientation}
+      {...props}
+    >
+      <div
+        className={CSS.BE("input", "content")}
+        style={{ flexGrow: 1, minWidth: dimensions?.width }}
+      >
+        {children}
+      </div>
+      <div className={CSS.BE("input", "units")}>
+        <Text.Text level="small">{units}</Text.Text>
+      </div>
+      <CoreButton.Button onClick={onClick} style={{ height: dimensions.height }}>
+        Set
+      </CoreButton.Button>
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+        <Handle location="left" orientation={orientation} left={-2} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={102} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
         <Handle
           location="bottom"
           orientation={orientation}
           left={50}
-          top={100}
+          top={102}
           id="4"
         />
       </HandleBoundary>
