@@ -28,9 +28,10 @@ export const componentsPages = [
   pythonClientNav,
   typescriptClientNav,
   consoleNav,
-  plutoNav,
   deviceDriversNav,
+  plutoNav,
 ];
+
 export const guidesPages = [
   {
     name: "Get Started",
