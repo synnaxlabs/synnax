@@ -993,8 +993,6 @@ export const Setpoint = ({
   children,
   value,
   units,
-  color: _,
-  dimensions: __,
   onChange,
   ...props
 }: SetpointProps): ReactElement => {
