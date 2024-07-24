@@ -9,10 +9,7 @@
 
 package cmd
 
-import (
-	"encoding/base64"
-	"time"
-)
+import "encoding/base64"
 
 func configureStartFlags() {
 	startCmd.Flags().StringP(
@@ -73,12 +70,6 @@ func configureStartFlags() {
 		"no-driver",
 		false,
 		"Disable the embedded synnax driver",
-	)
-
-	startCmd.Flags().Duration(
-		"--relay-streamer-timeout",
-		2500*time.Millisecond,
-		"Timeout for the relay streamer.",
 	)
 
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")

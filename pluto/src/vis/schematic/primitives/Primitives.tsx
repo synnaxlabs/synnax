@@ -29,7 +29,7 @@ import {
 import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { Input as CoreInput, Input } from "@/input";
+import { Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
@@ -948,7 +948,7 @@ export const Switch = ({
   orientation = "left",
 }: SwitchProps): ReactElement => (
   <Div orientation={orientation}>
-    <CoreInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
+    <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} />
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={100} top={50} id="2" />

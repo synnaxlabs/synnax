@@ -47,6 +47,7 @@ export const render = (): void => {
     ...measure.REGISTRY,
     ...range.REGISTRY,
     ...rule.REGISTRY,
+    ...setpoint.REGISTRY,
     ...status.REGISTRY,
     ...synnax.REGISTRY,
     ...telem.REGISTRY,
@@ -54,7 +55,6 @@ export const render = (): void => {
     ...toggle.REGISTRY,
     ...tooltip.REGISTRY,
     ...value.REGISTRY,
-    ...setpoint.REGISTRY,
   };
 
   aether.render({
