@@ -138,34 +138,19 @@
     }
 }
 
-.pluto-input {
-    display: flex;
-    flex-direction: row;
-    border: var(--pluto--border);
-    border-radius: var(--pluto-border-radius);
-    border-color: var(--pluto-primary-z);
-    /* background-color: var(--pluto-primary-z-40); */
-
-    border-width: 2px;
-    padding: 0;
-    flex-grow: 0;
-    align-items: center;
-    justify-content: center;
-
-    & .pluto-input__content {
-        padding-left: 1.5rem;
+.pluto-setpoint {
+    --pluto-border-color: var(--pluto-gray-l5-40);
+    --pluto-border-l4: var(--pluto-border-width) solid var(--pluto-border-color);
+    width: 150px;
+    .pluto-input__internal,
+    .pluto-units,
+    .pluto-btn {
+        background: var(--pluto-gray-l3-70) !important;
     }
-
-    & .pluto-input__units {
-        display: flex;
-        align-items: center;
-        height: calc(100% + 2px);
+    .pluto-input__internal:not(:active):not(:focus-within) {
+        border-right: none !important;
+    }
+    .pluto-units {
         padding: 0 1rem;
-        padding-top: 2px;
-        margin-right: -1px;
-
-        & small {
-            font-weight: 500;
-        }
-    }
+    
 }

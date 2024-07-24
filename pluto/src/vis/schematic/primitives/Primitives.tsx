@@ -17,6 +17,7 @@ import {
   type ReactElement,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import {
   Handle as RFHandle,
@@ -28,7 +29,7 @@ import {
 import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { Input as CoreInput } from "@/input";
+import { Input as CoreInput, Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
@@ -976,48 +977,34 @@ export const Button = ({
   </Div>
 );
 
-export interface InputProps extends Omit<DivProps, "onClick"> {
+export interface SetPointProps
+  extends Omit<DivProps, "onClick" | "value" | "onChange">,
+    Input.Control<number> {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
   units?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
 }
 
-export const Input = ({
+export const SetPoint = ({
   orientation = "left",
   className,
   onClick,
-  units = "mV",
   children,
-  dimensions = {
-    width: 40,
-    height: 30,
-  },
+  value,
+  units,
+  color: _,
+  dimensions: __,
+  onChange,
   ...props
-}: InputProps): ReactElement => {
+}: SetPointProps): ReactElement => {
+  const [currValue, setCurrValue] = useState(value);
   return (
     <Div
-      className={CSS(CSS.B("input"), className)}
-      style={{
-        borderStyle: "solid",
-        height: dimensions?.height,
-        width: "100%",
-      }}
+      className={CSS(CSS.B("setpoint"), className)}
       orientation={orientation}
       {...props}
     >
-      <div
-        className={CSS.BE("input", "content")}
-        style={{ flexGrow: 1, minWidth: dimensions?.width }}
-      >
-        {children}
-      </div>
-      <div className={CSS.BE("input", "units")}>
-        <Text.Text level="small">{units}</Text.Text>
-      </div>
-      <CoreButton.Button onClick={onClick} style={{ height: dimensions.height }}>
-        Set
-      </CoreButton.Button>
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={-2} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={102} top={50} id="2" />
@@ -1030,6 +1017,24 @@ export const Input = ({
           id="4"
         />
       </HandleBoundary>
+      <Input.Numeric
+        size="small"
+        value={currValue}
+        onChange={setCurrValue}
+        showDragHandle={false}
+        selectOnFocus
+      >
+        <Text.Text className={CSS.B("units")} level="small">
+          {units}
+        </Text.Text>
+        <CoreButton.Button
+          variant="outlined"
+          size="small"
+          onClick={() => onChange(currValue)}
+        >
+          Set
+        </CoreButton.Button>
+      </Input.Numeric>
     </Div>
   );
 };

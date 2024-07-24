@@ -27,6 +27,7 @@ import { type Button as CoreButton } from "@/vis/button";
 import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import { type ControlStateProps } from "@/vis/schematic/Symbols";
+import { Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 
 export interface SymbolFormProps {}
@@ -620,32 +621,37 @@ export const ButtonForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
-interface InputTelemFormT {
-  control: ControlStateProps;
-  sink: telem.BooleanSinkSpec;
-}
-
-export const InputTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<InputTelemFormT>({ path });
+export const SetPointTelemForm = ({ path }: { path: string }): ReactElement => {
+  const { value, onChange } = Form.useField<
+    Omit<Setpoint.UseProps, "aetherKey"> & { control: ControlStateProps }
+  >({ path });
+  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
+  const source = telem.streamChannelValuePropsZ.parse(
+    sourceP.segments.valueStream.props,
+  );
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
-  const handleSinkChange = (v: channel.Key): void => {
-    const t = telem.sinkPipeline("boolean", {
-      connections: [
-        {
-          from: "setpoint",
-          to: "setter",
-        },
-      ],
+  const handleSourceChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
+    const t = telem.sourcePipeline("number", {
+      connections: [],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: v }),
+      },
+      outlet: "valueStream",
+    });
+    onChange({ ...value, source: t });
+  };
+
+  const handleSinkChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
+    const t = telem.sinkPipeline("number", {
+      connections: [],
       segments: {
         setter: control.setChannelValue({ channel: v }),
-        setpoint: telem.setpoint({
-          truthy: 1,
-          falsy: 0,
-        }),
       },
-      inlet: "setpoint",
+      inlet: "setter",
     });
 
     const authSource = control.authoritySource({ channel: v });
@@ -674,20 +680,25 @@ export const InputTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper direction="y">
-      <Input.Item label="Output Channel">
+    <FormWrapper direction="x" grow align="stretch">
+      <Input.Item label="State Channel" grow>
+        <Channel.SelectSingle
+          value={source.channel as number}
+          onChange={handleSourceChange}
+        />
+      </Input.Item>
+      <Input.Item label="Command Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
-      <Align.Space direction="x" grow></Align.Space>
     </FormWrapper>
   );
 };
 
-export const InputForm = (): ReactElement => {
+export const SetpointForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "control":
-        return <InputTelemForm path="" />;
+        return <SetPointTelemForm path="" />;
       default:
         return (
           <FormWrapper direction="x" align="stretch">

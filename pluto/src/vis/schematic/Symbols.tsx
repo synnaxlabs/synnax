@@ -17,7 +17,6 @@ import { Align } from "@/align";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
-import { Input as CoreInput } from "@/input";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -26,6 +25,7 @@ import { Button as CoreButton } from "@/vis/button";
 import { useInitialViewport } from "@/vis/diagram/aether/Diagram";
 import { Labeled, type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { Primitives } from "@/vis/schematic/primitives";
+import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
 
@@ -462,33 +462,26 @@ export const ManualValvePreview = (props: ManualValveProps): ReactElement => (
 );
 
 export interface InputProps
-  extends Primitives.InputProps,
-    Omit<CoreButton.UseProps, "aetherKey"> {
+  extends Omit<Primitives.SetPointProps, "value" | "onChange">,
+    Omit<CoreSetpoint.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
-  setpoint?: number;
   control?: ControlStateProps;
 }
 
-export const Input = Aether.wrap<SymbolProps<InputProps>>(
+export const SetPoint = Aether.wrap<SymbolProps<InputProps>>(
   "Input",
   ({
     label,
     aetherKey,
     orientation,
     control,
-    setpoint,
     units,
+    source,
     sink,
     onChange,
   }): ReactElement => {
-    const [internalSetpoint, setSetpoint] = useState(setpoint);
-
-    const handleChange = (setpoint: number): void => {
-      setSetpoint(setpoint);
-    };
-
-    const { click } = CoreButton.use({ aetherKey, sink });
-
+    console.log(sink);
+    const { value, set } = CoreSetpoint.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState
@@ -496,15 +489,12 @@ export const Input = Aether.wrap<SymbolProps<InputProps>>(
           className={CSS.B("symbol")}
           orientation={orientation}
         >
-          <Primitives.Input onClick={click} units={units} orientation={orientation}>
-            <CoreInput.Numeric
-              onChange={handleChange}
-              value={internalSetpoint ?? 0}
-              width="10px"
-              size="small"
-              showDragHandle={false}
-            />
-          </Primitives.Input>
+          <Primitives.SetPoint
+            value={value}
+            onChange={set}
+            units={units}
+            orientation={orientation}
+          />
         </ControlState>
       </Labeled>
     );
@@ -512,9 +502,9 @@ export const Input = Aether.wrap<SymbolProps<InputProps>>(
 );
 
 export const InputPreview = (props: InputProps): ReactElement => (
-  <Primitives.Input units={"mV"} {...props}>
+  <Primitives.SetPoint value={12} onChange={() => {}} units={"mV"} {...props}>
     <Text.Text level="p">10.0</Text.Text>
-  </Primitives.Input>
+  </Primitives.SetPoint>
 );
 
 export interface FilterProps extends Primitives.FilterProps {

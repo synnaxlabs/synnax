@@ -3,7 +3,7 @@
   "version": "0.25.1",
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",

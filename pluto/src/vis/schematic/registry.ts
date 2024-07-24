@@ -17,7 +17,7 @@ import {
   ButtonForm,
   CommonNonToggleForm,
   CommonToggleForm,
-  InputForm,
+  SetpointForm,
   LightForm,
   SolenoidValveForm,
   type SymbolFormProps,
@@ -52,7 +52,6 @@ import {
   type FilterProps,
   FourWayValve,
   FourWayValvePreview,
-  Input,
   InputPreview,
   type InputProps,
   Light,
@@ -85,6 +84,7 @@ import {
   ScrewPump,
   ScrewPumpPreview,
   type ScrewPumpProps,
+  SetPoint,
   SolenoidValve,
   SolenoidValvePreview,
   type SolenoidValveProps,
@@ -136,7 +136,7 @@ const VARIANTS = [
   "electricRegulator",
   "filter",
   "fourWayValve",
-  "input",
+  "setpoint",
   "light",
   "manualValve",
   "needleValve",
@@ -164,7 +164,7 @@ const ZERO_PROPS = {
   orientation: "left" as const,
 };
 
-const ZERO_NUMERIC_SOURCE_PROPS = {
+const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("string", {
     connections: [
@@ -183,6 +183,28 @@ const ZERO_NUMERIC_SOURCE_PROPS = {
       stringifier: telem.stringifyNumber({ precision: 2 }),
     },
     outlet: "stringifier",
+  }),
+};
+
+const ZERO_NUMERIC_SOURCE_PROPS = {
+  ...ZERO_PROPS,
+  source: telem.sourcePipeline("number", {
+    connections: [],
+    segments: {
+      valueStream: telem.streamChannelValue({ channel: 0 }),
+    },
+    outlet: "valueStream",
+  }),
+};
+
+const ZERO_NUMERIC_SINK_PROPS = {
+  ...ZERO_PROPS,
+  sink: telem.sinkPipeline("number", {
+    connections: [],
+    segments: {
+      setter: control.setChannelValue({ channel: 0 }),
+    },
+    inlet: "setter",
   }),
 };
 
@@ -520,7 +542,7 @@ const value: Spec<ValueProps> = {
     level: "h5",
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
-    telem: ZERO_NUMERIC_SOURCE_PROPS.source,
+    telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -635,15 +657,16 @@ const light: Spec<LightProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const input: Spec<InputProps> = {
-  name: "Input",
-  key: "input",
-  Symbol: Input,
-  Form: InputForm,
+const setpoint: Spec<InputProps> = {
+  name: "Setpoint",
+  key: "setpoint",
+  Symbol: SetPoint,
+  Form: SetpointForm,
   defaultProps: () => ({
     units: "mV",
     ...zeroLabel("Input"),
-    ...ZERO_BOOLEAN_SINK_PROPS,
+    ...ZERO_NUMERIC_SOURCE_PROPS,
+    ...ZERO_NUMERIC_SINK_PROPS,
   }),
   Preview: InputPreview,
   zIndex: Z_INDEX_UPPER,
@@ -654,7 +677,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   light,
   switch: switch_,
   button,
-  input,
+  setpoint,
   tank,
   valve,
   solenoidValve,
