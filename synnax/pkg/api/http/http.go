@@ -22,6 +22,9 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.AuthLogin = fhttp.UnaryServer[auth.InsecureCredentials, api.TokenResponse](router, false, "/api/v1/auth/login")
 
 	// USER
+	t.UserRegistrationOld = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/auth/register")
+	t.UserChangePasswordOld = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/protected/change-password")
+	t.UserChangeUsernameOld = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/protected/change-username")
 	t.UserRegistration = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/user/register")
 	t.UserChangePassword = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/user/protected/change-password")
 	t.UserChangeUsername = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/user/protected/change-username")
