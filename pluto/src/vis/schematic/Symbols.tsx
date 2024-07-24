@@ -461,15 +461,15 @@ export const ManualValvePreview = (props: ManualValveProps): ReactElement => (
   <Primitives.ManualValve {...props} />
 );
 
-export interface InputProps
-  extends Omit<Primitives.SetPointProps, "value" | "onChange">,
+export interface SetpointProps
+  extends Omit<Primitives.SetpointProps, "value" | "onChange">,
     Omit<CoreSetpoint.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
 }
 
-export const SetPoint = Aether.wrap<SymbolProps<InputProps>>(
-  "Input",
+export const Setpoint = Aether.wrap<SymbolProps<SetpointProps>>(
+  "Setpoint",
   ({
     label,
     aetherKey,
@@ -480,7 +480,6 @@ export const SetPoint = Aether.wrap<SymbolProps<InputProps>>(
     sink,
     onChange,
   }): ReactElement => {
-    console.log(sink);
     const { value, set } = CoreSetpoint.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
@@ -489,7 +488,7 @@ export const SetPoint = Aether.wrap<SymbolProps<InputProps>>(
           className={CSS.B("symbol")}
           orientation={orientation}
         >
-          <Primitives.SetPoint
+          <Primitives.Setpoint
             value={value}
             onChange={set}
             units={units}
@@ -501,10 +500,10 @@ export const SetPoint = Aether.wrap<SymbolProps<InputProps>>(
   },
 );
 
-export const InputPreview = (props: InputProps): ReactElement => (
-  <Primitives.SetPoint value={12} onChange={() => {}} units={"mV"} {...props}>
+export const SetpointPreview = (props: SetpointProps): ReactElement => (
+  <Primitives.Setpoint value={12} onChange={() => {}} units={"mV"} {...props}>
     <Text.Text level="p">10.0</Text.Text>
-  </Primitives.SetPoint>
+  </Primitives.Setpoint>
 );
 
 export interface FilterProps extends Primitives.FilterProps {

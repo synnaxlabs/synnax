@@ -17,8 +17,8 @@ import {
   ButtonForm,
   CommonNonToggleForm,
   CommonToggleForm,
-  SetpointForm,
   LightForm,
+  SetpointForm,
   SolenoidValveForm,
   type SymbolFormProps,
   TankForm,
@@ -52,8 +52,6 @@ import {
   type FilterProps,
   FourWayValve,
   FourWayValvePreview,
-  InputPreview,
-  type InputProps,
   Light,
   LightPreview,
   type LightProps,
@@ -84,7 +82,9 @@ import {
   ScrewPump,
   ScrewPumpPreview,
   type ScrewPumpProps,
-  SetPoint,
+  Setpoint,
+  SetpointPreview,
+  type SetpointProps,
   SolenoidValve,
   SolenoidValvePreview,
   type SolenoidValveProps,
@@ -657,18 +657,18 @@ const light: Spec<LightProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const setpoint: Spec<InputProps> = {
+const setpoint: Spec<SetpointProps> = {
   name: "Setpoint",
   key: "setpoint",
-  Symbol: SetPoint,
+  Symbol: Setpoint,
   Form: SetpointForm,
   defaultProps: () => ({
     units: "mV",
-    ...zeroLabel("Input"),
+    ...zeroLabel("Setpoint"),
     ...ZERO_NUMERIC_SOURCE_PROPS,
     ...ZERO_NUMERIC_SINK_PROPS,
   }),
-  Preview: InputPreview,
+  Preview: SetpointPreview,
   zIndex: Z_INDEX_UPPER,
 };
 

@@ -977,7 +977,7 @@ export const Button = ({
   </Div>
 );
 
-export interface SetPointProps
+export interface SetpointProps
   extends Omit<DivProps, "onClick" | "value" | "onChange">,
     Input.Control<number> {
   dimensions?: dimensions.Dimensions;
@@ -986,7 +986,7 @@ export interface SetPointProps
   onClick?: MouseEventHandler<HTMLButtonElement>;
 }
 
-export const SetPoint = ({
+export const Setpoint = ({
   orientation = "left",
   className,
   onClick,
@@ -997,7 +997,7 @@ export const SetPoint = ({
   dimensions: __,
   onChange,
   ...props
-}: SetPointProps): ReactElement => {
+}: SetpointProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
   return (
     <Div

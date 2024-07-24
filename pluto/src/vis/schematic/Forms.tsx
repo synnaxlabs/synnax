@@ -621,7 +621,7 @@ export const ButtonForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
-export const SetPointTelemForm = ({ path }: { path: string }): ReactElement => {
+export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
     Omit<Setpoint.UseProps, "aetherKey"> & { control: ControlStateProps }
   >({ path });
@@ -698,7 +698,7 @@ export const SetpointForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "control":
-        return <SetPointTelemForm path="" />;
+        return <SetpointTelemForm path="" />;
       default:
         return (
           <FormWrapper direction="x" align="stretch">
