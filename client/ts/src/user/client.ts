@@ -12,7 +12,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { insecureCredentialsZ, tokenResponseZ } from "@/auth/auth";
 import { Payload } from "@/user/payload";
 
-const REGISTER_ENDPOINT = "/auth/register";
+const REGISTER_ENDPOINT = "/user/register";
 
 export class Client {
   private readonly client: UnaryClient;

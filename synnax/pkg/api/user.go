@@ -38,19 +38,6 @@ func NewUserService(p Provider) *UserService {
 	}
 }
 
-// Login attempts to authenticate a user with the provided credentials. If successful,
-// returns a response containing a valid JWT along with the user's details.
-func (s *UserService) Login(ctx context.Context, cred auth.InsecureCredentials) (tr TokenResponse, err error) {
-	if err = s.authenticator.Authenticate(ctx, cred); err != nil {
-		return
-	}
-	u, err := s.user.RetrieveByUsername(ctx, cred.Username)
-	if err != nil {
-		return tr, err
-	}
-	return s.tokenResponse(u)
-}
-
 // RegistrationRequest is an API request to register a new user.
 type RegistrationRequest struct {
 	auth.InsecureCredentials
@@ -131,15 +118,6 @@ func (s *UserService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 		u.Username = cur.NewUsername
 		return s.user.NewWriter(txn).Update(ctx, u)
 	})
-}
-
-// TokenResponse is a response containing a valid JWT along with details about the user
-// the token is associated with.
-type TokenResponse struct {
-	// User is the user the token is associated with.
-	User user.User `json:"user"`
-	// Token is the JWT.
-	Token string `json:"token"`
 }
 
 func (s *UserService) tokenResponse(u user.User) (TokenResponse, error) {

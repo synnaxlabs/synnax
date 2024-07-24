@@ -13,7 +13,7 @@ from synnax.user.payload import UserPayload
 
 
 class UserClient:
-    _REGISTER_ENDPOINT = "/auth/register"
+    _REGISTER_ENDPOINT = "/user/register"
 
     client: UnaryClient
 

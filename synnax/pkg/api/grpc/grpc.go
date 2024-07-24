@@ -29,10 +29,10 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
 	a.ChannelRetrieveGroup = fnoop.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse]{}
 
-	// AUTH
-	a.AuthChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
-	a.AuthChangePassword = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
-	a.AuthRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
+	// User
+	a.UserChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
+	a.UserChangePassword = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
+	a.UserRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
 
 	// RANGE
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}

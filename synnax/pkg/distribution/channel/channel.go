@@ -153,11 +153,6 @@ func (k Keys) Unique() Keys { return lo.Uniq(k) }
 // followed by the keys that are absent in k.
 func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
 
-// OntologyIDs returns the ontology.ID for each key.
-func (k Keys) OntologyIDs() []ontology.ID {
-	return lo.Map(k, func(key Key, _ int) ontology.ID { return ontology.ID{Type: OntologyType, Key: key.String()} })
-}
-
 // Channel is a collection is a container representing a collection of samples across
 // a time range. The data within a channel typically arrives from a single source. This
 // can be a physical sensor, software sensor, metric, event, or any other entity that

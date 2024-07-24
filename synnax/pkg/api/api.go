@@ -117,10 +117,11 @@ func (c Config) Override(other Config) Config {
 
 type Transport struct {
 	// AUTH
-	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
-	AuthChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	AuthLogin freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	// User
+	UserChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
+	UserChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
+	UserRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
@@ -204,7 +205,8 @@ type Transport struct {
 type API struct {
 	provider     Provider
 	config       Config
-	Auth         *UserService
+	Auth         *AuthService
+	User         *UserService
 	Telem        *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
@@ -231,7 +233,7 @@ func (a *API) BindTo(t Transport) {
 
 	freighter.UseOnAll(
 		insecureMiddleware,
-		t.AuthRegistration,
+		t.UserRegistration,
 		t.AuthLogin,
 		t.ConnectivityCheck,
 	)
@@ -239,9 +241,9 @@ func (a *API) BindTo(t Transport) {
 	freighter.UseOnAll(
 		secureMiddleware,
 
-		// AUTH
-		t.AuthChangeUsername,
-		t.AuthChangePassword,
+		// USER
+		t.UserChangeUsername,
+		t.UserChangePassword,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -332,9 +334,11 @@ func (a *API) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(a.Auth.Login)
-	t.AuthChangeUsername.BindHandler(a.Auth.ChangeUsername)
-	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
-	t.AuthRegistration.BindHandler(a.Auth.Register)
+	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
+	t.UserChangePassword.BindHandler(a.User.ChangePassword)
+
+	// USER
+	t.UserRegistration.BindHandler(a.User.Register)
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(a.Channel.Create)
@@ -431,7 +435,8 @@ func New(configs ...Config) (API, error) {
 		return API{}, err
 	}
 	api := API{config: cfg, provider: NewProvider(cfg)}
-	api.Auth = NewUserService(api.provider)
+	api.Auth = NewAuthService(api.provider)
+	api.User = NewUserService(api.provider)
 	api.Access = NewAccessService(api.provider)
 	api.Telem = NewFrameService(api.provider)
 	api.Channel = NewChannelService(api.provider)

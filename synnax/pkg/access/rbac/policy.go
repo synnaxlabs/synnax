@@ -20,10 +20,12 @@ import (
 // Policy is a simple access control policy in the RBAC model.
 // A policy sets an action that is allowed. All other accesses except for those
 // specified by a policy are denied by default.
+//
+// In a policy, **Subjects do Actions on Objects**.
 type Policy struct {
 	// Key is a unique uuid to identify the policy.
 	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Subjects it the list of subjects that the policy applies to
+	// Subjects it the list of subjects of the policy
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
 	// Objects is the list of objects that the policy applies to
 	Objects []ontology.ID `json:"objects" msgpack:"objects"`
@@ -75,7 +77,7 @@ func AllowRequest(req access.Request, policies []Policy) bool {
 			if o.IsType() {
 				// If an object applies to an entire type, then all requested objects
 				// of that type may be satisfied.
-				for requestedO, _ := range requestedObjects {
+				for requestedO := range requestedObjects {
 					if requestedO.Type == o.Type {
 						delete(requestedObjects, requestedO)
 					}

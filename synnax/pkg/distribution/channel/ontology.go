@@ -29,6 +29,11 @@ func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
+// OntologyIDs returns the ontology.ID for each key.
+func (k Keys) OntologyIDs() []ontology.ID {
+	return lo.Map(k, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+}
+
 func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 	return lo.Map(chs, func(item Channel, _ int) ontology.ID {
 		return OntologyID(item.Key())
