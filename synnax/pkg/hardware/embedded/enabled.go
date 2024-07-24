@@ -16,7 +16,6 @@ import (
 	"context"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xos "github.com/synnaxlabs/x/os"
@@ -48,10 +47,13 @@ func (d *Driver) start() error {
 	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdown = signal.NewShutdown(sCtx, cancel)
-	bre := breaker.Breaker{
+	bre, err := breaker.NewBreaker(sCtx, breaker.Config{
 		BaseInterval: 1 * time.Second,
 		Scale:        1.1,
 		MaxRetries:   100,
+	})
+	if err != nil {
+		return err
 	}
 	var mf func(ctx context.Context) error
 	mf = func(ctx context.Context) error {
