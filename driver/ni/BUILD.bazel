@@ -82,6 +82,8 @@ cc_library(
         "@platforms//os:windows": [
             "user32.lib",
             "delayimp.lib",
+            "/IGNORE:4199",         # ignore /DELAYLOAD warnings
+            "/IGNORE:4099",         # Ignores debug symbols not found for ni binaries
             "/DELAYLOAD:NIDAQmx.dll",
             "/DELAYLOAD:nisyscfg.dll",
             "/DELAYLOAD:nicaiu.dll",

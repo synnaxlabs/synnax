@@ -12,19 +12,19 @@ import "@/range/Toolbar.css";
 import { type label, TimeRange } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   componentRenderProp,
   Header,
+  List as Core,
+  Menu as PMenu,
   Ranger,
   Status,
   Synnax,
   Tag,
+  Text,
   Tooltip,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { List as Core } from "@synnaxlabs/pluto/list";
-import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
-import { Text } from "@synnaxlabs/pluto/text";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
