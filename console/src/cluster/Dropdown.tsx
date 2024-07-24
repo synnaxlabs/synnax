@@ -1,11 +1,11 @@
 // Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in
-// the file licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business
-// Source License, use of this software will be governed by the Apache License,
-// Version 2.0, included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 import "@/cluster/Dropdown.css";
 
@@ -19,12 +19,16 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import type { MouseEvent, PropsWithChildren, ReactElement } from "react";
-import { useCallback } from "react";
+import {
+  type MouseEvent,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
-import type { Cluster } from "@/cluster/core";
+import { type Cluster } from "@/cluster/core";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components/menu";

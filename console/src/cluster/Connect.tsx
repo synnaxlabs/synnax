@@ -1,16 +1,15 @@
 // Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in
-// the file licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business
-// Source License, use of this software will be governed by the Apache License,
-// Version 2.0, included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 import "@/cluster/Connect.css";
 
-import type { connection, SynnaxProps } from "@synnaxlabs/client";
-import { synnaxPropsZ } from "@synnaxlabs/client";
+import { type connection, type SynnaxProps, synnaxPropsZ } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -21,8 +20,7 @@ import {
   Status,
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -31,7 +29,7 @@ import { useSelectMany } from "@/cluster/selectors";
 import { set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
-import type { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export const connectWindowLayout: Layout.State = {
   key: "connectCluster",
@@ -47,8 +45,8 @@ export const connectWindowLayout: Layout.State = {
 };
 
 /**
- * Connect implements the LayoutRenderer component type to provide a form for
- * connecting to a cluster.
+ * Connect implements the LayoutRenderer component type to provide a form for connecting
+ * to a cluster.
  */
 export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const dispatch = useDispatch();
