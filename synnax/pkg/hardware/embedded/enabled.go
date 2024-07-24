@@ -16,6 +16,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xos "github.com/synnaxlabs/x/os"
