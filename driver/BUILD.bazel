@@ -54,11 +54,6 @@ cc_binary(
     srcs = select({
         "//conditions:default":["main.cpp"],
     }),
-    # copts = select({
-    #     "@platforms//os:windows": ["/std:c++20"],
-    #     "@platforms//os:linux": ["-std=c++20"],
-    #     "//conditions:default": [],
-    # }),
     copts = select({
         ":use_ni": ["-DUSE_NI"],
         "//conditions:default": ["-std=c++20"], 

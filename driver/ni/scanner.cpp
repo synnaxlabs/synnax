@@ -79,7 +79,6 @@ void ni::Scanner::scan() {
     if(!this->ok_state) return;
     NISysCfgResourceHandle resource = NULL;
 
-    // first find hardware
     auto err = ni::NiSysCfgInterface::FindHardware(
         this->session, NISysCfgFilterModeAll,
         this->filter, NULL,
