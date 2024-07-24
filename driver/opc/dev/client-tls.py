@@ -54,7 +54,7 @@ async def task(loop):
         SecurityPolicyBasic256Sha256,
         certificate=str(cert),
         private_key=str(private_key),
-        server_certificate="server.der"
+        server_certificate="server.der",
     )
 
     # if USE_TRUST_STORE:
@@ -67,7 +67,7 @@ async def task(loop):
     try:
         async with client:
             objects = client.nodes.objects
-            child = await objects.get_child(['0:MyObject', '0:MyVariable'])
+            child = await objects.get_child(["0:MyObject", "0:MyVariable"])
             print(await child.get_value())
             await child.set_value(42)
             print(await child.get_value())

@@ -41,6 +41,7 @@ from synnax.util.normalize import normalize
 
 channel_ontology_type = OntologyID(type="channel")
 
+
 class Channel(ChannelPayload):
     """A channel is a logical collection of samples emitted by or representing the
     values of a single source. See https://docs.synnaxlabs.com/concepts/channels for an

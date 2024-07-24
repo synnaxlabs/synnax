@@ -18,7 +18,7 @@ import warnings
 headers = {
     "Client_id": "1fcca773908c4e6da0500a60ea393e83",
     "Client_secret": "9EC7AA4494614C25AE57f022Bc6f7Bac",
-    "Referer": "https://www.ni.com/"
+    "Referer": "https://www.ni.com/",
 }
 
 base_url = "https://www.ni.com/site-search/api/results?"
@@ -31,27 +31,28 @@ def find_better_spec(id, prod):
     global counter
     url = prod["productSpecs"]
     if "search" in url:
-        url = url[url.find("?") + 1:]
+        url = url[url.find("?") + 1 :]
         res = requests.get(base_url + url, headers=headers)
         if res.status_code != 200:
             warnings.warn(
-                f"Failed to get specs for {prod['productTitle']} {res.status_code}")
+                f"Failed to get specs for {prod['productTitle']} {res.status_code}"
+            )
             if res.status_code == 503:
                 time.sleep(1)
                 return find_better_spec(id, prod)
             return prod
         j = res.json()
-        res_list = j['searchResultList']
+        res_list = j["searchResultList"]
         for item in res_list:
             if "specs.html" in item["uri"]:
-                prod['productSpecs'] = item["uri"]
+                prod["productSpecs"] = item["uri"]
                 with lock:
-                    updated.append(prod['tileLabel'])
+                    updated.append(prod["tileLabel"])
                 break
     return prod
 
 
-products = json.load(open('out/products.json', 'r'))
+products = json.load(open("out/products.json", "r"))
 products = process_products(products, find_better_spec)
 print(f"Updated {updated} products")
-json.dump(products, open('out/products.json', 'w'))
+json.dump(products, open("out/products.json", "w"))
