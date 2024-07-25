@@ -11,11 +11,16 @@ package breaker
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+)
+
+const (
+	InfiniteRetries = math.MaxInt
 )
 
 type Config struct {
@@ -67,7 +72,7 @@ func NewBreaker(ctx context.Context, configs ...Config) (Breaker, error) {
 // cannot wait if its context is canceled or if it reached its maximum retry count.
 // Wait waits an exponentially increasing amount of time each time it is called.
 func (b *Breaker) Wait() bool {
-	if b.retryCount == b.MaxRetries {
+	if b.MaxRetries != InfiniteRetries && b.retryCount == b.MaxRetries {
 		return false
 	}
 

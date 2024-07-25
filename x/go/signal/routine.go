@@ -12,7 +12,6 @@ package signal
 import (
 	"context"
 	"fmt"
-	"math"
 	"runtime/pprof"
 	"strconv"
 	"time"
@@ -69,10 +68,6 @@ const (
 	propagatePanic panicPolicy = iota
 	recoverNoErr
 	recoverErr
-)
-
-const (
-	InfiniteRetries int = math.MaxInt - 1
 )
 
 const (
@@ -168,7 +163,7 @@ func WithBaseRetryInterval(retryInterval time.Duration) RoutineOption {
 func WithRetryOnPanic(maxRetries ...int) RoutineOption {
 	return func(r *routineOptions) {
 		if len(maxRetries) == 0 {
-			r.breakerCfg.MaxRetries = InfiniteRetries
+			r.breakerCfg.MaxRetries = breaker.InfiniteRetries
 		} else {
 			r.breakerCfg.MaxRetries = maxRetries[0]
 		}
