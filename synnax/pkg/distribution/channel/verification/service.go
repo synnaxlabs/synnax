@@ -83,14 +83,24 @@ func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
 			return service, nil
 		}
 		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
-		sCtx.Go(service.logTheDog, signal.RecoverWithErrOnPanic())
+		sCtx.Go(
+			service.logTheDog,
+			signal.WithRetryOnPanic(),
+			signal.WithBaseRetryInterval(2*time.Second),
+			signal.WithRetryScale(1.1),
+		)
 		return service, nil
 	}
 	err = service.create(ctx, toOpen)
 	if err != nil {
 		return service, err
 	}
-	sCtx.Go(service.logTheDog, signal.RecoverWithErrOnPanic())
+	sCtx.Go(
+		service.logTheDog,
+		signal.WithRetryOnPanic(),
+		signal.WithBaseRetryInterval(2*time.Second),
+		signal.WithRetryScale(1.1),
+	)
 	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
 		strconv.Itoa(int(getNumChan(toOpen))) + decode("IGNoYW5uZWxz"))
 	return service, err

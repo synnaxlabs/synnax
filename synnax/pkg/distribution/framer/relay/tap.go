@@ -99,7 +99,6 @@ func (t *tapper) updateDemands(d demand) map[core.NodeKey]channel.Keys {
 
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	t.taps[core.Free], _ = t.tapInto(sCtx, core.Free, channel.Keys{})
-	// HERE
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral
 		// runs before we close the inlet to the delta.

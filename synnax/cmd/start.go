@@ -253,11 +253,13 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		// HERE
 		sCtx.Go(func(_ context.Context) error {
 			defer cancel()
 			return srv.Serve()
-		}, xsignal.WithKey("server"))
+		},
+			xsignal.WithKey("server"),
+			xsignal.RecoverWithErrOnPanic(),
+		)
 		defer srv.Stop()
 
 		d, err := embedded.OpenDriver(

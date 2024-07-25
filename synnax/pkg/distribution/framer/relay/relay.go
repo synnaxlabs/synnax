@@ -11,6 +11,8 @@ package relay
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 type Config struct {
@@ -92,19 +93,18 @@ func Open(configs ...Config) (*Relay, error) {
 
 	sCtx, _ := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 
-	// HERE
 	r.delta.Flow(
 		sCtx,
 		confluence.WithAddress("delta"),
 		confluence.RecoverWithErrOnPanic(),
-		confluence.WithMaxRestart(signal.InfiniteRestart),
+		confluence.WithRetryOnPanic(),
 	)
 	tpr.Flow(
 		sCtx,
 		confluence.WithAddress("tapper"),
-		confluence.CloseInletsOnExit(),
+		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
-		confluence.WithMaxRestart(signal.InfiniteRestart),
+		confluence.WithRetryOnPanic(),
 	)
 	r.wg = sCtx
 

@@ -11,9 +11,10 @@ package kv
 
 import (
 	"context"
+	"io"
+
 	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
@@ -253,10 +254,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		Capacity:     1,
 	}.MustRoute(pipe)
 
-	pipe.Flow(sCtx,
-		confluence.RecoverWithErrOnPanic(),
-		confluence.WithMaxRestart(signal.InfiniteRestart),
-	)
+	pipe.Flow(sCtx)
 
 	return db_, nil
 }

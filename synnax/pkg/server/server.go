@@ -158,12 +158,10 @@ func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
 		return filterCloserError(secure.Serve())
 	}, signal.WithKey("secure"), signal.RecoverWithErrOnPanic())
 
-	// HERE
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(insecure.Serve())
 	}, signal.WithKey("insecureMux"), signal.RecoverWithErrOnPanic())
 
-	// HERE
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(root.Serve())
 	}, signal.WithKey("rootMux"), signal.RecoverWithErrOnPanic())

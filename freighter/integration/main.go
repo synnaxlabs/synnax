@@ -45,7 +45,6 @@ func main() {
 		if err != nil {
 			return err
 		}
-		// HERE
 		sCtx.Go(func(ctx context.Context) error {
 			return g.Serve(lis)
 		})

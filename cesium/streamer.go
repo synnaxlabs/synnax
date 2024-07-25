@@ -81,7 +81,6 @@ func (s *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	frames, disconnect := s.relay.connect(relayBufferSize)
-	// HERE
 	sCtx.Go(func(ctx context.Context) error {
 		defer disconnect()
 		for {

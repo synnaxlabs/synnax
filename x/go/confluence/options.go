@@ -10,6 +10,8 @@
 package confluence
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -46,6 +48,7 @@ func CancelOnFail() Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.CancelOnFail()) }
 }
 
+// document
 func RecoverWithErrOnPanic() Option {
 	return func(fo *Options) {
 		fo.Signal = append(fo.Signal, signal.RecoverWithErrOnPanic())
@@ -58,9 +61,21 @@ func RecoverWithoutErrOnPanic() Option {
 	}
 }
 
-func WithMaxRestart(maxRestart int) Option {
+func WithRetryOnPanic(maxRetries ...int) Option {
 	return func(fo *Options) {
-		fo.Signal = append(fo.Signal, signal.WithMaxRestart(maxRestart))
+		fo.Signal = append(fo.Signal, signal.WithRetryOnPanic(maxRetries...))
+	}
+}
+
+func WithBaseRetryInterval(retryInterval time.Duration) Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.WithBaseRetryInterval(retryInterval))
+	}
+}
+
+func WithRetryScale(scale float32) Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.WithRetryScale(scale))
 	}
 }
 
@@ -68,7 +83,9 @@ func WithAddress(addr address.Address) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.WithKey(string(addr))) }
 }
 
-func CloseInletsOnExit() Option {
+// CloseOutputInletsOnExit closes the output stream attached to the confluence segment
+// when the segment exits.
+func CloseOutputInletsOnExit() Option {
 	return func(fo *Options) { fo.CloseInletsOnExit = true }
 }
 

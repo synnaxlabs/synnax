@@ -11,6 +11,10 @@ package signal_test
 
 import (
 	"context"
+	"runtime/pprof"
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/atomic"
@@ -18,9 +22,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"runtime/pprof"
-	"sync"
-	"time"
 )
 
 func immediatelyReturnError(ctx context.Context) error {
@@ -296,7 +297,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, cancel := signal.Isolated()
-			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: signal.InfiniteRestart, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
+			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: signal.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
 
 			wg.Add(1)
 			go func() {
@@ -326,7 +327,7 @@ var _ = Describe("Signal", func() {
 			start := time.Now()
 			ctx.Go(
 				succeedInTen,
-				signal.WithBreaker(breaker.Config{MaxRetries: signal.InfiniteRestart, BaseInterval: 1 * time.Millisecond, Scale: 2}),
+				signal.WithBreaker(breaker.Config{MaxRetries: signal.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 2}),
 				signal.RecoverWithErrOnPanic(),
 			)
 
@@ -356,7 +357,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(f, signal.WithMaxRestart(100))
+			ctx.Go(f, signal.WithRetryOnPanic(100))
 
 			Expect(ctx.Wait()).To(Succeed())
 			Expect(counter).To(Equal(1))
@@ -372,7 +373,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(f, signal.WithMaxRestart(signal.InfiniteRestart))
+			ctx.Go(f, signal.WithRetryOnPanic(signal.InfiniteRetries))
 
 			Expect(ctx.Wait()).To(Succeed())
 			Expect(counter).To(Equal(1))

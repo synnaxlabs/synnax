@@ -294,5 +294,5 @@ func (db *DB) startGC(sCtx signal.Context, opts *options) {
 			db.L.Error("garbage collection error", zap.Error(err))
 		}
 		return nil
-	}, signal.WithMaxRestart(10), signal.RecoverWithoutErrOnPanic())
+	}, signal.WithRetryOnPanic(10), signal.RecoverWithoutErrOnPanic())
 }

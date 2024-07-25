@@ -101,7 +101,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (*Iterator, error) {
 	stream.OutTo(res)
 	stream.Flow(
 		sCtx,
-		confluence.CloseInletsOnExit(),
+		confluence.CloseOutputInletsOnExit(),
 		confluence.CancelOnFail(),
 		confluence.RecoverWithErrOnPanic(),
 	)

@@ -12,13 +12,15 @@ package signal
 import (
 	"context"
 	"fmt"
+	"math"
+	"runtime/pprof"
+	"strconv"
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
-	"math"
-	"runtime/pprof"
-	"strconv"
 )
 
 type RoutineOption func(r *routineOptions)
@@ -70,7 +72,7 @@ const (
 )
 
 const (
-	InfiniteRestart int = math.MaxInt - 1
+	InfiniteRetries int = math.MaxInt - 1
 )
 
 const (
@@ -139,20 +141,47 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 // WithBreaker sets the breaker to use to enable the goroutine to attempt to rerun
 // despite a panic. The breaker controls the interval between two reruns as well as the
 // coefficient by which the interval grows.
-// Note that it is important to set a PanicPolicy in addition to a breaker!!
+// When WithBreaker is used, the PanicPolicy of recoverErr is automatically used.
 func WithBreaker(breakerCfg breaker.Config) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg = breakerCfg
 		r.useBreaker = true
+		r.panicPolicy = recoverErr
 	}
 }
 
-// WithMaxRestart implicitly uses a breaker in this goroutine, but with the other options
-// being default and only sets the MaxRetries field to the given maxRestart argument.
-// Note that it is important to set a PanicPolicy in addition to a breaker!!
-func WithMaxRestart(maxRestart int) RoutineOption {
+// WithBaseRetryInterval sets the base interval for the breaker used to restart the
+// goroutine. The base retry interval is how much time the breaker waits before trying
+// to restart for the first time.
+func WithBaseRetryInterval(retryInterval time.Duration) RoutineOption {
 	return func(r *routineOptions) {
-		r.breakerCfg.MaxRetries = maxRestart
+		r.breakerCfg.BaseInterval = retryInterval
+		r.useBreaker = true
+	}
+}
+
+// WithRetryOnPanic attempts to recover from a panicking goroutine and restarts it.
+// If an argument is passed into it, it retries for the specified amount of time and
+// exits with an error if it panics on its last attempt.
+// If at any retry the goroutine exits with or without error, the goroutine exits and
+// no longer attempts to restart.
+func WithRetryOnPanic(maxRetries ...int) RoutineOption {
+	return func(r *routineOptions) {
+		if len(maxRetries) == 0 {
+			r.breakerCfg.MaxRetries = InfiniteRetries
+		} else {
+			r.breakerCfg.MaxRetries = maxRetries[0]
+		}
+		r.useBreaker = true
+		r.panicPolicy = recoverErr
+	}
+}
+
+// WithRetryScale sets the scale on the breaker used to restart the goroutine. The scale
+// defines the rate by which the interval between two retries grow.
+func WithRetryScale(scale float32) RoutineOption {
+	return func(r *routineOptions) {
+		r.breakerCfg.Scale = scale
 		r.useBreaker = true
 	}
 }

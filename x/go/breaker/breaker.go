@@ -11,11 +11,11 @@ package breaker
 
 import (
 	"context"
+	"time"
+
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 type Config struct {
@@ -33,8 +33,8 @@ func (c Config) Override(o Config) Config {
 
 func (c Config) Validate() error {
 	v := validate.New("breaker")
-	validate.Positive(v, "BaseInterval", c.BaseInterval)
-	validate.Positive(v, "MaxRetries", c.MaxRetries)
+	validate.GreaterThanEq(v, "BaseInterval", c.BaseInterval, 0)
+	validate.GreaterThanEq(v, "MaxRetries", c.MaxRetries, 0)
 	validate.GreaterThanEq(v, "Scale", c.Scale, 1)
 	return v.Error()
 }
@@ -42,9 +42,7 @@ func (c Config) Validate() error {
 var (
 	_             config.Config[Config] = Config{}
 	defaultConfig                       = Config{
-		BaseInterval: 1 * telem.Millisecond.Duration(),
-		MaxRetries:   5,
-		Scale:        2,
+		Scale: 1,
 	}
 )
 

@@ -14,6 +14,13 @@ package embedded
 import (
 	"bufio"
 	"context"
+	"io"
+	"os"
+	"os/exec"
+	"strings"
+	"syscall"
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/breaker"
@@ -23,12 +30,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"io"
-	"os"
-	"os/exec"
-	"strings"
-	"syscall"
-	"time"
 )
 
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
@@ -108,7 +109,7 @@ func (d *Driver) start() error {
 		},
 			signal.WithKey("stdoutPipe"),
 			signal.RecoverWithErrOnPanic(),
-			signal.WithMaxRestart(signal.InfiniteRestart),
+			signal.WithRetryOnPanic(),
 		)
 		internalSCtx.Go(func(ctx context.Context) error {
 			pipeOutputToLogger(stderrPipe, d.cfg.L)
@@ -116,12 +117,14 @@ func (d *Driver) start() error {
 		},
 			signal.WithKey("stderrPipe"),
 			signal.RecoverWithErrOnPanic(),
-			signal.WithMaxRestart(signal.InfiniteRestart),
+			signal.WithRetryOnPanic(),
 		)
 		internalSCtx.Go(func(ctx context.Context) error {
 			err := d.cmd.Wait()
 			return err
-		}, signal.WithKey("wait"), signal.RecoverWithErrOnPanic())
+		},
+			signal.WithKey("wait"),
+			signal.RecoverWithErrOnPanic())
 		err = internalSCtx.Wait()
 		isSignal := false
 		if err != nil {

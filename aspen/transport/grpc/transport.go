@@ -11,6 +11,10 @@ package grpc
 
 import (
 	"context"
+	"go/types"
+	"net"
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -20,10 +24,8 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
-	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"net"
 )
 
 type (
@@ -290,8 +292,9 @@ func (t Transport) Configure(sCtx signal.Context, addr address.Address, external
 		return ctx.Err()
 	},
 		signal.CancelOnFail(),
-		signal.RecoverWithErrOnPanic(),
-		signal.WithMaxRestart(signal.InfiniteRestart),
+		signal.WithRetryOnPanic(),
+		signal.WithBaseRetryInterval(200*time.Millisecond),
+		signal.WithRetryScale(1.05),
 	)
 	return nil
 }
