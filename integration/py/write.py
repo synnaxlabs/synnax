@@ -1,5 +1,5 @@
 import sys
-from typing import NamedTuple, List
+from typing import NamedTuple
 
 import numpy as np
 import synnax as sy
@@ -7,10 +7,10 @@ from integration import FILE_NAME
 
 
 class IndexWriterGroup(NamedTuple):
-    index_channels: List[str]
-    data_channels: List[str]
+    index_channels: list[str]
+    data_channels: list[str]
 
-    def together(self) -> List[str]:
+    def together(self) -> list[str]:
         return self.index_channels + self.data_channels
 
     def __len__(self) -> int:
@@ -28,7 +28,7 @@ class TestConfig(NamedTuple):
     index_persist_interval: sy.TimeSpan
     writer_mode: sy.WriterMode
     expected_error: str
-    channels: List[IndexWriterGroup]
+    channels: list[IndexWriterGroup]
 
     def num_channels(self) -> int:
         return sum([len(channelGroup) for channelGroup in self.channels])
@@ -46,7 +46,7 @@ client = sy.Synnax(
 class WriteTest:
     _tc: TestConfig
 
-    def __init__(self, argv: List[str]):
+    def __init__(self, argv: list[str]):
         argv_counter = 1
         identifier = argv[argv_counter]
         argv_counter += 1
@@ -159,18 +159,20 @@ Configuration:
         return s
 
     def test(self):
-        writers = [None] * self._tc.num_writers
+        writers: list[sy.Writer] = []
         time_span_per_domain = self._tc.time_range.span / self._tc.domains
         time_span_per_sample = time_span_per_domain / self._tc.samples_per_domain
 
         for i in range(self._tc.num_writers):
-            writers[i] = client.open_writer(
-                start=self._tc.time_range.start,
-                channels=self._tc.channels[i].together(),
-                name=f"writer{i}",
-                mode=self._tc.writer_mode,
-                enable_auto_commit=self._tc.auto_commit,
-                auto_index_persist_interval=self._tc.index_persist_interval,
+            writers.append(
+                client.open_writer(
+                    start=self._tc.time_range.start,
+                    channels=self._tc.channels[i].together(),
+                    name=f"writer{i}",
+                    mode=self._tc.writer_mode,
+                    enable_auto_commit=self._tc.auto_commit,
+                    auto_index_persist_interval=self._tc.index_persist_interval,
+                )
             )
 
         try:
@@ -181,22 +183,25 @@ Configuration:
                     ts_hwm + (self._tc.samples_per_domain - 1) * time_span_per_sample,
                     self._tc.samples_per_domain,
                     dtype="int64",
-                    )
+                )
                 data = np.sin(0.0000000001 * timestamps)
                 ts_hwm += time_span_per_domain
                 for i, writer in enumerate(writers):
-                    data_dict = {}
-                    for index_channel in self._tc.channels[i].index_channels:
-                        data_dict[index_channel] = timestamps
-                    for data_channel in self._tc.channels[i].data_channels:
-                        data_dict[data_channel] = data
+                    channel_series = [[]] * len(self._tc.channels[i].together())
+                    for j in range(len(self._tc.channels[i].index_channels)):
+                        channel_series[j] = timestamps
+                    for j in range(len(self._tc.channels[i].data_channels)):
+                        channel_series[len(self._tc.channels[i].index_channels) + j] = (
+                            data
+                        )
 
-                    writer.write(data_dict)
+                    writer.write(self._tc.channels[i].together(), channel_series)
 
                     if not self._tc.auto_commit:
                         assert writer.commit()
 
                     writer.close()
+                    writers[i] = None
                     writers[i] = client.open_writer(
                         start=ts_hwm,
                         channels=self._tc.channels[i].together(),

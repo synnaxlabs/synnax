@@ -1,15 +1,6 @@
 name: "Test - Integration"
 
 on:
-  pull_request:
-    branches:
-      - rc
-      - main
-  push:
-    branches:
-      - rc
-      - main
-      - "leo/sy-685-integration-testing"
   workflow_dispatch:
 
 permissions:
