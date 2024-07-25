@@ -509,7 +509,7 @@ public:
                 for (std::size_t k = 0; k < to_generate; k++)
                     timestamp_buf[k] = (now + (spacing * k)).value;
                 for (std::size_t j = en_count; j < en_count + indexes.size(); j++)
-                    fr.series->at(j).write(timestamp_buf.get(), 5);
+                    fr.series->at(j).write(timestamp_buf.get(), cfg.array_size);
             }
             auto [elapsed, ok] = timer.wait(breaker);
             if (!ok && exceed_time_count <= 5) {
