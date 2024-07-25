@@ -14,15 +14,18 @@ type ChannelGroup struct {
 }
 
 type WriteParams struct {
-	NumWriters           int             `json:"num_writers"`
-	Domains              int             `json:"domains"`
-	SamplesPerDomain     int             `json:"samples_per_domain"`
-	TimeRange            telem.TimeRange `json:"time_range"`
-	AutoCommit           bool            `json:"auto_commit"`
-	IndexPersistInterval telem.TimeSpan  `json:"index_persist_interval"`
-	WriterMode           writer.Mode     `json:"writer_mode"`
-	ExpectedError        string          `json:"expected_error"`
-	ChannelGroups        []ChannelGroup  `json:"channel_groups"`
+	NumWriters       int             `json:"num_writers"`
+	Domains          int             `json:"domains"`
+	SamplesPerDomain int             `json:"samples_per_domain"`
+	TimeRange        telem.TimeRange `json:"time_range"`
+	AutoCommit       bool            `json:"auto_commit"`
+	// AllInOne domain allows writing multiple chunks of data to form a really long
+	// domain as otherwise SamplesPerDomain would not fit.
+	AllInOneDomain       bool           `json:"all_in_one_domain"`
+	IndexPersistInterval telem.TimeSpan `json:"index_persist_interval"`
+	WriterMode           writer.Mode    `json:"writer_mode"`
+	ExpectedError        string         `json:"expected_error"`
+	ChannelGroups        []ChannelGroup `json:"channel_groups"`
 }
 
 func (p WriteParams) serialize() []string {
@@ -35,6 +38,7 @@ func (p WriteParams) serialize() []string {
 		strconv.FormatInt(int64(p.TimeRange.Start), 10),
 		strconv.FormatInt(int64(p.TimeRange.End), 10),
 		strconv.FormatBool(p.AutoCommit),
+		strconv.FormatBool(p.AllInOneDomain),
 		strconv.FormatInt(int64(p.IndexPersistInterval), 10),
 		strconv.Itoa(int(p.WriterMode)),
 		p.ExpectedError,

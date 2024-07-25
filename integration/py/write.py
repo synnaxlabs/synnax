@@ -25,6 +25,7 @@ class TestConfig(NamedTuple):
     samples_per_domain: int
     time_range: sy.TimeRange
     auto_commit: bool
+    all_in_one_domain: bool
     index_persist_interval: sy.TimeSpan
     writer_mode: sy.WriterMode
     expected_error: str
@@ -61,6 +62,8 @@ class WriteTest:
         time_range_end = int(argv[argv_counter])
         argv_counter += 1
         auto_commit = argv[argv_counter] == "true"
+        argv_counter += 1
+        all_in_one_domain = argv[argv_counter] == "true"
         argv_counter += 1
         index_persist_interval = sy.TimeSpan(int(argv[argv_counter]))
         argv_counter += 1
@@ -99,6 +102,7 @@ class WriteTest:
             ),
             channels=channel_groups,
             auto_commit=auto_commit,
+            all_in_one_domain=all_in_one_domain,
             index_persist_interval=index_persist_interval,
             expected_error=expected_error,
             writer_mode=writer_mode,
@@ -200,17 +204,17 @@ Configuration:
                     if not self._tc.auto_commit:
                         assert writer.commit()
 
-                    writer.close()
-                    writers[i] = None
-                    writers[i] = client.open_writer(
-                        start=ts_hwm,
-                        channels=self._tc.channels[i].together(),
-                        name=f"writer{i}",
-                        mode=self._tc.writer_mode,
-                        enable_auto_commit=self._tc.auto_commit,
-                        auto_index_persist_interval=self._tc.index_persist_interval,
-                        err_on_unauthorized=True,
-                    )
+                    if not self._tc.all_in_one_domain:
+                        writer.close()
+                        writers[i] = client.open_writer(
+                            start=ts_hwm,
+                            channels=self._tc.channels[i].together(),
+                            name=f"writer{i}",
+                            mode=self._tc.writer_mode,
+                            enable_auto_commit=self._tc.auto_commit,
+                            auto_index_persist_interval=self._tc.index_persist_interval,
+                            err_on_unauthorized=True,
+                        )
 
         finally:
             for writer in writers:

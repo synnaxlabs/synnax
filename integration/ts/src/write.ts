@@ -23,6 +23,7 @@ class TestConfig {
   samplesPerDomain: number = 0;
   timeRange: TimeRange = TimeRange.ZERO;
   autoCommit: boolean = false;
+  allInOneDomain: boolean = false;
   indexPersistInterval: TimeSpan = TimeSpan.seconds(1);
   writerMode: framer.WriterMode = framer.WriterMode.PersistStream;
   expectedError: string;
@@ -40,6 +41,7 @@ class TestConfig {
     timeRangeStart: bigint,
     timeRangeEnd: bigint,
     autoCommit: boolean,
+    allInOneDomain: boolean,
     indexPersistInterval: TimeSpan,
     writerMode: framer.WriterMode,
     expectedError: string,
@@ -51,6 +53,7 @@ class TestConfig {
     this.samplesPerDomain = samplesPerDomain;
     this.timeRange = new TimeRange(timeRangeStart, timeRangeEnd);
     this.autoCommit = autoCommit;
+    this.allInOneDomain = allInOneDomain;
     this.indexPersistInterval = indexPersistInterval;
     this.writerMode = writerMode;
     this.expectedError = expectedError;
@@ -77,6 +80,7 @@ class WriteTest {
     const timeRangeStart = BigInt(argv[argvCounter++]);
     const timeRangeEnd = BigInt(argv[argvCounter++]);
     const autoCommit = argv[argvCounter++] === "true";
+    const allInOneDomain = argv[argvCounter++] === "true";
     const indexPersistInterval = new TimeSpan(BigInt(argv[argvCounter++]));
     const writerMode = parseInt(argv[argvCounter++]) as framer.WriterMode;
     const expectedError = argv[argvCounter++];
@@ -101,6 +105,7 @@ class WriteTest {
       timeRangeStart,
       timeRangeEnd,
       autoCommit,
+      allInOneDomain,
       indexPersistInterval,
       writerMode,
       expectedError,
@@ -206,16 +211,17 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
             await writer.commit();
           }
 
-          await writer.close();
-
-          writers[j] = await client.openWriter({
-            start: tsHwm,
-            channels: this.tc.channels[j].together(),
-            mode: this.tc.writerMode,
-            enableAutoCommit: this.tc.autoCommit,
-            autoIndexPersistInterval: this.tc.indexPersistInterval,
-            errOnUnauthorized: false,
-          });
+          if (!this.tc.allInOneDomain) {
+            await writer.close();
+            writers[j] = await client.openWriter({
+              start: tsHwm,
+              channels: this.tc.channels[j].together(),
+              mode: this.tc.writerMode,
+              enableAutoCommit: this.tc.autoCommit,
+              autoIndexPersistInterval: this.tc.indexPersistInterval,
+              errOnUnauthorized: false,
+            });
+          }
         }
       }
     } finally {

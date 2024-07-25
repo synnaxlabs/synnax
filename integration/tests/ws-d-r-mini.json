@@ -68,6 +68,7 @@
             "end": 1000000000000000
           },
           "writer_mode": 1,
+          "all_in_one_domain": true,
           "expected_error": "no_error"
         }
       },
@@ -102,6 +103,7 @@
             "end": 1000000000000000
           },
           "writer_mode": 1,
+          "all_in_one_domain": true,
           "expected_error": "no_error"
         }
       },
