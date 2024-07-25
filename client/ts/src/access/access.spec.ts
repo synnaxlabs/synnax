@@ -232,6 +232,10 @@ describe("Policy", () => {
       });
 
       await expect(
+        client2.user.register(id.id(), "pwd3")
+      ).rejects.toThrow(AuthError);
+
+      await expect(
         client2.channels.create(
           new Channel({
             dataType: DataType.FLOAT64,

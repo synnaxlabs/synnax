@@ -46,6 +46,13 @@ type RegistrationRequest struct {
 // Register registers a new user with the provided credentials. If successful, returns a
 // response containing a valid JWT along with the user's details.
 func (s *UserService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  "register",
+		Objects: []ontology.ID{},
+	}); err != nil {
+		return TokenResponse{}, err
+	}
 	return tr, s.WithTx(ctx, func(txn gorp.Tx) error {
 		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
 			return err

@@ -236,7 +236,6 @@ func (a *API) BindTo(t Transport) {
 
 	freighter.UseOnAll(
 		insecureMiddleware,
-		t.UserRegistration,
 		t.AuthLogin,
 		t.ConnectivityCheck,
 	)
@@ -247,6 +246,7 @@ func (a *API) BindTo(t Transport) {
 		// USER
 		t.UserChangeUsername,
 		t.UserChangePassword,
+		t.UserRegistration,
 
 		// CHANNEL
 		t.ChannelCreate,

@@ -22,12 +22,14 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.AuthLogin = fhttp.UnaryServer[auth.InsecureCredentials, api.TokenResponse](router, false, "/api/v1/auth/login")
 
 	// USER
-	t.UserRegistrationOld = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/auth/register")
-	t.UserChangePasswordOld = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/protected/change-password")
-	t.UserChangeUsernameOld = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/protected/change-username")
+	// Each endpoint has two routes since the route with /auth was used before Synnax
+	// V0.26.0, and were reclassified into the /user route after V0.26.0
 	t.UserRegistration = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/user/register")
+	t.UserRegistrationOld = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/auth/register")
 	t.UserChangePassword = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/user/protected/change-password")
+	t.UserChangePasswordOld = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/protected/change-password")
 	t.UserChangeUsername = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/user/protected/change-username")
+	t.UserChangeUsernameOld = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/protected/change-username")
 
 	// CHANNEL
 	t.ChannelCreate = fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, false, "/api/v1/channel/create")

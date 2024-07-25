@@ -103,12 +103,15 @@ class TestAccessAuthClient:
     def test_create_user(self, client: sy.Synnax):
         username = str(uuid.uuid4())
         client.user.register(username, "pwd2")
-        sy.Synnax(
+        client2 = sy.Synnax(
             host="localhost",
             port=9090,
             username=username,
             password="pwd2",
         )
+
+        with pytest.raises(sy.AuthError):
+            client2.user.register(str(uuid.uuid4()), "pwd3")
 
     def test_user_privileges(self, client: sy.Synnax):
         username = str(uuid.uuid4())

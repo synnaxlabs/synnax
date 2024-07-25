@@ -22,7 +22,7 @@ export class Client {
   }
 
   async register(username: string, password: string): Promise<Payload> {
-    const { user: usr } = await sendRequired<
+    const { user } = await sendRequired<
       typeof insecureCredentialsZ,
       typeof tokenResponseZ
     >(
@@ -32,7 +32,6 @@ export class Client {
       insecureCredentialsZ,
       tokenResponseZ,
     );
-
-    return usr;
+    return user;
   }
 }
