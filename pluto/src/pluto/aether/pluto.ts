@@ -26,6 +26,7 @@ import { range } from "@/vis/lineplot/range/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { measure } from "@/vis/measure/aether";
 import { rule } from "@/vis/rule/aether";
+import { setpoint } from "@/vis/setpoint/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
@@ -34,33 +35,26 @@ export const render = (): void => {
   const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
   onmessage = w.handle.bind(w);
 
-  // const fontFace = new FontFace(
-  //   "Inter Variable",
-  //   "local('Inter Variable'), url(https://cdn.jsdelivr.net/fontsource/fonts/inter:vf@latest/latin-wght-normal.woff2) format('woff2-variations')",
-  // );
-  // // @ts-expect-error - fontFace is not in the types of self
-  // self.fonts.add(fontFace);
-  // fontFace.load();
-
   const REGISTRY: aether.ComponentRegistry = {
-    ...lineplot.REGISTRY,
+    ...alamos.REGISTRY,
+    ...button.REGISTRY,
     ...canvas.REGISTRY,
+    ...control.REGISTRY,
+    ...diagram.REGISTRY,
+    ...eraser.REGISTRY,
+    ...line.REGISTRY,
+    ...lineplot.REGISTRY,
+    ...measure.REGISTRY,
+    ...range.REGISTRY,
+    ...rule.REGISTRY,
+    ...setpoint.REGISTRY,
+    ...status.REGISTRY,
     ...synnax.REGISTRY,
     ...telem.REGISTRY,
-    ...line.REGISTRY,
-    ...value.REGISTRY,
-    ...toggle.REGISTRY,
-    ...diagram.REGISTRY,
-    ...rule.REGISTRY,
-    ...tooltip.REGISTRY,
-    ...measure.REGISTRY,
-    ...control.REGISTRY,
     ...theming.REGISTRY,
-    ...status.REGISTRY,
-    ...button.REGISTRY,
-    ...alamos.REGISTRY,
-    ...eraser.REGISTRY,
-    ...range.REGISTRY,
+    ...toggle.REGISTRY,
+    ...tooltip.REGISTRY,
+    ...value.REGISTRY,
   };
 
   aether.render({
