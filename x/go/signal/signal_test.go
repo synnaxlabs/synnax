@@ -297,7 +297,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, cancel := signal.Isolated()
-			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: signal.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
+			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
 
 			wg.Add(1)
 			go func() {
@@ -327,7 +327,7 @@ var _ = Describe("Signal", func() {
 			start := time.Now()
 			ctx.Go(
 				succeedInTen,
-				signal.WithBreaker(breaker.Config{MaxRetries: signal.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 2}),
+				signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 2}),
 				signal.RecoverWithErrOnPanic(),
 			)
 
@@ -373,7 +373,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(f, signal.WithRetryOnPanic(signal.InfiniteRetries))
+			ctx.Go(f, signal.WithRetryOnPanic())
 
 			Expect(ctx.Wait()).To(Succeed())
 			Expect(counter).To(Equal(1))
