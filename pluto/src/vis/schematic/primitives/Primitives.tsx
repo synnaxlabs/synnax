@@ -1022,9 +1022,11 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
       >
-        <Text.Text className={CSS.B("units")} level="small">
-          {units}
-        </Text.Text>
+        {units != "" && (
+          <Text.Text className={CSS.B("units")} noWrap={true} level="small">
+            {units}
+          </Text.Text>
+        )}
         <CoreButton.Button
           variant="outlined"
           size="small"

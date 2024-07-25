@@ -54,7 +54,6 @@ export class Setpoint
       this.internal.source,
     );
     i.sink = await telem.useSink(this.ctx, sinkProps, i.sink);
-    console.log("AWDW", trigger, prevTrigger, command);
 
     if (trigger !== prevTrigger && command != null) this.internal.sink.set(command);
 
