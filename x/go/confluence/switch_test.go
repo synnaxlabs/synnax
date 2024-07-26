@@ -54,7 +54,7 @@ var _ = Describe("Switch", func() {
 						return "double", true, nil
 					}
 				}
-				sw.Flow(ctx, CloseInletsOnExit())
+				sw.Flow(ctx, CloseOutputInletsOnExit())
 				input.Inlet() <- 1
 				input.Inlet() <- 2
 				input.Inlet() <- 3
@@ -70,7 +70,7 @@ var _ = Describe("Switch", func() {
 				sw.Switch = func(ctx context.Context, i int) (address.Address, bool, error) {
 					return "", false, errors.New("test error")
 				}
-				sw.Flow(ctx, CloseInletsOnExit())
+				sw.Flow(ctx, CloseOutputInletsOnExit())
 				input.Inlet() <- 1
 				input.Inlet() <- 2
 				input.Inlet() <- 3
@@ -81,7 +81,7 @@ var _ = Describe("Switch", func() {
 				sw.Switch = func(ctx context.Context, i int) (address.Address, bool, error) {
 					return "hello", true, nil
 				}
-				sw.Flow(ctx, CloseInletsOnExit(), WithAddress("toCoverThis"))
+				sw.Flow(ctx, CloseOutputInletsOnExit(), WithAddress("toCoverThis"))
 				input.Inlet() <- 1
 				Expect(ctx.Wait()).To(MatchError(address.NotFound))
 
@@ -123,7 +123,7 @@ var _ = Describe("Switch", func() {
 				}
 				return nil
 			}
-			sw.Flow(ctx, CloseInletsOnExit())
+			sw.Flow(ctx, CloseOutputInletsOnExit())
 			input.Inlet() <- []int{1, 2}
 			input.Inlet() <- []int{3, 4}
 			input.Inlet() <- []int{5, 6}
@@ -148,7 +148,7 @@ var _ = Describe("Switch", func() {
 				o["second"] = i[1]
 				return nil
 			}
-			sw.Flow(ctx, CloseInletsOnExit())
+			sw.Flow(ctx, CloseOutputInletsOnExit())
 			input.Inlet() <- []int{1, 2}
 			input.Inlet() <- []int{3, 4}
 			input.Inlet() <- []int{5, 6}
