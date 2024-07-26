@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/observe"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -20,16 +21,27 @@ import (
 	"github.com/synnaxlabs/x/iter"
 )
 
-const ontologyType ontology.Type = "channel"
+const OntologyType ontology.Type = "channel"
 
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
+}
+
+// OntologyIDs returns the ontology.ID for each key.
+func (k Keys) OntologyIDs() []ontology.ID {
+	return lo.Map(k, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+}
+
+func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
+	return lo.Map(chs, func(item Channel, _ int) ontology.ID {
+		return OntologyID(item.Key())
+	})
 }
 
 var _schema = &ontology.Schema{
-	Type: ontologyType,
+	Type: OntologyType,
 	Fields: map[string]schema.Field{
 		"key":       {Type: schema.Uint32},
 		"name":      {Type: schema.String},

@@ -15,7 +15,6 @@ import { keyZ } from "@/channel/payload";
 
 const reqZ = z.object({
   keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
   bounds: TimeRange.z,
 });
 
@@ -31,9 +30,7 @@ export class Deleter {
    */
   private readonly client: UnaryClient;
 
-  constructor(
-    client: UnaryClient,
-  ) {
+  constructor(client: UnaryClient) {
     this.client = client;
   }
 
