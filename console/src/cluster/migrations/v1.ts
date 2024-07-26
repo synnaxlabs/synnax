@@ -29,11 +29,11 @@ export const LOCAL_PROPS: SynnaxProps = {
 };
 
 export const isLocalCluster = (props: any): boolean =>
-  props.host == "localhost" &&
-  props.port == 9090 &&
-  props.username == "synnax" &&
-  props.password == "seldon" &&
-  props.secure == false;
+  props.host === LOCAL_PROPS.host &&
+  props.port == LOCAL_PROPS.port &&
+  props.username === LOCAL_PROPS.username &&
+  props.password === LOCAL_PROPS.password &&
+  props.secure === LOCAL_PROPS.secure;
 
 export const LOCAL_CLUSTER_KEY = "LOCAL";
 
