@@ -147,7 +147,7 @@ func WithBreaker(breakerCfg breaker.Config) RoutineOption {
 
 // WithBaseRetryInterval sets the base interval for the breaker used to restart the
 // goroutine. The base retry interval is how much time the breaker waits before trying
-// to restart for the first time.
+// to restart for the first time. (Default: 1 second)
 func WithBaseRetryInterval(retryInterval time.Duration) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.BaseInterval = retryInterval
@@ -173,7 +173,7 @@ func WithRetryOnPanic(maxRetries ...int) RoutineOption {
 }
 
 // WithRetryScale sets the scale on the breaker used to restart the goroutine. The scale
-// defines the rate by which the interval between two retries grow.
+// defines the rate by which the interval between two retries grow. (Default: 1)
 func WithRetryScale(scale float32) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.Scale = scale
