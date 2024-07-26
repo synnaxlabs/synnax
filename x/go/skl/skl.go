@@ -1,6 +1,7 @@
 package skl
 
 import (
+	"github.com/synnaxlabs/x/telem"
 	"math"
 	"math/rand"
 	"sync"
@@ -15,9 +16,16 @@ const (
 
 var probabilities [MaxHeight]uint32
 
+type Pointer struct {
+	telem.TimeRange
+	fileKey uint16
+	offset  uint32
+	length  uint32
+}
+
 type node struct {
 	sync.RWMutex
-	v    int
+	ptr  Pointer
 	next [MaxHeight]*node
 	prev [MaxHeight]*node
 }
@@ -73,8 +81,56 @@ func randomHeight() int {
 // If the requested node is smaller than all nodes in the skiplist, skl.head is returned.
 // If the requested node is larger than all nodes in the skiplist, the last element in
 // the skiplist is returned.
-func (skl *SkipList) search(v int) (prev *node, journey [MaxHeight]*node) {
+func (skl *SkipList) search(v telem.TimeRange) (prev *node, next *node) {
 	prev = skl.head
+	prev.RLock()
+
+	for level := skl.height - 1; level >= 0; level-- {
+		next = prev.next[level]
+		next.RLock()
+		for next != skl.tail {
+			if next == nil {
+				panic("skl reached nil pointer before tail")
+			}
+
+			if next.ptr.Start.Before(v.End) {
+				// Move down a level if next value in current level is larger than tr.
+				break
+			}
+
+			prev.RUnlock()
+			prev = next
+			next = next.next[level]
+			next.RLock()
+		}
+		next.RUnlock()
+	}
+	prev.RUnlock()
+
+	return prev, next
+}
+
+func (skl *SkipList) SearchLE(ts telem.TimeStamp) (Pointer, bool) {
+	p, _ := skl.search(ts.SpanRange(0))
+	if p == skl.head {
+		return Pointer{}, false
+	}
+	return p.ptr, true
+}
+
+func (skl *SkipList) SearchGE(ts telem.TimeStamp) (Pointer, bool) {
+	_, n := skl.search(ts.SpanRange(0))
+	if n == skl.tail {
+		return Pointer{}, false
+	}
+	return n.ptr, true
+}
+
+func (skl *SkipList) Insert(ptr Pointer) {
+	var (
+		prev        = skl.head
+		nodesLocked = make([]*node, 0)
+	)
 	prev.RLock()
 
 	for level := skl.height - 1; level >= 0; level-- {
@@ -85,8 +141,8 @@ func (skl *SkipList) search(v int) (prev *node, journey [MaxHeight]*node) {
 				panic("skl reached nil pointer before tail")
 			}
 
-			if v < next.v {
-				// Move down a level if next value in current level is larger than v.
+			if {
+				// Move down a level if next value in current level is larger than tr.
 				break
 			}
 
@@ -95,48 +151,9 @@ func (skl *SkipList) search(v int) (prev *node, journey [MaxHeight]*node) {
 			next = next.next[level]
 			next.RLock()
 		}
-		next.RUnlock()
-		journey[level] = prev
+		nodesLocked = append(nodesLocked, []*node{prev, next}...)
 	}
 	prev.RUnlock()
-
-	return journey[0], journey
-}
-
-func (skl *SkipList) SearchLE(val int) (int, bool) {
-	v, _ := skl.search(val)
-	if v == skl.head {
-		return 0, false
-	}
-	return v.v, true
-}
-
-func (skl *SkipList) Insert(val int) {
-	_, journey := skl.search(val)
-
-	height := randomHeight()
-	newNode := &node{v: val}
-
-	for level := 0; level < height; level++ {
-		prev := journey[level]
-		if prev == nil {
-			// If prev is nil, this means the level is not yet unlocked in the skiplist.
-			prev = skl.head
-		}
-		next := prev.next[level]
-
-		prev.Lock()
-		next.Lock()
-
-		newNode.next[level] = next
-		newNode.prev[level] = prev
-
-		next.prev[level] = newNode
-		prev.next[level] = newNode
-
-		prev.Unlock()
-		next.Unlock()
-	}
 
 	if height > skl.height {
 		skl.height = height
@@ -147,11 +164,11 @@ func (skl *SkipList) Insert(val int) {
 
 func (skl *SkipList) Delete(start int, end int) {
 	target, _ := skl.search(start)
-	if target.v != start {
+	if target.tr != start {
 		target = target.next[0]
 	}
 
-	for target.v < end && target != skl.tail {
+	for target.tr < end && target != skl.tail {
 		for level := 0; level < skl.height; level++ {
 			if target.prev[level] != nil {
 				target.next[level].prev[level] = target.prev[level]
