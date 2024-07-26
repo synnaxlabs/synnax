@@ -100,12 +100,13 @@ class TestAccessClient:
 @pytest.mark.access
 @pytest.mark.auth
 class TestAccessAuthClient:
-    def test_create_user(self, client: sy.Synnax):
+    def test_create_user(self, client: sy.Synnax, login_info: tuple[str, int, str, str]):
+        host, port, _, _ = login_info
         username = str(uuid.uuid4())
         client.user.register(username, "pwd2")
         client2 = sy.Synnax(
-            host="localhost",
-            port=9090,
+            host=host,
+            port=port,
             username=username,
             password="pwd2",
         )
@@ -113,12 +114,13 @@ class TestAccessAuthClient:
         with pytest.raises(sy.AuthError):
             client2.user.register(str(uuid.uuid4()), "pwd3")
 
-    def test_user_privileges(self, client: sy.Synnax):
+    def test_user_privileges(self, client: sy.Synnax, login_info: tuple[str, int, str, str]):
+        host, port, _, _ = login_info
         username = str(uuid.uuid4())
         usr = client.user.register(username, "pwd3")
         client2 = sy.Synnax(
-            host="localhost",
-            port=9090,
+            host=host,
+            port=port,
             username=username,
             password="pwd3",
         )
