@@ -93,7 +93,7 @@ func (skl *SkipList) search(v telem.TimeRange) (prev *node, next *node) {
 				panic("skl reached nil pointer before tail")
 			}
 
-			if next.ptr.Start.Before(v.End) {
+			if next.ptr.Start.AfterEq(v.End) {
 				// Move down a level if next value in current level is larger than tr.
 				break
 			}
@@ -131,8 +131,12 @@ func (skl *SkipList) Insert(ptr Pointer) {
 		prev        = skl.head
 		nodesLocked = make([]*node, 0)
 	)
-	prev.RLock()
 
+	if skl.checkLeadingEdge(ptr) {
+		return
+	}
+
+	prev.RLock()
 	for level := skl.height - 1; level >= 0; level-- {
 		next := prev.next[level]
 		next.RLock()
@@ -141,7 +145,7 @@ func (skl *SkipList) Insert(ptr Pointer) {
 				panic("skl reached nil pointer before tail")
 			}
 
-			if {
+			if next.ptr.Start.AfterEq(ptr.End) {
 				// Move down a level if next value in current level is larger than tr.
 				break
 			}
@@ -160,6 +164,34 @@ func (skl *SkipList) Insert(ptr Pointer) {
 	}
 
 	skl.length += 1
+}
+
+func (skl *SkipList) checkLeadingEdge(ptr Pointer) (inserted bool) {
+	skl.tail.Lock()
+	lastNode := skl.tail.prev[0]
+	lastNode.Lock()
+	defer lastNode.Unlock()
+	defer skl.tail.Unlock()
+
+	if ptr.Start.AfterEq(lastNode.ptr.End) {
+		// Hot path optimization: appending to end:
+		height := randomHeight()
+		newNode := node{}
+		for level := 0; level < height; level++ {
+			newNode.prev[level] = lastNode
+			newNode.next[level] = skl.tail
+			lastNode.next[level] = &newNode
+			skl.tail.prev[level] = &newNode
+		}
+		if height > skl.height {
+			skl.height = height
+		}
+		skl.length += 1
+		lastNode.Unlock()
+		skl.tail.Unlock()
+		return true
+	}
+	return false
 }
 
 func (skl *SkipList) Delete(start int, end int) {
