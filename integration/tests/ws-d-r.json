@@ -61,8 +61,8 @@
             }
           ],
           "num_writers": 3,
-          "domains": 10,
-          "samples_per_domain": 200000000,
+          "domains": 100000,
+          "samples_per_domain": 20000,
           "all_in_one_domain": true,
           "time_range": {
             "start": 0,
