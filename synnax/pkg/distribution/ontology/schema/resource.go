@@ -32,11 +32,11 @@ import (
 // resources. We need something universally unique across the entire delta cluster.
 type ID struct {
 	// Key is a string that uniquely identifies a Resource within its Type.
-	Key string
+	Key string `json:"key" msgpack:"key"`
 	// Type defines the type of Resource the Key refers to :). For example,
 	// a channel is a Resource of type "channel". Key user is a Resource of type
 	// "user".
-	Type Type
+	Type Type `json:"type" msgpack:"type"`
 }
 
 // Validate ensures that the given ID has both a Key and Type.
@@ -55,6 +55,8 @@ func (id ID) String() string { return string(id.Type) + ":" + id.Key }
 
 // IsZero true if the ID is the zero value for its type.
 func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
+
+func (id ID) IsType() bool { return id.Type != "" && id.Key == "" }
 
 // ParseID parses the given string into an ID.
 func ParseID(s string) (ID, error) {

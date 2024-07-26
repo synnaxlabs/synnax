@@ -126,7 +126,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             await self.__internal.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
 class SyncWebsocketStream(Stream[RQ, RS]):
@@ -149,8 +149,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         self.__res_msg_t = _new_res_msg_t(res_t)
 
     def receive(
-        self,
-        timeout: float | None = None
+        self, timeout: float | None = None
     ) -> tuple[RS | None, Exception | None]:
         if self.__server_closed is not None:
             return None, self.__server_closed

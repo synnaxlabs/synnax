@@ -112,7 +112,7 @@ var _ = Describe("Delete", func() {
 
 							By("Start streaming")
 							i, _ := confluence.Attach(s, 1)
-							s.Flow(sCtx, confluence.CloseInletsOnExit())
+							s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 							By("Expecting delete channel to fail because there is an open streamer")
 							err := db.DeleteChannel(vChannelKey)
@@ -132,7 +132,7 @@ var _ = Describe("Delete", func() {
 
 							By("Start streaming")
 							i, _ := confluence.Attach(s, 1)
-							s.Flow(sCtx, confluence.CloseInletsOnExit())
+							s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 							By("Expecting delete channel to fail because there is an open streamer")
 							err := db.DeleteChannel(uChannelKey)

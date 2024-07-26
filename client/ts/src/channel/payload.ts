@@ -10,6 +10,8 @@
 import { DataType, Rate } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
 export const keyZ = z.number();
 export type Key = number;
 export type Keys = number[];
@@ -44,3 +46,8 @@ export const newPayload = payload.extend({
 });
 
 export type NewPayload = z.input<typeof newPayload>;
+
+export const ChannelOntologyType = "channel" as ontology.ResourceType;
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ChannelOntologyType, key: key.toString() });

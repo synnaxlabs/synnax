@@ -14,6 +14,13 @@ package embedded
 import (
 	"bufio"
 	"context"
+	"io"
+	"os"
+	"os/exec"
+	"strings"
+	"syscall"
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/breaker"
@@ -23,12 +30,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"io"
-	"os"
-	"os/exec"
-	"strings"
-	"syscall"
-	"time"
 )
 
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
@@ -48,10 +49,13 @@ func (d *Driver) start() error {
 	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdown = signal.NewShutdown(sCtx, cancel)
-	bre := breaker.Breaker{
+	bre, err := breaker.NewBreaker(sCtx, breaker.Config{
 		BaseInterval: 1 * time.Second,
 		Scale:        1.1,
 		MaxRetries:   100,
+	})
+	if err != nil {
+		return err
 	}
 	var mf func(ctx context.Context) error
 	mf = func(ctx context.Context) error {
@@ -102,15 +106,25 @@ func (d *Driver) start() error {
 		internalSCtx.Go(func(ctx context.Context) error {
 			pipeOutputToLogger(stdoutPipe, d.cfg.L)
 			return nil
-		}, signal.WithKey("stdoutPipe"))
+		},
+			signal.WithKey("stdoutPipe"),
+			signal.RecoverWithErrOnPanic(),
+			signal.WithRetryOnPanic(),
+		)
 		internalSCtx.Go(func(ctx context.Context) error {
 			pipeOutputToLogger(stderrPipe, d.cfg.L)
 			return nil
-		}, signal.WithKey("stderrPipe"))
+		},
+			signal.WithKey("stderrPipe"),
+			signal.RecoverWithErrOnPanic(),
+			signal.WithRetryOnPanic(),
+		)
 		internalSCtx.Go(func(ctx context.Context) error {
 			err := d.cmd.Wait()
 			return err
-		}, signal.WithKey("wait"))
+		},
+			signal.WithKey("wait"),
+			signal.RecoverWithErrOnPanic())
 		err = internalSCtx.Wait()
 		isSignal := false
 		if err != nil {

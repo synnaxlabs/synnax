@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
-	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -58,7 +58,7 @@ type Config struct {
 	Label         *label.Service
 	Hardware      *hardware.Service
 	Authenticator auth.Authenticator
-	Enforcer      access.Enforcer
+	Access        *rbac.Service
 	Cluster       dcore.Cluster
 	Insecure      *bool
 }
@@ -80,7 +80,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "workspace", c.Workspace)
 	validate.NotNil(v, "token", c.Token)
 	validate.NotNil(v, "authenticator", c.Authenticator)
-	validate.NotNil(v, "enforcer", c.Enforcer)
+	validate.NotNil(v, "access", c.Access)
 	validate.NotNil(v, "cluster", c.Cluster)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "schematic", c.Schematic)
@@ -103,7 +103,7 @@ func (c Config) Override(other Config) Config {
 	c.Workspace = override.Nil(c.Workspace, other.Workspace)
 	c.Token = override.Nil(c.Token, other.Token)
 	c.Authenticator = override.Nil(c.Authenticator, other.Authenticator)
-	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
+	c.Access = override.Nil(c.Access, other.Access)
 	c.Cluster = override.Nil(c.Cluster, other.Cluster)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -117,10 +117,14 @@ func (c Config) Override(other Config) Config {
 
 type Transport struct {
 	// AUTH
-	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
-	AuthChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	AuthLogin freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	// User
+	UserChangeUsernameOld freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
+	UserChangePasswordOld freighter.UnaryServer[ChangePasswordRequest, types.Nil]
+	UserRegistrationOld   freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	UserChangeUsername    freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
+	UserChangePassword    freighter.UnaryServer[ChangePasswordRequest, types.Nil]
+	UserRegistration      freighter.UnaryServer[RegistrationRequest, TokenResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
@@ -164,7 +168,7 @@ type Transport struct {
 	WorkspaceDelete    freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
 	WorkspaceRename    freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
 	WorkspaceSetLayout freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
-	// Schematic
+	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[SchematicCreateRequest, SchematicCreateResponse]
 	SchematicRetrieve freighter.UnaryServer[SchematicRetrieveRequest, SchematicRetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[SchematicDeleteRequest, types.Nil]
@@ -193,6 +197,10 @@ type Transport struct {
 	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
 	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
 	HardwareDeleteDevice   freighter.UnaryServer[HardwareDeleteDeviceRequest, types.Nil]
+	// ACCESS
+	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
+	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
+	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -201,6 +209,7 @@ type API struct {
 	provider     Provider
 	config       Config
 	Auth         *AuthService
+	User         *UserService
 	Telem        *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
@@ -211,6 +220,7 @@ type API struct {
 	LinePlot     *LinePlotService
 	Label        *LabelService
 	Hardware     *HardwareService
+	Access       *AccessService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -226,7 +236,6 @@ func (a *API) BindTo(t Transport) {
 
 	freighter.UseOnAll(
 		insecureMiddleware,
-		t.AuthRegistration,
 		t.AuthLogin,
 		t.ConnectivityCheck,
 	)
@@ -234,9 +243,10 @@ func (a *API) BindTo(t Transport) {
 	freighter.UseOnAll(
 		secureMiddleware,
 
-		// AUTH
-		t.AuthChangeUsername,
-		t.AuthChangePassword,
+		// USER
+		t.UserChangeUsername,
+		t.UserChangePassword,
+		t.UserRegistration,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -265,6 +275,7 @@ func (a *API) BindTo(t Transport) {
 		// RANGE
 		t.RangeCreate,
 		t.RangeRetrieve,
+		t.RangeDelete,
 		t.RangeKVGet,
 		t.RangeKVSet,
 		t.RangeKVDelete,
@@ -308,6 +319,7 @@ func (a *API) BindTo(t Transport) {
 
 		// HARDWARE
 		t.HardwareCreateRack,
+		t.HardwareDeleteRack,
 		t.HardwareRetrieveRack,
 		t.HardwareDeleteTask,
 		t.HardwareCreateTask,
@@ -316,13 +328,23 @@ func (a *API) BindTo(t Transport) {
 		t.HardwareCreateDevice,
 		t.HardwareRetrieveDevice,
 		t.HardwareDeleteDevice,
+
+		// ACCESS
+		t.AccessCreatePolicy,
+		t.AccessDeletePolicy,
+		t.AccessRetrievePolicy,
 	)
 
 	// AUTH
 	t.AuthLogin.BindHandler(a.Auth.Login)
-	t.AuthChangeUsername.BindHandler(a.Auth.ChangeUsername)
-	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
-	t.AuthRegistration.BindHandler(a.Auth.Register)
+
+	// USER
+	t.UserRegistrationOld.BindHandler(a.User.Register)
+	t.UserChangeUsernameOld.BindHandler(a.User.ChangeUsername)
+	t.UserChangePasswordOld.BindHandler(a.User.ChangePassword)
+	t.UserRegistration.BindHandler(a.User.Register)
+	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
+	t.UserChangePassword.BindHandler(a.User.ChangePassword)
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(a.Channel.Create)
@@ -404,6 +426,11 @@ func (a *API) BindTo(t Transport) {
 	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
 	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
 	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)
+
+	// ACCESS
+	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
+	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
+	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -414,7 +441,9 @@ func New(configs ...Config) (API, error) {
 		return API{}, err
 	}
 	api := API{config: cfg, provider: NewProvider(cfg)}
-	api.Auth = NewAuthServer(api.provider)
+	api.Auth = NewAuthService(api.provider)
+	api.User = NewUserService(api.provider)
+	api.Access = NewAccessService(api.provider)
 	api.Telem = NewFrameService(api.provider)
 	api.Channel = NewChannelService(api.provider)
 	api.Connectivity = NewConnectivityService(api.provider)

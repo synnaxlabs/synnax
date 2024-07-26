@@ -9,12 +9,18 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray, type UnknownRecord } from "@synnaxlabs/x";
-import { binary } from "@synnaxlabs/x/binary";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { type framer } from "@/framer";
-import { rackKeyZ } from "@/hardware/rack/client";
+import {
+  Device,
+  DeviceKey,
+  deviceKeyZ,
+  deviceZ,
+  NewDevice,
+  newDeviceZ,
+} from "@/hardware/device/payload";
 import { signals } from "@/signals";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
@@ -25,40 +31,6 @@ const DEVICE_DELETE_NAME = "sy_device_delete";
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 const CREATE_ENDPOINT = "/hardware/device/create";
 const DELETE_ENDPOINT = "/hardware/device/delete";
-
-export const deviceKeyZ = z.string();
-
-export const deviceZ = z.object({
-  key: deviceKeyZ,
-  rack: rackKeyZ,
-  name: z.string(),
-  make: z.string(),
-  model: z.string(),
-  location: z.string(),
-  configured: z.boolean().optional(),
-  properties: z.record(z.unknown()).or(
-    z.string().transform((c) => {
-      if (c === "") return {};
-      return binary.JSON_CODEC.decodeString(c);
-    }),
-  ) as z.ZodType<UnknownRecord>,
-});
-
-export type Device<P extends UnknownRecord = UnknownRecord> = Omit<
-  z.output<typeof deviceZ>,
-  "properties"
-> & { properties: P };
-
-export type DeviceKey = z.infer<typeof deviceKeyZ>;
-
-export const newDeviceZ = deviceZ.extend({
-  properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
-});
-
-export type NewDevice<P extends UnknownRecord = UnknownRecord> = Omit<
-  z.input<typeof newDeviceZ>,
-  "properties"
-> & { properties: P };
 
 const createReqZ = z.object({ devices: newDeviceZ.array() });
 

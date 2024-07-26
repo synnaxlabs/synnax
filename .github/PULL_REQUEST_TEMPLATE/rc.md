@@ -231,6 +231,11 @@ I can successfully:
 - [ ] Single Sampling - Auto-generate timestamps on the driver.
 - [ ] Single Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - Read from multiple channels in array-sampling mode.
+- [ ] Array Sampling - Read from multiple channels in array-sampling mode with
+  different array sizes. 
+    - [ ] 1
+    - [ ] 10
+    - [ ] 100
 - [ ] Array Sampling - Auto-generate timestamps on the driver.
 - [ ] Array Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - The driver will not crash if I specify an improper array size.
@@ -355,6 +360,8 @@ I can successfully:
        device)
      - [ ] Out of range values
      - [ ] Multiple tasks using the same channel
+- [ ] Shut down the driver with an embedded driver without receiving an error from
+the driver routine.
 
 ### Other
 

@@ -11,15 +11,28 @@ package rbac_test
 
 import (
 	"context"
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/user"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var (
+	ctx                  = context.Background()
+	userID               = user.OntologyID(uuid.New())
+	changePasswordPolicy = rbac.Policy{
+		Subjects: []ontology.ID{userID},
+		Objects:  []ontology.ID{userID},
+		Actions:  []access.Action{"changePassword"},
+	}
+)
 
-func TestRbac(t *testing.T) {
+func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "RBAC Suite")
 }
