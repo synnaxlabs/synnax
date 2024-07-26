@@ -74,9 +74,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleSubmit = (): void => {
     void (async () => {
-      if (!methods.validate()) {
-        return;
-      }
+      if (!methods.validate()) return;
       const data = methods.value();
       setConnState(null);
       setLoading("submit");
