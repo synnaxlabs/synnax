@@ -17,7 +17,7 @@ export const deviceZ = z.object({
   properties: z.record(z.unknown()).or(
     z.string().transform((c) => {
       if (c === "") return {};
-      return binary.JSON_ECD.decodeString(c);
+      return binary.JSON_CODEC.decodeString(c);
     }),
   ) as z.ZodType<UnknownRecord>,
 });
@@ -30,7 +30,7 @@ export type Device<P extends UnknownRecord = UnknownRecord> = Omit<
 export type DeviceKey = z.infer<typeof deviceKeyZ>;
 
 export const newDeviceZ = deviceZ.extend({
-  properties: z.unknown().transform((c) => binary.JSON_ECD.encodeString(c)),
+  properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
 
 export type NewDevice<P extends UnknownRecord = UnknownRecord> = Omit<
