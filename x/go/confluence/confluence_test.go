@@ -13,6 +13,7 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/atomic"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -87,6 +88,26 @@ var _ = Describe("Confluence", func() {
 			_, ok := <-o.Outlet()
 			Expect(ok).To(BeFalse())
 		})
-	})
 
+		It("Should still run deferred methods after panic", func() {
+			ctx, _ := signal.Isolated()
+
+			var (
+				s seg
+				a = atomic.Int32Counter{}
+			)
+			i := NewStream[int]()
+			o := NewStream[int]()
+			s.InFrom(i)
+			s.OutTo(o)
+			s.Flow(ctx, CloseOutputInletsOnExit(), RecoverWithErrOnPanic(), Defer(func() {
+				a.Add(10)
+			}))
+
+			i.Inlet() <- 1
+			_, ok := <-o.Outlet()
+			Expect(ok).To(BeFalse())
+			Expect(a.Value()).To(Equal(int32(10)))
+		})
+	})
 })

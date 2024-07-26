@@ -24,9 +24,19 @@ const (
 )
 
 type Config struct {
+	// BaseInterval is the interval of time waited on the first time Wait is called on
+	// the breaker. This interval keeps growing at an exponential rate set by Scale.
+	// Default: 1s.
 	BaseInterval time.Duration
-	Scale        float32
-	MaxRetries   int
+	// Scale is the multiplicative rate by which the timeout interval grows with each
+	// call to Wait. For example, if set at 2, the second call to Wait will wait 2x
+	// longer than the first, the third will wait 4x, etc.
+	// Default: 1.
+	Scale float32
+	// MaxRetries is the number set for how many calls to Wait is allowed. Once a breaker
+	// goes beyond this number, it no can no longer Wait and returns false.
+	// Default: 0.
+	MaxRetries int
 }
 
 func (c Config) Override(o Config) Config {
@@ -58,6 +68,8 @@ type Breaker struct {
 	retryCount   int
 }
 
+// NewBreaker creates a new breaker on the given context and configuration. If the context
+// is canceled while the breaker is waiting, the breaker stops waiting immediately.
 func NewBreaker(ctx context.Context, configs ...Config) (Breaker, error) {
 	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
@@ -87,6 +99,7 @@ func (b *Breaker) Wait() bool {
 	return true
 }
 
+// Reset resets the breaker to the base interval and to have 0 retries.
 func (b *Breaker) Reset() {
 	b.currInterval = b.BaseInterval
 	b.retryCount = 0

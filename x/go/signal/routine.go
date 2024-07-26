@@ -96,14 +96,18 @@ func DeferErr(f func() error, opts ...RoutineOption) RoutineOption {
 	}
 }
 
+// WithKey attaches a key to identify the routine.
 func WithKey(key string) RoutineOption { return func(r *routineOptions) { r.key = key } }
 
+// WithKeyf attaches a formatted string to identify the routine.
 func WithKeyf(format string, args ...interface{}) RoutineOption {
 	return func(r *routineOptions) {
 		r.key = fmt.Sprintf(format, args...)
 	}
 }
 
+// AddCallerSkip sets the callerSkip on the routine. The callerSkip is the number of
+// stacks to skip when logging.
 func AddCallerSkip(skip int) RoutineOption {
 	return func(r *routineOptions) {
 		r.callerSkip = skip

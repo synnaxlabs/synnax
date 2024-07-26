@@ -17,12 +17,20 @@ import (
 )
 
 type Options struct {
-	Signal            []signal.RoutineOption
-	CloseInletsOnExit bool
+	// Signal is a slice of signal.RoutineOptions defining the behaviour of the goroutine
+	// running the segment.
+	Signal []signal.RoutineOption
+	// CloseOutputInletsOnExit indicates that the segment should close the inlets to the
+	// output streams when the segment exits.
+	CloseOutputInletsOnExit bool
 }
 
+// AttachClosables is only a valid option when CloseOutputInletsOnExit is also set.
+// It attaches the passed closables to defer functions that are called when the segment
+// exists to close the closable via its Close() method. The closable must also have an
+// Acquire(int) method.
 func (fo *Options) AttachClosables(closables ...Closable) {
-	if fo.CloseInletsOnExit {
+	if fo.CloseOutputInletsOnExit {
 		for _, inlet := range closables {
 			inlet.Acquire(1)
 		}
@@ -93,6 +101,7 @@ func WithRetryScale(scale float32) Option {
 	}
 }
 
+// WithAddress adds a key to the goroutine subtending the segment.
 func WithAddress(addr address.Address) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.WithKey(string(addr))) }
 }
@@ -100,18 +109,26 @@ func WithAddress(addr address.Address) Option {
 // CloseOutputInletsOnExit closes the output stream attached to the confluence segment
 // when the segment exits.
 func CloseOutputInletsOnExit() Option {
-	return func(fo *Options) { fo.CloseInletsOnExit = true }
+	return func(fo *Options) { fo.CloseOutputInletsOnExit = true }
 }
 
+// WithClosables is only meaningful when CloseOutputInletsOnExit is also set. It
+// defers a variadic list of closables (objects implementing Close() and Acquire())
+// methods to be called Close() when the segment exits. It is commonly used to close
+// resources after the segment finishes.
 func WithClosables(closables ...Closable) Option {
 	return func(fo *Options) { fo.AttachClosables(closables...) }
 }
 
-// Defer adds a function to be executed when the segment exits (fail or done).
+// Defer adds a function to be executed when the segment exits (fail or done). Deferred
+// functions run in LIFO order.
 func Defer(fn func(), opts ...signal.RoutineOption) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.Defer(fn, opts...)) }
 }
 
+// DeferErr attaches the provided function f to the segment to run after exit like
+// in Defer.
+// Unlike Defer, if the function returns a non-nil error, the segment will fail.
 func DeferErr(fn func() error, opts ...signal.RoutineOption) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.DeferErr(fn, opts...)) }
 }
