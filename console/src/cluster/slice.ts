@@ -8,29 +8,17 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type SynnaxProps } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
 
-import { type Cluster } from "@/cluster/core";
+import * as latest from "@/cluster/migrations";
 
-/** The state of the cluster slice. */
-export interface SliceState extends migrate.Migratable {
-  /** The current, active cluster. */
-  activeCluster: string | null;
-  /**
-   * A record of cluster keys to clusters. The active cluster is guaranteed to be
-   * present in this record.
-   */
-  clusters: Record<string, Cluster>;
-}
+export type Cluster = latest.Cluster;
+export type SliceState = latest.SliceState;
+export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const migrateSlice = latest.migrateSlice;
+export const LOCAL_CLUSTER_KEY = latest.LOCAL_CLUSTER_KEY;
+export const isLocalCluster = latest.isLocalCluster;
 
-/**
- * The name of the cluster slice in a larger store. NOTE: This must be the name of the
- * slice in the store, or else all selectors will fail.
- */
 export const SLICE_NAME = "cluster";
-
-export const LOCAL_CLUSTER_KEY = "local";
 
 /**
  * Represents a partial view of a larger store that contains the cluster slice. This is
@@ -40,29 +28,6 @@ export const LOCAL_CLUSTER_KEY = "local";
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
-
-export const LOCAL_PROPS: SynnaxProps = {
-  name: "Local",
-  host: "localhost",
-  port: 9090,
-  username: "synnax",
-  password: "seldon",
-  secure: false,
-};
-
-export const LOCAL: Cluster = {
-  key: LOCAL_CLUSTER_KEY,
-  name: "Local",
-  props: LOCAL_PROPS,
-};
-
-export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.1",
-  activeCluster: null,
-  clusters: {
-    [LOCAL_CLUSTER_KEY]: LOCAL,
-  },
-};
 
 export const PERSIST_EXCLUDE = `${SLICE_NAME}.localState.status`;
 
@@ -81,14 +46,6 @@ export interface RenamePayload {
   name: string;
 }
 
-export const MIGRATIONS: migrate.Migrations = {};
-
-export const migrateSlice = migrate.migrator<SliceState, SliceState>({
-  name: "cluster.slice",
-  migrations: MIGRATIONS,
-  def: ZERO_SLICE_STATE,
-});
-
 export const {
   actions,
   /**
@@ -100,16 +57,13 @@ export const {
   initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (
-      { activeCluster, clusters: clusters },
+      { activeCluster, clusters },
       { payload: cluster }: PayloadAction<SetPayload>,
     ) => {
       clusters[cluster.key] = cluster;
       if (activeCluster == null) activeCluster = cluster.key;
     },
-    remove: (
-      { clusters: clusters },
-      { payload: { keys } }: PayloadAction<RemovePayload>,
-    ) => {
+    remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       for (const key of keys) {
         delete clusters[key];
       }

@@ -26,7 +26,7 @@ import { z } from "zod";
 
 import { statusVariants } from "@/cluster/Badges";
 import { useSelectMany } from "@/cluster/selectors";
-import { set, setActive } from "@/cluster/slice";
+import { isLocalCluster, LOCAL_CLUSTER_KEY, set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -83,6 +83,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       const state = await testConnection(data);
       setLoading(null);
       if (state.status !== "connected") return setConnState(state);
+      if (isLocalCluster(data)) state.clusterKey = LOCAL_CLUSTER_KEY;
       dispatch(
         set({
           key: state.clusterKey,

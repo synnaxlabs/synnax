@@ -28,9 +28,8 @@ import {
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
-import { type Cluster } from "@/cluster/core";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
-import { remove, rename, setActive } from "@/cluster/slice";
+import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
