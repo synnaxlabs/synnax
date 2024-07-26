@@ -112,7 +112,7 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	plumber.MustConnect[iterator.Response](pipe, "iterator", "sender", 1)
 	plumber.MustConnect[iterator.Request](pipe, "receiver", "iterator", 1)
 
-	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
+	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return sCtx.Wait()
 }
 
@@ -163,7 +163,7 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	plumber.SetSource[FrameStreamerRequest](pipe, "receiver", receiver)
 	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", 70)
 	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", 70)
-	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
+	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return sCtx.Wait()
 }
 
@@ -302,7 +302,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", 1)
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
-	pipe.Flow(ctx, confluence.CloseInletsOnExit())
+	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit())
 	return ctx.Wait()
 }
 

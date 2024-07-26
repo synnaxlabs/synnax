@@ -261,7 +261,10 @@ func start(cmd *cobra.Command) {
 		sCtx.Go(func(_ context.Context) error {
 			defer cancel()
 			return srv.Serve()
-		}, xsignal.WithKey("server"))
+		},
+			xsignal.WithKey("server"),
+			xsignal.RecoverWithErrOnPanic(),
+		)
 		defer srv.Stop()
 
 		d, err := embedded.OpenDriver(
@@ -283,7 +286,10 @@ func start(cmd *cobra.Command) {
 
 		<-ctx.Done()
 		return err
-	}, xsignal.WithKey("start"))
+	},
+		xsignal.WithKey("start"),
+		xsignal.RecoverWithErrOnPanic(),
+	)
 
 	select {
 	case <-interruptC:

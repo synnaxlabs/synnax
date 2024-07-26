@@ -58,13 +58,13 @@ var _ = Describe("Pipeline", func() {
 			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			SetSegment[int, int](pipe, "t1", t1, confluence.CloseInletsOnExit())
+			SetSegment[int, int](pipe, "t1", t1, confluence.CloseOutputInletsOnExit())
 
 			t2 := &confluence.LinearTransform[int, int]{}
 			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			SetSegment[int, int](pipe, "t2", t2, confluence.CloseInletsOnExit())
+			SetSegment[int, int](pipe, "t2", t2, confluence.CloseOutputInletsOnExit())
 
 			Expect(UnaryRouter[int]{
 				SourceTarget: "t1",
@@ -214,7 +214,7 @@ var _ = Describe("Pipeline", func() {
 
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			pipe.Flow(ctx, confluence.CloseInletsOnExit())
+			pipe.Flow(ctx, confluence.CloseOutputInletsOnExit())
 
 			Expect(ctx.Wait()).To(MatchError("done counting"))
 
