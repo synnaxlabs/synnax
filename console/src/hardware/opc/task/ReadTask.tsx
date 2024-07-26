@@ -84,6 +84,9 @@ const schema = z.object({
   config: readConfigZ,
 });
 
+const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
+  props.read.channels[nodeId] ?? props.read.channels[caseconv.snakeToCamel(nodeId)];
+
 const Wrapped = ({
   layoutKey,
   initialValues,
@@ -157,11 +160,9 @@ const Wrapped = ({
       }
 
       const toCreate: ReadChannelConfig[] = [];
-      const existingKeys = dev.properties.read.channels;
       for (const ch of config.channels) {
         if (ch.useAsIndex) continue;
-        const exKey =
-          existingKeys[ch.nodeId] ?? existingKeys[caseconv.snakeToCamel(ch.nodeId)];
+        const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
         if (primitiveIsZero(exKey)) toCreate.push(ch);
         else {
           try {
@@ -185,23 +186,26 @@ const Wrapped = ({
             index: dev.properties.read.index,
           })),
         );
+        console.log;
         channels.forEach((c, i) => {
           dev.properties.read.channels[toCreate[i].nodeId] = c.key;
         });
       }
+
+      config.channels = config.channels.map((c) => ({
+        ...c,
+        channel: c.useAsIndex
+          ? dev.properties.read.index
+          : getChannelByNodeID(dev.properties, c.nodeId),
+      }));
+
+      console.log(config.channels, dev.properties);
 
       if (modified)
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
-
-      config.channels = config.channels.map((c) => ({
-        ...c,
-        channel: c.useAsIndex
-          ? dev.properties.read.index
-          : dev.properties.read.channels[c.nodeId],
-      }));
 
       createTask({ key: task?.key, name, type: READ_TYPE, config });
     },
