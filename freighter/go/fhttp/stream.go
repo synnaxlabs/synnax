@@ -287,6 +287,11 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 						conn:          c.Conn,
 						codec:         codec,
 					})
+					defer func() {
+						if err := stream.conn.Close(); err != nil {
+							s.L.Error("error closing connection", zap.Error(err))
+						}
+					}()
 					errPld := errors.Encode(ctx, s.handler(stream.ctx, stream), s.internal)
 					if errPld.Type == errors.TypeNil {
 						errPld = errors.Encode(ctx, freighter.EOF, s.internal)
@@ -298,9 +303,10 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 						return err
 					}
 					stream.peerClosed = freighter.StreamClosed
-					if err = stream.conn.WriteMessage(
+					if err = stream.conn.WriteControl(
 						ws.CloseMessage,
 						ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
+						time.Now().Add(500*time.Millisecond),
 					); err != nil {
 						return err
 					}

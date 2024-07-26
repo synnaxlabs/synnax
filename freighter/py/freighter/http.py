@@ -17,7 +17,7 @@ from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
 from freighter.context import Context, Role
-from freighter.encoder import Codec
+from freighter.codec import Codec
 from freighter.exceptions import ExceptionPayload, Unreachable, decode_exception
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.unary import UnaryClient

@@ -20,7 +20,7 @@ from websockets.sync.client import (
 )
 
 from freighter.context import Context
-from freighter.encoder import Codec
+from freighter.codec import Codec
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
 from freighter.stream import AsyncStream, AsyncStreamClient, StreamClient, Stream
 from freighter.transport import RQ, RS, AsyncMiddlewareCollector, P, MiddlewareCollector

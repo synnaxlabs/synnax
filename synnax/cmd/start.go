@@ -88,9 +88,9 @@ func start(cmd *cobra.Command) {
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
 		ins, prettyLogger = configureInstrumentation(v)
-		insecure          = viper.GetBool("insecure")
-		debug             = viper.GetBool("debug")
-		autoCert          = viper.GetBool("auto-cert")
+		insecure          = viper.GetBool(insecureFlag)
+		debug             = viper.GetBool(debugFlag)
+		autoCert          = viper.GetBool(autoCertFlag)
 		verifier          = viper.GetString(string(decodedName))
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
@@ -238,7 +238,7 @@ func start(cmd *cobra.Command) {
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
-			StreamWriteDeadline: 5 * time.Second,
+			StreamWriteDeadline: viper.GetDuration("slow-consumer-timeout"),
 		})
 		_api.BindTo(httpapi.New(r))
 
@@ -278,7 +278,7 @@ func start(cmd *cobra.Command) {
 			err = errors.CombineErrors(err, d.Stop())
 		}()
 
-		prettyLogger.Info("\033[32mSynnax is running and available at " + viper.GetString("listen") + "\033[0m")
+		prettyLogger.Info("\033[32mSynnax is running and available at " + viper.GetString(listenFlag) + "\033[0m")
 
 		<-ctx.Done()
 		return err
@@ -311,13 +311,13 @@ func buildStorageConfig(
 ) storage.Config {
 	return storage.Config{
 		Instrumentation: ins.Child("storage"),
-		MemBacked:       config.Bool(viper.GetBool("mem")),
-		Dirname:         viper.GetString("data"),
+		MemBacked:       config.Bool(viper.GetBool(memFlag)),
+		Dirname:         viper.GetString(dataFlag),
 	}
 }
 
 func parsePeerAddresses() ([]address.Address, error) {
-	peerStrings := viper.GetStringSlice("peers")
+	peerStrings := viper.GetStringSlice(peersFlag)
 	peerAddresses := make([]address.Address, len(peerStrings))
 	for i, listenString := range peerStrings {
 		peerAddresses[i] = address.Address(listenString)
@@ -335,7 +335,7 @@ func buildDistributionConfig(
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
 		Instrumentation:  ins.Child("distribution"),
-		AdvertiseAddress: address.Address(viper.GetString("listen")),
+		AdvertiseAddress: address.Address(viper.GetString(listenFlag)),
 		PeerAddresses:    peers,
 		Pool:             pool,
 		Storage:          storage,
@@ -357,10 +357,10 @@ func buildServerConfig(
 		server.NewHTTPRedirectBranch(),
 	)
 	cfg.Debug = config.Bool(debug)
-	cfg.ListenAddress = address.Address(viper.GetString("listen"))
+	cfg.ListenAddress = address.Address(viper.GetString(listenFlag))
 	cfg.Instrumentation = ins.Child("server")
 	cfg.Security.TLS = sec.TLS()
-	cfg.Security.Insecure = config.Bool(viper.GetBool("insecure"))
+	cfg.Security.Insecure = config.Bool(viper.GetBool(insecureFlag))
 	return cfg
 }
 
@@ -370,13 +370,13 @@ func buildEmbeddedDriverConfig(
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
-		Enabled:         config.Bool(!viper.GetBool("no-driver")),
+		Enabled:         config.Bool(!viper.GetBool(noDriverFlag)),
 		Instrumentation: ins,
-		Address:         address.Address(viper.GetString("listen")),
+		Address:         address.Address(viper.GetString(listenFlag)),
 		RackName:        rackName,
-		Username:        viper.GetString("username"),
-		Password:        viper.GetString("password"),
-		Debug:           config.Bool(viper.GetBool("debug")),
+		Username:        viper.GetString(usernameFlag),
+		Password:        viper.GetString(passwordFlag),
+		Debug:           config.Bool(viper.GetBool(debugFlag)),
 	}
 	if insecure {
 		return cfg
@@ -392,7 +392,7 @@ func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Prov
 	return security.NewProvider(security.ProviderConfig{
 		LoaderConfig: buildCertLoaderConfig(ins),
 		Insecure:     config.Bool(insecure),
-		KeySize:      viper.GetInt("key-size"),
+		KeySize:      viper.GetInt(keySizeFlag),
 	})
 }
 
@@ -403,8 +403,8 @@ func maybeProvisionRootUser(
 	userSvc *user.Service,
 ) error {
 	creds := auth.InsecureCredentials{
-		Username: viper.GetString("username"),
-		Password: password.Raw(viper.GetString("password")),
+		Username: viper.GetString(usernameFlag),
+		Password: password.Raw(viper.GetString(passwordFlag)),
 	}
 	exists, err := userSvc.UsernameExists(ctx, creds.Username)
 	if err != nil || exists {
