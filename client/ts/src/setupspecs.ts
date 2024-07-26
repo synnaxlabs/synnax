@@ -11,6 +11,8 @@ import Synnax, { type SynnaxProps } from "@/client";
 
 export const HOST = "localhost";
 export const PORT = 9090;
+const USERNAME = "synnax"
+const PASSWORD = "seldon"
 
 export const newClient = (...props: SynnaxProps[]): Synnax => {
   let _props = {};
@@ -18,8 +20,8 @@ export const newClient = (...props: SynnaxProps[]): Synnax => {
   return new Synnax({
     host: HOST,
     port: PORT,
-    username: "synnax",
-    password: "seldon",
+    username: USERNAME,
+    password: PASSWORD,
     ..._props,
   });
 };

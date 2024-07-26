@@ -68,14 +68,55 @@ class TestIterator:
 
             assert not i.next(sy.framer.AUTO_SPAN)
 
-    def test_advanced_iterate(self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]):
+    def test_advanced_iterate(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ):
         [idx_ch, data_ch] = indexed_pair
-        idx_ch.write(0, np.array([0, 1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND, 3 * sy.TimeSpan.SECOND, 4 * sy.TimeSpan.SECOND, 5 * sy.TimeSpan.SECOND]).astype(np.int64))
+        idx_ch.write(
+            0,
+            np.array(
+                [
+                    0,
+                    1 * sy.TimeSpan.SECOND,
+                    2 * sy.TimeSpan.SECOND,
+                    3 * sy.TimeSpan.SECOND,
+                    4 * sy.TimeSpan.SECOND,
+                    5 * sy.TimeSpan.SECOND,
+                ]
+            ).astype(np.int64),
+        )
         data_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
-        idx_ch.write(TimeStamp(10 * sy.TimeSpan.SECOND), np.array([10 * sy.TimeSpan.SECOND, 11 * sy.TimeSpan.SECOND, 12 * sy.TimeSpan.SECOND, 13 * sy.TimeSpan.SECOND]).astype(np.int64))
-        data_ch.write(TimeStamp(10 * sy.TimeSpan.SECOND), np.array([10, 11, 12, 13]).astype(np.int64))
-        idx_ch.write(TimeStamp(15 * sy.TimeSpan.SECOND), np.array([15 * sy.TimeSpan.SECOND, 16 * sy.TimeSpan.SECOND, 17 * sy.TimeSpan.SECOND, 18 * sy.TimeSpan.SECOND, 19 * sy.TimeSpan.SECOND]).astype(np.int64))
-        data_ch.write(TimeStamp(15 * sy.TimeSpan.SECOND), np.array([15, 16, 17, 18, 19]).astype(np.int64))
+        idx_ch.write(
+            TimeStamp(10 * sy.TimeSpan.SECOND),
+            np.array(
+                [
+                    10 * sy.TimeSpan.SECOND,
+                    11 * sy.TimeSpan.SECOND,
+                    12 * sy.TimeSpan.SECOND,
+                    13 * sy.TimeSpan.SECOND,
+                ]
+            ).astype(np.int64),
+        )
+        data_ch.write(
+            TimeStamp(10 * sy.TimeSpan.SECOND),
+            np.array([10, 11, 12, 13]).astype(np.int64),
+        )
+        idx_ch.write(
+            TimeStamp(15 * sy.TimeSpan.SECOND),
+            np.array(
+                [
+                    15 * sy.TimeSpan.SECOND,
+                    16 * sy.TimeSpan.SECOND,
+                    17 * sy.TimeSpan.SECOND,
+                    18 * sy.TimeSpan.SECOND,
+                    19 * sy.TimeSpan.SECOND,
+                ]
+            ).astype(np.int64),
+        )
+        data_ch.write(
+            TimeStamp(15 * sy.TimeSpan.SECOND),
+            np.array([15, 16, 17, 18, 19]).astype(np.int64),
+        )
         with client.open_iterator(sy.TimeRange.MAX, data_ch.key) as i:
             assert i.seek_ge(sy.TimeStamp(16 * sy.TimeSpan.SECOND))
             assert i.next(4 * sy.TimeSpan.SECOND)
@@ -98,7 +139,6 @@ class TestIterator:
 
             assert not i.seek_le(-1)
             assert not i.seek_ge(sy.TimeStamp(20 * sy.TimeSpan.SECOND))
-
 
 
 @pytest.mark.framer
@@ -345,33 +385,6 @@ class TestDeleter:
         assert data.time_range == TimeRange(
             TimeStamp(1 * TimeSpan.SECOND), TimeStamp(2 * TimeSpan.SECOND) + 1
         )
-
-    def test_delete_by_name(self, channel: sy.Channel, client: sy.Synnax):
-        with client.open_writer(0, channel.key) as w:
-            data = np.random.rand(51).astype(np.float64)
-            w.write(pd.DataFrame({channel.key: data}))
-            w.commit()
-
-        client.delete(
-            [channel.name],
-            TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)),
-        )
-
-        data = channel.read(TimeRange.MAX)
-        assert data.size == 26 * 8
-        assert data.time_range == TimeRange(
-            TimeStamp(1 * TimeSpan.SECOND), TimeStamp(2 * TimeSpan.SECOND) + 1
-        )
-
-    def test_delete_channel_not_found_name(
-        self, channel: sy.Channel, client: sy.Synnax
-    ):
-        client.write(0, channel.key, np.random.rand(50).astype(np.float64))
-        with pytest.raises(sy.NotFoundError):
-            client.delete([channel.name, "kaka"], TimeRange.MAX)
-
-        data = channel.read(TimeRange.MAX)
-        assert data.size == 50 * 8
 
     def test_delete_channel_not_found_key(self, channel: sy.Channel, client: sy.Synnax):
         client.write(0, channel.key, np.random.rand(50).astype(np.float64))

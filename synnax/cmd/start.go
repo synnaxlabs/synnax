@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
-	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/hardware"
 	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
 	"github.com/synnaxlabs/synnax/pkg/label"
@@ -160,6 +161,10 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		accessSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
+		if err != nil {
+			return err
+		}
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
@@ -205,7 +210,7 @@ func start(cmd *cobra.Command) {
 		}()
 
 		// Provision the root user.
-		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
+		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, accessSvc); err != nil {
 			return err
 		}
 
@@ -213,7 +218,7 @@ func start(cmd *cobra.Command) {
 		_api, err := api.New(api.Config{
 			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
-			Enforcer:        access.AllowAll{},
+			Access:          accessSvc,
 			Schematic:       schematicSvc,
 			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
@@ -403,6 +408,7 @@ func maybeProvisionRootUser(
 	db *gorp.DB,
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
+	accessSvc *rbac.Service,
 ) error {
 	creds := auth.InsecureCredentials{
 		Username: viper.GetString("username"),
@@ -412,11 +418,23 @@ func maybeProvisionRootUser(
 	if err != nil || exists {
 		return err
 	}
+
+	// Register the user first.
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err = authSvc.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
 		}
-		return userSvc.NewWriter(tx).Create(ctx, &user.User{Username: creds.Username})
+		userObj := user.User{Username: creds.Username}
+		if err = userSvc.NewWriter(tx).Create(ctx, &userObj); err != nil {
+			return err
+		}
+		return accessSvc.NewWriter(tx).Create(
+			ctx,
+			&rbac.Policy{
+				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},
+				Objects:  []ontology.ID{rbac.AllowAll},
+			},
+		)
 	})
 }
 

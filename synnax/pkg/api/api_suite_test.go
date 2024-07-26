@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var ctx = context.TODO()
 
 func TestApi(t *testing.T) {
 	RegisterFailHandler(Fail)
