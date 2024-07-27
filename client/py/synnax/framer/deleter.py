@@ -24,6 +24,7 @@ from synnax.telem import TimeRange
 
 class _Request(Payload):
     keys: ChannelKeys | None
+    names: ChannelNames | None
     bounds: TimeRange
 
 
@@ -47,14 +48,13 @@ class Deleter:
     @trace("debug")
     def delete(
         self,
-        channels: ChannelKeys | ChannelKey,
+        channels: ChannelParams,
         tr: TimeRange,
     ) -> None:
-        if isinstance(channels, ChannelKey):
-            channels = [channels]
+        normal = normalize_channel_params(channels)
         req = _Request(
             **{
-                "keys": channels,
+                normal.variant: normal.params,
                 "bounds": tr,
             }
         )

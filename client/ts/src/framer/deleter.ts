@@ -16,6 +16,7 @@ import { keyZ } from "@/channel/payload";
 const reqZ = z.object({
   keys: keyZ.array().optional(),
   bounds: TimeRange.z,
+  names: z.string().array().optional(),
 });
 
 type RequestProps = z.infer<typeof reqZ>;

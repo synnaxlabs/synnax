@@ -181,9 +181,15 @@ export class Client {
     return frame;
   }
 
-  async delete(keys: Key | Key[], timeRange: TimeRange): Promise<void> {
+  async delete(channels: Params, timeRange: TimeRange): Promise<void> {
+    const { normalized, variant } = analyzeChannelParams(channels);
+    if (variant === "keys")
+      return await this.deleter.delete({
+        keys: normalized as Key[],
+        bounds: timeRange,
+      });
     return await this.deleter.delete({
-      keys: toArray(keys),
+      names: normalized as string[],
       bounds: timeRange,
     });
   }
