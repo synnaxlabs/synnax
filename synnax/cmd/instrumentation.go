@@ -47,8 +47,8 @@ func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 }
 
 func configureLogger() (logger *alamos.Logger, err error) {
-	verbose := viper.GetBool("verbose")
-	debug := viper.GetBool("debug")
+	verbose := viper.GetBool(verboseFlag)
+	debug := viper.GetBool(debugFlag)
 	var cfg zap.Config
 	if debug {
 		cfg = zap.NewDevelopmentConfig()

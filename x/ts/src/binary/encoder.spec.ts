@@ -39,7 +39,7 @@ describe("JSON", () => {
       timeStamp: 123,
       value: new Array([1, 2, 3]),
     };
-    const encoded = binary.JSON_ECD.encodeString(sample);
+    const encoded = binary.JSON_CODEC.encodeString(sample);
     const parse = JSON.parse(encoded);
     expect(parse.channel_key).toEqual("test");
   });
@@ -50,18 +50,18 @@ describe("JSON", () => {
       value: new Array([1, 2, 3]),
     };
     const encoded = JSON.stringify(sample);
-    const decoded = binary.JSON_ECD.decodeString(encoded, sampleSchema);
+    const decoded = binary.JSON_CODEC.decodeString(encoded, sampleSchema);
     expect(decoded.channelKey).toEqual("test");
   });
 
-  describe("CSVEncoderDecoder", () => {
+  describe("CSVCodec", () => {
     it("should correctly decode CSV data with valid input", () => {
       const sample = `
       channelKey,timeStamp,value
       test,123,5
       test2,124,6
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         channelKey: ["test", "test2"],
         timeStamp: [123, 124],
@@ -72,7 +72,7 @@ describe("JSON", () => {
     it("should handle empty CSV data", () => {
       const sample = `
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({});
     });
 
@@ -80,7 +80,7 @@ describe("JSON", () => {
       const sample = `
       channelKey,timeStamp,value
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         channelKey: [],
         timeStamp: [],
@@ -94,7 +94,7 @@ describe("JSON", () => {
       test,123,
       test2,124,6
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         channelKey: ["test", "test2"],
         timeStamp: [123, 124],
@@ -108,7 +108,7 @@ describe("JSON", () => {
       test,123,5,extra
       test2,124,6
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         channelKey: ["test", "test2"],
         timeStamp: [123, 124],
@@ -122,7 +122,7 @@ describe("JSON", () => {
       test,123,"hello"
       test2,456,"world"
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         key: ["test", "test2"],
         number: [123, 456],
@@ -136,7 +136,7 @@ describe("JSON", () => {
       test , 123 , "hello"
       test2 , 456 , "world"
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         key: ["test", "test2"],
         number: [123, 456],
@@ -151,7 +151,7 @@ describe("JSON", () => {
       ,
       test2,456,"world"
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         key: ["test", "test2"],
         number: [123, 456],
@@ -165,7 +165,7 @@ describe("JSON", () => {
       test
       test2
       `;
-      const decoded = binary.CSV_ECD.decodeString(sample);
+      const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         key: ["test", "test2"],
       });

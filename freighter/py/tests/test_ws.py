@@ -6,29 +6,38 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+import time
 
 import pytest
 
 import freighter.exceptions
 from freighter.context import Context
-from freighter.encoder import MsgpackEncoder
+from freighter.codec import MsgPackCodec, JSONCodec
 from freighter.transport import AsyncNext, Next
 from freighter.url import URL
-from freighter.websocket import AsyncWebsocketClient, WebsocketClient
+from freighter.websocket import AsyncWebsocketClient, WebsocketClient, ConnectionClosedError
+from freighter.http import HTTPClient
 
 from .interface import Error, Message
+from uuid import uuid4
 
 
 @pytest.fixture
 def async_client(endpoint: URL) -> AsyncWebsocketClient:
     ws_endpoint = endpoint.child("stream")
-    return AsyncWebsocketClient(encoder=MsgpackEncoder(), base_url=ws_endpoint)
+    return AsyncWebsocketClient(encoder=MsgPackCodec(), base_url=ws_endpoint)
 
 
 @pytest.fixture
 def sync_client(endpoint: URL) -> WebsocketClient:
     ws_endpoint = endpoint.child("stream")
-    return WebsocketClient(encoder=MsgpackEncoder(), base_url=ws_endpoint)
+    return WebsocketClient(encoder=MsgPackCodec(), base_url=ws_endpoint)
+
+
+@pytest.fixture
+def unary_client(endpoint: URL) -> HTTPClient:
+    http_endpoint = endpoint.child("unary")
+    return HTTPClient(http_endpoint, JSONCodec())
 
 
 @pytest.mark.ws
@@ -90,8 +99,27 @@ class TestWS:
         assert isinstance(err, freighter.EOF)
         assert dct["called"]
 
+    async def test_server_timeout(self, async_client, unary_client):
+        """Should correctly timeout if the server exceeds a write deadline"""
+        stream = await async_client.stream("/slamMessages", Message, Message)
+        msg_str = str(uuid4())
+        await stream.send(Message(id=1, message=msg_str))
+        time.sleep(2)
+        res, err = unary_client.send(
+            "/slamMessagesTimeoutCheck",
+            Message(id=1, message=msg_str),
+            Message
+        )
+        assert err is None
+        assert res.message == "timeout"
+        with pytest.raises(ConnectionClosedError):
+            while True:
+                _, err = await stream.receive()
+                if isinstance(err, freighter.EOF):
+                    break
 
-@pytest.mark.ws
+
+
 class TestSyncWebsocket:
     def test_basic_exchange(self, sync_client: WebsocketClient):
         stream = sync_client.stream("/echo", Message, Message)
@@ -137,3 +165,14 @@ class TestSyncWebsocket:
         _, err = stream.receive()
         assert isinstance(err, freighter.EOF)
         assert dct["called"]
+
+    def test_client_timeout(self, sync_client: WebsocketClient):
+        """Should correctly timeout if the server exceeds a write deadline"""
+        stream = sync_client.stream("/echo", Message, Message)
+        with pytest.raises(TimeoutError):
+            stream.receive(timeout=0.1)
+        stream.close_send()
+        while True:
+            _, err = stream.receive()
+            if isinstance(err, freighter.EOF):
+                break

@@ -15,7 +15,7 @@ from alamos import Instrumentation, trace
 from freighter.transport import P, Payload
 
 
-class EncoderDecoder(Protocol):
+class Codec(Protocol):
     """Protocol for an entity that encodes and decodes values from binary."""
 
     def content_type(self) -> str:
@@ -37,8 +37,8 @@ class EncoderDecoder(Protocol):
         ...
 
 
-class MsgpackEncoder(EncoderDecoder):
-    """A Msgpack implementation of EncoderDecoder."""
+class MsgPackCodec(Codec):
+    """A Msgpack implementation of Codec."""
 
     def content_type(self):
         return "application/msgpack"
@@ -50,8 +50,8 @@ class MsgpackEncoder(EncoderDecoder):
         return pld_t.parse_obj(msgpack.unpackb(data))
 
 
-class JSONEncoder(EncoderDecoder):
-    """A JSON implementation of EncoderDecoder."""
+class JSONCodec(Codec):
+    """A JSON implementation of Codec."""
 
     STRING_ENCODING = "utf-8"
 
@@ -62,22 +62,22 @@ class JSONEncoder(EncoderDecoder):
         return payload.json().encode()
 
     def decode(self, data: bytes, pld_t: Type[P]) -> P:
-        return pld_t.parse_raw(data.decode(JSONEncoder.STRING_ENCODING))
+        return pld_t.parse_raw(data.decode(JSONCodec.STRING_ENCODING))
 
 
-ENCODER_DECODERS: list[EncoderDecoder] = [
-    JSONEncoder(),
-    MsgpackEncoder(),
+CODECS: list[Codec] = [
+    JSONCodec(),
+    MsgPackCodec(),
 ]
 
 
-class TracingEncoderDecoder(EncoderDecoder):
+class TracingCodec(Codec):
     """Injects tracing information into the context of a request."""
 
-    wrapped: EncoderDecoder
+    wrapped: Codec
     instrumentation: Instrumentation
 
-    def __init__(self, wrapped: EncoderDecoder):
+    def __init__(self, wrapped: Codec):
         self.wrapped = wrapped
 
     def content_type(self):
