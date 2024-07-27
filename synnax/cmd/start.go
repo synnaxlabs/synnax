@@ -243,7 +243,7 @@ func start(cmd *cobra.Command) {
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
-			StreamWriteDeadline: viper.GetDuration("slow-consumer-timeout"),
+			StreamWriteDeadline: viper.GetDuration(slowConsumerTimeoutFlag),
 		})
 		_api.BindTo(httpapi.New(r))
 

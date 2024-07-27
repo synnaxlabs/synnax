@@ -167,7 +167,15 @@ func (s *streamClient[RQ, RS]) Stream(
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
 				return oCtx, roacherrors.New("[ws] - unable to upgrade connection")
 			}
-			stream = &clientStream[RQ, RS]{streamCore: newStreamCore[RS, RQ](ctx, coreConfig{conn: conn, codec: s.codec, Instrumentation: s.Instrumentation})}
+			stream = &clientStream[RQ, RS]{
+				streamCore: newStreamCore[RS, RQ](
+					ctx,
+					coreConfig{
+						conn:            conn,
+						codec:           s.codec,
+						Instrumentation: s.Instrumentation,
+					}),
+			}
 			return oCtx, nil
 		}),
 	)
@@ -269,7 +277,8 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").(string)
 	codec, err := httputil.DetermineCodec(headerContentType)
 	if err != nil {
-		// If we can't determine the encoder/decoder, we can't continue, so we sent a best effort string.
+		// If we can't determine the encoder/decoder, we can't continue, so we sent the
+		// best effort string.
 		return fiberCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	oCtx, err := s.MiddlewareCollector.Exec(
@@ -299,7 +308,10 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 					if stream.ctx.Err() != nil {
 						return stream.ctx.Err()
 					}
-					if err = stream.send(message[RS]{Type: closeMessage, Err: errPld}); err != nil {
+					if err = stream.send(message[RS]{
+						Type: closeMessage,
+						Err:  errPld,
+					}); err != nil {
 						return err
 					}
 					stream.peerClosed = freighter.StreamClosed
@@ -310,7 +322,9 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 					); err != nil {
 						return err
 					}
-					if err = stream.conn.SetReadDeadline(time.Now().Add(closeReadDeadline)); err != nil {
+					if err = stream.conn.SetReadDeadline(
+						time.Now().Add(closeReadDeadline),
+					); err != nil {
 						return err
 					}
 					if _, err = stream.receive(); err != nil &&
