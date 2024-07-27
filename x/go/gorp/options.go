@@ -16,10 +16,10 @@ import (
 
 type Option func(o *options)
 
-// WithEncoderDecoder sets the encoder (and decoder) used to serialize entries. It's
+// WithCodec sets the encoder (and decoder) used to serialize entries. It's
 // important to note that reading data encoded in a different format may cause
 // undefined behavior.
-func WithEncoderDecoder(ecd binary.Codec) Option {
+func WithCodec(ecd binary.Codec) Option {
 	return func(opts *options) { opts.Codec = ecd }
 }
 
@@ -29,7 +29,7 @@ type options struct {
 
 var _ Tools = options{}
 
-var defaultOptions = options{Codec: &binary.MsgPackEncoderDecoder{}}
+var defaultOptions = options{Codec: &binary.MsgPackCodec{}}
 
 func newOptions(opts []Option) options {
 	o := defaultOptions

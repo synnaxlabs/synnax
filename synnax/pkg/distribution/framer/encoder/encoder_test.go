@@ -30,7 +30,7 @@ var _ = Describe("Encoder", func() {
 	keySlice := channel.Keys{
 		1141, 2434, 3234,
 	}
-	var cd encoder.DecoderEncoder = encoder.New(
+	var cd encoder.Codec = encoder.New(
 		typeSlice,
 		keySlice,
 	)

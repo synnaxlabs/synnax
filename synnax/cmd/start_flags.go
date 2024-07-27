@@ -9,11 +9,27 @@
 
 package cmd
 
-import "encoding/base64"
+import (
+	"encoding/base64"
+	"time"
+)
+
+const (
+	listenFlag              = "listen"
+	peersFlag               = "peers"
+	dataFlag                = "data"
+	memFlag                 = "mem"
+	insecureFlag            = "insecure"
+	usernameFlag            = "username"
+	passwordFlag            = "password"
+	autoCertFlag            = "auto-cert"
+	noDriverFlag            = "no-driver"
+	slowConsumerTimeoutFlag = "slow-consumer-timeout"
+)
 
 func configureStartFlags() {
 	startCmd.Flags().StringP(
-		"listen",
+		listenFlag,
 		"l",
 		"127.0.0.1:9090",
 		`
@@ -21,55 +37,61 @@ func configureStartFlags() {
 	)
 
 	startCmd.Flags().StringSliceP(
-		"peers",
+		peersFlag,
 		"p",
 		nil,
 		"Addresses of additional peers in the cluster.",
 	)
 
 	startCmd.Flags().StringP(
-		"data",
+		dataFlag,
 		"d",
 		"synnax-data",
 		"Dirname where the synnax node will store its data.",
 	)
 
 	startCmd.Flags().BoolP(
-		"mem",
+		memFlag,
 		"m",
 		false,
 		"Use in-memory storage",
 	)
 
 	startCmd.Flags().BoolP(
-		"insecure",
+		insecureFlag,
 		"i",
 		false,
 		"Disable encryption, authentication, and authorization.",
 	)
 
 	startCmd.Flags().String(
-		"username",
+		usernameFlag,
 		"synnax",
 		"Username for the admin user.",
 	)
 
 	startCmd.Flags().String(
-		"password",
+		passwordFlag,
 		"seldon",
 		"Password for the admin user.",
 	)
 
 	startCmd.Flags().Bool(
-		"auto-cert",
+		autoCertFlag,
 		false,
 		"Automatically generate self-signed certificates.",
 	)
 
 	startCmd.Flags().Bool(
-		"no-driver",
+		noDriverFlag,
 		false,
 		"Disable the embedded synnax driver",
+	)
+
+	startCmd.Flags().Duration(
+		slowConsumerTimeoutFlag,
+		2500*time.Millisecond,
+		"Terminate slow consumers of the relay after this timeout.",
 	)
 
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")

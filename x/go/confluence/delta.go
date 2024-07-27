@@ -113,7 +113,6 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 				}
 				var err error
 				if timer != nil {
-
 					if !timer.Stop() {
 						// If the timer had already fired, drain the channel.
 						select {
@@ -122,7 +121,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 						}
 					}
 					timer.Reset(d.timeout)
-					err = d.Source.SendToEachWithTimeout(ctx, res, timer.C)
+					err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
 				} else {
 					err = d.Source.SendToEach(ctx, res)
 				}
