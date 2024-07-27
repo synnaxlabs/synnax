@@ -44,6 +44,11 @@ await client.delete(
 )
 ```
 
+<Note variant="warning">
+    Using channel name(s) to delete data will delete data in <b>all</b> channels with the
+    given name(s). Using keys to delete is more preferable to prevent accidental deletion!
+</Note>
+
 Note that `delete` is idempotent, meaning consecutive calls to `delete` on overlapping
 time ranges are allowed:
 
