@@ -39,8 +39,8 @@ var (
 type messageType string
 
 const (
-	messageTypeData messageType = "data"
-	closeMessage    messageType = "close"
+	msgTypeData  messageType = "data"
+	msgTypeClose messageType = "close"
 )
 
 // message wraps a user payload with additional information needed for the websocket
@@ -48,12 +48,12 @@ const (
 // close message type to correctly encode and transfer information about a closure
 // error across the socket.
 type message[P freighter.Payload] struct {
-	// Type represents the type of message being sent. One of messageTypeData
-	// or closeMessage.
+	// Type represents the type of message being sent. One of msgTypeData
+	// or msgTypeClose.
 	Type messageType `json:"type" msgpack:"type"`
-	// Err is the error payload to send if the message type is closeMessage.
+	// Err is the error payload to send if the message type is msgTypeClose.
 	Err errors.Payload `json:"error" msgpack:"error"`
-	// Payload is the user payload to send if the message type is messageTypeData.
+	// Payload is the user payload to send if the message type is msgTypeData.
 	Payload P `json:"payload" msgpack:"payload"`
 }
 
@@ -198,7 +198,7 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.ctx.Err() != nil {
 		return s.ctx.Err()
 	}
-	if err := s.streamCore.send(message[RQ]{Type: messageTypeData, Payload: req}); err != nil {
+	if err := s.streamCore.send(message[RQ]{Type: msgTypeData, Payload: req}); err != nil {
 		close(s.contextC)
 		return freighter.EOF
 	}
@@ -223,7 +223,7 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 		return res, err
 	}
 	// A close message means the server handler exited.
-	if msg.Type == closeMessage {
+	if msg.Type == msgTypeClose {
 		close(s.contextC)
 		s.peerClosed = errors.Decode(s.ctx, msg.Err)
 		return res, s.peerClosed
@@ -237,7 +237,7 @@ func (s *clientStream[RQ, RS]) CloseSend() error {
 		return nil
 	}
 	s.sendClosed = true
-	return s.streamCore.send(message[RQ]{Type: closeMessage})
+	return s.streamCore.send(message[RQ]{Type: msgTypeClose})
 }
 
 func mdToHeaders(md freighter.Context) http.Header {
@@ -309,7 +309,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 						return stream.ctx.Err()
 					}
 					if err = stream.send(message[RS]{
-						Type: closeMessage,
+						Type: msgTypeClose,
 						Err:  errPld,
 					}); err != nil {
 						return err
@@ -373,7 +373,7 @@ func (s *serverStream[RQ, RS]) Receive() (req RQ, err error) {
 		return req, err
 	}
 	// A close message means the client called CloseSend.
-	if msg.Type == closeMessage {
+	if msg.Type == msgTypeClose {
 		s.peerClosed = freighter.EOF
 		return req, s.peerClosed
 	}
@@ -385,7 +385,7 @@ func (s *serverStream[RQ, RS]) Send(res RS) error {
 	if s.ctx.Err() != nil {
 		return s.ctx.Err()
 	}
-	return s.streamCore.send(message[RS]{Payload: res, Type: messageTypeData})
+	return s.streamCore.send(message[RS]{Payload: res, Type: msgTypeData})
 }
 
 func isRemoteContextCancellation(err error) bool {
