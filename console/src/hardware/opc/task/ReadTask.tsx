@@ -25,7 +25,7 @@ import {
   useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { primitiveIsZero } from "@synnaxlabs/x";
+import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -83,6 +83,9 @@ const schema = z.object({
   name: z.string(),
   config: readConfigZ,
 });
+
+const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
+  props.read.channels[nodeId] ?? props.read.channels[caseconv.snakeToCamel(nodeId)];
 
 const Wrapped = ({
   layoutKey,
@@ -159,7 +162,7 @@ const Wrapped = ({
       const toCreate: ReadChannelConfig[] = [];
       for (const ch of config.channels) {
         if (ch.useAsIndex) continue;
-        const exKey = dev.properties.read.channels[ch.nodeId];
+        const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
         if (primitiveIsZero(exKey)) toCreate.push(ch);
         else {
           try {
@@ -179,27 +182,30 @@ const Wrapped = ({
         const channels = await client.channels.create(
           toCreate.map((c) => ({
             name: c.name,
-            dataType: "float32",
+            dataType: c.dataType,
             index: dev.properties.read.index,
           })),
         );
+        console.log;
         channels.forEach((c, i) => {
           dev.properties.read.channels[toCreate[i].nodeId] = c.key;
         });
       }
+
+      config.channels = config.channels.map((c) => ({
+        ...c,
+        channel: c.useAsIndex
+          ? dev.properties.read.index
+          : getChannelByNodeID(dev.properties, c.nodeId),
+      }));
+
+      console.log(config.channels, dev.properties);
 
       if (modified)
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
-
-      config.channels = config.channels.map((c) => ({
-        ...c,
-        channel: c.useAsIndex
-          ? dev.properties.read.index
-          : dev.properties.read.channels[c.nodeId],
-      }));
 
       createTask({ key: task?.key, name, type: READ_TYPE, config });
     },
@@ -340,7 +346,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
           enabled: true,
           nodeId,
           useAsIndex: false,
-          dataType: i.data?.dataType ?? "float32",
+          dataType: (i.data?.dataType as string) ?? "float32",
         };
       });
     push(toAdd);

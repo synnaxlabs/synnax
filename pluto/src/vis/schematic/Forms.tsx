@@ -27,6 +27,7 @@ import { type Button as CoreButton } from "@/vis/button";
 import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import { type ControlStateProps } from "@/vis/schematic/Symbols";
+import { Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 
 export interface SymbolFormProps {}
@@ -320,6 +321,7 @@ interface ValueTelemFormT {
   telem: telem.StringSourceSpec;
   tooltip: string[];
 }
+
 const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<ValueTelemFormT>({ path });
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
@@ -607,6 +609,109 @@ export const ButtonForm = (): ReactElement => {
           <FormWrapper direction="x" align="stretch">
             <Align.Space direction="y" grow>
               <LabelControls path="label" />
+            </Align.Space>
+            <OrientationControl path="" />
+          </FormWrapper>
+        );
+    }
+  }, []);
+
+  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
+
+  return <Tabs.Tabs {...props} />;
+};
+
+export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
+  const { value, onChange } = Form.useField<
+    Omit<Setpoint.UseProps, "aetherKey"> & { control: ControlStateProps }
+  >({ path });
+  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
+  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
+  const source = telem.streamChannelValuePropsZ.parse(
+    sourceP.segments.valueStream.props,
+  );
+  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+
+  const handleSourceChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
+    const t = telem.sourcePipeline("number", {
+      connections: [],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: v }),
+      },
+      outlet: "valueStream",
+    });
+    onChange({ ...value, source: t });
+  };
+
+  const handleSinkChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
+    const t = telem.sinkPipeline("number", {
+      connections: [],
+      segments: {
+        setter: control.setChannelValue({ channel: v }),
+      },
+      inlet: "setter",
+    });
+
+    const authSource = control.authoritySource({ channel: v });
+
+    const controlChipSink = control.acquireChannelControl({
+      channel: v,
+      authority: 255,
+    });
+
+    onChange({
+      ...value,
+      sink: t,
+      control: {
+        ...value.control,
+        showChip: true,
+        chip: {
+          sink: controlChipSink,
+          source: authSource,
+        },
+        showIndicator: true,
+        indicator: {
+          statusSource: authSource,
+        },
+      },
+    });
+  };
+
+  return (
+    <FormWrapper direction="x" grow align="stretch">
+      <Input.Item label="State Channel" grow>
+        <Channel.SelectSingle
+          value={source.channel as number}
+          onChange={handleSourceChange}
+        />
+      </Input.Item>
+      <Input.Item label="Command Channel" grow>
+        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+      </Input.Item>
+    </FormWrapper>
+  );
+};
+
+export const SetpointForm = (): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "control":
+        return <SetpointTelemForm path="" />;
+      default:
+        return (
+          <FormWrapper direction="x" align="stretch">
+            <Align.Space direction="y" grow>
+              <LabelControls path="label" />
+              <Form.Field<string>
+                path="units"
+                label="Units"
+                align="start"
+                padHelpText={false}
+              >
+                {(p) => <Input.Text {...p} />}
+              </Form.Field>
             </Align.Space>
             <OrientationControl path="" />
           </FormWrapper>

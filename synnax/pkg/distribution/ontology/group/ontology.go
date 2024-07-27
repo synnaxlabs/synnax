@@ -12,6 +12,7 @@ package group
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	changex "github.com/synnaxlabs/x/change"
@@ -24,6 +25,10 @@ const ontologyType ontology.Type = "group"
 
 func OntologyID(k uuid.UUID) schema.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
+}
+
+func OntologyIDs(keys []uuid.UUID) []schema.ID {
+	return lo.Map(keys, func(k uuid.UUID, _ int) schema.ID { return OntologyID(k) })
 }
 
 var _schema = &ontology.Schema{
