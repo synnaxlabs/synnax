@@ -12,73 +12,20 @@ package domain
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/skl"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
 )
 
 type index struct {
 	alamos.Instrumentation
-	mu struct {
-		sync.RWMutex
-		pointers []pointer
-	}
+	skl          skl.SkipList
 	deleteLock   sync.RWMutex
 	indexPersist *indexPersist
 	persistHead  int
 }
 
-// insert adds a new pointer to the index.
-func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
-	_, span := idx.T.Bench(ctx, "domain/index.insert")
-	idx.mu.Lock()
-
-	defer span.End()
-
-	insertAt := 0
-
-	if p.fileKey == 0 {
-		idx.L.DPanic("fileKey must be set")
-		idx.mu.Unlock()
-		return span.Error(errors.New("inserted pointer cannot have key 0"))
-	}
-	if len(idx.mu.pointers) != 0 {
-		// Hot path optimization for appending to the end of the index.
-		if idx.afterLast(p.Start) {
-			insertAt = len(idx.mu.pointers)
-		} else if !idx.beforeFirst(p.End) {
-			i, overlap := idx.unprotectedSearch(p.TimeRange)
-			if overlap {
-				idx.mu.Unlock()
-				return span.Error(NewErrWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
-			}
-			insertAt = i + 1
-		}
-	}
-
-	if insertAt == 0 {
-		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
-	} else if insertAt == len(idx.mu.pointers) {
-		idx.mu.pointers = append(idx.mu.pointers, p)
-	} else {
-		idx.mu.pointers = append(idx.mu.pointers[:insertAt], append([]pointer{p}, idx.mu.pointers[insertAt:]...)...)
-	}
-
-	idx.persistHead = min(idx.persistHead, insertAt)
-
-	if persist {
-		persistPointers := idx.indexPersist.prepare(idx.persistHead)
-		idx.mu.Unlock()
-		return persistPointers()
-	}
-
-	idx.mu.Unlock()
-	return nil
-}
-
 func (idx *index) overlap(tr telem.TimeRange) bool {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
 	_, overlap := idx.unprotectedSearch(tr)
 	return overlap
 }
@@ -204,7 +151,7 @@ func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, o
 }
 
 // unprotectedSearch returns the position in the index of a domain that overlaps with
-// the given time range. If no domain overlaps tr, then the immediate
+// the given time range. If there is no domain that contains tr, then the immediate
 // previous domain with a smaller start timestamp than the end is returned. False is
 // returned as the flag.
 // If tr is before all domains, -1 is returned.

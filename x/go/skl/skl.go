@@ -1,6 +1,7 @@
 package skl
 
 import (
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"math"
 	"math/rand"
@@ -23,16 +24,17 @@ type Pointer struct {
 	length  uint32
 }
 
-type node struct {
+type Node struct {
 	sync.RWMutex
-	ptr  Pointer
-	next [MaxHeight]*node
-	prev [MaxHeight]*node
+	Ptr  Pointer
+	next [MaxHeight]*Node
+	prev [MaxHeight]*Node
 }
 
 type SkipList struct {
-	head   *node
-	tail   *node
+	sync.RWMutex
+	head   *Node
+	tail   *Node
 	height int
 	length int
 }
@@ -41,8 +43,8 @@ func NewSkipList() *SkipList {
 	skl := &SkipList{}
 	// Both head and tail are nodes, however, they do not carry a value and are only
 	// sentinels.
-	skl.head = &node{}
-	skl.tail = &node{}
+	skl.head = &Node{}
+	skl.tail = &Node{}
 	for level := 0; level < MaxHeight; level++ {
 		skl.head.next[level] = skl.tail
 		skl.tail.prev[level] = skl.head
@@ -72,154 +74,146 @@ func randomHeight() int {
 	return height
 }
 
-// search returns a pointer indicating the largest node no larger than the requested
-// value along with a list of pointers indicating the largest node no larger than the
+// search returns a pointer indicating the largest Node no larger than the requested
+// value along with a list of pointers indicating the largest Node no larger than the
 // requested value at each level.
 // While the first return is simply the first element of the second, it's much more
 // convenient to work with.
 //
-// If the requested node is smaller than all nodes in the skiplist, skl.head is returned.
-// If the requested node is larger than all nodes in the skiplist, the last element in
+// If the requested Node is smaller than all nodes in the skiplist, skl.head is returned.
+// If the requested Node is larger than all nodes in the skiplist, the last element in
 // the skiplist is returned.
-func (skl *SkipList) search(v telem.TimeRange) (prev *node, next *node) {
+func (skl *SkipList) search(v telem.TimeRange) (prev *Node, next *Node) {
+	skl.RLock()
+	skl.RUnlock()
 	prev = skl.head
-	prev.RLock()
 
 	for level := skl.height - 1; level >= 0; level-- {
 		next = prev.next[level]
-		next.RLock()
 		for next != skl.tail {
 			if next == nil {
 				panic("skl reached nil pointer before tail")
 			}
 
-			if next.ptr.Start.AfterEq(v.End) {
+			if next.Ptr.Start.AfterEq(v.End) {
 				// Move down a level if next value in current level is larger than tr.
 				break
 			}
 
-			prev.RUnlock()
 			prev = next
 			next = next.next[level]
-			next.RLock()
 		}
-		next.RUnlock()
 	}
-	prev.RUnlock()
 
 	return prev, next
 }
 
-func (skl *SkipList) SearchLE(ts telem.TimeStamp) (Pointer, bool) {
+func (skl *SkipList) SearchLE(ts telem.TimeStamp) (*Node, bool) {
 	p, _ := skl.search(ts.SpanRange(0))
 	if p == skl.head {
-		return Pointer{}, false
+		return nil, false
 	}
-	return p.ptr, true
+	return p, p.Ptr.ContainsStamp(ts)
 }
 
-func (skl *SkipList) SearchGE(ts telem.TimeStamp) (Pointer, bool) {
-	_, n := skl.search(ts.SpanRange(0))
+// SearchGE
+func (skl *SkipList) SearchGE(ts telem.TimeStamp) (*Node, bool) {
+	p, n := skl.search(ts.SpanRange(0))
 	if n == skl.tail {
-		return Pointer{}, false
+		return nil, false
 	}
-	return n.ptr, true
+	// If the found Node is "equal", then it will be in prev and not next.
+	if p.Ptr.ContainsStamp(ts) {
+		return p, true
+	}
+	return n, false
 }
 
-func (skl *SkipList) Insert(ptr Pointer) {
+func (skl *SkipList) Insert(ptr Pointer) error {
 	var (
-		prev        = skl.head
-		nodesLocked = make([]*node, 0)
+		prev          = skl.head
+		journey       = make([][2]*Node, MaxHeight)
+		newNode       = &Node{Ptr: ptr}
+		newNodeHeight = randomHeight()
 	)
+	skl.Lock()
+	defer skl.Unlock()
 
-	if skl.checkLeadingEdge(ptr) {
-		return
+	// Hot Path optimization for inserting to leading edge.
+	if skl.checkLeadingEdge(newNode) {
+		return nil
 	}
 
-	prev.RLock()
 	for level := skl.height - 1; level >= 0; level-- {
 		next := prev.next[level]
-		next.RLock()
 		for next != skl.tail {
 			if next == nil {
 				panic("skl reached nil pointer before tail")
 			}
 
-			if next.ptr.Start.AfterEq(ptr.End) {
+			if next.Ptr.Start.AfterEq(ptr.End) {
 				// Move down a level if next value in current level is larger than tr.
 				break
 			}
 
-			prev.RUnlock()
 			prev = next
 			next = next.next[level]
-			next.RLock()
 		}
-		nodesLocked = append(nodesLocked, []*node{prev, next}...)
+		journey[level] = [2]*Node{prev, next}
+		if level == 0 {
+			if prev.Ptr.OverlapsWith(ptr.TimeRange) || next.Ptr.OverlapsWith(ptr.TimeRange) {
+				return errors.Newf(
+					"domain overlap: trying to insert %s between %s and %s",
+					ptr.TimeRange,
+					prev.Ptr.TimeRange,
+					next.Ptr.TimeRange,
+				)
+			}
+		}
 	}
-	prev.RUnlock()
 
-	if height > skl.height {
-		skl.height = height
+	for level := 0; level < newNodeHeight; level++ {
+		p, n := journey[level][0], journey[level][1]
+		if p == nil {
+			newNode.prev[level] = skl.head
+			newNode.next[level] = skl.tail
+			skl.head.next[level] = newNode
+			skl.tail.prev[level] = newNode
+			continue
+		}
+		newNode.prev[level] = p
+		newNode.next[level] = n
+		p.next[level] = newNode
+		n.prev[level] = newNode
+	}
+
+	if newNodeHeight > skl.height {
+		skl.height = newNodeHeight
 	}
 
 	skl.length += 1
+	return nil
 }
 
-func (skl *SkipList) checkLeadingEdge(ptr Pointer) (inserted bool) {
-	skl.tail.Lock()
+func (skl *SkipList) checkLeadingEdge(newNode *Node) (inserted bool) {
 	lastNode := skl.tail.prev[0]
-	lastNode.Lock()
-	defer lastNode.Unlock()
-	defer skl.tail.Unlock()
 
-	if ptr.Start.AfterEq(lastNode.ptr.End) {
+	if newNode.Ptr.Start.AfterEq(lastNode.Ptr.End) {
 		// Hot path optimization: appending to end:
 		height := randomHeight()
-		newNode := node{}
 		for level := 0; level < height; level++ {
 			newNode.prev[level] = lastNode
 			newNode.next[level] = skl.tail
-			lastNode.next[level] = &newNode
-			skl.tail.prev[level] = &newNode
+			lastNode.next[level] = newNode
+			skl.tail.prev[level] = newNode
 		}
 		if height > skl.height {
 			skl.height = height
 		}
 		skl.length += 1
-		lastNode.Unlock()
-		skl.tail.Unlock()
 		return true
 	}
 	return false
 }
 
-func (skl *SkipList) Delete(start int, end int) {
-	target, _ := skl.search(start)
-	if target.tr != start {
-		target = target.next[0]
-	}
-
-	for target.tr < end && target != skl.tail {
-		for level := 0; level < skl.height; level++ {
-			if target.prev[level] != nil {
-				target.next[level].prev[level] = target.prev[level]
-				target.prev[level].next[level] = target.next[level]
-			}
-		}
-		skl.length -= 1
-		target = target.next[0]
-	}
-
-	skl.shrink()
-}
-
 func (skl *SkipList) Len() int { return skl.length }
-
-func (skl *SkipList) shrink() {
-	for level := skl.height - 1; level >= 0; level-- {
-		if skl.head.next[level] == skl.tail {
-			skl.height--
-		}
-	}
-}
