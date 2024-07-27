@@ -104,7 +104,7 @@ class TestWS:
         stream = await async_client.stream("/slamMessages", Message, Message)
         msg_str = str(uuid4())
         await stream.send(Message(id=1, message=msg_str))
-        time.sleep(1)
+        time.sleep(2)
         res, err = unary_client.send(
             "/slamMessagesTimeoutCheck",
             Message(id=1, message=msg_str),
