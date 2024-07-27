@@ -34,7 +34,7 @@ jobs:
                 - "aspen/**"
                 - "x/**"
                 - "freighter/**"
-                - ".github/workflows/client.test.yaml"
+                - ".github/workflows/test.client.yaml"
 
   build-server:
     needs: setup
@@ -84,7 +84,7 @@ jobs:
                 - "aspen/**"
                 - "x/**"
                 - "freighter/**"
-                - ".github/workflows/client.test.yaml"
+                - ".github/workflows/test.client.yaml"
 
       - name: Set up Python
         if: steps.filter.outputs.changed == 'true'
@@ -150,7 +150,7 @@ jobs:
                 - "cesium/**"
                 - "aspen/**"
                 - "x/**"
-                - ".github/workflows/client.test.yaml"
+                - ".github/workflows/test.client.yaml"
       - name: Setup pnpm
         if: steps.filter.outputs.changed == 'true'
         uses: pnpm/action-setup@v3

@@ -113,7 +113,6 @@
     border-color: var(--pluto-gray-l9);
     border-radius: var(--pluto-border-radius);
     border-width: 2px;
-    display: flex;
     padding: 0;
     flex-grow: 0;
     align-items: center;
@@ -136,5 +135,22 @@
             color: var(--pluto-gray-l0);
             font-weight: 500;
         }
+    }
+}
+
+.pluto-setpoint {
+    --pluto-border-color: var(--pluto-gray-l5-40);
+    --pluto-border-l4: var(--pluto-border-width) solid var(--pluto-border-color);
+    width: 150px;
+    .pluto-input__internal,
+    .pluto-units,
+    .pluto-btn {
+        background: var(--pluto-gray-l3-70) !important;
+    }
+    .pluto-input__internal:not(:active):not(:focus-within) {
+        border-right: none !important;
+    }
+    .pluto-units {
+        padding: 0 1rem;
     }
 }

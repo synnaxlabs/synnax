@@ -15,10 +15,17 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-type (
-	DistanceApproximation  = Approximation[int64]
-	TimeStampApproximation = Approximation[telem.TimeStamp]
-)
+type TimeStampApproximation = Approximation[telem.TimeStamp]
+
+type DistanceApproximation struct {
+	Approximation[int64]
+	// StartExact denotes whether the start timestamp of the requested time range is in
+	// the index.
+	StartExact bool
+	// EndExact denotes whether the end timestamp of the requested time range is in the
+	// index.
+	EndExact bool
+}
 
 type Approximation[T types.Numeric] struct {
 	Lower T
@@ -29,7 +36,9 @@ func (a Approximation[T]) Exact() bool {
 	return a.Lower-a.Upper == 0
 }
 
-func (a Approximation[T]) String() string { return fmt.Sprintf("[%v, %v]", a.Lower, a.Upper) }
+func (a Approximation[T]) String() string {
+	return fmt.Sprintf("[%v, %v]", a.Lower, a.Upper)
+}
 
 func Exactly[T types.Numeric](v T) Approximation[T] {
 	return Between(v, v)

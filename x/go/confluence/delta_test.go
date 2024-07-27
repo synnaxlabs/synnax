@@ -50,7 +50,7 @@ var _ = Describe("Delta", func() {
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, CloseInletsOnExit())
+			delta.Flow(ctx, CloseOutputInletsOnExit())
 			inputOne.Inlet() <- 1
 			inputOne.Close()
 			v1 := <-outputOne.Outlet()
@@ -86,7 +86,7 @@ var _ = Describe("Delta", func() {
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, CloseInletsOnExit())
+			delta.Flow(ctx, CloseOutputInletsOnExit())
 			inputOne.Inlet() <- 1
 			inputOne.Close()
 			v1 := <-outputOne.Outlet()
@@ -103,7 +103,7 @@ var _ = Describe("Delta", func() {
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, CloseInletsOnExit())
+			delta.Flow(ctx, CloseOutputInletsOnExit())
 			inputOne.Inlet() <- 1
 			inputOne.Close()
 			_, ok := <-outputOne.Outlet()
@@ -116,7 +116,7 @@ var _ = Describe("Delta", func() {
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, CloseInletsOnExit())
+			delta.Flow(ctx, CloseOutputInletsOnExit())
 			delta.Connect(outputOne)
 			delta.Connect(outputTwo)
 			Eventually(inputOne.Inlet()).Should(BeSent(1))

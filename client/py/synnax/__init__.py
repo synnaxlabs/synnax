@@ -9,6 +9,7 @@
 
 __version__ = "0.3.0"
 
+from synnax.access import Policy, PolicyClient
 from synnax.channel import Channel
 from synnax.exceptions import (
     AuthError,

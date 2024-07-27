@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { change,UnknownRecord } from "@synnaxlabs/x";
+import { change, UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export type ResourceChange = change.Change<ID, Resource>;
@@ -33,9 +33,14 @@ const resourceTypeZ = z.union([
   z.literal("rack"),
   z.literal("device"),
   z.literal("task"),
+  z.literal("policy"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;
+
+export const BuiltinOntologyType = "builtin" as ResourceType;
+export const ClusterOntologyType = "cluster" as ResourceType;
+export const NodeOntologyType = "node" as ResourceType;
 
 export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
 

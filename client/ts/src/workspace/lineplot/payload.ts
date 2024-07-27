@@ -10,6 +10,8 @@
 import { type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x/record";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
@@ -21,3 +23,8 @@ export const linePlotZ = z.object({
 });
 
 export type LinePlot = z.infer<typeof linePlotZ>;
+
+export const LineplotOntologyType = "lineplot" as ontology.ResourceType;
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: LineplotOntologyType, key: key });

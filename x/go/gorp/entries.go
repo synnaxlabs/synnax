@@ -22,7 +22,7 @@ type Key any
 
 // Entry is a go type that can be queried against a DB. All go types must implement the Entry
 // interface so that they can be stored. Entry must be serializable by the Encodings and decoder
-// provided to the WithEncoderDecoder option when instantiating a DB.
+// provided to the WithCodec option when instantiating a DB.
 type Entry[K Key] interface {
 	// GorpKey returns a unique key for the entry. gorp.DB will not raise
 	// an error if the key is a duplicate. Key must be serializable by encoder and decoder.

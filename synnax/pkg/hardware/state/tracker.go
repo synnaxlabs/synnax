@@ -209,7 +209,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		t.mu.Lock()
 		defer t.mu.Unlock()
 		// Assume the tasks state is encoded as JSON
-		decoder := &binaryx.JSONEncoderDecoder{}
+		decoder := &binaryx.JSONCodec{}
 		for _, ch := range changes {
 			var taskState task.State
 			if err = decoder.Decode(ctx, ch.Key, &taskState); err != nil {

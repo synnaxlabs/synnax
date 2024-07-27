@@ -37,7 +37,7 @@ type Iterator struct {
 func wrapStreamIterator(internal *streamIterator) *Iterator {
 	ctx, cancel := signal.Isolated()
 	req, res := confluence.Attach[IteratorRequest, IteratorResponse](internal, 1)
-	internal.Flow(ctx)
+	internal.Flow(ctx, confluence.RecoverWithErrOnPanic())
 	return &Iterator{
 		inlet:    req,
 		outlet:   res,

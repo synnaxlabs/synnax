@@ -53,7 +53,9 @@ end = start + 100 * sy.TimeSpan.SECOND
 stamps = np.linspace(start, end, N_SAMPLES, dtype=np.int64)
 
 # Generate a line from 1 to 10
-data = np.sin(np.linspace(1, 10, N_SAMPLES, dtype=np.float32)) * 20 + np.random.randn(N_SAMPLES).astype(np.float32)
+data = np.sin(np.linspace(1, 10, N_SAMPLES, dtype=np.float32)) * 20 + np.random.randn(
+    N_SAMPLES
+).astype(np.float32)
 
 # Write the data to the channel. Note that we need to write the timestamps first,
 # otherwise writing the data will fail.
