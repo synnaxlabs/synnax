@@ -57,12 +57,13 @@ func runTest(testConfigFile string, verbose bool) (exitCode int) {
 			)
 			exitCode = 1
 		}
+
 		if err := runCleanUp(test.Cleanup, verbose); err != nil {
-			panic(err)
+			fmt.Println(errors.Wrap(err, "error in cleanup"))
 		}
 
 		if err := killCluster(); err != nil {
-			panic(err)
+			fmt.Println(errors.Wrap(err, "error in killing cluster"))
 		}
 	}()
 
