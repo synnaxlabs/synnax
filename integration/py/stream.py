@@ -24,7 +24,7 @@ client = sy.Synnax(
 
 class Stream_Test():
     _tc: TestConfig
-    
+
     def __init__(self, argv: List[str]):
         argv_counter = 1
         identifier = argv[argv_counter]
@@ -72,7 +72,7 @@ class Stream_Test():
         samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
 
         err_assertion = f'''
-Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!!" if error_assertion_passed else "FAIL!!"}
+Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!!" if error_assertion_passed else "FAIL!!!!"}
 '''
         s = f'''
 -- Python Stream ({self._tc.identifier})--

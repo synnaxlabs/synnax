@@ -130,7 +130,7 @@ class WriteTest:
         end = sy.TimeStamp.now()
 
         err_assertion = f"""
-Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!!" if error_assertion_passed else "FAIL!!"}
+Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!!" if error_assertion_passed else "FAIL!!!!"}
 """
 
         s = self.generate_test_report(start.span(end), err_assertion)

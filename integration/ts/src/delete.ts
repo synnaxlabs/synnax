@@ -74,7 +74,7 @@ Time taken: ${time.isZero ? 0 : time}
 Configuration:
 \tNumber of channels: ${this.tc.channels.length}
 
-Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion ? "PASS!!" : "FAIL!!"}
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorAssertion ? "PASS!!" : "FAIL!!!!"}
 `;
 
         fs.appendFileSync("../../timing.log", s);

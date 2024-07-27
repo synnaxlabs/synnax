@@ -85,7 +85,7 @@ Configuration:
 \tNumber of channels: ${this.tc.channels.length}
 \tSamples expected: ${formatNumber(this.tc.samplesExpected)}
 
-Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!"}
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!!!"}
 `;
 
         fs.appendFileSync("../../timing.log", s);

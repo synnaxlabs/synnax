@@ -45,8 +45,8 @@ class Delete_Test:
             expected_error=expected_error,
             channels=channels,
         )
-        
-        
+
+
     def test(self):
         client.delete(self._tc.channels, self._tc.time_range)
 
@@ -74,7 +74,7 @@ class Delete_Test:
 Time taken: {start.span(end)}
 Configuration:
 \tNumber of channels: {len(self._tc.channels)}
-Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!!" if error_assertion_passed else "FAIL!!"}
+Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!!" if error_assertion_passed else "FAIL!!!!"}
 '''
         with open(FILE_NAME, "a") as f:
             f.write(s)

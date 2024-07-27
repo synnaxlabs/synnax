@@ -52,7 +52,7 @@ jobs:
         working-directory: ./integration
 
       - name: Delete Test
-        if: steps.filter.outputs.changed == 'true'
+        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
         run: ./run-integration.sh tests/delete-test.json
         working-directory: ./integration
 

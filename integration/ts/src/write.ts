@@ -162,7 +162,7 @@ Configuration:
 \tIndex persist interval: ${this.tc.indexPersistInterval}
 \tWriter mode: ${framer.WriterMode[this.tc.writerMode]}
 
-Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!"}
+Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!!!"}
 `;
 
     fs.appendFileSync("../../timing.log", s);

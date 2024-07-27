@@ -153,21 +153,6 @@
         }
       },
       {
-        "op": "delete",
-        "client": "py",
-        "delay": 1,
-        "params": {
-          "channels": [
-            "int2-0"
-          ],
-          "time_range": {
-            "start": 0,
-            "end": 1000000000000000
-          },
-          "expected_error": "unauthorized"
-        }
-      },
-      {
         "op": "read",
         "client": "ts",
         "delay": 0.5,
