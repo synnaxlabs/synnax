@@ -515,6 +515,49 @@ importers:
         specifier: ^1.6.0
         version: 1.6.0(@types/node@20.12.7)(jsdom@24.1.0)
 
+  integration/ts:
+    dependencies:
+      '@synnaxlabs/client':
+        specifier: workspace:*
+        version: link:../../client/ts
+      '@synnaxlabs/x':
+        specifier: workspace:*
+        version: link:../../x/ts
+      tsx:
+        specifier: ^4.15.7
+        version: 4.16.2
+      zod:
+        specifier: 3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@synnaxlabs/tsconfig':
+        specifier: workspace:*
+        version: link:../../configs/ts
+      '@synnaxlabs/vite-plugin':
+        specifier: workspace:*
+        version: link:../../configs/vite
+      '@types/node':
+        specifier: ^20.12.7
+        version: 20.14.9
+      '@vitest/coverage-v8':
+        specifier: ^1.6.0
+        version: 1.6.0(vitest@1.6.0(@types/node@20.14.9)(jsdom@24.1.0))
+      eslint:
+        specifier: ^9.6.0
+        version: 9.6.0
+      eslint-config-synnaxlabs:
+        specifier: workspace:*
+        version: link:../../configs/eslint
+      typescript:
+        specifier: ^5.5.3
+        version: 5.5.3
+      vite:
+        specifier: 5.3.3
+        version: 5.3.3(@types/node@20.14.9)
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.0(@types/node@20.14.9)(jsdom@24.1.0)
+
   pluto:
     dependencies:
       '@fontsource-variable/inter':
@@ -4027,6 +4070,9 @@ packages:
     resolution: {integrity: sha512-g0QYk1dZBxGwk+Ngc+ltRH2IBp2f7zBkBMBJZCDerh6EhlhSR6+9irMCuT/09zD6qkarHUSn529sK/yL4S27mg==}
     engines: {node: '>= 0.4'}
 
+  get-tsconfig@4.7.5:
+    resolution: {integrity: sha512-ZCuZCnlqNzjb4QprAzXKdpp/gh6KTxSJuw3IBsPnV/7fV4NxC9ckB+vPTt8w7fJA0TaSD7c55BR47JD6MEDyDw==}
+
   github-from-package@0.0.0:
     resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
 
@@ -5502,6 +5548,9 @@ packages:
     resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
     engines: {node: '>=8'}
 
+  resolve-pkg-maps@1.0.0:
+    resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
+
   resolve@1.19.0:
     resolution: {integrity: sha512-rArEXAgsBG4UgRGcynxWIWKFvh/XZCcS8UJdHhwy91zwAvCZIbcs+vAbflgBnNjYMs/i/i+/Ux6IZhML1yPvxg==}
 
@@ -5934,6 +5983,11 @@ packages:
 
   tslib@2.6.3:
     resolution: {integrity: sha512-xNvxJEOUiWPGhUuUdQgAJPKOOJfGnIyKySOc09XkKsgdUV/3E2zvwZYdejjmRgPCgcym1juLH3226yA7sEFJKQ==}
+
+  tsx@4.16.2:
+    resolution: {integrity: sha512-C1uWweJDgdtX2x600HjaFaucXTilT7tgUZHbOE4+ypskZ1OP8CRCSDkCxG6Vya9EwaFIVagWwpaVAn5wzypaqQ==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
@@ -10724,6 +10778,10 @@ snapshots:
       es-errors: 1.3.0
       get-intrinsic: 1.2.4
 
+  get-tsconfig@4.7.5:
+    dependencies:
+      resolve-pkg-maps: 1.0.0
+
   github-from-package@0.0.0:
     optional: true
 
@@ -12617,6 +12675,8 @@ snapshots:
 
   resolve-from@5.0.0: {}
 
+  resolve-pkg-maps@1.0.0: {}
+
   resolve@1.19.0:
     dependencies:
       is-core-module: 2.14.0
@@ -13170,6 +13230,13 @@ snapshots:
       typescript: 5.5.3
 
   tslib@2.6.3: {}
+
+  tsx@4.16.2:
+    dependencies:
+      esbuild: 0.21.5
+      get-tsconfig: 4.7.5
+    optionalDependencies:
+      fsevents: 2.3.3
 
   tunnel-agent@0.6.0:
     dependencies:
