@@ -13,7 +13,7 @@ from warnings import warn
 
 from pydantic import BaseModel
 from websockets.client import WebSocketClientProtocol, connect
-from websockets.exceptions import ConnectionClosedOK
+from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from websockets.sync.client import (
     ClientConnection as SyncClientProtocol,
     connect as sync_connect,

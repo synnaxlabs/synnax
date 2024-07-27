@@ -15,7 +15,7 @@ from freighter.context import Context
 from freighter.codec import MsgPackCodec, JSONCodec
 from freighter.transport import AsyncNext, Next
 from freighter.url import URL
-from freighter.websocket import AsyncWebsocketClient, WebsocketClient
+from freighter.websocket import AsyncWebsocketClient, WebsocketClient, ConnectionClosedError
 from freighter.http import HTTPClient
 
 from .interface import Error, Message
@@ -112,7 +112,11 @@ class TestWS:
         )
         assert err is None
         assert res.message == "timeout"
-        await stream.close_send()
+        with pytest.raises(ConnectionClosedError):
+            while True:
+                _, err = await stream.receive()
+                if isinstance(err, freighter.EOF):
+                    break
 
 
 
@@ -167,3 +171,8 @@ class TestSyncWebsocket:
         stream = sync_client.stream("/echo", Message, Message)
         with pytest.raises(TimeoutError):
             stream.receive(timeout=0.1)
+        stream.close_send()
+        while True:
+            _, err = stream.receive()
+            if isinstance(err, freighter.EOF):
+                break
