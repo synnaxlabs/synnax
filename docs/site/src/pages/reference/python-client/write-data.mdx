@@ -186,8 +186,101 @@ you're done using it.
 
 ### Writer Auto-Commit
 
-Alternatively, you could initiate a writer with auto-commit enabled by calling
+Alternatively, you can initiate a writer with auto-commit enabled by calling
 `client.open_writer` with the additional configuration argument
 `enable_auto_commit=True`. When auto-commit is enabled, a writer will commit
-after each write, automatically saving the data to the database. The writer must
-still be closed by calling `writer.close()`.
+after each write, automatically saving the data to the database. 
+
+Here's an example:
+
+```python
+import time
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    enable_auto_commit=True,
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        time.sleep(0.1)
+```
+
+### Write Authorities
+
+Writers support dynamic control handoff. Multiple writers can be opened on a channel
+at the same time, but only one writer is allowed to write to the channel. To determine,
+which writer has control, an authority from 0 to 255 is assigned to each writer (or, optionally,
+each channel in the writer). The writer with the highest authority will be allowed to
+write. If two writers have the same authority, the writer that opened first will be 
+allowed to write. For more information, see the [concepts](/concepts/writers) page on 
+writers.
+
+By default, writers are opened with an authority of `ABSOLUTE` i.e. 255. This means that
+no other writers can write to the channel as long as the writer is open. 
+
+#### Opening a writer with the same authority on all channels
+
+To open a writer with the same authority on all channels, you can pass the `authority` 
+argument with an integer.
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    authority=100,
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        time.sleep(0.1)
+```
+
+#### Opening a writer with different authorities on each channel
+
+To open a writer with different authorities on each channel, you can pass the `authority`
+argument with a list of integers. This list must be the same length as the number of channels
+in the writer.
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    authority=[100, 200],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        time.sleep(0.1)
+```
+
+#### Adjusting write authorities on the fly
+
+You can also adjust the authority of a writer on the fly by calling the `set_authority` 
+method. This method accepts a dictionary with the channel name as the key and the new
+authority as the value.
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    authority=[100, 200],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        time.sleep(0.1)
+    writer.set_authority({
+        "timestamps": 150,
+        "my_precise_tc": 250,
+    })
+```

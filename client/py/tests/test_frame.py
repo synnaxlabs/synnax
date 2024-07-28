@@ -267,3 +267,11 @@ class TestWriteFrameAdapter:
         with pytest.raises(TypeError):
             adapter.adapt(Exception("Invalid value"))
 
+    def test_adapt_dict_keys(self, adapter):
+        """Should raise a type error when an invalid value is adapted"""
+        adapter, channel = adapter
+        adapted = adapter.adapt_dict_keys({channel.name: 123})
+        assert adapted[channel.key] == 123
+
+
+

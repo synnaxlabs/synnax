@@ -25,7 +25,13 @@ from freighter import (
     decode_exception,
 )
 from synnax import io
-from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
+from synnax.channel.payload import (
+    ChannelKey,
+    ChannelKeys,
+    ChannelName,
+    ChannelNames,
+    ChannelPayload
+)
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload, CrudeFrame
@@ -234,7 +240,34 @@ class Writer:
             raise err
         return True
 
-    def set_authority(self, value: dict[ChannelKey, Authority]) -> bool:
+    @overload
+    def set_authority(
+        self,
+        value: ChannelKey | ChannelName,
+        authority: Authority,
+    ) -> bool:
+        ...
+
+    @overload
+    def set_authority(
+        self,
+        value: dict[ChannelKey | ChannelName | ChannelPayload, Authority],
+    ) -> bool:
+        ...
+
+    def set_authority(
+        self,
+        value: dict[
+                   ChannelKey | ChannelName | ChannelPayload,
+                   Authority
+               ] | ChannelKey | ChannelName,
+        authority: Authority | None = None,
+    ) -> bool:
+        if isinstance(value, (ChannelKey, ChannelName)):
+            if authority is None:
+                raise ValueError("authority must be provided when setting a single key")
+            value = {value: authority}
+        value = self.__adapter.adapt_dict_keys(value)
         err = self.__stream.send(
             _Request(
                 command=_Command.SET_AUTHORITY,

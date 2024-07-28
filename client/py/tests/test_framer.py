@@ -301,6 +301,40 @@ class TestWriter:
             w1.close()
             w2.close()
 
+    def test_set_authority_by_name(self, client: sy.Synnax, channel: sy.channel):
+        w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
+        w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
+        try:
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+
+            w1.set_authority({channel.name: 255})
+
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
+
+    def test_set_authority_by_name_value(self, client: sy.Synnax, channel: sy.channel):
+        w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
+        w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
+        try:
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+
+            w1.set_authority(channel.name, 255)
+
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
+
 
 @pytest.mark.framer
 class TestStreamer:
