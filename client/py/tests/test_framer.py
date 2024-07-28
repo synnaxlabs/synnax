@@ -291,9 +291,7 @@ class TestWriter:
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 0
-
             w1.set_authority({channel.key: 255})
-
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 10
@@ -308,9 +306,7 @@ class TestWriter:
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 0
-
             w1.set_authority({channel.name: 255})
-
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 10
@@ -325,9 +321,7 @@ class TestWriter:
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 0
-
             w1.set_authority(channel.name, 255)
-
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 10

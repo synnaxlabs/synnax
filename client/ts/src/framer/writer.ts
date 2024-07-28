@@ -19,12 +19,7 @@ import {
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import {
-  type Key,
-  type KeyOrName,
-  type KeysOrNames,
-  type Params,
-} from "@/channel/payload";
+import { type KeyOrName, type KeysOrNames, type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
 import { WriteFrameAdapter } from "@/framer/adapter";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
@@ -89,7 +84,7 @@ export interface WriterConfig {
   mode?: WriterMode;
   // errOnUnauthorized sets whether the writer raises an error when it attempts to write
   // to a channel without permission.
-  errOnUnauthorized?: boolean,
+  errOnUnauthorized?: boolean;
   //  enableAutoCommit determines whether the writer will automatically commit.
   //  If enableAutoCommit is true, then the writer will commit after each write, and
   //  will flush that commit to index after the specified autoIndexPersistInterval.
@@ -219,12 +214,24 @@ export class Writer {
     return true;
   }
 
-  async setAuthority(value: Record<Key, control.Authority>): Promise<boolean> {
+  async setAuthority(key: KeyOrName, authority: control.Authority): Promise<boolean>;
+
+  async setAuthority(value: Record<KeyOrName, control.Authority>): Promise<boolean>;
+
+  async setAuthority(
+    value: Record<KeyOrName, control.Authority> | KeyOrName,
+    authority?: control.Authority,
+  ): Promise<boolean> {
+    let oValue: Record<KeyOrName, control.Authority>;
+    if (typeof value === "string" || typeof value === "number")
+      oValue = { [value]: authority } as Record<KeyOrName, control.Authority>;
+    else oValue = value;
+    oValue = await this.adapter.adaptObjectKeys(oValue);
     const res = await this.execute({
       command: Command.SetAuthority,
       config: {
-        keys: Object.keys(value).map((k) => Number(k)),
-        authorities: Object.values(value),
+        keys: Object.keys(oValue).map((k) => Number(k)),
+        authorities: Object.values(oValue),
       },
     });
     return res.ack;
