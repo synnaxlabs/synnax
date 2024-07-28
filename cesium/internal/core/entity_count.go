@@ -9,34 +9,52 @@
 
 package core
 
-import "sync"
+import (
+	"math"
+	"sync"
+)
 
-type entityCount struct {
-	sync.RWMutex
-	openIterators  int
-	openWriters    int
-	totalWriters   uint32
-	totalIterators uint32
+const leadingAlignmentEdge = math.MaxUint32 - 50e6
+
+// EntityCount tracks the number of open iterators and writers on a particular entity.
+type EntityCount struct {
+	mu                 sync.RWMutex
+	openIterators      int
+	openWriters        int
+	writeAlignmentEdge uint32
 }
 
-func (c *entityCount) addWriter() (uint32, func()) {
-	c.Lock()
+// AddWriter increments the writer count, and returns the current write alignment edge
+// i.e. the virtual domain that uniquely identifies/orders the samples in the writer. Also
+// returns a function that decrements the writer count.
+func (c *EntityCount) AddWriter() (uint32, func()) {
+	c.mu.Lock()
 	c.openWriters += 1
-	c.totalWriters += 1
-	c.Unlock()
-	return c.totalWriters, func() {
-		c.Lock()
+	c.writeAlignmentEdge += 1
+	c.mu.Unlock()
+	return c.writeAlignmentEdge, func() {
+		c.mu.Lock()
 		c.openWriters -= 1
-		c.Unlock()
+		c.mu.Unlock()
 	}
 }
 
-func (c *entityCount) addIterator() func() {
-	c.Lock()
+// AddIterator increments the iterator count, and returns a function that decrements
+// the iterator count.
+func (c *EntityCount) AddIterator() func() {
+	c.mu.Lock()
 	c.openIterators += 1
-	c.totalIterators += 1
-	c.Unlock()
-	return c.totalIterators, func() {
+	c.mu.Unlock()
+	return func() {
+		c.mu.Lock()
 		c.openIterators -= 1
+		c.mu.Unlock()
 	}
+}
+
+// LockAndCountOpen locks the count and returns the sum of open iterators and writers. Also returns
+// a function that unlocks the count.
+func (c *EntityCount) LockAndCountOpen() (int, func()) {
+	c.mu.Lock()
+	return c.openIterators + c.openWriters, c.mu.Lock
 }

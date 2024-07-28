@@ -25,7 +25,8 @@ import (
 
 type controlledWriter struct {
 	*domain.Writer
-	channelKey core.ChannelKey
+	channelKey  core.ChannelKey
+	leadingEdge uint32
 }
 
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
@@ -35,7 +36,7 @@ type DB struct {
 	Domain      *domain.DB
 	Controller  *controller.Controller[controlledWriter]
 	_idx        index.Index
-	entityCount *entityCount
+	entityCount *core.EntityCount
 	wrapError   func(error) error
 	closed      *atomic.Bool
 }
@@ -79,18 +80,15 @@ func (db *DB) LeadingControlState() *controller.State {
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
 	iter := db.Domain.NewIterator(cfg.domainIteratorConfig())
+	_, dropEntityCount := db.entityCount.AddIterator()
 	i := &Iterator{
 		idx:            db.index(),
 		Channel:        db.Channel,
 		internal:       iter,
 		IteratorConfig: cfg,
-		onClose: func() {
-			db.entityCount.decrement()
-		},
+		onClose:        dropEntityCount,
 	}
 	i.SetBounds(cfg.Bounds)
-
-	db.entityCount.increment()
 	return i
 }
 
@@ -101,7 +99,9 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	if db.closed.Load() {
 		return false, errDBClosed
 	}
-	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "has_data_for"},
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(
+		tr,
+		control.Subject{Key: "has_data_for"},
 		func() (controlledWriter, error) {
 			return controlledWriter{
 				Writer:     nil,
@@ -126,7 +126,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	return ok, db.wrapError(err)
 }
 
-// Read reads a timerange of data at the unary level.
+// Read reads a Time Range of data at the unary level.
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
 
@@ -151,11 +151,10 @@ func (db *DB) Close() error {
 	if db.closed.Load() {
 		return nil
 	}
-
-	db.entityCount.RLock()
-	defer db.entityCount.RUnlock()
-	if db.entityCount.openIteratorWriters > 0 {
-		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers/iterators accessing it", db.entityCount.openIteratorWriters))
+	total, unlock := db.entityCount.LockAndCountOpen()
+	defer unlock()
+	if total > 0 {
+		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers/iterators accessing it", total))
 	} else {
 		db.closed.Store(true)
 		return db.wrapError(db.Domain.Close())

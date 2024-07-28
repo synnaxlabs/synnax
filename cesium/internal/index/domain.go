@@ -68,7 +68,7 @@ func (i *Domain) Distance(
 		return
 	}
 
-	// Open a new reader on the domain at the start of the range.
+	// LockAndCountOpen a new reader on the domain at the start of the range.
 	r, err := iter.NewReader(ctx)
 	if err != nil {
 		return

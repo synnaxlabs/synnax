@@ -242,13 +242,13 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		return nil
 	}
 
-	// Open a reader on the old file.
+	// LockAndCountOpen a reader on the old file.
 	r, err := db.FS.Open(name, os.O_RDONLY)
 	if err != nil {
 		return err
 	}
 
-	// Open a writer to the copy file.
+	// LockAndCountOpen a writer to the copy file.
 	w, err := db.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
 	if err != nil {
 		return err

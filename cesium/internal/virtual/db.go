@@ -10,7 +10,6 @@
 package virtual
 
 import (
-	"fmt"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -22,35 +21,21 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"sync"
 	"sync/atomic"
 )
 
 type controlEntity struct {
-	ck        core.ChannelKey
-	alignment telem.AlignmentPair
+	ck              core.ChannelKey
+	sampleAlignment uint32
 }
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
-type entityCount struct {
-	sync.RWMutex
-	openWriters int
-	leadingEdge uint32
-}
-
-func (s *entityCount) increment() {
-	s.Lock()
-	s.openWriters += 1
-	s.Unlock()
-}
-
 type DB struct {
 	Config
 	controller  *controller.Controller[*controlEntity]
-	entityCount *entityCount
+	entityCount *core.EntityCount
 	wrapError   func(error) error
 	closed      *atomic.Bool
 }
@@ -101,7 +86,7 @@ func Open(configs ...Config) (db *DB, err error) {
 		Config:      cfg,
 		controller:  c,
 		wrapError:   core.NewErrorWrapper(cfg.Channel),
-		entityCount: &entityCount{},
+		entityCount: &core.EntityCount{},
 		closed:      &atomic.Bool{},
 	}, nil
 }
@@ -122,10 +107,10 @@ func (db *DB) Close() error {
 	if db.closed.Load() {
 		return nil
 	}
-	db.entityCount.RLock()
-	defer db.entityCount.RUnlock()
-	if db.entityCount.openWriters > 0 {
-		return db.wrapError(errors.Newf(fmt.Sprintf("cannot close channel because there are %d unclosed writers accessing it", db.entityCount.openWriters)))
+	total, unlock := db.entityCount.LockAndCountOpen()
+	defer unlock()
+	if total > 0 {
+		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers accessing it", total))
 	}
 	db.closed.Store(true)
 	return nil

@@ -107,10 +107,10 @@ type Writer struct {
 	// Channel stores information about the channel this writer is writing to, including
 	// but not limited to density and index.
 	Channel core.Channel
-	// decrementCounter decrements the number of open writers and iterators on the unaryDB
+	// onClose decrements the number of open writers and iterators on the unaryDB
 	// upon which the Writer is opened. This is used to determine whether the unaryDB can
 	// be closed safely.
-	decrementCounter func()
+	onClose func()
 	// control stores the gate held by the writer in the controller of the unaryDB.
 	control *controller.Gate[controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
@@ -130,8 +130,9 @@ type Writer struct {
 	closed bool
 	// virtualAlignment tracks the alignment of the writer when persist is off.
 	virtualAlignment uint32
-	// leadingEdge uint32
-	leadingEdge uint32
+	// leadingAlignmentEdge tracks the reserved virtual domain that uniquely identifies
+	// and orders the samples in the writer.
+	leadingAlignmentEdge uint32
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -143,12 +144,13 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		return nil, transfer, err
 	}
 	w = &Writer{
-		WriterConfig:     cfg,
-		Channel:          db.Channel,
-		idx:              db.index(),
-		decrementCounter: func() { db.entityCount.decrement() },
-		wrapError:        db.wrapError,
-		virtualAlignment: 0,
+		WriterConfig:         cfg,
+		Channel:              db.Channel,
+		idx:                  db.index(),
+		onClose:              decrementCounter,
+		wrapError:            db.wrapError,
+		virtualAlignment:     0,
+		leadingAlignmentEdge: lae,
 	}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
@@ -170,7 +172,9 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		}
 	}
 	w.control = g
-	w.leadingEdge = db.entityCount.incrementWithLeadingEdge()
+	lae, decrementCounter := db.entityCount.AddWriter()
+	w.onClose = decrementCounter
+	w.leadingAlignmentEdge = lae
 	return w, transfer, w.wrapError(err)
 }
 
@@ -219,10 +223,10 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 		w.updateHwm(series)
 	}
 	if *w.Persist {
-		a = telem.NewAlignmentPair(w.leadingEdge, uint32(w.len(dw.Writer)))
+		a = telem.NewAlignmentPair(w.leadingAlignmentEdge, uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
 	} else {
-		a = telem.NewAlignmentPair(w.leadingEdge, w.virtualAlignment)
+		a = telem.NewAlignmentPair(w.leadingAlignmentEdge, w.virtualAlignment)
 		w.virtualAlignment += uint32(series.Len())
 	}
 	return a, w.wrapError(err)
@@ -291,7 +295,7 @@ func (w *Writer) Close() (controller.Transfer, error) {
 
 	w.closed = true
 	dw, t := w.control.Release()
-	w.decrementCounter()
+	w.onClose()
 	if t.IsRelease() {
 		return t, w.wrapError(dw.Close())
 	}

@@ -1272,7 +1272,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
-			Describe("Open Errors", func() {
+			Describe("LockAndCountOpen Errors", func() {
 				Specify("Channel that does not exist", func() {
 					_, err := db.OpenWriter(
 						ctx,

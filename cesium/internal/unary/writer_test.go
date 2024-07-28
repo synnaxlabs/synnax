@@ -62,7 +62,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
-				Describe("Open", func() {
+				Describe("LockAndCountOpen", func() {
 					It("Should not allow opening a writer if the specified end timestamp is before the start", func() {
 						_, _, err := db.OpenWriter(ctx, unary.WriterConfig{Start: 10, End: 3, Subject: control.Subject{Key: "foo"}})
 						Expect(err).To(MatchError(ContainSubstring("end timestamp must be after")))
@@ -130,7 +130,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By("Releasing control of the DB")
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
-				Specify("Open Writer domain overlap", func() {
+				Specify("LockAndCountOpen Writer domain overlap", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
 					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
