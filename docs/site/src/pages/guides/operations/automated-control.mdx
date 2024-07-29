@@ -1,0 +1,217 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Control Sequences"
+heading: "Writing Control Sequences in Python"
+description: "Write a control sequence for pressurizing a tank."
+---
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
+import Note from "@/components/Note.astro";
+import { Image } from "@/components/Media";
+export const components = { pre: Code };
+
+One of the most powerful tools Synnax has to offer is the ability to easily write
+control sequences in Python. These control sequences can be run from a command line to
+run both simple and complex sequences.
+
+<Divider.Divider direction="x" />
+
+## Prerequisites
+
+Before writing a control sequence, you should have done the following:
+- Downloaded the [Python client](/reference/python-client/get-started)
+- Started a local [Synnax cluster](/reference/cluster/quick-start)
+- Downloaded the [Synnax Console](/reference/console/get-started)
+
+### Running a Simulated DAQ
+
+For the purpose of this guide, we will use a simulated DAQ to represent the hardware.
+Before running the control sequence we will write in this guide, make sure to run the
+[simulation](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/press/control_sequence.py).
+
+<Divider.Divider direction="x" />
+
+## Writing the Control Sequence
+
+At the top of your script, make sure to import the synnax library:
+
+```python
+import synnax as sy
+```
+
+The next step is to connect to a Synnax Cluster. This can be done by logging in with
+through the [CLI](/reference/python-client/get-started#the-synnax-login-command) or by
+[passing the
+credentials](/reference/python-client/get-started#passing-credentials-directly) into
+your script. 
+
+After that, we will want to make a `Synnax` object. This object is how we will interact
+with the cluster:
+
+```python
+client = sy.Synnax()
+```
+
+We are also going to grab some channel names to use in our control sequence. These names
+come from the simulated DAQ.
+
+```python
+PRESS_VALVE = "valve_command_0"
+VENT_VALVE = "valve_command_1"
+PRESSURE = "sensor_0"
+```
+
+Next, you'll need to open up a controller in Python. The controller is how values are
+recorded in Synnax. We recommend using a context manager to ensure that the controller
+is properly closed when the script is done.
+
+```python
+with client.control.acquire(
+    name="Pressurization Sequence",
+    write_authorities=[200],
+    write=[PRESS_VALVE, VENT_VALVE],
+    read=[PRESSURE],
+) as controller:
+```
+
+<Note variant="info">
+Write authorities determine which instance of Synnax is allowed to write to hardware.
+Every writer in Synnax has an authority between 0 and 255. If two writers are open on
+the same channel, the writer with the higher authority will be able to write but the
+other one will not.
+</Note>
+
+Next, lets grab the start timestamp from the control sequence and set a target pressure:
+
+```python
+start = sy.TimeStamp.now()
+
+target_pressure = 20 # psi
+```
+
+We should also make sure the vent valve is closed by calling the controller:
+
+```python
+controller[VENT_VALVE] = False
+```
+
+Finally, we can open the pressurization valve and wait to reach the target pressure
+before closing the valve. This will require us to use the `wait_until` method on the
+controller. The `wait_until` method will wait until the first argument is met or a
+certain time has elapsed:
+
+```python
+controller[PRESS_VALVE] = True
+controller.wait_until(
+    lambda c: c[PRESSURE] > target_pressure,
+    timeout = 20 * sy.TimeSpan.Second,
+)
+controller[PRESS_VALVE] = False
+```
+
+We can then depressurize the tank by opening the vent valve:
+    
+```python
+controller[VENT_VALVE] = True
+controller.wait_until(
+    lambda c: c[PRESSURE] < 5,
+    timeout = 20 * sy.TimeSpan.Second,
+)
+controller[VENT_VALVE] = False
+```
+
+After this, we can grab a range from the test. This range can give us easy access to the
+test data when looking back later.
+
+```python
+client.ranges.create(
+    name="Pressurization Test",
+    time_range=sy.TimeRange(start=start, end=sy.TimeStamp.now()),
+)
+```
+
+This range is now saved and can be referenced later to view this test.
+
+The full file can now be viewed below:
+
+```python
+import synnax as sy
+import time
+
+client = sy.Synnax()
+
+PRESS_VALVE = "valve_command_0"
+VENT_VALVE = "valve_command_1"
+PRESSURE = "sensor_0"
+
+with client.control.acquire(
+    name="Pressurization Sequence",
+    write_authorities=[200],
+    write=[PRESS_VALVE, VENT_VALVE],
+    read=[PRESSURE],
+) as controller:
+    start = sy.TimeStamp.now()
+
+    target_pressure = 20 # psi
+
+    controller[VENT_VALVE] = False
+
+    controller[PRESS_VALVE] = True
+    controller.wait_until(
+        lambda c: c[PRESSURE] > target_pressure,
+        timeout = 20 * sy.TimeSpan.Second,
+    )
+    controller[PRESS_VALVE] = False
+
+    time.sleep(3)
+
+    controller[VENT_VALVE] = True
+    controller.wait_until(
+        lambda c: c[PRESSURE] < 5,
+        timeout = 20 * sy.TimeSpan.Second,
+    )
+    controller[VENT_VALVE] = False
+
+    client.ranges.create(
+        name="Pressurization Test",
+        time_range=sy.TimeRange(start=start, end=sy.TimeStamp.now()),
+    )
+```
+
+<Divider.Divider direction="x" />
+
+## Running and Viewing Control Sequence
+
+First, make sure a [local Synnax cluster](/reference/cluster/quick-start) is running.
+Then, run the simulated DAQ. After that, [connect to the
+cluster](/reference/console/clusters) in the Synnax Console. Once connected, you can set
+up a [schematic](/reference/console/schematics) to view the elements. Make sure to
+connect the valves and values to the respective channels! You can also create a [line
+plot](/reference/console/line-plots) to view sensor_0.
+
+In the schematic, make sure there are the following components:
+- Value
+  - Input Channel: sensor_0
+- Valve
+  - State Channel: valve_response_0
+  - Command Channel: valve_command_0
+- Valve
+  - State Channel: valve_response_1
+  - Command Channel: valve_command_1
+
+Your schematic should look something like this:
+
+<Image client:only="react" id="guides/analyst/exploratory-analysis-in-python/filter-results" themed={false} />
+
+If you want, you can enter [control mode](/reference/console/schematics#control-mode) on
+the schematic and manually control the valves.
+
+When you run the autosequence, you should see the tank pressurize and depressurize!
+
+<Divider.Divider direction="x" />
+
+## Conclusion
+
+If you want to look at more examples of autosequences, visit our [GitHub
+repository](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control)!
+Detailed information about the functions used in our Python client

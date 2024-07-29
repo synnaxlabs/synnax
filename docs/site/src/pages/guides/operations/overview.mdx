@@ -1,33 +1,32 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Operations Overview"
-heading: "Starting Operations"
-description: "This page will walk you through concepts needed for users using the Synnax Console for tests and operations."
+heading: "Synnax for Test and Operations"
+description: "Learn how to use Synnax for tests and operations."
 ---
+import { Divider } from "@synnaxlabs/pluto"
 
-## What is Synnax?
-Synnax is a sensor-data platform that allows data storage, processing, analysis,
-viewing, and automated control. What that means is that Synnax can connect to
-hardware systems, collect data, and allow users to both plot the data and run
-automated control with the data.
+Synnax is a sensor-data platform that allows for data storage, processing, and analysis.
+You can also control hardware with through running python scripts or by using the Synnax
+Console.
 
-## How does Synnax work?
-The most important thing to know about Synnax how Synnax works is that it
-consists of two main parts, nodes and clusters. _Nodes_ are an individual
-instance of Synnax running - think of an individual computer running the Synnax
-console, or an individual instance of an automated control server. Nodes that
-are connected to each other form a _cluster_. Every node in the cluster has
-access to the same data, and is able to save shared views such as line graphs or
-Schematic views.
+<Divider.Divider direction="x" />
 
-## Okay, but how does it really work?
-Let’s say that we have one cluster in Synnax for a jet engine test team. One
-node of the cluster could be the DAQ hardware that connects to all of the
-sensors and actuators, along with the computer controlling it. Another node
-could be a computer running Synnax that the test operators use to view data from
-the test. A third node could be some advanced analysis written by a design
-engineer. All three of these nodes have access to the exact same data within
-milliseconds. What this means is that the design engineer can run the analysis
-while the test is ongoing or immediately after it finishes, the test engineers
-can have their pretty plots saved to be looked at whenever, and the computer
-running control can make control decisions based off the sensor data.
+## Manual Control with Synnax Console
+
+To learn more about controlling hardware with the Synnax Console, visit our reference
+page on the [Synnax Console](/reference/console/get-started). 
+
+<Divider.Divider direction="x" />
+
+## Writing Automated Control Sequences
+
+Synnax has support for writing automated control sequences in
+[Python](/reference/python-client/get-started) and
+[TypeScript](/reference/typescript-client/get-started) through the respective clients
+for each language. Using one of these clients, you can write scripts for automated
+control of hardware and automated analysis of data. There are example autosequences to
+explore in our [GitHub
+repository](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control),
+but we also have a guide on [writing a control sequence for tank
+pressurization](/guides/operations/control-sequence).
