@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { analystNav } from "@/pages/guides/analyst/nav";
-import { sysAdminNav } from "@/pages/guides/sys-admin/nav";
+import { analystNav } from "@/pages/guides/analyst/_nav";
+import { sysAdminNav } from "@/pages/guides/sys-admin/_nav";
 import { clusterNav } from "@/pages/reference/cluster/_nav";
 import { conceptsNav } from "@/pages/reference/concepts/_nav";
 import { consoleNav } from "@/pages/reference/console/_nav";
