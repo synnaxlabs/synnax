@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
+
 import { Link } from "@/link";
 import { create } from "@/schematic/Schematic";
 import { State } from "@/schematic/slice";
@@ -30,7 +32,7 @@ export const linkHandler: Link.Handler = async ({
   } catch (e) {
     addStatus({
       variant: "error",
-      key: `openUrlError-${resource + "/" + resourceKey}`,
+      key: id.id(),
       message: (e as Error).message,
     });
   }

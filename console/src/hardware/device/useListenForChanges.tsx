@@ -10,7 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type change } from "@synnaxlabs/x";
+import { type change, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { createConfigureLayout } from "@/hardware/ni/device/Configure";
@@ -34,7 +34,7 @@ export const useListenForChanges = (): void => {
       sets.forEach(({ value: dev }) => {
         if (dev.configured === true) return;
         addStatus({
-          key: `new-device-${dev.key}`,
+          key: id.id(),
           variant: "info",
           message: `New ${dev.model} connected`,
           data: dev,

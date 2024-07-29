@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
@@ -26,7 +26,7 @@ export const useCheckForUpdates = (): boolean => {
     if (update?.available !== true || available) return;
     setAvailable(true);
     addStatus({
-      key: "versionUpdate",
+      key: id.id(),
       variant: "info",
       message: `Update available`,
     });
