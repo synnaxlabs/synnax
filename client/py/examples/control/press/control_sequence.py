@@ -62,6 +62,15 @@ with client.control.acquire(
         else:
             break
 
+    # Vent the system
+    controller[VENT_VALVE] = True
+
+    # Wait until the pressure is less than 5 psi
+    controller.wait_until(lambda c: c[PRESSURE] < 5)
+
+    # Close the vent valve
+    controller[VENT_VALVE] = False
+
     # Mark the end of the sequence
     end = sy.TimeStamp.now()
 
