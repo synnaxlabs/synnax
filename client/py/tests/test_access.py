@@ -12,7 +12,7 @@ import pytest
 
 import synnax as sy
 from synnax.channel.client import channel_ontology_type
-from synnax.ontology.id import OntologyID
+from synnax.ontology import OntologyID
 
 
 @pytest.mark.access
@@ -159,3 +159,59 @@ class TestAccessAuthClient:
                     rate=1 * sy.Rate.HZ,
                 )
             )
+
+    def test_privilege_framer(self, client: sy.Synnax, login_info:  tuple[str, int, str, str]):
+        host, port, _, _ = login_info
+        username = str(uuid.uuid4())
+        usr = client.user.register(username, "pwd3")
+        client2 = sy.Synnax(
+            host=host,
+            port=port,
+            username=username,
+            password="pwd3",
+        )
+
+        client.access.create(
+            subjects=[usr.ontology_id()],
+            objects=[channel_ontology_type],
+            actions=["create"],
+        )
+
+        chs = client2.channels.create(
+            [
+                sy.Channel(
+                    name="new_channel",
+                    data_type=sy.DataType.FLOAT32,
+                    rate=1 * sy.Rate.HZ,
+                ),
+                sy.Channel(
+                    name="new_channel_with_perm",
+                    data_type=sy.DataType.FLOAT32,
+                    rate=1 * sy.Rate.HZ,
+                ),
+            ]
+        )
+
+        client.access.create(
+            subjects=[usr.ontology_id()],
+            objects=[sy.ontology.OntologyID(key=chs[1].key, type="framer")],
+            actions=["retrieve"],
+        )
+
+        with pytest.raises(sy.AuthError):
+            client2.open_iterator(sy.TimeRange.MAX, [ch.key for ch in chs])
+
+        with pytest.raises(sy.AuthError):
+            client2.open_writer(0, [ch.key for ch in chs])
+
+        with pytest.raises(sy.AuthError):
+            client2.open_streamer([ch.key for ch in chs])
+
+        # Assert that opening on channels that have allowed policy is fine
+        i = client2.open_iterator(sy.TimeRange.MAX, chs[1].key)
+        s = client2.open_streamer(chs[1].key)
+        with pytest.raises(sy.AuthError):
+            client2.open_writer(0, chs[1].key)
+
+        i.close()
+        s.close()

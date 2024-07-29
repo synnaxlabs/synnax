@@ -15,7 +15,6 @@ import {
   type MultiSeries,
   TimeRange,
   TimeSpan,
-  toArray,
 } from "@synnaxlabs/x";
 
 import { type Key, type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";
@@ -25,6 +24,12 @@ import { Frame } from "@/framer/frame";
 import { Iterator, IteratorConfig } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
+import { ontology } from "@/ontology";
+
+export const FramerOntologyType = "framer" as ontology.ResourceType;
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: FramerOntologyType, key: key.toString() });
 
 export class Client {
   private readonly streamClient: StreamClient;

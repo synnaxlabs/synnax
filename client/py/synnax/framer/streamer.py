@@ -32,7 +32,7 @@ class _Request(Payload):
 
 class _Response(Payload):
     frame: FramePayload
-    error: ExceptionPayload | None
+    error: ExceptionPayload | str | None
 
 
 _ENDPOINT = "/frame/stream"
@@ -56,6 +56,9 @@ class Streamer:
 
     def __open(self):
         self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
+        r, exc = self.__stream.receive()
+        if exc is not None:
+            raise exc
 
     @overload
     def read(self, timeout: float) -> Frame | None:
@@ -119,6 +122,9 @@ class AsyncStreamer:
     async def open(self):
         self.__stream = await self.__client.stream(_ENDPOINT, _Request, _Response)
         await self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
+        _, err = await self.__stream.receive()
+        if err is not None:
+            raise err
 
     @property
     def received(self) -> bool:

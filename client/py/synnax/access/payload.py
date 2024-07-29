@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 
 from freighter import Payload
-from synnax.ontology.id import OntologyID
+from synnax.ontology import OntologyID
 
 
 class Policy(Payload):

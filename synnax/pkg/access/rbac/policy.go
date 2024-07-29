@@ -83,6 +83,8 @@ func AllowRequest(req access.Request, policies []Policy) bool {
 					}
 				}
 			} else {
+				// If o is one of the requested objects, it will be removed from the set;
+				// if it is not, then this is a no-op.
 				delete(requestedObjects, o)
 			}
 		}

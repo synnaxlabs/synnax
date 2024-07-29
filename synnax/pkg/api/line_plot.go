@@ -69,7 +69,7 @@ type LinePlotRenameRequest struct {
 func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err

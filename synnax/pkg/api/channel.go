@@ -327,7 +327,7 @@ func (s *ChannelService) Rename(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: req.Keys.OntologyIDs(),
 	}); err != nil {
 		return types.Nil{}, err
