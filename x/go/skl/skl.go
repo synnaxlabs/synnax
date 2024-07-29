@@ -108,22 +108,22 @@ func (skl *SkipList) search(v telem.TimeRange) (prev *Node, next *Node) {
 	return prev, next
 }
 
-func (skl *SkipList) SearchLE(ts telem.TimeStamp) (*Node, bool) {
-	p, _ := skl.search(ts.SpanRange(0))
+func (skl *SkipList) SearchLE(tr telem.TimeRange) (*Node, bool) {
+	p, _ := skl.search(tr)
 	if p == skl.head {
 		return nil, false
 	}
-	return p, p.Ptr.ContainsStamp(ts)
+	return p, p.Ptr.OverlapsWith(tr)
 }
 
 // SearchGE
-func (skl *SkipList) SearchGE(ts telem.TimeStamp) (*Node, bool) {
-	p, n := skl.search(ts.SpanRange(0))
+func (skl *SkipList) SearchGE(tr telem.TimeRange) (*Node, bool) {
+	p, n := skl.search(tr)
 	if n == skl.tail {
 		return nil, false
 	}
 	// If the found Node is "equal", then it will be in prev and not next.
-	if p.Ptr.ContainsStamp(ts) {
+	if p.Ptr.OverlapsWith(tr) {
 		return p, true
 	}
 	return n, false
