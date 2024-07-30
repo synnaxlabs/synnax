@@ -668,6 +668,7 @@ std::unique_ptr<task::Task> Reader::configure(
 
 void Reader::exec(task::Command &cmd) {
     if (cmd.type == "start") {
+        this->configure(ctx, task);
         pipe.start();
         ctx->setState({
             .task = task.key,
