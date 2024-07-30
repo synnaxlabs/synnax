@@ -83,7 +83,7 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 //     This is the simplest case: the distance approximation is exact, and the
 //     target timestamp does not need to be snapped to the nearest sample.
 //
-//   - Case 2: Start of domain is exact, target ts is not exact
+//   - Case 2: Start of domain is exact, target ts is inexact
 //     This case is also simple: we want to delete as little as possible, so we use
 //     the upper distance approximation as the distance offset and use the previous
 //     sample as the end of the previous domain. For example, if the index looks

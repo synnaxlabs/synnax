@@ -70,12 +70,12 @@ export interface InputFileContentsProps<P extends z.ZodTypeAny = z.ZodString>
   onChange: (value: z.output<P>, path: string) => void;
   initialPath?: string;
   schema?: P;
-  decoder?: binary.EncoderDecoder;
+  decoder?: binary.Codec;
 }
 
 export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
   onChange,
-  decoder = binary.TEXT_ECD,
+  decoder = binary.TEXT_CODEC,
   initialPath,
   schema,
   ...props

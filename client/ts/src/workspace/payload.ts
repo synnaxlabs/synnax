@@ -10,6 +10,8 @@
 import { type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x/record";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
 export const keyZ = z.string().uuid();
 
 export type Key = z.infer<typeof keyZ>;
@@ -35,3 +37,8 @@ export const workspaceRemoteZ = workspaceZ.omit({ layout: true }).extend({
 });
 
 export type Workspace = z.infer<typeof workspaceZ>;
+
+export const WorkspaceOntologyType = "workspace" as ontology.ResourceType;
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: WorkspaceOntologyType, key: key });

@@ -30,3 +30,13 @@ TEST(FramerTests, toProto) {
     ASSERT_EQ(f2.channels->at(0), 65537);
     ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
 }
+
+/// @brief test ostream operator.
+TEST(FramerTests, ostream) {
+    auto f = synnax::Frame(2);
+    f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
+    std::stringstream ss;
+    ss << f;
+    ASSERT_EQ(ss.str(), "Frame{\n 65537: Series(type: float32, size: 3, cap: 3, data: [1 2 3 ]), \n}");
+}
+

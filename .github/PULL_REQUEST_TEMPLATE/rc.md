@@ -360,6 +360,8 @@ I can successfully:
        device)
      - [ ] Out of range values
      - [ ] Multiple tasks using the same channel
+- [ ] Shut down the driver with an embedded driver without receiving an error from
+the driver routine.
 
 ### Other
 

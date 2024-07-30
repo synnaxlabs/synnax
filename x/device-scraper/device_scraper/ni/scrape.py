@@ -52,14 +52,20 @@ for category in CATEGORIES:
         print("Category: " + category + " Page: " + str(page))
         response = requests.get(
             url + "/" + category + "?&page=" + str(page) + "&getPrice=false",
-            headers=headers)
+            headers=headers,
+        )
         j = response.json()
         l_products = j["products"]
         COUNT += len(j["products"])
         for product in l_products:
             for key in list(product.keys()):
-                if key not in ["id", "tileLabel", "productID", "productData",
-                               "productSpecs"]:
+                if key not in [
+                    "id",
+                    "tileLabel",
+                    "productID",
+                    "productData",
+                    "productSpecs",
+                ]:
                     del product[key]
 
             product["category"] = category
@@ -70,7 +76,7 @@ for category in CATEGORIES:
 for product in products:
     specs_url = product["productSpecs"]
     if "search" not in specs_url and "specs.html" in specs_url:
-        specs_url = specs_url[specs_url.find("bundle") + 7:]
+        specs_url = specs_url[specs_url.find("bundle") + 7 :]
         base_url = "https://docs-be.ni.com/api/bundle/"
         response = requests.get(base_url + specs_url, headers=headers)
     elif "search" in specs_url:

@@ -17,6 +17,7 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelParams,
     normalize_channel_params,
+    ChannelKey,
 )
 from synnax.telem import TimeRange
 

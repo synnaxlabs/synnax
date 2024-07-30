@@ -37,8 +37,11 @@ def parse_channel_dio(i, product: dict):
     if bidir_channels is not None:
         total_candidates.append(bidir_channels)
 
-    if len(ports_candidates) == 0 and len(lines_candidates) == 0 and len(
-        total_candidates) == 0:
+    if (
+        len(ports_candidates) == 0
+        and len(lines_candidates) == 0
+        and len(total_candidates) == 0
+    ):
         return
 
     port_lower_candidates = set([x["lower"] for x in ports_candidates])
@@ -59,20 +62,15 @@ def parse_channel_dio(i, product: dict):
     total = max(total_candidates, default=0)
     if int(total) != 0 and (int(port_count) * int(line_count)) != int(total):
         print(
-            f"Error: {i} {product['tileLabel']}: ({port_count} * {line_count} != {total})")
+            f"Error: {i} {product['tileLabel']}: ({port_count} * {line_count} != {total})"
+        )
         error_count += 1
     else:
         success_count += 1
 
     product["channels"]["digitalInputOutput"] = {
-        "ports": {
-            "upper": port_upper,
-            "lower": port_lower
-        },
-        "lines": {
-            "upper": line_upper,
-            "lower": line_lower
-        }
+        "ports": {"upper": port_upper, "lower": port_lower},
+        "lines": {"upper": line_upper, "lower": line_lower},
     }
 
 

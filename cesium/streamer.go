@@ -77,11 +77,11 @@ var _ Streamer = (*streamer)(nil)
 const relayBufferSize = 100
 
 // Flow implements confluence.Flow.
-func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
+func (s *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	frames, disconnect := s.relay.connect(relayBufferSize)
-	ctx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(ctx context.Context) error {
 		defer disconnect()
 		for {
 			select {

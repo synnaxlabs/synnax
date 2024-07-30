@@ -53,7 +53,7 @@ describe("TimeStamp", () => {
 
   test("encode", () => {
     const ts = TimeStamp.now();
-    new binary.JSONEncoderDecoder().encode(ts);
+    new binary.JSONCodec().encode(ts);
   });
 
   test("construct from TimeStamp", () => {

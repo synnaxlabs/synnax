@@ -27,7 +27,11 @@ func newRelay(sCtx signal.Context) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[Frame](20 * time.Millisecond)
 	frames := confluence.NewStream[Frame](10)
 	delta.InFrom(frames)
-	delta.Flow(sCtx)
+	delta.Flow(
+		sCtx,
+		confluence.RecoverWithErrOnPanic(),
+		confluence.WithRetryOnPanic(),
+	)
 	return &relay{
 		delta: delta,
 		inlet: frames,

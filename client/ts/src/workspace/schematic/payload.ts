@@ -10,6 +10,8 @@
 import { type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x/record";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
@@ -29,3 +31,8 @@ export const schematicRemoteZ = z.object({
 });
 
 export type Schematic = z.infer<typeof schematicZ>;
+
+export const SchematicOntologyType = "schematic" as ontology.ResourceType;
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: SchematicOntologyType, key: key });
