@@ -1,0 +1,19 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Streams"
+heading: "Streaming Data"
+description: "Learn how ranges work in Synnax."
+---
+import { Divider } from "@synnaxlabs/pluto";
+
+This page walks you through the high level concepts for streaming real-time data from a 
+Synnax cluster. If you'd like a practical guide on reading data using a client library,
+look at the respective pages for [Python](../python-client/read-data) and 
+[Typescript](../typescript-client/read-data).
+
+<Divider.Divider direction="x"/>
+
+## Overview 
+
+Data streaming in Synnax is simple - define a set of channels you'd like to stream data
+from, and then open a stream to start processing data.
