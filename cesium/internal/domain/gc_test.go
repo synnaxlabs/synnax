@@ -492,6 +492,40 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 			})
+
+			Context("Regression", func() {
+				// This regression test is used to verify that when GC is run, there is
+				// no readers on the old file that is still symlinking to the old file,
+				// causing the reading of incorrect data.
+				Specify("Reader should be recycled", func() {
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        7 * telem.ByteSize,
+						GCThreshold:     0,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13})).To(Succeed())             // file 1
+					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(25*telem.SecondTS+1), []byte{20, 21, 22, 23, 24, 25})).To(Succeed())     // file 1
+					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed()) // file 2
+					Expect(domain.Write(ctx, db, (40 * telem.SecondTS).Range(46*telem.SecondTS+1), []byte{40, 41, 43, 44, 45, 46})).To(Succeed())     // file 3
+					i := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					Expect(i.SeekLE(ctx, 43*telem.SecondTS)).To(BeTrue())
+					r := MustSucceed(i.NewReader(ctx))
+					Expect(r.Close()).To(Succeed())
+
+					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(1), telem.TimeRange{Start: 23 * telem.SecondTS, End: 41 * telem.SecondTS}, telem.Density(1))).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+
+					Expect(i.SeekLE(ctx, 43*telem.SecondTS)).To(BeTrue())
+					r = MustSucceed(i.NewReader(ctx))
+					b := make([]byte, 2)
+					_, err := r.ReadAt(b, 0)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(b).To(Equal([]byte{41, 43}))
+					Expect(r.Close()).To(Succeed())
+				})
+			})
+
 			Context("Close", func() {
 				It("Should not allow GC on a closed DB", func() {
 					db = MustSucceed(domain.Open(domain.Config{

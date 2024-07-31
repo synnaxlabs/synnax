@@ -321,6 +321,9 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 				successful = true
 			}
 		}
+		if len(fc.readers.open[k]) == 0 {
+			delete(fc.readers.open, k)
+		}
 	}
 	return successful, nil
 }
@@ -356,6 +359,17 @@ func (fc *fileController) hasWriter(fileKey uint16) bool {
 	return ok
 }
 
+func (fc *fileController) hasReader(fileKey uint16) bool {
+	fc.readers.RLock()
+	defer fc.readers.RUnlock()
+
+	rs, ok := fc.readers.open[fileKey]
+	if !ok {
+		return false
+	}
+	return len(rs) != 0
+}
+
 // rejuvenate adds a file key to the unopened writers set. If there is an open writer
 // for it, it is removed.
 // rejuvenate is called after a file is garbage collected.
@@ -373,11 +387,26 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 		delete(fc.writers.open, fileKey)
 	}
 
+	if rs, ok := fc.readers.open[fileKey]; ok {
+		for _, r := range rs {
+			if !r.tryAcquire() {
+				return newErrEntityInUse("writer", fileKey)
+			}
+			if err := r.ReaderAtCloser.Close(); err != nil {
+				return err
+			}
+		}
+		delete(fc.readers.open, fileKey)
+	}
+
 	s, err := fc.FS.Stat(fileKeyToName(fileKey))
+	if err != nil {
+		return err
+	}
 	if telem.Size(s.Size()) < fc.FileSize {
 		fc.writers.unopened[fileKey] = struct{}{}
 	}
-	return err
+	return nil
 }
 
 func (fc *fileController) atDescriptorLimit() bool {

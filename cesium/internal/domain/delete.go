@@ -186,8 +186,16 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		return span.Error(err)
 	}
 
+	// There also cannot be any readers open on the file, since any iterators that
+	// acquire those readers will be symlinked to the old file, causing them to read
+	// bad data since the new pointers no longer correspond to the old file.
+	_, err = db.files.gcReaders()
+	if err != nil {
+		return span.Error(err)
+	}
+
 	for fileKey := uint16(1); fileKey <= uint16(db.files.counter.Value()); fileKey++ {
-		if db.files.hasWriter(fileKey) {
+		if db.files.hasWriter(fileKey) || db.files.hasReader(fileKey) {
 			continue
 		}
 		s, err := db.FS.Stat(fileKeyToName(fileKey))
