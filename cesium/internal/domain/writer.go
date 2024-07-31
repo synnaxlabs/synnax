@@ -151,7 +151,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	if err != nil {
 		return nil, err
 	}
-	if db.idx.overlap(cfg.Domain()) {
+	if db.idx.overlap(ctx, cfg.Domain()) {
 		return nil, NewErrWriteConflict(db.idx.timeRange(), cfg.Domain())
 	}
 	key, size, internal, err := db.files.acquireWriter(ctx)

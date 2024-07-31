@@ -44,15 +44,10 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 type Iterator struct {
 	IteratorConfig
 	alamos.Instrumentation
-	// position stores the current position of the iterator in the idx. NOTE: At the
-	// moment, this position may not hold a consistent reference to the same value
-	// if the idx is modified during iteration.
-	position int
+	// position stores the current position of the iterator in the idx.
+	position *Node
 	// idx is the index that the iterator is iterating over.
 	idx *index
-	// value stores the current value of the iterator. This value is only valid if
-	// the iterator is valid.
-	value pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
 	// readerFactory gets a new reader for the given domain pointer.
@@ -116,7 +111,11 @@ func (i *Iterator) Next() bool {
 	if !i.valid {
 		return false
 	}
-	i.position++
+
+	i.position.RLock()
+	i.position = i.position.next[0]
+	i.position.RUnlock()
+
 	return i.reload()
 }
 
@@ -126,7 +125,9 @@ func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false
 	}
-	i.position--
+	i.position.RLock()
+	i.position = i.position.prev[0]
+	i.position.RUnlock()
 	return i.reload()
 }
 
@@ -134,10 +135,15 @@ func (i *Iterator) Prev() bool {
 // not accumulated an error. Returns false otherwise.
 func (i *Iterator) Valid() bool { return i.valid }
 
-func (i *Iterator) Position() int { return i.position }
+// Position TODO: FIXME: this should return the numerical position (useful for alignment)
+func (i *Iterator) Position() int { return 0 }
 
 // TimeRange returns the time interval occupied by current domain.
-func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
+func (i *Iterator) TimeRange() telem.TimeRange {
+	i.position.RLock()
+	defer i.position.RUnlock()
+	return i.position.Ptr.TimeRange
+}
 
 // NewReader returns a new Reader that can be used to read telemetry from the current
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
@@ -147,11 +153,18 @@ func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
 		return nil, errIteratorClosed
 	}
-	return i.readerFactory(ctx, i.value)
+
+	i.position.RLock()
+	i.position.RUnlock()
+	return i.readerFactory(ctx, i.position.Ptr)
 }
 
 // Len returns the number of bytes occupied by the telemetry in the current domain.
-func (i *Iterator) Len() int64 { return int64(i.value.length) }
+func (i *Iterator) Len() int64 {
+	i.position.RLock()
+	defer i.position.RUnlock()
+	return int64(i.position.Ptr.length)
+}
 
 // Close closes the iterator.
 func (i *Iterator) Close() error {
@@ -161,17 +174,7 @@ func (i *Iterator) Close() error {
 }
 
 func (i *Iterator) reload() bool {
-	if i.position == -1 {
-		i.valid = false
-		return i.valid
-	}
-	ptr, ok := i.idx.get(i.position)
-	if !ok || !ptr.OverlapsWith(i.Bounds) {
-		i.valid = false
-		// it's important that we return here, so we don't clear the current value
-		// of the iterator.
-		return i.valid
-	}
-	i.value = ptr
-	return i.valid
+	i.position.RLock()
+	defer i.position.RUnlock()
+	return !i.position.invalid
 }

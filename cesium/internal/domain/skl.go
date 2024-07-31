@@ -21,14 +21,21 @@ const (
 var probabilities [MaxHeight]uint32
 
 type Node struct {
+	// This mutex is locked whenever the node is to be modified. This is necessary even
+	// when the entire skiplist is locked.
 	sync.RWMutex
-	Ptr  pointer
-	next [MaxHeight]*Node
-	prev [MaxHeight]*Node
+	deleted bool
+	// invalid is true if the node is on head / tail of the skiplist.
+	invalid bool
+	Ptr     pointer
+	next    [MaxHeight]*Node
+	prev    [MaxHeight]*Node
 }
 
 type SkipList struct {
 	alamos.Instrumentation
+	// This mutex is locked whenever an insertion, update, or deletion is to be
+	// executed against the entire skiplist.
 	sync.RWMutex
 	head   *Node
 	tail   *Node
@@ -40,8 +47,8 @@ func NewSkipList() *SkipList {
 	skl := &SkipList{}
 	// Both head and tail are nodes, however, they do not carry a value and are only
 	// sentinels.
-	skl.head = &Node{}
-	skl.tail = &Node{}
+	skl.head = &Node{invalid: true}
+	skl.tail = &Node{invalid: true}
 	for level := 0; level < MaxHeight; level++ {
 		skl.head.next[level] = skl.tail
 		skl.tail.prev[level] = skl.head
@@ -71,7 +78,7 @@ func randomHeight() int {
 	return height
 }
 
-// search returns a pointer indicating the largest Node no larger than the requested
+// Search returns a pointer indicating the largest Node no larger than the requested
 // value along with a list of pointers indicating the largest Node no larger than the
 // requested value at each level.
 // While the first return is simply the first element of the second, it's much more
@@ -80,7 +87,7 @@ func randomHeight() int {
 // If the requested Node is smaller than all nodes in the skiplist, skl.head is returned.
 // If the requested Node is larger than all nodes in the skiplist, the last element in
 // the skiplist is returned.
-func (skl *SkipList) search(v telem.TimeRange) (prev *Node, next *Node) {
+func (skl *SkipList) Search(v telem.TimeRange) (prev *Node, next *Node) {
 	skl.RLock()
 	skl.RUnlock()
 	prev = skl.head
@@ -108,7 +115,7 @@ func (skl *SkipList) search(v telem.TimeRange) (prev *Node, next *Node) {
 func (skl *SkipList) SearchLE(ctx context.Context, tr telem.TimeRange) (*Node, bool) {
 	_, span := skl.T.Bench(ctx, "domain/skl/SearchLE")
 	defer span.End()
-	p, _ := skl.search(tr)
+	p, _ := skl.Search(tr)
 	if p == skl.head {
 		return nil, false
 	}
@@ -118,7 +125,7 @@ func (skl *SkipList) SearchLE(ctx context.Context, tr telem.TimeRange) (*Node, b
 func (skl *SkipList) SearchGE(ctx context.Context, tr telem.TimeRange) (*Node, bool) {
 	_, span := skl.T.Bench(ctx, "domain/skl/SearchLE")
 	defer span.End()
-	p, n := skl.search(tr)
+	p, n := skl.Search(tr)
 	if n == skl.tail {
 		return nil, false
 	}
@@ -201,20 +208,19 @@ func (skl *SkipList) Insert(ctx context.Context, ptr pointer) error {
 		}
 	}
 
+	newNode.Lock()
 	for level := 0; level < newNodeHeight; level++ {
 		p, n := journey[level][0], journey[level][1]
-		if p == nil {
-			newNode.prev[level] = skl.head
-			newNode.next[level] = skl.tail
-			skl.head.next[level] = newNode
-			skl.tail.prev[level] = newNode
-			continue
-		}
+		p.Lock()
+		n.Lock()
 		newNode.prev[level] = p
 		newNode.next[level] = n
 		p.next[level] = newNode
 		n.prev[level] = newNode
+		p.Unlock()
+		n.Unlock()
 	}
+	newNode.Unlock()
 
 	if newNodeHeight > skl.height {
 		skl.height = newNodeHeight
@@ -270,6 +276,11 @@ func (skl *SkipList) Update(ctx context.Context, ptr pointer) error {
 	if ptr.End.After(next.Ptr.Start) {
 		return span.Error(NewErrWriteConflict(ptr.TimeRange, next.Ptr.TimeRange))
 	}
+
+	prev.Lock()
+	prev.Ptr = ptr
+	prev.Unlock()
+
 	return nil
 }
 

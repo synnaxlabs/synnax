@@ -25,8 +25,8 @@ type index struct {
 	persistHead  int
 }
 
-func (idx *index) overlap(tr telem.TimeRange) bool {
-	_, ok := idx.skl.SearchLE(tr)
+func (idx *index) overlap(ctx context.Context, tr telem.TimeRange) bool {
+	_, ok := idx.skl.SearchLE(ctx, tr)
 	return ok
 }
 
@@ -43,7 +43,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		return span.Error(errors.New("inserted pointer cannot have key 0"))
 	}
 
-	if err := idx.skl.Insert(p); err != nil {
+	if err := idx.skl.Insert(ctx, p); err != nil {
 		return err
 	}
 
@@ -64,7 +64,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		return span.Error(errors.New("inserted pointer cannot have key 0"))
 	}
 
-	if err := idx.skl.Insert(p); err != nil {
+	if err := idx.skl.Update(ctx, p); err != nil {
 		return err
 	}
 
@@ -94,20 +94,17 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(first.Ptr.Start)
 }
 
-func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (n *Node) {
-	_, span := idx.T.Bench(ctx, "domain/index.searchLE")
-	defer span.End()
-	n, _ = idx.skl.SearchLE(ts.SpanRange(0))
-	return
+func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) *Node {
+	n, _ := idx.skl.SearchLE(ctx, ts.SpanRange(0))
+	return n
 }
 
-func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (n *Node) {
-	_, span := idx.T.Bench(ctx, "domain/index.searchGE")
-	defer span.End()
-	n, _ = idx.skl.SearchLE(ts.SpanRange(0))
-	return
+func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) *Node {
+	n, _ := idx.skl.SearchLE(ctx, ts.SpanRange(0))
+	return n
 }
 
 func (idx *index) close() error {
 	idx.skl = nil
+	return nil
 }
