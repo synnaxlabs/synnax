@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <map>
+
 #include "client/cpp/synnax.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/util.h"

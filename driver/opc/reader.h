@@ -76,7 +76,9 @@ public:
         ReaderConfig cfg,
         const breaker::Config &breaker_config,
         std::shared_ptr<pipeline::Source> source,
-        synnax::WriterConfig writer_config
+        synnax::WriterConfig writer_config,
+        std::shared_ptr<UA_Client> ua_client,
+        opc::DeviceProperties device_props
     ): ctx(ctx),
        task(std::move(task)),
        cfg(std::move(cfg)),
@@ -86,7 +88,9 @@ public:
            std::move(writer_config),
            std::move(source),
            breaker_config
-       )) {
+       )),
+       ua_client(ua_client),
+       device_props(device_props) {
     }
 
     std::string name() override { return task.name; }
@@ -100,11 +104,14 @@ public:
 
     void stop() override;
 
+    void start(); 
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     ReaderConfig cfg;
     breaker::Breaker breaker;
     pipeline::Acquisition pipe;
+    std::shared_ptr<UA_Client> ua_client;
+    opc::DeviceProperties device_props;
 };
 }
