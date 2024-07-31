@@ -28,7 +28,7 @@ var _ = Describe("Flush", func() {
 	It("Should flush the observable contents", func() {
 		o := observe.New[dataStruct]()
 		db := memkv.New()
-		ecd := &binary.GobEncoderDecoder{}
+		ecd := &binary.GobCodec{}
 		flush := &kv.Subscriber[dataStruct]{
 			Key:         []byte("key"),
 			Store:       db,

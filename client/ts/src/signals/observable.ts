@@ -26,15 +26,17 @@ export const openObservable = async <K, V>(
   client: framer.Client,
   setChannel: channel.Key | channel.Name,
   deleteChannel: channel.Key | channel.Name,
-  ecd: Decoder<K, V>,
+  codec: Decoder<K, V>,
 ): Promise<Observable<K, V>> => {
   const stream = await client.openStreamer([setChannel, deleteChannel] as channel.Keys);
   const transform = (frame: framer.Frame): [Array<change.Change<K, V>>, boolean] => {
     const changes: Array<change.Change<K, V>> = [];
     if (deleteChannel != null)
-      changes.push(...frame.get(deleteChannel).series.flatMap((s) => ecd("delete", s)));
+      changes.push(
+        ...frame.get(deleteChannel).series.flatMap((s) => codec("delete", s)),
+      );
     if (setChannel != null)
-      changes.push(...frame.get(setChannel).series.flatMap((s) => ecd("set", s)));
+      changes.push(...frame.get(setChannel).series.flatMap((s) => codec("set", s)));
     return [changes, changes.length > 0];
   };
   return new framer.ObservableStreamer<Array<change.Change<K, V>>>(stream, transform);

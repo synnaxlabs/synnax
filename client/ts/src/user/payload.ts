@@ -9,9 +9,20 @@
 
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
+export const keyZ = z.string().uuid();
+
+export type Key = z.infer<typeof keyZ>;
+
 export const payloadZ = z.object({
   key: z.string(),
   username: z.string(),
 });
 
 export type Payload = z.infer<typeof payloadZ>;
+
+export const UserOntologyType = "user" as ontology.ResourceType;
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: UserOntologyType, key });

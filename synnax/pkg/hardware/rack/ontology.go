@@ -13,6 +13,7 @@ package rack
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	changex "github.com/synnaxlabs/x/change"
@@ -26,6 +27,18 @@ const OntologyType ontology.Type = "rack"
 
 func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
+}
+
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(item Key, _ int) ontology.ID {
+		return OntologyID(item)
+	})
+}
+
+func OntologyIDsFromRacks(racks []Rack) []ontology.ID {
+	return lo.Map(racks, func(item Rack, _ int) ontology.ID {
+		return OntologyID(item.Key)
+	})
 }
 
 func KeysFromOntologyIds(ids []ontology.ID) (keys []Key, err error) {

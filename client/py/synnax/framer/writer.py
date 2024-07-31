@@ -177,10 +177,10 @@ class Writer:
     def write(
         self,
         channels_or_data: ChannelName
-                          | ChannelKey
-                          | ChannelKeys
-                          | ChannelNames
-                          | CrudeFrame,
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given data to the database. The formats are listed below. Before

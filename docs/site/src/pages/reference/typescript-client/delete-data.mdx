@@ -6,6 +6,7 @@ description: "Use the TypeScript client to delete data from a Synnax cluster."
 import { Divider } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro"
 export const components = { pre: Code }
+import Note from "@/components/Note.astro";
 
 The Synnax client allows deletion of time ranges of data in any channel: after each
 deletion operation is complete, all future reads will no longer include the deleted data.
@@ -43,6 +44,11 @@ await client.delete(
     TimeStamp.seconds(1).range(TimeStamp.seconds(3))
 )
 ```
+
+<Note variant="warning">
+    Using channel name(s) to delete data will delete data in <b>all</b> channels with the
+    given name(s). Using keys to delete is more preferable to prevent accidental deletion!
+</Note>
 
 Note that `delete` is idempotent, meaning consecutive calls to `delete` on overlapping
 time ranges are allowed:

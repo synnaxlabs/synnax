@@ -20,6 +20,7 @@ package writer
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -260,7 +261,12 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	res := confluence.NewStream[Response]()
 	seg.InFrom(req)
 	seg.OutTo(res)
-	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnFail())
+	seg.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.CancelOnFail(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 	return &Writer{
 		requests:  req,
 		responses: res,

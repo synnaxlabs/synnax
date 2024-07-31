@@ -37,7 +37,7 @@ var _ = Describe("Receiver", func() {
 				defer cancel()
 				receiver := &freightfluence.Receiver[int]{Receiver: server}
 				receiver.OutTo(receiverStream)
-				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
+				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				By("Receiving values from the input server")
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
 				return sCtx.Wait()
@@ -61,7 +61,7 @@ var _ = Describe("Receiver", func() {
 				defer cancel()
 				receiver := &freightfluence.Receiver[int]{Receiver: server}
 				receiver.OutTo(receiverStream)
-				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
+				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				By("Receiving values from the input server")
 				return sCtx.Wait()
 			})
@@ -93,7 +93,7 @@ var _ = Describe("Receiver", func() {
 				receiver.Transform = func(ctx context.Context, v int) (int, bool, error) {
 					return v * 2, true, nil
 				}
-				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
+				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				By("Receiving values from the input server")
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
 				return sCtx.Wait()

@@ -156,15 +156,15 @@ func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(secure.Serve())
-	}, signal.WithKey("secure"))
+	}, signal.WithKey("secure"), signal.RecoverWithErrOnPanic())
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(insecure.Serve())
-	}, signal.WithKey("insecureMux"))
+	}, signal.WithKey("insecureMux"), signal.RecoverWithErrOnPanic())
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(root.Serve())
-	}, signal.WithKey("rootMux"))
+	}, signal.WithKey("rootMux"), signal.RecoverWithErrOnPanic())
 
 	close(s.started)
 	return sCtx.Wait()
@@ -202,6 +202,7 @@ func (s *Server) startBranches(
 	bc := s.baseBranchContext()
 	for i, b := range branches {
 		b, i := b, i
+		// HERE
 		sCtx.Go(func(context.Context) error {
 			bc.Lis = listeners[i]
 			return filterCloserError(b.Serve(bc))

@@ -11,71 +11,85 @@ package cmd
 
 import "github.com/synnaxlabs/synnax/pkg/security/cert"
 
+const (
+	configFlag        = "config"
+	versionFlag       = "version"
+	certsDirFlag      = "certs-dir"
+	caKeyFlag         = "ca-key"
+	caCertFlag        = "ca-cert"
+	nodeKeyFlag       = "node-key"
+	nodeCertFlag      = "node-cert"
+	allowKeyReuseFlag = "allow-key-reuse"
+	keySizeFlag       = "key-size"
+	verboseFlag       = "verbose"
+	debugFlag         = "debug"
+)
+
 func configureRootFlags() {
 	rootCmd.PersistentFlags().StringP(
-		"config",
+		configFlag,
 		"c",
 		"/usr/local/synnax/config.yaml",
 		"config file",
 	)
 
 	rootCmd.Flags().Bool(
-		"version",
+		versionFlag,
 		false,
 		"Print the version of Synnax",
 	)
 
 	rootCmd.PersistentFlags().String(
-		"certs-dir",
+		certsDirFlag,
 		cert.DefaultLoaderConfig.CertsDir,
 		"The directory where certificates should be stored and/or written to.",
 	)
 
 	rootCmd.PersistentFlags().String(
-		"ca-key",
+		caKeyFlag,
 		cert.DefaultLoaderConfig.CAKeyPath,
 		"The path to the CA key. This is relative to certs-dir.",
 	)
 
 	rootCmd.PersistentFlags().String(
-		"ca-cert",
+		caCertFlag,
 		cert.DefaultLoaderConfig.CACertPath,
 		"The path to the CA certificate. This is relative to certs-dir.",
 	)
 
 	rootCmd.PersistentFlags().String(
-		"node-key",
+		nodeKeyFlag,
 		cert.DefaultLoaderConfig.NodeKeyPath,
 		"The path to the node key. This is relative to certs-dir.",
 	)
 
 	rootCmd.PersistentFlags().String(
-		"node-cert",
+		nodeCertFlag,
 		cert.DefaultLoaderConfig.NodeCertPath,
 		"The path to the node certificate. This is relative to certs-dir.",
 	)
 
 	rootCmd.PersistentFlags().Bool(
-		"allow-key-reuse",
+		allowKeyReuseFlag,
 		*cert.DefaultFactoryConfig.AllowKeyReuse,
 		"Whether to allow the reuse of CA keys for certificate generation.",
 	)
 
 	rootCmd.PersistentFlags().Int(
-		"key-size",
+		keySizeFlag,
 		cert.DefaultFactoryConfig.KeySize,
 		"The size to use for certificate key generation.",
 	)
 
 	rootCmd.PersistentFlags().BoolP(
-		"verbose",
+		versionFlag,
 		"v",
 		false,
 		"Enable verbose debugging.",
 	)
 
 	rootCmd.PersistentFlags().Bool(
-		"debug",
+		debugFlag,
 		false,
 		"Enable debug logging.",
 	)

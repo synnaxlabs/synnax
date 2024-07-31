@@ -14,6 +14,7 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/x/gorp"
@@ -22,13 +23,15 @@ import (
 
 type LabelService struct {
 	dbProvider
+	accessProvider
 	internal *label.Service
 }
 
 func NewLabelService(p Provider) *LabelService {
 	return &LabelService{
-		internal:   p.Config.Label,
-		dbProvider: p.db,
+		internal:       p.Config.Label,
+		dbProvider:     p.db,
+		accessProvider: p.access,
 	}
 }
 
@@ -51,6 +54,13 @@ func (s *LabelService) Create(
 	ctx context.Context,
 	req LabelCreateRequest,
 ) (res LabelCreateResponse, err error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{label.OntologyID(uuid.Nil)},
+	}); err != nil {
+		return res, err
+	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels)
 		res.Labels = req.Labels
@@ -99,7 +109,18 @@ func (s *LabelService) Retrieve(
 	if len(req.Names) != 0 {
 		q = q.WhereNames(req.Names...)
 	}
-	return res, q.Entries(&res.Labels).Exec(ctx, nil)
+
+	if err = q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
+		return LabelRetrieveResponse{}, err
+	}
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: label.OntologyIDsFromLabels(res.Labels),
+	}); err != nil {
+		return res, err
+	}
+	return res, nil
 }
 
 type LabelDeleteRequest struct {
@@ -110,6 +131,13 @@ func (s *LabelService) Delete(
 	ctx context.Context,
 	req LabelDeleteRequest,
 ) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: label.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).DeleteMany(ctx, req.Keys)
 	})
@@ -124,6 +152,13 @@ func (s *LabelService) Set(
 	ctx context.Context,
 	req LabelSetRequest,
 ) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{req.ID},
+	}); err != nil {
+		return types.Nil{}, err
+	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Label(ctx, req.ID, req.Labels)
 	})
@@ -138,6 +173,13 @@ func (s *LabelService) Remove(
 	ctx context.Context,
 	req LabelRemoveRequest,
 ) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Objects: []ontology.ID{req.ID},
+	}); err != nil {
+		return types.Nil{}, err
+	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
 	})

@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
+
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { setActive } from "@/range/slice";
+import { fromClientRange } from "@/range/services/ontology";
+import { add, setActive } from "@/range/slice";
 
 export const linkHandler: Link.Handler = async ({
   resource,
@@ -25,6 +28,7 @@ export const linkHandler: Link.Handler = async ({
   try {
     const range = await client.ranges.retrieve(resourceKey);
     dispatch(setActive(range.key));
+    dispatch(add({ ranges: fromClientRange(range) }));
     placer(
       LinePlot.create({
         name: `Plot for ${range.name}`,
@@ -38,7 +42,7 @@ export const linkHandler: Link.Handler = async ({
   } catch (e) {
     addStatus({
       variant: "error",
-      key: `openUrlError-${resource + "/" + resourceKey}`,
+      key: id.id(),
       message: (e as Error).message,
     });
   }

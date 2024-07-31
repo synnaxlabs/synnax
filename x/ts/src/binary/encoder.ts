@@ -13,10 +13,10 @@ import { caseconv } from "@/caseconv";
 import { isObject } from "@/identity";
 
 /**
- * EncoderDecoder is an entity that encodes and decodes messages to and from a
+ * Codec is an entity that encodes and decodes messages to and from a
  * binary format.
  */
-export interface EncoderDecoder {
+export interface Codec {
   /** The HTTP content type of the encoder */
   contentType: string;
 
@@ -37,8 +37,8 @@ export interface EncoderDecoder {
   decode: <P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>) => P;
 }
 
-/** JSONEncoderDecoder is a JSON implementation of EncoderDecoder. */
-export class JSONEncoderDecoder implements EncoderDecoder {
+/** JSONCodec is a JSON implementation of Codec. */
+export class JSONCodec implements Codec {
   contentType = "application/json";
   private readonly decoder: TextDecoder;
   private readonly encoder: TextEncoder;
@@ -82,9 +82,9 @@ export class JSONEncoderDecoder implements EncoderDecoder {
 }
 
 /**
- * CSVEncoderDecoder is a CSV implementation of EncoderDecoder.
+ * CSVCodec is a CSV implementation of Codec.
  */
-export class CSVEncoderDecoder implements EncoderDecoder {
+export class CSVCodec implements Codec {
   contentType = "text/csv";
 
   encode(payload: unknown): ArrayBuffer {
@@ -153,7 +153,7 @@ export class CSVEncoderDecoder implements EncoderDecoder {
   static registerCustomType(): void {}
 }
 
-export class TextEncoderDecoder implements EncoderDecoder {
+export class TextCodec implements Codec {
   contentType = "text/plain";
 
   encode(payload: unknown): ArrayBuffer {
@@ -169,8 +169,8 @@ export class TextEncoderDecoder implements EncoderDecoder {
   }
 }
 
-export const JSON_ECD = new JSONEncoderDecoder();
-export const CSV_ECD = new CSVEncoderDecoder();
-export const TEXT_ECD = new TextEncoderDecoder();
+export const JSON_CODEC = new JSONCodec();
+export const CSV_CODEC = new CSVCodec();
+export const TEXT_CODEC = new TextCodec();
 
-export const ENCODERS: EncoderDecoder[] = [JSON_ECD];
+export const ENCODERS: Codec[] = [JSON_CODEC];

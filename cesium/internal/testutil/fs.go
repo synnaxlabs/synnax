@@ -29,6 +29,27 @@ var FileSystems = map[string]FSFactory{
 	},
 }
 
+var FileSystemsWithoutAssertion = map[string]FSFactory{
+	"memFS": func() (xfs.FS, func() error) {
+		m, err := xfs.NewMem().Sub("testdata")
+		if err != nil {
+			panic(err)
+		}
+		return m, func() error { return nil }
+	},
+	"osFS": func() (xfs.FS, func() error) {
+		dirName, err := os.MkdirTemp("", "test-*")
+		if err != nil {
+			panic(err)
+		}
+		d, err := xfs.Default.Sub(dirName)
+		if err != nil {
+			panic(err)
+		}
+		return d, func() error { return xfs.Default.Remove(dirName) }
+	},
+}
+
 func CopyFS(srcFS, destFS xfs.FS) error {
 	items, err := srcFS.List("")
 	if err != nil {

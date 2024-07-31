@@ -687,7 +687,7 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
           <FS.InputFileContents<typeof tableSchema>
             initialPath={path}
             onChange={handleFileContentsChange}
-            decoder={binary.CSV_ECD}
+            decoder={binary.CSV_CODEC}
           />
         </Input.Item>
         <Align.Space direction="x" grow>
