@@ -200,7 +200,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// This means that the pointers in the index will
 	// reflect the updates made to the garbage collected file, but the old file handles
 	// will no longer match the updated pointers, resulting in incorrect read positions.
-	
+
 	// There are some potential solutions to this:
 	//     1. Add a lock on readers before each read operation, and swap the underlying
 	// file handle for each reader under a lock.
@@ -256,7 +256,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	defer db.fc.readers.RUnlock()
 	rs, ok := db.fc.readers.files[key]
 	// It's ok if there is no reader entry for the file, this means that no reader has
-	// been created. And we can be sure that no writer will be created since we hold
+	// been created. And we can be sure that no reader will be created since we hold
 	// the fc.readers mutex as well, preventing the readers map from being modified.
 	if ok {
 		rs.RLock()
@@ -265,6 +265,8 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		if len(rs.open) > 0 {
 			return nil
 		}
+		// Otherwise, we continue with garbage collection while holding the mutex lock
+		// to prevent more readers from being created.
 	}
 
 	// Find all pointers using the file: there cannot be more pointers using the file
