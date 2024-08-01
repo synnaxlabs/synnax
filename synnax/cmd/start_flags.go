@@ -91,7 +91,7 @@ func configureStartFlags() {
 
 	startCmd.Flags().Bool(
 		niFlag,
-		true,
+		false,
 		"Enable NI in the embedded synnax driver",
 	)
 
