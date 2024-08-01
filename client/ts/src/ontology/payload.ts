@@ -35,6 +35,7 @@ const resourceTypeZ = z.union([
   z.literal("device"),
   z.literal("task"),
   z.literal("policy"),
+  z.literal("allow_all"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;
@@ -44,7 +45,7 @@ export const ClusterOntologyType = "cluster" as ResourceType;
 export const NodeOntologyType = "node" as ResourceType;
 
 export const idZ = z.object({
-  type: z.union([resourceTypeZ, z.literal("allow_all")]),
+  type: resourceTypeZ,
   key: z.string(),
 });
 
@@ -58,7 +59,7 @@ export const stringIDZ = z.string().transform((v) => {
 export const crudeIDZ = z.union([stringIDZ, idZ]);
 
 export class ID {
-  type: ResourceType | "allow_all";
+  type: ResourceType;
   key: string;
 
   constructor(args: z.input<typeof crudeIDZ> | ID) {
