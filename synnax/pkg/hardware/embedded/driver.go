@@ -24,7 +24,8 @@ type Config struct {
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 	// Enabled is used to enable or disable the embedded driver.
-	Enabled *bool `json:"enabled"`
+	Enabled   *bool `json:"enabled"`
+	NIEnabled *bool `json:"ni_enabled"`
 	// Address
 	Address        address.Address `json:"address"`
 	RackName       string          `json:"rack_name"`
@@ -66,6 +67,7 @@ var (
 	DefaultConfig                       = Config{
 		Integrations: make([]string, 0),
 		Enabled:      config.Bool(true),
+		NIEnabled:    config.Bool(false),
 		Debug:        config.False(),
 	}
 )
@@ -73,6 +75,7 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Enabled = override.Nil(c.Enabled, other.Enabled)
+	c.NIEnabled = override.Nil(c.NIEnabled, other.NIEnabled)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Address = override.String(c.Address, other.Address)
 	c.RackName = override.String(c.RackName, other.RackName)
@@ -90,6 +93,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("driver.embedded")
 	validate.NotNil(v, "enabled", c.Enabled)
+	validate.NotNil(v, "ni_enabled", c.NIEnabled)
 	if v.Error() != nil {
 		return v.Error()
 	}

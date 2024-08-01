@@ -48,6 +48,13 @@ func (d *Driver) start() error {
 	}
 	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
+	var driverFile = driverName
+	if !*d.cfg.NIEnabled {
+		d.cfg.L.Info("starting driver with NI drivers disabled")
+		driverFile = driverWithoutNIName
+	} else{
+		d.cfg.L.Info("starting driver with NI drivers enabled")
+	}
 	d.shutdown = signal.NewShutdown(sCtx, cancel)
 	bre, err := breaker.NewBreaker(sCtx, breaker.Config{
 		BaseInterval: 1 * time.Second,
@@ -69,11 +76,11 @@ func (d *Driver) start() error {
 		if err != nil {
 			return err
 		}
-		data, err := executable.ReadFile("assets/" + driverName)
+		data, err := executable.ReadFile("assets/" + driverFile)
 		if err != nil {
 			return err
 		}
-		driverFileName, err := xos.WriteTemp("", driverName, data)
+		driverFileName, err := xos.WriteTemp("", driverFile, data)
 		if err != nil {
 			return err
 		}
