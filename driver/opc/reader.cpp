@@ -714,7 +714,7 @@ void Reader::start(){
             LOG(ERROR) << "[opc.reader] connection failed: " << UA_StatusCode_name(status);
         }
     }
-    LOG(INFO) << "[opc.reader] Connection Established";
+    VLOG(1) << "[opc.reader] Connection Established";
     pipe.start();
     ctx->setState({
         .task = task.key,
