@@ -1,0 +1,33 @@
+Goal:
+
+This branch is used to implement an alternative index data structure (we have chosen
+skip list as the most favourable data structure, see rfc 0023). This is to solve the
+problem that iterators use the numeric index in a slice to track their position in the
+domain index, but this numeric index position is vulnerable to concurrent shifts in the
+domain index so the iterator may read incorrect data.
+
+Current progress:
+
+A coarse-grained skip list was implemented in the domain index: skl_domain.go implements
+this data structure that supports concurrent use, however, every time we make a modification,
+we lock the entire list from insertions. 
+
+Work left:
+
+- Ensure that the entire index's interface is exactly implemented by a skiplist-backed
+implementation.
+- Make the skiplist fine-grained instead of coarse-grained, i.e. on insertions, only lock
+relevant nodes instead of entire list. 
+- Change index persist to work with skiplist-backed index and migration (if needed).
+
+Where to resume work:
+
+A good point to resume work in this branch is to make the index_test test cases pass, so 
+the skiplist-backed implementation can correctly implement the domain index interface.
+
+Roadblocks:
+
+- Unary reads require getting the numeric position of the index in order to load
+alignments, however, this is a lot more complex in a linked-list-based data structure.
+The solution may just be to run an O(n) search?
+- Fine-grained concurrency control is tricky. See git history for my attempts.
