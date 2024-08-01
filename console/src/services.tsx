@@ -52,4 +52,5 @@ export const SERVICES: Ontology.Services = {
   channel: ChannelServices.ONTOLOGY_SERVICE,
   framer: EMPTY_ONTOLOGY_SERVICE,
   policy: EMPTY_ONTOLOGY_SERVICE,
+  allow_all: EMPTY_ONTOLOGY_SERVICE,
 };
