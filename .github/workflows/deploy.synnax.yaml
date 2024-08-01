@@ -174,8 +174,19 @@ jobs:
       - name: Rename Driver
         if:  needs.setup.outputs.changed == 'true'
         run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
-      
-      
+
+      - name : Build Driver without NI on Windows
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define use_ni=false
+
+      - name: Move Driver without NI
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
+
+      - name: Rename Driver without NI
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver_without_ni${{ steps.executable.outputs.EXECUTABLE }}
+
       - name: Set up Go
         if: needs.setup.outputs.changed == 'true'
         uses: actions/setup-go@v5

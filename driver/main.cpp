@@ -93,14 +93,14 @@ int main(int argc, char *argv[]) {
         // std::move(meminfo_factory),
         std::move(heartbeat_factory),
     };
-// #ifdef USE_NI  
-//     if(ni::dlls_available()){
-//         std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
-//         factories.push_back(std::move(ni_factory));
-//     }
-// #else
-//     LOG(INFO) << "[driver] Skipping NI tasks";
-// #endif
+#ifdef USE_NI  
+    if(ni::dlls_available()){
+        std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
+        factories.push_back(std::move(ni_factory));
+    }
+#else
+    LOG(INFO) << "[driver] Skipping NI tasks";
+#endif
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
         std::move(factories)
     );
