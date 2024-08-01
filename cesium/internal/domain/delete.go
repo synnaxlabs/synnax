@@ -195,8 +195,13 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// for now, this is what we implemented.
 	// The challenge is with the two files during GC: one copy file is made and an
 	// original file is made. However, existing file handles will point to the original
-	// file instead of the new file, reading incoherent data with what's stored in the
-	// index. There are many solutions to this:
+	// file instead of the new file, even after the original file is renamed and "deleted"
+	// (unix does not actually delete the file when there is a file handle open on it).
+	// This means that the pointers in the index will
+	// reflect the updates made to the garbage collected file, but the old file handles
+	// will no longer match the updated pointers, resulting in incorrect read positions.
+	
+	// There are some potential solutions to this:
 	//     1. Add a lock on readers before each read operation, and swap the underlying
 	// file handle for each reader under a lock.
 	//     2. Use a one-file GC system where no duplicate file is created.
