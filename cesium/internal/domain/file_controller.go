@@ -32,6 +32,13 @@ func newErrEntityInUse(entity string, fileKey uint16) error {
 	return errors.Newf("%s for file %d is in use and cannot be closed", entity, fileKey)
 }
 
+// fileReaders represents readers on a file. It provides a mutex lock to prevent any
+// modifications to the list of readers.
+type fileReaders struct {
+	sync.RWMutex
+	open []controlledReader
+}
+
 type fileController struct {
 	Config
 	writers struct {
@@ -43,7 +50,7 @@ type fileController struct {
 	}
 	readers struct {
 		sync.RWMutex
-		open map[uint16][]controlledReader
+		files map[uint16]*fileReaders
 	}
 	release     chan struct{}
 	counter     *xio.Int32Counter
@@ -67,7 +74,7 @@ func openFileController(cfg Config) (*fileController, error) {
 		counterFile: counterF,
 	}
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
-	fc.readers.open = make(map[uint16][]controlledReader)
+	fc.readers.files = make(map[uint16]*fileReaders)
 	fc.release = make(chan struct{}, cfg.MaxDescriptors)
 
 	fc.writers.unopened, err = fc.scanUnopenedFiles()
@@ -253,13 +260,16 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*contr
 	defer span.End()
 
 	fc.readers.RLock()
-	if rs, ok := fc.readers.open[key]; ok {
-		for _, r := range rs {
+	if f, ok := fc.readers.files[key]; ok {
+		f.RLock()
+		for _, r := range f.open {
 			if r.tryAcquire() {
+				f.RUnlock()
 				fc.readers.RUnlock()
 				return &r, nil
 			}
 		}
+		f.RUnlock()
 	}
 	fc.readers.RUnlock()
 
@@ -302,7 +312,14 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 		controllerEntry: newPoolEntry(key, fc.release),
 	}
 	fc.readers.Lock()
-	fc.readers.open[key] = append(fc.readers.open[key], r)
+	f, ok := fc.readers.files[key]
+	if !ok {
+		fc.readers.files[key] = &fileReaders{open: []controlledReader{r}}
+	} else {
+		f.Lock()
+		fc.readers.files[key].open = append(fc.readers.files[key].open, r)
+		f.Unlock()
+	}
 	fc.readers.Unlock()
 	return &r, err
 }
@@ -310,20 +327,23 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 func (fc *fileController) gcReaders() (successful bool, err error) {
 	fc.readers.Lock()
 	defer fc.readers.Unlock()
-	for k, v := range fc.readers.open {
-		for i, r := range v {
+	for k, f := range fc.readers.files {
+		f.Lock()
+		for i, r := range f.open {
 			if r.tryAcquire() {
 				err = r.HardClose()
 				if err != nil {
+					f.Unlock()
 					return false, err
 				}
-				fc.readers.open[k] = append(v[:i], v[i+1:]...)
+				fc.readers.files[k].open = append(f.open[:i], f.open[i+1:]...)
 				successful = true
 			}
 		}
-		if len(fc.readers.open[k]) == 0 {
-			delete(fc.readers.open, k)
+		if len(fc.readers.files[k].open) == 0 {
+			delete(fc.readers.files, k)
 		}
+		f.Unlock()
 	}
 	return successful, nil
 }
@@ -359,17 +379,6 @@ func (fc *fileController) hasWriter(fileKey uint16) bool {
 	return ok
 }
 
-func (fc *fileController) hasReader(fileKey uint16) bool {
-	fc.readers.RLock()
-	defer fc.readers.RUnlock()
-
-	rs, ok := fc.readers.open[fileKey]
-	if !ok {
-		return false
-	}
-	return len(rs) != 0
-}
-
 // rejuvenate adds a file key to the unopened writers set. If there is an open writer
 // for it, it is removed.
 // rejuvenate is called after a file is garbage collected.
@@ -385,18 +394,6 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 			return err
 		}
 		delete(fc.writers.open, fileKey)
-	}
-
-	if rs, ok := fc.readers.open[fileKey]; ok {
-		for _, r := range rs {
-			if !r.tryAcquire() {
-				return newErrEntityInUse("writer", fileKey)
-			}
-			if err := r.ReaderAtCloser.Close(); err != nil {
-				return err
-			}
-		}
-		delete(fc.readers.open, fileKey)
 	}
 
 	s, err := fc.FS.Stat(fileKeyToName(fileKey))
@@ -417,8 +414,10 @@ func (fc *fileController) atDescriptorLimit() bool {
 		fc.writers.RUnlock()
 	}()
 	readerCount := 0
-	for _, r := range fc.readers.open {
-		readerCount += len(r)
+	for _, f := range fc.readers.files {
+		f.RLock()
+		readerCount += len(f.open)
+		f.RUnlock()
 	}
 	return readerCount+len(fc.writers.open) >= fc.MaxDescriptors
 }
@@ -439,8 +438,9 @@ func (fc *fileController) close() error {
 			return w.HardClose()
 		})
 	}
-	for _, v := range fc.readers.open {
-		for _, r := range v {
+	for _, f := range fc.readers.files {
+		f.Lock()
+		for _, r := range f.open {
 			c.Exec(func() error {
 				if !r.tryAcquire() {
 					return newErrEntityInUse("reader", r.fileKey)
@@ -448,6 +448,7 @@ func (fc *fileController) close() error {
 				return r.HardClose()
 			})
 		}
+		f.Unlock()
 	}
 	c.Exec(fc.counterFile.Close)
 	return c.Error()

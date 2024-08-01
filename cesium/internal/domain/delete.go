@@ -181,7 +181,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		return errDBClosed
 	}
 
-	_, err := db.files.gcWriters()
+	_, err := db.fc.gcWriters()
 	if err != nil {
 		return span.Error(err)
 	}
@@ -189,13 +189,27 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// There also cannot be any readers open on the file, since any iterators that
 	// acquire those readers will be symlinked to the old file, causing them to read
 	// bad data since the new pointers no longer correspond to the old file.
-	_, err = db.files.gcReaders()
+	//
+	// WE ARE BLOCKING ALL READ OPERATIONS ON THE FILE DURING THE ENTIRE DURATION OF GC:
+	// this is a behaviour that we ideally change in the future to reduce downtime, but
+	// for now, this is what we implemented.
+	// The challenge is with the two files during GC: one copy file is made and an
+	// original file is made. However, existing file handles will point to the original
+	// file instead of the new file, reading incoherent data with what's stored in the
+	// index. There are many solutions to this:
+	//     1. Add a lock on readers before each read operation, and swap the underlying
+	// file handle for each reader under a lock.
+	//     2. Use a one-file GC system where no duplicate file is created.
+	//     3. Wait during GC until all file handles are closed, then swap the file under
+	// a lock on the file to disallow additional readers from being created. (This might
+	// be problematic since some readers may never get closed).
+	_, err = db.fc.gcReaders()
 	if err != nil {
 		return span.Error(err)
 	}
 
-	for fileKey := uint16(1); fileKey <= uint16(db.files.counter.Value()); fileKey++ {
-		if db.files.hasWriter(fileKey) || db.files.hasReader(fileKey) {
+	for fileKey := uint16(1); fileKey <= uint16(db.fc.counter.Value()); fileKey++ {
+		if db.fc.hasWriter(fileKey) {
 			continue
 		}
 		s, err := db.FS.Stat(fileKeyToName(fileKey))
@@ -232,6 +246,21 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		// necessarily unique within a domain.
 		offsetDeltaMap = make(map[telem.TimeRange]uint32)
 	)
+
+	db.fc.readers.RLock()
+	defer db.fc.readers.RUnlock()
+	rs, ok := db.fc.readers.files[key]
+	// It's ok if there is no reader entry for the file, this means that no reader has
+	// been created. And we can be sure that no writer will be created since we hold
+	// the fc.readers mutex as well, preventing the readers map from being modified.
+	if ok {
+		rs.RLock()
+		defer rs.RUnlock()
+		// If there's any open file handles on the file, we cannot garbage collect.
+		if len(rs.open) > 0 {
+			return nil
+		}
+	}
 
 	// Find all pointers using the file: there cannot be more pointers using the file
 	// during GC since the file must be already full – however, there can be less due
@@ -321,7 +350,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	}
 	db.idx.mu.Unlock()
 
-	if err = db.files.rejuvenate(key); err != nil {
+	if err = db.fc.rejuvenate(key); err != nil {
 		return err
 	}
 
