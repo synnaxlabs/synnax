@@ -697,18 +697,22 @@ void Reader::stop() {
 }
 
 void Reader::start(){
-    // first try to reestablish connection in event of timeout
+    // first try to check for timeout
     UA_StatusCode status = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
     if (status != UA_STATUSCODE_GOOD) {
-        ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{
-                {"message", "Failed to connect to OPC UA server: " + std::string(
-                    UA_StatusCode_name(status))}
-            }
-        });
-        LOG(ERROR) << "[opc.reader] connection failed: " << UA_StatusCode_name(status);
+        // attempt again to reestablish if timed out
+        UA_StatusCode status_retry = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
+        if(status_retry != UA_STATUSCODE_GOOD){
+            ctx->setState({
+                .task = task.key,
+                .variant = "error",
+                .details = json{
+                    {"message", "Failed to connect to OPC UA server: " + std::string(
+                        UA_StatusCode_name(status))}
+                }
+            });
+            LOG(ERROR) << "[opc.reader] connection failed: " << UA_StatusCode_name(status);
+        }
     }
     LOG(INFO) << "[opc.reader] Connection Established";
     pipe.start();
