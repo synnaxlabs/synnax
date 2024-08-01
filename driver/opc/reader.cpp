@@ -11,16 +11,18 @@
 #include <memory>
 #include <utility>
 #include "glog/logging.h"
+
 #include "driver/opc/reader.h"
 #include "driver/opc/util.h"
 #include "driver/config/config.h"
 #include "driver/errors/errors.h"
 #include "driver/loop/loop.h"
+#include "driver/pipeline/acquisition.h"
+
 #include "include/open62541/types.h"
 #include "include/open62541/types_generated.h"
 #include "include/open62541/statuscodes.h"
 #include "include/open62541/client_highlevel.h"
-#include "driver/pipeline/acquisition.h"
 #include "include/open62541/common.h"
 
 
@@ -662,21 +664,21 @@ std::unique_ptr<task::Task> Reader::configure(
             {"message", "Task configured successfully"}
         }
     });
-    return std::make_unique<Reader>(ctx, task, cfg, breaker_config, std::move(source),
-                                    writer_cfg);
+    return std::make_unique<Reader>( 
+                                ctx, 
+                                task, 
+                                cfg, 
+                                breaker_config, 
+                                std::move(source),
+                                writer_cfg, 
+                                ua_client,
+                                properties
+                            );
 }
 
 void Reader::exec(task::Command &cmd) {
     if (cmd.type == "start") {
-        pipe.start();
-        ctx->setState({
-            .task = task.key,
-            .variant = "success",
-            .details = json{
-                {"running", true},
-                {"message", "Task started successfully"}
-            }
-        });
+        this->start();
     } else if (cmd.type == "stop") return stop();
     else
         LOG(ERROR) << "unknown command type: " << cmd.type;
@@ -691,5 +693,35 @@ void Reader::stop() {
             {"message", "Task stopped successfully"}
         }
     });
-    pipe.stop();
+    pipe.stop(); 
+}
+
+void Reader::start(){
+    // first try to check for timeout
+    UA_StatusCode status = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
+    if (status != UA_STATUSCODE_GOOD) {
+        // attempt again to reestablish if timed out
+        UA_StatusCode status_retry = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
+        if(status_retry != UA_STATUSCODE_GOOD){
+            ctx->setState({
+                .task = task.key,
+                .variant = "error",
+                .details = json{
+                    {"message", "Failed to connect to OPC UA server: " + std::string(
+                        UA_StatusCode_name(status))}
+                }
+            });
+            LOG(ERROR) << "[opc.reader] connection failed: " << UA_StatusCode_name(status);
+        }
+    }
+    VLOG(1) << "[opc.reader] Connection Established";
+    pipe.start();
+    ctx->setState({
+        .task = task.key,
+        .variant = "success",
+        .details = json{
+            {"running", true},
+            {"message", "Task started successfully"}
+        }
+    });
 }
