@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, Rate, TimeRange } from "@synnaxlabs/x";
+import { DataType, id, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { Policy } from "@/access/payload";
+import { ALLOW_ALL, Policy } from "@/access/payload";
 import { Channel } from "@/channel/client";
 import { ChannelOntologyType } from "@/channel/payload";
 import Synnax from "@/client";
@@ -334,6 +334,37 @@ describe("Policy", () => {
           channels: chs[1].key,
         }),
       ).rejects.toThrow(AuthError);
+    });
+    test("new user allow_all", async () => {
+      const username = id.id();
+      const user2 = await client.user.register(username, "pwd1");
+      const client2 = new Synnax({
+        host: HOST,
+        port: PORT,
+        username: username,
+        password: "pwd1",
+      });
+
+      await client.access.create({
+        subjects: [{ type: UserOntologyType, key: user2.key }],
+        objects: [ALLOW_ALL],
+        actions: [],
+      });
+
+      await client2.channels.create([
+        new Channel({
+          dataType: DataType.FLOAT64,
+          rate: Rate.hz(1),
+          name: "newchannel1",
+        }),
+        new Channel({
+          dataType: DataType.FLOAT64,
+          rate: Rate.hz(1),
+          name: "newchannel2",
+        }),
+      ]);
+
+      await client2.ranges.create({ name: "range1", timeRange: new TimeStamp(1).spanRange(TimeSpan.seconds(3)) });
     });
   });
 });

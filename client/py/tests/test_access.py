@@ -100,7 +100,9 @@ class TestAccessClient:
 @pytest.mark.access
 @pytest.mark.auth
 class TestAccessAuthClient:
-    def test_create_user(self, client: sy.Synnax, login_info: tuple[str, int, str, str]):
+    def test_create_user(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
         client.user.register(username, "pwd2")
@@ -114,7 +116,9 @@ class TestAccessAuthClient:
         with pytest.raises(sy.AuthError):
             client2.user.register(str(uuid.uuid4()), "pwd3")
 
-    def test_user_privileges(self, client: sy.Synnax, login_info: tuple[str, int, str, str]):
+    def test_user_privileges(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
         usr = client.user.register(username, "pwd3")
@@ -160,7 +164,9 @@ class TestAccessAuthClient:
                 )
             )
 
-    def test_privilege_framer(self, client: sy.Synnax, login_info:  tuple[str, int, str, str]):
+    def test_privilege_framer(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
         usr = client.user.register(username, "pwd3")
@@ -215,3 +221,32 @@ class TestAccessAuthClient:
 
         i.close()
         s.close()
+
+    def test_user_privileges_allow_all(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
+        host, port, _, _ = login_info
+        username = str(uuid.uuid4())
+        usr = client.user.register(username, "pwd4")
+        client2 = sy.Synnax(
+            host=host,
+            port=port,
+            username=username,
+            password="pwd4",
+        )
+
+        p = client.access.create(
+            subjects=[usr.ontology_id()],
+            objects=[sy.access.ALLOW_ALL],
+            actions=[],
+        )
+
+        client2.channels.create(
+            sy.Channel(
+                name="new_channel",
+                data_type=sy.DataType.FLOAT32,
+                rate=1 * sy.Rate.HZ,
+            )
+        )
+
+        client2.ranges.create(name="range1", time_range=sy.TimeStamp(1).span_range(2 * sy.TimeSpan.SECOND))

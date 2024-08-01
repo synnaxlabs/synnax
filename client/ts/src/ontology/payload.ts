@@ -43,7 +43,10 @@ export const BuiltinOntologyType = "builtin" as ResourceType;
 export const ClusterOntologyType = "cluster" as ResourceType;
 export const NodeOntologyType = "node" as ResourceType;
 
-export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
+export const idZ = z.object({
+  type: z.union([resourceTypeZ, z.literal("allow_all")]),
+  key: z.string(),
+});
 
 export type IDPayload = z.infer<typeof idZ>;
 
@@ -55,7 +58,7 @@ export const stringIDZ = z.string().transform((v) => {
 export const crudeIDZ = z.union([stringIDZ, idZ]);
 
 export class ID {
-  type: ResourceType;
+  type: ResourceType | "allow_all";
   key: string;
 
   constructor(args: z.input<typeof crudeIDZ> | ID) {

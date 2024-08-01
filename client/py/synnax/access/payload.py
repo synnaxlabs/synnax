@@ -14,6 +14,7 @@ import uuid
 from freighter import Payload
 from synnax.ontology import OntologyID
 
+ALLOW_ALL = OntologyID(type="allow_all", key="")
 
 class Policy(Payload):
     key: uuid.UUID | None = None
