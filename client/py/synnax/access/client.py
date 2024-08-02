@@ -15,8 +15,7 @@ from typing import overload
 from alamos import Instrumentation, NOOP, trace
 from freighter import Payload, UnaryClient
 from synnax.access.payload import Policy
-from synnax.exceptions import NotFoundError
-from synnax.ontology.id import OntologyID
+from synnax.ontology import OntologyID
 
 
 class _RetrieveRequest(Payload):

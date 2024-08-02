@@ -60,6 +60,9 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
     stream.send({ start: new TimeStamp(from), keys: adapter.keys });
+
+    const [_, err] = await stream.receive();
+    if(err != null) throw err;
     return streamer;
   }
 

@@ -25,6 +25,7 @@ const resourceTypeZ = z.union([
   z.literal("node"),
   z.literal("group"),
   z.literal("range"),
+  z.literal("framer"),
   z.literal("range-alias"),
   z.literal("user"),
   z.literal("workspace"),
@@ -34,6 +35,7 @@ const resourceTypeZ = z.union([
   z.literal("device"),
   z.literal("task"),
   z.literal("policy"),
+  z.literal("allow_all"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;
@@ -42,7 +44,10 @@ export const BuiltinOntologyType = "builtin" as ResourceType;
 export const ClusterOntologyType = "cluster" as ResourceType;
 export const NodeOntologyType = "node" as ResourceType;
 
-export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
+export const idZ = z.object({
+  type: resourceTypeZ,
+  key: z.string(),
+});
 
 export type IDPayload = z.infer<typeof idZ>;
 

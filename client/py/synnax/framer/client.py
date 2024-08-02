@@ -31,12 +31,15 @@ from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import Writer, WriterMode
 from synnax.framer.deleter import Deleter
+from synnax.ontology import OntologyID
 from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeSpan, CrudeSeries
 from synnax.telem.control import Authority, CrudeAuthority
 
+framer_ontology_type = OntologyID(type="framer")
+
 
 class Client:
-    """SegmentClient provides interfaces for reading and writing segmented
+    """FramerClient provides interfaces for reading and writing segmented
     telemetry from a Synnax Cluster. SegmentClient should not be instantiated
     directly, but rather used through the synnax.Synnax class.
     """

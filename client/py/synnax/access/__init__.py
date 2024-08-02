@@ -8,3 +8,4 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.access.client import Policy, PolicyClient
+from synnax.access.payload import ALLOW_ALL

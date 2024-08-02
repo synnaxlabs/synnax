@@ -56,6 +56,9 @@ class Streamer:
 
     def __open(self):
         self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
+        _, exc = self.__stream.receive()
+        if exc is not None:
+            raise exc
 
     @overload
     def read(self, timeout: float) -> Frame | None:
@@ -67,9 +70,9 @@ class Streamer:
 
     def read(self, timeout: float | None = None) -> Frame | None:
         try:
-            res, err = self.__stream.receive(timeout)
-            if err is not None:
-                raise err
+            res, exc = self.__stream.receive(timeout)
+            if exc is not None:
+                raise exc
             return self.__adapter.adapt(Frame(res.frame))
         except TimeoutError:
             return None
@@ -119,15 +122,18 @@ class AsyncStreamer:
     async def open(self):
         self.__stream = await self.__client.stream(_ENDPOINT, _Request, _Response)
         await self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
+        _, exc = await self.__stream.receive()
+        if exc is not None:
+            raise exc
 
     @property
     def received(self) -> bool:
         return self.__stream.received()
 
     async def read(self) -> Frame:
-        res, err = await self.__stream.receive()
-        if err is not None:
-            raise err
+        res, exc = await self.__stream.receive()
+        if exc is not None:
+            raise exc
         return self.__adapter.adapt(Frame(res.frame))
 
     async def close_loop(self):

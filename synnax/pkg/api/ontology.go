@@ -154,7 +154,7 @@ func (o *OntologyService) RenameGroup(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err

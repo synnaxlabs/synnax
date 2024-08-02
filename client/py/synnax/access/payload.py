@@ -12,8 +12,9 @@ from __future__ import annotations
 import uuid
 
 from freighter import Payload
-from synnax.ontology.id import OntologyID
+from synnax.ontology import OntologyID
 
+ALLOW_ALL = OntologyID(type="allow_all", key="")
 
 class Policy(Payload):
     key: uuid.UUID | None = None

@@ -18,6 +18,8 @@ export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
 
+export const ALLOW_ALL = new ontology.ID({ type: "allow_all", key: "" });
+
 export const policyZ = z.object({
   key: keyZ,
   subjects: idZ.array(),
