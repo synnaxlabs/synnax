@@ -252,6 +252,7 @@ removed from the device while it is running.
 #### Configuration
 
 I can successfully:
+- [ ] Start server with NI support disabled or enabled (using the --no-ni start flag).
 - [ ] Recognize and connect to a National Instruments device available on local
   machine.
 - [ ] Recognize and connect to a National Instruments devices available on
