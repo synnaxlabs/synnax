@@ -24,7 +24,7 @@ const (
 	passwordFlag            = "password"
 	autoCertFlag            = "auto-cert"
 	noDriverFlag            = "no-driver"
-	niFlag                  = "ni"
+	noNIFlag                = "no-ni"
 	slowConsumerTimeoutFlag = "slow-consumer-timeout"
 )
 
@@ -90,7 +90,7 @@ func configureStartFlags() {
 	)
 
 	startCmd.Flags().Bool(
-		niFlag,
+		noNIFlag,
 		false,
 		"Enable NI in the embedded synnax driver",
 	)

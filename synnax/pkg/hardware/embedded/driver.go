@@ -67,7 +67,7 @@ var (
 	DefaultConfig                       = Config{
 		Integrations: make([]string, 0),
 		Enabled:      config.Bool(true),
-		NIEnabled:    config.Bool(false),
+		NIEnabled:    config.Bool(true),
 		Debug:        config.False(),
 	}
 )

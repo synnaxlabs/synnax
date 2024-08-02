@@ -382,7 +382,7 @@ func buildEmbeddedDriverConfig(
 ) embedded.Config {
 	cfg := embedded.Config{
 		Enabled:         config.Bool(!viper.GetBool(noDriverFlag)),
-		NIEnabled:       config.Bool(viper.GetBool(niFlag)),
+		NIEnabled:       config.Bool(!viper.GetBool(noNIFlag)),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
 		RackName:        rackName,
