@@ -24,41 +24,77 @@ long periods of time.
 ## Transactions
 
 Each writer governs an atomic transaction against the Synnax cluster. To begin a 
-transaction, a caller opens a new writer and then begins writing data frames using a 
-file like interface. After they're done writing, the user commits the write to the
-database, making it available for reading. Synnax transactions are unique in
-that they can be committed **multiple** times, where each new commit extends the
-data written in the previous commit. After the final commit, the user closes the
-writer, at which point the cluster releases all write related resources and the
-domain can no longer be extended.
+transaction, we open a new writer and being writing data frames using a file like 
+interface. After we're done writing, we commit the writer to the database, making it
+available for reading. Synnax transactions are unique in that they can be committed 
+**multiple** times, where each new commit extends the data written in the previous commit. 
+After the final commit, the user closes the writer, at which point the cluster releases 
+all write related resources and the transaction is complete.
 
 ### Open Phase
 
-To start a new transaction, a user must specify two properties:
+To start a new transaction, we need to provide the following information.
 
-1. The channels they wish to write to.
-2. The timestamp marking the time at or before the first written sample was recorded.
+<Table>
+   <thead>
+      <tr>
+         <th>Argument</th>
+         <th>Description</th>
+      </tr>
+   </thead>
+   <tbody>
+      <tr>
+         <td>Channels</td>
+         <td>The channels we're interested in writing to.</td>
+      </tr> 
+      <tr>
+         <td>Timestamp</td>
+         <td>The timestamp marking the time at or just before the first written sample was recorded.</td>
+      </tr>
+   </tbody>
+</Table>
 
-In addition, the user may specify whether the writer is configured with
-[auto-commit](write#commit-phase). Auto-commit is off by default.
+Synnax will use these arguments to validate a few things before opening the writer:
 
-Using this information, the database validates the following:
+1. That all channels exist in the Synnax cluster.
+2. That no existing data overlaps with the provided timestamp.
 
-1. That all channels exist in the database.
-2. That no existing domain overlaps with the provided timestamp. If any domains
-   overlap, the new domain is invalid and cannot be committed.
-3. That all channels share the same rate or index.
+#### Optional Arguments
+
+There are also a few optional arguments we can provide when opening a writer:
+
+<Table>
+   <thead>
+      <tr>
+         <th>Argument</th>
+         <th>Description</th>
+      </tr>
+   </thead>
+   <tbody>
+      <tr>
+         <td><a href="#persistencestreaming-modes">Mode</a></td>
+         <td>The persistence/streaming mode of the writer. This can be persist only, stream only, or stream + persist.</td>
+      </tr> 
+      <tr>
+         <td><a href="#dynamic-control---write-authorities">Authority</a></td>
+         <td>The authority to set for the writer. This is used for dynamic control handoff between multiple writers.</td>
+      </tr>
+      <tr>
+         <td>Auto-Commit</td>
+         <td>Whether writes should be immediately committed to the Synnax Cluster.</td>
+      </tr>
+   </tbody>
+</Table>
 
 ### Write Phase
 
-After all validation checks pass, the transaction enters the write phase. During
-this period, a user can write continuous frames of data to the domain. These
+After all opening validation checks pass, the transaction enters the write phase. 
+During this period, a user can write continuous frames of data to the domain. These
 frames must be vertical (i.e. all channels must have a single array specified),
 and all arrays must have the same number of samples. You can read more about
 frame alignment here.
 
-These frames are assumed to be continuous by the database. To illustrate this,
-imagine we write the following frame:
+To illustrate how a series of writes would work, imagine we write the following frame:
 
 | time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
 | ------------------- | ------------- | --------------- | ---------------------- |
@@ -66,8 +102,8 @@ imagine we write the following frame:
 | 1677433720970863400 | 19.18         | 346.78          | 17.22                  |
 | 1677433721270868900 | 19.19         | 348.78          | 18.22                  |
 
-After this write, our database looks exactly like our first frame. Then we write
-the next frame:
+After this write, the stored data in the Synnax database transaction looks exactly like 
+the first frame. Then we write the next frame:
 
 | time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
 | ------------------- | ------------- | --------------- | ---------------------- |
@@ -75,7 +111,7 @@ the next frame:
 | 1677433721870863400 | 19.22         | 352.78          | 20.22                  |
 | 1677433721970868900 | 19.23         | 354.78          | 21.22                  |
 
-Now, our database looks like this:
+Now, our transaction looks like this:
 
 | time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
 | ------------------- | ------------- | --------------- | ---------------------- |
@@ -86,15 +122,15 @@ Now, our database looks like this:
 | 1677433721870863400 | 19.22         | 352.78          | 20.22                  |
 | 1677433721970868900 | 19.23         | 354.78          | 21.22                  |
 
-Throughout the write phase, we can continue extending our database by adding
-frames.
+Throughout the write phase, the caller can continue extending the the transaction's data
+by adding frames. It's common for writers to be open for many hours or even days.
 
 ### Commit Phase
 
-Once we're ready to persist the transaction and make it available for reads, we
-commit our writer. During this phase, the cluster identifies the time range of
-the writer based on the provided starting timestamp and the samples written. The
-commit process succeeds and the write is now available for reads. After this
+Once we're ready to persist the transaction and make it available for reads, we call
+the `commit` method on our writer. During this phase, the cluster identifies the time 
+range of the writer based on the provided starting timestamp and the samples written. 
+The commit process succeeds and the write is now available for reads. After this
 phase completes, the transaction is moved back into the write phase. At this
 point, we can either write more frames to the cluster and commit again, or we
 can close the writer.

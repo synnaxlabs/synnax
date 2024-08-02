@@ -16,7 +16,6 @@ from numpy import can_cast as np_can_cast
 from pandas import DataFrame
 from pandas import concat as pd_concat
 
-import synnax
 from freighter import (
     EOF,
     Payload,
@@ -36,7 +35,7 @@ from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload, CrudeFrame
 from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
-from synnax.telem.control import Authority, Subject
+from synnax.telem.control import Authority, Subject, CrudeAuthority
 from synnax.util.normalize import normalize
 
 
@@ -208,7 +207,7 @@ class Writer:
             3. A Synnax Frame (see the Frame documentation for more).
             4. A dictionary of channel ids to series i.e. write the series for the
             given channel id.
-            5. A pandas dataframe where the columns are the channel ids and the rows
+            5. A pandas DataFrame where the columns are the channel ids and the rows
             are the series to write.
             6. A dictionary of channel ids to a single
             numeric value. Synnax will convert this into a series for you.
@@ -241,17 +240,21 @@ class Writer:
         return True
 
     @overload
+    def set_authority(self, value: CrudeAuthority) -> bool:
+        ...
+
+    @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
-        authority: Authority,
+        authority: CrudeAuthority,
     ) -> bool:
         ...
 
     @overload
     def set_authority(
         self,
-        value: dict[ChannelKey | ChannelName | ChannelPayload, Authority],
+        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
     ) -> bool:
         ...
 
@@ -259,24 +262,25 @@ class Writer:
         self,
         value: dict[
                    ChannelKey | ChannelName | ChannelPayload,
-                   Authority
-               ] | ChannelKey | ChannelName,
-        authority: Authority | None = None,
+                   CrudeAuthority
+               ] | ChannelKey | ChannelName | CrudeAuthority,
+        authority: CrudeAuthority | None = None,
     ) -> bool:
-        if isinstance(value, (ChannelKey, ChannelName)):
-            if authority is None:
-                raise ValueError("authority must be provided when setting a single key")
-            value = {value: authority}
-        value = self.__adapter.adapt_dict_keys(value)
-        err = self.__stream.send(
-            _Request(
-                command=_Command.SET_AUTHORITY,
-                config=_Config(
-                    keys=list(value.keys()),
-                    authorities=list(value.values()),
-                ),
+        if isinstance(value, int) and authority is None:
+            cfg = _Config(keys=[], authorities=[value])
+        else:
+            if isinstance(value, (ChannelKey, ChannelName)):
+                if authority is None:
+                    raise ValueError(
+                        "authority must be provided when setting a single channel"
+                    )
+                value = {value: authority}
+            value = self.__adapter.adapt_dict_keys(value)
+            cfg = _Config(
+                keys=list(value.keys()),
+                authorities=list(value.values()),
             )
-        )
+        err = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
         if err is not None:
             raise err
         while True:

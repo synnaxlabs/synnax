@@ -215,6 +215,34 @@ describe("Writer", () => {
       await w1.close();
       await w2.close();
     });
+    test("setAuthority on all channels", async () => {
+      const ch = await newChannel();
+      const w1 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 10,
+        enableAutoCommit: true,
+      });
+      const w2 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 20,
+        enableAutoCommit: true,
+      });
+
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+      let f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(0);
+
+      await w1.setAuthority(ch.name, 255);
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+
+      f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
+
+      await w1.close();
+      await w2.close();
+    });
   });
   describe("Client", () => {
     test("Client - basic write", async () => {

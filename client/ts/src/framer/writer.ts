@@ -52,6 +52,8 @@ const netConfigZ = z.object({
   autoIndexPersistInterval: TimeSpan.z.optional(),
 });
 
+type Config = z.infer<typeof netConfigZ>;
+
 const reqZ = z.object({
   command: z.nativeEnum(Command),
   config: netConfigZ.optional(),
@@ -214,32 +216,37 @@ export class Writer {
     return true;
   }
 
+  async setAuthority(value: number): Promise<boolean>;
+
   async setAuthority(key: KeyOrName, authority: control.Authority): Promise<boolean>;
 
   async setAuthority(value: Record<KeyOrName, control.Authority>): Promise<boolean>;
 
   async setAuthority(
-    value: Record<KeyOrName, control.Authority> | KeyOrName,
+    value: Record<KeyOrName, control.Authority> | KeyOrName | number,
     authority?: control.Authority,
   ): Promise<boolean> {
-    let oValue: Record<KeyOrName, control.Authority>;
-    if (typeof value === "string" || typeof value === "number")
-      oValue = { [value]: authority } as Record<KeyOrName, control.Authority>;
-    else oValue = value;
-    oValue = await this.adapter.adaptObjectKeys(oValue);
-    const res = await this.execute({
-      command: Command.SetAuthority,
-      config: {
+    let config: Config = { keys: [], authorities: [] };
+    if (typeof value === "number" && authority == null)
+      config = { keys: [], authorities: [value] };
+    else {
+      let oValue: Record<KeyOrName, control.Authority>;
+      if (typeof value === "string" || typeof value === "number")
+        oValue = { [value]: authority } as Record<KeyOrName, control.Authority>;
+      else oValue = value;
+      oValue = await this.adapter.adaptObjectKeys(oValue);
+      config = {
         keys: Object.keys(oValue).map((k) => Number(k)),
         authorities: Object.values(oValue),
-      },
-    });
+      };
+    }
+    const res = await this.execute({ command: Command.SetAuthority, config });
     return res.ack;
   }
 
   /**
    * Commits the written frames to the database. Commit is synchronous, meaning that it
-   * will not return until all frames have been commited to the database.
+   * will not return until all frames have been committed to the database.
    *
    * @returns false if the commit failed due to an error. In this case, the caller
    * should acknowledge the error by calling the error method or closing the writer.

@@ -68,14 +68,23 @@ class TestIterator:
 
             assert not i.next(sy.framer.AUTO_SPAN)
 
-    def test_advanced_iterate(self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]):
+    def test_advanced_iterate(self, client: sy.Synnax,
+                              indexed_pair: tuple[sy.Channel, sy.Channel]):
         [idx_ch, data_ch] = indexed_pair
-        idx_ch.write(0, np.array([0, 1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND, 3 * sy.TimeSpan.SECOND, 4 * sy.TimeSpan.SECOND, 5 * sy.TimeSpan.SECOND]).astype(np.int64))
+        idx_ch.write(0, np.array(
+            [0, 1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND, 3 * sy.TimeSpan.SECOND,
+             4 * sy.TimeSpan.SECOND, 5 * sy.TimeSpan.SECOND]).astype(np.int64))
         data_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
-        idx_ch.write(TimeStamp(10 * sy.TimeSpan.SECOND), np.array([10 * sy.TimeSpan.SECOND, 11 * sy.TimeSpan.SECOND, 12 * sy.TimeSpan.SECOND, 13 * sy.TimeSpan.SECOND]).astype(np.int64))
-        data_ch.write(TimeStamp(10 * sy.TimeSpan.SECOND), np.array([10, 11, 12, 13]).astype(np.int64))
-        idx_ch.write(TimeStamp(15 * sy.TimeSpan.SECOND), np.array([15 * sy.TimeSpan.SECOND, 16 * sy.TimeSpan.SECOND, 17 * sy.TimeSpan.SECOND, 18 * sy.TimeSpan.SECOND, 19 * sy.TimeSpan.SECOND]).astype(np.int64))
-        data_ch.write(TimeStamp(15 * sy.TimeSpan.SECOND), np.array([15, 16, 17, 18, 19]).astype(np.int64))
+        idx_ch.write(TimeStamp(10 * sy.TimeSpan.SECOND), np.array(
+            [10 * sy.TimeSpan.SECOND, 11 * sy.TimeSpan.SECOND, 12 * sy.TimeSpan.SECOND,
+             13 * sy.TimeSpan.SECOND]).astype(np.int64))
+        data_ch.write(TimeStamp(10 * sy.TimeSpan.SECOND),
+                      np.array([10, 11, 12, 13]).astype(np.int64))
+        idx_ch.write(TimeStamp(15 * sy.TimeSpan.SECOND), np.array(
+            [15 * sy.TimeSpan.SECOND, 16 * sy.TimeSpan.SECOND, 17 * sy.TimeSpan.SECOND,
+             18 * sy.TimeSpan.SECOND, 19 * sy.TimeSpan.SECOND]).astype(np.int64))
+        data_ch.write(TimeStamp(15 * sy.TimeSpan.SECOND),
+                      np.array([15, 16, 17, 18, 19]).astype(np.int64))
         with client.open_iterator(sy.TimeRange.MAX, data_ch.key) as i:
             assert i.seek_ge(sy.TimeStamp(16 * sy.TimeSpan.SECOND))
             assert i.next(4 * sy.TimeSpan.SECOND)
@@ -98,7 +107,6 @@ class TestIterator:
 
             assert not i.seek_le(-1)
             assert not i.seek_ge(sy.TimeStamp(20 * sy.TimeSpan.SECOND))
-
 
 
 @pytest.mark.framer
@@ -322,6 +330,22 @@ class TestWriter:
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 0
             w1.set_authority(channel.name, 255)
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
+
+    def test_set_authority_on_all_channels(self, client: sy.Synnax,
+                                           channel: sy.channel):
+        w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
+        w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
+        try:
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+            w1.set_authority(255)
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 10
