@@ -763,6 +763,85 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(db2.Close()).To(Succeed())
 						Expect(indexDB2.Close()).To(Succeed())
 					})
+
+					Context("Cut-off domain on index channel", func() {
+						var (
+							iKey     cesium.ChannelKey
+							indexDB2 *unary.DB
+						)
+						BeforeEach(func() {
+							iKey = testutil.GenerateChannelKey()
+							indexDB2 = MustSucceed(unary.Open(unary.Config{
+								FS: MustSucceed(fs.Sub("index3")),
+								Channel: core.Channel{
+									Key:      iKey,
+									DataType: telem.TimeStampT,
+									IsIndex:  true,
+									Index:    iKey,
+								},
+								Instrumentation: PanicLogger(),
+								FileSize:        40 * telem.ByteSize,
+							}))
+							w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
+							MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15)))
+							MustSucceed(w.Commit(ctx))
+							MustSucceed(w.Write(telem.NewSecondsTSV(16, 17, 18, 19, 20, 21, 22, 23)))
+							MustSucceed(w.Commit(ctx))
+							MustSucceed(w.Close())
+						})
+						AfterEach(func() { Expect(indexDB2.Close()).To(Succeed()) })
+						// The following regression test is used to assert that upon reading
+						// the second auto-span in a domain that begins with an inexact
+						// start (cut off), the iterator behaves properly. The broken
+						// behaviour was that it was unable to find the correct start/end
+						// approximations due to the inexact start.
+						It("Should auto-span with a cut-off domain", func() {
+
+							i := indexDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 7})
+							Expect(i.SeekFirst(ctx)).To(BeTrue())
+							Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+							Expect(i.Value().Series[0].Data).To(Equal(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15).Data))
+							Expect(i.Value().Series[1].Data).To(Equal(telem.NewSecondsTSV(16).Data))
+							Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+							Expect(i.Value().Series[0].Data).To(Equal(telem.NewSecondsTSV(17, 18, 19, 20, 21, 22, 23).Data))
+							Expect(i.Close()).To(Succeed())
+						})
+
+						// The following regression test is used to assert that upon reading
+						// the second auto-span in a domain that begins with an inexact
+						// start (cut off), the iterator behaves properly. The broken
+						// behaviour was that it was unable to find the correct start/end
+						// approximations due to the inexact start.
+						It("Should call next properly with a cut-off domain", func() {
+							i := indexDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 7})
+							Expect(i.SeekFirst(ctx)).To(BeTrue())
+							Expect(i.Next(ctx, 7*telem.Second)).To(BeTrue())
+							Expect(i.Value().Series[0].Data).To(Equal(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15).Data))
+							Expect(i.Value().Series[1].Data).To(Equal(telem.NewSecondsTSV(16).Data))
+							Expect(i.Next(ctx, 3*telem.Second)).To(BeTrue())
+							Expect(i.Value().Series[0].Data).To(Equal(telem.NewSecondsTSV(17, 18, 19).Data))
+							Expect(i.Next(ctx, 4*telem.Second)).To(BeTrue())
+							Expect(i.Value().Series[0].Data).To(Equal(telem.NewSecondsTSV(20, 21, 22, 23).Data))
+							Expect(i.Close()).To(Succeed())
+
+							Expect(indexDB2.Close()).To(Succeed())
+						})
+
+						It("Should call prev properly with a cut-off domain", func() {
+							i := indexDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 7})
+							Expect(i.SeekLast(ctx)).To(BeTrue())
+							Expect(i.Prev(ctx, 9*telem.Second)).To(BeTrue())
+							Expect(i.Value().Series[0].Data).To(Equal(telem.NewSecondsTSV(15).Data))
+							Expect(i.Value().Series[1].Data).To(Equal(telem.NewSecondsTSV(16, 17, 18, 19, 20, 21, 22, 23).Data))
+							Expect(i.Prev(ctx, 2*telem.Second)).To(BeTrue())
+							Expect(i.Value().Series[0].Data).To(Equal(telem.NewSecondsTSV(13, 14).Data))
+							Expect(i.Prev(ctx, 3*telem.Second)).To(BeTrue())
+							Expect(i.Value().Series[0].Data).To(Equal(telem.NewSecondsTSV(10, 11, 12).Data))
+							Expect(i.Close()).To(Succeed())
+
+							Expect(indexDB2.Close()).To(Succeed())
+						})
+					})
 				})
 			})
 			Describe("Close", func() {
