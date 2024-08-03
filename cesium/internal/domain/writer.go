@@ -157,7 +157,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}
-	key, size, internal, err := db.files.acquireWriter(ctx)
+	key, size, internal, err := db.fc.acquireWriter(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		WriterConfig:     cfg,
 		Instrumentation:  db.Instrumentation.Child("writer"),
 		fileKey:          key,
-		fc:               db.files,
+		fc:               db.fc,
 		fileSize:         telem.Size(size),
 		internal:         internal,
 		idx:              db.idx,

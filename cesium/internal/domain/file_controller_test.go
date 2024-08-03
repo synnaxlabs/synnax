@@ -508,6 +508,31 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(w2.Close()).To(Succeed())
 				})
 			})
+			Describe("Readers", func() {
+				It("Should manage readers for a file", func() {
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        1 * telem.Megabyte,
+						Instrumentation: PanicLogger(),
+					}))
+					By("Acquiring one writer on the file 1.domain")
+					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+						End:   20 * telem.SecondTS,
+					}))
+					_, err := w1.Write([]byte{1, 2, 3, 4, 5})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w1.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
+
+					i := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					Expect(i.SeekFirst(ctx)).To(BeTrue())
+					r1 := MustSucceed(i.NewReader(ctx))
+					r2 := MustSucceed(i.NewReader(ctx))
+					Expect(r1.Close()).To(Succeed())
+					Expect(r2.Close()).To(Succeed())
+				})
+			})
 		})
 	}
 })

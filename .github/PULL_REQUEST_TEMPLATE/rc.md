@@ -245,6 +245,7 @@ based on the configured OPC UA node.
 - [ ]	Maintain operation of the driver when a device is disconnected or a channel is 
 removed from the device while it is running.
 - [ ]	Enable and disable data saving at will.
+- [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
 
 ### National Instruments
 
