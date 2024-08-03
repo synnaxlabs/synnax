@@ -254,9 +254,7 @@ jobs:
           default_author: github_actor
           message: "chore: update API log"
           pull: "--commit --no-edit"
-          push: ""
-
-
+          push: "--force"
 
   test-cpp:
     needs: [setup, build-server]
