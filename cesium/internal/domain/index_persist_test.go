@@ -62,7 +62,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					}))
 
 					By("Asserting that the data is still there")
-					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekFirst(ctx)).To(BeTrue())
 					r := MustSucceed(i.NewReader(ctx))
 					var buf = make([]byte, 2)
@@ -118,8 +118,9 @@ var _ = Describe("Index Persist", Ordered, func() {
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
 				})
 
 			})

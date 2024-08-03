@@ -138,6 +138,8 @@ type Writer struct {
 	// closed denotes whether the writer is closed. A closed writer returns an error when
 	// attempts to Write or Commit with it are made.
 	closed bool
+	// onClose is called when the writer is closed.
+	onClose func()
 }
 
 // NewWriter opens a new Writer using the given configuration.
@@ -161,9 +163,10 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	if err != nil {
 		return nil, err
 	}
+	db.entityCount.Add(1)
 	w := &Writer{
 		WriterConfig:     cfg,
-		Instrumentation:  db.Instrumentation.Child("writer"),
+		Instrumentation:  db.cfg.Instrumentation.Child("writer"),
 		fileKey:          key,
 		fc:               db.fc,
 		fileSize:         telem.Size(size),
@@ -171,6 +174,9 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		idx:              db.idx,
 		presetEnd:        !cfg.End.IsZero(),
 		lastIndexPersist: telem.Now(),
+		onClose: func() {
+			db.entityCount.Add(-1)
+		},
 	}
 
 	// If we don't have a preset end, we defer to using the start of the next domain
@@ -302,19 +308,17 @@ func (w *Writer) Close() error {
 	if w.closed {
 		return nil
 	}
-
+	defer w.onClose()
 	w.closed = true
 	if err := w.internal.Close(); err != nil {
 		return err
 	}
-
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		w.idx.mu.RLock()
 		persistPointers := w.idx.indexPersist.prepare(w.idx.persistHead)
 		w.idx.mu.RUnlock()
 		return persistPointers()
 	}
-
 	return nil
 }
 

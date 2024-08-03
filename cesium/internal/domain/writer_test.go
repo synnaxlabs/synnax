@@ -122,7 +122,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
 						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
-						l := MustSucceed(db2.FS.List(""))
+						l := MustSucceed(fs2.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
@@ -132,7 +132,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 						By("Asserting that it should not switch file when the file is not oversize")
 						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
-						l = MustSucceed(db2.FS.List(""))
+						l = MustSucceed(fs2.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
@@ -143,7 +143,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Asserting that it should switch files when the file is oversize")
 						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
-						l = MustSucceed(db2.FS.List(""))
+						l = MustSucceed(fs2.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
@@ -151,7 +151,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
 
 						By("Asserting the data is stored as expected")
-						i := db2.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
 						Expect(i.Len()).To(Equal(int64(11)))
@@ -178,7 +178,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
 						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
-						l := MustSucceed(db2.FS.List(""))
+						l := MustSucceed(fs2.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
@@ -189,7 +189,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Asserting that it should switch files when the file is oversize")
 						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
-						l = MustSucceed(db2.FS.List(""))
+						l = MustSucceed(fs2.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
@@ -197,7 +197,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(5), int64(3)))
 
 						By("Asserting the data is stored as expected")
-						i := db2.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
 						Expect(i.Len()).To(Equal(int64(5)))
@@ -227,7 +227,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS, End: 100 * telem.SecondTS}))
 						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
 						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
-						l := MustSucceed(db2.FS.List(""))
+						l := MustSucceed(fs2.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
@@ -236,7 +236,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 						By("Asserting that it should not switch file when the file is not oversize")
 						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
-						l = MustSucceed(db2.FS.List(""))
+						l = MustSucceed(fs2.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
@@ -247,7 +247,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Asserting that it should switch files when the file is oversize")
 						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
-						l = MustSucceed(db2.FS.List(""))
+						l = MustSucceed(fs2.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
@@ -255,7 +255,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
 
 						By("Asserting the data is stored as expected")
-						i := db2.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
 						Expect(i.Len()).To(Equal(int64(11)))
@@ -429,7 +429,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By("Opening a writer")
 					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoIndexPersistInterval: 50 * telem.Millisecond}))
 
-					modTime := MustSucceed(db.FS.Stat("index.domain")).ModTime()
+					modTime := MustSucceed(fs.Stat("index.domain")).ModTime()
 
 					By("Writing some data and committing it right after")
 					_, err := w.Write([]byte{6, 7, 8, 9, 10})
@@ -441,7 +441,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commits have not been persisted")
-					s := MustSucceed(db.FS.Stat("index.domain"))
+					s := MustSucceed(fs.Stat("index.domain"))
 					Expect(s.Size()).To(Equal(int64(0)))
 
 					By("Sleeping for some time")
@@ -452,10 +452,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Asserting that the commits will be persisted the next time we use the method after the set time interval")
 					Eventually(func() time.Time {
-						return MustSucceed(db.FS.Stat("index.domain")).ModTime()
+						return MustSucceed(fs.Stat("index.domain")).ModTime()
 					}).ShouldNot(Equal(modTime))
 
-					f := MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
+					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
 					p := extractPointer(f)
 					Expect(p.End).To(Equal(30*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
@@ -474,7 +474,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commit has been persisted")
-					f := MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
+					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
 					p := extractPointer(f)
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(15*telem.SecondTS + 1))
@@ -485,7 +485,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commit has been persisted")
-					f = MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
+					f = MustSucceed(fs.Open("index.domain", os.O_RDONLY))
 					p = extractPointer(f)
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
@@ -496,7 +496,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commits have not been persisted")
-					f = MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
+					f = MustSucceed(fs.Open("index.domain", os.O_RDONLY))
 					p = extractPointer(f)
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(25*telem.SecondTS + 1))
@@ -523,7 +523,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 
 					By("Asserting that the commit has been persisted")
-					f := MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
+					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
 					p := extractPointer(f)
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
@@ -547,7 +547,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the commit has been persisted")
-					f := MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
+					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
 					p := extractPointer(f)
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(20*telem.SecondTS + 1))

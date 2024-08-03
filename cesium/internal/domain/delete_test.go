@@ -60,7 +60,7 @@ var _ = Describe("Delete", Ordered, func() {
 					secondData []byte,
 				) {
 					Expect(db.Delete(ctx, createCalcOffset(startOffset), createCalcOffset(endOffset), tr, telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal(firstTr))
 					r := MustSucceed(iter.NewReader(ctx))
@@ -85,7 +85,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 				It("Should delete with the end being end of db", func() {
 					Expect(db.Delete(ctx, createCalcOffset(2), createCalcOffset(10), (12 * telem.SecondTS).Range(40*telem.SecondTS), telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(12 * telem.SecondTS)))
 					r := MustSucceed(iter.NewReader(ctx))
@@ -101,7 +101,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 				It("Should delete nothing", func() {
 					Expect(db.Delete(ctx, createCalcOffset(4), createCalcOffset(4), (24 * telem.SecondTS).Range(24*telem.SecondTS), telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(20 * telem.SecondTS)))
 					r := MustSucceed(iter.NewReader(ctx))
@@ -122,7 +122,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 				It("Should delete the entire db", func() {
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(10), (10 * telem.SecondTS).Range(40*telem.SecondTS), telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
@@ -134,7 +134,7 @@ var _ = Describe("Delete", Ordered, func() {
 					// 10 / 15, 16, ..., 19
 					Expect(db.Delete(ctx, createCalcOffset(2), createCalcOffset(4), (17 * telem.SecondTS).Range(19*telem.SecondTS), telem.Density(1))).To(Succeed())
 					// 10 / 15, 16 / 19
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
 					r := MustSucceed(iter.NewReader(ctx))
@@ -182,7 +182,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(0), (23 * telem.SecondTS).Range(30*telem.SecondTS), telem.Density(1))).To(Succeed())
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(0), (35 * telem.SecondTS).Range(40*telem.SecondTS), telem.Density(1))).To(Succeed())
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(0), (10 * telem.SecondTS).Range(12*telem.SecondTS), telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 
 					Expect(iter.SeekFirst(ctx)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())

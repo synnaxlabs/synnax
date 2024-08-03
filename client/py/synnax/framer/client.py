@@ -235,7 +235,7 @@ class Client:
         """
         Reads telemetry from the channel between the two timestamps.
 
-        :param tr: The timerange to read from.
+        :param tr: The time range to read from.
         :param params: The key or name of the channel to read from.
 
         :returns: A tuple where the first item is a numpy array containing the telemetry

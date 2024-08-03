@@ -11,6 +11,7 @@ package unary_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/binary"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ import (
 var (
 	ctx         = context.Background()
 	fileSystems = FileSystems
+	codec       = &binary.JSONCodec{}
 )
 
 func TestUnary(t *testing.T) {

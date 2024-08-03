@@ -40,7 +40,6 @@ type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
 	Channel  core.Channel
-	onClose  func()
 	internal *domain.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
@@ -187,19 +186,19 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			}
 			continue
 		}
-		startApprox, domain, err := i.approximateStart(ctx)
+		startApprox, dmn, err := i.approximateStart(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
 		if !startApprox.Exact() && !startApprox.StartExact {
-			// If we are starting from a cutoff domain, use the lower offset.
+			// If we are starting from a cutoff dmn, use the lower offset.
 			startOffset = i.Channel.DataType.Density().Size(startApprox.Lower)
 		}
 		series, err := i.read(
 			ctx,
-			domain,
+			dmn,
 			startOffset,
 			i.Channel.DataType.Density().Size(nRemaining),
 		)
@@ -275,7 +274,6 @@ func (i *Iterator) Close() (err error) {
 	if i.closed {
 		return nil
 	}
-	i.onClose()
 	i.closed = true
 	wrap := core.NewErrorWrapper(i.Channel)
 	return wrap(i.internal.Close())
@@ -418,7 +416,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 }
 
 // satisfied returns whether an iterator collected all telemetry in its view.
-// An iterator is said to be satisfied when its frame's start and end timerange is
+// An iterator is said to be satisfied when its frame's start and end time range is
 // congruent to its view.
 func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {

@@ -108,8 +108,8 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	for _, ch := range chs {
 		udb, uok := db.unaryDBs[ch]
 
-		if !uok || udb.Channel.IsIndex {
-			if udb.Channel.IsIndex {
+		if !uok || udb.Channel().IsIndex {
+			if udb.Channel().IsIndex {
 				indexChannels = append(indexChannels, ch)
 			}
 			continue
@@ -157,18 +157,18 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 func (db *DB) removeChannel(ch ChannelKey) error {
 	udb, uok := db.unaryDBs[ch]
 	if uok {
-		if udb.Channel.IsIndex {
+		if udb.Channel().IsIndex {
 			for otherDBKey := range db.unaryDBs {
 				if otherDBKey == ch {
 					continue
 				}
 				otherDB := db.unaryDBs[otherDBKey]
-				if otherDB.Channel.Index == udb.Config.Channel.Key {
+				if otherDB.Channel().Index == udb.Channel().Key {
 					return errors.Newf(
 						"cannot delete channel %v "+
 							"because it indexes data in channel %v",
-						udb.Channel,
-						otherDB.Channel,
+						udb.Channel(),
+						otherDB.Channel(),
 					)
 				}
 			}
@@ -192,9 +192,9 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 	return nil
 }
 
-// DeleteTimeRange deletes a timerange of data in the database in the given channels
+// DeleteTimeRange deletes a time range of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
-// there are other channels depending on it in the timerange.
+// there are other channels depending on it in the time range.
 // DeleteTimeRange is idempotent, but when the channel does not exist, it returns
 // ErrChannelNotFound.
 func (db *DB) DeleteTimeRange(
@@ -222,7 +222,7 @@ func (db *DB) DeleteTimeRange(
 		}
 
 		// Cannot delete an index channel that other channels rely on.
-		if udb.Config.Channel.IsIndex {
+		if udb.Channel().IsIndex {
 			indexChannels = append(indexChannels, ch)
 			continue
 		}
@@ -241,7 +241,7 @@ func (db *DB) DeleteTimeRange(
 		udb := db.unaryDBs[ch]
 		// Cannot delete an index channel that other channels rely on.
 		for otherDBKey, otherDB := range db.unaryDBs {
-			if otherDBKey == ch || otherDB.Channel.Index != ch {
+			if otherDBKey == ch || otherDB.Channel().Index != ch {
 				continue
 			}
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
@@ -249,8 +249,8 @@ func (db *DB) DeleteTimeRange(
 				return errors.Newf(
 					"cannot delete index channel %v "+
 						"with channel %v depending on it on the time range %s",
-					db.unaryDBs[ch].Channel,
-					db.unaryDBs[otherDBKey].Channel,
+					udb.Channel(),
+					otherDB.Channel(),
 					tr,
 				)
 			}

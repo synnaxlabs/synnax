@@ -25,6 +25,9 @@ nyc_output
 *.tsbuildinfo
 *.ts.timestamp-*
 
+# |||| GO ||||
+*.test
+
 # |||| RUST ||||
 
 /target/†

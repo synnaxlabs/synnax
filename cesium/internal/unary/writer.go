@@ -107,12 +107,8 @@ type Writer struct {
 	// Channel stores information about the channel this writer is writing to, including
 	// but not limited to density and index.
 	Channel core.Channel
-	// onClose decrements the number of open writers and iterators on the unaryDB
-	// upon which the Writer is opened. This is used to determine whether the unaryDB can
-	// be closed safely.
-	onClose func()
 	// control stores the gate held by the writer in the controller of the unaryDB.
-	control *controller.Gate[controlledWriter]
+	control *controller.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
@@ -128,11 +124,6 @@ type Writer struct {
 	// closed stores whether the writer is closed. Operations like Write and Commit do not
 	// succeed on closed writers.
 	closed bool
-	// virtualAlignment tracks the alignment of the writer when persist is off.
-	virtualAlignment uint32
-	// leadingAlignmentEdge tracks the reserved virtual domain that uniquely identifies
-	// and orders the samples in the writer.
-	leadingAlignmentEdge uint32
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -144,23 +135,24 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		return nil, transfer, err
 	}
 	w = &Writer{
-		WriterConfig:         cfg,
-		Channel:              db.Channel,
-		idx:                  db.index(),
-		onClose:              decrementCounter,
-		wrapError:            db.wrapError,
-		virtualAlignment:     0,
-		leadingAlignmentEdge: lae,
+		WriterConfig: cfg,
+		Channel:      db.cfg.Channel,
+		idx:          db.index(),
+		wrapError:    db.wrapError,
 	}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
 		Authority: cfg.Authority,
 		Subject:   cfg.Subject,
 	}
-	var g *controller.Gate[controlledWriter]
-	g, transfer, err = db.Controller.OpenGateAndMaybeRegister(gateCfg, func() (controlledWriter, error) {
-		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
-		return controlledWriter{Writer: dw, channelKey: db.Channel.Key}, err
+	var g *controller.Gate[*controlledWriter]
+	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlledWriter, error) {
+		dw, err := db.domain.NewWriter(ctx, cfg.domain())
+		return &controlledWriter{
+			Writer:     dw,
+			channelKey: db.cfg.Channel.Key,
+			alignment:  telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0),
+		}, err
 	})
 	if err != nil {
 		return nil, transfer, w.wrapError(err)
@@ -172,9 +164,6 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		}
 	}
 	w.control = g
-	lae, decrementCounter := db.entityCount.AddWriter()
-	w.onClose = decrementCounter
-	w.leadingAlignmentEdge = lae
 	return w, transfer, w.wrapError(err)
 }
 
@@ -208,11 +197,11 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
+func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if w.closed {
 		return 0, w.wrapError(errWriterClosed)
 	}
-	if err = w.Channel.ValidateSeries(series); err != nil {
+	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
 	dw, err := w.control.Authorize()
@@ -223,13 +212,12 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 		w.updateHwm(series)
 	}
 	if *w.Persist {
-		a = telem.NewAlignmentPair(w.leadingAlignmentEdge, uint32(w.len(dw.Writer)))
+		dw.alignment = telem.NewAlignmentPair(dw.alignment.ArrayIndex(), uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
 	} else {
-		a = telem.NewAlignmentPair(w.leadingAlignmentEdge, w.virtualAlignment)
-		w.virtualAlignment += uint32(series.Len())
+		dw.alignment = dw.alignment.AddSamples(uint32(series.Len()))
 	}
-	return a, w.wrapError(err)
+	return dw.alignment, w.wrapError(err)
 }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
@@ -292,13 +280,10 @@ func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
 		return controller.Transfer{}, nil
 	}
-
 	w.closed = true
 	dw, t := w.control.Release()
-	w.onClose()
 	if t.IsRelease() {
 		return t, w.wrapError(dw.Close())
 	}
-
 	return t, nil
 }

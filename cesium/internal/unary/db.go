@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -23,30 +24,48 @@ import (
 	"sync/atomic"
 )
 
+// controlledWriter is used for exchanging control between multiple unary writers. When
+// control is transferred, ownership of the domain writer is moved to the new unary
+// writer. Additional state is included to ensure that write positions and channel. information
+// are consistent.
 type controlledWriter struct {
 	*domain.Writer
-	channelKey  core.ChannelKey
-	leadingEdge uint32
+	channelKey core.ChannelKey
+	alignment  telem.AlignmentPair
 }
 
+var _ controller.Entity = controlledWriter{}
+
+// ChannelKey implements controller.Entity.
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
+// DB is a database for a single channel. It executes reads (via iterators) and writes
+// (via writers) against an underlying domain.DB. It also manages the channel's control
+// state, allowing for dynamic handoff between multiple writers.
 type DB struct {
-	Config
-	Domain      *domain.DB
-	Controller  *controller.Controller[controlledWriter]
-	_idx        index.Index
-	entityCount *core.EntityCount
-	wrapError   func(error) error
-	closed      *atomic.Bool
+	// Config contains validated configuration parameters for the DB.
+	cfg Config
+	// domain is the underlying domain database on which writes will be executed.
+	domain     *domain.DB
+	controller *controller.Controller[*controlledWriter]
+	// _idx is the index used for resolving timestamp positions on this channel.
+	_idx             index.Index
+	wrapError        func(error) error
+	closed           *atomic.Bool
+	leadingAlignment *atomic.Uint32
 }
 
 var errDBClosed = core.EntityClosed("unary.db")
 
+// Channel returns the channel for this unary database.
+func (db *DB) Channel() core.Channel { return db.cfg.Channel }
+
+// Index returns the index for the unary database IF AND ONLY IF the channel is an index
+// channel. Otherwise, this method will panic.
 func (db *DB) Index() index.Index {
-	if !db.Channel.IsIndex {
+	if !db.cfg.Channel.IsIndex {
 		// inconceivable state
-		panic(fmt.Sprintf("channel %v is not an index channel", db.Channel))
+		panic(fmt.Sprintf("channel %v is not an index channel", db.cfg.Channel))
 	}
 	return db.index()
 }
@@ -54,7 +73,7 @@ func (db *DB) Index() index.Index {
 func (db *DB) index() index.Index {
 	if db._idx == nil {
 		// inconceivable state
-		panic(fmt.Sprintf("channel <%v> index is not set", db.Channel))
+		panic(fmt.Sprintf("channel <%v> index is not set", db.cfg.Channel))
 	}
 	return db._idx
 }
@@ -74,39 +93,34 @@ func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 
 // LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *controller.State {
-	return db.Controller.LeadingState()
+	return db.controller.LeadingState()
 }
 
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
-	iter := db.Domain.NewIterator(cfg.domainIteratorConfig())
-	_, dropEntityCount := db.entityCount.AddIterator()
+	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
 	i := &Iterator{
 		idx:            db.index(),
-		Channel:        db.Channel,
+		Channel:        db.cfg.Channel,
 		internal:       iter,
 		IteratorConfig: cfg,
-		onClose:        dropEntityCount,
 	}
 	i.SetBounds(cfg.Bounds)
 	return i
 }
 
-// HasDataFor check whether there is a timerange in the unary DB's underlying domain that
-// overlaps with the given timerange. Note that this function will return false if there
-// is an open writer that could write into the requested timerange
+// HasDataFor check whether there is a time range in the unary DB's underlying domain that
+// overlaps with the given time range. Note that this function will return false if there
+// is an open writer that could write into the requested time range
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed.Load() {
 		return false, errDBClosed
 	}
-	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(
+	g, _, err := db.controller.OpenAbsoluteGateIfUncontrolled(
 		tr,
 		control.Subject{Key: "has_data_for"},
-		func() (controlledWriter, error) {
-			return controlledWriter{
-				Writer:     nil,
-				channelKey: db.Channel.Key,
-			}, nil
+		func() (*controlledWriter, error) {
+			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
 		})
 
 	if err != nil {
@@ -122,14 +136,13 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	}
 	defer g.Release()
 
-	ok, err = db.Domain.HasDataFor(ctx, tr)
+	ok, err = db.domain.HasDataFor(ctx, tr)
 	return ok, db.wrapError(err)
 }
 
 // Read reads a Time Range of data at the unary level.
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
-
 	if db.closed.Load() {
 		return frame, errDBClosed
 	}
@@ -147,16 +160,45 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	return
 }
 
+// Close closes the unary database, releasing all resources associated with it. Close
+// will return an error if there are any unclosed writers, iterators, or delete
+// operations being executed on the database. Close is idempotent, and will return nil
+// if the database is already closed.
 func (db *DB) Close() error {
-	if db.closed.Load() {
+	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	total, unlock := db.entityCount.LockAndCountOpen()
-	defer unlock()
-	if total > 0 {
-		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers/iterators accessing it", total))
-	} else {
-		db.closed.Store(true)
-		return db.wrapError(db.Domain.Close())
+	return db.wrapError(db.domain.Close())
+}
+
+// RenameChannelInMeta renames the channel to the given name, and persists the change to the
+// underlying file system.
+func (db *DB) RenameChannelInMeta(newName string) error {
+	if db.closed.Load() {
+		return errDBClosed
 	}
+	if db.cfg.Channel.Name == newName {
+		return nil
+	}
+	db.cfg.Channel.Name = newName
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+}
+
+func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+	db.cfg.Channel.Index = key
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+}
+
+func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+	if db.cfg.Channel.IsIndex {
+		db.cfg.Channel.Index = key
+	}
+	db.cfg.Channel.Key = key
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }

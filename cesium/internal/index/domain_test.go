@@ -19,7 +19,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Domain", func() {
+var _ = Describe("domain", func() {
 	for fsName, makeFS := range fileSystems {
 		Describe("FS:"+fsName, Ordered, func() {
 			var (

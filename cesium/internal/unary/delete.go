@@ -33,9 +33,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-	db.entityCount.increment()
-	defer db.entityCount.decrement()
-	return db.wrapError(db.Domain.GarbageCollect(ctx))
+	return db.wrapError(db.domain.GarbageCollect(ctx))
 }
 
 func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
@@ -44,11 +42,11 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	}
 
 	// LockAndCountOpen an absolute gate to avoid deleting a time range in write.
-	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(
+	g, _, err := db.controller.OpenAbsoluteGateIfUncontrolled(
 		tr,
 		control.Subject{Key: uuid.NewString(), Name: "delete_writer"},
-		func() (controlledWriter, error) {
-			return controlledWriter{Writer: nil, channelKey: db.Channel.Key}, nil
+		func() (*controlledWriter, error) {
+			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
 		})
 	if err != nil {
 		return err
@@ -60,12 +58,12 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	}
 	defer g.Release()
 
-	return db.Domain.Delete(
+	return db.domain.Delete(
 		ctx,
 		db.calculateStartOffset,
 		db.calculateEndOffset,
 		tr,
-		db.Channel.DataType.Density(),
+		db.cfg.Channel.DataType.Density(),
 	)
 }
 
@@ -74,7 +72,7 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 // calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
 //
 // **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
-// to Domain.Delete.
+// to domain.Delete.
 //
 // The logic here is complicated due to the four possible cases with regard to the
 // distance approximation:
@@ -167,7 +165,7 @@ func (db *DB) calculateStartOffset(
 // calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
 //
 // **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
-// to Domain.Delete.
+// to domain.Delete.
 func (db *DB) calculateEndOffset(
 	ctx context.Context,
 	domainStart telem.TimeStamp,

@@ -59,6 +59,22 @@ type Iterator struct {
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
 	// closed stores whether the iterator is still open
 	closed bool
+	// onClose is called when the iterator is closed.
+	onClose func()
+}
+
+// OpenIterator opens a new invalidated Iterator using the given configuration.
+// A seeking call is required before it can be used.
+func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
+	db.entityCount.Add(1)
+	i := &Iterator{
+		Instrumentation: db.cfg.Instrumentation.Child("iterator"),
+		idx:             db.idx,
+		readerFactory:   db.newReader,
+		onClose:         func() { db.entityCount.Add(-1) },
+	}
+	i.SetBounds(cfg.Bounds)
+	return i
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -157,6 +173,7 @@ func (i *Iterator) Len() int64 { return int64(i.value.length) }
 func (i *Iterator) Close() error {
 	i.closed = true
 	i.valid = false
+	i.onClose()
 	return nil
 }
 

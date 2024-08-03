@@ -80,9 +80,6 @@ type Writer struct {
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.
 	closed bool
-	// leadingAlignmentEdge tracks the reserved virtual domain that uniquely identifies
-	// and orders the samples in the writer.
-	leadingAlignmentEdge uint32
 }
 
 func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -103,7 +100,10 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 	g, transfer, err = db.controller.OpenGateAndMaybeRegister(
 		cfg.gateConfig(),
 		func() (*controlEntity, error) {
-			return &controlEntity{ck: db.Channel.Key, sampleAlignment: 0}, nil
+			return &controlEntity{
+				ck:        db.Channel.Key,
+				alignment: telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0),
+			}, nil
 		},
 	)
 	if err != nil {
@@ -116,10 +116,11 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		}
 	}
 	w.control = g
-	lae, decrementCounter := db.entityCount.AddWriter()
-	w.onClose = decrementCounter
-	w.leadingAlignmentEdge = lae
-	return w, transfer, db.wrapError(err)
+	db.openWriters.Add(1)
+	w.onClose = func() {
+		db.openWriters.Add(-1)
+	}
+	return w, transfer, nil
 }
 
 func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
@@ -133,10 +134,13 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
+	// copy the alignment here because we want to return the alignment of the FIRST
+	// sample, not the last.
+	a := e.alignment
 	if series.DataType.Density() != telem.DensityUnknown {
-		e.sampleAlignment += uint32(series.Len())
+		e.alignment = e.alignment.AddSamples(uint32(series.Len()))
 	}
-	return telem.NewAlignmentPair(w.leadingAlignmentEdge, e.sampleAlignment), nil
+	return a, nil
 }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {

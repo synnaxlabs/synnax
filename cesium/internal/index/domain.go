@@ -38,7 +38,7 @@ func (i *Domain) Distance(
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
-	iter := i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
+	iter := i.DB.OpenIterator(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) {
@@ -54,7 +54,7 @@ func (i *Domain) Distance(
 		i.L.DPanic("iterator seekFirst failed in stamp")
 	}
 
-	// If the timerange is not contained within the effective domain, then it's
+	// If the time range is not contained within the effective domain, then it's
 	// discontinuous, and we return early if the user doesn't want discontinuous
 	// results.
 	if !effectiveDomainBounds.ContainsRange(tr) && continuous {
@@ -162,7 +162,8 @@ func (i *Domain) Stamp(
 	ctx, span := i.T.Bench(ctx, "stamp")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
-	iter := i.DB.NewIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	iter := i.DB.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) {
 		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp start timestamp %s", ref)
