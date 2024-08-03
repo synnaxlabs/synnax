@@ -8,6 +8,7 @@ use (
 	./cesium
 	./freighter/go
 	./freighter/integration
+	./integration
 	./synnax
 	./x/go
 )

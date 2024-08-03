@@ -9,6 +9,7 @@
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
+from synnax import PolicyClient
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
@@ -27,6 +28,7 @@ from synnax.ranger.client import RangeClient
 from synnax.signals.signals import Registry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
+from synnax.user.client import UserClient
 
 
 class Synnax(Client):
@@ -52,6 +54,8 @@ class Synnax(Client):
     """
 
     channels: ChannelClient
+    access: PolicyClient
+    user: UserClient
     ranges: RangeClient
     control: ControlClient
     signals: Registry
@@ -96,6 +100,16 @@ class Synnax(Client):
             max_retries=max_retries,
             instrumentation=instrumentation,
         )
+        if opts.username != "" or opts.password != "":
+            self.auth = AuthenticationClient(
+                transport=self._transport.unary,
+                username=opts.username,
+                password=opts.password,
+            )
+            self.auth.authenticate()
+            self._transport.use(*self.auth.middleware())
+            self._transport.use_async(*self.auth.async_middleware())
+
         ch_retriever = CacheChannelRetriever(
             ClusterChannelRetriever(self._transport.unary, instrumentation),
             instrumentation,
@@ -131,6 +145,8 @@ class Synnax(Client):
             HardwareWriter(client=self._transport.unary),
             HardwareRetriever(client=self._transport.unary),
         )
+        self.access = PolicyClient(self._transport.unary, instrumentation)
+        self.user = UserClient(self._transport.unary)
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or
@@ -158,13 +174,4 @@ def _configure_transport(
         keep_alive=keep_alive,
         max_retries=max_retries,
     )
-    if opts.username != "" or opts.password != "":
-        auth = AuthenticationClient(
-            transport=t.unary,
-            username=opts.username,
-            password=opts.password,
-        )
-        auth.authenticate()
-        t.use(*auth.middleware())
-        t.use_async(*auth.async_middleware())
     return t

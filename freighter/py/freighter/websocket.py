@@ -13,14 +13,14 @@ from warnings import warn
 
 from pydantic import BaseModel
 from websockets.client import WebSocketClientProtocol, connect
-from websockets.exceptions import ConnectionClosedOK
+from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from websockets.sync.client import (
     ClientConnection as SyncClientProtocol,
     connect as sync_connect,
 )
 
 from freighter.context import Context
-from freighter.encoder import EncoderDecoder
+from freighter.codec import Codec
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
 from freighter.stream import AsyncStream, AsyncStreamClient, StreamClient, Stream
 from freighter.transport import RQ, RS, AsyncMiddlewareCollector, P, MiddlewareCollector
@@ -43,7 +43,7 @@ def _new_res_msg_t(res_t: Type[RS]) -> Type[_Message[RS]]:
 class AsyncWebsocketStream(AsyncStream[RQ, RS]):
     """An implementation of AsyncStream that is backed by a websocket."""
 
-    __encoder: EncoderDecoder
+    __encoder: Codec
     __internal: WebSocketClientProtocol
     __server_closed: Exception | None
     __send_closed: bool
@@ -51,7 +51,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
 
     def __init__(
         self,
-        encoder: EncoderDecoder,
+        encoder: Codec,
         ws: WebSocketClientProtocol,
         res_t: Type[RS],
     ):
@@ -126,11 +126,11 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             await self.__internal.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
 class SyncWebsocketStream(Stream[RQ, RS]):
-    __encoder: EncoderDecoder
+    __encoder: Codec
     __internal: SyncClientProtocol
     __server_closed: Exception | None
     __send_closed: bool
@@ -138,7 +138,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
 
     def __init__(
         self,
-        encoder: EncoderDecoder,
+        encoder: Codec,
         ws: SyncClientProtocol,
         res_t: Type[RS],
     ):
@@ -149,8 +149,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         self.__res_msg_t = _new_res_msg_t(res_t)
 
     def receive(
-        self,
-        timeout: float | None = None
+        self, timeout: float | None = None
     ) -> tuple[RS | None, Exception | None]:
         if self.__server_closed is not None:
             return None, self.__server_closed
@@ -204,14 +203,14 @@ class SyncWebsocketStream(Stream[RQ, RS]):
 
 class _Base:
     _endpoint: URL
-    _encoder: EncoderDecoder
+    _encoder: Codec
     _max_message_size: int
     _secure: bool = False
     _kwargs: dict[str, Any]
 
     def __init__(
         self,
-        encoder: EncoderDecoder,
+        encoder: Codec,
         base_url: URL,
         max_message_size: int = DEFAULT_MAX_SIZE,
         secure: bool = False,

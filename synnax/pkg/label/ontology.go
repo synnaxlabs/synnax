@@ -14,6 +14,7 @@ package label
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	changex "github.com/synnaxlabs/x/change"
@@ -26,6 +27,14 @@ const ontologyType ontology.Type = "label"
 
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
+}
+
+func OntologyIDs(keys []uuid.UUID) []ontology.ID {
+	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+}
+
+func OntologyIDsFromLabels(labels []Label) []ontology.ID {
+	return lo.Map(labels, func(l Label, _ int) ontology.ID { return OntologyID(l.Key) })
 }
 
 func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {

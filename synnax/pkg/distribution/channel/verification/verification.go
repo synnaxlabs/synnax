@@ -12,13 +12,13 @@ package verification
 import (
 	"encoding/base64"
 	"errors"
-	"github.com/synnaxlabs/x/types"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/synnaxlabs/x/crypto"
 	"github.com/synnaxlabs/x/date"
+	"github.com/synnaxlabs/x/types"
 )
 
 var errInvalidInput error
@@ -31,16 +31,13 @@ const (
 )
 
 func checkFormat(input string) error {
-
 	inputLength := 26
 	numDashes := 2
 	numParts := 3
 	firstPartLength := 6
 	secondPartLength := 8
 	thirdPartLength := 10
-
 	errFormat := errors.New(decode("cHJvZHVjdCBsaWNlbnNlIGtleSBpcyBpbiBhbiBpbnZhbGlkIGZvcm1hdA=="))
-
 	if len(input) != inputLength {
 		return errFormat
 	}
@@ -48,22 +45,11 @@ func checkFormat(input string) error {
 	if dashCount != numDashes {
 		return errFormat
 	}
-
 	parts := strings.Split(input, "-")
-	if len(parts) != numParts {
+	if (len(parts) != numParts) || (len(parts[0]) != firstPartLength) ||
+		(len(parts[1]) != secondPartLength) || (len(parts[2]) != thirdPartLength) {
 		return errFormat
 	}
-
-	if len(parts[0]) != firstPartLength {
-		return errFormat
-	}
-	if len(parts[1]) != secondPartLength {
-		return errFormat
-	}
-	if len(parts[2]) != thirdPartLength {
-		return errFormat
-	}
-
 	_, err := strconv.Atoi(parts[0])
 	if err != nil {
 		return errFormat
@@ -76,7 +62,6 @@ func checkFormat(input string) error {
 	if err != nil {
 		return errFormat
 	}
-
 	return nil
 }
 
@@ -85,9 +70,7 @@ func validateInput(input string) error {
 	if err != nil {
 		return err
 	}
-
 	parts := strings.Split(input, "-")
-
 	year, _ := strconv.Atoi(parts[0][0:2])
 	month, _ := strconv.Atoi(parts[0][2:4])
 	day, _ := strconv.Atoi(parts[0][4:6])
@@ -107,13 +90,11 @@ func validateInput(input string) error {
 	if !date.DateExists(year, month, day) {
 		return errInvalidInput
 	}
-
 	return inputCheckFunc(input)
 }
 
 func whenStale(input string) time.Time {
 	parts := strings.Split(input, "-")
-
 	year, _ := strconv.Atoi(parts[0][0:2])
 	month, _ := strconv.Atoi(parts[0][2:4])
 	day, _ := strconv.Atoi(parts[0][4:6])
@@ -121,7 +102,6 @@ func whenStale(input string) time.Time {
 	year += 2000
 	month, _ = crypto.Cipher(month, monthCipher, 2)
 	day, _ = crypto.Cipher(day, dayCipher, 2)
-
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
 }
 
@@ -135,14 +115,12 @@ func getNumChan(input string) types.Uint20 {
 
 func inputCheckFunc(input string) error {
 	code := strings.Split(input, "-")[2]
-
 	var digits [10]int
 	for i := 0; i < 10; i++ {
 		digits[i], _ = strconv.Atoi(string(code[i]))
 	}
 	firstFive, _ := strconv.Atoi(code[0:5])
 	sum := digits[5] + digits[6] + digits[7] + digits[8]
-
 	if digits[1] != 4 {
 		return errInvalidInput
 	} else if firstFive%9 != 0 {

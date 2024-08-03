@@ -214,7 +214,7 @@ export class Series<T extends TelemValue = TelemValue> {
       } else if (this.dataType.equals(DataType.JSON)) {
         this._cachedLength = data_.length;
         this._data = new TextEncoder().encode(
-          data_.map((d) => binary.JSON_ECD.encodeString(d)).join("\n") + "\n",
+          data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n") + "\n",
         );
       } else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
     }
@@ -264,7 +264,7 @@ export class Series<T extends TelemValue = TelemValue> {
 
   static fromJSON<T>(data: T[], timeRange?: TimeRange): Series {
     const buffer = new TextEncoder().encode(
-      data.map((d) => binary.JSON_ECD.encodeString(d)).join("\n") + "\n",
+      data.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n") + "\n",
     );
     return new Series({ data: buffer, dataType: DataType.JSON, timeRange });
   }
@@ -353,7 +353,7 @@ export class Series<T extends TelemValue = TelemValue> {
       .decode(this.buffer)
       .split("\n")
       .slice(0, -1)
-      .map((s) => schema.parse(binary.JSON_ECD.decodeString(s)));
+      .map((s) => schema.parse(binary.JSON_CODEC.decodeString(s)));
   }
 
   /** @returns the time range of this array. */
@@ -739,7 +739,7 @@ class JSONSeriesIterator implements Iterator<unknown> {
     if (next.done === true) return { done: true, value: undefined };
     return {
       done: false,
-      value: binary.JSON_ECD.decodeString(next.value),
+      value: binary.JSON_CODEC.decodeString(next.value),
     };
   }
 

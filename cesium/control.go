@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -64,7 +65,12 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 	}
 	db.digests.inlet, db.digests.outlet = confluence.Attach[WriterRequest, WriterResponse](w, 100)
 	sCtx, _ := signal.Isolated()
-	w.Flow(sCtx, confluence.CloseInletsOnExit())
+	w.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.CancelOnFail(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 	return nil
 }
 
@@ -128,11 +134,11 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {
 	s.DataType = telem.StringT
-	s.Data, err = (&binary.JSONEncoderDecoder{}).Encode(ctx, u)
+	s.Data, err = (&binary.JSONCodec{}).Encode(ctx, u)
 	return s, err
 }
 
 func DecodeControlUpdate(ctx context.Context, s telem.Series) (ControlUpdate, error) {
 	var u ControlUpdate
-	return u, (&binary.JSONEncoderDecoder{}).Decode(ctx, s.Data, &u)
+	return u, (&binary.JSONCodec{}).Decode(ctx, s.Data, &u)
 }

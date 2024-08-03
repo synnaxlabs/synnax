@@ -29,10 +29,13 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
 	a.ChannelRetrieveGroup = fnoop.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse]{}
 
-	// AUTH
-	a.AuthChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
-	a.AuthChangePassword = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
-	a.AuthRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
+	// User
+	a.UserRegistrationOld = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
+	a.UserChangeUsernameOld = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
+	a.UserChangePasswordOld = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
+	a.UserChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
+	a.UserChangePassword = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
+	a.UserRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
 
 	// RANGE
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}
@@ -76,6 +79,11 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.LabelDelete = fnoop.UnaryServer[api.LabelDeleteRequest, types.Nil]{}
 	a.LabelSet = fnoop.UnaryServer[api.LabelSetRequest, types.Nil]{}
 	a.LabelRemove = fnoop.UnaryServer[api.LabelRemoveRequest, types.Nil]{}
+
+	// ACCESS
+	a.AccessCreatePolicy = fnoop.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse]{}
+	a.AccessDeletePolicy = fnoop.UnaryServer[api.AccessDeletePolicyRequest, types.Nil]{}
+	a.AccessRetrievePolicy = fnoop.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse]{}
 
 	return a, transports
 }

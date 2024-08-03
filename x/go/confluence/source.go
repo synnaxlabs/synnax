@@ -41,19 +41,30 @@ func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
 	return nil
 }
 
+// SendToEachWithTimeout sends the provided value to each Inlet in the Source. If
+// the inlet does not receive the value within the provided timeout, the function
+// will not send to the inlet. It will, however, continue to send to the remaining
+// inlets, resetting the timer after it expires. If the timer expired for any inlet,
+// the function will return a timeout error.
 func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 	ctx context.Context,
 	v V,
-	t <-chan time.Time,
+	t time.Duration,
+	timer *time.Timer,
 ) error {
+	timerExpired := false
 	for _, inlet := range ams.Out {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-t:
-			return timeout.Timeout
+		case <-timer.C:
+			timer.Reset(t)
+			timerExpired = true
 		case inlet.Inlet() <- v:
 		}
+	}
+	if timerExpired {
+		return timeout.Timeout
 	}
 	return nil
 }

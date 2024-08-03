@@ -14,7 +14,7 @@ from freighter.alamos import (
     instrumentation_middleware,
 )
 from freighter.context import Context, Role
-from freighter.encoder import EncoderDecoder, JSONEncoder, MsgpackEncoder
+from freighter.codec import Codec, JSONCodec, MsgPackCodec
 from freighter.exceptions import (
     EOF,
     ExceptionPayload,

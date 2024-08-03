@@ -9,7 +9,7 @@
 
 import json
 
-in_products = json.load(open('out/products.json', 'r'))
+in_products = json.load(open("out/products.json", "r"))
 
 filtered_products = list()
 existing_ids = set()
@@ -25,4 +25,4 @@ for product in in_products:
 
 print(f"Removed {count} duplicates from {len(in_products)} products")
 
-json.dump(filtered_products, open('out/products.json', 'w'), indent=4)
+json.dump(filtered_products, open("out/products.json", "w"), indent=4)
