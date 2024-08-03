@@ -9,9 +9,11 @@ on:
       - rc
       - main
   workflow_dispatch:
+env:
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
 jobs:
   test:
-    name: "Run Tests"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -30,7 +32,7 @@ jobs:
               - "client/ts/**"
               - "freighter/ts/**"
               - "x/ts/**"
-              - ".github/workflows/deploy.console.yaml"
+              - ".github/workflows/test.console.yaml"
 
 
       - name: Set up pnpm
