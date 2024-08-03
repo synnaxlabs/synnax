@@ -13,12 +13,13 @@ env:
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
 jobs:
-  setup:
+  test:
+    name: "Run Tests"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-        
+
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
