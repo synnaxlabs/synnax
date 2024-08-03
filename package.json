@@ -57,6 +57,7 @@
     "devtools": "npx turbo devtools --filter console"
   },
   "devDependencies": {
+    "@microsoft/api-extractor": "^7.47.5",
     "prettier": "3.3.2",
     "turbo": "^2.0.9"
   },

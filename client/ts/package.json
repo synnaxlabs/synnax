@@ -21,7 +21,8 @@
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix"
+    "fix": "eslint \"src/**/*.ts*\" --fix",
+    "api": "npx api-extractor run -l"
   },
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
