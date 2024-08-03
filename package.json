@@ -27,6 +27,7 @@
     "dev:docs": "npx turbo dev --filter @synnaxlabs/docs",
     "dev:landing": "npx turbo dev --filter @synnaxlabs/landing",
     "test": "npx turbo test",
+    "test:console": "npx turbo test --filter @synnaxlabs/console",
     "test:pluto": "npx turbo test --filter @synnaxlabs/pluto",
     "test:drift": "npx turbo test --filter @synnaxlabs/drift",
     "test:freighter": "npx turbo test --filter @synnaxlabs/freighter",
