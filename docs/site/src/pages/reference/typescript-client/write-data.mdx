@@ -363,30 +363,39 @@ turn on auto-commit.
 This is a bad idea:
 
 ```python
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["timestamps", "my_precise_tc"],
-) as writer:
-    for i in range(100):
-        writer.write({
-            "timestamps": sy.TimeStamp.now(),
-            "my_precise_tc": i,
-        })
-        writer.commit()
+const writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: ["time", "temperature"],
+});
+try {
+    for (let i = 0; i < 100; i++) {
+        await writer.write({
+            "time": TimeStamp.now(),
+            "temperature": Math.sin(i / 100)
+        });
+        await writer.commit();
+    }
+} finally {
+    await writer.close();
+}
 ```
 
 Instead, use auto-commit:
 
 ```python
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["timestamps", "my_precise_tc"],
-    enable_auto_commit=True,
-) as writer:
-    for i in range(100):
-        writer.write({
-            "timestamps": sy.TimeStamp.now(),
-            "my_precise_tc": i,
-        })
+const writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: ["time", "temperature"],
+    enableAutoCommit: true
+});
+try {
+    for (let i = 0; i < 100; i++) 
+        await writer.write({
+            "time": TimeStamp.now(),
+            "temperature": Math.sin(i / 100)
+        });
+} finally {
+    await writer.close();
+}
 ```
 
