@@ -1,4 +1,4 @@
-name: "Test - Pluto"
+name: "Test - Console"
 on:
   pull_request:
     branches:
@@ -13,7 +13,7 @@ env:
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
 jobs:
-  test:
+  setup:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -33,7 +33,6 @@ jobs:
               - "freighter/ts/**"
               - "x/ts/**"
               - ".github/workflows/test.console.yaml"
-
 
       - name: Set up pnpm
         if: steps.filter.outputs.changed == 'true'
