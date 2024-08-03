@@ -26,7 +26,7 @@ long periods of time.
 ## Transactions
 
 Each writer governs an atomic transaction against the Synnax cluster. To begin a 
-transaction, we open a new writer and being writing data frames using a file like 
+transaction, we open a new writer and start writing data frames using a file like 
 interface. After we're done writing, we commit the writer to the database, making it
 available for reading. Synnax transactions are unique in that they can be committed 
 **multiple** times, where each new commit extends the data written in the previous commit. 
@@ -91,9 +91,9 @@ There are also a few optional arguments we can provide when opening a writer:
 ### Write Phase
 
 After all opening validation checks pass, the transaction enters the write phase. 
-During this period, a user can write continuous frames of data to the domain. These
-frames must be vertical (i.e. all channels must have a single array specified),
-and all arrays must have the same number of samples. You can read more about
+During this period, a user can write continuous frames of data to the transaction. These
+frames must be vertical (i.e. all channels must have a single series specified),
+and all series must have the same number of samples. You can read more about
 frame alignment here.
 
 To illustrate how a series of writes would work, imagine we write the following frame:
@@ -147,7 +147,8 @@ to be applied atomically.
 
 Once done writing, the user can close the writer and release all of it's
 resources. All un-committed writes will be lost. Closing a writer will also release
-control of the channel to the next highest authority writer, if one exists.
+control of the channel to the next highest authority writer, if one exists
+(see [Dynamic Control - Write Authorities](#dynamic-control---write-authorities)).
 
 <Divider.Divider direction="x" />
 
