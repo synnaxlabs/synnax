@@ -71,7 +71,7 @@ func NewErrRangeNotFound(tr telem.TimeRange) error {
 type DB struct {
 	Config
 	idx    *index
-	files  *fileController
+	fc     *fileController
 	closed *atomic.Bool
 }
 
@@ -161,7 +161,7 @@ func Open(configs ...Config) (*DB, error) {
 	return &DB{
 		Config: cfg,
 		idx:    idx,
-		files:  controller,
+		fc:     controller,
 		closed: &atomic.Bool{},
 	}, nil
 }
@@ -179,7 +179,7 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 }
 
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
-	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
+	internal, err := db.fc.acquireReader(ctx, ptr.fileKey)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (db *DB) Close() error {
 	}
 
 	w := errors.NewCatcher(errors.WithAggregation())
-	w.Exec(db.files.close)
+	w.Exec(db.fc.close)
 	w.Exec(db.idx.close)
 	return w.Error()
 }

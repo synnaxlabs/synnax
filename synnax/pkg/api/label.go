@@ -109,6 +109,10 @@ func (s *LabelService) Retrieve(
 	if len(req.Names) != 0 {
 		q = q.WhereNames(req.Names...)
 	}
+
+	if err = q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
+		return LabelRetrieveResponse{}, err
+	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
@@ -116,7 +120,7 @@ func (s *LabelService) Retrieve(
 	}); err != nil {
 		return res, err
 	}
-	return res, q.Entries(&res.Labels).Exec(ctx, nil)
+	return res, nil
 }
 
 type LabelDeleteRequest struct {
