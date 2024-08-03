@@ -42,6 +42,9 @@
     },
     "devtools": {
       "cache": false
+    },
+    "api": {
+      "cache": false
     }
   }
 }
