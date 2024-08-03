@@ -11,6 +11,7 @@
     "build-vite": "vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.ts*\"",
+    "test": "vitest",
     "fix": "eslint \"src/**/*.ts*\" --fix",
     "devtools": "pnpm react-devtools",
     "react-devtools": "npx react-devtools"
@@ -49,6 +50,7 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "eslint-config-synnaxlabs": "workspace:*",
+    "jest": "^29.7.0",
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.5.3",
     "vite": "5.3.3",
