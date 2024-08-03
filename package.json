@@ -54,6 +54,7 @@
     "fix:client": "npx turbo fix --filter @synnaxlabs/client",
     "fix:drift": "npx turbo fix --filter @synnaxlabs/drift",
     "fix:alamos": "npx turbo fix --filter @synnaxlabs/alamos",
+    "api:client": "npx api-extractor run -c=./client/ts/api-extractor.json",
     "devtools": "npx turbo devtools --filter console"
   },
   "devDependencies": {
