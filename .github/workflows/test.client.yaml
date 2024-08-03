@@ -204,6 +204,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
