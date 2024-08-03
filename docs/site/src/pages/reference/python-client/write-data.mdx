@@ -274,3 +274,123 @@ writer.set_authority({
     "my_precise_tc": 250,
 })
 ```
+
+### Persistence/Streaming Mode
+
+By default, writers are opened in stream + persist [mode](/reference/concepts/writes#persistencestreaming-modes).
+To change the mode of a writer, specify the enum value of the `mode` argument when 
+opening the writer. This can be `persist`, `stream`, or `persist_stream`.
+
+For example, to open a writer that only persists data:
+
+```python
+import synnax as sy
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    mode="persist"
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+```
+
+<Divider.Divider direction="x" />
+
+## Common Pitfalls
+
+There are several common pitfalls to avoid when writing data to a Synnax cluster. These
+are important to avoid as they can lead to performance degradation and/or control issues.
+
+### Using Many Individual Write Calls Instead of a Writer
+
+When writing large volumes of data in a streaming fashion (or in batches), it's important
+to use a writer instead of making individual write calls to a channel. Calls to `write`
+on a channel use an entirely new transaction for each call - constantly creating, committing,
+and closing transactions has a dramatic impact on performance. So, don't do this:
+
+```python
+time = client.channels.retrieve("timestamps")
+my_tc = client.channels.retrieve("my_precise_tc")
+for i in range(100):
+    # This is a very bad idea
+    ts = sy.TimeStamp.now()
+    time.write(ts, ts)
+    my_tc.write(ts, i)
+```
+
+This is also a bad idea:
+
+```python
+# open and close a transaction for every write
+for i in range(100):
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["timestamps", "my_precise_tc"],
+        enable_auto_commit=True,
+    ) as writer:
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+```
+
+
+Instead, repeatedly call `write` on a single writer:
+
+```python
+# This is dramatically more efficient
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    enable_auto_commit=True,
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+```
+
+### Calling Commit on Every Write 
+
+If you're not using auto-commit, it's important to call `commit` on the writer
+periodically to ensure that the data is persisted to the cluster. However, calling
+`commit` on every write is a bad idea. This is because `commit` requires a round-trip
+to the cluster to ensure that the data is persisted. This can be very slow if you're
+writing a lot of data. If you're writing a lot of data, commit every few seconds or
+turn on auto-commit.
+
+This is a bad idea:
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        writer.commit()
+```
+
+Instead, use auto-commit:
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    enable_auto_commit=True,
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+```
+

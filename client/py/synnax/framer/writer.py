@@ -50,9 +50,19 @@ class _Command(int, Enum):
 
 class WriterMode(int, Enum):
     PERSIST_STREAM = 1
-    PERSIST_ONLY = 2
-    STREAM_ONLY = 3
+    PERSIST = 2
+    STREAM = 3
 
+CrudeWriterMode = "persist_stream" | "persist" | "stream" | WriterMode
+
+def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
+    if mode == "persist_stream":
+        return WriterMode.PERSIST_STREAM
+    if mode == "persist":
+        return WriterMode.PERSIST
+    if mode == "stream":
+        return WriterMode.STREAM
+    raise ValueError(f"invalid writer mode {mode}")
 
 class _Config(Payload):
     authorities: list[int] = Authority.ABSOLUTE
@@ -124,7 +134,6 @@ class Writer:
     __adapter: WriteFrameAdapter
     __suppress_warnings: bool = False
     __strict: bool = False
-    __mode: WriterMode
 
     start: CrudeTimeStamp
 
@@ -137,7 +146,7 @@ class Writer:
         authorities: list[Authority] | Authority = Authority.ABSOLUTE,
         suppress_warnings: bool = False,
         strict: bool = False,
-        mode: WriterMode = WriterMode.PERSIST_STREAM,
+        mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
@@ -152,7 +161,7 @@ class Writer:
             keys=self.__adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
-            mode=mode,
+            mode=parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,

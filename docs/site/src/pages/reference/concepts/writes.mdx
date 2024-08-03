@@ -2,7 +2,7 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Writes"
 heading: "Writes"
-description: "Learn how Synnax writes data to the database."
+description: "Learn the process for writing data to a Synnax cluster."
 ---
 import { Divider } from "@synnaxlabs/pluto"
 import Table from "@/components/Table.astro"
@@ -20,6 +20,8 @@ and [TypeScript Client](../typescript-client/write-data) guides.
 Writers are used to write telemetry samples to a Synnax cluster. A writer is opened on
 a set of channels, and typically writes to these channels in a continuous stream over
 long periods of time. 
+
+<Divider.Divider direction="x" />
 
 ## Transactions
 
@@ -135,16 +137,19 @@ phase completes, the transaction is moved back into the write phase. At this
 point, we can either write more frames to the cluster and commit again, or we
 can close the writer.
 
-Alternatively, if the writer is configured with auto-commit on, the commit phase
-automatically follows the write phase. This renders the data immediately
-available as it is written. However, this may have a minor impact on
-performance.
+#### Auto Commit
+
+If the writer is configured with auto-commit on, every write is immediately committed
+and available for reads. This method is useful for real-time data that does not need
+to be applied atomically.
 
 ### Close Phase
 
 Once done writing, the user can close the writer and release all of it's
 resources. All un-committed writes will be lost. Closing a writer will also release
 control of the channel to the next highest authority writer, if one exists.
+
+<Divider.Divider direction="x" />
 
 ## Persistence/Streaming Modes
 
@@ -163,6 +168,8 @@ historically.
 Finally, when opened in stream + persist mode, the writer will both persist the samples
 and stream them to any streamers listening on the channel. This is the default mode for 
 a writer.
+
+<Divider.Divider direction="x" />
 
 ## Dynamic Control - Write Authorities
 

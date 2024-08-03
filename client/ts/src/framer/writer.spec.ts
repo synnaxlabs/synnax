@@ -54,7 +54,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: 0,
         channels: ch.key,
-        mode: WriterMode.PersistOnly,
+        mode: WriterMode.Persist,
       });
       try {
         await writer.write(ch.key, randomSeries(10, ch.dataType));

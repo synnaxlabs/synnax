@@ -228,7 +228,7 @@ class TestWriter:
         client: sy.Synnax,
     ):
         """Should not stream written data"""
-        with client.open_writer(0, channel.key, mode=sy.WriterMode.PERSIST_ONLY) as w:
+        with client.open_writer(0, channel.key, mode=sy.WriterMode.PERSIST) as w:
             async with await client.open_async_streamer(channel.key) as s:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))

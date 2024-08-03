@@ -35,9 +35,24 @@ enum Command {
 
 export enum WriterMode {
   PersistStream = 1,
-  PersistOnly = 2,
-  StreamOnly = 3,
+  Persist = 2,
+  Stream = 3,
 }
+
+export type CrudeWriterMode = "persist" | "stream" | "persistStream" | WriterMode;
+
+const constructWriterMode = (mode: CrudeWriterMode): WriterMode => {
+  switch (mode) {
+    case "persist":
+      return WriterMode.Persist;
+    case "stream":
+      return WriterMode.Stream;
+    case "persistStream":
+      return WriterMode.PersistStream;
+    default:
+      throw new Error(`invalid writer mode: ${mode}`);
+  }
+};
 
 export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
@@ -83,7 +98,7 @@ export interface WriterConfig {
   authorities?: control.Authority | control.Authority[];
   // mode sets the persistence and streaming mode of the writer. The default
   // mode is WriterModePersistStream.
-  mode?: WriterMode;
+  mode?: CrudeWriterMode;
   // errOnUnauthorized sets whether the writer raises an error when it attempts to write
   // to a channel without permission.
   errOnUnauthorized?: boolean;
@@ -172,7 +187,7 @@ export class Writer {
         keys: adapter.keys,
         controlSubject: subject,
         authorities: toArray(authorities),
-        mode,
+        mode: constructWriterMode(mode),
         errOnUnauthorized,
         enableAutoCommit,
         autoIndexPersistInterval,
