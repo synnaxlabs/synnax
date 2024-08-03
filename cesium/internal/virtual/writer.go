@@ -93,7 +93,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 	}
 	w = &Writer{
 		WriterConfig: cfg,
-		Channel:      db.Channel,
+		Channel:      db.cfg.Channel,
 		wrapError:    db.wrapError,
 	}
 	var g *controller.Gate[*controlEntity]
@@ -101,7 +101,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		cfg.gateConfig(),
 		func() (*controlEntity, error) {
 			return &controlEntity{
-				ck:        db.Channel.Key,
+				ck:        db.cfg.Channel.Key,
 				alignment: telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0),
 			}, nil
 		},

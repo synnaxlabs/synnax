@@ -34,7 +34,7 @@ type controlEntity struct {
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
 type DB struct {
-	Config
+	cfg              Config
 	controller       *controller.Controller[*controlEntity]
 	wrapError        func(error) error
 	closed           *atomic.Bool
@@ -100,7 +100,7 @@ func Open(configs ...Config) (db *DB, err error) {
 		return nil, err
 	}
 	db = &DB{
-		Config:           cfg,
+		cfg:              cfg,
 		controller:       c,
 		wrapError:        core.NewErrorWrapper(cfg.Channel),
 		closed:           &atomic.Bool{},
@@ -112,11 +112,15 @@ func Open(configs ...Config) (db *DB, err error) {
 }
 
 func (db *DB) CheckMigration(codec binary.Codec) error {
-	if db.Channel.Version != version.Current {
-		db.Channel.Version = version.Current
-		return meta.Create(db.FS, codec, db.Channel)
+	if db.cfg.Channel.Version != version.Current {
+		db.cfg.Channel.Version = version.Current
+		return meta.Create(db.cfg.FS, codec, db.cfg.Channel)
 	}
 	return nil
+}
+
+func (db *DB) Channel() core.Channel {
+	return db.cfg.Channel
 }
 
 func (db *DB) LeadingControlState() *controller.State {
@@ -142,20 +146,20 @@ func (db *DB) RenameChannel(newName string) error {
 	if db.closed.Load() {
 		return dbClosed
 	}
-	if db.Channel.Name == newName {
+	if db.cfg.Channel.Name == newName {
 		return nil
 	}
-	db.Channel.Name = newName
-	return meta.Create(db.FS, db.MetaCodec, db.Channel)
+	db.cfg.Channel.Name = newName
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
 func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
 		return dbClosed
 	}
-	if db.Channel.Key == key {
+	if db.cfg.Channel.Key == key {
 		return nil
 	}
-	db.Channel.Key = key
-	return meta.Create(db.FS, db.MetaCodec, db.Channel)
+	db.cfg.Channel.Key = key
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }

@@ -75,7 +75,7 @@ func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	}
 	vCh, vOk := db.virtualDBs[key]
 	if vOk {
-		return vCh.Channel, nil
+		return vCh.Channel(), nil
 	}
 	return Channel{}, core.NewErrChannelNotFound(key)
 }
@@ -271,10 +271,14 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err != nil {
 			return err
 		}
-		newConfig := vdb.Config
-		newConfig.Channel.Key = newKey
-		newConfig.FS = newFS
-		_vdb, err := virtual.Open(newConfig)
+		newChannel := vdb.Channel()
+		newChannel.Key = newKey
+		_vdb, err := virtual.Open(virtual.Config{
+			Instrumentation: db.Instrumentation,
+			Channel:         newChannel,
+			MetaCodec:       db.metaCodec,
+			FS:              newFS,
+		})
 		if err != nil {
 			return err
 		}
