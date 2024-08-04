@@ -17,6 +17,7 @@ import { plutoNav } from "@/pages/reference/pluto/_nav";
 import { pythonClientNav } from "@/pages/reference/python-client/_nav";
 import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
 import { operationsNav } from "@/pages/guides/operations/_nav";
+import { controlNav } from "@/pages/reference/control/_nav";
 
 export const componentsPages = [
   {
@@ -26,8 +27,9 @@ export const componentsPages = [
   },
   conceptsNav,
   clusterNav,
-  pythonClientNav,
   typescriptClientNav,
+  pythonClientNav,
+  controlNav,
   consoleNav,
   deviceDriversNav,
   plutoNav,

@@ -1,265 +1,259 @@
 {
-  "folders": [
-    {
-      "name": "root",
-      "path": ".."
-    },
-    {
-      "name": "aspen",
-      "path": "../aspen"
-    },
-    {
-      "name": "cesium",
-      "path": "../cesium"
-    },
-    {
-      "name": "client/ts",
-      "path": "../client/ts"
-    },
-    {
-      "name": "client/py",
-      "path": "../client/py"
-    },
-    {
-      "name": "client/cpp",
-      "path": "../client/cpp"
-    },
-    {
-      "name": "docs",
-      "path": "../docs"
-    },
-    {
-      "name": "drift",
-      "path": "../drift"
-    },
-    {
-      "name": "freighter/ts",
-      "path": "../freighter/ts"
-    },
-    {
-      "name": "freighter/py",
-      "path": "../freighter/py"
-    },
-    {
-      "name": "freighter/go",
-      "path": "../freighter/go"
-    },
-    {
-      "name": "freighter/integration",
-      "path": "../freighter/integration"
-    },
-    {
-      "name": "synnax-server",
-      "path": "../synnax"
-    },
-    {
-      "name": "pluto",
-      "path": "../pluto"
-    },
-    {
-      "name": "console",
-      "path": "../console"
-    },
-    {
-      "name": "x/go",
-      "path": "../x/go"
-    },
-    {
-      "name": "x/ts",
-      "path": "../x/ts"
-    },
-    {
-      "name": "alamos/py",
-      "path": "../alamos/py"
-    },
-    {
-      "name": "alamos/go",
-      "path": "../alamos/go"
-    },
-    {
-      "name": "alamos/ts",
-      "path": "../alamos/ts"
-    },
-    {
-      "name": "x/media",
-      "path": "../x/media"
-    },
-    {
-      "name": "tsconfig",
-      "path": "../configs/ts"
-    },
-    {
-      "name": "eslint",
-      "path": "../configs/eslint"
-    },
-    {
-      "name": "stylelint",
-      "path": "../configs/stylelint"
-    },
-    {
-      "name": "landing",
-      "path": "../landing"
-    },
-    {
-      "name": "driver",
-      "path": "../driver"
-    }
-  ],
-  "settings": {
-    "editor.formatOnSave": true,
-    "[css]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode",
-      "editor.formatOnSave": true
-    },
-    "[python]": {
-      "editor.defaultFormatter": "ms-python.black-formatter"
-    },
-    "python.formatting.provider": "none",
-    "eslint.workingDirectories": [
-      {
-        "mode": "auto"
-      }
+    "folders": [
+        {
+            "name": "root",
+            "path": "..",
+        },
+        {
+            "name": "aspen",
+            "path": "../aspen",
+        },
+        {
+            "name": "cesium",
+            "path": "../cesium",
+        },
+        {
+            "name": "client/ts",
+            "path": "../client/ts",
+        },
+        {
+            "name": "client/py",
+            "path": "../client/py",
+        },
+        {
+            "name": "client/cpp",
+            "path": "../client/cpp",
+        },
+        {
+            "name": "docs",
+            "path": "../docs",
+        },
+        {
+            "name": "drift",
+            "path": "../drift",
+        },
+        {
+            "name": "freighter/ts",
+            "path": "../freighter/ts",
+        },
+        {
+            "name": "freighter/py",
+            "path": "../freighter/py",
+        },
+        {
+            "name": "freighter/go",
+            "path": "../freighter/go",
+        },
+        {
+            "name": "freighter/integration",
+            "path": "../freighter/integration",
+        },
+        {
+            "name": "synnax-server",
+            "path": "../synnax",
+        },
+        {
+            "name": "pluto",
+            "path": "../pluto",
+        },
+        {
+            "name": "console",
+            "path": "../console",
+        },
+        {
+            "name": "x/go",
+            "path": "../x/go",
+        },
+        {
+            "name": "x/ts",
+            "path": "../x/ts",
+        },
+        {
+            "name": "alamos/py",
+            "path": "../alamos/py",
+        },
+        {
+            "name": "alamos/go",
+            "path": "../alamos/go",
+        },
+        {
+            "name": "alamos/ts",
+            "path": "../alamos/ts",
+        },
+        {
+            "name": "x/media",
+            "path": "../x/media",
+        },
+        {
+            "name": "tsconfig",
+            "path": "../configs/ts",
+        },
+        {
+            "name": "eslint",
+            "path": "../configs/eslint",
+        },
+        {
+            "name": "stylelint",
+            "path": "../configs/stylelint",
+        },
+        {
+            "name": "landing",
+            "path": "../landing",
+        },
+        {
+            "name": "driver",
+            "path": "../driver",
+        },
     ],
-    "files.associations": {
-      "xstring": "cpp",
-      "algorithm": "cpp",
-      "array": "cpp",
-      "atomic": "cpp",
-      "bit": "cpp",
-      "cctype": "cpp",
-      "charconv": "cpp",
-      "chrono": "cpp",
-      "clocale": "cpp",
-      "cmath": "cpp",
-      "compare": "cpp",
-      "concepts": "cpp",
-      "condition_variable": "cpp",
-      "csignal": "cpp",
-      "cstddef": "cpp",
-      "cstdint": "cpp",
-      "cstdio": "cpp",
-      "cstdlib": "cpp",
-      "cstring": "cpp",
-      "ctime": "cpp",
-      "cwchar": "cpp",
-      "deque": "cpp",
-      "exception": "cpp",
-      "filesystem": "cpp",
-      "format": "cpp",
-      "forward_list": "cpp",
-      "fstream": "cpp",
-      "functional": "cpp",
-      "initializer_list": "cpp",
-      "iomanip": "cpp",
-      "ios": "cpp",
-      "iosfwd": "cpp",
-      "iostream": "cpp",
-      "istream": "cpp",
-      "iterator": "cpp",
-      "latch": "cpp",
-      "limits": "cpp",
-      "list": "cpp",
-      "locale": "cpp",
-      "map": "cpp",
-      "memory": "cpp",
-      "mutex": "cpp",
-      "new": "cpp",
-      "optional": "cpp",
-      "ostream": "cpp",
-      "queue": "cpp",
-      "random": "cpp",
-      "ranges": "cpp",
-      "ratio": "cpp",
-      "regex": "cpp",
-      "set": "cpp",
-      "span": "cpp",
-      "sstream": "cpp",
-      "stdexcept": "cpp",
-      "stop_token": "cpp",
-      "streambuf": "cpp",
-      "string": "cpp",
-      "system_error": "cpp",
-      "thread": "cpp",
-      "tuple": "cpp",
-      "type_traits": "cpp",
-      "typeindex": "cpp",
-      "typeinfo": "cpp",
-      "unordered_map": "cpp",
-      "utility": "cpp",
-      "vector": "cpp",
-      "xfacet": "cpp",
-      "xhash": "cpp",
-      "xiosbase": "cpp",
-      "xlocale": "cpp",
-      "xlocbuf": "cpp",
-      "xlocinfo": "cpp",
-      "xlocmes": "cpp",
-      "xlocmon": "cpp",
-      "xlocnum": "cpp",
-      "xloctime": "cpp",
-      "xmemory": "cpp",
-      "xtr1common": "cpp",
-      "xtree": "cpp",
-      "xutility": "cpp",
-      "cassert": "cpp",
-      "bitset": "cpp",
-      "stack": "cpp",
-      "valarray": "cpp",
-      "any": "cpp",
-      "cfenv": "cpp",
-      "cinttypes": "cpp",
-      "complex": "cpp",
-      "csetjmp": "cpp",
-      "cstdarg": "cpp",
-      "future": "cpp",
-      "numbers": "cpp",
-      "numeric": "cpp",
-      "scoped_allocator": "cpp",
-      "shared_mutex": "cpp",
-      "unordered_set": "cpp",
-      "variant": "cpp",
-      "*.inc": "cpp"
+    "settings": {
+        "editor.formatOnSave": true,
+        "[css]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode",
+            "editor.formatOnSave": true,
+        },
+        "[python]": {
+            "editor.defaultFormatter": "ms-python.black-formatter",
+        },
+        "python.formatting.provider": "none",
+        "eslint.workingDirectories": [
+            {
+                "mode": "auto",
+            },
+        ],
+        "files.associations": {
+            "xstring": "cpp",
+            "algorithm": "cpp",
+            "array": "cpp",
+            "atomic": "cpp",
+            "bit": "cpp",
+            "cctype": "cpp",
+            "charconv": "cpp",
+            "chrono": "cpp",
+            "clocale": "cpp",
+            "cmath": "cpp",
+            "compare": "cpp",
+            "concepts": "cpp",
+            "condition_variable": "cpp",
+            "csignal": "cpp",
+            "cstddef": "cpp",
+            "cstdint": "cpp",
+            "cstdio": "cpp",
+            "cstdlib": "cpp",
+            "cstring": "cpp",
+            "ctime": "cpp",
+            "cwchar": "cpp",
+            "deque": "cpp",
+            "exception": "cpp",
+            "filesystem": "cpp",
+            "format": "cpp",
+            "forward_list": "cpp",
+            "fstream": "cpp",
+            "functional": "cpp",
+            "initializer_list": "cpp",
+            "iomanip": "cpp",
+            "ios": "cpp",
+            "iosfwd": "cpp",
+            "iostream": "cpp",
+            "istream": "cpp",
+            "iterator": "cpp",
+            "latch": "cpp",
+            "limits": "cpp",
+            "list": "cpp",
+            "locale": "cpp",
+            "map": "cpp",
+            "memory": "cpp",
+            "mutex": "cpp",
+            "new": "cpp",
+            "optional": "cpp",
+            "ostream": "cpp",
+            "queue": "cpp",
+            "random": "cpp",
+            "ranges": "cpp",
+            "ratio": "cpp",
+            "regex": "cpp",
+            "set": "cpp",
+            "span": "cpp",
+            "sstream": "cpp",
+            "stdexcept": "cpp",
+            "stop_token": "cpp",
+            "streambuf": "cpp",
+            "string": "cpp",
+            "system_error": "cpp",
+            "thread": "cpp",
+            "tuple": "cpp",
+            "type_traits": "cpp",
+            "typeindex": "cpp",
+            "typeinfo": "cpp",
+            "unordered_map": "cpp",
+            "utility": "cpp",
+            "vector": "cpp",
+            "xfacet": "cpp",
+            "xhash": "cpp",
+            "xiosbase": "cpp",
+            "xlocale": "cpp",
+            "xlocbuf": "cpp",
+            "xlocinfo": "cpp",
+            "xlocmes": "cpp",
+            "xlocmon": "cpp",
+            "xlocnum": "cpp",
+            "xloctime": "cpp",
+            "xmemory": "cpp",
+            "xtr1common": "cpp",
+            "xtree": "cpp",
+            "xutility": "cpp",
+            "cassert": "cpp",
+            "bitset": "cpp",
+            "stack": "cpp",
+            "valarray": "cpp",
+            "any": "cpp",
+            "cfenv": "cpp",
+            "cinttypes": "cpp",
+            "complex": "cpp",
+            "csetjmp": "cpp",
+            "cstdarg": "cpp",
+            "future": "cpp",
+            "numbers": "cpp",
+            "numeric": "cpp",
+            "scoped_allocator": "cpp",
+            "shared_mutex": "cpp",
+            "unordered_set": "cpp",
+            "variant": "cpp",
+            "*.inc": "cpp",
+        },
+        "cSpell.words": [
+            "Aliaser",
+            "browseable",
+            "caseconv",
+            "clsx",
+            "dorny",
+            "downsample",
+            "Enableable",
+            "glsl",
+            "immer",
+            "lineplot",
+            "Migratable",
+            "msgpackr",
+            "NavDrawer",
+            "nsis",
+            "OPCUA",
+            "reduxjs",
+            "renderable",
+            "Swatinem",
+            "syncer",
+            "Syncer",
+            "Synnax",
+            "tauri",
+            "Tauri",
+            "telem",
+            "zodutil",
+        ],
+        "cSpell.enableFiletypes": ["mdx"],
     },
-    "cSpell.words": [
-      "Aliaser",
-      "browseable",
-      "caseconv",
-      "clsx",
-      "dorny",
-      "downsample",
-      "Enableable",
-      "glsl",
-      "immer",
-      "lineplot",
-      "Migratable",
-      "msgpackr",
-      "NavDrawer",
-      "nsis",
-      "OPCUA",
-      "reduxjs",
-      "renderable",
-      "Swatinem",
-      "syncer",
-      "Syncer",
-      "Synnax",
-      "tauri",
-      "Tauri",
-      "telem",
-      "zodutil"
-    ],
-    "cSpell.enableFiletypes": [
-      "mdx"
-    ],
-    "editor.quickSuggestions": {
-      "other": "off"
+    "extensions": {
+        "recommendations": [
+            "ms-vsliveshare.vsliveshare",
+            "golang.go",
+            "rvest.vs-code-prettier-eslint",
+        ],
     },
-  },
-  "extensions": {
-    "recommendations": [
-      "ms-vsliveshare.vsliveshare",
-      "golang.go",
-      "rvest.vs-code-prettier-eslint"
-    ]
-  }
 }
-
