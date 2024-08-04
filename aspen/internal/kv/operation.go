@@ -27,7 +27,10 @@ const (
 	recovered
 )
 
-var codec = &binary.MsgPackCodec{}
+var codec = &binary.FallbackCodec{
+	Codecs:           []binary.Codec{&binary.MsgPackCodec{}, &binary.GobCodec{}},
+	FallbackOnDecode: true,
+}
 
 type Operation struct {
 	kvx.Change

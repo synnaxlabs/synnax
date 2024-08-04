@@ -247,3 +247,70 @@ func UnmarshalStringUint64(b []byte) (n uint64, err error) {
 	n, err = strconv.ParseUint(str, 10, 64)
 	return n, err
 }
+
+// FallbackCodec wraps a set of Codecs. When the first Codec in the chain fails to
+// encode/decode a value, it falls back to the next Codec in the chain.
+type FallbackCodec struct {
+	// Codecs is the list of codecs to fallback on.
+	Codecs []Codec
+	// FallbackOnEncode indicates whether to fallback on encoding.
+	FallbackOnEncode bool
+	// FallbackOnDecode indicates whether to fallback on decoding.
+	FallbackOnDecode bool
+}
+
+var _ Codec = (*FallbackCodec)(nil)
+
+func (f *FallbackCodec) Encode(ctx context.Context, value interface{}) (b []byte, err error) {
+	if len(f.Codecs) == 0 {
+		panic("[binary] - no codecs provided to FallbackCodec")
+	}
+	if !f.FallbackOnEncode {
+		return f.Codecs[0].Encode(ctx, value)
+	}
+	if f.FallbackOnEncode {
+		for _, c := range f.Codecs {
+			b, err = c.Encode(ctx, value)
+			if err == nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+func (f *FallbackCodec) Decode(ctx context.Context, data []byte, value interface{}) (err error) {
+	if len(f.Codecs) == 0 {
+		panic("[binary] - no codecs provided to FallbackCodec")
+	}
+	if !f.FallbackOnDecode {
+		return f.Codecs[0].Decode(ctx, data, value)
+	}
+	if f.FallbackOnDecode {
+		for _, c := range f.Codecs {
+			err = c.Decode(ctx, data, value)
+			if err == nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+func (f *FallbackCodec) DecodeStream(ctx context.Context, r io.Reader, value interface{}) (err error) {
+	if len(f.Codecs) == 0 {
+		panic("[binary] - no codecs provided to FallbackCodec")
+	}
+	if !f.FallbackOnDecode {
+		return f.Codecs[0].DecodeStream(ctx, r, value)
+	}
+	if f.FallbackOnDecode {
+		for _, c := range f.Codecs {
+			err = c.DecodeStream(ctx, r, value)
+			if err == nil {
+				return
+			}
+		}
+	}
+	return
+}

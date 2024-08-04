@@ -95,7 +95,10 @@ var (
 		StorageKey:           []byte("aspen.cluster"),
 		Gossip:               gossip.DefaultConfig,
 		StorageFlushInterval: 1 * time.Second,
-		Codec:                &binary.GobCodec{},
+		Codec: &binary.FallbackCodec{
+			Codecs:           []binary.Codec{&binary.MsgPackCodec{}, &binary.GobCodec{}},
+			FallbackOnDecode: true,
+		},
 	}
 	FastConfig = DefaultConfig.Override(Config{
 		Pledge: pledge_.FastConfig,
