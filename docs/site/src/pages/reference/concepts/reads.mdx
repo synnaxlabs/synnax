@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Reads"
-heading: "Read Ranges"
-description: "Learn how ranges work in Synnax."
+heading: "Reading Data"
+description: "Learn the process for reading data from a Synnax cluster."
 ---
-import { Divider } from "@synnaxlabs/pluto"
+import { Divider } from "@synnaxlabs/pluto";
 import { Table } from "@/components/Table";
 
 This page walks you through the lifecycle of a read operation. If you'd like a
@@ -93,7 +93,7 @@ would retrieve the following subset from the shown domain:
 
 Underneath every read operation is an iterator. An iterator allows the caller to
 traverse through a range of data in a streaming fashion. Iterators are more
-complex to work with, so we reccommend using a single request-response read when
+complex to work with, so we recommend using a single request-response read when
 possible.
 
 Just like a read, an iterator can be created by providing a range and a list of

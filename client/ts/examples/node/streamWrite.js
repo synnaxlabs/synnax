@@ -12,7 +12,7 @@
 // applications (such as data acquisition from a sensor) or for very large datasets that
 // cannot be written all at once.
 
-import { Rate, Series, Synnax, TimeStamp, framer } from "@synnaxlabs/client";
+import { Rate, Synnax, TimeStamp } from "@synnaxlabs/client";
 
 // Connect to a locally running, insecure Synnax cluster. If your connection parameters
 // are different, enter them here.
@@ -24,25 +24,33 @@ const client = new Synnax({
 });
 
 // Create an index channel that will be used to store our timestamps.
-const timeChannel = await client.channels.create({
-    name: "stream_write_example_time",
-    isIndex: true,
-    dataType: "timestamp"
-}, { retrieveIfNameExists: true });
+const timeChannel = await client.channels.create(
+    {
+        name: "stream_write_example_time",
+        isIndex: true,
+        dataType: "timestamp",
+    },
+    { retrieveIfNameExists: true },
+);
 
 // Create a data channel that will be used to store our fake sensor data.
-const dataChannel1 = await client.channels.create({
-    name: "stream_write_example_data_1",
-    dataType: "float32",
-    index: timeChannel.key,
-}, { retrieveIfNameExists: true });
+const dataChannel1 = await client.channels.create(
+    {
+        name: "stream_write_example_data_1",
+        dataType: "float32",
+        index: timeChannel.key,
+    },
+    { retrieveIfNameExists: true },
+);
 
-const dataChannel2 = await client.channels.create({
-    name: "stream_write_example_data_2",
-    dataType: "int32",
-    index: timeChannel.key,
-}, { retrieveIfNameExists: true });
-
+const dataChannel2 = await client.channels.create(
+    {
+        name: "stream_write_example_data_2",
+        dataType: "int32",
+        index: timeChannel.key,
+    },
+    { retrieveIfNameExists: true },
+);
 
 // We'll start our write at the current time. This timestamps should be the same as or
 // just before the first timestamp we write.
@@ -64,10 +72,12 @@ const writer = await client.openWriter({
 try {
     let i = 0;
     while (true) {
-        await new Promise(resolve => setTimeout(resolve, roughRate.period.milliseconds));
+        await new Promise((resolve) =>
+            setTimeout(resolve, roughRate.period.milliseconds),
+        );
         i++;
         const timestamp = TimeStamp.now();
-        const data2= i % 2;
+        const data2 = i % 2;
         const data1 = Math.sin(i / 10);
         await writer.write({
             [timeChannel.key]: timestamp,
@@ -76,11 +86,11 @@ try {
         });
 
         if (i % 60 == 0)
-            console.log(`Writing sample ${i} at ${timestamp.toISOString()}`)
+            console.log(`Writing sample ${i} at ${timestamp.toISOString()}`);
 
         // Commit the writer. This method will return false if the commit fails i.e.
         // we've mad an invalid write or someone has already written to this region.
-        if (i % commitInterval == 0 && !await writer.commit()) {
+        if (i % commitInterval == 0 && !(await writer.commit())) {
             console.error("Failed to commit data");
             break;
         }
@@ -88,4 +98,3 @@ try {
 } finally {
     await writer.close();
 }
-

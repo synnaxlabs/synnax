@@ -19,12 +19,7 @@ import {
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import {
-  type Key,
-  type KeyOrName,
-  type KeysOrNames,
-  type Params,
-} from "@/channel/payload";
+import { type KeyOrName, type KeysOrNames, type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
 import { WriteFrameAdapter } from "@/framer/adapter";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
@@ -40,9 +35,24 @@ enum Command {
 
 export enum WriterMode {
   PersistStream = 1,
-  PersistOnly = 2,
-  StreamOnly = 3,
+  Persist = 2,
+  Stream = 3,
 }
+
+export type CrudeWriterMode = "persist" | "stream" | "persistStream" | WriterMode;
+
+const constructWriterMode = (mode: CrudeWriterMode): WriterMode => {
+  switch (mode) {
+    case "persist":
+      return WriterMode.Persist;
+    case "stream":
+      return WriterMode.Stream;
+    case "persistStream":
+      return WriterMode.PersistStream;
+    default:
+      throw new Error(`invalid writer mode: ${mode}`);
+  }
+};
 
 export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
@@ -56,6 +66,8 @@ const netConfigZ = z.object({
   enableAutoCommit: z.boolean().optional(),
   autoIndexPersistInterval: TimeSpan.z.optional(),
 });
+
+type Config = z.infer<typeof netConfigZ>;
 
 const reqZ = z.object({
   command: z.nativeEnum(Command),
@@ -86,10 +98,10 @@ export interface WriterConfig {
   authorities?: control.Authority | control.Authority[];
   // mode sets the persistence and streaming mode of the writer. The default
   // mode is WriterModePersistStream.
-  mode?: WriterMode;
+  mode?: CrudeWriterMode;
   // errOnUnauthorized sets whether the writer raises an error when it attempts to write
   // to a channel without permission.
-  errOnUnauthorized?: boolean,
+  errOnUnauthorized?: boolean;
   //  enableAutoCommit determines whether the writer will automatically commit.
   //  If enableAutoCommit is true, then the writer will commit after each write, and
   //  will flush that commit to index after the specified autoIndexPersistInterval.
@@ -175,7 +187,7 @@ export class Writer {
         keys: adapter.keys,
         controlSubject: subject,
         authorities: toArray(authorities),
-        mode,
+        mode: constructWriterMode(mode),
         errOnUnauthorized,
         enableAutoCommit,
         autoIndexPersistInterval,
@@ -219,20 +231,37 @@ export class Writer {
     return true;
   }
 
-  async setAuthority(value: Record<Key, control.Authority>): Promise<boolean> {
-    const res = await this.execute({
-      command: Command.SetAuthority,
-      config: {
-        keys: Object.keys(value).map((k) => Number(k)),
-        authorities: Object.values(value),
-      },
-    });
+  async setAuthority(value: number): Promise<boolean>;
+
+  async setAuthority(key: KeyOrName, authority: control.Authority): Promise<boolean>;
+
+  async setAuthority(value: Record<KeyOrName, control.Authority>): Promise<boolean>;
+
+  async setAuthority(
+    value: Record<KeyOrName, control.Authority> | KeyOrName | number,
+    authority?: control.Authority,
+  ): Promise<boolean> {
+    let config: Config = { keys: [], authorities: [] };
+    if (typeof value === "number" && authority == null)
+      config = { keys: [], authorities: [value] };
+    else {
+      let oValue: Record<KeyOrName, control.Authority>;
+      if (typeof value === "string" || typeof value === "number")
+        oValue = { [value]: authority } as Record<KeyOrName, control.Authority>;
+      else oValue = value;
+      oValue = await this.adapter.adaptObjectKeys(oValue);
+      config = {
+        keys: Object.keys(oValue).map((k) => Number(k)),
+        authorities: Object.values(oValue),
+      };
+    }
+    const res = await this.execute({ command: Command.SetAuthority, config });
     return res.ack;
   }
 
   /**
    * Commits the written frames to the database. Commit is synchronous, meaning that it
-   * will not return until all frames have been commited to the database.
+   * will not return until all frames have been committed to the database.
    *
    * @returns false if the commit failed due to an error. In this case, the caller
    * should acknowledge the error by calling the error method or closing the writer.

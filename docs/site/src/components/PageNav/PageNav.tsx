@@ -42,6 +42,7 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length <= 1) parts = componentsPages.map((p) => p.key);
   if (currentPage === "/guides/") currentPage = "/reference/";
+  console.log(parts);
   const treeProps = Tree.use({
     nodes: componentsPages,
     initialExpanded: parts,

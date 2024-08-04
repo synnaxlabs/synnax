@@ -12,7 +12,6 @@ from typing import overload
 import pandas as pd
 from alamos import NOOP, Instrumentation
 from freighter import AsyncStreamClient, StreamClient, UnaryClient
-from pandas import DataFrame
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -29,7 +28,7 @@ from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.frame import Frame, CrudeFrame
 from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
-from synnax.framer.writer import Writer, WriterMode
+from synnax.framer.writer import Writer, WriterMode, CrudeWriterMode
 from synnax.framer.deleter import Deleter
 from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeSpan, CrudeSeries
 from synnax.telem.control import Authority, CrudeAuthority
@@ -73,7 +72,7 @@ class Client:
         name: str = "",
         strict: bool = False,
         suppress_warnings: bool = False,
-        mode: WriterMode = WriterMode.PERSIST_STREAM,
+        mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
@@ -204,7 +203,7 @@ class Client:
             start=start,
             channels=channels,
             strict=strict,
-            mode=WriterMode.PERSIST_ONLY,
+            mode=WriterMode.PERSIST,
             err_on_unauthorized=True,
             enable_auto_commit=True,
             auto_index_persist_interval=TimeSpan.MAX,

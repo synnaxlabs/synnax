@@ -29,9 +29,19 @@ export const conceptsNav: PageNavNode = {
       name: "Channels",
     },
     {
-      key: "/reference/concepts/read-ranges",
-      href: "/reference/concepts/read-ranges",
-      name: "Read Ranges",
+      key: "/reference/concepts/reads",
+      href: "/reference/concepts/reads",
+      name: "Reads",
+    },
+    {
+      key: "/reference/concepts/writes",
+      href: "/reference/concepts/writes",
+      name: "Writes",
+    },
+    {
+      key: "/reference/concepts/streams",
+      href: "/reference/concepts/streams",
+      name: "Streams",
     },
   ],
 };

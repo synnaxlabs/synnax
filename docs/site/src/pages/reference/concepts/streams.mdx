@@ -1,0 +1,77 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Streams"
+heading: "Streaming Data"
+description: "Learn the process for streaming data from a Synnax cluster."
+---
+import { Divider } from "@synnaxlabs/pluto";
+
+This page walks you through the high level concepts for streaming real-time data from a 
+Synnax cluster. If you'd like a practical guide on reading data using a client library,
+look at the respective pages for [Python](../python-client/read-data) and 
+[Typescript](../typescript-client/read-data).
+
+<Divider.Divider direction="x"/>
+
+## Overview 
+
+Streaming data from a Synnax cluster is useful for real-time data processing, live 
+visualizations, and control sequences. The main interface for streaming data is the
+`Streamer` object, which is available in both the [Python](/reference/python-client/stream-data) and
+[Typescript](/reference/typescript-client/stream-data) client libraries.
+
+A single streamer can read data from multiple channels at a single time, and only 
+updates when new data is available. This makes processing both network and local data
+streams easy and efficient.
+
+<Divider.Divider direction="x"/>
+
+## Streamer
+
+### Opening a Streamer
+
+To open a streamer, you'll need to provide a list of channels that you'd like to 
+stream data from. The streamer will validate that the channels exists and are readable
+before starting the stream.
+
+### Reading Data
+
+Once the streamer is open, you can read data from the stream using the read method. This
+will block until _any_ of the channels have new data available, at which point the
+method will return a frame with the new data.
+
+The frame returned by the read method will _not_ always contain data from all channels
+specified when opening the streamer. It will only contain data from the channels whose 
+values changed since the last read.
+
+The series in each frame may also have varying lengths, as certain channels may be 
+receiving samples in batches and/or at different rates. 
+
+For example, if you're reading from channel `temp_1` and `temp_2`, the frame returned
+may look like this:
+
+```json
+{
+  "temp_1": [20.0, 21.0, 22.0],
+  "temp_2": [30.0, 31.0]
+}
+```
+
+Or it may look like this:
+
+```json
+{
+  "temp_2": [30.0, 31.0, 32.0]
+}
+```
+
+### Updating the Streamer's Channels
+
+It's possible to change the channels that the streamer reads from at any time. This is
+useful for dynamically changing the data that you're interested in, such as when a user
+selects a new set of channels to load in a plot.
+
+### Closing a Streamer
+
+When you're done receiving data, it's very important ot close the streamer. This 
+guarantees that all network connections are closed and local resources are freed.
