@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import overload
+from typing import overload, Union, Literal
 from uuid import uuid4
 from warnings import warn
 
@@ -29,7 +29,7 @@ from synnax.channel.payload import (
     ChannelKeys,
     ChannelName,
     ChannelNames,
-    ChannelPayload
+    ChannelPayload,
 )
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
@@ -53,7 +53,9 @@ class WriterMode(int, Enum):
     PERSIST = 2
     STREAM = 3
 
-CrudeWriterMode = "persist_stream" | "persist" | "stream" | WriterMode
+
+CrudeWriterMode = Union[Literal["persist_stream", "persist", "stream"], WriterMode]
+
 
 def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if mode == "persist_stream":
@@ -62,7 +64,8 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
         return WriterMode.PERSIST
     if mode == "stream":
         return WriterMode.STREAM
-    raise ValueError(f"invalid writer mode {mode}")
+    return mode
+
 
 class _Config(Payload):
     authorities: list[int] = Authority.ABSOLUTE
@@ -172,29 +175,24 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
-        ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
-        channels_or_data: ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | CrudeFrame,
+        channels_or_data: (
+            ChannelName | ChannelKey | ChannelKeys | ChannelNames | CrudeFrame
+        ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given data to the database. The formats are listed below. Before
@@ -249,30 +247,29 @@ class Writer:
         return True
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool:
-        ...
+    def set_authority(self, value: CrudeAuthority) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def set_authority(
         self,
-        value: dict[
-                   ChannelKey | ChannelName | ChannelPayload,
-                   CrudeAuthority
-               ] | ChannelKey | ChannelName | CrudeAuthority,
+        value: (
+            dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
+            | ChannelKey
+            | ChannelName
+            | CrudeAuthority
+        ),
         authority: CrudeAuthority | None = None,
     ) -> bool:
         if isinstance(value, int) and authority is None:
