@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Stream, StreamClient } from "@synnaxlabs/freighter";
-import { decodeError, errorZ } from "@synnaxlabs/freighter";
+import {
+  decodeError,
+  errorZ,
+  type Stream,
+  type StreamClient,
+} from "@synnaxlabs/freighter";
 import { control } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
@@ -255,8 +259,8 @@ export class Writer {
         authorities: Object.values(oValue),
       };
     }
-    const res = await this.execute({ command: Command.SetAuthority, config });
-    return res.ack;
+    const response = await this.execute({ command: Command.SetAuthority, config });
+    return response.ack;
   }
 
   /**
