@@ -11,8 +11,6 @@ import "@/dropdown/Dropdown.css";
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Triggers } from "@/triggers";
-
 /** Props for the {@link use} hook. */
 export interface UseProps {
   initialVisible?: boolean;

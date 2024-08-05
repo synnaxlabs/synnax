@@ -14,25 +14,27 @@ import synnax as sy
 
 @pytest.mark.auth
 class TestAuthentication:
-    def test_invalid_credentials(self):
+    def test_invalid_credentials(self, login_info: tuple[str, int, str, str]):
         """
         Should raise an AuthError
         """
+        host, port, username, _ = login_info
         with pytest.raises(sy.AuthError):
             sy.Synnax(
-                host="localhost",
-                port=9090,
-                username="synnax",
+                host=host,
+                port=port,
+                username=username,
                 password="wrong",
             )
 
-    def test_no_password_provided(self):
+    def test_no_password_provided(self, login_info: tuple[str, int, str, str]):
         """
         Should raise a ValidationError
         """
+        host, port, username, _ = login_info
         with pytest.raises(sy.FieldError):
             sy.Synnax(
-                host="localhost",
-                port=9090,
-                username="synnax",
+                host=host,
+                port=port,
+                username=username,
             )

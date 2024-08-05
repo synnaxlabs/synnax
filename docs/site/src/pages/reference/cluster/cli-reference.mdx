@@ -138,6 +138,11 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
             option: "--debug",
             default: "false",
             description: "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
+        },
+        {
+            option: "--slow-consumer-timeout",
+            default: "2.5s",
+            description: "The duration after which a telemetry streamer will be closed by the server if it stops receiving messages. It's rarely necessary to change this value."
         }
     ]}
 />
@@ -217,6 +222,14 @@ Command line flags will take precedence over environment variables.
             option: "--license-key",
             env: "SYNNAX_LICENSE_KEY",
         },
+        {
+            option: "--debug",
+            env: "SYNNAX_DEBUG",
+        },
+        {
+            option: "--slow-consumer-timeout",
+            env: "SYNNAX_SLOW_CONSUMER_TIMEOUT",
+        }
     ]}
 />
 
@@ -266,6 +279,8 @@ tabs={[
     "username": "synnax",
     "password": "seldon",
     "license-key": "000000-00000000-0000000000",
+    "debug": false,
+    "slow-consumer-timeout": "2.5s"
 }
 ```
 </slot>

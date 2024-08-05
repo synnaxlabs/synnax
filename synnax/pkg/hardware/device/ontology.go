@@ -13,6 +13,7 @@ package device
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	changex "github.com/synnaxlabs/x/change"
@@ -25,6 +26,18 @@ const OntologyType ontology.Type = "device"
 
 func OntologyID(k string) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k}
+}
+
+func OntologyIDsFromDevices(ds []Device) []ontology.ID {
+	return lo.Map(ds, func(item Device, _ int) ontology.ID {
+		return OntologyID(item.Key)
+	})
+}
+
+func OntologyIDs(keys []string) []ontology.ID {
+	return lo.Map(keys, func(key string, _ int) ontology.ID {
+		return OntologyID(key)
+	})
 }
 
 func KeysFromOntologyIDs(ids []ontology.ID) []string {

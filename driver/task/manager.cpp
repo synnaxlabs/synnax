@@ -107,7 +107,6 @@ freighter::Error task::Manager::stop() {
         task->stop();
         LOG(INFO) << "[driver] task " << task->name() << " stopped";
     }
-    tasks.clear();
     return run_err;
 }
 

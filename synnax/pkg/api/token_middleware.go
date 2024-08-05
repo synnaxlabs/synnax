@@ -11,7 +11,9 @@ package api
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/auth"
+	"go.uber.org/zap"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -88,7 +90,8 @@ func setSubject(p freighter.Params, subject ontology.ID) {
 func getSubject(ctx context.Context) ontology.ID {
 	s, ok := freighter.MDFromContext(ctx).Params.Get(subjectKey)
 	if !ok {
-		panic("[api] - no subject found in context")
+		zap.S().DPanic("[api] - no subject found in context")
+		return user.OntologyID(uuid.Nil)
 	}
 	return s.(ontology.ID)
 }

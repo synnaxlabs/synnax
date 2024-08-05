@@ -19,9 +19,9 @@ export const consoleNav: PageNavNode = {
       name: "Get Started",
     },
     {
-      key: "/reference/console/connect-a-cluster",
-      href: "/reference/console/connect-a-cluster",
-      name: "Connect a Cluster",
+      key: "/reference/console/clusters",
+      href: "/reference/console/clusters",
+      name: "Clusters",
     },
     {
       key: "/reference/console/ui-overview",
@@ -34,19 +34,19 @@ export const consoleNav: PageNavNode = {
       name: "Workspaces",
     },
     {
-      key: "/reference/console/querying-data",
-      href: "/reference/console/querying-data",
-      name: "Querying Data Using Ranges",
+      key: "/reference/console/ranges",
+      href: "/reference/console/ranges",
+      name: "Ranges",
     },
     {
-      key: "/reference/console/line-plot",
-      href: "/reference/console/line-plot",
-      name: "Line Plot Visualization",
+      key: "/reference/console/line-plots",
+      href: "/reference/console/line-plots",
+      name: "Line Plots",
     },
     {
-      key: "/reference/console/schematic",
-      href: "/reference/console/schematic",
-      name: "Schematic Visualization",
+      key: "/reference/console/schematics",
+      href: "/reference/console/schematics",
+      name: "Schematics",
     },
   ],
 };

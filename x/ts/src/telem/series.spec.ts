@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it,test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
-import { isCrudeSeries, MultiSeries,Series } from "@/telem/series";
+import { isCrudeSeries, MultiSeries, Series } from "@/telem/series";
 import { DataType, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem/telem";
 
 describe("Series", () => {
@@ -78,7 +78,6 @@ describe("Series", () => {
 
     test("from buffer without data type provided", () => {
       expect(() => {
-         
         new Series({ data: new ArrayBuffer(4) });
       }).toThrow();
     });
@@ -145,6 +144,21 @@ describe("Series", () => {
     it("should encode objects as JSON", () => {
       const a = new Series({ data: [{ a: 1, b: "apple" }], dataType: DataType.JSON });
       expect(a.dataType.toString()).toBe(DataType.JSON.toString());
+    });
+
+    it("should convert encoded keys to snake_case", () => {
+      const a = new Series({ data: [{ aB: 1, bC: "apple" }], dataType: DataType.JSON });
+      const strContent = new TextDecoder().decode(a.data);
+      expect(strContent).toBe('{"a_b":1,"b_c":"apple"}\n');
+    });
+
+    it("should decode keys from snake_case to camelCase", () => {
+      const a = new Series({
+        data: [{ a_b: 1, b_c: "apple" }],
+        dataType: DataType.JSON,
+      });
+      const obj = a.at(0);
+      expect(obj).toEqual({ aB: 1, bC: "apple" });
     });
 
     it("should correctly separate strings", () => {

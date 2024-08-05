@@ -22,7 +22,7 @@ import {
   Theming,
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
-import { nanoid } from "nanoid/non-secure";
+import { id } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -129,7 +129,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
   };
 
   const createRule = (): void => {
-    const key = nanoid();
+    const key = id.id();
     dispatch(
       setRule({
         key: layoutKey,

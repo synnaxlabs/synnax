@@ -9,7 +9,6 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
 
 /**
  * The name of the docs slice in a larger store.

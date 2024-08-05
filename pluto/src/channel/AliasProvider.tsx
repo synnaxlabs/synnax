@@ -57,12 +57,12 @@ export const useAliases = (): Record<channel.Key, string> => {
 
 export const useName = (key: channel.Key, def: string = ""): string => {
   const { getName } = reactUseContext(AliasContext);
-  const [name, setName] = useState(def);
+  const [name, setName] = useState<string | undefined>(def);
   useAsyncEffect(async () => {
     const n = await getName(key);
     if (n != null) setName(n);
   }, [key, getName]);
-  return name;
+  return name ?? def;
 };
 
 export const useActiveRange = (): string | undefined => {

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
+import { Icon as PIcon } from "@synnaxlabs/pluto";
 
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
@@ -16,7 +17,11 @@ import { type Command } from "@/palette/Palette";
 export const connectServerCommand: Command = {
   key: "opc-connect-server",
   name: "Connect an OPC UA Server",
-  icon: <Icon.Logo.OPC />,
+  icon: (
+    <PIcon.Create>
+      <Icon.Logo.OPC />
+    </PIcon.Create>
+  ),
   onSelect: ({ placeLayout }) => placeLayout(createConfigureLayout()),
 };
 

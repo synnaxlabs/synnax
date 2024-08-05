@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box,scale, xy } from "@synnaxlabs/x";
+import { box, scale, xy } from "@synnaxlabs/x";
 import { useRef } from "react";
 import { useReactFlow } from "reactflow";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
-import { translateViewportBackward, type Viewport } from "@/vis/diagram/types";
+import { translateViewportBackward, type Viewport } from "@/vis/diagram/aether/types";
 import { render } from "@/vis/render";
 
 export const diagramStateZ = z.object({

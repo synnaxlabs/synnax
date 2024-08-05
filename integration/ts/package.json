@@ -1,0 +1,42 @@
+{
+  "name": "@synnaxlabs/integration",
+  "private": true,
+  "version": "0.23.1",
+  "type": "module",
+  "description": "The integration testing library for Synnax",
+  "repository": "https://github.com/synnaxlabs/synnax/tree/main/integration/ts",
+  "keywords": [
+    "synnax",
+    "data acquisition",
+    "telemetry",
+    "control systems"
+  ],
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "watch": "tsc --noEmit && vite build --watch",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "fix": "eslint \"src/**/*.ts*\" --fix"
+  },
+  "dependencies": {
+    "@synnaxlabs/client": "workspace:*",
+    "@synnaxlabs/x": "workspace:*",
+    "tsx": "^4.15.7"
+  },
+  "devDependencies": {
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "@synnaxlabs/vite-plugin": "workspace:*",
+    "@types/node": "^20.12.7",
+    "@vitest/coverage-v8": "^1.5.0",
+    "eslint": "^9.0.0",
+    "eslint-config-synnaxlabs": "workspace:*",
+    "typescript": "^5.4.5",
+    "vite": "5.2.11",
+    "vitest": "^1.5.0"
+  },
+  "peerDependencies": {
+    "zod": "^3.23.8"
+  },
+  "main": "dist/client.cjs",
+  "module": "dist/client.js",
+  "types": "dist/index.d.ts"
+}

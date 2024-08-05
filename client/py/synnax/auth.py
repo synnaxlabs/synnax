@@ -70,7 +70,7 @@ def maybe_refresh_token(
 
 
 class AuthenticationClient:
-    _ENDPOINT = "/auth/login"
+    _LOGIN_ENDPOINT = "/auth/login"
 
     client: UnaryClient
     username: str
@@ -90,7 +90,7 @@ class AuthenticationClient:
 
     def authenticate(self) -> None:
         res, exc = self.client.send(
-            self._ENDPOINT,
+            self._LOGIN_ENDPOINT,
             InsecureCredentials(username=self.username, password=self.password),
             TokenResponse,
         )

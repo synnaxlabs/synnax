@@ -18,12 +18,12 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Determine", func() {
 		It("Should determine the encoder based on a content-type", func() {
-			ecd, err := httputil.DetermineEncoderDecoder("application/json")
+			ecd, err := httputil.DetermineCodec("application/json")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ecd.ContentType()).To(Equal("application/json"))
 		})
 		It("Should return an error if the content-type is not supported", func() {
-			_, err := httputil.DetermineEncoderDecoder("application/octet-stream")
+			_, err := httputil.DetermineCodec("application/octet-stream")
 			Expect(err).To(HaveOccurred())
 		})
 	})

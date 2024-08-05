@@ -20,6 +20,6 @@ def convert_product_data(id, prods):
             p["productData"] = out_dict
 
 
-in_products = json.load(open('out/products.json', 'r'))
+in_products = json.load(open("out/products.json", "r"))
 convert_product_data(0, in_products)
-json.dump(in_products, open('out/products.json', 'w'), indent=4)
+json.dump(in_products, open("out/products.json", "w"), indent=4)

@@ -246,12 +246,15 @@ class TestRangeData:
         )
         start = sy.TimeStamp.now()
         end = start + 3 * sy.TimeSpan.SECOND
-        idx_ch.write(start, [
+        idx_ch.write(
             start,
-            start + 1 * sy.TimeSpan.SECOND,
-            start + 2 * sy.TimeSpan.SECOND,
-            end
-        ])
+            [
+                start,
+                start + 1 * sy.TimeSpan.SECOND,
+                start + 2 * sy.TimeSpan.SECOND,
+                end,
+            ],
+        )
         data_ch.write(start, [1.0, 2.0, 3.0, 4.0])
         rng = client.ranges.create(
             name=name,
@@ -282,12 +285,14 @@ class TestRangeData:
             name=name,
             time_range=start.span_range(4 * sy.TimeSpan.SECOND),
         )
-        rng.write({
-            data_ch.name: [1.0, 2.0, 3.0, 4.0],
-            idx_ch.name: [
-                start,
-                start + 1 * sy.TimeSpan.SECOND,
-                start + 2 * sy.TimeSpan.SECOND,
-                end
-            ]
-        })
+        rng.write(
+            {
+                data_ch.name: [1.0, 2.0, 3.0, 4.0],
+                idx_ch.name: [
+                    start,
+                    start + 1 * sy.TimeSpan.SECOND,
+                    start + 2 * sy.TimeSpan.SECOND,
+                    end,
+                ],
+            }
+        )

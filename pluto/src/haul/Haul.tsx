@@ -35,7 +35,7 @@ import { z } from "zod";
 import { type state } from "@/state";
 
 export const itemZ = z.object({
-  key: z.string().or(z.number()).or(z.symbol()),
+  key: z.string().or(z.number()),
   type: z.string(),
   elementID: z.string().optional(),
   data: z.record(z.unknown()).optional(),
@@ -59,7 +59,7 @@ export interface DraggingState {
   items: Item[];
 }
 
-const ZERO_ITEM: Item = { key: "", type: "" };
+export const ZERO_ITEM: Item = { key: "", type: "" };
 
 export const ZERO_DRAGGING_STATE: DraggingState = {
   source: ZERO_ITEM,
@@ -70,6 +70,13 @@ interface DropProps {
   target: Item;
   dropped: Item[];
 }
+
+export const FILE_TYPE = "file";
+
+export const FILE: Item = { key: "file", type: FILE_TYPE };
+
+export const isFileDrag = (event: DragEvent, dragging: DraggingState): boolean =>
+  event.dataTransfer.effectAllowed === "all" && dragging.items.length === 0;
 
 type DragEndInterceptor = (state: DraggingState, cursor: xy.XY) => DropProps | null;
 export interface ContextValue {

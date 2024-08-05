@@ -7,7 +7,7 @@ extern crate cocoa;
 #[cfg(target_os = "macos")]
 extern crate objc;
 
-use tauri::{Window, Manager};
+use tauri::{Window, Emitter};
 use device_query::{DeviceQuery, DeviceState, DeviceEvents, MouseState};
 use std::thread;
 use std::time::Duration;

@@ -45,16 +45,21 @@ def estimate_pinout_accuracy(i, product):
         digital_io_count_opt.add(info["digitalInputOutput"]["portCount"])
 
         for i in range(len(info["digitalInput"]["lineCounts"])):
-            add_at_index(digital_input_count_line_opt, i,
-                         info["digitalInput"]["lineCounts"][i])
+            add_at_index(
+                digital_input_count_line_opt, i, info["digitalInput"]["lineCounts"][i]
+            )
 
         for i in range(len(info["digitalOutput"]["lineCounts"])):
-            add_at_index(digital_output_count_line_opt, i,
-                         info["digitalOutput"]["lineCounts"][i])
+            add_at_index(
+                digital_output_count_line_opt, i, info["digitalOutput"]["lineCounts"][i]
+            )
 
         for i in range(len(info["digitalInputOutput"]["lineCounts"])):
-            add_at_index(digital_io_count_line_opt, i,
-                         info["digitalInputOutput"]["lineCounts"][i])
+            add_at_index(
+                digital_io_count_line_opt,
+                i,
+                info["digitalInputOutput"]["lineCounts"][i],
+            )
 
     to_add_back = 0 if len(pinouts) == 0 else 1
     confidence = 100
@@ -89,27 +94,21 @@ def estimate_pinout_accuracy(i, product):
 
     out = {
         "confidence": confidence,
-        "analogInput": {
-            "portCount": max_analog_input
-        },
-        "analogOutput": {
-            "portCount": max_analog_output
-        },
-        "thermocouple": {
-            "portCount": max_thermocouple
-        },
+        "analogInput": {"portCount": max_analog_input},
+        "analogOutput": {"portCount": max_analog_output},
+        "thermocouple": {"portCount": max_thermocouple},
         "digitalInput": {
             "portCount": max_digital_input,
-            "lineCounts": digital_input_line_maxes
+            "lineCounts": digital_input_line_maxes,
         },
         "digitalOutput": {
             "portCount": max_digital_output,
-            "lineCounts": digital_output_line_maxes
+            "lineCounts": digital_output_line_maxes,
         },
         "digitalInputOutput": {
             "portCount": max_digital_io,
-            "lineCounts": digital_io_line_maxes
-        }
+            "lineCounts": digital_io_line_maxes,
+        },
     }
     product["estimatedPinout"] = out
 
@@ -239,14 +238,15 @@ class PinoutParser(HTMLParser):
                             )
                             if mbe_line_max is None:
                                 return
-                            maybe_update_lines_at_index(self.dio_ports, port,
-                                                        mbe_line_max)
+                            maybe_update_lines_at_index(
+                                self.dio_ports, port, mbe_line_max
+                            )
 
 
 headers = {
     "Client_id": "1fcca773908c4e6da0500a60ea393e83",
     "Client_secret": "9EC7AA4494614C25AE57f022Bc6f7Bac",
-    "Referer": "https://www.ni.com/"
+    "Referer": "https://www.ni.com/",
 }
 
 
@@ -266,15 +266,15 @@ def parse_pinout_info(url: str):
     out["thermocouple"] = {"portCount": parser.tc_max + 1}
     out["digitalInputOutput"] = {
         "portCount": len(parser.dio_ports),
-        "lineCounts": [x + 1 for x in parser.dio_ports]
+        "lineCounts": [x + 1 for x in parser.dio_ports],
     }
     out["digitalInput"] = {
         "portCount": len(parser.di_ports),
-        "lineCounts": [x + 1 for x in parser.di_ports]
+        "lineCounts": [x + 1 for x in parser.di_ports],
     }
     out["digitalOutput"] = {
         "portCount": len(parser.do_ports),
-        "lineCounts": [x + 1 for x in parser.do_ports]
+        "lineCounts": [x + 1 for x in parser.do_ports],
     }
 
     if len(out) == 0:

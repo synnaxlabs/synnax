@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key,type Keyed } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
   useEffect,
   useMemo,
-  useState,
 } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
@@ -37,6 +36,8 @@ export interface DataUtilContextValue<
   getSourceData: () => E[];
   getTransformedData: () => E[];
   setEmptyContent: state.Set<React.ReactElement | undefined>;
+  getEmptyContent: () => React.ReactElement | undefined;
+  getDefaultEmptyContent: () => React.ReactElement | undefined;
   getTransformed: () => boolean;
 }
 
@@ -53,6 +54,8 @@ const DataUtilContext = createContext<DataUtilContextValue | null>({
   deleteTransform: () => undefined,
   setTransform: () => undefined,
   setEmptyContent: () => undefined,
+  getEmptyContent: () => undefined,
+  getDefaultEmptyContent: () => undefined,
   getTransformed: () => false,
 });
 
@@ -112,9 +115,12 @@ export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   );
   const transformedDataRef = useSyncedRef(transformRes);
 
-  const [emptyContent, setEmptyContent] = useState<React.ReactElement | undefined>(
-    undefined,
+  const defaultEmptyContent = useSyncedRef<React.ReactElement | undefined>(
+    emptyContentProp,
   );
+  const [emptyContent, setEmptyContent, emptyContentRef] = useCombinedStateAndRef<
+    React.ReactElement | undefined
+  >(undefined);
   useEffect(() => {
     if (emptyContentProp != null) setEmptyContent(emptyContentProp);
   }, [emptyContentProp]);
@@ -128,6 +134,8 @@ export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>
       deleteTransform,
       setTransform,
       setEmptyContent,
+      getEmptyContent: () => emptyContentRef.current,
+      getDefaultEmptyContent: () => defaultEmptyContent.current,
     }),
     [setData, dataRef, transformedDataRef, deleteTransform, setTransform],
   );

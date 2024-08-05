@@ -16,7 +16,7 @@
 
 import pytest
 
-from freighter import URL, encoder
+from freighter import URL, codec
 from freighter.context import Context
 from freighter.http import HTTPClient
 from freighter.transport import Next
@@ -27,7 +27,7 @@ from .interface import Message
 @pytest.fixture
 def client(endpoint: URL) -> HTTPClient:
     http_endpoint = endpoint.child("unary")
-    return HTTPClient(http_endpoint, encoder.JSONEncoder())
+    return HTTPClient(http_endpoint, codec.JSONCodec())
 
 
 @pytest.mark.http

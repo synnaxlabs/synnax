@@ -25,7 +25,7 @@ to think of a node as the heart of a Synnax deployment. All traffic related to d
 recording, control sequences, and other tasks is routed through and processed by a node.
 
 A node is not the same as the [Synnax Console UI](/reference/console/get-started). The 
-Console UI contains a local node embedded inside for single person usage of Synnax. For 
+console UI contains a local node embedded inside for single person usage of Synnax. For 
 deployment in a multi-user organization, it's common to run a node on a separate server 
 and have multiple users connect to it via the console.
 
@@ -73,7 +73,7 @@ that their data acquisition devices are connected to. Here's an example of a sim
 deployment. It has a central node that is connected to data acquisition devices and 
 operator machines.
 
-<Image client:only="react" id="roles/sys-admin/concepts/real-time-deployment" themed={false} />
+<Image client:only="react" id="guides/sys-admin/deployment-considerations/real-time-deployment" themed={false} />
 
 We caution against using a cloud deployment or any public network for real-time hardware
 control, as this poses a significant risk to the stability of your system, and exposes
@@ -93,7 +93,7 @@ deploy Synnax in a containerized environment. Here's an example of a cloud
 deployment with post processing systems, analyst machines, and a custom data application
 all connecting to a single node cluster:
 
-<Image client:only="react" id="roles/sys-admin/concepts/storage-deployment" themed={false} />
+<Image client:only="react" id="guides/sys-admin/deployment-considerations/storage-deployment" themed={false} />
 
 ### Networking
 

@@ -1,0 +1,158 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Schematics"
+heading: "Schematic Control"
+description: "Command and control hardware using schematics."
+---
+import { Icon } from "@synnaxlabs/media";
+import { Divider } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/Media";
+
+A schematic is used to see a diagram of your physical or simulated system. It displays
+live sensor data and can be used to exercise manual control by changing the values of
+channels tied to actuators. We've added a simple example of a schematic below:
+
+<Image client:only="react" id="console/schematics/example"  />
+
+<Divider.Divider direction="x" />
+
+## Creating a Schematic
+
+Creating a schematic is as simple as adding a new tab and selecting the schematic
+visualization:
+
+<Video client:only="react" id="console/schematics/create" />
+
+<Divider.Divider direction="x" />
+
+## Modes
+
+Schematics have three modes: **view**, **edit**, and **control**. To change modes, use
+the controls in the bottom-left hand corner of the schematic.
+
+- **Edit mode** - Symbols can be added and moved, and their properties can be
+  edited.
+- **View mode** - Live data from the cluster is displayed on the schematic. Symbols
+  are not editable and the user cannot change the system state.
+- **Control mode** - The user can click on symbols such as valves and buttons to
+  control them.
+
+<Divider.Divider direction="x" />
+
+## The Symbols Library
+
+Schematics are assembled by dragging symbols out of the library and onto the screen.
+These symbols are visual representation of sensors, actuators, and other components on
+your hardware system. If the symbols are not appearing on the bottom of the screen, make
+sure to click the visualization <Icon.Visualize /> icon in the bottom-right corner.
+
+Synnax has a collection of built-in symbols including valves, live sensor values,
+buttons, and tanks.
+
+<Divider.Divider direction="x" />
+
+## Changing Symbol Properties
+
+When selected, a symbol's properties will appear in the bottom toolbar. There are
+several tabs that can be used to fine-tune the look and behavior of the symbol.
+
+### Style Tab
+
+The style tab on allows users to edit the symbol's label, size, orientation, color, and
+other visual properties.
+
+- **Label** is the test that appears by the symbol.
+- **Label Size** determines the size of the label.
+- **Color** changes the color of the symbol.
+- **Normally Open** causes the body of the solenoid valve to look different when it is
+  open or closed.
+- **Width** and **Height** change the size of a tank.
+- **Units** determines what units a value symbol is displaying.
+- **Orientation** determines the orientation of the symbol and the relative placement of
+  the label.
+
+### Telemetry Tab
+
+The telemetry tab is available on symbols that receive data, such as the value and light
+symbols. After selecting a channel from the dropdown, the schematic will fetch and
+display the live data from that channel.
+
+The telemetry tab can have the following properties:
+- **Input Channel** determines which channel to stream data from.
+- **Precision** sets the number of decimal places to display.
+- **Averaging Window** can be used to display a rolling average. For example, a value of
+  2 will cause the screen to display the average of the last 2 samples.
+
+<Video client:only="react" id="console/schematics/value" />
+
+### Control Tab
+
+The control tab is available on symbols that can be actuated. Controllable symbols have
+two main properties:
+
+- **Input Channel** represents the display state of the symbol. If the input channel has
+a value of 1, the symbol will be display as activated.
+- **Output Channel** will be written to when you click on the symbol. If the symbol is
+de-activated, clicking on it will write 1 to the output channel (an activation command).
+If the symbol is activated, clicking on it will write 0 to the output channel (a
+deactivation command).
+
+<Divider.Divider direction="x" />
+
+## Stylistic Modifying the Schematic
+
+There are many ways that you can change the visuals of a schematic.
+
+### Connection Lines
+
+Every symbol has locations to attach connection lines. When hovering over an symbol,
+these attachement points appear. To draw a connection line, click on an attachement
+point and drag the line to a different symbol:
+
+<Video client:only="react" id="console/schematics/connections" />
+
+### Aligning Elements
+
+To align elements, create a selection box by clicking and dragging on the canvas. Then,
+use the vertical or horizontal alignment buttons to align the selected elements:
+
+<Video client:only="react" id="console/schematics/align-items" />
+
+### Changing Colors
+
+You can also change the color of multiple symbols together in the same manner:
+
+<Video client:only="react" id="console/schematics/change-color" />
+
+<Divider.Divider direction="x" />
+
+## Control Mode
+
+In control mode, elements on the schematic are able to be activated for manual control
+of the system. Clicking on an actionable element, such as a valve, switch, or button,
+allows you to activate the output channel on that element. The circle on the element
+shows what is in control. If the circle is blue, the current schematic has control. If
+the circle is green, the current schematic has absolute control. If the circle is red,
+the current schematic does not have control as the element is part of an automated
+sequence or is controlled by another schematic.
+
+The color of the bar indicates what is controlling the elements on the Schematic. There
+is a legend on the display indicating what controlling node is what color.
+
+<Video client:only="react" id="console/schematics/valve" />
+
+<Divider.Divider direction="x" />
+
+## Loading a Schematic from a JSON File
+
+You can download a schematic as a JSON file so that it can be easily sent and loaded.
+
+To download, right click on the schematics name in the resources toolbar and click
+"Download as JSON":
+
+<Video client:only="react" id="console/schematics/download" />
+
+To import a schematic, you can drag and drop from your file system or right click on a
+workspace name in the ontology menu:
+
+<Video client:only="react" id="console/schematics/upload" />

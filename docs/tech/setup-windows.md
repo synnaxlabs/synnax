@@ -131,6 +131,12 @@ run the file titled `nvm-setup.exe`. Then, install the latest version of node wi
 nvm install 20
 ```
 
+If your command line prompts you with instructions to use the version, execute it.
+```bash
+If you want to use this version, type
+nvm use 20.x.x
+```
+
 Make sure your installation is working by running
 
 ```bash

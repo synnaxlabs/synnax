@@ -59,7 +59,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, _ := signal.Isolated()
 				streamerReq, readerRes := confluence.Attach(reader, 10)
-				reader.Flow(sCtx, confluence.CloseInletsOnExit())
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				// We need to give a few milliseconds for the reader to boot up.
 				time.Sleep(10 * time.Millisecond)
 				writer := MustSucceed(s.writer.New(context.TODO(), writer.Config{

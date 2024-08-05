@@ -14,38 +14,35 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// EncoderDecoder is an interface that extends binary.Codec to
+// Codec is an interface that extends binary.Codec to
 // add an HTTP content-type.
-type EncoderDecoder interface {
+type Codec interface {
 	ContentType() string
 	binary.Codec
 }
 
-type typedEncoderDecoder struct {
+type typedCodec struct {
 	ct string
 	binary.Codec
 }
 
-func (t typedEncoderDecoder) ContentType() string { return t.ct }
+func (t typedCodec) ContentType() string { return t.ct }
 
 var (
-	JSONEncoderDecoder = typedEncoderDecoder{
+	JSONCodec = typedCodec{
 		ct:    "application/json",
-		Codec: &binary.JSONEncoderDecoder{},
+		Codec: &binary.JSONCodec{},
 	}
-	MsgPackEncoderDecoder = typedEncoderDecoder{
+	MsgPackCodec = typedCodec{
 		ct:    "application/msgpack",
-		Codec: &binary.MsgPackEncoderDecoder{},
+		Codec: &binary.MsgPackCodec{},
 	}
 )
 
-var encoderDecoders = []EncoderDecoder{
-	JSONEncoderDecoder,
-	MsgPackEncoderDecoder,
-}
+var codecs = []Codec{JSONCodec, MsgPackCodec}
 
-func DetermineEncoderDecoder(contentType string) (EncoderDecoder, error) {
-	for _, ecd := range encoderDecoders {
+func DetermineCodec(contentType string) (Codec, error) {
+	for _, ecd := range codecs {
 		if ecd.ContentType() == contentType {
 			return ecd, nil
 		}
@@ -55,7 +52,7 @@ func DetermineEncoderDecoder(contentType string) (EncoderDecoder, error) {
 
 func SupportedContentTypes() []string {
 	var contentTypes []string
-	for _, ecd := range encoderDecoders {
+	for _, ecd := range codecs {
 		contentTypes = append(contentTypes, ecd.ContentType())
 	}
 	return contentTypes

@@ -34,7 +34,7 @@ def prep_final(i, product):
     product["pinouts"] = next_pinouts
 
 
-input_products = json.load(open('out/products.json', 'r'))
+input_products = json.load(open("out/products.json", "r"))
 out = dict()
 models = list()
 support_table = list()
@@ -43,19 +43,20 @@ for i, product in enumerate(input_products):
     out[product["model"]] = product
     if "estimatedPinout" in product:
         models.append(product["model"])
-        support_table.append({
-            "model": product["model"],
-            "url": product["productSpecs"]
-        })
+        support_table.append(
+            {"model": product["model"], "url": product["productSpecs"]}
+        )
 
-json.dump(models, open('out/models.json', 'w'))
-json.dump(out, open('out/products-prepped.json', 'w'))
+json.dump(models, open("out/models.json", "w"))
+json.dump(out, open("out/products-prepped.json", "w"))
 
 html_table_rows = ""
 
 for row in support_table:
-    html_table_rows += f'<tr><td>{row["model"]}</td><td><a href="{row["url"]}">Datasheet</a></td></tr>'
+    html_table_rows += (
+        f'<tr><td>{row["model"]}</td><td><a href="{row["url"]}">Datasheet</a></td></tr>'
+    )
 
 # open a new file and write the html table
-with open('out/support_table.html', 'w') as f:
-    f.write(f'<table><tr><th>Model</th><th>Link</th></tr>{html_table_rows}</table>')
+with open("out/support_table.html", "w") as f:
+    f.write(f"<table><tr><th>Model</th><th>Link</th></tr>{html_table_rows}</table>")

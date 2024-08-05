@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"go/types"
 
@@ -44,15 +46,17 @@ type Channel struct {
 // ChannelService is the central API for all things Channel related.
 type ChannelService struct {
 	dbProvider
+	accessProvider
 	internal channel.Service
 	ranger   *ranger.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
-		internal:   p.Config.Channel,
-		ranger:     p.Config.Ranger,
-		dbProvider: p.db,
+		accessProvider: p.access,
+		internal:       p.Config.Channel,
+		ranger:         p.Config.Ranger,
+		dbProvider:     p.db,
 	}
 }
 
@@ -73,6 +77,13 @@ func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{{Type: channel.OntologyType}},
+	}); err != nil {
+		return res, err
+	}
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
 		return res, err
@@ -192,7 +203,9 @@ func (s *ChannelService) Retrieve(
 	if req.Internal != nil {
 		q = q.WhereInternal(*req.Internal)
 	}
-	err := q.Exec(ctx, nil)
+	if err := q.Exec(ctx, nil); err != nil {
+		return ChannelRetrieveResponse{}, err
+	}
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
 		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, i int) bool {
@@ -208,8 +221,14 @@ func (s *ChannelService) Retrieve(
 			}
 		}
 	}
-
-	return ChannelRetrieveResponse{Channels: oChannels}, err
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: channel.OntologyIDsFromChannels(resChannels),
+	}); err != nil {
+		return ChannelRetrieveResponse{}, err
+	}
+	return ChannelRetrieveResponse{Channels: oChannels}, nil
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {
@@ -266,11 +285,30 @@ func (s *ChannelService) Delete(
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
+				if err := s.access.Enforce(ctx, access.Request{
+					Subject: getSubject(ctx),
+					Action:  access.Delete,
+					Objects: req.Keys.OntologyIDs(),
+				}); err != nil {
+					return err
+				}
 				return w.DeleteMany(ctx, req.Keys, false)
 			})
 		}
 		if len(req.Names) > 0 {
 			c.Exec(func() error {
+				res := make([]channel.Channel, 0, len(req.Names))
+				err := s.internal.NewRetrieve().WhereNames(req.Names...).Entries(&res).Exec(ctx, tx)
+				if err != nil {
+					return err
+				}
+				if err = s.access.Enforce(ctx, access.Request{
+					Subject: getSubject(ctx),
+					Action:  access.Delete,
+					Objects: channel.OntologyIDsFromChannels(res),
+				}); err != nil {
+					return err
+				}
 				return w.DeleteManyByNames(ctx, req.Names, false)
 			})
 		}
@@ -287,6 +325,13 @@ func (s *ChannelService) Rename(
 	ctx context.Context,
 	req ChannelRenameRequest,
 ) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Rename,
+		Objects: req.Keys.OntologyIDs(),
+	}); err != nil {
+		return types.Nil{}, err
+	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).RenameMany(ctx, req.Keys, req.Names, false)
 	})
@@ -301,7 +346,14 @@ type ChannelRetrieveGroupResponse struct {
 
 func (s *ChannelService) RetrieveGroup(
 	ctx context.Context,
-	_ ChannelRetrieveGroupRequest,
+	req ChannelRetrieveGroupRequest,
 ) (ChannelRetrieveGroupResponse, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: []ontology.ID{{Type: channel.OntologyType}},
+	}); err != nil {
+		return ChannelRetrieveGroupResponse{}, err
+	}
 	return ChannelRetrieveGroupResponse{Group: s.internal.Group()}, nil
 }

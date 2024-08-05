@@ -102,7 +102,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys Keys, err error) {
 	keys = make(Keys, 0, len(ids))
 	var key Key
 	for _, id := range ids {
-		if id.Type == ontologyType {
+		if id.Type == OntologyType {
 			key, err = ParseKey(id.Key)
 			if err != nil {
 				return

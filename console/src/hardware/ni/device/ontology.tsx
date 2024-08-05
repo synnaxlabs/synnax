@@ -8,46 +8,53 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 
 import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { configureDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
 import { configureDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
 import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
 
-export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
+export const ContextMenuItems = () => {
   const place = Layout.usePlacer();
-
   const handleCreateDigitalReadTask = () => place(configureDigitalReadLayout(true));
-
   const handleCreateAnalogReadTask = () => place(configureAnalogReadLayout(true));
-
   const handleCreateDigitalWriteTask = () => place(configureDigitalWriteLayout(true));
-
   return (
     <>
       <Menu.Divider />
       <Menu.Item
-        startIcon={<Icon.Task />}
+        startIcon={
+          <PIcon.Create>
+            <Icon.Task />
+          </PIcon.Create>
+        }
         itemKey="ni.analogReadTask"
         onClick={handleCreateAnalogReadTask}
       >
-        New Analog Read Task
+        Create Analog Read Task
       </Menu.Item>
       <Menu.Item
-        startIcon={<Icon.Task />}
+        startIcon={
+          <PIcon.Create>
+            <Icon.Task />
+          </PIcon.Create>
+        }
         itemKey="ni.digitalReadTask"
         onClick={handleCreateDigitalReadTask}
       >
-        New Digital Read Task
+        Create Digital Read Task
       </Menu.Item>
       <Menu.Item
-        startIcon={<Icon.Task />}
+        startIcon={
+          <PIcon.Create>
+            <Icon.Task />
+          </PIcon.Create>
+        }
         itemKey="ni.digitalWriteTask"
         onClick={handleCreateDigitalWriteTask}
       >
-        New Digital Write Task
+        Create Digital Write Task
       </Menu.Item>
     </>
   );

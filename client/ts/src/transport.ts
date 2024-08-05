@@ -28,9 +28,9 @@ export class Transport {
   constructor(url: URL, secure: boolean = false) {
     this.secure = secure;
     this.url = url.child(baseAPIEndpoint);
-    const ecd = new binary.JSONEncoderDecoder();
-    this.unary = new HTTPClient(this.url, ecd, this.secure);
-    this.stream = new WebSocketClient(this.url, ecd, this.secure);
+    const codec = new binary.JSONCodec();
+    this.unary = new HTTPClient(this.url, codec, this.secure);
+    this.stream = new WebSocketClient(this.url, codec, this.secure);
   }
 
   use(...middleware: Middleware[]): void {

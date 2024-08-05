@@ -330,31 +330,33 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 }
 
 func newFramer(a *api.Transport) fgrpc.BindableTransport {
-	var ws = &writerServer{
-		writerServerCore: &writerServerCore{
-			RequestTranslator:  frameWriterRequestTranslator{},
-			ResponseTranslator: frameWriterResponseTranslator{},
-			ServiceDesc:        &gapi.FrameWriterService_ServiceDesc,
-		},
-	}
-	var is = &iteratorServer{
-		iteratorServerCore: &iteratorServerCore{
-			RequestTranslator:  frameIteratorRequestTranslator{},
-			ResponseTranslator: frameIteratorResponseTranslator{},
-			ServiceDesc:        &gapi.FrameIteratorService_ServiceDesc,
-		},
-	}
-	var ss = &streamerServer{
-		streamServerCore: &streamServerCore{
-			RequestTranslator:  frameStreamerRequestTranslator{},
-			ResponseTranslator: frameStreamerResponseTranslator{},
-			ServiceDesc:        &gapi.FrameStreamerService_ServiceDesc,
-		},
-	}
-	var ds = &frameDeleteServer{
-		RequestTranslator: FrameDeleteRequestTranslator{},
-		ServiceDesc:       &gapi.FrameDeleteService_ServiceDesc,
-	}
+	var (
+		ws = &writerServer{
+			writerServerCore: &writerServerCore{
+				RequestTranslator:  frameWriterRequestTranslator{},
+				ResponseTranslator: frameWriterResponseTranslator{},
+				ServiceDesc:        &gapi.FrameWriterService_ServiceDesc,
+			},
+		}
+		is = &iteratorServer{
+			iteratorServerCore: &iteratorServerCore{
+				RequestTranslator:  frameIteratorRequestTranslator{},
+				ResponseTranslator: frameIteratorResponseTranslator{},
+				ServiceDesc:        &gapi.FrameIteratorService_ServiceDesc,
+			},
+		}
+		ss = &streamerServer{
+			streamServerCore: &streamServerCore{
+				RequestTranslator:  frameStreamerRequestTranslator{},
+				ResponseTranslator: frameStreamerResponseTranslator{},
+				ServiceDesc:        &gapi.FrameStreamerService_ServiceDesc,
+			},
+		}
+		ds = &frameDeleteServer{
+			RequestTranslator: FrameDeleteRequestTranslator{},
+			ServiceDesc:       &gapi.FrameDeleteService_ServiceDesc,
+		}
+	)
 	a.FrameStreamer = ss
 	a.FrameWriter = ws
 	a.FrameIterator = is

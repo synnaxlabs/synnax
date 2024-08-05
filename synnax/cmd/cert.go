@@ -70,25 +70,25 @@ func init() {
 func buildCertLoaderConfig(ins alamos.Instrumentation) cert.LoaderConfig {
 	return cert.LoaderConfig{
 		Instrumentation: ins,
-		CertsDir:        viper.GetString("certs-dir"),
-		CAKeyPath:       viper.GetString("ca-key"),
-		CACertPath:      viper.GetString("ca-cert"),
-		NodeKeyPath:     viper.GetString("node-key"),
-		NodeCertPath:    viper.GetString("node-cert"),
+		CertsDir:        viper.GetString(certsDirFlag),
+		CAKeyPath:       viper.GetString(caKeyFlag),
+		CACertPath:      viper.GetString(caCertFlag),
+		NodeKeyPath:     viper.GetString(nodeKeyFlag),
+		NodeCertPath:    viper.GetString(nodeCertFlag),
 	}
 }
 
 func buildCertFactoryConfig(ins alamos.Instrumentation) cert.FactoryConfig {
 	return cert.FactoryConfig{
 		LoaderConfig:  buildCertLoaderConfig(ins),
-		AllowKeyReuse: config.Bool(viper.GetBool("allow-key-reuse")),
-		KeySize:       viper.GetInt("key-size"),
+		AllowKeyReuse: config.Bool(viper.GetBool(allowKeyReuseFlag)),
+		KeySize:       viper.GetInt(keySizeFlag),
 	}
 }
 
 func generateAutoCerts(ins alamos.Instrumentation) error {
 	cfg := buildCertFactoryConfig(ins)
-	cfg.Hosts = []address.Address{address.Address(viper.GetString("listen"))}
+	cfg.Hosts = []address.Address{address.Address(viper.GetString(listenFlag))}
 	factory, err := cert.NewFactory(cfg)
 	if err != nil {
 		return err

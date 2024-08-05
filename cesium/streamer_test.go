@@ -60,7 +60,7 @@ var _ = Describe("Streamer Behavior", func() {
 					i, o := confluence.Attach(r, 1)
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
-					r.Flow(sCtx, confluence.CloseInletsOnExit())
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					d := telem.NewSeriesV[int64](1, 2, 3)
 					Expect(w.Write(cesium.NewFrame(
@@ -97,7 +97,7 @@ var _ = Describe("Streamer Behavior", func() {
 					i, o := confluence.Attach(r, 1)
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
-					r.Flow(sCtx, confluence.CloseInletsOnExit())
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					d := telem.NewSeriesV[int64](1, 2, 3)
 					Expect(w.Write(cesium.NewFrame(
@@ -129,7 +129,7 @@ var _ = Describe("Streamer Behavior", func() {
 					i, o := confluence.Attach(r, 1)
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
-					r.Flow(sCtx, confluence.CloseInletsOnExit())
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					Expect(w.Write(cesium.NewFrame(
 						[]cesium.ChannelKey{basic2},
@@ -162,7 +162,7 @@ var _ = Describe("Streamer Behavior", func() {
 					i, o := confluence.Attach(streamer, 1)
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
-					streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+					streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 					// Do a best effort schedule for the streamer to boot up
 					runtime.Gosched()
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{

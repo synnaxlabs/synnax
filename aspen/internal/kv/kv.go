@@ -11,9 +11,10 @@ package kv
 
 import (
 	"context"
+	"io"
+
 	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"

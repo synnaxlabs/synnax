@@ -27,7 +27,7 @@ jobs:
             changed:
               - "freighter/go/**"
               - "freighter/integration/**"
-              - ".github/workflows/freighter.test.yaml"
+              - ".github/workflows/test.freighter.yaml"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -69,7 +69,7 @@ jobs:
           filters: |
             changed:
               - "freighter/integration/**"
-              - ".github/workflows/freighter.test.yaml"
+              - ".github/workflows/test.freighter.yaml"
 
       - name: Login to Github Container Registry
         if: steps.filter.outputs.changed == 'true'
@@ -103,7 +103,7 @@ jobs:
             changed:
               - "freighter/py/**"
               - "freighter/integration/**"
-              - ".github/workflows/freighter.test.yaml"
+              - ".github/workflows/test.freighter.yaml"
 
       - name: Set up Python
         if: steps.filter.outputs.changed == 'true'
@@ -157,7 +157,7 @@ jobs:
             changed:
               - "freighter/ts/**"
               - "freighter/integration/**"
-              - ".github/workflows/freighter.test.yaml"
+              - ".github/workflows/test.freighter.yaml"
 
       - name: Setup pnpm
         if: steps.filter.outputs.changed == 'true'

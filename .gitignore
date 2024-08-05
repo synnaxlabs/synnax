@@ -93,3 +93,10 @@ driver/vendor/mbedtls/mbedtls-install/**
 driver/vendor/open62541/mbedtls-install/**
 !mbedtls-install/.gitkeep
 driver/vendor/mbedtls/mbedtls
+
+# |||| PROFILING ||||
+**/mem.out
+**/profile**.png
+
+# |||| GENERAL ||||
+**/ignore*

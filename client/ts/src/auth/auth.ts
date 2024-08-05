@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Middleware, UnaryClient } from "@synnaxlabs/freighter";
+import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { InvalidTokenError } from "@/errors";

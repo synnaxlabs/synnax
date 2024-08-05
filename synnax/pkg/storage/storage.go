@@ -84,10 +84,10 @@ type Storage struct {
 func (s *Storage) Gorpify() *gorp.DB {
 	return gorp.Wrap(
 		s.KV,
-		gorp.WithEncoderDecoder(&binary.TracingEncoderDecoder{
+		gorp.WithCodec(&binary.TracingCodec{
 			Level:           alamos.Bench,
 			Instrumentation: s.Instrumentation,
-			Codec:           &binary.MsgPackEncoderDecoder{},
+			Codec:           &binary.MsgPackCodec{},
 		}),
 	)
 }

@@ -11,6 +11,7 @@ import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/opc/device/Configur
 import { Layout } from "@/layout";
 
 export * from "@/hardware/opc/device/Configure";
+export * from "@/hardware/opc/device/ontology";
 export * from "@/hardware/opc/device/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

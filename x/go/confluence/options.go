@@ -10,17 +10,27 @@
 package confluence
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )
 
 type Options struct {
-	Signal            []signal.RoutineOption
-	CloseInletsOnExit bool
+	// Signal is a slice of signal.RoutineOptions defining the behaviour of the goroutine
+	// running the segment.
+	Signal []signal.RoutineOption
+	// CloseOutputInletsOnExit indicates that the segment should close the inlets to the
+	// output streams when the segment exits.
+	CloseOutputInletsOnExit bool
 }
 
+// AttachClosables is only a valid option when CloseOutputInletsOnExit is also set.
+// It attaches the passed closables to defer functions that are called when the segment
+// exists to close the closable via its Close() method. The closable must also have an
+// Acquire(int) method.
 func (fo *Options) AttachClosables(closables ...Closable) {
-	if fo.CloseInletsOnExit {
+	if fo.CloseOutputInletsOnExit {
 		for _, inlet := range closables {
 			inlet.Acquire(1)
 		}
@@ -42,26 +52,83 @@ func NewOptions(opts []Option) *Options {
 
 type Option func(fo *Options)
 
+// CancelOnFail cancels the context associated with the segment when it fails.
 func CancelOnFail() Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.CancelOnFail()) }
 }
 
+// RecoverWithErrOnPanic recovers the goroutine run in the segment and makes it fail
+// instead of panicking.
+func RecoverWithErrOnPanic() Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.RecoverWithErrOnPanic())
+	}
+}
+
+// RecoverWithoutErrOnPanic recovers the goroutine run in the segment and makes it exit
+// instead of panicking.
+func RecoverWithoutErrOnPanic() Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.RecoverWithoutErrOnPanic())
+	}
+}
+
+// WithRetryOnPanic attempts to recover the segment if it panics and restarts it.
+// If an argument is passed into it, it retries for the specified amount of time and
+// exits with an error if it panics on its last attempt.
+// If at any retry the goroutine exits with or without error, the goroutine exits and
+// no longer attempts to restart.
+func WithRetryOnPanic(maxRetries ...int) Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.WithRetryOnPanic(maxRetries...))
+	}
+}
+
+// WithBaseRetryInterval sets the base interval for the breaker used to restart the
+// segment. The base retry interval is how much time the breaker waits before trying
+// to restart for the first time. (Default: 1 second)
+func WithBaseRetryInterval(retryInterval time.Duration) Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.WithBaseRetryInterval(retryInterval))
+	}
+}
+
+// WithRetryScale sets the scale on the breaker used to restart the scale. The scale
+// defines the rate by which the interval between two retries grow. (Default: 1)
+func WithRetryScale(scale float32) Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.WithRetryScale(scale))
+	}
+}
+
+// WithAddress adds a key to the goroutine subtending the segment.
 func WithAddress(addr address.Address) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.WithKey(string(addr))) }
 }
 
-func CloseInletsOnExit() Option {
-	return func(fo *Options) { fo.CloseInletsOnExit = true }
+// CloseOutputInletsOnExit closes the output stream attached to the confluence segment
+// when the segment exits.
+func CloseOutputInletsOnExit() Option {
+	return func(fo *Options) { fo.CloseOutputInletsOnExit = true }
 }
 
+// WithClosables is only meaningful when CloseOutputInletsOnExit is also set. It
+// defers a variadic list of closables (objects implementing Close() and Acquire())
+// methods to be called Close() when the segment exits. It is commonly used to close
+// resources after the segment finishes.
 func WithClosables(closables ...Closable) Option {
 	return func(fo *Options) { fo.AttachClosables(closables...) }
 }
 
+// Defer adds a function to be executed when the segment exits (fail or done). Deferred
+// functions run in LIFO order.
 func Defer(fn func(), opts ...signal.RoutineOption) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.Defer(fn, opts...)) }
 }
 
+// DeferErr attaches the provided function f to the segment to run after exit like
+// in Defer.
+// Unlike Defer, if the function returns a non-nil error, the segment will fail.
 func DeferErr(fn func() error, opts ...signal.RoutineOption) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.DeferErr(fn, opts...)) }
 }

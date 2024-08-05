@@ -16,3 +16,4 @@ packages:
   - "alamos/ts"
   - "drift/examples/tauri"
   - "landing/"
+  - "integration/ts"

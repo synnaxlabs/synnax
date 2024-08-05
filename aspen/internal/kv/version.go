@@ -87,7 +87,7 @@ func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error
 	if err != nil {
 		return dig, err
 	}
-	return dig, ecd.Decode(ctx, b, &dig)
+	return dig, codec.Decode(ctx, b, &dig)
 }
 
 const versionCounterKey = "ver"

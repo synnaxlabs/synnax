@@ -29,7 +29,7 @@ environments with intermittent network connectivity, or in cloud environments (d
 processing) for high performance analysis.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// If the user doesn't specify a subcommand, print the help message.
-		if viper.GetBool("version") {
+		if viper.GetBool(versionFlag) {
 			versionCmd.Run(cmd, args)
 			return nil
 		}
@@ -51,7 +51,7 @@ func init() {
 }
 
 func initConfig() {
-	cfgFile := viper.GetString("config")
+	cfgFile := viper.GetString(configFlag)
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {

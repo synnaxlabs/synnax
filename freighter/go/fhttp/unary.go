@@ -29,7 +29,7 @@ import (
 type unaryServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	requestParser func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (RQ, error)
+	requestParser func(*fiber.Ctx, httputil.Codec) (RQ, error)
 	internal      bool
 	path          string
 	handle        func(ctx context.Context, rq RQ) (RS, error)
@@ -41,16 +41,16 @@ func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ
 
 func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	c.Accepts(httputil.SupportedContentTypes()...)
-	ecd, err := httputil.DetermineEncoderDecoder(c.Get(fiber.HeaderContentType))
+	codec, err := httputil.DetermineCodec(c.Get(fiber.HeaderContentType))
 	if err != nil {
 		return err
 	}
-	c.Set(fiber.HeaderContentType, ecd.ContentType())
+	c.Set(fiber.HeaderContentType, codec.ContentType())
 	var res RS
 	oMD, err := s.MiddlewareCollector.Exec(
 		parseRequestCtx(c, address.Address(c.Path())),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
-			req, err := s.requestParser(c, ecd)
+			req, err := s.requestParser(c, codec)
 			oCtx := freighter.Context{Protocol: ctx.Protocol, Params: make(freighter.Params)}
 			if err != nil {
 				return oCtx, err
@@ -62,16 +62,16 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	setResponseCtx(c, oMD)
 	fErr := errors.Encode(c.Context(), err, s.internal)
 	if fErr.Type == errors.TypeNil {
-		return encodeAndWrite(c, ecd, res)
+		return encodeAndWrite(c, codec, res)
 	}
 	c.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(c, ecd, fErr)
+	return encodeAndWrite(c, codec, fErr)
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	ecd httputil.EncoderDecoder
+	codec httputil.Codec
 }
 
 func (u *unaryClient[RQ, RS]) Send(
@@ -86,7 +86,7 @@ func (u *unaryClient[RQ, RS]) Send(
 			Target:   target,
 		},
 		freighter.FinalizerFunc(func(iMD freighter.Context) (oMD freighter.Context, err error) {
-			b, err := u.ecd.Encode(nil, req)
+			b, err := u.codec.Encode(nil, req)
 			if err != nil {
 				return oMD, err
 			}
@@ -100,7 +100,7 @@ func (u *unaryClient[RQ, RS]) Send(
 				return oMD, err
 			}
 			setRequestCtx(httpReq, iMD)
-			httpReq.Header.Set(fiber.HeaderContentType, u.ecd.ContentType())
+			httpReq.Header.Set(fiber.HeaderContentType, u.codec.ContentType())
 
 			httpRes, err := (&http.Client{}).Do(httpReq)
 			oMD = parseResponseCtx(httpRes, target)
@@ -110,19 +110,19 @@ func (u *unaryClient[RQ, RS]) Send(
 
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld errors.Payload
-				if err := u.ecd.DecodeStream(nil, httpRes.Body, &pld); err != nil {
+				if err := u.codec.DecodeStream(nil, httpRes.Body, &pld); err != nil {
 					return oMD, err
 				}
 				return oMD, errors.Decode(ctx, pld)
 			}
-			return oMD, u.ecd.DecodeStream(nil, httpRes.Body, &res)
+			return oMD, u.codec.DecodeStream(nil, httpRes.Body, &res)
 		}),
 	)
 	return res, err
 }
 
-func encodeAndWrite(c *fiber.Ctx, ecd httputil.EncoderDecoder, v interface{}) error {
-	b, err := ecd.Encode(nil, v)
+func encodeAndWrite(c *fiber.Ctx, codec httputil.Codec, v interface{}) error {
+	b, err := codec.Encode(nil, v)
 	if err != nil {
 		return err
 	}

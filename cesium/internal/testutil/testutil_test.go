@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"os"
 	"sync"
@@ -98,4 +99,30 @@ var _ = Describe("Test Util Test", func() {
 			})
 		}
 	})
+
+	DescribeTable("GenerateFrameAndChannels", func(numIndex, numData, numRate, samplesPerDomain int) {
+		data, chs, keys := GenerateDataAndChannels(numIndex, numData, numRate, samplesPerDomain)
+
+		Expect(chs).To(HaveLen(numIndex + numData + numRate))
+		for i := 0; i < numIndex; i++ {
+			Expect(chs[i].IsIndex).To(BeTrue())
+			Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
+		}
+		for i := numIndex; i < numIndex+numData; i++ {
+			Expect(chs[i].Index).To(Equal(cesium.ChannelKey((i+1)%numIndex + 1)))
+			Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
+		}
+		for i := numIndex + numData; i < numIndex+numData+numRate; i++ {
+			Expect(chs[i].Rate).To(Equal(1 * telem.Hz))
+			Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
+		}
+
+		// Assert that the data channel has the right length
+		Expect(data.Len()).To(Equal(int64(samplesPerDomain)))
+	},
+		Entry("normal", 1, 2, 1, 2),
+		Entry("many indices", 3, 5, 0, 3),
+		Entry("more indices than data", 10, 5, 3, 15),
+		Entry("big", 10, 2342, 123, 400),
+	)
 })

@@ -38,7 +38,7 @@ type ReceiveCallbacksQueue = Array<{
 class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   implements Stream<RQ, RS>
 {
-  private readonly encoder: binary.EncoderDecoder;
+  private readonly encoder: binary.Codec;
   private readonly reqSchema: RQ;
   private readonly resSchema: RS;
   private readonly ws: WebSocket;
@@ -47,12 +47,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   private readonly receiveDataQueue: Message[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
-  constructor(
-    ws: WebSocket,
-    encoder: binary.EncoderDecoder,
-    reqSchema: RQ,
-    resSchema: RS,
-  ) {
+  constructor(ws: WebSocket, encoder: binary.Codec, reqSchema: RQ, resSchema: RS) {
     this.encoder = encoder;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
@@ -139,7 +134,7 @@ const isNormalClosure = (ev: CloseEvent): boolean => NORMAL_CLOSURES.includes(ev
  */
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
   baseUrl: URL;
-  encoder: binary.EncoderDecoder;
+  encoder: binary.Codec;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
@@ -148,7 +143,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
    *   responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
    */
-  constructor(baseEndpoint: URL, encoder: binary.EncoderDecoder, secure = false) {
+  constructor(baseEndpoint: URL, encoder: binary.Codec, secure = false) {
     super();
     this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = encoder;

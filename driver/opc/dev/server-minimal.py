@@ -47,14 +47,20 @@ async def main():
     await server.load_private_key(str(server_private_key))
 
     if USE_TRUST_STORE:
-        trust_store = TrustStore([Path('examples') / 'certificates' / 'trusted' / 'certs'], [])
+        trust_store = TrustStore(
+            [Path("examples") / "certificates" / "trusted" / "certs"], []
+        )
         await trust_store.load()
         validator = CertificateValidator(
-            options=CertificateValidatorOptions.TRUSTED_VALIDATION | CertificateValidatorOptions.PEER_CLIENT,
-            trust_store=trust_store)
+            options=CertificateValidatorOptions.TRUSTED_VALIDATION
+            | CertificateValidatorOptions.PEER_CLIENT,
+            trust_store=trust_store,
+        )
     else:
         validator = CertificateValidator(
-            options=CertificateValidatorOptions.EXT_VALIDATION | CertificateValidatorOptions.PEER_CLIENT)
+            options=CertificateValidatorOptions.EXT_VALIDATION
+            | CertificateValidatorOptions.PEER_CLIENT
+        )
     server.set_certificate_validator(validator)
 
     idx = 0

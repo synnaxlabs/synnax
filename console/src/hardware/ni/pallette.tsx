@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
+import { Icon as PIcon } from "@synnaxlabs/pluto";
 
 import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { configureDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
@@ -17,21 +18,33 @@ import { Command } from "@/palette/Palette";
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
   name: "Create an NI Analog Read Task",
-  icon: <Icon.Logo.NI />,
+  icon: (
+    <PIcon.Create>
+      <Icon.Logo.NI />
+    </PIcon.Create>
+  ),
   onSelect: ({ placeLayout }) => placeLayout(() => configureAnalogReadLayout(true)),
 };
 
 export const createDigitalWriteTaskCommand: Command = {
   key: "ni-create-digital-write-task",
   name: "Create an NI Digital Write Task",
-  icon: <Icon.Logo.NI />,
+  icon: (
+    <PIcon.Create>
+      <Icon.Logo.NI />
+    </PIcon.Create>
+  ),
   onSelect: ({ placeLayout }) => placeLayout(configureDigitalWriteLayout(true)),
 };
 
 export const createDigitalReadTaskCommand: Command = {
   key: "ni-create-digital-read-task",
   name: "Create an NI Digital Read Task",
-  icon: <Icon.Logo.NI />,
+  icon: (
+    <PIcon.Create>
+      <Icon.Logo.NI />
+    </PIcon.Create>
+  ),
   onSelect: ({ placeLayout }) => placeLayout(configureDigitalReadLayout(true)),
 };
 

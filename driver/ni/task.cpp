@@ -29,8 +29,17 @@ ni::ScannerTask::ScannerTask(
         .scale = 1.2,
     });
 
+    if(!scanner.ok()) {
+        ctx->setState({
+            .task = task.key,
+            .variant = "error",
+            .details = {"message", "failed to initialize scanner"}
+        });
+        return; 
+    }
     this->breaker.start();
-    thread = std::thread(&ni::ScannerTask::run, this);
+    thread = std::make_shared<std::thread>(&ni::ScannerTask::run, this);
+    this->scanner.set_scan_thread(thread);
 }
 
 std::unique_ptr<task::Task> ni::ScannerTask::configure(
@@ -59,13 +68,6 @@ void ni::ScannerTask::exec(task::Command &cmd) {
             LOG(ERROR) << "[ni.task] failed to scan for task " << this->task.name;
         } else {
             auto devices = scanner.get_devices(); 
-            ctx->setState({
-                .task = task.key,
-                .variant = "success",
-                .details = {
-                    {"devices", devices.dump(4)}
-                }
-            });
         }
     } else if (cmd.type == "stop") {
         this->stop();
@@ -89,8 +91,8 @@ bool ni::ScannerTask::ok() {
 }
 
 ni::ScannerTask::~ScannerTask() {
-    if(this->thread.joinable() && (this->thread.get_id() != std::this_thread::get_id())) {
-        this->thread.detach();
+    if(this->thread->joinable() && (this->thread->get_id() != std::this_thread::get_id())) {
+        this->thread->detach();
     }
 }
 

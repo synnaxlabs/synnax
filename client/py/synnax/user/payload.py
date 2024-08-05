@@ -8,8 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import Payload
+from synnax.ontology.id import OntologyID
+
+user_ontology_type = OntologyID(type="user")
 
 
 class UserPayload(Payload):
     key: str
     username: str
+
+    def ontology_id(self) -> OntologyID:
+        return OntologyID(key=self.key, type="user")

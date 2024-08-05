@@ -11,7 +11,7 @@ import type { Reducer, Store } from "@reduxjs/toolkit";
 import { combineReducers, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
-import { type deep, migrate } from "@synnaxlabs/x";
+import { type deep } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { device } from "@synnaxlabs/client";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

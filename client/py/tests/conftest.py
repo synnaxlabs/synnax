@@ -15,14 +15,24 @@ import synnax
 from synnax import telem
 from synnax.channel import Channel
 
+HOST = "localhost"
+PORT = 9090
+USERNAME = "synnax"
+PASSWORD = "seldon"
+
+
+@pytest.fixture(scope="session")
+def login_info() -> tuple[str, int, str, str]:
+    return HOST, PORT, USERNAME, PASSWORD
+
 
 @pytest.fixture(scope="session")
 def client() -> synnax.Synnax:
     return synnax.Synnax(
-        host="localhost",
-        port=9090,
-        username="synnax",
-        password="seldon",
+        host=HOST,
+        port=PORT,
+        username=USERNAME,
+        password=PASSWORD,
         secure=False,
     )
 

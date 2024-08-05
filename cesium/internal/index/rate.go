@@ -24,10 +24,14 @@ type Rate struct {
 var _ Index = Rate{}
 
 func (r Rate) Distance(_ context.Context, tr telem.TimeRange, _ bool) (DistanceApproximation, DomainBounds, error) {
-	return Between(
-		int64(r.Rate.ClosestGE(tr.Start).Span(r.Rate.ClosestLE(tr.End))/r.Rate.Period()),
-		int64(r.Rate.ClosestLE(tr.Start).Span(r.Rate.ClosestGE(tr.End))/r.Rate.Period()),
-	), DomainBounds{}, nil
+	return DistanceApproximation{
+		Approximation: Between(
+			int64(r.Rate.ClosestGE(tr.Start).Span(r.Rate.ClosestLE(tr.End))/r.Rate.Period()),
+			int64(r.Rate.ClosestLE(tr.Start).Span(r.Rate.ClosestGE(tr.End))/r.Rate.Period()),
+		),
+		StartExact: true,
+		EndExact:   true,
+	}, DomainBounds{}, nil
 }
 
 func (r Rate) Stamp(_ context.Context, ref telem.TimeStamp, distance int64, _ bool) (TimeStampApproximation, error) {

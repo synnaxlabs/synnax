@@ -10,11 +10,9 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
-import { errors, toArray } from "@synnaxlabs/x";
+import { type Haul, Icon as PIcon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { errors, id, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
@@ -25,10 +23,16 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createEditLayout } from "@/range/EditLayout";
 import { select, useSelect } from "@/range/selectors";
-import { type Range } from "@/range/slice";
-import { add, rename, setActive, type StoreState } from "@/range/slice";
+import {
+  add,
+  type Range,
+  remove,
+  rename,
+  setActive,
+  type StoreState,
+} from "@/range/slice";
 
-const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
+export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
   toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
@@ -77,7 +81,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to activate range`,
         description: e.message,
@@ -103,7 +107,7 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -128,7 +132,7 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -139,7 +143,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Range" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes },
+      selection: { resources },
+      store,
+    }) => {
       if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
@@ -148,22 +156,30 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
           keys: resources.map(({ id }) => id.toString()),
         }),
       ]);
+      const keys = resources.map(({ id }) => id.key);
+      store.dispatch(remove({ keys }));
       return prevNodes;
     },
     mutationFn: async ({ selection, client }) =>
       await client.ranges.delete(selection.resources.map((r) => r.id.key)),
     onError: (
       e,
-      { addStatus, selection: { resources }, state: { setNodes } },
+      { addStatus, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
-      if (prevNodes != null) setNodes(prevNodes);
+      if (prevNodes != null) {
+        setNodes(prevNodes);
+        const ranges = fromClientRange(
+          resources.map((resource) => resource.data as unknown as ranger.Range),
+        );
+        store.dispatch(add({ ranges }));
+      }
       let message = "Failed to delete ranges";
       if (resources.length === 1)
         message = `Failed to delete range ${resources[0].name}`;
       addStatus({
-        key: nanoid(),
+        key: id.id(),
         variant: "error",
         message,
         description: e.message,
@@ -213,7 +229,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
-      <PMenu.Divider />
       {isSingle && (
         <>
           {resources[0].id.key !== activeRange?.key && (
@@ -223,17 +238,28 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
           </PMenu.Item>
-          <PMenu.Divider />
         </>
       )}
+      <PMenu.Divider />
       {layout?.type === "lineplot" && (
-        <PMenu.Item itemKey="addToActivePlot" startIcon={<Icon.Visualize />}>
+        <PMenu.Item
+          itemKey="addToActivePlot"
+          startIcon={
+            <PIcon.Icon topRight={<Icon.Range />}>
+              <Icon.Visualize key="plot" />
+            </PIcon.Icon>
+          }
+        >
           Add to {layout.name}
         </PMenu.Item>
       )}
       <PMenu.Item
         itemKey="addToNewPlot"
-        startIcon={[<Icon.Add key="add" />, <Icon.Visualize key="plot" />]}
+        startIcon={
+          <PIcon.Create>
+            <Icon.Visualize key="plot" />
+          </PIcon.Create>
+        }
       >
         Add to New Plot
       </PMenu.Item>

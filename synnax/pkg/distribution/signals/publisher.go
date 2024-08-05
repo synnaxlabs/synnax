@@ -155,6 +155,6 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.SetChannel.Name))))
-	p.Flow(sCtx, confluence.CloseInletsOnExit())
+	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
 	return signal.NewShutdown(sCtx, cancel), nil
 }

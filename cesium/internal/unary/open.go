@@ -111,7 +111,7 @@ func Open(configs ...Config) (*DB, error) {
 // CheckMigration compares the version stored in channel to the current version of the
 // data engine format. If there is a migration to be performed, data is migrated and
 // persisted to the new version.
-func (db *DB) CheckMigration(ecd binary.Codec) error {
+func (db *DB) CheckMigration(codec binary.Codec) error {
 	if db.Channel.Version != version.Current {
 		err := version.Migrate(db.FS, db.Channel.Version, version.Current)
 		if err != nil {
@@ -119,7 +119,7 @@ func (db *DB) CheckMigration(ecd binary.Codec) error {
 		}
 
 		db.Channel.Version = version.Current
-		return meta.Create(db.FS, ecd, db.Channel)
+		return meta.Create(db.FS, codec, db.Channel)
 	}
 	return nil
 }

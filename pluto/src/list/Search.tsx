@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { type AsyncTermSearcher, type Key,type Keyed } from "@synnaxlabs/x";
+import { type AsyncTermSearcher, type Key, type Keyed } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
@@ -18,7 +18,7 @@ import { useDataUtilContext } from "@/list/Data";
 import { useInfiniteUtilContext } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
-import { componentRenderProp,type RenderProp } from "@/util/renderProp";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export interface UseSearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Input.OptionalControl<string> {
@@ -82,7 +82,10 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   const promiseOut = useRef<boolean>(false);
   const hasMore = useRef(true);
   const offset = useRef(0);
-  const { setSourceData, setEmptyContent } = useDataUtilContext<K, E>();
+  const { setSourceData, setEmptyContent, getDefaultEmptyContent } = useDataUtilContext<
+    K,
+    E
+  >();
   const { setHasMore, setOnFetchMore } = useInfiniteUtilContext();
 
   useEffect(() => setEmptyContent(NO_TERM), [setEmptyContent]);
@@ -100,7 +103,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       const fn = async () => {
         try {
           const r = await searcher.page(offset.current, pageSize);
-          if (r.length === 0) setEmptyContent(NO_RESULTS);
+          if (r.length === 0) setEmptyContent(getDefaultEmptyContent() ?? NO_RESULTS);
           if (r.length < pageSize) {
             hasMore.current = false;
             setHasMore(false);

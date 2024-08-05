@@ -11,6 +11,10 @@ package grpc
 
 import (
 	"context"
+	"go/types"
+	"net"
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -20,10 +24,8 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
-	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"net"
 )
 
 type (
@@ -268,7 +270,7 @@ func (t Transport) Report() alamos.Report {
 	return t.pledgeServer.Report()
 }
 
-func (t Transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
+func (t Transport) Configure(sCtx signal.Context, addr address.Address, external bool) error {
 	if external {
 		return nil
 	}
@@ -278,7 +280,7 @@ func (t Transport) Configure(ctx signal.Context, addr address.Address, external 
 	if err != nil {
 		return err
 	}
-	ctx.Go(func(ctx context.Context) (err error) {
+	sCtx.Go(func(ctx context.Context) (err error) {
 		go func() {
 			err = server.Serve(lis)
 		}()
@@ -288,6 +290,11 @@ func (t Transport) Configure(ctx signal.Context, addr address.Address, external 
 		defer server.Stop()
 		<-ctx.Done()
 		return ctx.Err()
-	}, signal.CancelOnFail())
+	},
+		signal.CancelOnFail(),
+		signal.WithRetryOnPanic(),
+		signal.WithBaseRetryInterval(200*time.Millisecond),
+		signal.WithRetryScale(1.05),
+	)
 	return nil
 }

@@ -65,7 +65,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// Tell the tapper that we are no longer requesting any channels.
 			r.demands.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
 			// If we add this in AttachClosables, it may not be closed at the end of
-			// if the caller does not use the confluence.CloseInletsOnExit option, so
+			// if the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
 			r.demands.Close()
 		}()

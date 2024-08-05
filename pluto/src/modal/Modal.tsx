@@ -23,7 +23,12 @@ export interface ModalProps
   extends Pick<Dialog.UseReturn, "visible" | "close">,
     Align.SpaceProps {}
 
-export const Modal = ({ visible, close, ...props }: ModalProps): ReactElement => {
+export const Modal = ({
+  visible,
+  children,
+  close,
+  ...props
+}: ModalProps): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   useClickOutside({ ref, onClickOutside: close });
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
@@ -40,7 +45,11 @@ export const Modal = ({ visible, close, ...props }: ModalProps): ReactElement =>
         empty
         ref={ref}
         {...props}
-      />
+      >
+        <Align.Space className={CSS(CSS.BE("modal", "content"))} role="dialog" empty>
+          {children}
+        </Align.Space>
+      </Align.Space>
     </Align.Space>,
     getRootElement(),
   );

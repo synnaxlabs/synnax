@@ -23,21 +23,30 @@ async def main():
 
     # Populating our address space
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
-    ARRAY_COUNT = 50
+    ARRAY_COUNT = 5
     arrays = list()
     for i in range(ARRAY_COUNT):
-        arrays.append(await myobj.add_variable(idx, f"my_array_{i}", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Float))
-    mytimearray = await myobj.add_variable(idx, "my_time_array", [
-        datetime.datetime.utcnow(),
-        datetime.datetime.utcnow() + datetime.timedelta(milliseconds=1),
-        datetime.datetime.utcnow() + datetime.timedelta(milliseconds=2),
-        datetime.datetime.utcnow() + datetime.timedelta(milliseconds=3),
-        datetime.datetime.utcnow() + datetime.timedelta(milliseconds=4),
-        datetime.datetime.utcnow() + datetime.timedelta(milliseconds=5),
-        datetime.datetime.utcnow() + datetime.timedelta(milliseconds=6),
-        datetime.datetime.utcnow() + datetime.timedelta(milliseconds=7),
-        datetime.datetime.utcnow() + datetime.timedelta(milliseconds=8),
-    ], ua.VariantType.DateTime)
+        arrays.append(
+            await myobj.add_variable(
+                idx, f"my_array_{i}", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Float
+            )
+        )
+    mytimearray = await myobj.add_variable(
+        idx,
+        "my_time_array",
+        [
+            datetime.datetime.utcnow(),
+            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=1),
+            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=2),
+            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=3),
+            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=4),
+            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=5),
+            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=6),
+            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=7),
+            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=8),
+        ],
+        ua.VariantType.DateTime,
+    )
 
     await mytimearray.set_writable()
 
@@ -45,7 +54,7 @@ async def main():
     ARRAY_SIZE = 5
     await mytimearray.write_array_dimensions([ARRAY_SIZE])
 
-    for i in range(100):
+    for i in range(5):
         # add 30 float variables t OPC
         await myobj.add_variable(idx, f"my_float_{i}", i)
 
@@ -55,8 +64,14 @@ async def main():
         while True:
             i += 1
             start = datetime.datetime.utcnow()
-            timestamps = [start + datetime.timedelta(seconds=j * ((1 / RATE))) for j in range(ARRAY_SIZE)]
-            values = [math.sin((timestamps[j] - start_ref).total_seconds()) for j in range(ARRAY_SIZE)]
+            timestamps = [
+                start + datetime.timedelta(seconds=j * ((1 / RATE)))
+                for j in range(ARRAY_SIZE)
+            ]
+            values = [
+                math.sin((timestamps[j] - start_ref).total_seconds())
+                for j in range(ARRAY_SIZE)
+            ]
             for arr in arrays:
                 await arr.set_value(values, varianttype=ua.VariantType.Float)
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)

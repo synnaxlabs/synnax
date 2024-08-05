@@ -64,6 +64,7 @@ struct ConnectionConfig {
 
 struct DeviceNodeProperties {
     synnax::DataType data_type;
+    std::string node_class;
     std::string name;
     std::string node_id;
     bool is_array;
@@ -72,8 +73,9 @@ struct DeviceNodeProperties {
         synnax::DataType data_type,
         std::string name,
         std::string node_id,
+        std::string node_class,
         bool is_array
-    ) : data_type(data_type), name(name), node_id(node_id), is_array(is_array) {
+    ) : data_type(data_type), name(name), node_id(node_id), is_array(is_array), node_class(node_class) {
     }
 
     explicit DeviceNodeProperties(config::Parser parser) : data_type(
@@ -88,6 +90,7 @@ struct DeviceNodeProperties {
             {"data_type", data_type.name()},
             {"name", name},
             {"node_id", node_id},
+            {"node_class", node_class},
             {"is_array", is_array}
         };
     }

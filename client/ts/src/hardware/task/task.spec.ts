@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { nanoid } from "nanoid";
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { task } from "@/hardware/task";
@@ -71,7 +71,7 @@ describe("Hardware", () => {
           dog: string;
         }
         const state: task.State<StateDetails> = {
-          key: nanoid(),
+          key: id.id(),
           task: t.key,
           variant: "success",
         };

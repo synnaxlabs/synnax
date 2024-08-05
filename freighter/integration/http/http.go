@@ -17,10 +17,16 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
+	"go/types"
+	"sync"
+	"time"
 )
 
 func BindTo(f *fiber.App) {
-	router := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: testutil.Instrumentation("freighter-integration")})
+	router := fhttp.NewRouter(fhttp.RouterConfig{
+		Instrumentation:     testutil.Instrumentation("freighter-integration"),
+		StreamWriteDeadline: 50 * time.Millisecond,
+	})
 	echoServer := fhttp.StreamServer[Message, Message](router, true, "/stream/echo")
 	echoServer.BindHandler(streamEcho)
 
@@ -49,6 +55,11 @@ func BindTo(f *fiber.App) {
 	streamMiddlewareCheckServer := fhttp.StreamServer[Message, Message](router, true, "/stream/middlewareCheck")
 	streamMiddlewareCheckServer.BindHandler(streamEcho)
 	streamMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
+
+	streamSlamMessagesServer := fhttp.StreamServer[Message, Message](router, true, "/stream/slamMessages")
+	streamSlamMessagesServer.BindHandler(streamSlamMessages)
+	slamMessagesTimeoutCheck := fhttp.UnaryServer[Message, Message](router, true, "/unary/slamMessagesTimeoutCheck")
+	slamMessagesTimeoutCheck.BindHandler(slamMessagesTimeoutCheckHandler)
 
 	router.BindTo(f)
 }
@@ -88,6 +99,42 @@ func streamRespondWithTenMessages(
 		}
 	}
 	return nil
+}
+
+var (
+	timeoutMu sync.Mutex
+	timeouts  map[string]types.Nil = make(map[string]types.Nil)
+)
+
+func streamSlamMessages(
+	_ context.Context,
+	stream ServerStream,
+) error {
+	msg, err := stream.Receive()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < 1e6; i++ {
+		if err := stream.Send(Message{Message: "hello", ID: i}); err != nil {
+			timeoutMu.Lock()
+			timeouts[msg.Message] = types.Nil{}
+			timeoutMu.Unlock()
+			return err
+		}
+	}
+	return nil
+}
+
+func slamMessagesTimeoutCheckHandler(
+	_ context.Context,
+	msg Message,
+) (Message, error) {
+	timeoutMu.Lock()
+	defer timeoutMu.Unlock()
+	if _, ok := timeouts[msg.Message]; ok {
+		return Message{Message: "timeout"}, nil
+	}
+	return Message{Message: "success"}, nil
 }
 
 func streamSendMessageAfterClientClose(

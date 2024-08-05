@@ -67,10 +67,6 @@ export type UnitsInOz = z.infer<typeof unitsInOzZ>;
 export const unitsFtLbsZ = z.literal("FootPounds");
 export type UnitsFtLbs = z.infer<typeof unitsFtLbsZ>;
 
-const resistanceZ = z.number().refine((val) => val > 0, {
-  message: "Value must be greater than 0",
-});
-
 export const unitsZ = z.union([
   unitsVoltsZ,
   unitsAmpsZ,

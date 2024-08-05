@@ -12,6 +12,7 @@ package workspace
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	changex "github.com/synnaxlabs/x/change"
@@ -24,6 +25,18 @@ const OntologyType ontology.Type = "workspace"
 
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
+}
+
+func OntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
+	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID {
+		return OntologyID(k)
+	})
+}
+
+func OntologyIDsFromWorkspaces(workspaces []Workspace) (ids []ontology.ID) {
+	return lo.Map(workspaces, func(w Workspace, _ int) ontology.ID {
+		return OntologyID(w.Key)
+	})
 }
 
 func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {

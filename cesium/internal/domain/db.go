@@ -35,7 +35,14 @@ var (
 
 func NewErrWriteConflict(tr1, tr2 telem.TimeRange) error {
 	intersection := tr1.Intersection(tr2)
-	return errors.Wrapf(ErrWriteConflict, "write overlaps with existing data occupying time range %v for a time span of %v", intersection, intersection.Span())
+	return errors.Wrapf(
+		ErrWriteConflict,
+		"write for bounds %v overlaps with existing data occupying time range "+
+			"%v for a time span of %v",
+		tr1,
+		tr2,
+		intersection.Span(),
+	)
 }
 
 func NewErrRangeNotFound(tr telem.TimeRange) error {
@@ -64,7 +71,7 @@ func NewErrRangeNotFound(tr telem.TimeRange) error {
 type DB struct {
 	Config
 	idx    *index
-	files  *fileController
+	fc     *fileController
 	closed *atomic.Bool
 }
 
@@ -154,7 +161,7 @@ func Open(configs ...Config) (*DB, error) {
 	return &DB{
 		Config: cfg,
 		idx:    idx,
-		files:  controller,
+		fc:     controller,
 		closed: &atomic.Bool{},
 	}, nil
 }
@@ -172,7 +179,7 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 }
 
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
-	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
+	internal, err := db.fc.acquireReader(ctx, ptr.fileKey)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +211,7 @@ func (db *DB) Close() error {
 	}
 
 	w := errors.NewCatcher(errors.WithAggregation())
-	w.Exec(db.files.close)
+	w.Exec(db.fc.close)
 	w.Exec(db.idx.close)
 	return w.Error()
 }

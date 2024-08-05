@@ -21,25 +21,25 @@ export const timeRangeZ = z.object({
   end: z.number(),
 });
 
+export type TimeRange = z.infer<typeof timeRangeZ>;
+
 export const staticRangeZ = baseRangeZ.extend({
   variant: z.literal("static"),
   timeRange: timeRangeZ,
 });
+
+export type StaticRange = z.infer<typeof staticRangeZ>;
 
 export const dynamicRangeZ = baseRangeZ.extend({
   variant: z.literal("dynamic"),
   span: z.number(),
 });
 
-export const rangeZ = z.union([staticRangeZ, dynamicRangeZ]);
-
-export type TimeRange = z.infer<typeof timeRangeZ>;
-
-export type StaticRange = z.infer<typeof staticRangeZ>;
-
 export type DynamicRange = z.infer<typeof dynamicRangeZ>;
 
-export type Range = StaticRange | DynamicRange;
+export const rangeZ = z.union([staticRangeZ, dynamicRangeZ]);
+
+export type Range = z.infer<typeof rangeZ>;
 
 export const sliceStateZ = z.object({
   version: z.literal("0.0.0"),

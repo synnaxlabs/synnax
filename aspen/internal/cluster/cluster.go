@@ -16,6 +16,9 @@ package cluster
 
 import (
 	"context"
+	"io"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
@@ -29,7 +32,6 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"io"
 )
 
 // State represents the current state of the Cluster as seen from the host node.
@@ -188,7 +190,7 @@ func (c *Cluster) goFlushStore(sCtx signal.Context) {
 			Key:         c.StorageKey,
 			MinInterval: c.StorageFlushInterval,
 			Store:       c.Storage,
-			Encoder:     c.EncoderDecoder,
+			Encoder:     c.Codec,
 		}
 		flush.FlushSync(sCtx, c.Store.CopyState())
 		c.OnChange(func(_ context.Context, change Change) {
@@ -203,7 +205,12 @@ func (c *Cluster) goFlushStore(sCtx signal.Context) {
 			<-ctx.Done()
 			flush.FlushSync(ctx, c.Store.CopyState())
 			return ctx.Err()
-		}, signal.WithKey("flush"))
+		},
+			signal.WithKey("flush"),
+			signal.WithRetryOnPanic(),
+			signal.WithRetryScale(1.05),
+			signal.WithBaseRetryInterval(1*time.Second),
+		)
 	}
 }
 
@@ -216,7 +223,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	if err != nil {
 		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
 	}
-	return state, cfg.EncoderDecoder.Decode(ctx, encoded, &state)
+	return state, cfg.Codec.Decode(ctx, encoded, &state)
 }
 
 func newConfig(ctx context.Context, configs []Config) (Config, error) {

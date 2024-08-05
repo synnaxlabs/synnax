@@ -150,7 +150,7 @@ var _ = Describe("Channel", Ordered, func() {
 					errorKey2New     = GenerateChannelKey()
 					errorKey3        = GenerateChannelKey()
 					errorKey3New     = GenerateChannelKey()
-					jsonDecoder      = &binary.JSONEncoderDecoder{}
+					jsonDecoder      = &binary.JSONCodec{}
 
 					channels = []cesium.Channel{
 						{Key: unaryKey, DataType: telem.Int64T, Rate: 1 * telem.Hz},
@@ -485,18 +485,18 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 20, 21, 22).Data))
 
 					var (
-						subFS   = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-						meta    = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
-						encoder = &binary.JSONEncoderDecoder{}
-						buf     = make([]byte, MustSucceed(meta.Stat()).Size())
-						newCh   cesium.Channel
+						subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+						meta  = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
+						codec = &binary.JSONCodec{}
+						buf   = make([]byte, MustSucceed(meta.Stat()).Size())
+						newCh cesium.Channel
 					)
 
 					_, err := meta.Read(buf)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(meta.Close()).To(Succeed())
 
-					Expect(encoder.Decode(ctx, buf, &newCh)).To(Succeed())
+					Expect(codec.Decode(ctx, buf, &newCh)).To(Succeed())
 					Expect(newCh.Name).To(Equal("laplace"))
 				})
 				It("Should correctly rename multiple channels", func() {

@@ -44,7 +44,7 @@ var _ = Describe("Linear", func() {
 		s.OutTo(o)
 		ctx, cancel := signal.Isolated()
 		defer cancel()
-		s.Flow(ctx, CloseInletsOnExit())
+		s.Flow(ctx, CloseOutputInletsOnExit())
 		i.Inlet() <- 3
 		i.Close()
 		_, ok := <-o.Outlet()

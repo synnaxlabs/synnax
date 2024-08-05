@@ -96,7 +96,7 @@ var _ = Describe("Signals", Ordered, func() {
 			}))
 			requests, responses := confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
-			streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewShutdown(sCtx, cancel)
 			key := "hello"
@@ -130,7 +130,7 @@ var _ = Describe("Signals", Ordered, func() {
 			}))
 			requests, responses := confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
-			streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewShutdown(sCtx, cancel)
 			key := "hello"
@@ -164,7 +164,7 @@ var _ = Describe("Signals", Ordered, func() {
 		}))
 		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
-		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		time.Sleep(10 * time.Millisecond)
 		closeStreamer := signal.NewShutdown(sCtx, cancel)
 		defer func() {
@@ -201,7 +201,7 @@ var _ = Describe("Signals", Ordered, func() {
 		}))
 		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
-		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		time.Sleep(5 * time.Millisecond)
 		closeStreamer := signal.NewShutdown(sCtx, cancel)
 		defer func() {

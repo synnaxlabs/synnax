@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type List, Select, Synnax, Text } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import { type List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
 
-import { NodeProperties, Properties } from "@/hardware/opc/device/types";
+import { ScannedNode } from "@/hardware/opc/device/types";
 import { type NodeId, parseNodeId } from "@/hardware/opc/task/types";
 
 interface NodeEntry extends NodeId {
@@ -49,7 +48,7 @@ const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
 ];
 
 interface SelectNodeProps extends Omit<Select.SingleProps<string, NodeEntry>, "data"> {
-  data: NodeProperties[];
+  data: ScannedNode[];
 }
 
 export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement => {
@@ -79,25 +78,4 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
       entryRenderKey={(e) => `${e.name} (${e.key})`}
     />
   );
-};
-
-export interface SelectNodeRemoteProps extends Omit<SelectNodeProps, "data"> {
-  device: string;
-}
-
-export const SelectNodeRemote = ({
-  device,
-  ...props
-}: SelectNodeRemoteProps): ReactElement => {
-  const client = Synnax.use();
-  const nodes = useQuery({
-    queryKey: [client?.key, device],
-    queryFn: async () => {
-      if (client == null) return;
-      const d = await client.hardware.devices.retrieve<Properties>([device]);
-      if (d.length === 0) return [];
-      return d[0].properties.channels;
-    },
-  });
-  return <SelectNode data={nodes.data ?? []} {...props} />;
 };

@@ -25,5 +25,7 @@ export const labelZ = z.object({
 
 export type Label = z.infer<typeof labelZ>;
 
+export const LabelOntologyType = "label" as ontology.ResourceType;
+
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: "label", key });
+  new ontology.ID({ type: LabelOntologyType, key });

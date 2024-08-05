@@ -11,6 +11,8 @@ import { TimeRange } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Name = string;
@@ -70,3 +72,12 @@ export const analyzeParams = (params: Params): ParamAnalysisResult => {
     actual: params,
   } as const as ParamAnalysisResult;
 };
+
+export const RangeOntologyType = "range" as ontology.ResourceType;
+export const RangeAliasOntologyType = "range-alias" as ontology.ResourceType;
+
+export const rangeOntologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: RangeOntologyType, key: key });
+
+export const rangeAliasOntologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: RangeAliasOntologyType, key: key });

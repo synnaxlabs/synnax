@@ -17,7 +17,7 @@ import time
 headers = {
     "Client_id": "1fcca773908c4e6da0500a60ea393e83",
     "Client_secret": "9EC7AA4494614C25AE57f022Bc6f7Bac",
-    "Referer": "https://www.ni.com/"
+    "Referer": "https://www.ni.com/",
 }
 
 
@@ -56,7 +56,7 @@ def find_pinouts_in_html(html):
 def find_pinouts_at_url(url):
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
-        return find_pinouts_in_html(response.json()['topic_html'])
+        return find_pinouts_in_html(response.json()["topic_html"])
     if response.status_code == 503:
         time.sleep(1)
         return find_pinouts_at_url(url)
@@ -66,10 +66,10 @@ def find_pinouts_at_url(url):
 def from_specs(product) -> list:
     specs_url = product["productSpecs"]
     if "search" not in specs_url and "specs.html" in specs_url:
-        specs_url_ext = specs_url[specs_url.find("bundle") + 7:]
+        specs_url_ext = specs_url[specs_url.find("bundle") + 7 :]
         base_url = "https://docs-be.ni.com/api/bundle/"
         response = requests.get(base_url + specs_url_ext, headers=headers)
-        return find_pinouts_in_html(response.json()['topic_html'])
+        return find_pinouts_in_html(response.json()["topic_html"])
     return []
 
 
@@ -102,7 +102,7 @@ PARSERS = [
     from_get_started_pinout,
     from_get_started_overview,
     from_feature_pinout,
-    from_feature_connecting
+    from_feature_connecting,
 ]
 
 lock = threading.Lock()

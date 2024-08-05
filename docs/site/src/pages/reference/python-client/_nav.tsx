@@ -44,8 +44,8 @@ export const pythonClientNav: PageNavNode = {
       name: "Stream Data",
     },
     {
-      key: "/reference/typescript-client/delete-data",
-      href: "/reference/typescript-client/delete-data",
+      key: "/reference/python-client/delete-data",
+      href: "/reference/python-client/delete-data",
       name: "Delete Data",
     },
     {

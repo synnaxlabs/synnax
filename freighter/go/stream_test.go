@@ -294,7 +294,7 @@ func (impl *httpStreamImplementation) start(
 ) (streamServer, streamClient) {
 	impl.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
-	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{EncoderDecoder: httputil.MsgPackEncoderDecoder})
+	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{Codec: httputil.MsgPackCodec})
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})

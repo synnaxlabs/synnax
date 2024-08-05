@@ -21,7 +21,7 @@ def process_products(products: list, f, workers=10):
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
     # split the products into chunks
     chunk_size = len(products) // workers
-    chunks = [products[i:i + chunk_size] for i in range(0, len(products), chunk_size)]
+    chunks = [products[i : i + chunk_size] for i in range(0, len(products), chunk_size)]
     futures = [pool.submit(_process, i, chunk, f) for i, chunk in enumerate(chunks)]
     concurrent.futures.wait(futures)
     out = list()
@@ -32,5 +32,3 @@ def process_products(products: list, f, workers=10):
 
 def square(i, n):
     return n * n
-
-

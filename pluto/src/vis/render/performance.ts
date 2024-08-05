@@ -19,7 +19,6 @@ class TrackerEntry {
       this.level,
       () => {
         const elapsed = TimeSpan.milliseconds(performance.now() - start);
-        console.log(elapsed.toString());
         if (elapsed.greaterThan(this.target)) this.overTarget++;
         this.total++;
       },
@@ -29,7 +28,6 @@ class TrackerEntry {
   updateLevel(): void {
     if (this.total === 0 || this.overTarget === 0) return;
     const overTargetFrac = this.overTarget / this.total;
-    console.log(overTargetFrac);
     if (overTargetFrac < 0.125)
       if (this.level > 0) this.level--;
       else if (overTargetFrac > 0.25) this.level++;

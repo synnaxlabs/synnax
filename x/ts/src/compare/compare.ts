@@ -125,8 +125,8 @@ export const stringsWithNumbers = (a: string, b: string): number => {
   const alphaNumericRegex = /([a-zA-Z]+)|(\d+)/g;
 
   // Remove separators and split into parts
-  const aParts = a.replace(/[\s_.\-]+/g, "").match(alphaNumericRegex);
-  const bParts = b.replace(/[\s_.\-]+/g, "").match(alphaNumericRegex);
+  const aParts = a.replace(/[\s_.-]+/g, "").match(alphaNumericRegex);
+  const bParts = b.replace(/[\s_.-]+/g, "").match(alphaNumericRegex);
 
   if (!aParts || !bParts) return 0;
 

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
+	"time"
 )
 
 type route struct {
@@ -28,6 +29,9 @@ type route struct {
 
 type RouterConfig struct {
 	alamos.Instrumentation
+	// StreamWriteDeadline sets the default duration for the write deadline of a stream
+	// transport. After the duration has been exceeded, the transport will be closed.
+	StreamWriteDeadline time.Duration
 }
 
 var _ config.Config[RouterConfig] = RouterConfig{}
@@ -38,6 +42,7 @@ func (r RouterConfig) Validate() error { return nil }
 // Override implements config.Properties.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
+	r.StreamWriteDeadline = override.Numeric(r.StreamWriteDeadline, other.StreamWriteDeadline)
 	return r
 }
 
@@ -108,6 +113,7 @@ func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path strin
 		path:            path,
 		Instrumentation: r.Instrumentation,
 		serverCtx:       r.ctx,
+		writeDeadline:   r.StreamWriteDeadline,
 	}
 	r.register(path, "GET", s, s.fiberHandler)
 	return s
@@ -118,7 +124,7 @@ func UnaryServer[RQ, RS freighter.Payload](r *Router, internal bool, path string
 		internal: internal,
 		Reporter: unaryReporter,
 		path:     path,
-		requestParser: func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (req RQ, _ error) {
+		requestParser: func(c *fiber.Ctx, codec httputil.Codec) (req RQ, _ error) {
 			return req, c.BodyParser(&req)
 		},
 	}

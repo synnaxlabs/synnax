@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <map>
+
 #include "client/cpp/synnax.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/util.h"
@@ -272,6 +273,12 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
     config->logging->context = &log_prefix;
+
+    // Set Timeouts
+    config->secureChannelLifeTime = 600000000; // Approximately a week
+    config->requestedSessionTimeout = 1200000000; // 2 weeks (default had it double the secure channel lifetime)
+
+
     configureEncryption(cfg, client);
     UA_StatusCode status;
     if (!cfg.username.empty() || !cfg.password.empty()) {

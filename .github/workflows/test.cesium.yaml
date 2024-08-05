@@ -24,7 +24,7 @@ jobs:
             changed:
                 - 'cesium/**'
                 - 'x/**'
-                - '.github/workflows/cesium.test.yaml'
+                - '.github/workflows/test.cesium.yaml'
 
       - name: Set up Go
         uses: actions/setup-go@v5

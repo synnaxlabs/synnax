@@ -22,7 +22,7 @@ constexpr char NEWLINE_TERMINATOR_CHAR = '\n';
 
 namespace synnax {
 template<typename T>
-void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
+static inline void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
     if (v.size() <= 6) {
         for (const auto &i: v) os << i << " ";
         return;
@@ -30,6 +30,16 @@ void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
     for (size_t i = 0; i < 3; i++) os << v[i] << " ";
     os << "... ";
     for (size_t i = v.size() - 3; i < v.size(); ++i) os << v[i] << " ";
+}
+
+static inline void output_partial_vector_byte(std::ostream &os, const std::vector<uint8_t> &v) {
+    if (v.size() <= 6) {
+        for (size_t i = 0; i < v.size(); ++i) os << static_cast<uint32_t>(v[i]) << " ";
+        return;
+    }
+    for (size_t i = 0; i < 3; ++i) os << static_cast<uint64_t>(v[i]) << " ";
+    os << "... ";
+    for (size_t i = v.size() - 3; i < v.size(); ++i) os << static_cast<uint64_t>(v[i]) << " ";
 }
 
 
@@ -376,7 +386,7 @@ public:
         else if (s.data_type == synnax::UINT64 || s.data_type == synnax::TIMESTAMP)
             output_partial_vector(os, s.values<uint64_t>());
         else if (s.data_type == synnax::UINT8)
-            output_partial_vector(os, s.values<uint8_t>());
+            output_partial_vector_byte(os, s.values<uint8_t>());
         else if (s.data_type == synnax::INT32)
             output_partial_vector(os, s.values<int32_t>());
         else if (s.data_type == synnax::INT16)

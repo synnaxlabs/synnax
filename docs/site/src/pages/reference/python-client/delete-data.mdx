@@ -6,6 +6,7 @@ description: "Use the Python client to delete data from a Synnax cluster."
 import { Divider } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro"
 export const components = { pre: Code }
+import Note from "@/components/Note.astro";
 
 The Synnax client allows deletion of time ranges of data in any channel: after each
 deletion operation is complete, all future reads will no longer include the deleted data.
@@ -42,6 +43,11 @@ client.delete(
     sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(sy.TimeStamp(3 * sy.TimeSpan.SECOND))
 )
 ```
+
+<Note variant="warning">
+    Using channel name(s) to delete data will delete data in <b>all</b> channels with the
+    given name(s). Using keys to delete is more preferable to prevent accidental deletion!
+</Note>
 
 Note that `delete` is idempotent, meaning consecutive calls to `delete` on overlapping
 time ranges are allowed:

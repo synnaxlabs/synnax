@@ -1,4 +1,3 @@
-import { BaseTypedError, TypedError } from "@synnaxlabs/freighter";
 import { MatchableErrorType } from "@synnaxlabs/freighter/src/errors";
 import { describe, expect, test } from "vitest";
 

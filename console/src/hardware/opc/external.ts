@@ -21,3 +21,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const SELECTABLES: Layout.Selectable[] = Task.SELECTABLES;
+
+export const MAKE = "opc";

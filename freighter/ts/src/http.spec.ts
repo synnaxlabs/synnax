@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary,URL } from "@synnaxlabs/x";
+import { binary, URL } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -20,7 +20,7 @@ const ENDPOINT = new URL({
   pathPrefix: "unary",
 });
 
-const client = new HTTPClient(ENDPOINT, new binary.JSONEncoderDecoder());
+const client = new HTTPClient(ENDPOINT, new binary.JSONCodec());
 
 const messageZ = z.object({
   id: z.number().optional(),

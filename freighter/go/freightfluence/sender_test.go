@@ -55,7 +55,7 @@ var _ = Describe("Sender", func() {
 				receiver := &freightfluence.Receiver[int]{}
 				receiver.Receiver = server
 				receiver.OutTo(receiverStream)
-				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
+				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				return sCtx.Wait()
 			})
 		})
@@ -138,7 +138,7 @@ var _ = Describe("Sender", func() {
 					defer cancel()
 					receiver := &freightfluence.Receiver[int]{Receiver: serverStream}
 					receiver.OutTo(receiverStream)
-					receiver.Flow(serverCtx, confluence.CloseInletsOnExit())
+					receiver.Flow(serverCtx, confluence.CloseOutputInletsOnExit())
 					return serverCtx.Wait()
 				})
 				clientStream, err := clientTransport.Stream(sCtx, stream.Address)

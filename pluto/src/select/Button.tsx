@@ -87,11 +87,16 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 };
 
 const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+  entry,
   onClick,
   selected,
   title,
 }: ButtonOptionProps<K, E>): JSX.Element => (
-  <CoreButton.Button onClick={onClick} variant={selected ? "filled" : "outlined"}>
+  <CoreButton.Button
+    key={entry.key}
+    onClick={onClick}
+    variant={selected ? "filled" : "outlined"}
+  >
     {title as ReactNode}
   </CoreButton.Button>
 );

@@ -20,7 +20,6 @@ export const componentRenderProp =
   <P extends Record<string, any>, R = ReactElement | null>(
     Component: React.ComponentType<P>,
   ): RenderProp<P, R> =>
-   
   ({ key, ...props }) =>
     (<Component key={key} {...(props as P)} />) as R;
 

@@ -166,6 +166,8 @@ I can successfully:
   view.
 - [ ] Create a new schematic from the command search bar.
 - [ ] Move the schematic to a new mosaic.
+- [ ] Download a schematic from the context menu.
+- [ ] Drag a schematic from the files folder into the mosaic and have it load.
 - [ ] Rename a schematic in the resources view.
 - [ ] Delete a schematic in the resources context menu.
 - [ ] Snapshot a schematic in the resources context menu.
@@ -184,6 +186,7 @@ I can successfully:
 - [ ] Delete a workspace in the resources view.
 - [ ] Create a new line plot in a workspace.
 - [ ] Create a new schematic in a workspace.
+- [ ] Import a schematic from the context menu.
 - [ ] Rename a line plot in a workspace.
 - [ ] Rename a schematic in a workspace.
 - [ ] Delete a line plot in a workspace.
@@ -228,6 +231,11 @@ I can successfully:
 - [ ] Single Sampling - Auto-generate timestamps on the driver.
 - [ ] Single Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - Read from multiple channels in array-sampling mode.
+- [ ] Array Sampling - Read from multiple channels in array-sampling mode with
+  different array sizes. 
+    - [ ] 1
+    - [ ] 10
+    - [ ] 100
 - [ ] Array Sampling - Auto-generate timestamps on the driver.
 - [ ] Array Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - The driver will not crash if I specify an improper array size.
@@ -237,6 +245,7 @@ based on the configured OPC UA node.
 - [ ]	Maintain operation of the driver when a device is disconnected or a channel is 
 removed from the device while it is running.
 - [ ]	Enable and disable data saving at will.
+- [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
 
 ### National Instruments
 
@@ -252,6 +261,9 @@ I can successfully:
 - [ ] Save device configuration.
 - [ ] Not see chassis devices connected to the machine
 - [ ] See devices connected to a chassis
+- [ ] Run the driver without the Daqmx and Syscfg libraries installed on the machine.
+- [ ] Get feedback when trying to create an NI task on a machine that doesn't have the 
+  required libraries installed.
 
 #### Read Task
 
@@ -349,6 +361,8 @@ I can successfully:
        device)
      - [ ] Out of range values
      - [ ] Multiple tasks using the same channel
+- [ ] Shut down the driver with an embedded driver without receiving an error from
+the driver routine.
 
 ### Other
 

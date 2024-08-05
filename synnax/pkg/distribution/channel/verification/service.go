@@ -16,13 +16,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/synnaxlabs/x/types"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -35,8 +34,7 @@ type Config struct {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{
+	DefaultConfig = Config{
 		WarningTime:   7 * 24 * time.Hour,
 		CheckInterval: 24 * time.Hour,
 	}
@@ -59,7 +57,8 @@ func (c Config) Validate() error {
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ins = override.Zero(c.Ins, other.Ins)
-	c.WarningTime = override.If(c.WarningTime, other.WarningTime, other.WarningTime.Nanoseconds() != 0)
+	c.WarningTime = override.If(c.WarningTime, other.WarningTime,
+		other.WarningTime.Nanoseconds() != 0)
 	return c
 }
 
@@ -74,10 +73,8 @@ func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	service := &Service{Config: cfg}
-
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(service.Ins))
 	service.shutdown = signal.NewShutdown(sCtx, cancel)
-
 	var ctx context.Context
 	if toOpen == "" {
 		_, err := service.retrieve(ctx)
@@ -86,21 +83,29 @@ func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
 			return service, nil
 		}
 		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
-		sCtx.Go(service.logTheDog)
+		sCtx.Go(
+			service.logTheDog,
+			signal.WithRetryOnPanic(),
+			signal.WithBaseRetryInterval(2*time.Second),
+			signal.WithRetryScale(1.1),
+		)
 		return service, nil
 	}
-
 	err = service.create(ctx, toOpen)
 	if err != nil {
 		return service, err
 	}
-	sCtx.Go(service.logTheDog)
-	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQ="))
-
+	sCtx.Go(
+		service.logTheDog,
+		signal.WithRetryOnPanic(),
+		signal.WithBaseRetryInterval(2*time.Second),
+		signal.WithRetryScale(1.1),
+	)
+	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
+		strconv.Itoa(int(getNumChan(toOpen))) + decode("IGNoYW5uZWxz"))
 	return service, err
 }
 
-// Close will shutdown the service
 func (s *Service) Close() error {
 	return s.shutdown.Close()
 }
@@ -113,18 +118,15 @@ func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
 		}
 		return nil
 	}
-
 	if whenStale(key).Before(time.Now()) {
 		if inUse > freeCount {
 			return errStale
 		}
 		return nil
 	}
-
 	if channelsAllowed := getNumChan(key); inUse > channelsAllowed {
 		return errTooMany(int(channelsAllowed))
 	}
-
 	return nil
 }
 
@@ -149,7 +151,6 @@ func (s *Service) logTheDog(ctx context.Context) error {
 	staleTime := whenStale(key)
 	ticker := time.NewTicker(s.CheckInterval)
 	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -170,7 +171,7 @@ func (s *Service) logTheDog(ctx context.Context) error {
 }
 
 func errTooMany(count int) error {
-	msg := decode("dXNpbmcgbW9yZSB0aGFuIA==") + strconv.Itoa(count) +
-		decode("IGNoYW5uZWxzIGFsbG93ZWQ=")
+	msg := decode("dHJ5aW5nIHRvIHVzZSBtb3JlIHRoYW4gdGhlIGxpbWl0IG9mIA==") +
+		strconv.Itoa(count) + decode("IGNoYW5uZWxzIGFsbG93ZWQ=")
 	return errors.New(msg)
 }

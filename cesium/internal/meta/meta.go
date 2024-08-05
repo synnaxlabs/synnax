@@ -25,25 +25,25 @@ const metaFile = "meta.json"
 // encoded by the provided encoder. If the file does not exist, it will be created. If
 // the file does exist, it will be read and returned. The provided channel should have
 // all fields required by the DB correctly set.
-func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.Codec) (core.Channel, error) {
+func ReadOrCreate(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
 		return ch, err
 	}
 	if exists {
-		ch, err = Read(fs, ecd)
+		ch, err = Read(fs, codec)
 		if err != nil {
 			return ch, err
 		}
 		return ch, validateMeta(ch)
 	}
 
-	return ch, Create(fs, ecd, ch)
+	return ch, Create(fs, codec, ch)
 }
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(fs xfs.FS, ecd binary.Codec) (core.Channel, error) {
+func Read(fs xfs.FS, codec binary.Codec) (core.Channel, error) {
 	s, err := fs.Stat("")
 	if err != nil {
 		return core.Channel{}, err
@@ -53,7 +53,7 @@ func Read(fs xfs.FS, ecd binary.Codec) (core.Channel, error) {
 	if err != nil {
 		return ch, err
 	}
-	if err = ecd.DecodeStream(nil, metaF, &ch); err != nil {
+	if err = codec.DecodeStream(nil, metaF, &ch); err != nil {
 		return ch, errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
 	}
 	return ch, metaF.Close()
@@ -62,7 +62,7 @@ func Read(fs xfs.FS, ecd binary.Codec) (core.Channel, error) {
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
-func Create(fs xfs.FS, ecd binary.Codec, ch core.Channel) error {
+func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
 	err := validateMeta(ch)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func Create(fs xfs.FS, ecd binary.Codec, ch core.Channel) error {
 	if err != nil {
 		return err
 	}
-	b, err := ecd.Encode(nil, ch)
+	b, err := codec.Encode(nil, ch)
 	if err != nil {
 		return err
 	}

@@ -17,6 +17,7 @@ import {
   type ReactElement,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import {
   Handle as RFHandle,
@@ -945,17 +946,15 @@ export const Switch = ({
   enabled = false,
   onClick,
   orientation = "left",
-}: SwitchProps): ReactElement => {
-  return (
-    <Div orientation={orientation}>
-      <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} />
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      </HandleBoundary>
-    </Div>
-  );
-};
+}: SwitchProps): ReactElement => (
+  <Div orientation={orientation}>
+    <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} />
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+    </HandleBoundary>
+  </Div>
+);
 
 export interface ButtonProps extends Omit<DivProps, "onClick"> {
   label?: string;
@@ -966,22 +965,76 @@ export const Button = ({
   onClick,
   orientation = "left",
   label = "",
-}: ButtonProps): ReactElement => {
+}: ButtonProps): ReactElement => (
+  <Div orientation={orientation}>
+    <CoreButton.Button onClick={onClick}>{label}</CoreButton.Button>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+    </HandleBoundary>
+  </Div>
+);
+
+export interface SetpointProps
+  extends Omit<DivProps, "onClick" | "value" | "onChange">,
+    Input.Control<number> {
+  dimensions?: dimensions.Dimensions;
+  color?: Color.Crude;
+  units?: string;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+}
+
+export const Setpoint = ({
+  orientation = "left",
+  className,
+  onClick,
+  children,
+  value,
+  units,
+  onChange,
+  ...props
+}: SetpointProps): ReactElement => {
+  const [currValue, setCurrValue] = useState(value);
   return (
-    <Div orientation={orientation}>
-      <CoreButton.Button onClick={onClick}>{label}</CoreButton.Button>
+    <Div
+      className={CSS(CSS.B("setpoint"), className)}
+      orientation={orientation}
+      {...props}
+    >
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+        <Handle location="left" orientation={orientation} left={-2} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={102} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
         <Handle
           location="bottom"
           orientation={orientation}
           left={50}
-          top={100}
+          top={102}
           id="4"
         />
       </HandleBoundary>
+      <Input.Numeric
+        size="small"
+        value={currValue}
+        onChange={setCurrValue}
+        showDragHandle={false}
+        selectOnFocus
+      >
+        {units != "" && (
+          <Text.Text className={CSS.B("units")} noWrap={true} level="small">
+            {units}
+          </Text.Text>
+        )}
+        <CoreButton.Button
+          variant="outlined"
+          size="small"
+          onClick={() => onChange(currValue)}
+        >
+          Set
+        </CoreButton.Button>
+      </Input.Numeric>
     </Div>
   );
 };

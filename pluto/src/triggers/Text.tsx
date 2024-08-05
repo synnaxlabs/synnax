@@ -10,7 +10,6 @@
 import { Icon } from "@synnaxlabs/media";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { Text as Core } from "@/text";
 import { type Key, type Trigger } from "@/triggers/triggers";
 

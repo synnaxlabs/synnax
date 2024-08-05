@@ -18,10 +18,10 @@ import (
 )
 
 var _ = Describe("Rate", func() {
-	DescribeTable("Distance", func(tr telem.TimeRange, expected index.DistanceApproximation) {
+	DescribeTable("Distance", func(tr telem.TimeRange, expected index.Approximation[int64]) {
 		idx := index.Rate{Rate: 1 * telem.Hz}
 		actual, _ := MustSucceed2(idx.Distance(ctx, tr, true))
-		Expect(actual).To(Equal(expected))
+		Expect(actual.Approximation).To(Equal(expected))
 	},
 		Entry("Zero zero",
 			telem.TimeRangeZero,

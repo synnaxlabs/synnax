@@ -51,6 +51,6 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 	plumber.SetSink[Response](pipe, "sender", sender)
 	plumber.MustConnect[Request](pipe, "tap", "streamer", 1)
 	plumber.MustConnect[Response](pipe, "streamer", "sender", 1)
-	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
+	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
 	return sCtx.Wait()
 }

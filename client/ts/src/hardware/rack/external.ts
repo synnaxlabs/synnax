@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hardware/rack/client";
+export * from "@/hardware/rack/payload";

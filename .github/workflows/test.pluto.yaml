@@ -24,7 +24,7 @@ jobs:
           filters: |
             changed:
               - "pluto/**"
-              - ".github/workflows/pluto.test.yaml"
+              - ".github/workflows/test.pluto.yaml"
 
       - name: Set up pnpm
         if: steps.filter.outputs.changed == 'true'

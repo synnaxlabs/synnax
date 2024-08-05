@@ -31,7 +31,7 @@ const MessageSchema = z.object({
   message: z.string().optional(),
 });
 
-const client = new WebSocketClient(url, new binary.JSONEncoderDecoder());
+const client = new WebSocketClient(url, new binary.JSONCodec());
 
 class MyCustomError extends BaseTypedError {
   code: number;
@@ -105,7 +105,7 @@ describe("websocket", () => {
   });
 
   test("middleware", async () => {
-    const myClient = new WebSocketClient(url, new binary.JSONEncoderDecoder());
+    const myClient = new WebSocketClient(url, new binary.JSONCodec());
     let c = 0;
     myClient.use(async (md, next): Promise<[Context, Error | null]> => {
       if (md.params !== undefined) {

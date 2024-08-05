@@ -42,6 +42,12 @@
 #include "driver/errors/errors.h"
 #include "driver/loop/loop.h"
 
+#ifdef _WIN32
+#include "dll_check_windows.h"
+#else
+#include "dll_check_linux.h"
+#endif
+
 namespace ni {
 inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Volts", DAQmx_Val_Volts},
@@ -413,6 +419,8 @@ public:
 
     void create_devices();
 
+    void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
+
 private:
     json get_device_properties(NISysCfgResourceHandle resource);
 
@@ -423,6 +431,7 @@ private:
     NISysCfgEnumResourceHandle resources_handle;
     synnax::Task task;
     std::shared_ptr<task::Context> ctx;
+    std::shared_ptr<std::thread> scan_thread = nullptr; //optional scan thread a task could be running
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -448,6 +457,8 @@ public:
 
     void stop() override;
 
+    std::string name() override { return task.name; }
+
     bool ok();
 
     ~ScannerTask();
@@ -457,9 +468,9 @@ private:
     ni::Scanner scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
-    std::thread thread;
+    std::shared_ptr<std::thread> thread;
     bool ok_state = true;
-    synnax::Rate scan_rate = synnax::Rate(100);
+    synnax::Rate scan_rate = synnax::Rate(1);
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -481,6 +492,8 @@ public:
     void start();
 
     bool ok();
+
+    std::string name() override { return task.name; }
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
@@ -523,6 +536,8 @@ public:
 
     bool ok();
 
+    std::string name() override { return task.name; }
+
 private:
     std::atomic<bool> running = false;
     std::shared_ptr<task::Context> ctx;
@@ -550,5 +565,55 @@ public:
 
 private:
     bool dlls_present = false;
+
 };
+
+static inline bool dlls_available(){
+        std::vector<std::string> dlls = {
+        "nicaiu.dll",
+        "nipalu.dll",
+        "nimdbgu.dll",
+        "nidmxfu.dll",
+        "niorbu.dll",
+        "nimxdfu.dll",
+        "nimru2u.dll",
+        "nipalut.dll",
+        "nicrtsiu.dll",
+        "nimhwcfu.dll",
+        "nidimu.dll",
+        "nirpc.dll",
+        "nimdnsResponder.dll",
+        "nirocoapi.dll",
+        "nisysapi.dll",
+        "niprtsiu.dll",
+        "nicdru.dll",
+        "nicpcie.dll",
+        "nimxif.dll",
+        "nicmmu.dll",
+        "nipxices.dll",
+        "nicsru.dll",
+        "nisdsapi.dll",
+        "nicdxu.dll",
+        "nicdccu.dll",
+        "nisdlib.dll",
+        "nieccu.dll",
+        "nicntdrv.dll",
+        "niemru.dll",
+        "nicmru.dll",
+        "nilmsu.dll",
+        "nisdigu.dll",
+        "nisciu.dll",
+        "nistc3ru.dll",
+        "nixfmrru.dll",
+        "nixsru.dll",
+    };
+
+    bool d = true;
+    for (const auto &dll: dlls) 
+        if (!does_dll_exist(dll.c_str())) 
+            d = false;
+    if (d) LOG(INFO) << "[ni] All required DLLs found.";
+    return d;
+}
+
 }

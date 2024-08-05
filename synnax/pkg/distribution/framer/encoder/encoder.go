@@ -20,16 +20,16 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type DecoderEncoder struct {
+type Codec struct {
 	dtypes []telem.DataType
 	keys   channel.Keys
 }
 
-func New(DataTypes []telem.DataType, ChannelKeys channel.Keys) DecoderEncoder {
-	return DecoderEncoder{dtypes: DataTypes, keys: ChannelKeys}
+func New(DataTypes []telem.DataType, ChannelKeys channel.Keys) Codec {
+	return Codec{dtypes: DataTypes, keys: ChannelKeys}
 }
 
-func (m DecoderEncoder) Encode(src framer.Frame) (dst []byte, err error) {
+func (m Codec) Encode(src framer.Frame) (dst []byte, err error) {
 	var (
 		curDataSize, index               int             = -1, 0
 		startTime, endTime               telem.TimeStamp = 0, 0
@@ -140,7 +140,7 @@ func (m DecoderEncoder) Encode(src framer.Frame) (dst []byte, err error) {
 	return encoded, nil
 }
 
-func (m DecoderEncoder) Decode(src []byte) (dst framer.Frame, err error) {
+func (m Codec) Decode(src []byte) (dst framer.Frame, err error) {
 	var (
 		returnStruct                                   = framer.Frame{}
 		sizeFlag, alignFlag, channelFlag, index int    = 0, 0, 0, 0

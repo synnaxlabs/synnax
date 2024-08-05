@@ -49,10 +49,7 @@ async def main():
             while True:
                 value = await var.read_value()
                 print(f"Value of MyVariable ({var}): {value}")
-                w.write({
-                    ch.key: sy.TimeStamp.now(),
-                    data.key: value
-                })
+                w.write({ch.key: sy.TimeStamp.now(), data.key: value})
                 await asyncio.sleep(0.01)
         #
         # new_value = value - 50

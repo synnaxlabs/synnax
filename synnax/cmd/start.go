@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
-	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/hardware"
 	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
 	"github.com/synnaxlabs/synnax/pkg/label"
@@ -54,6 +55,17 @@ import (
 	insecureGRPC "google.golang.org/grpc/credentials/insecure"
 )
 
+const stopKeyWord = "stop"
+
+func scanForStopKeyword(interruptC chan os.Signal) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if scanner.Text() == stopKeyWord {
+			interruptC <- os.Interrupt
+		}
+	}
+}
+
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
@@ -70,10 +82,6 @@ will bootstrap a new cluster.
 	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
-var (
-	stopKeyWord = "stop"
-)
-
 // start a Synnax node using the configuration specified by the command line flags,
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
@@ -81,9 +89,9 @@ func start(cmd *cobra.Command) {
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
 		ins, prettyLogger = configureInstrumentation(v)
-		insecure          = viper.GetBool("insecure")
-		debug             = viper.GetBool("debug")
-		autoCert          = viper.GetBool("auto-cert")
+		insecure          = viper.GetBool(insecureFlag)
+		debug             = viper.GetBool(debugFlag)
+		autoCert          = viper.GetBool(autoCertFlag)
 		verifier          = viper.GetString(string(decodedName))
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
@@ -107,14 +115,9 @@ func start(cmd *cobra.Command) {
 	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(ins))
 	defer cancel()
 
-	go func() {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			if scanner.Text() == stopKeyWord {
-				interruptC <- os.Interrupt
-			}
-		}
-	}()
+	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
+	// It's fine to let this get garbage collected.
+	go scanForStopKeyword(interruptC)
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
@@ -125,18 +128,17 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		// An array to hold the grpcTransports we use for cluster internal communication.
-		grpcTransports := &[]fgrpc.BindableTransport{}
-
-		grpcPool := configureClientGRPC(secProvider, insecure)
+		// An array to hold the grpcServerTransports we use for cluster internal communication.
+		grpcServerTransports := &[]fgrpc.BindableTransport{}
+		grpcClientPool := configureClientGRPC(secProvider, insecure)
 
 		// Open the distribution layer.
 		storageCfg := buildStorageConfig(ins)
 		distConfig, err := buildDistributionConfig(
-			grpcPool,
+			grpcClientPool,
 			ins,
 			storageCfg,
-			grpcTransports,
+			grpcServerTransports,
 			verifier,
 		)
 		if err != nil {
@@ -157,6 +159,10 @@ func start(cmd *cobra.Command) {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 		})
+		if err != nil {
+			return err
+		}
+		accessSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
 		if err != nil {
 			return err
 		}
@@ -205,7 +211,7 @@ func start(cmd *cobra.Command) {
 		}()
 
 		// Provision the root user.
-		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
+		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, accessSvc); err != nil {
 			return err
 		}
 
@@ -213,7 +219,7 @@ func start(cmd *cobra.Command) {
 		_api, err := api.New(api.Config{
 			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
-			Enforcer:        access.AllowAll{},
+			Access:          accessSvc,
 			Schematic:       schematicSvc,
 			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
@@ -235,16 +241,19 @@ func start(cmd *cobra.Command) {
 		}
 
 		// Configure the HTTP API Transport.
-		r := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
+		r := fhttp.NewRouter(fhttp.RouterConfig{
+			Instrumentation:     ins,
+			StreamWriteDeadline: viper.GetDuration(slowConsumerTimeoutFlag),
+		})
 		_api.BindTo(httpapi.New(r))
 
 		// Configure the GRPC API Transport.
 		grpcAPI, grpcAPITrans := grpcapi.New()
-		*grpcTransports = append(*grpcTransports, grpcAPITrans...)
+		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 
 		srv, err := server.New(buildServerConfig(
-			*grpcTransports,
+			*grpcServerTransports,
 			[]fhttp.BindableTransport{r},
 			secProvider,
 			ins,
@@ -256,7 +265,10 @@ func start(cmd *cobra.Command) {
 		sCtx.Go(func(_ context.Context) error {
 			defer cancel()
 			return srv.Serve()
-		}, xsignal.WithKey("server"))
+		},
+			xsignal.WithKey("server"),
+			xsignal.RecoverWithErrOnPanic(),
+		)
 		defer srv.Stop()
 
 		d, err := embedded.OpenDriver(
@@ -274,11 +286,14 @@ func start(cmd *cobra.Command) {
 			err = errors.CombineErrors(err, d.Stop())
 		}()
 
-		prettyLogger.Info("\033[32mSynnax is running and available at " + viper.GetString("listen") + "\033[0m")
+		prettyLogger.Info("\033[32mSynnax is running and available at " + viper.GetString(listenFlag) + "\033[0m")
 
 		<-ctx.Done()
 		return err
-	}, xsignal.WithKey("start"))
+	},
+		xsignal.WithKey("start"),
+		xsignal.RecoverWithErrOnPanic(),
+	)
 
 	select {
 	case <-interruptC:
@@ -307,13 +322,13 @@ func buildStorageConfig(
 ) storage.Config {
 	return storage.Config{
 		Instrumentation: ins.Child("storage"),
-		MemBacked:       config.Bool(viper.GetBool("mem")),
-		Dirname:         viper.GetString("data"),
+		MemBacked:       config.Bool(viper.GetBool(memFlag)),
+		Dirname:         viper.GetString(dataFlag),
 	}
 }
 
 func parsePeerAddresses() ([]address.Address, error) {
-	peerStrings := viper.GetStringSlice("peers")
+	peerStrings := viper.GetStringSlice(peersFlag)
 	peerAddresses := make([]address.Address, len(peerStrings))
 	for i, listenString := range peerStrings {
 		peerAddresses[i] = address.Address(listenString)
@@ -331,7 +346,7 @@ func buildDistributionConfig(
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
 		Instrumentation:  ins.Child("distribution"),
-		AdvertiseAddress: address.Address(viper.GetString("listen")),
+		AdvertiseAddress: address.Address(viper.GetString(listenFlag)),
 		PeerAddresses:    peers,
 		Pool:             pool,
 		Storage:          storage,
@@ -353,10 +368,10 @@ func buildServerConfig(
 		server.NewHTTPRedirectBranch(),
 	)
 	cfg.Debug = config.Bool(debug)
-	cfg.ListenAddress = address.Address(viper.GetString("listen"))
+	cfg.ListenAddress = address.Address(viper.GetString(listenFlag))
 	cfg.Instrumentation = ins.Child("server")
 	cfg.Security.TLS = sec.TLS()
-	cfg.Security.Insecure = config.Bool(viper.GetBool("insecure"))
+	cfg.Security.Insecure = config.Bool(viper.GetBool(insecureFlag))
 	return cfg
 }
 
@@ -366,13 +381,13 @@ func buildEmbeddedDriverConfig(
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
-		Enabled:         config.Bool(!viper.GetBool("no-driver")),
+		Enabled:         config.Bool(!viper.GetBool(noDriverFlag)),
 		Instrumentation: ins,
-		Address:         address.Address(viper.GetString("listen")),
+		Address:         address.Address(viper.GetString(listenFlag)),
 		RackName:        rackName,
-		Username:        viper.GetString("username"),
-		Password:        viper.GetString("password"),
-		Debug:           config.Bool(viper.GetBool("debug")),
+		Username:        viper.GetString(usernameFlag),
+		Password:        viper.GetString(passwordFlag),
+		Debug:           config.Bool(viper.GetBool(debugFlag)),
 	}
 	if insecure {
 		return cfg
@@ -388,7 +403,7 @@ func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Prov
 	return security.NewProvider(security.ProviderConfig{
 		LoaderConfig: buildCertLoaderConfig(ins),
 		Insecure:     config.Bool(insecure),
-		KeySize:      viper.GetInt("key-size"),
+		KeySize:      viper.GetInt(keySizeFlag),
 	})
 }
 
@@ -397,20 +412,33 @@ func maybeProvisionRootUser(
 	db *gorp.DB,
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
+	accessSvc *rbac.Service,
 ) error {
 	creds := auth.InsecureCredentials{
-		Username: viper.GetString("username"),
-		Password: password.Raw(viper.GetString("password")),
+		Username: viper.GetString(usernameFlag),
+		Password: password.Raw(viper.GetString(passwordFlag)),
 	}
 	exists, err := userSvc.UsernameExists(ctx, creds.Username)
 	if err != nil || exists {
 		return err
 	}
+
+	// Register the user first.
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err = authSvc.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
 		}
-		return userSvc.NewWriter(tx).Create(ctx, &user.User{Username: creds.Username})
+		userObj := user.User{Username: creds.Username}
+		if err = userSvc.NewWriter(tx).Create(ctx, &userObj); err != nil {
+			return err
+		}
+		return accessSvc.NewWriter(tx).Create(
+			ctx,
+			&rbac.Policy{
+				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},
+				Objects:  []ontology.ID{rbac.AllowAll},
+			},
+		)
 	})
 }
 

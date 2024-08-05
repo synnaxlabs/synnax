@@ -32,7 +32,7 @@ var _ = Describe("Emitter", func() {
 		defer cancel()
 		stream := NewStream[int](0)
 		e.OutTo(stream)
-		e.Flow(ctx, CloseInletsOnExit())
+		e.Flow(ctx, CloseOutputInletsOnExit())
 		var received []int
 		for v := range stream.Outlet() {
 			received = append(received, v)
@@ -50,7 +50,7 @@ var _ = Describe("Emitter", func() {
 		defer cancel()
 		stream := NewStream[int](0)
 		e.OutTo(stream)
-		e.Flow(ctx, CloseInletsOnExit())
+		e.Flow(ctx, CloseOutputInletsOnExit())
 		Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("exited")))
 		_, ok := <-stream.Outlet()
 		Expect(ok).To(BeFalse())

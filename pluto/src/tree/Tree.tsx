@@ -61,6 +61,7 @@ export interface UseReturn {
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   expand: (key: string) => void;
   contract: (key: string) => void;
+  clearExpanded: () => void;
   nodes: FlattenedNode[];
 }
 
@@ -128,6 +129,8 @@ export const use = (props: UseProps): UseReturn => {
     [setExpanded],
   );
 
+  const clearExpanded = useCallback(() => setExpanded([]), [setExpanded]);
+
   return {
     onSelect: handleSelect,
     selected,
@@ -135,15 +138,17 @@ export const use = (props: UseProps): UseReturn => {
     contract: handleContract,
     expand: handleExpand,
     nodes: flat,
+    clearExpanded,
   };
 };
 
 export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
+  key?: string;
   onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
   onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
   onRename?: (key: string, name: string) => void;
   onDoubleClick?: (key: string, e: React.MouseEvent) => void;
-  loading?: boolean;
+  loading: boolean;
   useMargin?: boolean;
 }
 
@@ -162,11 +167,13 @@ type TreePropsInheritedFromList = Omit<
 export interface TreeProps
   extends TreePropsInheritedFromItem,
     TreePropsInheritedFromList,
-    Optional<UseReturn, "selected" | "expand" | "contract"> {
+    Optional<UseReturn, "selected" | "expand" | "contract">,
+    Pick<List.ListProps, "emptyContent"> {
   nodes: FlattenedNode[];
   children?: RenderProp<ItemProps>;
   virtual?: boolean;
   showRules?: boolean;
+  loading?: string | null | false;
 }
 
 export type Item = FC<ItemProps>;
@@ -247,7 +254,7 @@ export const DefaultItem = memo(
       startDrag(
         [
           { type: HAUL_TYPE, key, data: { depth } },
-          ...haulItems.map((item) => ({ ...item, data: { depth } })),
+          ...haulItems.map((item) => ({ ...item, data: { ...item.data, depth } })),
         ],
         (props) => onSuccessfulDrop?.(key, props),
       );
@@ -258,7 +265,7 @@ export const DefaultItem = memo(
     const baseProps: Button.LinkProps | Button.ButtonProps = {
       id: key,
       variant: "text",
-      draggable: onDrop != null,
+      draggable: haulItems.length > 0,
       className: CSS(
         CSS.BE("list", "item"),
         CONTEXT_TARGET,
@@ -322,14 +329,16 @@ export const Tree = ({
   useMargin = false,
   showRules = false,
   virtual = true,
+  clearExpanded: ___,
   expand: __,
   contract: _,
+  emptyContent,
+  loading,
   ...props
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
-
   return (
-    <List.List<string, FlattenedNode> data={nodes}>
+    <List.List<string, FlattenedNode> data={nodes} emptyContent={emptyContent}>
       <List.Selector<string, FlattenedNode>
         value={selected}
         onChange={onSelect}
@@ -344,6 +353,8 @@ export const Tree = ({
           {({ key, ...props }) =>
             children({
               ...props,
+              key,
+              loading: loading === key,
               useMargin,
               onDrop,
               onRename,

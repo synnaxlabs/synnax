@@ -14,24 +14,17 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { type framer } from "@/framer";
+import {
+  NewRack,
+  newRackZ,
+  RackKey,
+  rackKeyZ,
+  RackPayload,
+  rackZ,
+} from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
-
-export const rackKeyZ = z.number();
-
-export type RackKey = z.infer<typeof rackKeyZ>;
-
-export const rackZ = z.object({
-  key: rackKeyZ,
-  name: z.string(),
-});
-
-export type RackPayload = z.infer<typeof rackZ>;
-
-export const newRackZ = rackZ.partial({ key: true });
-
-export type NewRack = z.input<typeof newRackZ>;
 
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_RACK_ENDPOINT = "/hardware/rack/create";
@@ -192,3 +185,5 @@ export class Rack {
     await this.tasks.delete([task]);
   }
 }
+export { rackKeyZ };
+

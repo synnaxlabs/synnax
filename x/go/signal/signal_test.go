@@ -11,13 +11,17 @@ package signal_test
 
 import (
 	"context"
+	"runtime/pprof"
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/atomic"
+	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"runtime/pprof"
-	"time"
 )
 
 func immediatelyReturnError(ctx context.Context) error {
@@ -256,7 +260,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(inc1, signal.WithMaxRestart(100), signal.RecoverWithErrOnPanic())
+			ctx.Go(inc1, signal.WithBreaker(breaker.Config{MaxRetries: 100, BaseInterval: 1 * time.Millisecond, Scale: 1.01}), signal.RecoverWithErrOnPanic())
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
 			Expect(counter).To(Equal(101))
@@ -272,12 +276,108 @@ var _ = Describe("Signal", func() {
 			)
 
 			ctx, _ := signal.Isolated()
-			ctx.Go(inc1, signal.WithMaxRestart(100), signal.RecoverWithoutErrOnPanic())
+			ctx.Go(inc1, signal.WithBreaker(breaker.Config{MaxRetries: 100, BaseInterval: 1 * time.Millisecond, Scale: 1.01}), signal.RecoverWithoutErrOnPanic())
 
 			Expect(ctx.Wait()).ToNot(HaveOccurred())
 			Expect(counter).To(Equal(101))
 		})
 
+		It("Should indefinitely restart", func() {
+			var (
+				done = make(chan struct{})
+				wg   = sync.WaitGroup{}
+				f    = func(ctx context.Context) error {
+					select {
+					case <-ctx.Done():
+						return nil
+					default:
+						panic("panicking")
+					}
+				}
+			)
+
+			ctx, cancel := signal.Isolated()
+			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ctx.Wait()
+				close(done)
+			}()
+
+			cancel()
+			wg.Wait()
+			Eventually(done).Should(BeClosed())
+		})
+
+		It("Should wait exponentially more time", func() {
+			var (
+				done         = make(chan struct{})
+				counter      = atomic.Int64Counter{}
+				succeedInTen = func(ctx context.Context) error {
+					if counter.Add(1) < 10 {
+						panic("panicking")
+					}
+					return nil
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			start := time.Now()
+			ctx.Go(
+				succeedInTen,
+				signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 2}),
+				signal.RecoverWithErrOnPanic(),
+			)
+
+			go func() {
+				Expect(ctx.Wait()).ToNot(HaveOccurred())
+				close(done)
+			}()
+
+			Eventually(done).Should(BeClosed())
+			Expect(time.Now().Sub(start)).To(BeNumerically("~", 511*time.Millisecond, 20*time.Millisecond))
+		})
+
+	})
+
+	Describe("Regression", func() {
+		// This test was added to address the bug where if maxRestart is set, even in
+		// the case where the goroutine did not panic, it would attempt to restart.
+		// This is not the desired behaviour since a goroutine should not attempt to
+		// restart if it did not panic.
+		It("Should NOT restart if there was not a panic - definite restart", func() {
+			var (
+				counter = 0
+				f       = func(ctx context.Context) error {
+					counter += 1
+					return nil
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			ctx.Go(f, signal.WithRetryOnPanic(100))
+
+			Expect(ctx.Wait()).To(Succeed())
+			Expect(counter).To(Equal(1))
+		})
+
+		It("Should NOT restart if there was not a panic - infinite restart", func() {
+			var (
+				counter = 0
+				f       = func(ctx context.Context) error {
+					counter += 1
+					return nil
+				}
+			)
+
+			ctx, _ := signal.Isolated()
+			ctx.Go(f, signal.WithRetryOnPanic())
+
+			Expect(ctx.Wait()).To(Succeed())
+			Expect(counter).To(Equal(1))
+		})
 	})
 
 })

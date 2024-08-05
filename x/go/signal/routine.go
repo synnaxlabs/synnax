@@ -12,11 +12,14 @@ package signal
 import (
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/errors"
-	"go.uber.org/zap"
 	"runtime/pprof"
 	"strconv"
+	"time"
+
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/breaker"
+	"github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 )
 
 type RoutineOption func(r *routineOptions)
@@ -93,14 +96,18 @@ func DeferErr(f func() error, opts ...RoutineOption) RoutineOption {
 	}
 }
 
+// WithKey attaches a key to identify the routine.
 func WithKey(key string) RoutineOption { return func(r *routineOptions) { r.key = key } }
 
+// WithKeyf attaches a formatted string to identify the routine.
 func WithKeyf(format string, args ...interface{}) RoutineOption {
 	return func(r *routineOptions) {
 		r.key = fmt.Sprintf(format, args...)
 	}
 }
 
+// AddCallerSkip sets the callerSkip on the routine. The callerSkip is the number of
+// stacks to skip when logging.
 func AddCallerSkip(skip int) RoutineOption {
 	return func(r *routineOptions) {
 		r.callerSkip = skip
@@ -130,13 +137,51 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 	}
 }
 
-// WithMaxRestart sets the maximum number of attempted restarts after panicking.
-// It does not configure a panicPolicy and thus the goroutine will panic after the
-// maximum restart attempts is reached. To set a panicPolicy use one of
-// RecoverWithErrOnPanic or RecoverWithoutErrOnPanic.
-func WithMaxRestart(maxRestart int) RoutineOption {
+// WithBreaker sets the breaker to use to enable the goroutine to attempt to rerun
+// despite a panic. The breaker controls the interval between two reruns as well as the
+// coefficient by which the interval grows.
+// When WithBreaker is used, the PanicPolicy of recoverErr is automatically used.
+func WithBreaker(breakerCfg breaker.Config) RoutineOption {
 	return func(r *routineOptions) {
-		r.maxRestart = maxRestart
+		r.breakerCfg = breakerCfg
+		r.useBreaker = true
+		r.panicPolicy = recoverErr
+	}
+}
+
+// WithBaseRetryInterval sets the base interval for the breaker used to restart the
+// goroutine. The base retry interval is how much time the breaker waits before trying
+// to restart for the first time. (Default: 1 second)
+func WithBaseRetryInterval(retryInterval time.Duration) RoutineOption {
+	return func(r *routineOptions) {
+		r.breakerCfg.BaseInterval = retryInterval
+		r.useBreaker = true
+	}
+}
+
+// WithRetryOnPanic attempts to recover from a panicking goroutine and restarts it.
+// If an argument is passed into it, it retries for the specified amount of time and
+// exits with an error if it panics on its last attempt.
+// If at any retry the goroutine exits with or without error, the goroutine exits and
+// no longer attempts to restart.
+func WithRetryOnPanic(maxRetries ...int) RoutineOption {
+	return func(r *routineOptions) {
+		if len(maxRetries) == 0 {
+			r.breakerCfg.MaxRetries = breaker.InfiniteRetries
+		} else {
+			r.breakerCfg.MaxRetries = maxRetries[0]
+		}
+		r.useBreaker = true
+		r.panicPolicy = recoverErr
+	}
+}
+
+// WithRetryScale sets the scale on the breaker used to restart the goroutine. The scale
+// defines the rate by which the interval between two retries grow. (Default: 1)
+func WithRetryScale(scale float32) RoutineOption {
+	return func(r *routineOptions) {
+		r.breakerCfg.Scale = scale
+		r.useBreaker = true
 	}
 }
 
@@ -171,9 +216,11 @@ type routineOptions struct {
 	contextPolicy contextPolicy
 	// panicPolicy defines what the routine should do if it panics.
 	panicPolicy panicPolicy
-	// maxRestart defines the maximum number of times a panicking goroutine attempts to
-	// restart before its panicPolicy kicks into place.
-	maxRestart int
+	// useBreaker determines whether a breaker is used in this routine to attempt to
+	// restart on panic.
+	useBreaker bool
+	// breakerCfg is used to direct control flow in the case where the routine panics.
+	breakerCfg breaker.Config
 	// callerSkip is the number of stack frames to skip when logging.
 	callerSkip int
 }
@@ -184,6 +231,8 @@ type routine struct {
 	L *alamos.Logger
 	// span traces the goroutine's execution.
 	span alamos.Span
+	// breaker is the circuit breaker used in the goroutine
+	breaker breaker.Breaker
 	// state represents the current state of the routine
 	state struct {
 		state RoutineState
@@ -206,6 +255,13 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 
 	if r.key == "" {
 		r.key = "anonymous-" + strconv.Itoa(len(r.ctx.mu.routines))
+	}
+
+	if r.useBreaker {
+		r.breaker, r.state.err = breaker.NewBreaker(r.ctx, r.breakerCfg)
+		if r.state.err != nil {
+			return r.ctx, false
+		}
 	}
 
 	r.ctx.mu.routines = append(r.ctx.mu.routines, r)
@@ -337,31 +393,24 @@ func (r *routine) goRun(f func(context.Context) error) {
 			r.ctx.mu.Lock()
 			r.state.state = Running
 			r.ctx.mu.Unlock()
+
 			r.ctx.internal.Go(func() (err error) {
-				for i := 0; i < r.maxRestart+1; i++ {
-					restart := false
-					if r.maxRestart != 0 && i != r.maxRestart {
-						// Before reaching the "last straw", restart the goroutine if
-						// recovered from a panic.
-						restart = true
-					}
+				for {
+					recovered := false
 					func() {
 						defer func() {
 							if e := recover(); e != nil {
-								if restart {
-									return
-								}
+								recovered = true
 								err = r.maybeRecover(e)
 							}
 						}()
 						err = f(ctx)
 					}()
-
-					if !restart {
-						err = r.runPostlude(err)
-						return
+					if !recovered || !r.useBreaker || !r.breaker.Wait() {
+						break
 					}
 				}
+				err = r.runPostlude(err)
 				return
 			})
 		})

@@ -20,9 +20,16 @@ import (
 func New(router *fhttp.Router) (t api.Transport) {
 	// AUTH
 	t.AuthLogin = fhttp.UnaryServer[auth.InsecureCredentials, api.TokenResponse](router, false, "/api/v1/auth/login")
-	t.AuthRegistration = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/auth/register")
-	t.AuthChangePassword = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/protected/change-password")
-	t.AuthChangeUsername = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/protected/change-username")
+
+	// USER
+	// Each endpoint has two routes since the route with /auth was used before Synnax
+	// V0.26.0, and were reclassified into the /user route after V0.26.0
+	t.UserRegistration = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/user/register")
+	t.UserRegistrationOld = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/auth/register")
+	t.UserChangePassword = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/user/protected/change-password")
+	t.UserChangePasswordOld = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/protected/change-password")
+	t.UserChangeUsername = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/user/protected/change-username")
+	t.UserChangeUsernameOld = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/protected/change-username")
 
 	// CHANNEL
 	t.ChannelCreate = fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, false, "/api/v1/channel/create")
@@ -106,6 +113,11 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.HardwareCreateDevice = fhttp.UnaryServer[api.HardwareCreateDeviceRequest, api.HardwareCreateDeviceResponse](router, false, "/api/v1/hardware/device/create")
 	t.HardwareRetrieveDevice = fhttp.UnaryServer[api.HardwareRetrieveDeviceRequest, api.HardwareRetrieveDeviceResponse](router, false, "/api/v1/hardware/device/retrieve")
 	t.HardwareDeleteDevice = fhttp.UnaryServer[api.HardwareDeleteDeviceRequest, types.Nil](router, false, "/api/v1/hardware/device/delete")
+
+	// ACCESS
+	t.AccessCreatePolicy = fhttp.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse](router, false, "/api/v1/access/policy/create")
+	t.AccessDeletePolicy = fhttp.UnaryServer[api.AccessDeletePolicyRequest, types.Nil](router, false, "/api/v1/access/policy/delete")
+	t.AccessRetrievePolicy = fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, false, "/api/v1/access/policy/retrieve")
 
 	return t
 }
