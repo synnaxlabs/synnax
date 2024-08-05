@@ -13,23 +13,25 @@ const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 const hexZ = z.string().regex(hexRegex);
 const rgbValueZ = z.number().min(0).max(255);
 const alphaZ = z.number().min(0).max(1);
+const hueZ = z.number().min(0).max(360);
+const saturationZ = z.number().min(0).max(100);
+const lightnessZ = z.number().min(0).max(100);
 const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
 const rgbZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ]);
+const hslaZ = z.tuple([hueZ, saturationZ, lightnessZ, alphaZ]);
 
-export type RGBA = [number, number, number, number];
-export type HSLA = [number, number, number, number];
-export type RGB = [number, number, number];
+export type RGBA = z.infer<typeof rgbaZ>;
+export type HSLA = z.infer<typeof hslaZ>;
+export type RGB = z.infer<typeof rgbZ>;
 export type Hex = z.infer<typeof hexZ>;
-const crudeColor = z.object({ rgba255: rgbaZ });
-type CrudeBase = z.infer<typeof crudeColor>;
+const crudeBaseZ = z.object({ rgba255: rgbaZ });
+type CrudeBase = z.infer<typeof crudeBaseZ>;
 
-export const toHex = ((color?: Crude): string | undefined => {
-  return color == null ? undefined : new Color(color).hex;
-}) as ((color: Crude) => string) & ((color?: Crude) => string | undefined);
+export const toHex = (color: Crude): string => new Color(color).hex;
 
 /**
- * An unparsed representation of a color i.e. a value that can be converted into
- * a Color object.
+ * An unparsed representation of a color i.e. a value that can be converted into a Color
+ * object.
  */
 export type Crude = Hex | RGBA | Color | string | RGB | CrudeBase;
 
@@ -226,7 +228,7 @@ export class Color {
   }
 
   static readonly z = z
-    .union([hexZ, rgbaZ, rgbZ, z.instanceof(Color), crudeColor])
+    .union([hexZ, rgbaZ, rgbZ, z.instanceof(Color), crudeBaseZ])
     .transform((v) => new Color(v as string));
 
   private static fromHex(hex_: string, alpha: number = 1): RGBA {
@@ -262,15 +264,15 @@ export const fromHSLA = (hsla: RGBA): RGBA => {
   } else {
     const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
     const p = 2 * l - q;
-    r = hueToRgb(p, q, h + 1 / 3);
-    g = hueToRgb(p, q, h);
-    b = hueToRgb(p, q, h - 1 / 3);
+    r = hueToRGB(p, q, h + 1 / 3);
+    g = hueToRGB(p, q, h);
+    b = hueToRGB(p, q, h - 1 / 3);
   }
 
   return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255), a];
 };
 
-const hueToRgb = (p: number, q: number, t: number): number => {
+const hueToRGB = (p: number, q: number, t: number): number => {
   if (t < 0) t += 1;
   if (t > 1) t -= 1;
   if (t < 1 / 6) return p + (q - p) * 6 * t;
@@ -325,5 +327,5 @@ export const crudeZ = z.union([
   z.instanceof(Color),
   z.string(),
   rgbZ,
-  crudeColor,
+  crudeBaseZ,
 ]);

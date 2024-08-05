@@ -159,7 +159,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           rule: {
             ...rule,
             axis: rule.axis as XAxisKey,
-            color: Color.toHex(rule.color),
+            color: rule.color == undefined ? undefined : Color.toHex(rule.color),
           },
         }),
       ),
