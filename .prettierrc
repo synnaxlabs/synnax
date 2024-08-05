@@ -1,0 +1,10 @@
+{
+    "overrides": [
+        {
+            "files": ["synnax.code-workspace"],
+            "options": {
+                "parser": "json"
+            }
+        }
+    ]
+}

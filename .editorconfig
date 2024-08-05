@@ -24,7 +24,7 @@ indent_size = 2
 
 # |||| JSON ||||
 
-[*.json]
+[*.{json,code-workspace}]
 indent_size = 2
 
 # |||| MARKDOWN ||||
