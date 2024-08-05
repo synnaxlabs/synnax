@@ -17,12 +17,10 @@ import (
 )
 
 //go:embed assets/driver.exe
-//go:embed assets/driver_without_ni.exe
 var executable embed.FS
 
 // driverPath is the path to the driver executable
 const driverName = "driver.exe"
-const driverWithoutNIName = "driver_without_ni.exe"
 
 func configureSysProcAttr(cmd *exec.Cmd) {
 	return

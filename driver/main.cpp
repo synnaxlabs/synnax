@@ -45,17 +45,23 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
 std::atomic<bool> stopped = false;
 
 int main(int argc, char *argv[]) {
+    
     std::string config_path = "./synnax-driver-config.json";
-    // Use the first argument as the config path if provided
-    if (argc > 1) config_path = argv[1];
+    std::string use_ni = "";
+    
+    if (argc > 1) use_ni = argv[1];
+    VLOG(1) << "[driver] use_ni: " << use_ni;  
+    
+    // Use the second argument as the config path if provided
+    if(argc > 2) config_path = argv[2]; 
 
     auto cfg_json = config::read(config_path);
     if (cfg_json.empty())
         LOG(INFO) << "[driver] no configuration found at " << config_path <<
                 ". We'll just use the default configuration";
-    else {
+    else 
         LOG(INFO) << "[driver] loaded configuration from " << config_path;
-    }
+    
     auto [cfg, cfg_err] = config::parse(cfg_json);
     if (cfg_err) {
         LOG(FATAL) << "[driver] failed to parse configuration: " << cfg_err;
@@ -94,7 +100,7 @@ int main(int argc, char *argv[]) {
         std::move(heartbeat_factory),
     };
 #ifdef USE_NI  
-    if(ni::dlls_available()){
+    if( use_ni == "true" && ni::dlls_available()) {
         std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
         factories.push_back(std::move(ni_factory));
     }

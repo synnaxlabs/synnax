@@ -22,7 +22,6 @@ var executable embed.FS
 
 // driverPath is the path to the driver executable
 const driverName = "driver"
-const driverWithoutNIName = "driver_without_ni"
 
 func configureSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

@@ -48,13 +48,6 @@ func (d *Driver) start() error {
 	}
 	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-	var driverFile = driverName
-	if !*d.cfg.NIEnabled {
-		d.cfg.L.Info("starting driver with NI drivers disabled")
-		driverFile = driverWithoutNIName
-	} else{
-		d.cfg.L.Info("starting driver with NI drivers enabled")
-	}
 	d.shutdown = signal.NewShutdown(sCtx, cancel)
 	bre, err := breaker.NewBreaker(sCtx, breaker.Config{
 		BaseInterval: 1 * time.Second,
@@ -76,11 +69,11 @@ func (d *Driver) start() error {
 		if err != nil {
 			return err
 		}
-		data, err := executable.ReadFile("assets/" + driverFile)
+		data, err := executable.ReadFile("assets/" + driverName)
 		if err != nil {
 			return err
 		}
-		driverFileName, err := xos.WriteTemp("", driverFile, data)
+		driverFileName, err := xos.WriteTemp("", driverName, data)
 		if err != nil {
 			return err
 		}
@@ -91,7 +84,13 @@ func (d *Driver) start() error {
 		if err := os.Chmod(driverFileName, 0755); err != nil {
 			return err
 		}
-		d.cmd = exec.Command(driverFileName, cfgFileName)
+
+		var use_ni = "true"
+		if !*d.cfg.NIEnabled {
+			use_ni = "false"	
+		}
+
+		d.cmd = exec.Command(driverFileName, use_ni, cfgFileName)
 		configureSysProcAttr(d.cmd)
 		d.mu.Unlock()
 		stdoutPipe, err := d.cmd.StdoutPipe()
