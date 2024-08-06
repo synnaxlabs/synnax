@@ -139,8 +139,11 @@ func (s *Service) create(ctx context.Context, toCreate string) error {
 }
 
 func (s *Service) retrieve(ctx context.Context) (string, error) {
-	key, err := s.DB.Get(ctx, []byte("bGljZW5zZUtleQ=="))
-	return string(key), err
+	key, closer, err := s.DB.Get(ctx, []byte("bGljZW5zZUtleQ=="))
+	if err != nil {
+		return "", err
+	}
+	return string(key), closer.Close()
 }
 
 func (s *Service) logTheDog(ctx context.Context) error {
