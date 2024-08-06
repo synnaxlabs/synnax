@@ -37,10 +37,11 @@ const (
 // two resources can have multiple relationships of different types between them.
 type Relationship struct {
 	// From, To are the Keys of the related resources.
-	From, To ID
+	From ID `json:"from" msgpack:"from"`
+	To   ID `json:"to" msgpack:"to"`
 	// Type is the type of relationship between the two resources. For more information
 	// on relationship types, see the [RelationshipType] documentation.
-	Type RelationshipType
+	Type RelationshipType `json:"type" msgpack:"type"`
 }
 
 var _ gorp.Entry[[]byte] = Relationship{}

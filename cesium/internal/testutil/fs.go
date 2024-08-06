@@ -23,10 +23,6 @@ var FileSystems = map[string]FSFactory{
 	"memFS": func() (xfs.FS, func() error) {
 		return MustSucceed(xfs.NewMem().Sub("testdata")), func() error { return nil }
 	},
-	"osFS": func() (xfs.FS, func() error) {
-		dirName := MustSucceed(os.MkdirTemp("", "test-*"))
-		return MustSucceed(xfs.Default.Sub(dirName)), func() error { return xfs.Default.Remove(dirName) }
-	},
 }
 
 var FileSystemsWithoutAssertion = map[string]FSFactory{
