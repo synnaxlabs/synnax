@@ -116,5 +116,4 @@ func configureStartFlags() {
 		"",
 		string(decodedUsage),
 	)
-
 }
