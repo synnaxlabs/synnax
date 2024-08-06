@@ -9,7 +9,7 @@
 
 import { type Series, TimeRange } from "@synnaxlabs/x/telem";
 
-import { type Key, type Name,type Params } from "@/channel/payload";
+import { type Key, type Name, type Params } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
@@ -18,6 +18,7 @@ import { type Label } from "@/label/payload";
 import { ontology } from "@/ontology";
 import { type Alias, type Aliaser } from "@/ranger/alias";
 import { type KV } from "@/ranger/kv";
+import { Payload } from "@/ranger/payload";
 import { type signals } from "@/signals";
 
 const ontologyID = (key: string): ontology.ID =>
@@ -54,6 +55,15 @@ export class Range {
     this.aliaser = _aliaser;
     this.channels = _channels;
     this.labelClient = _labelClient;
+  }
+
+  get payload(): Payload {
+    return {
+      key: this.key,
+      name: this.name,
+      timeRange: this.timeRange,
+      color: this.color,
+    };
   }
 
   async setAlias(channel: Key | Name, alias: string): Promise<void> {

@@ -16,14 +16,14 @@ import (
 
 type keyValue struct {
 	Range uuid.UUID `json:"range" msgpack:"range"`
-	Key   []byte    `json:"key" msgpack:"key"`
-	Value []byte    `json:"value" msgpack:"value"`
+	Key   string    `json:"key" msgpack:"key"`
+	Value string    `json:"value" msgpack:"value"`
 }
 
-var _ gorp.Entry[[]byte] = keyValue{}
+var _ gorp.Entry[string] = keyValue{}
 
 // GorpKey implements gorp.Entry.
-func (k keyValue) GorpKey() []byte { return append(k.Range[:], k.Key...) }
+func (k keyValue) GorpKey() string { return k.Range.String() + "<--->" + k.Key }
 
 // SetOptions implements gorp.Entry.
 func (k keyValue) SetOptions() []interface{} { return nil }

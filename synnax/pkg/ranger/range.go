@@ -52,43 +52,43 @@ func (r Range) UseTx(tx gorp.Tx) Range { r.tx = tx; return r }
 
 func (r Range) setOntology(otg *ontology.Ontology) Range { r.otg = otg; return r }
 
-func (r Range) Get(ctx context.Context, key []byte) ([]byte, error) {
+func (r Range) Get(ctx context.Context, key string) (string, error) {
 	var (
 		res = keyValue{Range: r.Key, Key: key}
-		err = gorp.NewRetrieve[[]byte, keyValue]().
+		err = gorp.NewRetrieve[string, keyValue]().
 			WhereKeys(res.GorpKey()).
 			Entry(&res).
 			Exec(ctx, r.tx)
 	)
 	if errors.Is(err, query.NotFound) {
-		return nil, errors.Wrapf(err, "key %s not found on range", key)
+		return "", errors.Wrapf(err, "key %s not found on range", key)
 	}
 	return res.Value, err
 }
 
 func (r Range) ListMetaData() (map[string]string, error) {
 	var res []keyValue
-	if err := gorp.NewRetrieve[[]byte, keyValue]().
-		WherePrefix(r.Key[:]).
+	if err := gorp.NewRetrieve[string, keyValue]().
+		Where(func(kv *keyValue) bool { return kv.Range == r.Key }).
 		Entries(&res).
 		Exec(context.Background(), r.tx); err != nil {
 		return nil, err
 	}
 	meta := make(map[string]string, len(res))
 	for _, kv := range res {
-		meta[string(kv.Key)] = string(kv.Value)
+		meta[kv.Key] = kv.Value
 	}
 	return meta, nil
 }
 
-func (r Range) Set(ctx context.Context, key, value []byte) error {
-	return gorp.NewCreate[[]byte, keyValue]().
+func (r Range) Set(ctx context.Context, key, value string) error {
+	return gorp.NewCreate[string, keyValue]().
 		Entry(&keyValue{Range: r.Key, Key: key, Value: value}).
 		Exec(ctx, r.tx)
 }
 
-func (r Range) Delete(ctx context.Context, key []byte) error {
-	return gorp.NewDelete[[]byte, keyValue]().
+func (r Range) Delete(ctx context.Context, key string) error {
+	return gorp.NewDelete[string, keyValue]().
 		WhereKeys(keyValue{Range: r.Key, Key: key}.GorpKey()).
 		Exec(ctx, r.tx)
 }

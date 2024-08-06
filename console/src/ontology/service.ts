@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { type Haul, Status, type Tree } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { type Haul, type List, Status, type Tree } from "@synnaxlabs/pluto";
+import { type location, ontology } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { type Layout } from "@/layout";
@@ -84,6 +84,8 @@ export interface NodeAdapterProps extends BaseProps {
 
 export type AllowRename = (res: ontology.Resource) => boolean;
 
+export type PaletteListItem = FC<List.ItemProps<string, ontology.Resource>>;
+
 export interface Service {
   type: ontology.ResourceType;
   icon: ReactElement;
@@ -96,6 +98,7 @@ export interface Service {
   onRename?: HandleTreeRename;
   onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;
+  PaletteListItem?: PaletteListItem;
 }
 
 export type Services = Record<ontology.ResourceType, Service>;

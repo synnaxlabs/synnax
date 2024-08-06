@@ -178,13 +178,13 @@ func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res Ra
 		return
 	}
 	res.Pairs = make(map[string]string, len(req.Keys))
-	var value []byte
+	var value string
 	for _, key := range req.Keys {
-		value, err = r.Get(ctx, []byte(key))
+		value, err = r.Get(ctx, key)
 		if err != nil {
 			return
 		}
-		res.Pairs[key] = string(value)
+		res.Pairs[key] = value
 	}
 	return
 }
@@ -211,7 +211,7 @@ func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res ty
 		}
 		rng = rng.UseTx(tx)
 		for k, v := range req.Pairs {
-			if err := rng.Set(ctx, []byte(k), []byte(v)); err != nil {
+			if err := rng.Set(ctx, k, v); err != nil {
 				return err
 			}
 		}
@@ -241,7 +241,7 @@ func (s *RangeService) KVDelete(ctx context.Context, req RangeKVDeleteRequest) (
 		}
 		rng = rng.UseTx(tx)
 		for _, key := range req.Keys {
-			if err := rng.Delete(ctx, []byte(key)); err != nil {
+			if err := rng.Delete(ctx, key); err != nil {
 				return err
 			}
 		}

@@ -6,7 +6,7 @@ import { useMemoCompare } from "@/memo";
 
 interface UseProps<D> {
   key: Primitive[];
-  open: () => Promise<observe.ObservableAsyncCloseable<D> | undefined>;
+  open?: () => Promise<observe.ObservableAsyncCloseable<D> | undefined>;
   onChange: observe.Handler<D>;
 }
 
@@ -17,11 +17,12 @@ export const useListener = <D>({ key, open, onChange }: UseProps<D>) => {
     [key],
   );
   useAsyncEffect(async () => {
+    if (open == null) return;
     const obs = await open();
     if (obs == null) return;
     obs.onChange(onChange);
     return () => obs.close();
-  }, [memoKey]);
+  }, [open == null, memoKey]);
 };
 
 type UseStateProps<D> = Optional<UseProps<D>, "onChange">;

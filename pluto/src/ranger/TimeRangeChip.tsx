@@ -17,12 +17,16 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 
-export interface TimeRangeChipProps extends Align.SpaceProps<"div"> {
+export interface TimeRangeChipProps
+  extends Align.SpaceProps<"div">,
+    Pick<Text.TextProps, "level" | "shade"> {
   timeRange: CrudeTimeRange;
 }
 
 export const TimeRangeChip = ({
   timeRange,
+  level = "p",
+  shade = 7,
   ...props
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
@@ -40,28 +44,28 @@ export const TimeRangeChip = ({
       {...props}
     >
       {startTS.isToday && (
-        <Text.Text level="p" shade={7} weight={450}>
+        <Text.Text level={level} shade={shade} weight={450}>
           Today
         </Text.Text>
       )}
       <Text.DateTime
-        level="p"
+        level={level}
         displayTZ="local"
         format={startFormat}
-        shade={7}
+        shade={shade}
         weight={450}
       >
         {startTS}
       </Text.DateTime>
       <Icon.Arrow.Right color="var(--pluto-text-color)" />
       {isOpen ? (
-        <Text.Text level="p">Now</Text.Text>
+        <Text.Text level={level}>Now</Text.Text>
       ) : (
         <Text.DateTime
-          level="p"
+          level={level}
           displayTZ="local"
           format={endFormat}
-          shade={7}
+          shade={shade}
           weight={450}
         >
           {endTS}

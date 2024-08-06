@@ -9,6 +9,7 @@
 
 export type { Alias, AliasChange } from "@/ranger/alias";
 export * from "@/ranger/client";
+export * from "@/ranger/kv";
 export * from "@/ranger/payload";
 export * from "@/ranger/range";
 export * from "@/ranger/writer";

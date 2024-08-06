@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired,type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { kv } from "@synnaxlabs/x";
 import { isObject } from "@synnaxlabs/x/identity";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
+import { framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";
+import { signals } from "@/signals";
 
 const getReqZ = z.object({
   range: keyZ,
@@ -39,16 +42,26 @@ const deleteReqZ = z.object({
 
 export type DeleteRequest = z.infer<typeof deleteReqZ>;
 
+const kvPairZ = z.object({
+  range: keyZ,
+  key: z.string(),
+  value: z.string().optional(),
+});
+
+export type KVPair = z.infer<typeof kvPairZ>;
+
 export class KV {
   private static readonly GET_ENDPOINT = "/range/kv/get";
   private static readonly SET_ENDPOINT = "/range/kv/set";
   private static readonly DELETE_ENDPOINT = "/range/kv/delete";
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
+  private readonly frameClient: framer.Client;
 
-  constructor(rng: Key, client: UnaryClient) {
+  constructor(rng: Key, client: UnaryClient, frameClient: framer.Client) {
     this.rangeKey = rng;
     this.client = client;
+    this.frameClient = frameClient;
   }
 
   async get(key: string): Promise<string>;
@@ -94,6 +107,26 @@ export class KV {
       { range: this.rangeKey, keys: toArray(key) },
       deleteReqZ,
       z.unknown(),
+    );
+  }
+
+  async openTracker(): Promise<signals.Observable<string, KVPair>> {
+    return await signals.openObservable<string, KVPair>(
+      this.frameClient,
+      "sy_range_kv_set",
+      "sy_range_kv_delete",
+      (variant, data) => {
+        if (variant === "delete")
+          return data.toStrings().map((combinedKey) => {
+            const [range, key] = combinedKey.split("<--->");
+            return { variant, key: combinedKey, value: { range, key } };
+          });
+        return data.parseJSON(kvPairZ).map((pair) => ({
+          variant,
+          key: `${pair.range}${pair.key}`,
+          value: pair,
+        }));
+      },
     );
   }
 }

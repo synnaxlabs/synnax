@@ -10,7 +10,15 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Icon as PIcon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import {
+  type Haul,
+  Icon as PIcon,
+  List,
+  Menu as PMenu,
+  Ranger,
+  Text,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors, id, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -22,6 +30,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createEditLayout } from "@/range/EditLayout";
+import { overviewLayout } from "@/range/Overview";
 import { select, useSelect } from "@/range/selectors";
 import {
   add,
@@ -48,9 +57,11 @@ const handleSelect: Ontology.HandleSelect = async ({
   selection,
   client,
   store,
+  placeLayout,
 }): Promise<void> => {
   const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
   store.dispatch(add({ ranges: fromClientRange(ranges) }));
+  placeLayout({ ...overviewLayout, key: selection[0].id.key });
 };
 
 const handleRename: Ontology.HandleTreeRename = {
@@ -281,6 +292,30 @@ const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
   },
 ];
 
+const PaletteListItem: Ontology.PaletteListItem = (props) => {
+  const { entry } = props;
+  return (
+    <List.ItemFrame
+      direction="y"
+      size={0.5}
+      style={{ padding: "1.5rem" }}
+      highlightHovered
+      {...props}
+    >
+      <Text.WithIcon
+        startIcon={<Icon.Range />}
+        level="p"
+        weight={450}
+        shade={9}
+        size="medium"
+      >
+        {entry.name}{" "}
+      </Text.WithIcon>
+      <Ranger.TimeRangeChip level="small" timeRange={entry.data?.timeRange} />
+    </List.ItemFrame>
+  );
+};
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "range",
   hasChildren: true,
@@ -291,4 +326,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   haulItems,
   allowRename: () => true,
   onRename: handleRename,
+  PaletteListItem,
 };

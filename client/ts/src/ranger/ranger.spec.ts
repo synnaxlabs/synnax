@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { change } from "@synnaxlabs/x";
 import { DataType, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { QueryError } from "@/errors";
+import { ranger } from "@/ranger";
 import { type NewPayload } from "@/ranger/payload";
 import { newClient } from "@/setupspecs";
 
@@ -140,6 +142,44 @@ describe("Ranger", () => {
       await rng.kv.set({ foo: "bar", baz: "qux" });
       const res = await rng.kv.list();
       expect(res).toEqual({ foo: "bar", baz: "qux" });
+    });
+
+    describe("observable", () => {
+      it("should listen to key-value sets on the range", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const obs = await rng.kv.openTracker();
+        const res = new Promise<change.Change<string, ranger.KVPair>[]>((resolve) => {
+          obs.onChange((pair) => resolve(pair));
+        });
+        await rng.kv.set("foo", "bar");
+        const pair = await res;
+        expect(pair.length).toBeGreaterThan(0);
+        expect(pair[0].value?.range).toEqual(rng.key);
+        expect(pair[0].value?.key).toEqual("foo");
+        expect(pair[0].value?.value).toEqual("bar");
+      });
+      it("should listen to key-value deletes on the range", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await rng.kv.set("foo", "bar");
+        const obs = await rng.kv.openTracker();
+        const res = new Promise<change.Change<string, ranger.KVPair>[]>((resolve) => {
+          obs.onChange((changes) => {
+            if (changes.every((c) => c.variant === "delete")) resolve(changes);
+          });
+        });
+        await rng.kv.delete("foo");
+        const pair = await res;
+        expect(pair.length).toBeGreaterThan(0);
+        expect(pair[0].value?.range).toEqual(rng.key);
+        expect(pair[0].value?.key).toEqual("foo");
+        expect(pair[0].value?.value).toBeUndefined();
+      });
     });
   });
 
