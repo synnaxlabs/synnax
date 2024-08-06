@@ -384,7 +384,7 @@ func buildEmbeddedDriverConfig(
 ) embedded.Config {
 	cfg := embedded.Config{
 		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
-		Integrations: consolidateIntegrations(
+		Integrations: getIntegrations(
 			viper.GetStringSlice(enableIntegrationsFlag),
 			viper.GetStringSlice(disableIntegrationsFlag)),
 		Instrumentation: ins,
@@ -412,7 +412,7 @@ func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Prov
 	})
 }
 
-func consolidateIntegrations(enabled, disabled []string) []string {
+func getIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
 		return enabled
 	}
