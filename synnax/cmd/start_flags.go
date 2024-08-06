@@ -25,6 +25,8 @@ const (
 	autoCertFlag            = "auto-cert"
 	noDriverFlag            = "no-driver"
 	slowConsumerTimeoutFlag = "slow-consumer-timeout"
+	enableIntegrationsFlag  = "enable-integrations"
+	disableIntegrationsFlag = "disable-integrations"
 )
 
 func configureStartFlags() {
@@ -41,6 +43,18 @@ func configureStartFlags() {
 		"p",
 		nil,
 		"Addresses of additional peers in the cluster.",
+	)
+
+	startCmd.Flags().StringSlice(
+		enableIntegrationsFlag,
+		nil,
+		"d=D",
+	)
+
+	startCmd.Flags().StringSlice(
+		disableIntegrationsFlag,
+		nil,
+		"d=D",
 	)
 
 	startCmd.Flags().StringP(
@@ -102,4 +116,5 @@ func configureStartFlags() {
 		"",
 		string(decodedUsage),
 	)
+
 }
