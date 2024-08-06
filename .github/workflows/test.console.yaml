@@ -9,9 +9,6 @@ on:
       - rc
       - main
   workflow_dispatch:
-env:
-  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
 jobs:
   test:
     name: "Run Tests"
@@ -51,17 +48,6 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Install Rust Stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: console/src-tauri -> target
-          key: ${{ runner.os }}
-
       - name: Turbo Cache
         uses: actions/cache@v3
         with:
@@ -70,9 +56,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Install Dependencies
-        run: pnpm i
-
       - name: Build Pluto
         if: needs.setup.outputs.changed == 'true'
         run: pnpm build:pluto
@@ -80,16 +63,6 @@ jobs:
       - name: Build Drift
         if: needs.setup.outputs.changed == 'true'
         run: pnpm build:drift
-
-      # We need to build the console separately WITHOUT turbo repo because of strange
-      # incompatibility issues with rust builds.
-    
-      - name: Build Console
-        if: needs.setup.outputs.changed == 'true'
-        env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
-        working-directory: ./console
-        run: pnpm build
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
