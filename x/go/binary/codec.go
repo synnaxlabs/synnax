@@ -261,6 +261,7 @@ type FallbackCodec struct {
 
 var _ Codec = (*FallbackCodec)(nil)
 
+// Encode implements the Encoder interface.
 func (f *FallbackCodec) Encode(ctx context.Context, value interface{}) (b []byte, err error) {
 	if len(f.Codecs) == 0 {
 		panic("[binary] - no codecs provided to FallbackCodec")
@@ -279,6 +280,7 @@ func (f *FallbackCodec) Encode(ctx context.Context, value interface{}) (b []byte
 	return
 }
 
+// Decode implements the Decoder interface.
 func (f *FallbackCodec) Decode(ctx context.Context, data []byte, value interface{}) (err error) {
 	if len(f.Codecs) == 0 {
 		panic("[binary] - no codecs provided to FallbackCodec")
@@ -297,6 +299,7 @@ func (f *FallbackCodec) Decode(ctx context.Context, data []byte, value interface
 	return
 }
 
+// DecodeStream implements the Decoder interface.
 func (f *FallbackCodec) DecodeStream(ctx context.Context, r io.Reader, value interface{}) (err error) {
 	if len(f.Codecs) == 0 {
 		panic("[binary] - no codecs provided to FallbackCodec")
