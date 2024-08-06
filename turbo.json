@@ -7,13 +7,8 @@
   ],
   "tasks": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**",
-        ".vercel/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".vercel/**"]
     },
     "lint": {},
     "dev-vite": {
@@ -29,21 +24,20 @@
       "cache": false
     },
     "test": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "cache": false
     },
     "cov": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "cache": false
     },
     "devtools": {
       "cache": false
     },
-    "api": {
+    "genApi": {
+      "cache": false
+    },
+    "checkApi": {
       "cache": false
     }
   }

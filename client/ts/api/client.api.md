@@ -48,6 +48,8 @@ import { UnknownRecord } from '@synnaxlabs/x';
 import { UnknownRecord as UnknownRecord_2 } from '@synnaxlabs/x/record';
 import { z } from 'zod';
 
+// Warning: (ae-missing-release-tag) "Alias" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 interface Alias {
     // (undocumented)
@@ -58,13 +60,18 @@ interface Alias {
     range: Key_3;
 }
 
+// Warning: (ae-missing-release-tag) "AliasChange" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type AliasChange = change_2.Change<string, Alias>;
 
+// Warning: (ae-missing-release-tag) "ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan;
 
 // Warning: (ae-forgotten-export) The symbol "ParamAnalysisResult_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "analyzeChannelParams" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 const analyzeChannelParams: (channels: Params) => ParamAnalysisResult_2<KeyOrName, {
@@ -72,9 +79,13 @@ const analyzeChannelParams: (channels: Params) => ParamAnalysisResult_2<KeyOrNam
     string: "names";
 }>;
 
+// Warning: (ae-missing-release-tag) "analyzeParams" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const analyzeParams_2: (params: Params_4) => ParamAnalysisResult_3;
 
+// Warning: (ae-missing-release-tag) "AuthError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class AuthError extends BaseTypedError {
     // (undocumented)
@@ -85,21 +96,32 @@ export class AuthError extends BaseTypedError {
     type: string;
 }
 
+// Warning: (ae-missing-release-tag) "Authority" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 export const Authority: typeof control_2.Authority;
 
+// Warning: (ae-missing-release-tag) "Authority" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+// Warning: (ae-missing-release-tag) "Authority" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Authority_2 = control_2.Authority;
 
 // @public (undocumented)
 const Authority_2: typeof control_2.Authority;
 
+// Warning: (ae-missing-release-tag) "AUTO_SPAN" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const AUTO_SPAN: TimeSpan;
 
+// Warning: (ae-missing-release-tag) "BuiltinOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const BuiltinOntologyType: ResourceType;
 
+// Warning: (ae-missing-release-tag) "CacheRetriever" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class CacheRetriever implements Retriever {
     constructor(wrapped: Retriever);
@@ -117,6 +139,8 @@ class CacheRetriever implements Retriever {
     set(channels: Payload[]): void;
 }
 
+// Warning: (ae-missing-release-tag) "ChangeTracker" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class ChangeTracker {
     constructor(streamer: framer.Streamer, client: Client_2);
@@ -130,6 +154,8 @@ class ChangeTracker {
     readonly resources: observe.Observable<ResourceChange[]>;
 }
 
+// Warning: (ae-missing-release-tag) "Channel" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class Channel {
     constructor({ dataType, rate, name, leaseholder, key, isIndex, index, internal, frameClient, alias, }: NewPayload & {
@@ -185,9 +211,13 @@ declare namespace channel {
     }
 }
 
+// Warning: (ae-missing-release-tag) "ChannelOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ChannelOntologyType: ontology.ResourceType;
 
+// Warning: (ae-missing-release-tag) "Checker" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 class Checker {
     constructor(client: UnaryClient, pollFreq?: TimeSpan, name?: string);
@@ -218,14 +248,22 @@ class Checker {
     stopChecking(): void;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client {
     constructor(stream: StreamClient, unary: UnaryClient, retriever: Retriever);
     // (undocumented)
     delete(channels: Params, timeRange: TimeRange_2): Promise<void>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "IteratorConfig"
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Iterator"
     openIterator(tr: CrudeTimeRange, channels: Params, opts?: IteratorConfig): Promise<Iterator_2>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Streamer"
     openStreamer(channels: Params): Promise<Streamer>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
     openStreamer(config: StreamerConfig | Params): Promise<Streamer>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Writer"
     openWriter(config: WriterConfig | Params): Promise<Writer>;
     // (undocumented)
     read(tr: CrudeTimeRange, channel: KeyOrName): Promise<MultiSeries_2>;
@@ -239,6 +277,8 @@ class Client {
     write(start: CrudeTimeStamp_2, data: Record<KeyOrName, CrudeSeries_2>): Promise<void>;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client_10 implements AsyncTermSearcher<string, Key_7, Workspace> {
     constructor(client: UnaryClient);
@@ -274,6 +314,8 @@ class Client_10 implements AsyncTermSearcher<string, Key_7, Workspace> {
     readonly type = "workspace";
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client_13 {
     constructor(tasks: task.Client, racks: rack.Client, devices: device.Client);
@@ -285,6 +327,8 @@ class Client_13 {
     readonly tasks: task.Client;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_5> {
     constructor(client: UnaryClient, frameClient: framer.Client);
@@ -316,6 +360,8 @@ class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_5> {
     readonly type: string;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client_15 implements AsyncTermSearcher<string, RackKey, Rack> {
     constructor(client: UnaryClient, frameClient: framer.Client, taskClient: task.Client);
@@ -337,6 +383,8 @@ class Client_15 implements AsyncTermSearcher<string, RackKey, Rack> {
     readonly type: string;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client_16 implements AsyncTermSearcher<string, DeviceKey, Device> {
     constructor(client: UnaryClient, frameClient: framer.Client);
@@ -364,6 +412,8 @@ class Client_16 implements AsyncTermSearcher<string, DeviceKey, Device> {
     readonly type = "device";
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client_17 {
     constructor(framer: framer.Client);
@@ -371,6 +421,8 @@ class Client_17 {
     openStateTracker(): Promise<StateTracker>;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 class Client_2 implements AsyncTermSearcher<string, string, Resource> {
     constructor(unary: UnaryClient, framer: framer.Client);
@@ -402,11 +454,17 @@ class Client_2 implements AsyncTermSearcher<string, string, Resource> {
     readonly type: string;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
     constructor(frameClient: framer.Client, retriever: Retriever, client: UnaryClient, writer: Writer_2);
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-tag-should-not-have-braces) The TSDoc tag "@see" is not an inline tag; it must not be enclosed in "{ }" braces
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
     // Warning: (ae-forgotten-export) The symbol "CreateOptions" needs to be exported by the entry point index.d.ts
     create(channel: NewPayload, options?: CreateOptions): Promise<Channel>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     create(channels: NewPayload[], options?: CreateOptions): Promise<Channel[]>;
     // (undocumented)
     createDebouncedBatchRetriever(deb?: number): Retriever;
@@ -419,7 +477,15 @@ class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
     rename(key: Key, name: string): Promise<void>;
     // (undocumented)
     rename(keys: Key[], names: string[]): Promise<void>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
     retrieve(channel: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
     retrieve(channels: Params, options?: RetrieveOptions): Promise<Channel[]>;
     // Warning: (ae-forgotten-export) The symbol "group" needs to be exported by the entry point index.d.ts
     //
@@ -435,6 +501,8 @@ class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
     readonly writer: Writer_2;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client_5 implements AsyncTermSearcher<string, Key_3, Range_2> {
     constructor(frameClient: framer.Client, writer: Writer_4, unary: UnaryClient, channels: Retriever, labelClient: label.Client);
@@ -468,6 +536,8 @@ class Client_5 implements AsyncTermSearcher<string, Key_3, Range_2> {
     readonly type: string;
 }
 
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Client_6 implements AsyncTermSearcher<string, Key_4, Label> {
     constructor(client: UnaryClient, frameClient: framer.Client);
@@ -499,9 +569,13 @@ class Client_6 implements AsyncTermSearcher<string, Key_4, Label> {
     readonly type: string;
 }
 
+// Warning: (ae-missing-release-tag) "ClusterOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ClusterOntologyType: ResourceType;
 
+// Warning: (ae-missing-release-tag) "ClusterRetriever" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class ClusterRetriever implements Retriever {
     constructor(client: UnaryClient);
@@ -513,6 +587,8 @@ class ClusterRetriever implements Retriever {
     search(term: string, options?: RetrieveOptions): Promise<Payload[]>;
 }
 
+// Warning: (ae-missing-release-tag) "commandZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const commandZ: z.ZodObject<{
     task: z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>;
@@ -541,6 +617,8 @@ declare namespace connection {
     }
 }
 
+// Warning: (ae-missing-release-tag) "ContiguityError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class ContiguityError extends BaseTypedError {
     // (undocumented)
@@ -568,9 +646,13 @@ export { CrudeDataType }
 
 export { CrudeDensity }
 
+// Warning: (ae-missing-release-tag) "CrudeFrame" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type CrudeFrame = Frame | FramePayload | Map<KeyOrName, Series[] | Series> | Record<KeyOrName, Series[] | Series>;
 
+// Warning: (ae-missing-release-tag) "crudeIDZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const crudeIDZ: z.ZodUnion<[z.ZodEffects<z.ZodString, {
     type: ResourceType;
@@ -594,8 +676,15 @@ export { CrudeTimeSpan }
 
 export { CrudeTimeStamp }
 
+// Warning: (ae-missing-release-tag) "CrudeWriterMode" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type CrudeWriterMode = "persist" | "stream" | "persistStream" | WriterMode;
+
 export { DataType }
 
+// Warning: (ae-missing-release-tag) "DebouncedBatchRetriever" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class DebouncedBatchRetriever implements Retriever {
     constructor(wrapped: Retriever, deb: number);
@@ -609,16 +698,21 @@ class DebouncedBatchRetriever implements Retriever {
     search(term: string, options?: RetrieveOptions): Promise<Payload[]>;
 }
 
+// Warning: (ae-missing-release-tag) "Decoder" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Decoder<K, V> = (variant: change_2.Variant, data: Series) => Array<change_2.Change<K, V>>;
 
 // Warning: (ae-forgotten-export) The symbol "deleteReqZ" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "DeleteProps" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type DeleteProps = z.input<typeof deleteReqZ>;
 
 export { Density }
 
+// Warning: (ae-missing-release-tag) "Device" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Device<P extends UnknownRecord = UnknownRecord> = Omit<z.output<typeof deviceZ>, "properties"> & {
     properties: P;
@@ -639,18 +733,28 @@ declare namespace device {
     }
 }
 
+// Warning: (ae-missing-release-tag) "DeviceKey" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type DeviceKey = z.infer<typeof deviceKeyZ>;
 
+// Warning: (ae-missing-release-tag) "deviceKeyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const deviceKeyZ: z.ZodString;
 
+// Warning: (ae-missing-release-tag) "DeviceOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const DeviceOntologyType: ontology.ResourceType;
 
+// Warning: (ae-missing-release-tag) "DeviceOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const DeviceOntologyType_2: ontology.ResourceType;
 
+// Warning: (ae-missing-release-tag) "deviceZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const deviceZ: z.ZodObject<{
     key: z.ZodString;
@@ -681,6 +785,8 @@ const deviceZ: z.ZodObject<{
     configured?: boolean | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "Frame" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class Frame {
     constructor(columnsOrData?: Params | CrudeFrame, arrays?: Series | Series[]);
@@ -698,13 +804,22 @@ export class Frame {
     readonly columns: Keys | Names;
     // (undocumented)
     concat(frame: Frame): Frame;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
     // (undocumented)
     filter(fn: (k: KeyOrName, arr: Series, i: number) => boolean): Frame;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     forEach(fn: (k: KeyOrName, arr: Series, i: number) => void): void;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
     // (undocumented)
     get(key: KeyOrName): MultiSeries;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
     // (undocumented)
     get(keys: Keys | Names): Frame;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
     // (undocumented)
     has(channel: KeyOrName): boolean;
     // (undocumented)
@@ -721,10 +836,14 @@ export class Frame {
     latest(): Record<string, TelemValue | undefined>;
     // (undocumented)
     get length(): number;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
     // (undocumented)
     map(fn: (k: KeyOrName, arr: Series, i: number) => [KeyOrName, Series]): Frame;
     // (undocumented)
     get names(): Names;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     push(key: KeyOrName, ...v: Series[]): void;
     push(frame: Frame): void;
     // (undocumented)
@@ -743,6 +862,8 @@ export class Frame {
     get uniqueNames(): Names;
 }
 
+// Warning: (ae-missing-release-tag) "FramePayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type FramePayload = z.infer<typeof frameZ>;
 
@@ -764,12 +885,15 @@ declare namespace framer {
         Streamer,
         ObservableStreamer,
         WriterMode,
+        CrudeWriterMode,
         ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
         WriterConfig,
         Writer
     }
 }
 
+// Warning: (ae-missing-release-tag) "frameZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const frameZ: z.ZodObject<{
     keys: z.ZodUnion<[z.ZodEffects<z.ZodNull, number[], null>, z.ZodDefault<z.ZodOptional<z.ZodArray<z.ZodNumber, "many">>>]>;
@@ -868,6 +992,8 @@ declare namespace hardware {
     }
 }
 
+// Warning: (ae-missing-release-tag) "ID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class ID {
     constructor(args: z.input<typeof crudeIDZ> | ID);
@@ -898,9 +1024,13 @@ class ID {
     }>;
 }
 
+// Warning: (ae-missing-release-tag) "IDPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type IDPayload = z.infer<typeof idZ>;
 
+// Warning: (ae-missing-release-tag) "idZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const idZ: z.ZodObject<{
     type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
@@ -913,12 +1043,15 @@ const idZ: z.ZodObject<{
     key: string;
 }>;
 
+// Warning: (ae-missing-release-tag) "Iterator" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 class Iterator_2 {
     // (undocumented)
     [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined>;
     close(): Promise<void>;
     next(span?: CrudeTimeSpan): Promise<boolean>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "IteratorConfig"
     static _open(tr: CrudeTimeRange_2, channels: Params, retriever: Retriever, client: StreamClient, opts?: IteratorConfig): Promise<Iterator_2>;
     prev(span?: CrudeTimeSpan): Promise<boolean>;
     seekFirst(): Promise<boolean>;
@@ -931,47 +1064,76 @@ class Iterator_2 {
     value: Frame;
 }
 
+// Warning: (ae-missing-release-tag) "IteratorConfig" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 interface IteratorConfig {
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "AUTO_SPAN"
     chunkSize?: number;
 }
 
+// Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Key = number;
 
+// Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Key_3 = z.infer<typeof keyZ_2>;
 
+// Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Key_4 = z.infer<typeof keyZ_4>;
 
+// Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Key_7 = z.infer<typeof keyZ_7>;
 
+// Warning: (ae-missing-release-tag) "KeyOrName" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type KeyOrName = Key | Name;
 
+// Warning: (ae-missing-release-tag) "Keys" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Keys = number[];
 
+// Warning: (ae-missing-release-tag) "Keys" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Keys_3 = Key_3[];
 
+// Warning: (ae-missing-release-tag) "KeysOrNames" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type KeysOrNames = Keys | Names;
 
+// Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const keyZ_2: z.ZodString;
 
+// Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const keyZ_3: z.ZodNumber;
 
+// Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const keyZ_4: z.ZodString;
 
+// Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const keyZ_7: z.ZodString;
 
+// Warning: (ae-missing-release-tag) "Label" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Label = z.infer<typeof labelZ>;
 
@@ -992,9 +1154,13 @@ declare namespace label {
     }
 }
 
+// Warning: (ae-missing-release-tag) "LabelOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const LabelOntologyType: ontology.ResourceType;
 
+// Warning: (ae-missing-release-tag) "labelZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const labelZ: z.ZodObject<{
     key: z.ZodString;
@@ -1010,6 +1176,8 @@ const labelZ: z.ZodObject<{
     color: string;
 }>;
 
+// Warning: (ae-missing-release-tag) "MultipleFoundError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 export class MultipleFoundError extends QueryError {
     // (undocumented)
@@ -1022,23 +1190,35 @@ export class MultipleFoundError extends QueryError {
 
 export { MultiSeries }
 
+// Warning: (ae-missing-release-tag) "Name" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Name = string;
 
+// Warning: (ae-missing-release-tag) "Name" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Name_3 = string;
 
+// Warning: (ae-missing-release-tag) "Names" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Names = string[];
 
+// Warning: (ae-missing-release-tag) "Names" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Names_3 = Name_3[];
 
+// Warning: (ae-missing-release-tag) "NewDevice" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type NewDevice<P extends UnknownRecord = UnknownRecord> = Omit<z.input<typeof newDeviceZ>, "properties"> & {
     properties: P;
 };
 
+// Warning: (ae-missing-release-tag) "newDeviceZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const newDeviceZ: z.ZodObject<z.objectUtil.extendShape<{
     key: z.ZodString;
@@ -1071,9 +1251,13 @@ const newDeviceZ: z.ZodObject<z.objectUtil.extendShape<{
     properties?: unknown;
 }>;
 
+// Warning: (ae-missing-release-tag) "NewLabelPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type NewLabelPayload = z.infer<typeof newLabelPayloadZ>;
 
+// Warning: (ae-missing-release-tag) "newLabelPayloadZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const newLabelPayloadZ: z.ZodObject<z.objectUtil.extendShape<{
     key: z.ZodString;
@@ -1091,9 +1275,13 @@ const newLabelPayloadZ: z.ZodObject<z.objectUtil.extendShape<{
     key?: string | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "NewPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type NewPayload = z.input<typeof newPayload>;
 
+// Warning: (ae-missing-release-tag) "newPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const newPayload: z.ZodObject<z.objectUtil.extendShape<{
     name: z.ZodString;
@@ -1137,9 +1325,13 @@ const newPayload: z.ZodObject<z.objectUtil.extendShape<{
     alias?: string | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "NewPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type NewPayload_2 = z.infer<typeof newPayloadZ>;
 
+// Warning: (ae-missing-release-tag) "newPayloadZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const newPayloadZ: z.ZodObject<z.objectUtil.extendShape<{
     key: z.ZodString;
@@ -1203,9 +1395,13 @@ const newPayloadZ: z.ZodObject<z.objectUtil.extendShape<{
     color?: string | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "NewRack" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type NewRack = z.input<typeof newRackZ>;
 
+// Warning: (ae-missing-release-tag) "newRackZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const newRackZ: z.ZodObject<{
     name: z.ZodString;
@@ -1218,12 +1414,16 @@ const newRackZ: z.ZodObject<{
     key?: number | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "NewTask" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type NewTask<C extends UnknownRecord = UnknownRecord, T extends string = string> = Omit<z.input<typeof newTaskZ>, "config" | "state"> & {
     type: T;
     config: C;
 };
 
+// Warning: (ae-missing-release-tag) "newTaskZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const newTaskZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
     key: z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>;
@@ -1276,9 +1476,13 @@ const newTaskZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
     } | null | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "NodeOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const NodeOntologyType: ResourceType;
 
+// Warning: (ae-missing-release-tag) "NotFoundError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 export class NotFoundError extends QueryError {
     // (undocumented)
@@ -1291,10 +1495,14 @@ export class NotFoundError extends QueryError {
 
 export { NumericTelemValue }
 
+// Warning: (ae-missing-release-tag) "Observable" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 interface Observable<K, V> extends observe_2.ObservableAsyncCloseable<Array<change_2.Change<K, V>>> {
 }
 
+// Warning: (ae-missing-release-tag) "ObservableStreamer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class ObservableStreamer<V = Frame> extends observe.Observer<Frame, V> implements observe.ObservableAsyncCloseable<V> {
     constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>);
@@ -1335,30 +1543,48 @@ declare namespace ontology {
     }
 }
 
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ontologyID: (key: Key) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ontologyID_10: (key: DeviceKey) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ontologyID_2: (key: Key_4) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ontologyID_7: (key: Key_7) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ontologyID_8: (key: TaskKey) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const ontologyID_9: (key: RackKey) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "openObservable" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const openObservable: <K, V>(client: framer.Client, setChannel: channel.Key | channel.Name, deleteChannel: channel.Key | channel.Name, codec: Decoder<K, V>) => Promise<Observable<K, V>>;
 
+// Warning: (ae-missing-release-tag) "PageOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
 
+// Warning: (ae-missing-release-tag) "ParamAnalysisResult" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type ParamAnalysisResult_3 = {
     single: true;
@@ -1382,24 +1608,38 @@ type ParamAnalysisResult_3 = {
     actual: Names_3;
 };
 
+// Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Params = Key | Name | Keys | Names;
 
+// Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Params_3 = Key_4 | Key_4[];
 
+// Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Params_4 = Key_3 | Name_3 | Keys_3 | Names_3;
 
+// Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Params_8 = Key_7 | Key_7[];
 
+// Warning: (ae-missing-release-tag) "parseRelationship" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const parseRelationship: (str: string) => Relationship;
 
+// Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Payload = z.infer<typeof payload>;
 
+// Warning: (ae-missing-release-tag) "payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const payload: z.ZodObject<{
     name: z.ZodString;
@@ -1433,9 +1673,13 @@ const payload: z.ZodObject<{
     alias?: string | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Payload_3 = z.infer<typeof payloadZ>;
 
+// Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Payload_5<C extends UnknownRecord = UnknownRecord, D extends {} = UnknownRecord, T extends string = string> = Omit<z.output<typeof taskZ>, "config" | "type" | "state"> & {
     type: T;
@@ -1443,6 +1687,8 @@ type Payload_5<C extends UnknownRecord = UnknownRecord, D extends {} = UnknownRe
     state?: State_2<D> | null;
 };
 
+// Warning: (ae-missing-release-tag) "payloadZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const payloadZ: z.ZodObject<{
     key: z.ZodString;
@@ -1504,6 +1750,8 @@ const payloadZ: z.ZodObject<{
     color?: string | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "PromiseFns" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 interface PromiseFns<T> {
     // (undocumented)
@@ -1512,6 +1760,8 @@ interface PromiseFns<T> {
     resolve: (value: T) => void;
 }
 
+// Warning: (ae-missing-release-tag) "QueryError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class QueryError extends BaseTypedError {
     // (undocumented)
@@ -1522,6 +1772,8 @@ export class QueryError extends BaseTypedError {
     type: string;
 }
 
+// Warning: (ae-missing-release-tag) "Rack" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Rack {
     constructor(key: number, name: string, client: task.Client);
@@ -1554,18 +1806,28 @@ declare namespace rack {
     }
 }
 
+// Warning: (ae-missing-release-tag) "RackKey" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type RackKey = z.infer<typeof rackKeyZ>;
 
+// Warning: (ae-missing-release-tag) "rackKeyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const rackKeyZ: z.ZodNumber;
 
+// Warning: (ae-missing-release-tag) "RackOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const RackOntologyType: ontology.ResourceType;
 
+// Warning: (ae-missing-release-tag) "RackPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type RackPayload = z.infer<typeof rackZ>;
 
+// Warning: (ae-missing-release-tag) "rackZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const rackZ: z.ZodObject<{
     key: z.ZodNumber;
@@ -1578,6 +1840,8 @@ const rackZ: z.ZodObject<{
     key: number;
 }>;
 
+// Warning: (ae-missing-release-tag) "Range" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Range_2 {
     // Warning: (ae-forgotten-export) The symbol "Aliaser" needs to be exported by the entry point index.d.ts
@@ -1616,15 +1880,23 @@ class Range_2 {
     readonly timeRange: TimeRange;
 }
 
+// Warning: (ae-missing-release-tag) "rangeAliasOntologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const rangeAliasOntologyID: (key: Key_3) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "RangeAliasOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const RangeAliasOntologyType: ontology.ResourceType;
 
+// Warning: (ae-missing-release-tag) "rangeOntologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const rangeOntologyID: (key: Key_3) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "RangeOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const RangeOntologyType: ontology.ResourceType;
 
@@ -1657,15 +1929,23 @@ declare namespace ranger {
 
 export { Rate }
 
+// Warning: (ae-missing-release-tag) "Relationship" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Relationship = z.infer<typeof relationshipSchemaZ>;
 
+// Warning: (ae-missing-release-tag) "RelationshipChange" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type RelationshipChange = change.Change<Relationship, undefined>;
 
+// Warning: (ae-missing-release-tag) "RelationshipDelete" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type RelationshipDelete = change.Delete<Relationship, undefined>;
 
+// Warning: (ae-missing-release-tag) "relationshipSchemaZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const relationshipSchemaZ: z.ZodObject<{
     from: z.ZodEffects<z.ZodUnion<[z.ZodUnion<[z.ZodEffects<z.ZodString, {
@@ -1717,25 +1997,36 @@ const relationshipSchemaZ: z.ZodObject<{
     };
 }>;
 
+// Warning: (ae-missing-release-tag) "RelationshipSet" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type RelationshipSet = change.Set<Relationship, undefined>;
 
 // Warning: (ae-forgotten-export) The symbol "renameReqZ" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "RenameProps" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type RenameProps = z.input<typeof renameReqZ>;
 
+// Warning: (ae-missing-release-tag) "Resource" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Resource<T extends UnknownRecord = UnknownRecord> = Omit<z.output<typeof resourceSchemaZ>, "data"> & {
     data?: T | null;
 };
 
+// Warning: (ae-missing-release-tag) "ResourceChange" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type ResourceChange = change.Change<ID, Resource>;
 
+// Warning: (ae-missing-release-tag) "ResourceDelete" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type ResourceDelete = change.Delete<ID, Resource>;
 
+// Warning: (ae-missing-release-tag) "resourceSchemaZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
     id: z.ZodEffects<z.ZodUnion<[z.ZodUnion<[z.ZodEffects<z.ZodString, {
@@ -1825,32 +2116,42 @@ const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
     } | null | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "ResourceSet" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type ResourceSet = change.Set<ID, Resource>;
 
 // Warning: (ae-forgotten-export) The symbol "resourceTypeZ" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "ResourceType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type ResourceType = z.infer<typeof resourceTypeZ>;
 
 // Warning: (ae-forgotten-export) The symbol "Request_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type RetrieveOptions = Omit<Request_2, "keys" | "names" | "search">;
 
 // Warning: (ae-forgotten-export) The symbol "RetrieveRequest" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type RetrieveOptions_2 = Pick<RetrieveRequest, "includeSchema" | "excludeFieldData">;
 
+// Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type RetrieveOptions_3 = Pick<RetrieveRequest_3, "rack" | "offset" | "limit" | "includeState">;
 
 // Warning: (ae-forgotten-export) The symbol "RetrieveRequest_4" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type RetrieveOptions_4 = Pick<RetrieveRequest_4, "limit" | "offset" | "makes">;
 
+// Warning: (ae-missing-release-tag) "Retriever" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 interface Retriever {
     // (undocumented)
@@ -1861,6 +2162,8 @@ interface Retriever {
     search: (term: string, opts?: RetrieveOptions) => Promise<Payload[]>;
 }
 
+// Warning: (ae-missing-release-tag) "Retriever" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Retriever_2 {
     constructor(client: UnaryClient);
@@ -1875,21 +2178,29 @@ class Retriever_2 {
 }
 
 // Warning: (ae-forgotten-export) The symbol "retrieveReqZ_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "RetrieveRequest" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type RetrieveRequest_2 = z.infer<typeof retrieveReqZ_2>;
 
 // Warning: (ae-forgotten-export) The symbol "retrieveReqZ_3" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "RetrieveRequest" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type RetrieveRequest_3 = z.infer<typeof retrieveReqZ_3>;
 
+// Warning: (ae-missing-release-tag) "retrieveRequired" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const retrieveRequired: (r: Retriever, params: Params) => Promise<Payload[]>;
 
+// Warning: (ae-missing-release-tag) "Root" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const Root: ID;
 
+// Warning: (ae-missing-release-tag) "RouteError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class RouteError extends BaseTypedError {
     constructor(message: string, path: string);
@@ -1903,12 +2214,18 @@ export class RouteError extends BaseTypedError {
     type: string;
 }
 
+// Warning: (ae-missing-release-tag) "Schema" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Schema = z.infer<typeof schemaZ>;
 
+// Warning: (ae-missing-release-tag) "SchemaField" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type SchemaField = z.infer<typeof schemaFieldZ>;
 
+// Warning: (ae-missing-release-tag) "schemaFieldZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const schemaFieldZ: z.ZodObject<{
     type: z.ZodNumber;
@@ -1918,6 +2235,8 @@ const schemaFieldZ: z.ZodObject<{
     type: number;
 }>;
 
+// Warning: (ae-missing-release-tag) "schemaZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const schemaZ: z.ZodObject<{
     type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
@@ -1942,6 +2261,8 @@ const schemaZ: z.ZodObject<{
 
 export { Series }
 
+// Warning: (ae-missing-release-tag) "series" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const series: z.ZodObject<{
     timeRange: z.ZodOptional<z.ZodUnion<[z.ZodEffects<z.ZodObject<{
@@ -2003,12 +2324,18 @@ const series: z.ZodObject<{
     alignment?: string | bigint | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "seriesFromPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const seriesFromPayload: (series: SeriesPayload) => Series;
 
+// Warning: (ae-missing-release-tag) "SeriesPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type SeriesPayload = z.infer<typeof series>;
 
+// Warning: (ae-missing-release-tag) "seriesToPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const seriesToPayload: (series: Series) => SeriesPayload;
 
@@ -2020,9 +2347,13 @@ declare namespace signals {
     }
 }
 
+// Warning: (ae-missing-release-tag) "State" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type State = z.infer<typeof state>;
 
+// Warning: (ae-missing-release-tag) "state" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const state: z.ZodObject<{
     status: z.ZodEnum<["disconnected", "connecting", "connected", "failed"]>;
@@ -2041,17 +2372,25 @@ const state: z.ZodObject<{
     error?: Error | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "State" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type State_2<D extends {} = UnknownRecord> = Omit<z.infer<typeof stateZ>, "details"> & {
     details?: D;
 };
 
+// Warning: (ae-missing-release-tag) "State" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type State_3 = control_2.State<Key>;
 
+// Warning: (ae-missing-release-tag) "StateObservable" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type StateObservable<D extends UnknownRecord = UnknownRecord> = observe.ObservableAsyncCloseable<State_2<D>>;
 
+// Warning: (ae-missing-release-tag) "StateTracker" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class StateTracker extends framer.ObservableStreamer<Transfer[]> implements observe_2.ObservableAsyncCloseable<Transfer[]> {
     constructor(streamer: Streamer);
@@ -2061,6 +2400,8 @@ class StateTracker extends framer.ObservableStreamer<Transfer[]> implements obse
     subjects(): Subject[];
 }
 
+// Warning: (ae-missing-release-tag) "stateZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const stateZ: z.ZodObject<{
     task: z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>;
@@ -2079,6 +2420,8 @@ const stateZ: z.ZodObject<{
     key?: string | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "stateZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const stateZ_2: z.ZodObject<{
     subject: z.ZodObject<{
@@ -2109,12 +2452,18 @@ const stateZ_2: z.ZodObject<{
     authority: number | Number | control_2.Authority;
 }>;
 
+// Warning: (ae-missing-release-tag) "Status" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Status = z.infer<typeof status_2>;
 
+// Warning: (ae-missing-release-tag) "status" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const status_2: z.ZodEnum<["disconnected", "connecting", "connected", "failed"]>;
 
+// Warning: (ae-missing-release-tag) "Streamer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     // (undocumented)
@@ -2133,6 +2482,8 @@ class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     update(params: Params): Promise<void>;
 }
 
+// Warning: (ae-missing-release-tag) "StreamerConfig" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 interface StreamerConfig {
     // (undocumented)
@@ -2141,17 +2492,33 @@ interface StreamerConfig {
     from?: CrudeTimeStamp;
 }
 
+// Warning: (ae-missing-release-tag) "stringIDZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const stringIDZ: z.ZodEffects<z.ZodString, {
     type: ResourceType;
     key: string;
 }, string>;
 
+// Warning: (ae-missing-release-tag) "Subject" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Subject = control_2.Subject;
 
+// Warning: (tsdoc-undefined-tag) The TSDoc tag "@property" is not defined in this configuration
+// Warning: (tsdoc-undefined-tag) The TSDoc tag "@property" is not defined in this configuration
+// Warning: (tsdoc-undefined-tag) The TSDoc tag "@property" is not defined in this configuration
+// Warning: (tsdoc-undefined-tag) The TSDoc tag "@property" is not defined in this configuration
+// Warning: (ae-missing-release-tag) "Synnax" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class Synnax extends framer.Client {
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
     constructor(props_: SynnaxProps);
     // Warning: (ae-forgotten-export) The symbol "access" needs to be exported by the entry point index.d.ts
     //
@@ -2195,9 +2562,13 @@ export class Synnax extends framer.Client {
     readonly workspaces: workspace.Client;
 }
 
+// Warning: (ae-missing-release-tag) "SynnaxProps" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 export type SynnaxProps = z.input<typeof synnaxPropsZ>;
 
+// Warning: (ae-missing-release-tag) "synnaxPropsZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 export const synnaxPropsZ: z.ZodObject<{
     host: z.ZodString;
@@ -2235,6 +2606,8 @@ export const synnaxPropsZ: z.ZodObject<{
     secure?: boolean | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "Task" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Task<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string> {
     constructor(key: TaskKey, name: string, type: T, config: C, frameClient: framer.Client, internal?: boolean, state?: State_2<D> | null);
@@ -2281,12 +2654,18 @@ declare namespace task {
     }
 }
 
+// Warning: (ae-missing-release-tag) "TaskKey" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type TaskKey = z.infer<typeof taskKeyZ>;
 
+// Warning: (ae-missing-release-tag) "taskKeyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const taskKeyZ: z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>;
 
+// Warning: (ae-missing-release-tag) "taskZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const taskZ: z.ZodObject<{
     key: z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>;
@@ -2346,9 +2725,13 @@ export { TimeStamp }
 
 export { TimeStampStringFormat }
 
+// Warning: (ae-missing-release-tag) "Transfer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Transfer = control_2.Transfer<Key>;
 
+// Warning: (ae-missing-release-tag) "transferString" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const transferString: (t: Transfer) => string;
 
@@ -2356,6 +2739,8 @@ export { TypedArray }
 
 export { TZInfo }
 
+// Warning: (ae-missing-release-tag) "UnexpectedError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class UnexpectedError extends BaseTypedError {
     constructor(message: string);
@@ -2367,6 +2752,8 @@ export class UnexpectedError extends BaseTypedError {
     type: string;
 }
 
+// Warning: (ae-missing-release-tag) "ValidationError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class ValidationError extends BaseTypedError {
     // (undocumented)
@@ -2377,6 +2764,8 @@ export class ValidationError extends BaseTypedError {
     type: string;
 }
 
+// Warning: (ae-missing-release-tag) "Workspace" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 type Workspace = z.infer<typeof workspaceZ>;
 
@@ -2394,9 +2783,13 @@ declare namespace workspace {
     }
 }
 
+// Warning: (ae-missing-release-tag) "WorkspaceOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const WorkspaceOntologyType: ontology.ResourceType;
 
+// Warning: (ae-missing-release-tag) "workspaceRemoteZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const workspaceRemoteZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
     name: z.ZodString;
@@ -2414,6 +2807,8 @@ const workspaceRemoteZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
     layout: string;
 }>;
 
+// Warning: (ae-missing-release-tag) "workspaceZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 const workspaceZ: z.ZodObject<{
     name: z.ZodString;
@@ -2429,6 +2824,8 @@ const workspaceZ: z.ZodObject<{
     layout: string | Record<string | number | symbol, unknown>;
 }>;
 
+// Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 class Writer {
     close(): Promise<void>;
@@ -2443,7 +2840,11 @@ class Writer {
     // (undocumented)
     static _open(retriever: Retriever, client: StreamClient, { channels, start, authorities, controlSubject: subject, mode, errOnUnauthorized, enableAutoCommit, autoIndexPersistInterval, }: WriterConfig): Promise<Writer>;
     // (undocumented)
-    setAuthority(value: Record<Key, control_2.Authority>): Promise<boolean>;
+    setAuthority(value: number): Promise<boolean>;
+    // (undocumented)
+    setAuthority(key: KeyOrName, authority: control_2.Authority): Promise<boolean>;
+    // (undocumented)
+    setAuthority(value: Record<KeyOrName, control_2.Authority>): Promise<boolean>;
     // (undocumented)
     write(channel: KeyOrName, data: CrudeSeries): Promise<boolean>;
     // (undocumented)
@@ -2454,6 +2855,8 @@ class Writer {
     write(channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame, series?: CrudeSeries | CrudeSeries[]): Promise<boolean>;
 }
 
+// Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Writer_2 {
     constructor(client: UnaryClient, cache: CacheRetriever);
@@ -2465,6 +2868,8 @@ class Writer_2 {
     rename(keys: Key[], names: string[]): Promise<void>;
 }
 
+// Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Writer_3 {
     constructor(client: UnaryClient);
@@ -2478,6 +2883,8 @@ class Writer_3 {
     set(id: ontology.ID, labels: Key_4[]): Promise<void>;
 }
 
+// Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 class Writer_4 {
     constructor(client: UnaryClient);
@@ -2491,6 +2898,8 @@ class Writer_4 {
     rename(key: string, name: string): Promise<void>;
 }
 
+// Warning: (ae-missing-release-tag) "WriterConfig" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 interface WriterConfig {
     // (undocumented)
@@ -2506,19 +2915,21 @@ interface WriterConfig {
     // (undocumented)
     errOnUnauthorized?: boolean;
     // (undocumented)
-    mode?: WriterMode;
+    mode?: CrudeWriterMode;
     // (undocumented)
     start?: CrudeTimeStamp;
 }
 
+// Warning: (ae-missing-release-tag) "WriterMode" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 enum WriterMode {
     // (undocumented)
-    PersistOnly = 2,
+    Persist = 2,
     // (undocumented)
     PersistStream = 1,
     // (undocumented)
-    StreamOnly = 3
+    Stream = 3
 }
 
 // (No @packageDocumentation comment for this package)

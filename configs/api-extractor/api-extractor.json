@@ -26,11 +26,20 @@
     "extractorMessageReporting": {
       "default": {
         "logLevel": "warning"
+      },
+      "ae-missing-release-tag": {
+        "logLevel": "warning",
+        "addToApiReportFile": true
+      },
+      "ae-unresolved-link": {
+        "logLevel": "warning",
+        "addToApiReportFile": true
       }
     },
     "tsdocMessageReporting": {
       "default": {
-        "logLevel": "warning"
+        "logLevel": "warning",
+        "addToApiReportFile": true
       }
     }
   }
