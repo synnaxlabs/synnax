@@ -1,62 +1,65 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Writes"
-heading: "Writes"
+heading: "Writing Data"
 description: "Learn the process for writing data to a Synnax cluster."
 ---
-import { Divider } from "@synnaxlabs/pluto"
-import Table from "@/components/Table.astro"
 
-This page documents the high-level process of writing data to a cluster, including 
-transactions, streaming/persistence modes, and dynamic control handoff. This page is a 
-theoretical introduction - for practical guides on writing data using a client library,
-see the [Python Client](../python-client/write-data) 
-and [TypeScript Client](../typescript-client/write-data) guides.
+import { Divider } from "@synnaxlabs/pluto";
+import Table from "@/components/Table.astro";
+
+This page documents the high-level process of writing data to a cluster, including
+transactions, streaming/persistence modes, and dynamic control handoff. This page is a
+theoretical introduction. For practical guides on writing data using a client library,
+see the [Python Client](/reference/python-client/write-data) and [TypeScript
+Client](/reference/typescript-client/write-data) pages.
 
 <Divider.Divider direction="x" />
 
 ## Introduction
 
-Writers are used to write telemetry samples to a Synnax cluster. A writer is opened on
-a set of channels, and typically writes to these channels in a continuous stream over
-long periods of time. 
+Writers are used to write telemetry samples to a Synnax cluster. A writer is opened on a
+set of channels, and typically writes to these channels in a continuous stream over long
+periods of time.
 
 <Divider.Divider direction="x" />
 
 ## Transactions
 
-Each writer governs an atomic transaction against the Synnax cluster. To begin a 
-transaction, we open a new writer and start writing data frames using a file like 
+Each writer governs an atomic transaction against the Synnax cluster. To begin a
+transaction, we open a new writer and start writing data frames using a file like
 interface. After we're done writing, we commit the writer to the database, making it
-available for reading. Synnax transactions are unique in that they can be committed 
-**multiple** times, where each new commit extends the data written in the previous commit. 
-After the final commit, the user closes the writer, at which point the cluster releases 
-all write related resources and the transaction is complete.
+available for reading. Synnax transactions are unique in that they can be committed
+**multiple** times, where each new commit extends the data written in the previous
+commit. After the final commit, the user closes the writer, at which point the cluster
+releases all write-related resources and the transaction is complete.
 
 ### Open Phase
 
 To start a new transaction, we need to provide the following information.
 
 <Table>
-   <thead>
-      <tr>
-         <th>Argument</th>
-         <th>Description</th>
-      </tr>
-   </thead>
-   <tbody>
-      <tr>
-         <td>Channels</td>
-         <td>The channels we're interested in writing to.</td>
-      </tr> 
-      <tr>
-         <td>Timestamp</td>
-         <td>The timestamp marking the time at or just before the first written sample was recorded.</td>
-      </tr>
-   </tbody>
+    <thead>
+        <tr>
+            <th>Argument</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Channels</td>
+            <td>The channels we're interested in writing to.</td>
+        </tr>
+        <tr>
+            <td>Timestamp</td>
+            {/* prettier-ignore */}
+            <td>The timestamp marking the time at or just before the first written
+                sample was recorded.</td>
+        </tr>
+    </tbody>
 </Table>
 
-Synnax will use these arguments to validate a few things before opening the writer:
+Synnax will use these arguments to validate two things before opening the writer:
 
 1. That all channels exist in the Synnax cluster.
 2. That no existing data overlaps with the provided timestamp.
@@ -66,35 +69,44 @@ Synnax will use these arguments to validate a few things before opening the writ
 There are also a few optional arguments we can provide when opening a writer:
 
 <Table>
-   <thead>
-      <tr>
-         <th>Argument</th>
-         <th>Description</th>
-      </tr>
-   </thead>
-   <tbody>
-      <tr>
-         <td><a href="#persistencestreaming-modes">Mode</a></td>
-         <td>The persistence/streaming mode of the writer. This can be persist only, stream only, or stream + persist.</td>
-      </tr> 
-      <tr>
-         <td><a href="#dynamic-control---write-authorities">Authority</a></td>
-         <td>The authority to set for the writer. This is used for dynamic control handoff between multiple writers.</td>
-      </tr>
-      <tr>
-         <td>Auto-Commit</td>
-         <td>Whether writes should be immediately committed to the Synnax Cluster.</td>
-      </tr>
-   </tbody>
+    <thead>
+        <tr>
+            <th>Argument</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                <a href="#persistencestreaming-modes">Mode</a>
+            </td>
+            {/* prettier-ignore */}
+            <td>The persistence/streaming mode of the writer. This can be persist only,
+                stream only, or stream + persist.</td>
+        </tr>
+        <tr>
+            <td>
+                <a href="#dynamic-control---write-authorities">Authority</a>
+            </td>
+            {/* prettier-ignore */}
+            <td>The authority to set for the writer. This is used for dynamic control
+                handoff between multiple writers.</td>
+        </tr>
+        <tr>
+            <td>Auto-Commit</td>
+            {/* prettier-ignore */}
+            <td>Whether writes should be immediately committed to the Synnax
+            Cluster.</td>
+        </tr>
+    </tbody>
 </Table>
 
 ### Write Phase
 
-After all opening validation checks pass, the transaction enters the write phase. 
-During this period, a user can write continuous frames of data to the transaction. These
-frames must be vertical (i.e. all channels must have a single series specified),
-and all series must have the same number of samples. You can read more about
-frame alignment here.
+After all opening validation checks pass, the transaction enters the write phase. During
+this period, a user can write continuous frames of data to the transaction. These frames
+must be vertical (i.e. all channels must have a single series specified), and all series
+must have the same number of samples.
 
 To illustrate how a series of writes would work, imagine we write the following frame:
 
@@ -104,7 +116,7 @@ To illustrate how a series of writes would work, imagine we write the following 
 | 1677433720970863400 | 19.18         | 346.78          | 17.22                  |
 | 1677433721270868900 | 19.19         | 348.78          | 18.22                  |
 
-After this write, the stored data in the Synnax database transaction looks exactly like 
+After this write, the stored data in the Synnax database transaction looks exactly like
 the first frame. Then we write the next frame:
 
 | time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
@@ -129,77 +141,78 @@ by adding frames. It's common for writers to be open for many hours or even days
 
 ### Commit Phase
 
-Once we're ready to persist the transaction and make it available for reads, we call
-the `commit` method on our writer. During this phase, the cluster identifies the time 
-range of the writer based on the provided starting timestamp and the samples written. 
-The commit process succeeds and the write is now available for reads. After this
-phase completes, the transaction is moved back into the write phase. At this
-point, we can either write more frames to the cluster and commit again, or we
-can close the writer.
+Once we're ready to persist the transaction and make it available for reads, we call the
+`commit` method on our writer. During this phase, the cluster identifies the time range
+of the writer based on the provided starting timestamp and the samples written. The
+commit process succeeds and the write is now available for reads. After this phase
+completes, the transaction is moved back into the write phase. At this point, we can
+either write more frames to the cluster and commit again, or we can close the writer.
 
-#### Auto Commit
+#### Auto-commit
 
 If the writer is configured with auto-commit on, every write is immediately committed
-and available for reads. This method is useful for real-time data that does not need
-to be applied atomically.
+and available for reads. This method is useful for real-time data that does not need to
+be applied atomically.
 
 ### Close Phase
 
-Once done writing, the user can close the writer and release all of it's
-resources. All un-committed writes will be lost. Closing a writer will also release
-control of the channel to the next highest authority writer, if one exists
-(see [Dynamic Control - Write Authorities](#dynamic-control---write-authorities)).
+Once done writing, the user can close the writer and release all of it's resources. All
+writes that have not been committed will be lost. Closing a writer will also release
+control of the channel to the next highest
+[authority](#dynamic-control---write-authorities) writer, if one exists.
 
 <Divider.Divider direction="x" />
 
 ## Persistence/Streaming Modes
 
-Synnax supports three modes for writing data: persist only, stream only, and stream + persist. 
+Synnax supports three modes for writing data: persist, stream, and stream-and-persist.
 
-When a writer is opened in **persist only** mode, the data it writes will not be sent to 
-streamers listening on the channel being written to. These writers can not be used for 
-real-time consumption or monitoring. Persist only mode is commonly used when writing 
-historical data to a cluster that doesn't represent the current state of the hardware system.
+When a writer is opened in **persist** mode, the data it writes will not be sent to
+streamers listening on the channel being written to. These writers can _not_ be used for
+real-time consumption or monitoring. Persist mode is commonly used when writing
+historical data to a cluster that doesn't represent the current state of the hardware
+system.
 
-When opened in **stream only** mode, the writer will not commit any written data to the cluster,
-and calls to `commit` will have no effect. This is useful when operating in scenarios
-where data is only needed for real-time consumption, but does not need to be accessed
-historically.
+When opened in **stream** mode, the writer will not commit any written data to the
+cluster, and calls to `commit` will have no effect. This is useful when operating in
+scenarios where data is only needed for real-time consumption, but does not need to be
+accessed historically.
 
-Finally, when opened in stream + persist mode, the writer will both persist the samples
-and stream them to any streamers listening on the channel. This is the default mode for 
-a writer.
+Finally, when opened in **stream-and-persist** mode, the writer will both persist the
+samples and stream them to any streamers listening on the channel. This is the default
+mode for a writer.
 
 <Divider.Divider direction="x" />
 
 ## Dynamic Control - Write Authorities
 
-Synnax supports multi-writer control transfer over a single channel. This enables patterns
-such as:
+Synnax supports multi-writer control transfer over a single channel. This enables
+patterns such as:
 
-- Handoff between a manual operator and automated system.
-- Handoff between multiple manual operators.
-- Handoff between multiple automated systems, such as nominal control loops and abort sequences. 
+-   Handoff between a manual operator and automated system.
+-   Handoff between multiple manual operators.
+-   Handoff between multiple automated systems, such as nominal control loops and abort
+    sequences.
 
-The control handoff mechanism is based on numeric authorities between 0 and 255, where 
-0 is the lowest authority and 255 is the highest. When a writer is opened, the user
-can specify an authority for all channels in the writer, or for each channel individually.
+The control handoff mechanism is based on numeric authorities between 0 and 255, where 0
+is the lowest authority and 255 is the highest. When a writer is opened, the user can
+specify an authority for all channels in the writer, or for each channel individually.
 
 When multiple writers are open on the same channel, the writer with a higher authority
 will have control. If a new writer is opened with a strictly higher authority, it will
-take control from the previous writer. After a higher authority writer is closed, control
-will be returned to the next highest authority writer.
+take control from the previous writer. After a higher authority writer is closed,
+control will be returned to the next highest authority writer.
 
 ### Example - Manual Operator & Abort Sequence
 
 To illustrate this, consider the following scenario:
 
 1. Writer A opens on channel `my-channel` with authority 100.
-2. Writer B, which listens for abort conditions, opens on channel `my-channel` with 
-authority 50. Writer A remains in control.
-4. Writer A writes a number of samples to the channel, which commands an actuator. 
-5. Writer B detects an abort condition and sets its authority to 250. Writer B now
-takes control of the channelData, and moves the system into a safe state.
-6. A manual operator (writer C) opens on channel `my-channel` with authority 255, taking
-absolute control of the system to make adjustments.
-7. Writers B and C close, returning control to writer A.
+2. Writer B, which listens for abort conditions, opens on channel `my-channel` with
+   authority 50. Writer A remains in control.
+3. Writer A writes a number of samples to the channel, which commands an actuator.
+4. Writer B detects an abort condition and sets its authority to 250. Writer B now takes
+   control of the channelData, and moves the system into a safe state.
+5. A manual operator (writer C) opens on channel `my-channel` with authority 255, taking
+   absolute control of the system to make adjustments.
+6. Writers B and C close, returning control to writer A.

@@ -2,8 +2,9 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Python Client"
 heading: "The Synnax Python Client"
-description: "Use the Synna Python client to connect with a Synnax cluster."
+description: "Use the Synnax Python client to connect with a Synnax cluster."
 ---
+
 import { Divider } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
@@ -12,10 +13,10 @@ import Note from "@/components/Note.astro";
 Synnax provides first-class support for Python. Our client delivers many capabilities,
 including
 
-- Direct integration with [pandas](https://pandas.pydata.org/) and
-   [numpy](https://numpy.org/doc/stable/index.html).
-- Tooling to implement automated control of your hardware.
-- Change data capture (CDC) infrastructure to build automated analysis pipelines.
+-   Direct integration with [pandas](https://pandas.pydata.org/) and
+    [numpy](https://numpy.org/doc/stable/index.html).
+-   Tooling to implement automated control of your hardware.
+-   Change data capture (CDC) infrastructure to build automated analysis pipelines.
 
 In this section, we'll cover how to install the client and authenticate with a cluster.
 
@@ -32,9 +33,9 @@ pip install synnax
 ```
 
 <Note variant="info">
-Python can be difficult to get installed and running correctly, so we've put together a
-[troubleshooting guide](/reference/python-client/troubleshooting) that you can
-reference.
+    Python can be difficult to get installed and running correctly, so we've put
+    together a [troubleshooting guide](/reference/python-client/troubleshooting) that
+    you can reference.
 </Note>
 
 <Divider.Divider direction="x" />
@@ -61,9 +62,9 @@ synnax login
 ```
 
 <Note variant="info">
-If you get the error `command not found`, you might not have Python scripts in your
-`PATH` variable. See our [troubleshooting
-guide](/reference/python-client/troubleshooting) for more information.
+    If you get the error `command not found`, you might not have Python scripts in your
+    `PATH` variable. See our [troubleshooting
+    guide](/reference/python-client/troubleshooting) for more information.
 </Note>
 
 This command will prompt us for the following information:

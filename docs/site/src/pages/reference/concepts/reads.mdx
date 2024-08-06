@@ -4,27 +4,28 @@ title: "Reads"
 heading: "Reading Data"
 description: "Learn the process for reading data from a Synnax cluster."
 ---
+
 import { Divider } from "@synnaxlabs/pluto";
 import { Table } from "@/components/Table";
 
-This page walks you through the lifecycle of a read operation. If you'd like a
-practical guide on reading data using a client library, look at the respective
-pages for [Python](../python-client/read-data) and [TypeScript](../typescript-client/read-data).
+This page walks you through the lifecycle of a read operation. If you'd like a practical
+guide on reading data using a client library, take a look at the respective pages for
+[Python](/reference/python-client/read-data) and
+[TypeScript](/reference/typescript-client/read-data).
 
 <Divider.Divider direction="x" />
 
 ## What is a Range?
 
-A range (short for "time range") is simply an interesting region of a channel's
-data.
+A range (short for "time range") is simply an interesting region of a channel's data.
 
 To read from a cluster, you must provide two pieces of information:
 
 1. A range marked by a start and end timestamp.
-2. A list of channels they'd like to read from.
+2. A list of channels you would like to read from.
 
-Using these parameters, the cluster will resolve the relevant domains for each
-channel and return the requested data.
+Using these parameters, the cluster will resolve the relevant domains for each channel
+and return the requested data.
 
 ### Range Inclusivity
 
@@ -33,58 +34,58 @@ example, if our desired range is from `1677433720970863400` to `1677433721870863
 would retrieve the following subset from the shown domain:
 
 <Table
-  client:only="react"
-  columns={[
-    { key: "time" },
-    { key: "my-precise-tc" },
-    { key: "strain-gauge-01" },
-    { key: "pressure-transducer-05" }
-  ]}
-  highlights={[
-    {
-      key: "one",
-      columns: [
-        "time",
-        "my-precise-tc",
-        "strain-gauge-01",
-        "pressure-transducer-05"
-      ],
-      color: "var(--pluto-primary-z)",
-      rows: { lower: 1, upper: 4 }
-    }
-  ]}
-  data={[
-    {
-      time: 1677433720770863800,
-      "my-precise-tc": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22
-    },
-    {
-      time: 1677433720970863400,
-      "my-precise-tc": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22
-    },
-    {
-      time: 1677433721270868900,
-      "my-precise-tc": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22
-    },
-    {
-      time: 1677433721470863800,
-      "my-precise-tc": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22
-    },
-    {
-      time: 1677433721870863400,
-      "my-precise-tc": 19.2,
-      "strain-gauge-01": 350.78,
-      "pressure-transducer-05": 19.22
-    }
-  ]}
+    client:only="react"
+    columns={[
+        { key: "time" },
+        { key: "thermocouple-01" },
+        { key: "strain-gauge-01" },
+        { key: "pressure-transducer-05" },
+    ]}
+    highlights={[
+        {
+            key: "one",
+            columns: [
+                "time",
+                "thermocouple-01",
+                "strain-gauge-01",
+                "pressure-transducer-05",
+            ],
+            color: "var(--pluto-primary-z)",
+            rows: { lower: 1, upper: 4 },
+        },
+    ]}
+    data={[
+        {
+            time: 1677433720770863800,
+            "thermocouple-01": 19.2,
+            "strain-gauge-01": 350.78,
+            "pressure-transducer-05": 19.22,
+        },
+        {
+            time: 1677433720970863400,
+            "thermocouple-01": 19.2,
+            "strain-gauge-01": 350.78,
+            "pressure-transducer-05": 19.22,
+        },
+        {
+            time: 1677433721270868900,
+            "thermocouple-01": 19.2,
+            "strain-gauge-01": 350.78,
+            "pressure-transducer-05": 19.22,
+        },
+        {
+            time: 1677433721470863800,
+            "thermocouple-01": 19.2,
+            "strain-gauge-01": 350.78,
+            "pressure-transducer-05": 19.22,
+        },
+        {
+            time: 1677433721870863400,
+            "thermocouple-01": 19.2,
+            "strain-gauge-01": 350.78,
+            "pressure-transducer-05": 19.22,
+        },
+    ]}
 />
 
 <Divider.Divider direction="x" />
@@ -92,30 +93,29 @@ would retrieve the following subset from the shown domain:
 ## Iterators
 
 Underneath every read operation is an iterator. An iterator allows the caller to
-traverse through a range of data in a streaming fashion. Iterators are more
-complex to work with, so we recommend using a single request-response read when
-possible.
+traverse through a range of data in a streaming fashion. Iterators are more complex to
+work with, so we recommend using a single request-response read when possible.
 
 Just like a read, an iterator can be created by providing a range and a list of
 channels. Creating an iterator will not return any data, but will instead open a
-persistent connection to the cluster. You can then perform two categories of
-operation: seeking and reading.
+persistent connection to the cluster. You can then perform two categories of operation:
+seeking and reading.
 
 ### Validity
 
-Iterator's maintain a validity state throughout their lifetime. This flag is
-used to indicate whether the iterator is healthy and has more data to read. An
-iterator is considered _invalid_ if it:
+Iterator's maintain a validity state throughout their lifetime. This flag is used to
+indicate whether the iterator is healthy and has more data to read. An iterator is
+considered _invalid_ if it:
 
-1. Has accumulated an error. This typically happens when the iterator is unable
-   to reach the cluster.
+1. Has accumulated an error. This typically happens when the iterator is unable to reach
+   the cluster.
 2. Is not pointing at a valid sample. This can occur if the iterator has:
-   - Exhausted its data, meaning the end of the range is reached during forward
-     iteration, or the start of the range is reached during reverse iteration.
-   - Has not been positioned yet with a seeking call.
+    - Exhausted its data, meaning the end of the range is reached during forward
+      iteration, or the start of the range is reached during reverse iteration.
+    - Has not been positioned yet with a seeking call.
 
-An iterator that has been opened but not yet positioned is invalid. To position
-the iterator, you must call a seeking operation.
+An iterator that has been opened but not yet positioned is invalid. To position the
+iterator, you must call a seeking operation.
 
 ### Seeking
 
@@ -123,103 +123,94 @@ Seeking moves the iterator to a new position in the range. All seeking calls ret
 `boolean` indicating the validity state after executing the operation.
 
 <table>
-  <thead>
-    <tr>
-      <th style="width: 130px;">Operation</th>
-      <th style="width: 100px;">Arguments</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>`seek-lt`</td>
-      <td>timestamp</td>
-      <td>
-        Seeks to the first sample whose timestamp is strictly less than the
-        provided timestamp.
-      </td>
-    </tr>
-    <tr>
-      <td>`seek-ge`</td>
-      <td>timestamp</td>
-      <td>
-        Seeks to the first sample whose timestamp is greater than or equal to
-        the provided timestamp.
-      </td>
-    </tr>
-    <tr>
-      <td>`seek-first`</td>
-      <td>None</td>
-      <td>
-        Seeks to the first sample in the range.
-      </td>
-    </tr>
-    <tr>
-      <td>`seek-last`</td>
-      <td>None</td>
-      <td>
-        Seeks to the last sample in the range.
-      </td>
-    </tr>
-  </tbody>
+    <thead>
+        <tr>
+            <th style="width: 130px;">Operation</th>
+            <th style="width: 100px;">Arguments</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>`seek-lt`</td>
+            <td>timestamp</td>
+            {/* prettier-ignore */}
+            <td>Seeks to the first sample whose timestamp is strictly less than the
+                provided timestamp.</td>
+        </tr>
+        <tr>
+            <td>`seek-ge`</td>
+            <td>timestamp</td>
+            {/* prettier-ignore */}
+            <td>Seeks to the first sample whose timestamp is greater than or equal to
+            the provided timestamp.</td>
+        </tr>
+        <tr>
+            <td>`seek-first`</td>
+            <td>None</td>
+            <td>Seeks to the first sample in the range.</td>
+        </tr>
+        <tr>
+            <td>`seek-last`</td>
+            <td>None</td>
+            <td>Seeks to the last sample in the range.</td>
+        </tr>
+    </tbody>
 </table>
 
-Seeking calls can be used to **revalidate** an iterator after it has been
-exhausted or positioned to an invalid location. In the case of an accumulated
-error, this call may or may not succeed.
+Seeking calls can be used to **revalidate** an iterator after it has been exhausted or
+positioned to an invalid location. In the case of an accumulated error, this call may or
+may not succeed.
 
 ### Reading
 
-There are two methods for reading from an iterator. The first is through a fixed
-number of samples called the **chunk size**, which can be set when creating the
-iterator. Each call to `next` or `prev` without any arguments will return the
-next chunk of data.
+There are two methods for reading from an iterator. The first is through a fixed number
+of samples called the **chunk size**, which can be set when creating the iterator. Each
+call to `next` or `prev` without any arguments will return the next chunk of data.
 
-The second is by providing a specified timespan to read. This is useful for
-seeking to and reading specific sections of data. When using span-based
-iteration, you should be wary of reading too large of a span, as this can cause
-heavy performance degradation. Reading by a span is start inclusive and end
-exclusive, regardless of the direction of iteration.
+The second is by providing a specified timespan to read. This is useful for seeking to
+and reading specific sections of data. When using span-based iteration, you should be
+wary of reading too large of a span, as this can cause heavy performance degradation.
+Reading by a span is start inclusive and end exclusive, regardless of the direction of
+iteration.
 
-As with seeking operations, all reads return a `boolean` indicating the validity
-state after executing the operation.
+As with seeking operations, all reads return a `boolean` indicating the validity state
+after executing the operation.
 
 <table>
-  <thead>
-    <tr>
-      <th>Operation</th>
-      <th style="width: 180px;">Arguments</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>`next`</td>
-      <td>timespan or nothing</td>
-      <td>
-        If no timespan is provided, reads the next frame of data specified by
-        the chunk size. If a timespan is provided, reads the next frame of data
-        across the span.
-      </td>
-    </tr>
-    <tr>
-      <td>`prev`</td>
-      <td>timespan or nothng</td>
-      <td>
-        Reads the previous chunk of data whose timespan is less than or equal to
-        the provided timespan. If no timespan is provided, reads the previous
-        chunk of data specified by the chunk size.
-      </td>
-    </tr>
-  </tbody>
+    <thead>
+        <tr>
+            <th>Operation</th>
+            <th style="width: 180px;">Arguments</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>`next`</td>
+            <td>timespan or nothing</td>
+            {/* prettier-ignore */}
+            <td>If no timespan is provided, reads the next frame of data specified by
+                the chunk size. If a timespan is provided, reads the next frame of data
+                across the span.</td>
+        </tr>
+        <tr>
+            <td>`prev`</td>
+            <td>timespan or nothng</td>
+            {/* prettier-ignore */}
+            <td>Reads the previous chunk of data whose timespan is less than or equal to
+                the provided timespan. If no timespan is provided, reads the previous
+                chunk of data specified by the chunk size.</td>
+        </tr>
+    </tbody>
 </table>
 
 ### Accessing the Iterator Value
 
-While read operations _do_ fetch frames from the cluster, they do not return
-them directly. Instead, the current frame is kept in client-side memory, and can
-be accessed through the `value` method on the iterator.
+While read operations _do_ fetch frames from the cluster, they do not return them
+directly. Instead, the current frame is kept in client-side memory, and can be accessed
+through the `value` method on the iterator.
 
-This method returns a frame with the same format as in unary reads. If the
-iterator is invalid, calls to `value` have undefined behavior. If the iterator
-has been positioned but not yet read from, the frame will be empty.
+This method returns a frame with the same format as in unary reads. If the iterator is
+invalid, calls to `value` have undefined behavior. If the iterator has been positioned
+but not yet read from, the frame will be empty.
