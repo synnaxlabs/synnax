@@ -156,6 +156,7 @@ I can successfully:
 - [ ] Download a range as a CSV.
 - [ ] Create a range from line plot selection.
 - [ ] Use the measuring tool on the line plot.
+- [ ] I can repeatedly start and stop an acquisition read task, and tooltips will appear in the correct location.
 
 ### Schematics
 
@@ -232,7 +233,7 @@ I can successfully:
 - [ ] Single Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - Read from multiple channels in array-sampling mode.
 - [ ] Array Sampling - Read from multiple channels in array-sampling mode with
-  different array sizes. 
+  different array sizes.
     - [ ] 1
     - [ ] 10
     - [ ] 100
@@ -242,7 +243,7 @@ I can successfully:
 - [ ] Channel Selection - The read task dialog will recommend synnax channels
 based on the configured OPC UA node.
 - [ ] Connect to a physical device and read data from it.
-- [ ]	Maintain operation of the driver when a device is disconnected or a channel is 
+- [ ]	Maintain operation of the driver when a device is disconnected or a channel is
 removed from the device while it is running.
 - [ ]	Enable and disable data saving at will.
 - [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
@@ -262,7 +263,7 @@ I can successfully:
 - [ ] Not see chassis devices connected to the machine
 - [ ] See devices connected to a chassis
 - [ ] Run the driver without the Daqmx and Syscfg libraries installed on the machine.
-- [ ] Get feedback when trying to create an NI task on a machine that doesn't have the 
+- [ ] Get feedback when trying to create an NI task on a machine that doesn't have the
   required libraries installed.
 
 #### Read Task
@@ -284,7 +285,7 @@ I can successfully:
 - [ ] I can succesfully configure and run an analog read task for each of the
   following channels:
      - [ ] Acceleration
-     - [ ] Acceleration 4 wire 
+     - [ ] Acceleration 4 wire
      - [ ] Bridge
           - [ ] All bridge configurations
      - [ ] Charge
