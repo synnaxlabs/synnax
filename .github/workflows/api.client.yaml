@@ -69,10 +69,6 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         run: pnpm i
 
-      - name: Build Client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
-
       - name: Check API
         if: steps.filter.outputs.changed == 'true'
         run: pnpm checkApi:client
