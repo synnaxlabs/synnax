@@ -74,9 +74,29 @@ class WriteFrameAdapter:
         self.__adapter = {ch.name: ch.key for ch in results}
         self.__keys = [ch.key for ch in results]
 
+    def adapt_dict_keys(
+        self, data: dict[ChannelPayload | ChannelKey | ChannelName, any]
+    ) -> dict[ChannelKey, any]:
+        out = dict()
+        for k in data.keys():
+            out[self.__adapt_to_key(k)] = data[k]
+        return out
+
     @property
     def keys(self):
         return self.__keys
+
+    def __adapt_to_key(
+        self, ch: ChannelPayload | ChannelKey | ChannelName
+    ) -> ChannelKey:
+        if isinstance(ch, ChannelKey):
+            return ch
+        if isinstance(ch, ChannelPayload):
+            return ch.key
+        # If it's not a payload or key already, it has to be a name,
+        # which means we need to resolve the key from a remote source
+        # (either cache or server)
+        return self.__adapt_ch(ch).key
 
     def __adapt_ch(
         self, ch: ChannelKey | ChannelName | ChannelPayload

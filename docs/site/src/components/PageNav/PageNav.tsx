@@ -15,7 +15,7 @@ import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Tabs } from "@synnaxlabs/pluto/tabs";
 import { Tree } from "@synnaxlabs/pluto/tree";
 
-import { componentsPages, guidesPages } from "@/pages/nav";
+import { componentsPages, guidesPages } from "@/pages/_nav";
 
 export type PageNavNode = Tree.Node;
 
@@ -42,6 +42,7 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length <= 1) parts = componentsPages.map((p) => p.key);
   if (currentPage === "/guides/") currentPage = "/reference/";
+  console.log(parts);
   const treeProps = Tree.use({
     nodes: componentsPages,
     initialExpanded: parts,

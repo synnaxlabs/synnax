@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import overload
+from typing import overload, TypeAlias, Literal
 from uuid import uuid4
 from warnings import warn
 
@@ -16,7 +16,6 @@ from numpy import can_cast as np_can_cast
 from pandas import DataFrame
 from pandas import concat as pd_concat
 
-import synnax
 from freighter import (
     EOF,
     Payload,
@@ -25,12 +24,18 @@ from freighter import (
     decode_exception,
 )
 from synnax import io
-from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
+from synnax.channel.payload import (
+    ChannelKey,
+    ChannelKeys,
+    ChannelName,
+    ChannelNames,
+    ChannelPayload,
+)
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload, CrudeFrame
 from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
-from synnax.telem.control import Authority, Subject
+from synnax.telem.control import Authority, Subject, CrudeAuthority
 from synnax.util.normalize import normalize
 
 
@@ -45,8 +50,31 @@ class _Command(int, Enum):
 
 class WriterMode(int, Enum):
     PERSIST_STREAM = 1
-    PERSIST_ONLY = 2
-    STREAM_ONLY = 3
+    PERSIST = 2
+    STREAM = 3
+
+
+CrudeWriterMode: TypeAlias = (
+    WriterMode | 
+    Literal["persist_stream"] | 
+    Literal["persist"] | 
+    Literal["stream"] | 
+    int
+)
+
+
+def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
+    if mode == "persist_stream":
+        return WriterMode.PERSIST_STREAM
+    if mode == "persist":
+        return WriterMode.PERSIST
+    if mode == "stream":
+        return WriterMode.STREAM
+    if isinstance(mode, WriterMode):
+        return mode
+    if isinstance(mode, int):
+        return WriterMode(mode)
+    raise ValueError(f"invalid writer mode {mode}")
 
 
 class _Config(Payload):
@@ -119,7 +147,6 @@ class Writer:
     __adapter: WriteFrameAdapter
     __suppress_warnings: bool = False
     __strict: bool = False
-    __mode: WriterMode
 
     start: CrudeTimeStamp
 
@@ -132,7 +159,7 @@ class Writer:
         authorities: list[Authority] | Authority = Authority.ABSOLUTE,
         suppress_warnings: bool = False,
         strict: bool = False,
-        mode: WriterMode = WriterMode.PERSIST_STREAM,
+        mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
@@ -147,7 +174,7 @@ class Writer:
             keys=self.__adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
-            mode=mode,
+            mode=parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
@@ -202,7 +229,7 @@ class Writer:
             3. A Synnax Frame (see the Frame documentation for more).
             4. A dictionary of channel ids to series i.e. write the series for the
             given channel id.
-            5. A pandas dataframe where the columns are the channel ids and the rows
+            5. A pandas DataFrame where the columns are the channel ids and the rows
             are the series to write.
             6. A dictionary of channel ids to a single
             numeric value. Synnax will convert this into a series for you.
@@ -234,16 +261,48 @@ class Writer:
             raise err
         return True
 
-    def set_authority(self, value: dict[ChannelKey, Authority]) -> bool:
-        err = self.__stream.send(
-            _Request(
-                command=_Command.SET_AUTHORITY,
-                config=_Config(
-                    keys=list(value.keys()),
-                    authorities=list(value.values()),
-                ),
+    @overload
+    def set_authority(self, value: CrudeAuthority) -> bool:
+        ...
+
+    @overload
+    def set_authority(
+        self,
+        value: ChannelKey | ChannelName,
+        authority: CrudeAuthority,
+    ) -> bool:
+        ...
+
+    @overload
+    def set_authority(
+        self,
+        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
+    ) -> bool:
+        ...
+
+    def set_authority(
+        self,
+        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
+        | ChannelKey
+        | ChannelName
+        | CrudeAuthority,
+        authority: CrudeAuthority | None = None,
+    ) -> bool:
+        if isinstance(value, int) and authority is None:
+            cfg = _Config(keys=[], authorities=[value])
+        else:
+            if isinstance(value, (ChannelKey, ChannelName)):
+                if authority is None:
+                    raise ValueError(
+                        "authority must be provided when setting a single channel"
+                    )
+                value = {value: authority}
+            value = self.__adapter.adapt_dict_keys(value)
+            cfg = _Config(
+                keys=list(value.keys()),
+                authorities=list(value.values()),
             )
-        )
+        err = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
         if err is not None:
             raise err
         while True:
