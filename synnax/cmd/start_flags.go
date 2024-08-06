@@ -34,8 +34,7 @@ func configureStartFlags() {
 		listenFlag,
 		"l",
 		"127.0.0.1:9090",
-		`
-			`,
+		`The address to listen for client connections.`,
 	)
 
 	startCmd.Flags().StringSliceP(
@@ -48,13 +47,13 @@ func configureStartFlags() {
 	startCmd.Flags().StringSlice(
 		enableIntegrationsFlag,
 		nil,
-		"d=D",
+		"Device integrations to enable (ni, opc)",
 	)
 
 	startCmd.Flags().StringSlice(
 		disableIntegrationsFlag,
 		nil,
-		"d=D",
+		"Device integrations to disable (ni, opc)",
 	)
 
 	startCmd.Flags().StringP(
