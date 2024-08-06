@@ -175,7 +175,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 					Expect(i.Valid()).To(BeFalse())
-					_, err := i.NewReader(ctx)
+					_, err := i.OpenReader(ctx)
 					Expect(err).To(HaveOccurredAs(e))
 					Expect(i.Close()).To(Succeed())
 				})

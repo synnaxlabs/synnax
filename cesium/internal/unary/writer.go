@@ -102,6 +102,21 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
+// controlledWriter is used for exchanging control between multiple unary writers. When
+// control is transferred, ownership of the domain writer is moved to the new unary
+// writer. Additional state is included to ensure that write positions and channel. information
+// are consistent.
+type controlledWriter struct {
+	*domain.Writer
+	channelKey core.ChannelKey
+	alignment  telem.AlignmentPair
+}
+
+var _ controller.Entity = controlledWriter{}
+
+// ChannelKey implements controller.Entity.
+func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
+
 type Writer struct {
 	WriterConfig
 	// Channel stores information about the channel this writer is writing to, including
@@ -147,7 +162,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	}
 	var g *controller.Gate[*controlledWriter]
 	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlledWriter, error) {
-		dw, err := db.domain.NewWriter(ctx, cfg.domain())
+		dw, err := db.domain.OpenWriter(ctx, cfg.domain())
 		return &controlledWriter{
 			Writer:     dw,
 			channelKey: db.cfg.Channel.Key,

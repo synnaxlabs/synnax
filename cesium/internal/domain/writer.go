@@ -83,7 +83,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 // range. If the time domain overlaps with any other domains in the DB, Write will return
 // an error.
 func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
-	w, err := db.NewWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
+	w, err := db.OpenWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	return w.Close()
 }
 
-// Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.NewWriter
+// Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.OpenWriter
 // and a provided WriterConfig, which defines the starting bound of the domain. If no
 // other domain overlaps with the starting bound, the caller can write telemetry data the
 // Writer using an io.TypedWriter interface.
@@ -142,9 +142,9 @@ type Writer struct {
 	onClose func()
 }
 
-// NewWriter opens a new Writer using the given configuration.
+// OpenWriter opens a new Writer using the given configuration.
 // If err is nil, then the writer must be closed.
-func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	if db.closed.Load() {
 		return nil, errDBClosed
 	}

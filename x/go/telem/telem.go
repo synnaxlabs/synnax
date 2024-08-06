@@ -459,12 +459,15 @@ func NewAlignmentPair(arrayIndex, sampleIndex uint32) AlignmentPair {
 	return AlignmentPair(arrayIndex)<<32 | AlignmentPair(sampleIndex)
 }
 
-const ZeroLeadingAlignmnet = math.MaxUint32 - 1e6
+// ZeroLeadingAlignment represents the start of a region reserved for written data that
+// has not yet been persisted. This is useful for correctly ordering new data while
+// ensuring that it is significantly after any persisted data.
+const ZeroLeadingAlignment = math.MaxUint32 - 1e6
 
 // LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
 // and whose sample index is the provided value.
 func LeadingAlignment(offset uint32, sampleIndex uint32) AlignmentPair {
-	return NewAlignmentPair(ZeroLeadingAlignmnet+offset, sampleIndex)
+	return NewAlignmentPair(ZeroLeadingAlignment+offset, sampleIndex)
 }
 
 // ArrayIndex returns the array index of the AlignmentPair. See AlignmentPair for more information.

@@ -68,8 +68,8 @@ func (i *Domain) Distance(
 		return
 	}
 
-	// LockAndCountOpen a new reader on the domain at the start of the range.
-	r, err := iter.NewReader(ctx)
+	// Open a new reader on the domain at the start of the range.
+	r, err := iter.OpenReader(ctx)
 	if err != nil {
 		return
 	}
@@ -133,7 +133,7 @@ func (i *Domain) Distance(
 			if err = r.Close(); err != nil {
 				return
 			}
-			r, err = iter.NewReader(ctx)
+			r, err = iter.OpenReader(ctx)
 			if err != nil {
 				return
 			}
@@ -183,7 +183,7 @@ func (i *Domain) Stamp(
 		i.L.DPanic("iterator seekFirst failed in stamp")
 	}
 
-	r, err := iter.NewReader(ctx)
+	r, err := iter.OpenReader(ctx)
 	if err != nil {
 		return
 	}
@@ -237,7 +237,7 @@ func (i *Domain) Stamp(
 				if err = r.Close(); err != nil {
 					return
 				}
-				r, err = iter.NewReader(ctx)
+				r, err = iter.OpenReader(ctx)
 				if err != nil {
 					return
 				}
@@ -269,7 +269,7 @@ func (i *Domain) Stamp(
 	if err = r.Close(); err != nil {
 		return
 	}
-	r, err = iter.NewReader(ctx)
+	r, err = iter.OpenReader(ctx)
 	if err != nil {
 		return
 	}

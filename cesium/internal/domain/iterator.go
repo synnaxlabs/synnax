@@ -32,7 +32,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 
 // Iterator iterates over the telemetry domains of a DB in time order. Iterator does
 // not read any of the underlying data of a domain, but instead provides a means to access
-// it via calls to Iterator.NewReader.
+// it via calls to Iterator.OpenReader.
 //
 // Iterator is not safe for concurrent use, but it is safe to have multiple iterators over
 // the same DB.
@@ -155,11 +155,11 @@ func (i *Iterator) Position() uint32 { return uint32(i.position) }
 // TimeRange returns the time interval occupied by current domain.
 func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 
-// NewReader returns a new Reader that can be used to read telemetry from the current
+// OpenReader returns a new Reader that can be used to read telemetry from the current
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same domain.
 // Note that the caller is responsible for closing the reader.
-func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
+func (i *Iterator) OpenReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
 		return nil, errIteratorClosed
 	}

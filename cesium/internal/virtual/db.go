@@ -107,7 +107,7 @@ func Open(configs ...Config) (db *DB, err error) {
 		leadingAlignment: &atomic.Uint32{},
 		openWriters:      &atomic.Int32{},
 	}
-	db.leadingAlignment.Store(telem.ZeroLeadingAlignmnet)
+	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
 	return db, nil
 }
 
@@ -153,6 +153,8 @@ func (db *DB) RenameChannel(newName string) error {
 	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
+// SetChannelKeyInMeta sets the key of the channel for this DB, and persists that change
+// to the DB's meta file in the underlying filesystem.
 func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
 		return dbClosed

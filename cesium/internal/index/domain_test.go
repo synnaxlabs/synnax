@@ -19,7 +19,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("domain", func() {
+var _ = Describe("Domain", func() {
 	for fsName, makeFS := range fileSystems {
 		Describe("FS:"+fsName, Ordered, func() {
 			var (
@@ -264,7 +264,7 @@ var _ = Describe("domain", func() {
 					)
 					BeforeEach(func() {
 						db2 = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger(), FileSize: 24 * telem.ByteSize}))
-						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
+						w := MustSucceed(db2.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
 						MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 16, 17).Data))
 						Expect(w.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
 						MustSucceed(w.Write(telem.NewSecondsTSV(18, 19, 20, 22).Data))

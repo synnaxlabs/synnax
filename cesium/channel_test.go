@@ -144,15 +144,14 @@ var _ = Describe("Channel", Ordered, func() {
 					dataKey       = GenerateChannelKey()
 					data2Key      = GenerateChannelKey()
 					indexErrorKey = GenerateChannelKey()
-					//indexErrorKeyNew = GenerateChannelKey()
-					dataKey1     = GenerateChannelKey()
-					errorKey1    = GenerateChannelKey()
-					errorKey1New = GenerateChannelKey()
-					errorKey2    = GenerateChannelKey()
-					errorKey2New = GenerateChannelKey()
-					errorKey3    = GenerateChannelKey()
-					errorKey3New = GenerateChannelKey()
-					jsonDecoder  = &binary.JSONCodec{}
+					dataKey1      = GenerateChannelKey()
+					errorKey1     = GenerateChannelKey()
+					errorKey1New  = GenerateChannelKey()
+					errorKey2     = GenerateChannelKey()
+					errorKey2New  = GenerateChannelKey()
+					errorKey3     = GenerateChannelKey()
+					errorKey3New  = GenerateChannelKey()
+					jsonDecoder   = &binary.JSONCodec{}
 
 					channels = []cesium.Channel{
 						{Key: unaryKey, DataType: telem.Int64T, Rate: 1 * telem.Hz},
@@ -328,13 +327,7 @@ var _ = Describe("Channel", Ordered, func() {
 							Expect(ch.Key).To(Equal(errorKey1New))
 						})
 					})
-					//FSpecify("index channel", func() {
-					//	w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{dataKey1}, ControlSubject: control.Subject{Key: "rekey writer"}}))
-					//
-					//	By("Asserting that rekey is unsuccessful")
-					//	Expect(db.RekeyChannel(indexErrorKey, indexErrorKeyNew)).To(MatchError(ContainSubstring(fmt.Sprint("cannot close channel because there are 1 unclosed"))))
-					//	Expect(w.Close()).To(Succeed())
-					//})
+
 					Specify("Virtual", func() {
 						By("Opening writers")
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey2}, ControlSubject: control.Subject{Key: "rekey writer"}}))

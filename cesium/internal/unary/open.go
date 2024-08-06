@@ -111,7 +111,7 @@ func Open(configs ...Config) (*DB, error) {
 		closed:           &atomic.Bool{},
 		leadingAlignment: &atomic.Uint32{},
 	}
-	db.leadingAlignment.Store(telem.ZeroLeadingAlignmnet)
+	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
 	} else if cfg.Channel.Index == 0 {

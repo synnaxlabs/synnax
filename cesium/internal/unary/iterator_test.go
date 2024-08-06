@@ -167,7 +167,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 
 				Describe("Requests Exhaustion", func() {
-					Specify("Single TimeRange", func() {
+					Specify("Single Time Range", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 						iter := db.OpenIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(10 * telem.Second)))
@@ -181,7 +181,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
 						Expect(iter.Close()).To(Succeed())
 					})
-					Specify("Multi TimeRange", func() {
+					Specify("Multi Time Range", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25))).To(Succeed())
@@ -202,7 +202,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 					})
 					Describe("Auto Exhaustion", func() {
-						Specify("Single domain - Leftover chunk", func() {
+						Specify("Single Domain - Leftover chunk", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							iter := db.OpenIterator(unary.IteratorConfig{
@@ -221,7 +221,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
-						Specify("Single domain - Full number chunks in domain", func() {
+						Specify("Single Domain - Full number chunks in domain", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8))).To(Succeed())
 							iter := db.OpenIterator(unary.IteratorConfig{
@@ -240,7 +240,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
-						Specify("Partial domain", func() {
+						Specify("Partial Domain", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							iter := db.OpenIterator(unary.IteratorConfig{
@@ -255,7 +255,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
-						Specify("Partial domain 2 - Regression", func() {
+						Specify("Partial Domain 2 - Regression", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							iter := db.OpenIterator(unary.IteratorConfig{
@@ -300,7 +300,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						// returning the same 2 values again.
 						//
 						// This spec asserts that this behavior is fixed.
-						Specify("Partial domain 3 - Regression", func() {
+						Specify("Partial Domain 3 - Regression", func() {
 							Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 6*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9, 10))).To(Succeed())
 							iter := db.OpenIterator(unary.IteratorConfig{
@@ -332,7 +332,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						// The problem mentioned in the above spec also arises in the SeekGE and
 						// SeekLE methods, for example, iter.SeekGE(ctx, 5*telem.SecondTS) would
 						// return true, but result in an invalid view of  (5 * telem.SecondTS).SpanRange(0)
-						Specify("Partial domain 4 - Regression", func() {
+						Specify("Partial Domain 4 - Regression", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
@@ -435,7 +435,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(unary.Write(ctx, indexDB, 13*telem.SecondTS, telem.NewSecondsTSV(13, 15, 17))).To(Succeed())
 								Expect(unary.Write(ctx, db, 13*telem.SecondTS, telem.NewSeriesV[int64](13, 15, 17))).To(Succeed())
 							})
-							Specify("Multiple domain - Forward - View in discontinuity", func() {
+							Specify("Multiple Domain - Forward - View in discontinuity", func() {
 								// This test is to address an error where if an iterator
 								// first moves to a discontinuity in the index (no data),
 								// then moves to a view that overlaps more than one domain,
@@ -475,7 +475,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
 								Expect(iter.Close()).To(Succeed())
 							})
-							Specify("Multiple domain - Forward - uneven crossing", func() {
+							Specify("Multiple Domain - Forward - uneven crossing", func() {
 								// This test addresses the bug where if an iterator reads
 								// a domain but does not read all of it, the internal
 								// iterator still moves on to the next domain.
@@ -543,7 +543,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.Next(ctx, 1*telem.Second)).To(BeFalse())
 								Expect(i.Close()).To(Succeed())
 							})
-							Specify("Multiple domain - Backward - view in discontinuity", func() {
+							Specify("Multiple Domain - Backward - view in discontinuity", func() {
 								// This test is to address an error where if an iterator
 								// first moves to a discontinuity in the index (no data),
 								// then moves to a view that overlaps more than one domain,
@@ -577,7 +577,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.Prev(ctx, 1*telem.Nanosecond)).To(BeFalse())
 								Expect(i.Close()).To(Succeed())
 							})
-							Specify("Multiple domain - Backward - uneven crossing", func() {
+							Specify("Multiple Domain - Backward - uneven crossing", func() {
 								// This test addresses the bug where if an iterator reads
 								// a domain but does not read all of it, the internal
 								// iterator still moves on to the previous domain.

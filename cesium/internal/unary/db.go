@@ -24,21 +24,6 @@ import (
 	"sync/atomic"
 )
 
-// controlledWriter is used for exchanging control between multiple unary writers. When
-// control is transferred, ownership of the domain writer is moved to the new unary
-// writer. Additional state is included to ensure that write positions and channel. information
-// are consistent.
-type controlledWriter struct {
-	*domain.Writer
-	channelKey core.ChannelKey
-	alignment  telem.AlignmentPair
-}
-
-var _ controller.Entity = controlledWriter{}
-
-// ChannelKey implements controller.Entity.
-func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
-
 // DB is a database for a single channel. It executes reads (via iterators) and writes
 // (via writers) against an underlying domain.DB. It also manages the channel's control
 // state, allowing for dynamic handoff between multiple writers.
@@ -184,6 +169,8 @@ func (db *DB) RenameChannelInMeta(newName string) error {
 	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
+// SetIndexKeyInMeta changes the channel's index to the channel with the given key,
+// and persists the change to the underlying file system.
 func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
 		return errDBClosed
@@ -192,6 +179,8 @@ func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
 	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
+// SetChannelKeyInMeta changes the channel's key to the channel with the given key,
+// and persists the change to the underlying file system.
 func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
 		return errDBClosed

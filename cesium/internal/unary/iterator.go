@@ -323,7 +323,7 @@ func (i *Iterator) read(
 	inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
 	series.Alignment = telem.AlignmentPair(idxDomain)<<32 | telem.AlignmentPair(inDomainAlignment)
-	r, err := i.internal.NewReader(ctx)
+	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
 		return
 	}

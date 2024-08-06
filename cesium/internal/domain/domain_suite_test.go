@@ -25,5 +25,5 @@ var (
 
 func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "domain Suite")
+	RunSpecs(t, "Domain Suite")
 }
