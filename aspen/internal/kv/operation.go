@@ -27,6 +27,8 @@ const (
 	recovered
 )
 
+// codec used to be implemented by a gob codec, but we want to switch to msgpack.
+// Instead, we will use a fallback codec that tries msgpack to decode first, then gob.
 var codec = &binary.FallbackCodec{
 	Codecs:           []binary.Codec{&binary.MsgPackCodec{}, &binary.GobCodec{}},
 	FallbackOnDecode: true,
