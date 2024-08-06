@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import overload
+from typing import overload, TypeAlias, Literal
 from uuid import uuid4
 from warnings import warn
 
@@ -29,7 +29,7 @@ from synnax.channel.payload import (
     ChannelKeys,
     ChannelName,
     ChannelNames,
-    ChannelPayload
+    ChannelPayload,
 )
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
@@ -53,7 +53,15 @@ class WriterMode(int, Enum):
     PERSIST = 2
     STREAM = 3
 
-CrudeWriterMode = "persist_stream" | "persist" | "stream" | WriterMode
+
+CrudeWriterMode: TypeAlias = (
+    WriterMode | 
+    Literal["persist_stream"] | 
+    Literal["persist"] | 
+    Literal["stream"] | 
+    int
+)
+
 
 def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if mode == "persist_stream":
@@ -62,7 +70,12 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
         return WriterMode.PERSIST
     if mode == "stream":
         return WriterMode.STREAM
+    if isinstance(mode, WriterMode):
+        return mode
+    if isinstance(mode, int):
+        return WriterMode(mode)
     raise ValueError(f"invalid writer mode {mode}")
+
 
 class _Config(Payload):
     authorities: list[int] = Authority.ABSOLUTE
@@ -269,10 +282,10 @@ class Writer:
 
     def set_authority(
         self,
-        value: dict[
-                   ChannelKey | ChannelName | ChannelPayload,
-                   CrudeAuthority
-               ] | ChannelKey | ChannelName | CrudeAuthority,
+        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
+        | ChannelKey
+        | ChannelName
+        | CrudeAuthority,
         authority: CrudeAuthority | None = None,
     ) -> bool:
         if isinstance(value, int) and authority is None:

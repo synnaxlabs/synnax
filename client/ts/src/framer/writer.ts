@@ -50,6 +50,7 @@ const constructWriterMode = (mode: CrudeWriterMode): WriterMode => {
     case "persistStream":
       return WriterMode.PersistStream;
     default:
+      if (typeof mode === "number" && mode in WriterMode) return mode;
       throw new Error(`invalid writer mode: ${mode}`);
   }
 };

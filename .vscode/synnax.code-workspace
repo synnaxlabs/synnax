@@ -250,9 +250,6 @@
     "cSpell.enableFiletypes": [
       "mdx"
     ],
-    "editor.quickSuggestions": {
-      "other": "off"
-    },
   },
   "extensions": {
     "recommendations": [
