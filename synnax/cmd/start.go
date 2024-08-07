@@ -57,6 +57,8 @@ import (
 
 const stopKeyWord = "stop"
 
+var integrations = []string{"opc", "ni"}
+
 func scanForStopKeyword(interruptC chan os.Signal) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -381,7 +383,10 @@ func buildEmbeddedDriverConfig(
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
-		Enabled:         config.Bool(!viper.GetBool(noDriverFlag)),
+		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
+		Integrations: getIntegrations(
+			viper.GetStringSlice(enableIntegrationsFlag),
+			viper.GetStringSlice(disableIntegrationsFlag)),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
 		RackName:        rackName,
@@ -405,6 +410,23 @@ func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Prov
 		Insecure:     config.Bool(insecure),
 		KeySize:      viper.GetInt(keySizeFlag),
 	})
+}
+
+func getIntegrations(enabled, disabled []string) []string {
+	if len(enabled) > 0 {
+		return enabled
+	}
+	if len(disabled) > 0 {
+		return lo.Filter(integrations, func(integration string, _ int) bool {
+			for _, disabledIntegration := range disabled {
+				if integration == disabledIntegration {
+					return false
+				}
+			}
+			return true
+		})
+	}
+	return integrations // Ensure a return value in case both slices are empty
 }
 
 func maybeProvisionRootUser(

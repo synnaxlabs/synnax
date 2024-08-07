@@ -24,6 +24,7 @@ cc_library(
         "//driver/config",
         "//driver/heartbeat",
         "//driver/opc",
+        "//driver/ni",
         "//driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
