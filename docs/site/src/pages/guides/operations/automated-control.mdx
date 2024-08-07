@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Control Sequences"
-heading: "Writing Control Sequences in Python"
+heading: "Control Sequences in Python"
 description: "Write a control sequence for pressurizing a tank."
 ---
 
@@ -13,7 +13,8 @@ export const components = { pre: Code };
 
 One of the most powerful tools Synnax has to offer is the ability to easily write
 control sequences in Python. These control sequences can be run from a command line to
-run both simple and complex sequences.
+run both simple and complex sequences. In this guide, we will walk you through writing a
+control sequence to pressurize and vent a pressure vessel.
 
 <Divider.Divider direction="x" />
 
@@ -21,57 +22,60 @@ run both simple and complex sequences.
 
 Before writing a control sequence, you should have done the following:
 
--   Downloaded the [Python client](/reference/python-client/get-started)
--   Downloaded the [Synnax server](/reference/cluster/quick-start)
--   Downloaded the [Synnax Console](/reference/console/get-started)
+- Downloaded the [Python client](/reference/python-client/get-started)
+- Downloaded and started the [Synnax server](/reference/cluster/quick-start)
+- Downloaded and started the [Synnax Console](/reference/console/get-started)
 
-### Running a Simulated DAQ
+### Running a Simulated Data Acquisition System
 
-For the purpose of this guide, we will use a simulated DAQ to represent the hardware.
-You can view the
+For the purpose of this guide, we will use a simulated data acquisition system (DAQ) to
+represent the hardware. You can view the
 [code](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/press/simulated_daq.py)
 for this DAQ on Synnax's GitHub repository. This DAQ simulates a pressure vessel that
 can be filled and vented using several valves. The DAQ has the following sensors and
 actuators:
 
--   `daq_time`: represents the current timestamps for the DAQ. This is an index channels
-    for the sensors on the DAQ.
--   `sensor_#`: Represents the current pressure in the pressure vessel. `sensor_0` will
-    be the most important sensor for this guide.
--   `valve_command_#`: Represents the channel used to write data (open/close) the valve.
--   `valve_response_#`: Represents the channel used to read data from the valve (see if
-    the valve is open or closed).
--   `valve_command_time_#`: The index channels used for commanding the valves. Valves
-    need separate index channels than sensors in case the valves are commanded at
-    different times.
--   `valve_0` will be used for filling the tank, and `valve_1` will be used for venting
-    the tank.
+| Channel                | Description                                                                                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `daq_time`             | The current timestamps of the DAQ. This is an [index channel](/reference/concepts/channels#channel-types) for the sensors on the DAQ.                 |
+| `sensor_#`             | The channels representing pressure sensors on the pressure vessel.                                                                                    |
+| `valve_command_#`      | The channels used to write data to (open/close) a valve.                                                                                              |
+| `valve_response_#`     | The channels used to read data from a valve (see if a valve is open or closed).                                                                       |
+| `valve_command_time_#` | The index channels used for commanding a valve. Valves need separate index channels than sensors in case the valves are commanded at different times. |
+
+We will be using the following sensors and valves in our control sequence:
+
+| Channel    | Purpose                                           |
+| ---------- | ------------------------------------------------- |
+| `sensor_0` | The current pressure in the pressure vessel.      |
+| `valve_0`  | The valve used to pressurize the pressure vessel. |
+| `valve_1`  | The valve used to vent the pressure vessel.       |
 
 <Divider.Divider direction="x" />
 
 ## Writing the Control Sequence
 
-At the top of your script, make sure to import the synnax library:
+At the top of your script, make sure to import the Synnax library:
 
 ```python
 import synnax as sy
 ```
 
-The next step is to connect to a Synnax Cluster. This can be done by logging in with
+The next step is to connect to a Synnax cluster. This can be done by logging in with
 through the [CLI](/reference/python-client/get-started#the-synnax-login-command) or by
 [passing the
 credentials](/reference/python-client/get-started#passing-credentials-directly) into
 your script.
 
-After that, we will want to make a `Synnax` object. This object is how we will interact
-with the cluster:
+After that, we will want to instantiate the Synnax client so we can interact with the
+cluster:
 
 ```python
 client = sy.Synnax()
 ```
 
-We are also going to grab some channel names to use in our control sequence. These names
-come from the simulated DAQ.
+We are also going to create channel names to use in our control sequence. These names
+were created by the simulated DAQ when the respective channels were created.
 
 ```python
 PRESS_VALVE = "valve_command_0"
@@ -79,9 +83,11 @@ VENT_VALVE = "valve_command_1"
 PRESSURE = "sensor_0"
 ```
 
-Next, you'll need to open up a controller in Python. The controller is how values are
-recorded in Synnax. We recommend using a context manager to ensure that the controller
-is properly closed when the script is done.
+Next, you'll need to open up a `Controller`. A `Controller` is used to control hardware
+by extending a framework for writing data to channels. `Controller`s have methods such
+as `get`, `set`, and `wait_until` that make it easy to interact with channels in a
+control sequence. We recommend using a context manager to ensure that the `Controller` is
+properly closed when the script is finished.
 
 ```python
 with client.control.acquire(
@@ -94,10 +100,10 @@ with client.control.acquire(
 
 <Note variant="info">
 
-    Write authorities determine which instance of Synnax is allowed to write to
-    hardware. Every writer in Synnax has an authority between 0 and 255. If two writers
-    are open on the same channel, the writer with the higher authority will be able to
-    write but the other one will not.
+    Write authorities determine which writer is allowed to write to a given channel.
+    Every writer in Synnax has an authority between 0 and 255. If two writers are open
+    on the same channel, the writer with the higher authority will be able to write but
+    the other one will not.
 
 </Note>
 
@@ -109,16 +115,19 @@ start = sy.TimeStamp.now()
 target_pressure = 20 # psi
 ```
 
-We should also make sure the vent valve is closed by calling the controller:
+We should also make sure the vent valve is closed by setting a `False` value for its
+channel on the controller:
 
 ```python
 controller[VENT_VALVE] = False
 ```
 
 Finally, we can open the pressurization valve and wait to reach the target pressure
-before closing the valve. This will require us to use the `wait_until` method on the
-controller. The `wait_until` method will wait until the first argument is met or a
-certain time has elapsed:
+before closing the valve. We will use the `wait_until` method on the controller to
+accomplish this. The `wait_until` method will wait until the first argument is met or a
+certain time has elapsed. If we want to wait to stop pressurizing the tank after a
+certain time has passed even if we haven't reached out target pressure, we can use the
+`timeout` argument:
 
 ```python
 controller[PRESS_VALVE] = True
@@ -160,8 +169,8 @@ controller.wait_until(
 controller[VENT_VALVE] = False
 ```
 
-After this, we can grab a range from the test. This range can give us easy access to the
-test data when looking back later.
+After this, we will create a range to represent the test. We can later use this range to
+easily look up this test later:
 
 ```python
 client.ranges.create(
@@ -170,9 +179,12 @@ client.ranges.create(
 )
 ```
 
-This range is now saved and can be referenced later to view this test.
+This range is now saved `control_sequence.py` and can be referenced later to view this test.
 
-The full file, which I called `control_sequence.py` can be viewed below:
+The full file can be viewed below:
+
+<details>
+<summary>`control_sequence.py`</summary>
 
 ```python
 import synnax as sy
@@ -224,9 +236,11 @@ with client.control.acquire(
     )
 ```
 
+</details>
+
 <Divider.Divider direction="x" />
 
-## Running and Viewing Control Sequence
+## Running the Control Sequence
 
 The first step to running the control sequence is to start a [local Synnax
 cluster](/reference/cluster/quick-start). After installing the server you should run the
@@ -246,9 +260,9 @@ python simulated_daq.py
 ```
 
 <Note variant="info">
-    Python can be tricky to get installed and running properly. If you are having
-    troubles, please visit our [Python troubleshooting
-    guide](/reference/python-client/troubleshooting).
+  Python can be tricky to get installed and running properly. If you are having
+  troubles, please visit our [Python troubleshooting
+  guide](/reference/python-client/troubleshooting).
 </Note>
 
 Now its, time to open the Synnax Console to set up two visualizations of the tank. After
@@ -259,18 +273,19 @@ in the Python script.
 
 Now, we will setup a [schematic](/reference/console/schematics) of our tank and valves:
 
-<Video client:only="react" id="guides/operations/automated-control/schematic" />
+<Video
+  client:only="react"
+  controls={true}
+  id="guides/operations/automated-control/schematic"
+/>
 
 In the schematic, make sure there are the following components:
 
--   Value
-    -   Input Channel: sensor_0
--   Valve
-    -   State Channel: valve_response_0
-    -   Command Channel: valve_command_0
--   Valve
-    -   State Channel: valve_response_1
-    -   Command Channel: valve_command_1
+| Symbol | Channels                                                                 | Purpose                                |
+| ------ | ------------------------------------------------------------------------ | -------------------------------------- |
+| Value  | Input Channel: `sensor_0`                                                | The current pressure in the tank.      |
+| Valve  | State Channel: `valve_response_0`<br/>Command Channel: `valve_command_0` | The valve used to pressurize the tank. |
+| Valve  | State Channel: `valve_response_1`<br/>Command Channel: `valve_command_1` | The valve used to vent the tank.       |
 
 Once the schematic is set up, you can enter [control
 mode](/reference/console/schematics#control-mode) to manually control the valves.
@@ -301,7 +316,6 @@ You should see this result on the console:
 
 ## Conclusion
 
-If you want to look at more examples of autosequences, visit our [GitHub
-repository](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control)!
-Detailed information about the functions used in our Python client can also be found
-there.
+If you want to look at more examples of control sequences, visit our [GitHub
+repository](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control).
+You can find more informations about there about functions used in our Python client.

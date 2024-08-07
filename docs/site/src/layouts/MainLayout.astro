@@ -439,6 +439,21 @@ const {
             border-radius: var(--pluto-border-radius);
         }
 
+        summary {
+            width: max-content;
+
+            &::marker {
+                color: var(--pluto-text-color);
+                font-family: var(--pluto-font-family);
+                font-size: var(--pluto-p-size);
+            }
+
+            &:hover {
+                cursor: pointer;
+            }
+        }
+
+
         table > :not(caption) > * {
             border-width: 1px 0;
             border-color: var(--pluto-border-color);
