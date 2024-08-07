@@ -56,7 +56,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
   hideColumnHeader?: boolean;
   omit?: Array<K>;
   children?: List.VirtualCoreProps<K, E>["children"];
-  dropDownVariant?: Dropdown.Variant;
+  dropdownVariant?: Dropdown.Variant;
   placeholder?: ReactNode;
 }
 
@@ -93,8 +93,8 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   disabled,
   omit,
   children,
-  dropDownVariant = "modal",
-  placeholder,
+  dropdownVariant = "connected",
+  placeholder = DEFAULT_PLACEHOLDER,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close, toggle } = Dropdown.use();
@@ -176,12 +176,12 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       allowNone={allowNone}
       columns={columns}
       listItem={children}
-      variant={dropDownVariant}
-      trigger={dropDownVariant !== "modal" ? searchInput : buttonTrigger}
-      extraDialogContent={dropDownVariant === "modal" ? searchInput : undefined}
+      variant={dropdownVariant}
+      trigger={dropdownVariant !== "modal" ? searchInput : buttonTrigger}
+      extraDialogContent={dropdownVariant === "modal" ? searchInput : undefined}
       keepMounted={false}
       {...props}
-    ></Core>
+    />
   );
 };
 
@@ -198,11 +198,11 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
 export const DEFAULT_PLACEHOLDER = "Select";
 
 const getRenderValue = <K extends Key, E extends Keyed<K>>(
-  entryRenderKey: keyof E | ((e: E) => string | number),
+  entryRenderKey: keyof E | ((e: E) => string | number | ReactNode),
   selected: E | null,
-): string => {
+): ReactNode => {
   if (selected == null) return "";
-  if (typeof entryRenderKey === "function") return entryRenderKey(selected).toString();
+  if (typeof entryRenderKey === "function") return entryRenderKey(selected);
   return (selected[entryRenderKey] as string | number).toString();
 };
 

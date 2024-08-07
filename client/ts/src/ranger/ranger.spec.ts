@@ -111,6 +111,25 @@ describe("Ranger", () => {
     });
   });
 
+  describe("page", () => {
+    it("should page through ranges", async () => {
+      await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ranges.create({
+        name: "My New Two Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+      });
+      const ranges = await client.ranges.page(0, 1);
+      expect(ranges.length).toEqual(1);
+      const keys = ranges.map((r) => r.key);
+      const next = await client.ranges.page(1, 1);
+      expect(next.length).toEqual(1);
+      expect(next.map((r) => r.key)).not.toContain(keys[0]);
+    });
+  });
+
   describe("KV", () => {
     it("should set, get, and delete a single key", async () => {
       const rng = await client.ranges.create({

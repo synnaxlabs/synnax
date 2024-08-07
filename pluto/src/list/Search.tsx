@@ -92,6 +92,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const handleFetchMore = useCallback(
     (reset: boolean = false) => {
+      console.log("FETCH");
       if (valueRef.current.length > 0 || promiseOut.current || searcher == null) return;
       if (reset) {
         offset.current = 0;
@@ -102,7 +103,9 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       setEmptyContent(LOADING);
       const fn = async () => {
         try {
+          console.log("EXEC");
           const r = await searcher.page(offset.current, pageSize);
+          console.log(r);
           if (r.length === 0) setEmptyContent(getDefaultEmptyContent() ?? NO_RESULTS);
           if (r.length < pageSize) {
             hasMore.current = false;

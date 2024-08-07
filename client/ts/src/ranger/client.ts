@@ -42,6 +42,8 @@ const retrieveReqZ = z.object({
   names: z.array(z.string()).optional(),
   term: z.string().optional(),
   overlapsWith: TimeRange.z.optional(),
+  limit: z.number().int().optional(),
+  offset: z.number().int().optional(),
 });
 
 export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
@@ -98,8 +100,8 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return this.sugar(await this.execRetrieve({ term }));
   }
 
-  async page(): Promise<Range[]> {
-    return [];
+  async page(offset: number, limit: number): Promise<Range[]> {
+    return this.sugar(await this.execRetrieve({ offset, limit }));
   }
 
   async retrieve(range: CrudeTimeRange): Promise<Range[]>;

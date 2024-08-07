@@ -70,6 +70,8 @@ type (
 		Names        []string        `json:"names" msgpack:"names"`
 		Term         string          `json:"term" msgpack:"term"`
 		OverlapsWith telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
+		Limit        int             `json:"limit" msgpack:"limit"`
+		Offset       int             `json:"offset" msgpack:"offset"`
 	}
 	RangeRetrieveResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -96,6 +98,12 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	}
 	if hasSearch {
 		q = q.Search(req.Term)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 	err := q.Exec(ctx, nil)
 	if err != nil {

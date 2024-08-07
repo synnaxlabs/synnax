@@ -38,6 +38,12 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 // the query, only the first result will be filled into the provided Range.
 func (r Retrieve) Entry(rng *Range) Retrieve { r.gorp.Entry(rng); return r }
 
+// Limit sets the maximum number of results that Retrieve will return.
+func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
+
+// Offset sets the number of results that Retrieve will skip before returning results.
+func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
+
 // Entries binds a slice that Retrieve will fill results into.
 func (r Retrieve) Entries(rng *[]Range) Retrieve { r.gorp.Entries(rng); return r }
 

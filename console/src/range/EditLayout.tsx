@@ -200,8 +200,35 @@ const EditLayoutForm = ({
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>
-          <Form.Field<string> path="parent">
-            {(p) => <Ranger.SelectSingle allowNone={false} {...p} />}
+          <Form.Field<string> showLabel={false} path="parent">
+            {(p) => (
+              <Ranger.SelectSingle
+                dropdownVariant="modal"
+                style={{ width: "fit-content" }}
+                entryRenderKey={(e) => (
+                  <Text.WithIcon
+                    level="p"
+                    shade={9}
+                    startIcon={<Icon.Arrow.Up />}
+                    size="small"
+                  >
+                    {e.name}
+                  </Text.WithIcon>
+                )}
+                placeholder={
+                  <Text.WithIcon
+                    level="p"
+                    shade={7}
+                    startIcon={<Icon.Arrow.Up />}
+                    size="small"
+                  >
+                    Parent Range
+                  </Text.WithIcon>
+                }
+                allowNone={false}
+                {...p}
+              />
+            )}
           </Form.Field>
         </Form.Form>
       </Align.Space>
