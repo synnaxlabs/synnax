@@ -57,11 +57,12 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	if err != nil {
 		return e, err
 	}
-	b, err := r.BaseReader.Get(ctx, bKey)
+	b, closer, err := r.BaseReader.Get(ctx, bKey)
 	if err != nil {
 		return e, lo.Ternary(errors.Is(err, kv.NotFound), query.NotFound, err)
 	}
-	return e, r.Decode(ctx, b, &e)
+	err = r.Decode(ctx, b, &e)
+	return e, errors.CombineErrors(err, closer.Close())
 }
 
 // GetMany retrieves isMultiple entries from the database. Entries that are not

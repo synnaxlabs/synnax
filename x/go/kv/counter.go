@@ -32,9 +32,10 @@ type AtomicInt64Counter struct {
 // value is not found in storage, sets the value to 0.
 func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Counter, error) {
 	c := &AtomicInt64Counter{ctx: ctx, db: db, key: key, buffer: make([]byte, 8)}
-	b, err := db.Get(ctx, key)
+	b, closer, err := db.Get(ctx, key)
 	if err == nil {
 		c.Int64Counter.Add(int64(binary.LittleEndian.Uint64(b)))
+		err = closer.Close()
 	} else if errors.Is(err, NotFound) {
 		err = nil
 	}

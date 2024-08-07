@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
 	"go.uber.org/zap"
@@ -83,11 +84,13 @@ func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error
 	if err != nil {
 		return dig, err
 	}
-	b, err := kve.Get(ctx, key)
+	b, closer, err := kve.Get(ctx, key)
 	if err != nil {
 		return dig, err
 	}
-	return dig, codec.Decode(ctx, b, &dig)
+	err = codec.Decode(ctx, b, &dig)
+	err = errors.CombineErrors(err, closer.Close())
+	return dig, err
 }
 
 const versionCounterKey = "ver"
