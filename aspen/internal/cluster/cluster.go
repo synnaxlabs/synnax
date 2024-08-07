@@ -219,11 +219,13 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	if cfg.Storage == nil {
 		return state, nil
 	}
-	encoded, err := cfg.Storage.Get(ctx, cfg.StorageKey)
+	encoded, closer, err := cfg.Storage.Get(ctx, cfg.StorageKey)
 	if err != nil {
 		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
 	}
-	return state, cfg.Codec.Decode(ctx, encoded, &state)
+	err = cfg.Codec.Decode(ctx, encoded, &state)
+	err = errors.CombineErrors(err, closer.Close())
+	return state, err
 }
 
 func newConfig(ctx context.Context, configs []Config) (Config, error) {

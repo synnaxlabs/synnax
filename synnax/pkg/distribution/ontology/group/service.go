@@ -62,10 +62,11 @@ func OpenService(configs ...Config) (*Service, error) {
 
 func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {
 	err = s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
-	if !errors.Is(err, query.NotFound) {
-		return g, err
+	w := s.NewWriter(nil)
+	if errors.Is(err, query.NotFound) {
+		return w.Create(ctx, groupName, parent)
 	}
-	return s.NewWriter(nil).Create(ctx, groupName, parent)
+	return w.CreateWithKey(ctx, g.Key, groupName, parent)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

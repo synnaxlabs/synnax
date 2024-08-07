@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type toEncode struct {
@@ -74,5 +75,38 @@ var _ = Describe("Codec", func() {
 			Entry("JSON", &binary.JSONCodec{}),
 			Entry("MsgPack", &binary.MsgPackCodec{}),
 		)
+	})
+	Describe("Fallback", func() {
+		It("Should fallback to the next codec when the first one fails", func() {
+			js := &binary.JSONCodec{}
+			gb := &binary.GobCodec{}
+			type abc struct {
+				Value int `json:"value"`
+			}
+			v := abc{Value: 12}
+			jsonB := MustSucceed(js.Encode(nil, v))
+			gobB := MustSucceed(gb.Encode(nil, v))
+			var res abc
+			fbc := &binary.DecodeFallbackCodec{
+				Codecs: []binary.Codec{
+					&binary.GobCodec{},
+					&binary.JSONCodec{},
+				},
+			}
+			Expect(fbc.Decode(nil, jsonB, &res)).To(Succeed())
+			Expect(res.Value).To(Equal(12))
+			Expect(fbc.Decode(nil, gobB, &res)).To(Succeed())
+			Expect(res.Value).To(Equal(12))
+		})
+		It("Should return the error of the last decoder if all codecs fail", func() {
+			fbc := &binary.DecodeFallbackCodec{
+				Codecs: []binary.Codec{
+					&binary.GobCodec{},
+					&binary.JSONCodec{},
+				},
+			}
+			_, err := fbc.Encode(nil, make(chan int))
+			Expect(err).To(HaveOccurred())
+		})
 	})
 })
