@@ -53,41 +53,22 @@ start = sy.TimeStamp.now()
 # fixed amount of time, but it's close enough for demonstration purposes.
 rough_rate = sy.Rate.HZ * 50
 
-# Make the writer commit every 500 samples. This will make the data available for
-# historical reads every 500 samples.
-commit_interval = 500
-
 # Open the writer as a context manager. This will make sure the writer is properly
 # closed when we're done writing. We'll write to both the time and data channels. In
 # this example, we provide the keys of the channels we want to write to, but you can
 # also provide the names and write that way.
-with client.open_writer(start, [time_ch.key, data_ch_1.key, data_ch_2.key]) as writer:
+with client.open_writer(
+    start, 
+    [time_ch.key, data_ch_1.key, data_ch_2.key],
+    enable_auto_commit=True
+) as writer:
     i = 0
     while True:
-        # Generate our timestamp and data value
-        timestamp = np.int64(sy.TimeStamp.now())
-        data_1 = np.float32(np.sin(i / 10))
-        data_2 = i % 2
-
         # Write the data to the writer
-        writer.write(
-            {
-                time_ch.key: timestamp,
-                data_ch_1.key: data_1,
-                data_ch_2.key: data_2,
-            }
-        )
-
+        writer.write({
+                time_ch.key: np.int64(sy.TimeStamp.now()),
+                data_ch_1.key: np.float32(np.sin(i / 10)),
+                data_ch_2.key: i % 2,
+        })
+        i+=1
         time.sleep(rough_rate.period.seconds)
-
-        i += 1
-
-        if i % 60 == 0:
-            print(f"Writing sample {i} at {sy.TimeStamp.now()}")
-
-        if i % 500 == 0:
-            print(f"Committing at {sy.TimeStamp.now()}")
-            # Commit the writer. This method will return false if the commit fails i.e.
-            # we've made an invalid write or someone has already written to this region.
-            if not writer.commit():
-                break

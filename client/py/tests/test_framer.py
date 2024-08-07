@@ -260,7 +260,7 @@ class TestWriter:
         client: sy.Synnax,
     ):
         """Should not stream written data"""
-        with client.open_writer(0, channel.key, mode=sy.WriterMode.PERSIST_ONLY) as w:
+        with client.open_writer(0, channel.key, mode=sy.WriterMode.PERSIST) as w:
             async with await client.open_async_streamer(channel.key) as s:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))
@@ -331,9 +331,53 @@ class TestWriter:
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 0
-
             w1.set_authority({channel.key: 255})
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
 
+    def test_set_authority_by_name(self, client: sy.Synnax, channel: sy.channel):
+        w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
+        w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
+        try:
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+            w1.set_authority({channel.name: 255})
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
+
+    def test_set_authority_by_name_value(self, client: sy.Synnax, channel: sy.channel):
+        w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
+        w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
+        try:
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+            w1.set_authority(channel.name, 255)
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
+
+    def test_set_authority_on_all_channels(self, client: sy.Synnax,
+                                           channel: sy.channel):
+        w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
+        w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
+        try:
+            w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
+            f = channel.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+            w1.set_authority(255)
             w1.write(pd.DataFrame({channel.key: np.random.rand(10).astype(np.float64)}))
             f = channel.read(sy.TimeRange.MAX)
             assert len(f) == 10
