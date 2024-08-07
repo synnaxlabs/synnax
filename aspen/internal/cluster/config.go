@@ -97,9 +97,8 @@ var (
 		StorageFlushInterval: 1 * time.Second,
 		// This used to be implemented by a gob codec, but we want to switch to msgpack.
 		// Instead, we will use a fallback codec that tries msgpack to decode first, then gob.
-		Codec: &binary.FallbackCodec{
-			Codecs:           []binary.Codec{&binary.MsgPackCodec{}, &binary.GobCodec{}},
-			FallbackOnDecode: true,
+		Codec: &binary.DecodeFallbackCodec{
+			Codecs: []binary.Codec{&binary.MsgPackCodec{}, &binary.GobCodec{}},
 		},
 	}
 	FastConfig = DefaultConfig.Override(Config{

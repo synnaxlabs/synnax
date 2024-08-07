@@ -87,17 +87,26 @@ var _ = Describe("Codec", func() {
 			jsonB := MustSucceed(js.Encode(nil, v))
 			gobB := MustSucceed(gb.Encode(nil, v))
 			var res abc
-			fbc := &binary.FallbackCodec{
+			fbc := &binary.DecodeFallbackCodec{
 				Codecs: []binary.Codec{
 					&binary.GobCodec{},
 					&binary.JSONCodec{},
 				},
-				FallbackOnDecode: true,
 			}
 			Expect(fbc.Decode(nil, jsonB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 			Expect(fbc.Decode(nil, gobB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
+		})
+		It("Should return the error of the last decoder if all codecs fail", func() {
+			fbc := &binary.DecodeFallbackCodec{
+				Codecs: []binary.Codec{
+					&binary.GobCodec{},
+					&binary.JSONCodec{},
+				},
+			}
+			_, err := fbc.Encode(nil, make(chan int))
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })
