@@ -136,7 +136,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		return d, err
 	}
 
-	if err := d.configureControlUpdates(ctx); err != nil {
+	if err = d.configureControlUpdates(ctx); err != nil {
 		return d, err
 	}
 

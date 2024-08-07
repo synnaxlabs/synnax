@@ -95,9 +95,10 @@ var (
 		StorageKey:           []byte("aspen.cluster"),
 		Gossip:               gossip.DefaultConfig,
 		StorageFlushInterval: 1 * time.Second,
-		Codec: &binary.FallbackCodec{
-			Codecs:           []binary.Codec{&binary.MsgPackCodec{}, &binary.GobCodec{}},
-			FallbackOnDecode: true,
+		// This used to be implemented by a gob codec, but we want to switch to msgpack.
+		// Instead, we will use a fallback codec that tries msgpack to decode first, then gob.
+		Codec: &binary.DecodeFallbackCodec{
+			Codecs: []binary.Codec{&binary.MsgPackCodec{}, &binary.GobCodec{}},
 		},
 	}
 	FastConfig = DefaultConfig.Override(Config{
