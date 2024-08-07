@@ -616,4 +616,7 @@ static inline bool dlls_available(){
     return d;
 }
 
-}
+
+const std::string INTEGRATION_NAME = "ni";
+
+} // namespace ni

@@ -26,6 +26,7 @@ nyc_output
 *.ts.timestamp-*
 **/tsdoc-metadata.json
 **/temp/
+*.test
 
 # |||| RUST ||||
 
