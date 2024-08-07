@@ -18,6 +18,7 @@ import {
 import {
   type FocusEventHandler,
   type ReactElement,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -56,6 +57,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
   omit?: Array<K>;
   children?: List.VirtualCoreProps<K, E>["children"];
   dropDownVariant?: Dropdown.Variant;
+  placeholder?: ReactNode;
 }
 
 /**
@@ -92,6 +94,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   omit,
   children,
   dropDownVariant = "modal",
+  placeholder,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close, toggle } = Dropdown.use();
@@ -146,6 +149,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           allowNone={allowNone}
           className={className}
           disabled={disabled}
+          placeholder={placeholder}
         />
       )}
     </InputWrapper>
@@ -153,7 +157,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const buttonTrigger = (
     <Button.Button variant="outlined" onClick={toggle} disabled={disabled}>
-      Select
+      {selected != null ? getRenderValue(entryRenderKey, selected) : placeholder}
     </Button.Button>
   );
 
@@ -193,6 +197,15 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
 
 export const DEFAULT_PLACEHOLDER = "Select";
 
+const getRenderValue = <K extends Key, E extends Keyed<K>>(
+  entryRenderKey: keyof E | ((e: E) => string | number),
+  selected: E | null,
+): string => {
+  if (selected == null) return "";
+  if (typeof entryRenderKey === "function") return entryRenderKey(selected).toString();
+  return (selected[entryRenderKey] as string | number).toString();
+};
+
 const SingleInput = <K extends Key, E extends Keyed<K>>({
   entryRenderKey,
   selected,
@@ -220,12 +233,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     if (visible) return;
     if (primitiveIsZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
-    if (typeof entryRenderKey === "function")
-      return setInternalValue(entryRenderKey(selected).toString());
-    else
-      return setInternalValue(
-        (selected?.[entryRenderKey] as string | number).toString(),
-      );
+    setInternalValue(getRenderValue(entryRenderKey, selected));
   }, [selected, visible, entryRenderKey]);
 
   const handleChange = (v: string): void => {
