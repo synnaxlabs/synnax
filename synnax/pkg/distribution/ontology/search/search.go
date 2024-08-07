@@ -132,11 +132,17 @@ type Request struct {
 
 func assembleWordQuery(word string, _ int) query.Query {
 	fuzzyQ := bleve.NewMatchQuery(word)
+	// Specifies the levenshtein distance for the fuzzy query
+	// https://en.wikipedia.org/wiki/Levenshtein_distance
 	fuzzyQ.SetFuzziness(1)
 	regexQ := bleve.NewRegexpQuery(".*[_\\.-]" + word + ".*")
 	prefixQ := bleve.NewPrefixQuery(word)
 	exactQ := bleve.NewMatchQuery(word)
+	// Specifies the levenshtein distance for the fuzzy query
+	// https://en.wikipedia.org/wiki/Levenshtein_distance
 	exactQ.SetFuzziness(0)
+	// Makes the exact result the most important. Value chosen
+	// arbitrarily.
 	exactQ.SetBoost(100)
 	return bleve.NewDisjunctionQuery(exactQ, prefixQ, regexQ, fuzzyQ)
 }
@@ -144,6 +150,7 @@ func assembleWordQuery(word string, _ int) query.Query {
 func (s *Index) execQuery(ctx context.Context, q query.Query) (*bleve.SearchResult, error) {
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"name"}
+	// Limit search results to 100
 	search_.Size = 100
 	search_.SortBy([]string{"-_score"})
 	return s.idx.SearchInContext(ctx, search_)
