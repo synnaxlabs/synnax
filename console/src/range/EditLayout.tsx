@@ -11,7 +11,16 @@ import "@/range/EditLayout.css";
 
 import { TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Form,
+  Nav,
+  Ranger,
+  Synnax,
+  Text,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useRef } from "react";
@@ -32,6 +41,7 @@ const formSchema = z.object({
     end: z.number().int(),
   }),
   labels: z.string().array(),
+  parent: z.string().optional(),
 });
 
 export const EDIT_LAYOUT_TYPE = "editRange";
@@ -50,7 +60,7 @@ export const createEditLayout = (
   location: "modal",
   window: {
     resizable: false,
-    size: { height: 290, width: 700 },
+    size: { height: 400, width: 700 },
     navTop: true,
   },
   args: timeRange,
@@ -77,6 +87,7 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
             start: now,
             end: now,
           },
+          parent: "",
         };
       }
       if (range == null || range.persisted) {
@@ -189,6 +200,9 @@ const EditLayoutForm = ({
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>
+          <Form.Field<string> path="parent">
+            {(p) => <Ranger.SelectSingle allowNone={false} {...p} />}
+          </Form.Field>
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>

@@ -222,7 +222,49 @@ export const useChildFieldValues = (<V extends unknown = unknown>({
 export interface UseFieldArrayProps {
   path: string;
   updateOnChildren?: boolean;
+  ctx?: ContextValue;
 }
+
+export interface FieldArrayUtils<V> {
+  push: (value: V | V[]) => void;
+  add: (value: V | V[], start: number) => void;
+  remove: (index: number | number[]) => void;
+  keepOnly: (indices: number | number[]) => void;
+  set: (values: state.SetArg<V[]>) => void;
+}
+
+export const fieldArrayUtils = <V extends unknown = unknown>(
+  ctx: ContextValue,
+  path: string,
+): FieldArrayUtils<V> => ({
+  add: (value, start) => {
+    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    copy.splice(start, 0, ...toArray(value));
+    ctx.set(path, copy, { validateChildren: false });
+  },
+  push: (value) => {
+    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    copy.push(...toArray(value));
+    ctx.set(path, copy, { validateChildren: false });
+  },
+  remove: (index) => {
+    const val = ctx.get<V[]>(path).value;
+    const indices = new Set(toArray(index));
+    ctx.set(
+      path,
+      val.filter((_, i) => !indices.has(i)),
+    );
+  },
+  keepOnly: (index) => {
+    const val = ctx.get<V[]>(path).value;
+    const indices = new Set(toArray(index));
+    ctx.set(
+      path,
+      val.filter((_, i) => indices.has(i)),
+    );
+  },
+  set: (values) => ctx.set(path, state.executeSetter(values, ctx.get<V[]>(path).value)),
+});
 
 export interface UseFieldArrayReturn<V extends unknown> {
   value: V[];
@@ -236,69 +278,26 @@ export interface UseFieldArrayReturn<V extends unknown> {
 export const useFieldArray = <V extends unknown = unknown>({
   path,
   updateOnChildren = false,
+  ctx: pCtx,
 }: UseFieldArrayProps): UseFieldArrayReturn<V> => {
-  const { bind, get, set } = useContext();
+  const ctx = useContext(pCtx);
+  const { bind, get } = ctx;
   const [fState, setFState] = useState<V[]>(get<V[]>(path).value);
-
   useEffect(() => {
     setFState(get<V[]>(path).value);
     return bind<V[]>({
       path,
-      onChange: (fs) => setFState(shallowCopy<V[]>(fs.value)),
+      onChange: (fs) => {
+        console.log("SETTING FIELD STATE");
+        setFState(shallowCopy<V[]>(fs.value));
+      },
       listenToChildren: updateOnChildren,
     });
   }, [path, bind, get, setFState]);
-
-  const push = useCallback(
-    (value: V | V[]) => {
-      const copy = shallowCopy(get<V[]>(path).value);
-      copy.push(...toArray(value));
-      set(path, copy, { validateChildren: false });
-    },
-    [path, get, set],
+  return useMemo(
+    () => ({ value: fState, ...fieldArrayUtils<V>(ctx, path) }),
+    [fState, ctx, path],
   );
-
-  const add = useCallback(
-    (value: V | V[], start: number) => {
-      const copy = shallowCopy(get<V[]>(path).value);
-      copy.splice(start, 0, ...toArray(value));
-      set(path, copy, { validateChildren: false });
-    },
-    [path, get, set],
-  );
-
-  const remove = useCallback(
-    (index: number | number[]) => {
-      const val = get<V[]>(path).value;
-      const indices = new Set(toArray(index));
-      set(
-        path,
-        val.filter((_, i) => !indices.has(i)),
-      );
-    },
-    [path, state, get],
-  );
-
-  const keepOnly = useCallback(
-    (index: number | number[]) => {
-      const val = get<V[]>(path).value;
-      const indices = new Set(toArray(index));
-      set(
-        path,
-        val.filter((_, i) => indices.has(i)),
-      );
-    },
-    [path, fState, get],
-  );
-
-  const handleSet = useCallback(
-    (setter: state.SetArg<V[]>) => {
-      set(path, state.executeSetter(setter, get<V[]>(path).value));
-    },
-    [path, set],
-  );
-
-  return { value: fState, push, remove, keepOnly, set: handleSet, add };
 };
 
 export type Listener<V = unknown> = (state: FieldState<V>) => void;
@@ -331,6 +330,8 @@ interface GetFunc {
   ): FieldState<V>;
 }
 
+type RemoveFunc = (path: string) => void;
+
 interface SetOptions {
   validateChildren?: boolean;
 }
@@ -349,6 +350,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   bind: BindFunc;
   set: SetFunc;
   get: GetFunc;
+  remove: RemoveFunc;
   value: () => z.output<Z>;
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
@@ -360,6 +362,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
 export const Context = createContext<ContextValue>({
   bind: () => () => {},
   set: () => {},
+  remove: () => {},
   get: <V extends any = unknown>(): FieldState<V> => ({
     value: undefined as unknown as V,
     status: { key: "", variant: "success", message: "" },
@@ -398,7 +401,7 @@ interface UseRef<Z extends z.ZodTypeAny> {
 export interface UseProps<Z extends z.ZodTypeAny> {
   values: z.output<Z>;
   sync?: boolean;
-  onChange?: (values: z.output<Z>) => void;
+  onChange?: (values: z.output<Z>, path: string, prev: unknown) => void;
   schema?: Z;
 }
 
@@ -465,6 +468,15 @@ export const use = <Z extends z.ZodTypeAny>({
     },
     [],
   ) as GetFunc;
+
+  const remove = useCallback((path: string) => {
+    const { state, statuses, touched, listeners, parentListeners } = ref.current;
+    deep.remove(state, path);
+    statuses.delete(path);
+    touched.delete(path);
+    listeners.delete(path);
+    parentListeners.delete(path);
+  }, []);
 
   const updateFieldState = useCallback((path: string) => {
     const { listeners } = ref.current;
@@ -583,6 +595,7 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 
   const set: SetFunc = useCallback((path, value, opts = {}): void => {
+    const prev = deep.get(ref.current.state, path, { optional: true });
     const { validateChildren = true } = opts;
     const { state, touched } = ref.current;
     touched.add(path);
@@ -594,7 +607,7 @@ export const use = <Z extends z.ZodTypeAny>({
       validateAsync(path, validateChildren);
     }
     updateFieldValues(path);
-    onChangeRef.current?.(ref.current.state);
+    onChangeRef.current?.(ref.current.state, path, prev);
   }, []);
 
   const has = useCallback(
@@ -634,6 +647,7 @@ export const use = <Z extends z.ZodTypeAny>({
       validateAsync,
       value: () => ref.current.state,
       has,
+      remove,
       setStatus,
       clearStatuses,
     }),

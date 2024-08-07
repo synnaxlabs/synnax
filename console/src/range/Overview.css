@@ -9,49 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-table > :not(caption) > * {
-    border-width: 1px 0;
-    border-color: var(--pluto-border-color);
-    border-style: solid;
-}
-
-table > :not(caption) > * > * {
-    position: relative;
-    border-width: 0 1px;
-    padding: 1.25rem 1.5rem;
-}
-
-table td {
-    font-size: var(--pluto-p-size);
-    line-height: var(--pluto-p-line-height);
-    vertical-align: baseline;
-}
-
-table tr {
-    border-bottom: var(--pluto-border);
-}
-
-table thead th {
-    padding: 1.5rem 1.5rem;
-    font-weight: 600;
-}
-
-table thead tr {
-    border: none;
-    border-width: 2px;
-}
-
-table th {
-    border-bottom: var(--pluto-border);
-    text-align: start;
-}
-
-table {
-    table-layout: auto;
-    width: calc(100% - 4px);
-    border-spacing: 0;
-    background: transparent;
-    border-collapse: collapse;
-    overflow-x: auto;
-    border-style: hidden;
+.console-meta-data__item {
+    .console-meta-data__delete {
+        opacity: 0;
+    }
+    &:hover {
+        & .console-meta-data__delete {
+            opacity: 1;
+        }
+    }
 }

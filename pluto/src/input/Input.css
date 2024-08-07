@@ -123,6 +123,15 @@
 }
 
 .pluto-input--shadow {
+    &:hover {
+        & > .pluto-input__internal {
+            background: var(--pluto-gray-l2) !important;
+            cursor: pointer;
+            & input {
+                cursor: pointer;
+            }
+        }
+    }
     /* When not focused or hovered, hide the border */
     &:not(:focus):not(:focus-within):not(:hover) {
         & > * {

@@ -242,7 +242,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     link: () =>
       handleLink({
         name: resources[0].name,
-        resource: resources[0].id.payload,
+        ontologyID: resources[0].id.payload,
       }),
   };
   const singleResource = resources.length === 1;

@@ -155,7 +155,7 @@ export const List = (): ReactElement => {
         rng != null &&
         handleLink({
           name: rng.name,
-          resource: {
+          ontologyID: {
             key: rng.key,
             type: "range",
           },
