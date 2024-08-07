@@ -25,6 +25,8 @@ const (
 	autoCertFlag            = "auto-cert"
 	noDriverFlag            = "no-driver"
 	slowConsumerTimeoutFlag = "slow-consumer-timeout"
+	enableIntegrationsFlag  = "enable-integrations"
+	disableIntegrationsFlag = "disable-integrations"
 )
 
 func configureStartFlags() {
@@ -32,8 +34,7 @@ func configureStartFlags() {
 		listenFlag,
 		"l",
 		"127.0.0.1:9090",
-		`
-			`,
+		`The address to listen for client connections.`,
 	)
 
 	startCmd.Flags().StringSliceP(
@@ -41,6 +42,18 @@ func configureStartFlags() {
 		"p",
 		nil,
 		"Addresses of additional peers in the cluster.",
+	)
+
+	startCmd.Flags().StringSlice(
+		enableIntegrationsFlag,
+		nil,
+		"Device integrations to enable (ni, opc)",
+	)
+
+	startCmd.Flags().StringSlice(
+		disableIntegrationsFlag,
+		nil,
+		"Device integrations to disable (ni, opc)",
 	)
 
 	startCmd.Flags().StringP(

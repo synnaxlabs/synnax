@@ -24,6 +24,7 @@ dist-ssr
 nyc_output
 *.tsbuildinfo
 *.ts.timestamp-*
+*.test
 
 # |||| RUST ||||
 

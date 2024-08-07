@@ -33,9 +33,10 @@ var _ = Describe("Mock", func() {
 		Expect(coreOne.Storage.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
 
 		Eventually(func(g Gomega) {
-			v, err := coreOne.Storage.KV.Get(ctx, []byte("foo"))
+			v, closer, err := coreOne.Storage.KV.Get(ctx, []byte("foo"))
 			g.Expect(err).To(Succeed())
 			g.Expect(v).To(Equal([]byte("bar")))
+			Expect(closer.Close()).To(Succeed())
 		}).Should(Succeed())
 
 		Expect(builder.Close()).To(Succeed())
