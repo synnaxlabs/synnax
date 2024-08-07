@@ -154,29 +154,30 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       columns={columns}
       allowMultiple
       listItem={children}
+      trigger={
+        <InputWrapper<K, E> searcher={searcher}>
+          {({ onChange, value: inputValue }) => (
+            <MultipleInput<K, E>
+              value={inputValue}
+              selectedKeys={value}
+              className={className}
+              onChange={onChange}
+              loading={loading}
+              selected={selected}
+              onFocus={open}
+              entryRenderKey={entryRenderKey}
+              visible={visible}
+              renderTag={renderTag}
+              placeholder={placeholder}
+              onTagDragStart={onTagDragStart}
+              onTagDragEnd={onTagDragEnd}
+              style={style}
+            />
+          )}
+        </InputWrapper>
+      }
       {...props}
-    >
-      <InputWrapper<K, E> searcher={searcher}>
-        {({ onChange, value: inputValue }) => (
-          <MultipleInput<K, E>
-            value={inputValue}
-            selectedKeys={value}
-            className={className}
-            onChange={onChange}
-            loading={loading}
-            selected={selected}
-            onFocus={open}
-            entryRenderKey={entryRenderKey}
-            visible={visible}
-            renderTag={renderTag}
-            placeholder={placeholder}
-            onTagDragStart={onTagDragStart}
-            onTagDragEnd={onTagDragEnd}
-            style={style}
-          />
-        )}
-      </InputWrapper>
-    </Core>
+    ></Core>
   );
 };
 

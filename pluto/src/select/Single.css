@@ -9,12 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
- .pluto-select {
+.pluto-select {
     .pluto-list__container.pluto-list--empty {
         height: 1px;
         min-height: 150px;
     }
- }
+}
+
+.pluto-select-dialog-content {
+    width: 500px;
+
+    .pluto-input__internal {
+        border-top-left-radius: 1rem;
+        border-top-right-radius: 1rem;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+}
 
 .pluto-select__clear {
     background: var(--pluto-gray-l0);

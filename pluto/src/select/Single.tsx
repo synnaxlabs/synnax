@@ -24,6 +24,7 @@ import {
   useState,
 } from "react";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
@@ -54,6 +55,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
   hideColumnHeader?: boolean;
   omit?: Array<K>;
   children?: List.VirtualCoreProps<K, E>["children"];
+  dropDownVariant?: Dropdown.Variant;
 }
 
 /**
@@ -89,9 +91,10 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   disabled,
   omit,
   children,
+  dropDownVariant = "modal",
   ...props
 }: SingleProps<K, E>): ReactElement => {
-  const { visible, open, close } = Dropdown.use();
+  const { visible, open, close, toggle } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(null);
   const searchMode = searcher != null;
 
@@ -128,6 +131,32 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     [searchMode],
   );
 
+  const searchInput = (
+    <InputWrapper<K, E> searcher={searcher}>
+      {({ onChange }) => (
+        <SingleInput<K, E>
+          size="large"
+          autoFocus
+          variant={variant}
+          onChange={onChange}
+          onFocus={open}
+          selected={selected}
+          entryRenderKey={entryRenderKey}
+          visible={visible}
+          allowNone={allowNone}
+          className={className}
+          disabled={disabled}
+        />
+      )}
+    </InputWrapper>
+  );
+
+  const buttonTrigger = (
+    <Button.Button variant="outlined" onClick={toggle} disabled={disabled}>
+      Select
+    </Button.Button>
+  );
+
   return (
     <Core<K, E>
       close={close}
@@ -143,24 +172,12 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       allowNone={allowNone}
       columns={columns}
       listItem={children}
+      variant={dropDownVariant}
+      trigger={dropDownVariant !== "modal" ? searchInput : buttonTrigger}
+      extraDialogContent={dropDownVariant === "modal" ? searchInput : undefined}
+      keepMounted={false}
       {...props}
-    >
-      <InputWrapper<K, E> searcher={searcher}>
-        {({ onChange }) => (
-          <SingleInput<K, E>
-            variant={variant}
-            onChange={onChange}
-            onFocus={open}
-            selected={selected}
-            entryRenderKey={entryRenderKey}
-            visible={visible}
-            allowNone={allowNone}
-            className={className}
-            disabled={disabled}
-          />
-        )}
-      </InputWrapper>
-    </Core>
+    ></Core>
   );
 };
 

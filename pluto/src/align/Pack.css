@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
- .pluto-pack {
+.pluto-pack {
     --t: var(--pluto-pack-br) var(--pluto-pack-br) 0 0;
     --b: 0 0 var(--pluto-pack-br) var(--pluto-pack-br);
     --l: var(--pluto-pack-br) 0 0 var(--pluto-pack-br);
@@ -21,10 +21,8 @@
     --pluto-pack--middle: 0 !important;
     --all: var(--pluto-pack-br);
 
-    
-
     &.pluto--rounded {
-        --pluto-pack-br: 2px;
+        --pluto-pack-br: var(--pluto-back-br, 2px);
     }
 
     &.pluto--bordered {
@@ -33,7 +31,6 @@
         &:not(.pluto-pack--shadow) > * {
             border: var(--pluto-border-l4);
         }
-
 
         &.pluto-pack--shadow {
             &:is(:hover, :focus-within) > * {
@@ -45,7 +42,6 @@
                 opacity: 0;
             }
         }
-
     }
 
     &.pluto--x {

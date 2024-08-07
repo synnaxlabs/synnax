@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { AsyncTermSearcher, nullToArr, toArray, unique } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -122,13 +122,17 @@ export const SelectMultiple = ({
 export interface SelectSingleProps
   extends Omit<Select.SingleProps<ranger.Key, ranger.Payload>, "columns"> {}
 
-export const SelectSingle = ({
-  onChange,
+interface UseSingleReturn extends Haul.UseDragReturn {
+  emptyContent?: ReactElement;
+  dragging: DraggingState;
+  onDragStart: (e: DragEvent<HTMLDivElement>) => void;
+  searcher?: AsyncTermSearcher<string, ranger.Key, ranger.Payload>;
+}
+
+const useSingle = ({
   value,
-  className,
-  data,
-  ...props
-}: SelectSingleProps): ReactElement => {
+  onChange,
+}: Pick<SelectSingleProps, "onChange" | "value">): UseSingleReturn => {
   const client = Synnax.use();
   const emptyContent =
     client != null ? undefined : (
@@ -143,11 +147,7 @@ export const SelectSingle = ({
     [id],
   );
 
-  const {
-    startDrag,
-    onDragEnd: endDrag,
-    ...dragProps
-  } = Haul.useDragAndDrop({
+  const dragProps = Haul.useDragAndDrop({
     type: "Ranger.SelectSingle",
     canDrop: useCallback((hauled) => canDrop(hauled, nullToArr(value)), [value]),
     onDrop: useCallback(
@@ -167,21 +167,53 @@ export const SelectSingle = ({
 
   const dragging = Haul.useDraggingState();
   const onDragStart = useCallback(
-    () => value != null && startDrag([{ type: HAUL_TYPE, key: value }]),
-    [startDrag, value],
+    () => value != null && dragProps.startDrag([{ type: HAUL_TYPE, key: value }]),
+    [dragProps.startDrag, value],
   );
+  return {
+    emptyContent,
+    dragging,
+    ...dragProps,
+    onDragStart,
+    searcher: client?.ranges,
+  };
+};
 
+export const SelectSingle = ({
+  onChange,
+  value,
+  className,
+  data,
+  ...props
+}: SelectSingleProps): ReactElement => {
+  const { dragging, ...dragProps } = useSingle({ value, onChange });
   return (
     <Select.Single<ranger.Key, ranger.Payload>
       data={data}
       className={CSS(className, CSS.dropRegion(canDrop(dragging, nullToArr(value))))}
       value={value}
-      onDragStart={onDragStart}
-      onDragEnd={endDrag}
       onChange={onChange}
-      searcher={client?.ranges}
       columns={rangeCols}
-      emptyContent={emptyContent}
+      entryRenderKey={"name"}
+      {...dragProps}
+      {...props}
+    />
+  );
+};
+
+export const SelectButton = ({
+  data,
+  value,
+  onChange,
+  ...props
+}: SelectSingleProps): ReactElement => {
+  const { dragging, ...dragProps } = useSingle({ value, onChange });
+  return (
+    <Select.Single<ranger.Key, ranger.Payload>
+      data={data}
+      value={value as string}
+      onChange={onChange}
+      columns={rangeCols}
       entryRenderKey={"name"}
       {...dragProps}
       {...props}

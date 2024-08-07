@@ -39,6 +39,8 @@ export type UseReturn = CoreDialog.UseReturn;
 
 export const use = CoreDialog.use;
 
+export type Variant = "connected" | "floating" | "modal";
+
 /** Props for the {@link Dialog} component. */
 export interface DialogProps
   extends Pick<CoreDialog.UseReturn, "visible" | "close">,
@@ -47,7 +49,7 @@ export interface DialogProps
   location?: loc.Y | loc.XY;
   children: [ReactNode, ReactNode];
   keepMounted?: boolean;
-  variant?: "connected" | "floating" | "modal";
+  variant?: Variant;
   maxHeight?: ComponentSize | number;
 }
 

@@ -193,15 +193,18 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
       allowNone={allowNone}
       columns={columns}
       hideColumnHeader={hideColumnHeader}
+      trigger={
+        <>
+          {children({
+            selected,
+            renderKey: entryRenderKey,
+            toggle,
+            visible,
+            disabled,
+          })}
+        </>
+      }
       {...props}
-    >
-      {children({
-        selected,
-        renderKey: entryRenderKey,
-        toggle,
-        visible,
-        disabled,
-      })}
-    </Core>
+    />
   );
 };
