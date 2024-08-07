@@ -130,36 +130,57 @@ type Request struct {
 	Type schema.Type
 }
 
+func assembleWordQuery(word string, _ int) query.Query {
+	fuzzyQ := bleve.NewMatchQuery(word)
+	// Specifies the levenshtein distance for the fuzzy query
+	// https://en.wikipedia.org/wiki/Levenshtein_distance
+	fuzzyQ.SetFuzziness(1)
+	regexQ := bleve.NewRegexpQuery(".*[_\\.-]" + word + ".*")
+	prefixQ := bleve.NewPrefixQuery(word)
+	exactQ := bleve.NewMatchQuery(word)
+	// Specifies the levenshtein distance for the fuzzy query
+	// https://en.wikipedia.org/wiki/Levenshtein_distance
+	exactQ.SetFuzziness(0)
+	// Makes the exact result the most important. Value chosen
+	// arbitrarily.
+	exactQ.SetBoost(100)
+	return bleve.NewDisjunctionQuery(exactQ, prefixQ, regexQ, fuzzyQ)
+}
+
+func (s *Index) execQuery(ctx context.Context, q query.Query) (*bleve.SearchResult, error) {
+	search_ := bleve.NewSearchRequest(q)
+	search_.Fields = []string{"name"}
+	// Limit search results to 100
+	search_.Size = 100
+	search_.SortBy([]string{"-_score"})
+	return s.idx.SearchInContext(ctx, search_)
+}
+
 func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 	ctx, span := s.T.Prod(ctx, "search")
 	words := strings.FieldsFunc(req.Term, func(r rune) bool { return r == ' ' || r == '_' || r == '-' })
-	q := bleve.NewConjunctionQuery(lo.Map(words, func(word string, _ int) query.Query {
-		fuzzyQ := bleve.NewMatchQuery(word)
-		fuzzyQ.SetFuzziness(1)
-		regexQ := bleve.NewRegexpQuery(".*[_\\.-]" + word + ".*")
-		prefixQ := bleve.NewPrefixQuery(word)
-		exactQ := bleve.NewMatchQuery(word)
-		exactQ.SetFuzziness(0)
-		exactQ.SetBoost(100)
-		return bleve.NewDisjunctionQuery(exactQ, prefixQ, regexQ, fuzzyQ)
-	})...)
-	search_ := bleve.NewSearchRequest(q)
-	search_.Fields = []string{"name"}
-	search_.Size = 100
-	search_.SortBy([]string{"-_score"})
-	searchResults, err := s.idx.SearchInContext(ctx, search_)
+	querySet := lo.Map(words, assembleWordQuery)
+	cj := bleve.NewConjunctionQuery(querySet...)
+	res, err := s.execQuery(ctx, cj)
 	if err != nil {
 		return nil, span.EndWith(err)
 	}
+	// If there are no results, fallback to a disjunction query which is more lenient
+	if res.Total == 0 {
+		dq := bleve.NewDisjunctionQuery(lo.Map(words, assembleWordQuery)...)
+		res, err = s.execQuery(ctx, dq)
+		if err != nil {
+			return nil, span.EndWith(err)
+		}
+	}
 	ids, err := schema.ParseIDs(lo.Map(
-		searchResults.Hits,
+		res.Hits,
 		func(hit *search.DocumentMatch, _ int) string { return hit.ID },
 	))
 	if len(req.Type) == 0 {
 		return ids, span.EndWith(err)
 	}
 	return lo.Filter(ids, func(id schema.ID, _ int) bool { return id.Type == req.Type }), span.EndWith(err)
-
 }
 
 var fieldMappings = map[schema.FieldType]func() *mapping.FieldMapping{

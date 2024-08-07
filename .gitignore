@@ -24,6 +24,9 @@ dist-ssr
 nyc_output
 *.tsbuildinfo
 *.ts.timestamp-*
+**/tsdoc-metadata.json
+**/temp/
+*.test
 
 # |||| RUST ||||
 
@@ -97,3 +100,6 @@ driver/vendor/mbedtls/mbedtls
 # |||| PROFILING ||||
 **/mem.out
 **/profile**.png
+
+# |||| GENERAL ||||
+**/ignore*

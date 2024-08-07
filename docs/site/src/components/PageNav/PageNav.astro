@@ -46,6 +46,11 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             border-radius: 0 !important;
             height: auto;
             background: none !important;
+            width: unset !important;
+
+            &:not(.pluto--has-children) {
+                padding-left: 4rem !important;
+            }
 
             &:hover:not(.pluto--selected) {
                 &:not(.pluto--has-children) {

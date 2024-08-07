@@ -1,0 +1,71 @@
+name: "Test - Console"
+on:
+  pull_request:
+    branches:
+      - rc
+      - main
+  push:
+    branches:
+      - rc
+      - main
+  workflow_dispatch:
+jobs:
+  test:
+    name: "Run Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            changed:
+              - "console/**"
+              - "pluto/**"
+              - "client/ts/**"
+              - "freighter/ts/**"
+              - "x/ts/**"
+              - ".github/workflows/test.console.yaml"
+
+      - name: Set up pnpm
+        if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Set up Node
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Turbo Cache
+        uses: actions/cache@v3
+        with:
+          path: .turbo-cache
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Build Pluto
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:pluto
+    
+      - name: Build Drift
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:drift
+
+      - name: Test
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm test:console
+ 
+

@@ -215,7 +215,7 @@ I can successfully:
 #### Configuration
 
 I can successfully:
-
+- [ ] Enable and disable OPC UA integration when starting the server.
 - [ ] Connect to an OPC UA server running unencrypted.
 - [ ] Connect to an OPC UA server running encrypted.
 - [ ] Create additional sampling groups and move channels to them.
@@ -245,12 +245,14 @@ based on the configured OPC UA node.
 - [ ]	Maintain operation of the driver when a device is disconnected or a channel is 
 removed from the device while it is running.
 - [ ]	Enable and disable data saving at will.
+- [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
 
 ### National Instruments
 
 #### Configuration
 
 I can successfully:
+- [ ] Enable and disable NI integration when starting the server.
 - [ ] Recognize and connect to a National Instruments device available on local
   machine.
 - [ ] Recognize and connect to a National Instruments devices available on

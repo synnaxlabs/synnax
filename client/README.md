@@ -1,11 +1,10 @@
-<br />
-<p align="center">
-    <a href="https://synnaxlabs.com/">
-        <img src="../x/media/static/logo/title-white-on-black.svg" width="65%"/>
-    </a>
-</p>
+# Synnax Client
 
-# Client Libraries
+The Synnax client is a set of programming libraries for interacting with the Synnax
+server. The clients can be used to connect to a server and read, write, and stream data.
+The client libraries can be used to build analysis tools, device, GUIs, and much more.
+The following languages are currently implemented:
 
-The following directories contain the source for Synnax client libraries implemented in
-different languages.
+-   [C++](./cpp/)
+-   [Python](./py/README.md)
+-   [TypeScript](./ts/README.md)

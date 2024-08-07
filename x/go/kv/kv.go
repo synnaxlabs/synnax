@@ -32,7 +32,11 @@ var NotFound = errors.New("[kv] - not found")
 // Reader is a readable key-value store.
 type Reader interface {
 	// Get returns the value for the given key.
-	Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error)
+	Get(
+		ctx context.Context,
+		key []byte,
+		opts ...interface{},
+	) ([]byte, io.Closer, error)
 	// OpenIterator returns an Iterator using the given IteratorOptions.
 	OpenIterator(opts IteratorOptions) (Iterator, error)
 }
