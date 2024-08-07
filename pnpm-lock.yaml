@@ -8737,7 +8737,7 @@ snapshots:
 
   '@types/accepts@1.3.7':
     dependencies:
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
 
   '@types/acorn@4.0.6':
     dependencies:
@@ -8773,7 +8773,7 @@ snapshots:
   '@types/body-parser@1.19.5':
     dependencies:
       '@types/connect': 3.4.38
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
 
   '@types/bunyan@1.8.9':
     dependencies:
@@ -8783,7 +8783,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
       '@types/responselike': 1.0.3
 
   '@types/connect@3.4.36':
@@ -8792,7 +8792,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
 
   '@types/content-disposition@0.5.8': {}
 
@@ -8803,7 +8803,7 @@ snapshots:
       '@types/connect': 3.4.38
       '@types/express': 4.17.21
       '@types/keygrip': 1.0.6
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
 
   '@types/d3-array@3.2.1': {}
 
@@ -8934,7 +8934,7 @@ snapshots:
 
   '@types/express-serve-static-core@4.19.5':
     dependencies:
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
       '@types/qs': 6.9.15
       '@types/range-parser': 1.2.7
       '@types/send': 0.17.4
@@ -8967,7 +8967,7 @@ snapshots:
 
   '@types/hapi__shot@4.1.6':
     dependencies:
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
 
   '@types/hast@3.0.4':
     dependencies:
@@ -8987,7 +8987,7 @@ snapshots:
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
 
   '@types/koa-compose@3.2.8':
     dependencies:
@@ -9095,17 +9095,17 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
 
   '@types/send@0.17.4':
     dependencies:
       '@types/mime': 1.3.5
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
 
   '@types/serve-static@1.15.7':
     dependencies:
       '@types/http-errors': 2.0.4
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
       '@types/send': 0.17.4
 
   '@types/shimmer@1.0.5': {}
@@ -12335,7 +12335,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 20.14.9
+      '@types/node': 20.14.12
       long: 5.2.3
 
   proxy-compare@2.3.0: {}
