@@ -1,25 +1,51 @@
-# Synnax Client
+# Synnax TypeScript Client Library
 
-A client library for interacting with a Synnax cluster. It supports TypeScript and can be used in both node and browser environments.
-
-Detailed documentation is available [here](https://docs.synnaxlabs.com/typescript-client/get-started).
+The Synnax TypeScript client is a client library for interacting with a Synnax cluster.
+The client library can be used in both node and browser environments. The [Synnax documentation
+website](https://docs.synnaxlabs.com/typescript-client/get-started) contains more
+information about using the client.
 
 ## Installation
 
-```bash
+If you want to install the client library, please install it via a package manager such
+as npm or yarn:
+
+```shell
 npm install @synnaxlabs/client
 ```
 
+## Examples
+
+Examples of usage of the TypeScript client can be found in our [examples
+folder](./examples/node/)
+
 ## Development
 
-Synnax's TypeScript client unit tests are written in [Vitest](https://vitest.dev/). To test the framework, run
+First, please read our [contribution guidelines](../../docs/CONTRIBUTING.md) and the
+TypeScript [build document](../../docs/tech/typescript/build.md) for information on
+developing in the Synnax repository with TypeScript.
 
-```bash
+To properly build upstream packages for developing the client, run the following
+command:
+
+```shell
+pnpm build:freighter
+```
+
+Synnax's TypeScript client unit tests are written in [Vitest](https://vitest.dev/). To
+test the framework, run the following command:
+
+```shell
 pnpm test
 ```
 
-Before running tests, make sure you build upstream dependencies, as specified in [this document](../../docs/tech/typescript/build.md):
+If you create changes to the API for the client, generate a new API document by running
+the following command:
 
+```shell
+pnpm genApi
 ```
-pnpm build:PACKAGE_NAME
-```
+
+Finally, if changes to the code warrant changing the documentation website, please edit
+the correct pages on our [TypeScript Documentation
+pages](../../docs/site/src/pages/reference/typescript-client/)
