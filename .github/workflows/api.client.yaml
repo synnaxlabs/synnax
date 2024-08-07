@@ -5,6 +5,9 @@ on:
       - rc
       - main
   workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
 
 jobs:
   setup:
