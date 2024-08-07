@@ -41,7 +41,7 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		return errors.Newf("delete start %d cannot be after delete end %d", tr.Start, tr.End)
 	}
 
-	// LockAndCountOpen an absolute gate to avoid deleting a time range in write.
+	// Open an absolute gate to avoid deleting a time range in write.
 	g, _, err := db.controller.OpenAbsoluteGateIfUncontrolled(
 		tr,
 		control.Subject{Key: uuid.NewString(), Name: "delete_writer"},
