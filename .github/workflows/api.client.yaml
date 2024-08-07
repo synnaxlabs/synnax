@@ -70,7 +70,11 @@ jobs:
 
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
+        run: pnpm install
+
+      - name: Build
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm build:client
 
       - name: Check API
         if: steps.filter.outputs.changed == 'true'
