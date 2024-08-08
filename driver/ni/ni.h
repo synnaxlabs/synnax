@@ -421,6 +421,8 @@ public:
 
     void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
 
+    void log_err(std::string err_msg);
+
 private:
     json get_device_properties(NISysCfgResourceHandle resource);
 
@@ -607,10 +609,8 @@ static inline bool dlls_available(){
         "nixfmrru.dll",
         "nixsru.dll",
         "nisyscfg.dll" // add additional information in the log error saying which are daqmx and which are syscfg
-        // "nidaqsys.dll",
-        // "nimxipci.dll",
-        // "nimxipxi.dll",
-        // "nimxpisae.dll"
+        // "nisyscfgExpert.dll",
+        // "nimdnsNSP.dll",
     };
 
     bool d = true;

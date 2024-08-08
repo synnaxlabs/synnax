@@ -33,12 +33,7 @@ ni::Scanner::Scanner(
         &this->session // session handle
     );
 
-    if (status != NISysCfg_OK) {
-        this->ok_state = false;
-        LOG(ERROR) << "[ni.scanner] failed to initialize scanner for task " << this->
-                task.name;
-        return;
-    }
+    if (status != NISysCfg_OK) log_err("failed to initialize scanner");
 
     // create a filter to only identify NI devices rather than chassis and devices which are connected (which includes simulated devices)
     this->filter = NULL;
@@ -84,12 +79,8 @@ void ni::Scanner::scan() {
         this->filter, NULL,
         &this->resources_handle
     );
-    if (err != NISysCfg_OK) {
-        this->ok_state = false;
-        LOG(ERROR) << "[ni.scanner] failed to find hardware for task " << this->task.
-                name;
-        return;
-    }
+    if (err != NISysCfg_OK) return log_err("failed to find hardware");
+    
 
     // Now iterate through found devices and get requested properties
     devices["devices"] = json::array();
@@ -116,7 +107,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
         NISysCfgResourcePropertySerialNumber,
         propertyValue
     );
-    if (status != NISysCfg_OK) LOG(ERROR) << "[ni.scanner] failed to get serial number";
+    if (status != NISysCfg_OK) log_err("failed to get serial number");
     device["serial_number"] = propertyValue;
 
     // product name
@@ -125,10 +116,9 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
         NISysCfgResourcePropertyProductName,
         propertyValue
     );
-    if (status != NISysCfg_OK) LOG(ERROR) << "[ni.scanner] failed to get product name";
+    if (status != NISysCfg_OK) log_err("failed to get product name");
     std::string model = propertyValue;
     if (model.size() > 3) model = model.substr(3); 
-    else LOG(ERROR) << "[ni.scanner] failed to retrieve product model";
     device["model"] = model;
 
     // location
@@ -138,7 +128,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
         0,
         propertyValue
     );
-    if (status != NISysCfg_OK) LOG(ERROR) << "[ni.scanner] failed to get location";
+    if (status != NISysCfg_OK) log_err("failed to get location");
     device["location"] = propertyValue;
 
 
@@ -149,20 +139,19 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
         0,
         propertyValue
     );
-    if (status != NISysCfg_OK) LOG(ERROR) << "[ni.scanner] failed to get resource name";
+    if (status != NISysCfg_OK) log_err("failed to get resource name");
     std::string rsrc_name = propertyValue;
     if (rsrc_name.size() > 2) rsrc_name = rsrc_name.substr(1, rsrc_name.size() - 2);
-    else  LOG(ERROR) << "[ni.scanner] resource name too short to extract name";
+    else  log_err("resource name too short to extract name");
     device["resource_name"] = rsrc_name;
     
     // temperature
-    double temp;
+    double temp = 0;
     status = ni::NiSysCfgInterface::GetResourceProperty(
         resource,
         NISysCfgResourcePropertyCurrentTemp,
         &temp
     );
-    if(status != NISysCfg_OK) LOG(ERROR) << "[ni.scanner] failed to get temperature";
     device["temperature"] = temp;
 
     // whether it is a simulated device 
@@ -172,7 +161,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
         NISysCfgResourcePropertyIsSimulated,
         &isSimulated
     );
-    if (status != NISysCfg_OK) LOG(ERROR) << "[ni.scanner] failed to get simulated status";
+    if (status != NISysCfg_OK) log_err("failed to get isSimulated");
     device["is_simulated"] = isSimulated ? true : false;
     device["key"] = isSimulated ? device["resource_name"] : device["serial_number"];
 
@@ -215,5 +204,20 @@ bool ni::Scanner::ok() {
 }
 
 json ni::Scanner::get_devices() {
+    if(!this->ok_state) return json::array();
     return devices;
+}
+
+void ni::Scanner::log_err(std::string err_msg) {
+    LOG(ERROR) << "[ni.scanner] " << err_msg;
+    json j = {
+        {"error", err_msg}
+    };
+    this->ctx->setState({
+        .task = this->task.key,
+        .variant = "error",
+        .details = j
+    });
+    this->ok_state = false;
+    LOG(ERROR) << "[ni.scanner] scanner in error state. Disabling.";
 }
