@@ -39,7 +39,8 @@ var _ = Describe("Delete", func() {
 				By("Creating channels")
 				fs, cleanUp = makeFS()
 				indexDB = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub("index")),
+					FS:        MustSucceed(fs.Sub("index")),
+					MetaCodec: codec,
 					Channel: core.Channel{
 						Key:      index,
 						DataType: telem.TimeStampT,
@@ -49,7 +50,8 @@ var _ = Describe("Delete", func() {
 					Instrumentation: PanicLogger(),
 				}))
 				db = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub("data")),
+					FS:        MustSucceed(fs.Sub("data")),
+					MetaCodec: codec,
 					Channel: core.Channel{
 						Key:      data,
 						DataType: telem.Int64T,
@@ -58,7 +60,8 @@ var _ = Describe("Delete", func() {
 					Instrumentation: PanicLogger(),
 				}))
 				rateDB = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub("rate")),
+					FS:        MustSucceed(fs.Sub("rate")),
+					MetaCodec: codec,
 					Channel: core.Channel{
 						Key:      rate,
 						DataType: telem.Int64T,
@@ -97,7 +100,7 @@ var _ = Describe("Delete", func() {
 						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
 						Expect(series1Data).To(ConsistOf(15, 16, 17, 18))
 					})
-					It("Should delete a chunk even when the timerange is not exact", func() {
+					It("Should delete a chunk even when the time range is not exact", func() {
 						Expect(rateDB.Delete(ctx, telem.TimeRange{
 							Start: 13*telem.SecondTS + 500*telem.MillisecondTS,
 							End:   16*telem.SecondTS + 500*telem.MillisecondTS,
@@ -684,7 +687,7 @@ var _ = Describe("Delete", func() {
 					Expect(series1Data).To(ConsistOf(30*telem.SecondTS, 31*telem.SecondTS, 33*telem.SecondTS, 34*telem.SecondTS, 35*telem.SecondTS, 36*telem.SecondTS, 37*telem.SecondTS))
 				})
 			})
-			Context("Overshooting timerange", func() {
+			Context("Overshooting time range", func() {
 				BeforeEach(func() {
 					By("Writing data to the channel")
 					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13)))
@@ -924,7 +927,8 @@ var _ = Describe("Delete", func() {
 						iKey     = testutil.GenerateChannelKey()
 						dbKey    = testutil.GenerateChannelKey()
 						indexDB2 = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("index")),
+							FS:        MustSucceed(fs.Sub("index")),
+							MetaCodec: codec,
 							Channel: core.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
@@ -935,10 +939,11 @@ var _ = Describe("Delete", func() {
 							FileSize:        40 * telem.ByteSize,
 						}))
 						db2 = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("data")),
+							FS:        MustSucceed(fs.Sub("data")),
+							MetaCodec: codec,
 							Channel: core.Channel{
 								Key:      dbKey,
-								DataType: telem.Int32T,
+								DataType: telem.Int64T,
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
@@ -952,7 +957,7 @@ var _ = Describe("Delete", func() {
 					MustSucceed(w.Write(telem.NewSecondsTSV(16, 17, 18, 19, 20)))
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
-					Expect(unary.Write(ctx, db2, 10*telem.SecondTS, telem.NewSeriesV[int32](10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+					Expect(unary.Write(ctx, db2, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
 					Expect(db2.Delete(ctx, (13 * telem.SecondTS).Range(18*telem.SecondTS))).To(Succeed())
 
 					Expect(indexDB2.Close()).To(Succeed())
@@ -970,7 +975,8 @@ var _ = Describe("Delete", func() {
 						iKey     = testutil.GenerateChannelKey()
 						dbKey    = testutil.GenerateChannelKey()
 						indexDB2 = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("index")),
+							FS:        MustSucceed(fs.Sub("index")),
+							MetaCodec: codec,
 							Channel: core.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
@@ -981,10 +987,11 @@ var _ = Describe("Delete", func() {
 							FileSize:        40 * telem.ByteSize,
 						}))
 						db2 = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("data")),
+							FS:        MustSucceed(fs.Sub("data")),
+							MetaCodec: codec,
 							Channel: core.Channel{
 								Key:      dbKey,
-								DataType: telem.Int32T,
+								DataType: telem.Int64T,
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
@@ -999,17 +1006,17 @@ var _ = Describe("Delete", func() {
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 					w, _ = MustSucceed2(db2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test2"}}))
-					MustSucceed(w.Write(telem.NewSeriesV[int32](10, 12, 14, 16, 18)))
+					MustSucceed(w.Write(telem.NewSeriesV[int64](10, 12, 14, 16, 18)))
 					MustSucceed(w.Commit(ctx))
-					MustSucceed(w.Write(telem.NewSeriesV[int32](20, 22, 24, 26, 28, 30)))
+					MustSucceed(w.Write(telem.NewSeriesV[int64](20, 22, 24, 26, 28, 30)))
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 					Expect(db2.Delete(ctx, (20 * telem.SecondTS).Range(27*telem.SecondTS))).To(Succeed())
 
 					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Series).To(HaveLen(2))
-					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int32{10, 12, 14, 16, 18}))
-					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int32{28, 30}))
+					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int64{10, 12, 14, 16, 18}))
+					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int64{28, 30}))
 
 					Expect(indexDB2.Close()).To(Succeed())
 					Expect(db2.Close()).To(Succeed())
@@ -1022,7 +1029,8 @@ var _ = Describe("Delete", func() {
 						iKey     = testutil.GenerateChannelKey()
 						dbKey    = testutil.GenerateChannelKey()
 						indexDB2 = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("index")),
+							FS:        MustSucceed(fs.Sub("index")),
+							MetaCodec: codec,
 							Channel: core.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
@@ -1033,10 +1041,11 @@ var _ = Describe("Delete", func() {
 							FileSize:        40 * telem.ByteSize,
 						}))
 						db2 = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("data")),
+							FS:        MustSucceed(fs.Sub("data")),
+							MetaCodec: codec,
 							Channel: core.Channel{
 								Key:      dbKey,
-								DataType: telem.Int32T,
+								DataType: telem.Int64T,
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
@@ -1051,17 +1060,17 @@ var _ = Describe("Delete", func() {
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 					w, _ = MustSucceed2(db2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test2"}}))
-					MustSucceed(w.Write(telem.NewSeriesV[int32](10, 12, 14, 16, 18, 20)))
+					MustSucceed(w.Write(telem.NewSeriesV[int64](10, 12, 14, 16, 18, 20)))
 					MustSucceed(w.Commit(ctx))
-					MustSucceed(w.Write(telem.NewSeriesV[int32](22, 24, 26, 28, 30)))
+					MustSucceed(w.Write(telem.NewSeriesV[int64](22, 24, 26, 28, 30)))
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 					Expect(db2.Delete(ctx, (21 * telem.SecondTS).Range(27*telem.SecondTS))).To(Succeed())
 
 					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Series).To(HaveLen(2))
-					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int32{10, 12, 14, 16, 18, 20}))
-					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int32{28, 30}))
+					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int64{10, 12, 14, 16, 18, 20}))
+					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int64{28, 30}))
 
 					Expect(indexDB2.Close()).To(Succeed())
 					Expect(db2.Close()).To(Succeed())
@@ -1071,7 +1080,8 @@ var _ = Describe("Delete", func() {
 						iKey     = testutil.GenerateChannelKey()
 						dbKey    = testutil.GenerateChannelKey()
 						indexDB2 = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("index")),
+							FS:        MustSucceed(fs.Sub("index")),
+							MetaCodec: codec,
 							Channel: core.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
@@ -1082,10 +1092,11 @@ var _ = Describe("Delete", func() {
 							FileSize:        40 * telem.ByteSize,
 						}))
 						db2 = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("data")),
+							FS:        MustSucceed(fs.Sub("data")),
+							MetaCodec: codec,
 							Channel: core.Channel{
 								Key:      dbKey,
-								DataType: telem.Int32T,
+								DataType: telem.Int64T,
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
@@ -1100,18 +1111,18 @@ var _ = Describe("Delete", func() {
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 					w, _ = MustSucceed2(db2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test2"}}))
-					MustSucceed(w.Write(telem.NewSeriesV[int32](10, 12, 14, 16, 18, 20)))
+					MustSucceed(w.Write(telem.NewSeriesV[int64](10, 12, 14, 16, 18, 20)))
 					MustSucceed(w.Commit(ctx))
-					MustSucceed(w.Write(telem.NewSeriesV[int32](22, 24, 26, 28, 30)))
+					MustSucceed(w.Write(telem.NewSeriesV[int64](22, 24, 26, 28, 30)))
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 					Expect(db2.Delete(ctx, (23 * telem.SecondTS).Range(27*telem.SecondTS))).To(Succeed())
 
 					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Series).To(HaveLen(3))
-					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int32{10, 12, 14, 16, 18, 20}))
-					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int32{22}))
-					Expect(f.Series[2].Data).To(testutil2.EqualUnmarshal([]int32{28, 30}))
+					Expect(f.Series[0].Data).To(testutil2.EqualUnmarshal([]int64{10, 12, 14, 16, 18, 20}))
+					Expect(f.Series[1].Data).To(testutil2.EqualUnmarshal([]int64{22}))
+					Expect(f.Series[2].Data).To(testutil2.EqualUnmarshal([]int64{28, 30}))
 
 					Expect(indexDB2.Close()).To(Succeed())
 					Expect(db2.Close()).To(Succeed())
@@ -1134,7 +1145,7 @@ var _ = Describe("Delete", func() {
 					Expect(hasData).To(BeFalse())
 					Expect(err).ToNot(HaveOccurred())
 				})
-				It("Should return true when there is a writer starting before the given timerange", func() {
+				It("Should return true when there is a writer starting before the given time range", func() {
 					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   5 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo_writer"},
@@ -1150,7 +1161,7 @@ var _ = Describe("Delete", func() {
 					Expect(hasData).To(BeFalse())
 					Expect(err).ToNot(HaveOccurred())
 				})
-				It("Should return true when there is a writer starting in the middle of the given timerange", func() {
+				It("Should return true when there is a writer starting in the middle of the given time range", func() {
 					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   15 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo_writer"},
@@ -1166,7 +1177,7 @@ var _ = Describe("Delete", func() {
 					Expect(hasData).To(BeFalse())
 					Expect(err).ToNot(HaveOccurred())
 				})
-				It("Should return false when there is a writer starting after the given timerange", func() {
+				It("Should return false when there is a writer starting after the given time range", func() {
 					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   25 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo_writer"},

@@ -28,6 +28,9 @@ nyc_output
 **/temp/
 *.test
 
+# |||| GO ||||
+*.test
+
 # |||| RUST ||||
 
 /target/†

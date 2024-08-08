@@ -187,12 +187,12 @@ func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
 func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
 
-// RawString displays the timerange with both timestamps in raw string format.
+// RawString displays the time range with both timestamps in raw string format.
 func (tr TimeRange) RawString() string {
 	return tr.Start.String() + " - " + tr.End.String()
 }
 
-// String displays the timerange with both timestamps as formatted time.
+// String displays the time range with both timestamps as formatted time.
 // String implements fmt.Stringer.
 func (tr TimeRange) String() string {
 	return tr.Start.String() + " - " + tr.End.String()
@@ -459,10 +459,15 @@ func NewAlignmentPair(arrayIndex, sampleIndex uint32) AlignmentPair {
 	return AlignmentPair(arrayIndex)<<32 | AlignmentPair(sampleIndex)
 }
 
+// ZeroLeadingAlignment represents the start of a region reserved for written data that
+// has not yet been persisted. This is useful for correctly ordering new data while
+// ensuring that it is significantly after any persisted data.
+const ZeroLeadingAlignment = math.MaxUint32 - 1e6
+
 // LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
 // and whose sample index is the provided value.
-func LeadingAlignment(sampleIndex uint32) AlignmentPair {
-	return NewAlignmentPair(math.MaxUint32, sampleIndex)
+func LeadingAlignment(offset uint32, sampleIndex uint32) AlignmentPair {
+	return NewAlignmentPair(ZeroLeadingAlignment+offset, sampleIndex)
 }
 
 // ArrayIndex returns the array index of the AlignmentPair. See AlignmentPair for more information.
@@ -481,4 +486,8 @@ func (a *AlignmentPair) UnmarshalJSON(b []byte) error {
 // MarshalJSON implements json.Marshaler.
 func (a *AlignmentPair) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + strconv.FormatUint(uint64(*a), 10) + "\""), nil
+}
+
+func (a AlignmentPair) AddSamples(samples uint32) AlignmentPair {
+	return NewAlignmentPair(a.ArrayIndex(), a.SampleIndex()+samples)
 }
