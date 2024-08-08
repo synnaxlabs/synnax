@@ -127,6 +127,12 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     return await ChangeTracker.open(this.framer, this);
   }
 
+  async trackChildren(
+    parent: ID,
+  ): Promise<observe.ObservableAsyncCloseable<Resource[]>> {
+    return await ChildTracker.open(parent, this, this.framer);
+  }
+
   newSearcherWithOptions(
     options: RetrieveOptions,
   ): AsyncTermSearcher<string, string, Resource> {
@@ -254,5 +260,77 @@ export class ChangeTracker {
       RELATIONSHIP_DELETE_NAME,
     ]);
     return new ChangeTracker(streamer, retriever);
+  }
+}
+
+export class ChildTracker
+  extends observe.Observer<Resource[]>
+  implements observe.ObservableAsyncCloseable<Resource[]>
+{
+  private readonly internal: ChangeTracker;
+  private readonly parent: ID;
+  private children: Resource[];
+  private readonly client: Client;
+
+  private constructor(
+    parent: ID,
+    internal: ChangeTracker,
+    children: Resource[],
+    client: Client,
+  ) {
+    super();
+    this.internal = internal;
+    this.parent = parent;
+    this.children = children;
+    this.client = client;
+    this.internal.resources.onChange(this.handleResourceChange);
+    this.internal.relationships.onChange(this.handleRelationshipChange);
+  }
+  static async open(
+    parent: ID,
+    client: Client,
+    framer: framer.Client,
+  ): Promise<ChildTracker> {
+    const internal = await ChangeTracker.open(framer, client);
+    const currChildren = await client.retrieveChildren(parent);
+    return new ChildTracker(parent, internal, currChildren, client);
+  }
+
+  private handleResourceChange = (changes: ResourceChange[]): void => {
+    this.children = this.children.map((child) => {
+      const change = changes.find((c) => c.key.toString() == child.id.toString());
+      if (change == null || change.variant === "delete") return child;
+      return change.value;
+    });
+    this.notify(this.children);
+  };
+
+  private handleRelationshipChange = (changes: RelationshipChange[]): void => {
+    const deletes = changes.filter((c) => c.variant === "delete");
+    this.children = this.children.filter(
+      (child) =>
+        !deletes.some(
+          (del) =>
+            del.key.to.toString() === child.id.toString() && del.key.type === "parent",
+        ),
+    );
+    const sets = changes.filter(
+      (c) =>
+        c.variant === "set" &&
+        c.key.type === "parent" &&
+        c.key.from.toString() === this.parent.toString(),
+    );
+    if (sets.length === 0) {
+      this.notify(this.children);
+      return;
+    }
+    this.client.retrieve(sets.map((s) => s.key.to)).then((resources) => {
+      this.children = this.children.concat(resources);
+      this.notify(this.children);
+    });
+  };
+
+  async close(): Promise<void> {
+    await this.internal.close();
   }
 }

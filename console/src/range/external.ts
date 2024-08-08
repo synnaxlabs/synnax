@@ -9,11 +9,11 @@
 
 import { Layout } from "@/layout";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/range/EditLayout";
-import { Overview, overviewLayout } from "@/range/Overview";
+import { Overview, overviewLayout } from "@/range/overview/Overview";
 
 export * from "@/range/ContextMenu";
 export * from "@/range/EditLayout";
-export * from "@/range/Overview";
+export * from "@/range/overview/Overview";
 export * from "@/range/Select";
 export * from "@/range/selectors";
 export * from "@/range/slice";

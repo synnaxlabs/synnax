@@ -12,6 +12,7 @@ package ranger
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -54,8 +55,8 @@ func (r Range) setOntology(otg *ontology.Ontology) Range { r.otg = otg; return r
 
 func (r Range) Get(ctx context.Context, key string) (string, error) {
 	var (
-		res = keyValue{Range: r.Key, Key: key}
-		err = gorp.NewRetrieve[string, keyValue]().
+		res = KVPair{Range: r.Key, Key: key}
+		err = gorp.NewRetrieve[string, KVPair]().
 			WhereKeys(res.GorpKey()).
 			Entry(&res).
 			Exec(ctx, r.tx)
@@ -66,30 +67,39 @@ func (r Range) Get(ctx context.Context, key string) (string, error) {
 	return res.Value, err
 }
 
-func (r Range) ListMetaData() (map[string]string, error) {
-	var res []keyValue
-	if err := gorp.NewRetrieve[string, keyValue]().
-		Where(func(kv *keyValue) bool { return kv.Range == r.Key }).
+func (r Range) GetMany(ctx context.Context, keys []string) ([]KVPair, error) {
+	res := make([]KVPair, 0, len(keys))
+	tKeys := lo.Map(keys, func(k string, _ int) string { return KVPair{Range: r.Key, Key: k}.GorpKey() })
+	err := gorp.NewRetrieve[string, KVPair]().
+		WhereKeys(tKeys...).
 		Entries(&res).
-		Exec(context.Background(), r.tx); err != nil {
-		return nil, err
-	}
-	meta := make(map[string]string, len(res))
-	for _, kv := range res {
-		meta[kv.Key] = kv.Value
-	}
-	return meta, nil
+		Exec(ctx, r.tx)
+	return res, err
+}
+
+func (r Range) ListMetaData() (res []KVPair, err error) {
+	err = gorp.NewRetrieve[string, KVPair]().
+		Where(func(kv *KVPair) bool { return kv.Range == r.Key }).
+		Entries(&res).
+		Exec(context.Background(), r.tx)
+	return res, nil
 }
 
 func (r Range) Set(ctx context.Context, key, value string) error {
-	return gorp.NewCreate[string, keyValue]().
-		Entry(&keyValue{Range: r.Key, Key: key, Value: value}).
+	return gorp.NewCreate[string, KVPair]().
+		Entry(&KVPair{Range: r.Key, Key: key, Value: value}).
+		Exec(ctx, r.tx)
+}
+
+func (r Range) SetMany(ctx context.Context, pairs []KVPair) error {
+	return gorp.NewCreate[string, KVPair]().
+		Entries(&pairs).
 		Exec(ctx, r.tx)
 }
 
 func (r Range) Delete(ctx context.Context, key string) error {
-	return gorp.NewDelete[string, keyValue]().
-		WhereKeys(keyValue{Range: r.Key, Key: key}.GorpKey()).
+	return gorp.NewDelete[string, KVPair]().
+		WhereKeys(KVPair{Range: r.Key, Key: key}.GorpKey()).
 		Exec(ctx, r.tx)
 }
 

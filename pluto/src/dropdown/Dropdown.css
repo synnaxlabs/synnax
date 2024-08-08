@@ -9,9 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dropdown.pluto--visible {
-    :first-child {
-        z-index: 6;
+.pluto-dropdown {
+    .pluto--visible {
+        :first-child {
+            z-index: 6;
+        }
+    }
+    &:not(.pluto--connected) {
+        width: max-content;
     }
 }
 
@@ -29,9 +34,11 @@
 
     .pluto-dropdown__dialog {
         top: 25%;
+        --pluto-pack-br: 1rem;
         border-radius: 1rem;
         background: var(--pluto-gray-l1);
         backdrop-filter: saturate(300%) blur(5rem);
+        overflow: hidden;
     }
 
     @media (max-height: 800px) {

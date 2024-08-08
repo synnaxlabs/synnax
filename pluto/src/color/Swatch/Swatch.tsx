@@ -13,7 +13,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { color } from "@/color/core";
-import { type Color,type Crude } from "@/color/core/color";
+import { type Color, type Crude } from "@/color/core/color";
 import { Picker } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
@@ -100,6 +100,7 @@ export const Swatch = ({
       className={CSS.BE("color-swatch", "dropdown")}
       keepMounted={false}
       variant="floating"
+      zIndex={100}
     >
       {swatch}
       <Picker value={value} onChange={onChange} />

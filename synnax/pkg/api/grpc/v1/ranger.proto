@@ -125,7 +125,12 @@ message RangeRetrieveResponse {
 
 message RangeKVSetRequest {
     string range_key = 1;
-    map<string, string> pairs = 2;
+    repeated KVPair pairs = 2;
+}
+
+message KVPair {
+    string key = 1;
+    string value = 2;
 }
 
 message RangeKVGetRequest {
@@ -134,7 +139,7 @@ message RangeKVGetRequest {
 }
 
 message RangeKVGetResponse {
-    map<string, string> pairs = 1;
+    repeated KVPair pairs = 1;
 }
 
 message RangeKVDeleteRequest {

@@ -92,7 +92,6 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const handleFetchMore = useCallback(
     (reset: boolean = false) => {
-      console.log("FETCH");
       if (valueRef.current.length > 0 || promiseOut.current || searcher == null) return;
       if (reset) {
         offset.current = 0;
@@ -103,9 +102,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       setEmptyContent(LOADING);
       const fn = async () => {
         try {
-          console.log("EXEC");
           const r = await searcher.page(offset.current, pageSize);
-          console.log(r);
           if (r.length === 0) setEmptyContent(getDefaultEmptyContent() ?? NO_RESULTS);
           if (r.length < pageSize) {
             hasMore.current = false;
@@ -167,7 +164,11 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   return { value: internalValue, onChange: handleChange };
 };
 
+const searchInput = (props: Input.Control<string>): ReactElement => (
+  <Input.Text placeholder="Search" {...props} />
+);
+
 export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  children = componentRenderProp(Input.Text),
+  children = searchInput,
   ...props
 }: SearchProps<K, E>): ReactElement | null => children(useSearch(props));

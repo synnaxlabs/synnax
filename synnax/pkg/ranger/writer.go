@@ -27,7 +27,18 @@ type Writer struct {
 func (w Writer) Create(
 	ctx context.Context,
 	r *Range,
+) error {
+	return w.CreateWithParent(ctx, r, w.group.OntologyID())
+}
+
+func (w Writer) CreateWithParent(
+	ctx context.Context,
+	r *Range,
+	parent ontology.ID,
 ) (err error) {
+	if parent.IsZero() {
+		parent = w.group.OntologyID()
+	}
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
 	}
@@ -41,7 +52,11 @@ func (w Writer) Create(
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		return err
+	}
+	r.tx = w.tx
+	return nil
 }
 
 func (w Writer) CreateMany(
@@ -50,6 +65,20 @@ func (w Writer) CreateMany(
 ) (err error) {
 	for i, r := range *rs {
 		if err = w.Create(ctx, &r); err != nil {
+			return
+		}
+		(*rs)[i] = r
+	}
+	return err
+}
+
+func (w Writer) CreateManyWithParent(
+	ctx context.Context,
+	rs *[]Range,
+	parent ontology.ID,
+) (err error) {
+	for i, r := range *rs {
+		if err = w.CreateWithParent(ctx, &r, parent); err != nil {
 			return
 		}
 		(*rs)[i] = r

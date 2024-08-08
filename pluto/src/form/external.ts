@@ -9,3 +9,4 @@
 
 export * from "@/form/Field";
 export * from "@/form/Form";
+export * from "@/form/synced";

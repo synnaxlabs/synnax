@@ -57,7 +57,10 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
   omit?: Array<K>;
   children?: List.VirtualCoreProps<K, E>["children"];
   dropdownVariant?: Dropdown.Variant;
+  dropdownZIndex?: number;
   placeholder?: ReactNode;
+  inputPlaceholder?: ReactNode;
+  triggerTooltip?: ReactNode;
 }
 
 /**
@@ -95,6 +98,9 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   dropdownVariant = "connected",
   placeholder = DEFAULT_PLACEHOLDER,
+  inputPlaceholder = placeholder,
+  triggerTooltip,
+  dropdownZIndex,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close, toggle } = Dropdown.use();
@@ -136,12 +142,12 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const searchInput = (
     <InputWrapper<K, E> searcher={searcher}>
-      {({ onChange }) => (
+      {({ onChange: handleChange }) => (
         <SingleInput<K, E>
           size="large"
-          autoFocus
+          autoFocus={dropdownVariant === "modal"}
           variant={variant}
-          onChange={onChange}
+          onChange={handleChange}
           onFocus={open}
           selected={selected}
           entryRenderKey={entryRenderKey}
@@ -149,14 +155,19 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           allowNone={allowNone}
           className={className}
           disabled={disabled}
-          placeholder={placeholder}
+          placeholder={inputPlaceholder}
         />
       )}
     </InputWrapper>
   );
 
   const buttonTrigger = (
-    <Button.Button variant="outlined" onClick={toggle} disabled={disabled}>
+    <Button.Button
+      tooltip={triggerTooltip}
+      variant="outlined"
+      onClick={toggle}
+      disabled={disabled}
+    >
       {selected != null ? getRenderValue(entryRenderKey, selected) : placeholder}
     </Button.Button>
   );
@@ -164,6 +175,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   return (
     <Core<K, E>
       close={close}
+      zIndex={dropdownZIndex}
       open={open}
       data={data}
       omit={omit}
@@ -233,7 +245,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     if (visible) return;
     if (primitiveIsZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
-    setInternalValue(getRenderValue(entryRenderKey, selected));
+    setInternalValue(getRenderValue(entryRenderKey, selected) as string);
   }, [selected, visible, entryRenderKey]);
 
   const handleChange = (v: string): void => {

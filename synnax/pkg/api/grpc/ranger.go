@@ -143,6 +143,30 @@ var (
 	_ fgrpc.Translator[api.RangeRetrieveActiveResponse, *gapi.RangeRetrieveActiveResponse] = (*rangeRetrieveActiveResponseTranslator)(nil)
 )
 
+func translatePairForward(p api.RangeKVPair) *gapi.KVPair {
+	return &gapi.KVPair{Key: p.Key, Value: p.Value}
+}
+
+func translatePairsForward(p []api.RangeKVPair) []*gapi.KVPair {
+	pairs := make([]*gapi.KVPair, len(p))
+	for i := range p {
+		pairs[i] = translatePairForward(p[i])
+	}
+	return pairs
+}
+
+func translatePairBackward(p *gapi.KVPair) api.RangeKVPair {
+	return api.RangeKVPair{Key: p.Key, Value: p.Value}
+}
+
+func translatePairsBackward(p []*gapi.KVPair) []api.RangeKVPair {
+	pairs := make([]api.RangeKVPair, len(p))
+	for i := range p {
+		pairs[i] = translatePairBackward(p[i])
+	}
+	return pairs
+}
+
 func (t rangeCreateRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeCreateRequest,
@@ -239,14 +263,14 @@ func (t rangeKVGetResponseTranslator) Forward(
 	_ context.Context,
 	r api.RangeKVGetResponse,
 ) (*gapi.RangeKVGetResponse, error) {
-	return &gapi.RangeKVGetResponse{Pairs: r.Pairs}, nil
+	return &gapi.RangeKVGetResponse{Pairs: translatePairsForward(r.Pairs)}, nil
 }
 
 func (t rangeKVGetResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVGetResponse,
 ) (api.RangeKVGetResponse, error) {
-	return api.RangeKVGetResponse{Pairs: r.Pairs}, nil
+	return api.RangeKVGetResponse{Pairs: translatePairsBackward(r.Pairs)}, nil
 }
 
 func (t rangeKVSetRequestTranslator) Forward(
@@ -255,7 +279,7 @@ func (t rangeKVSetRequestTranslator) Forward(
 ) (*gapi.RangeKVSetRequest, error) {
 	return &gapi.RangeKVSetRequest{
 		RangeKey: r.Range.String(),
-		Pairs:    r.Pairs,
+		Pairs:    translatePairsForward(r.Pairs),
 	}, nil
 }
 
@@ -266,7 +290,7 @@ func (t rangeKVSetRequestTranslator) Backward(
 	key, err := uuid.Parse(r.RangeKey)
 	return api.RangeKVSetRequest{
 		Range: key,
-		Pairs: r.Pairs,
+		Pairs: translatePairsBackward(r.Pairs),
 	}, err
 }
 

@@ -195,13 +195,17 @@ export const { actions, reducer } = createSlice({
       delete mosaicTab.location;
       delete mosaicTab.mosaicKey;
 
+      let mosaicKey = tab?.mosaicKey;
+      if (mosaic.activeTab != null && mosaicKey == null)
+        mosaicKey = Mosaic.findTabNode(mosaic.root, mosaic.activeTab)?.key;
+
       // If we're moving to a mosaic, insert a tab.
       if (prev?.location !== "mosaic" && location === "mosaic") {
         mosaic.root = Mosaic.insertTab(
           mosaic.root,
           mosaicTab,
           tab?.location,
-          tab?.mosaicKey,
+          mosaicKey,
         );
         mosaic.activeTab = key;
       }

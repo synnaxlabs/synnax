@@ -42,7 +42,7 @@ export const Tag = ({
     onClose == null ? undefined : (
       <Button.Icon
         aria-label="close"
-        size={size}
+        size={"small"}
         className={CSS.BE("tag", "close")}
         onClick={(e) => {
           e.stopPropagation();

@@ -106,7 +106,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	if err != nil {
 		return
 	}
-	kvCDCCfg := signals.GorpPublisherConfigString[keyValue](cfg.DB)
+	kvCDCCfg := signals.GorpPublisherConfigString[KVPair](cfg.DB)
 	kvCDCCfg.SetName = "sy_range_kv_set"
 	kvCDCCfg.DeleteName = "sy_range_kv_delete"
 	kvCDC, err := signals.PublishFromGorp(ctx, cfg.Signals, kvCDCCfg)

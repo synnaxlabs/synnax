@@ -288,7 +288,6 @@ export const useFieldArray = <V extends unknown = unknown>({
     return bind<V[]>({
       path,
       onChange: (fs) => {
-        console.log("SETTING FIELD STATE");
         setFState(shallowCopy<V[]>(fs.value));
       },
       listenToChildren: updateOnChildren,
@@ -398,10 +397,21 @@ interface UseRef<Z extends z.ZodTypeAny> {
   parentListeners: Map<string, Set<Listener>>;
 }
 
+export interface OnChangeProps<Z extends z.ZodTypeAny> {
+  /** The values in the form AFTER the change. */
+  values: z.output<Z>;
+  /** The path that was changed. */
+  path: string;
+  /** The previous value at the path. */
+  prev: unknown;
+  /** Whether validation succeeded. */
+  valid: boolean;
+}
+
 export interface UseProps<Z extends z.ZodTypeAny> {
   values: z.output<Z>;
   sync?: boolean;
-  onChange?: (values: z.output<Z>, path: string, prev: unknown) => void;
+  onChange?: (props: OnChangeProps<Z>) => void;
   schema?: Z;
 }
 
@@ -489,6 +499,26 @@ export const use = <Z extends z.ZodTypeAny>({
     const { listeners, parentListeners } = ref.current;
     const fired: string[] = [];
     const lis = listeners.get(path);
+    if (path == "") {
+      const paths = [...listeners.keys()];
+      paths.forEach((p) => {
+        const v = get(p, { optional: true });
+        if (v != null)
+          listeners.get(p)?.forEach((l) => {
+            fired.push(p);
+            l(v);
+          });
+      });
+      const parentPaths = [...parentListeners.keys()];
+      parentPaths.forEach((p) => {
+        const v = get(p, { optional: true });
+        if (v != null)
+          parentListeners.get(p)?.forEach((l) => {
+            fired.push(p);
+            l(v);
+          });
+      });
+    }
     if (lis != null) {
       const fs = get(path, { optional: true });
       if (fs != null)
@@ -601,13 +631,16 @@ export const use = <Z extends z.ZodTypeAny>({
     touched.add(path);
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
-    try {
-      validate(path, validateChildren);
-    } catch {
-      validateAsync(path, validateChildren);
-    }
     updateFieldValues(path);
-    onChangeRef.current?.(ref.current.state, path, prev);
+    void (async () => {
+      let valid: boolean;
+      try {
+        valid = validate(path, validateChildren);
+      } catch {
+        valid = await validateAsync(path, validateChildren);
+      }
+      onChangeRef.current?.({ values: ref.current.state, path, prev, valid });
+    })();
   }, []);
 
   const has = useCallback(

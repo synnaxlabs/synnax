@@ -9,8 +9,8 @@
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
 
+// import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import { type Haul, Pluto, type state, type Triggers } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -25,6 +25,7 @@ import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
@@ -51,6 +52,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
   ...Confirm.LAYOUTS,
+  ...Label.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

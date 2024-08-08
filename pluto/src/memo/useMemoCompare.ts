@@ -13,7 +13,7 @@ import { type DependencyList, useRef } from "react";
 
 export const useMemoCompare = <V, D extends DependencyList>(
   factory: () => V,
-  areEqual: (prevDevps: D, nextDeps: D) => boolean,
+  areEqual: (prevDeps: D, nextDeps: D) => boolean,
   deps: D,
 ): V => {
   const ref = useRef<{ deps: D; value: V }>();
@@ -33,5 +33,12 @@ export const useMemoDeepEqualProps = <T extends Record<string, unknown> | undefi
   const ref = useRef<T>();
   if (ref.current == null) ref.current = props;
   else if (!deep.equal(ref.current, props)) ref.current = props;
+  return ref.current;
+};
+
+export const useMemoPrimitiveArray = <T extends Primitive>(arr: T[]): T[] => {
+  const ref = useRef<T[]>();
+  if (ref.current == null) ref.current = arr;
+  else if (compare.primitiveArrays(ref.current, arr) !== 0) ref.current = arr;
   return ref.current;
 };

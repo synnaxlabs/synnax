@@ -78,6 +78,10 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
         if wait_for_confirm:
             auto.wait_until(start_sim_cmd)
         try:
+            parent_rng = client.ranges.create(
+                name="TPC Test",
+                time_range=sy.TimeRange(sy.TimeStamp.now(), sy.TimeStamp.now()),
+            )
             print("Starting TPC Test. Setting initial system state.")
             auto.set(
                 {
@@ -113,10 +117,9 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 time.sleep(params.press_step_delay)
 
             dual_press_end = sy.TimeStamp.now()
-            client.ranges.create(
-                name=f"{dual_press_start.__str__()[11:16]} Dual Press Sequence",
+            parent_rng.create_sub_range(
+                name=f"Dual Press Sequence",
                 time_range=sy.TimeRange(dual_press_start, dual_press_end),
-                # a nice red
                 color="#D81E5B",
             )
 
@@ -145,10 +148,9 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             time.sleep(2)
 
             press_tank_end = sy.TimeStamp.now()
-            client.ranges.create(
-                name=f"{press_tank_start.__str__()[11:16]} Press Tank Pressurization",
+            parent_rng.create_sub_range(
+                name=f"Press Tank Pressurization",
                 time_range=sy.TimeRange(press_tank_start, press_tank_end),
-                # a nice blue
                 color="#1E90FF",
             )
 
@@ -160,8 +162,8 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             auto.wait_until(lambda c: run_tpc(c))
             print("Test complete. Safeing System")
 
-            rng = client.ranges.create(
-                name=f"{start.__str__()[11:16]} Bang Bang Sim",
+            rng = parent_rng.create_sub_range(
+                name=f"Bang Bang Sim",
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",
             )

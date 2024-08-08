@@ -31,7 +31,7 @@ export type Payload = z.infer<typeof payloadZ>;
 export const newPayloadZ = payloadZ.extend({
   key: z.string().uuid().optional(),
 });
-export type NewPayload = z.infer<typeof newPayloadZ>;
+export type NewPayload = z.input<typeof newPayloadZ>;
 
 export type ParamAnalysisResult =
   | {

@@ -71,7 +71,7 @@ export const Core = <K extends Key, E extends Keyed<K>>({
     </CoreList.Hover>
   );
 
-  if (variant === "modal") {
+  if (variant !== "connected") {
     dialogContent = (
       <Align.Pack direction="y" className={CSS.B("select-dialog-content")}>
         {dialogContent}

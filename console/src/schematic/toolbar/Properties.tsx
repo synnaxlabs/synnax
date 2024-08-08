@@ -186,7 +186,7 @@ const IndividualProperties = ({
   const formMethods = Form.use({
     values: deep.copy(selected.props),
     sync: true,
-    onChange: (values: any) => onChange(selected.key, values),
+    onChange: ({ values }) => onChange(selected.key, values),
   });
 
   return (

@@ -11,11 +11,13 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  componentRenderProp,
   Input,
   List,
   Ranger,
   Select,
   Status,
+  Tag,
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";
@@ -27,6 +29,10 @@ import { type Range } from "@/range/slice";
 
 export interface SelectMultipleRangesProps
   extends Select.MultipleProps<string, Range> {}
+
+const dynamicIcon = (
+  <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
+);
 
 export const listColumns: Array<List.ColumnSpec<string, Range>> = [
   {
@@ -41,15 +47,7 @@ export const listColumns: Array<List.ColumnSpec<string, Range>> = [
     render: ({ entry }) => {
       if (entry.variant === "dynamic")
         return (
-          <Text.WithIcon
-            level="p"
-            startIcon={
-              <Icon.Dynamic
-                style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }}
-              />
-            }
-            shade={7}
-          >
+          <Text.WithIcon level="p" startIcon={dynamicIcon} shade={7}>
             {new TimeSpan(entry.span).toString()}
           </Text.WithIcon>
         );
@@ -58,10 +56,32 @@ export const listColumns: Array<List.ColumnSpec<string, Range>> = [
   },
 ];
 
+const RenderTag = ({
+  entry,
+  onClose,
+  loading: _,
+}: Select.MultipleTagProps<string, Range>): ReactElement => (
+  <Tag.Tag
+    icon={entry?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
+    onClose={onClose}
+    shade={9}
+    level="small"
+  >
+    {entry?.name}
+  </Tag.Tag>
+);
+
+const renderTag = componentRenderProp(RenderTag);
+
 export const SelectMultipleRanges = (
   props: SelectMultipleRangesProps,
 ): ReactElement => (
-  <Select.Multiple columns={listColumns} entryRenderKey="name" {...props} />
+  <Select.Multiple
+    columns={listColumns}
+    entryRenderKey="name"
+    renderTag={renderTag}
+    {...props}
+  />
 );
 
 export interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}

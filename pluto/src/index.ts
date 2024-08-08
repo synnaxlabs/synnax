@@ -25,6 +25,7 @@ export { Header } from "@/header";
 export * from "@/hooks";
 export { Icon } from "@/icon";
 export { Input } from "@/input";
+export { Label } from "@/label";
 export { List } from "@/list";
 export * from "@/memo";
 export { Menu } from "@/menu";

@@ -14,16 +14,16 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type keyValue struct {
+type KVPair struct {
 	Range uuid.UUID `json:"range" msgpack:"range"`
 	Key   string    `json:"key" msgpack:"key"`
 	Value string    `json:"value" msgpack:"value"`
 }
 
-var _ gorp.Entry[string] = keyValue{}
+var _ gorp.Entry[string] = KVPair{}
 
 // GorpKey implements gorp.Entry.
-func (k keyValue) GorpKey() string { return k.Range.String() + "<--->" + k.Key }
+func (k KVPair) GorpKey() string { return k.Range.String() + "<--->" + k.Key }
 
 // SetOptions implements gorp.Entry.
-func (k keyValue) SetOptions() []interface{} { return nil }
+func (k KVPair) SetOptions() []interface{} { return nil }

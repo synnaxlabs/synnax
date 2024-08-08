@@ -132,6 +132,7 @@ export default class Synnax extends framer.Client {
       this.transport.unary,
       chRetriever,
       this.labels,
+      this.ontology,
     );
     this.access = new access.Client(this.transport.unary);
     this.user = new user.Client(this.transport.unary);

@@ -8,17 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
+import { CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
+import { Key as ChannelKey } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { MultipleFoundError, NotFoundError } from "@/errors";
+import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
+import { type Label } from "@/label/payload";
+import { ontology } from "@/ontology";
+import { Resource } from "@/ontology/payload";
 import { Active } from "@/ranger/active";
-import { Aliaser } from "@/ranger/alias";
+import { type Alias, Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
   analyzeParams,
@@ -32,10 +46,138 @@ import {
   type Payload,
   payloadZ,
 } from "@/ranger/payload";
-import { Range } from "@/ranger/range";
-import { type Writer } from "@/ranger/writer";
+import { CreateOptions, type Writer } from "@/ranger/writer";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
+
+const ontologyID = (key: string): ontology.ID =>
+  new ontology.ID({ type: "range", key });
+
+export class Range {
+  key: string;
+  name: string;
+  readonly kv: KV;
+  readonly timeRange: TimeRange;
+  readonly color: string | undefined;
+  readonly channels: ChannelRetriever;
+  private readonly aliaser: Aliaser;
+  private readonly frameClient: framer.Client;
+  private readonly labelClient: label.Client;
+  private readonly ontologyClient: ontology.Client;
+  private readonly rangeClient: Client;
+
+  constructor(
+    name: string,
+    timeRange: TimeRange = TimeRange.ZERO,
+    key: string,
+    color: string | undefined,
+    _frameClient: framer.Client,
+    _kv: KV,
+    _aliaser: Aliaser,
+    _channels: ChannelRetriever,
+    _labelClient: label.Client,
+    _ontologyClient: ontology.Client,
+    _rangeClient: Client,
+  ) {
+    this.key = key;
+    this.name = name;
+    this.timeRange = timeRange;
+    this.frameClient = _frameClient;
+    this.color = color;
+    this.kv = _kv;
+    this.aliaser = _aliaser;
+    this.channels = _channels;
+    this.labelClient = _labelClient;
+    this.ontologyClient = _ontologyClient;
+    this.rangeClient = _rangeClient;
+  }
+
+  get ontologyID(): ontology.ID {
+    return new ontology.ID({ key: this.key, type: "range" });
+  }
+
+  get payload(): Payload {
+    return {
+      key: this.key,
+      name: this.name,
+      timeRange: this.timeRange,
+      color: this.color,
+    };
+  }
+
+  async setAlias(channel: ChannelKey | Name, alias: string): Promise<void> {
+    const ch = await this.channels.retrieve(channel);
+    if (ch.length === 0) {
+      throw new QueryError(`Channel ${channel} does not exist`);
+    }
+    await this.aliaser.set({ [ch[0].key]: alias });
+  }
+
+  async deleteAlias(...channels: ChannelKey[]): Promise<void> {
+    await this.aliaser.delete(channels);
+  }
+
+  async listAliases(): Promise<Record<ChannelKey, string>> {
+    return await this.aliaser.list();
+  }
+
+  async openAliasTracker(): Promise<signals.Observable<string, Alias>> {
+    return await this.aliaser.openChangeTracker();
+  }
+
+  async retrieveParent(): Promise<Range | null> {
+    const res = await this.ontologyClient.retrieveParents(this.ontologyID);
+    if (res.length === 0) return null;
+    return this.rangeClient.retrieve(res[0].id.key);
+  }
+
+  async retrieveChildren(): Promise<Range[]> {
+    const res = (
+      await this.ontologyClient.retrieveChildren(this.ontologyID, {
+        excludeFieldData: true,
+      })
+    ).map((r) => r.id.key);
+    return await this.rangeClient.retrieve(res);
+  }
+
+  async read(channel: Key | Name): Promise<Series>;
+
+  async read(channels: Params): Promise<framer.Frame>;
+
+  async read(channels: Params): Promise<Series | framer.Frame> {
+    return await this.frameClient.read(this.timeRange, channels);
+  }
+
+  async labels(): Promise<Label[]> {
+    return await this.labelClient.retrieveFor(ontologyID(this.key));
+  }
+
+  async addLabel(...labels: label.Key[]): Promise<void> {
+    await this.labelClient.label(ontologyID(this.key), labels);
+  }
+
+  async removeLabel(...labels: label.Key[]): Promise<void> {
+    await this.labelClient.removeLabels(ontologyID(this.key), labels);
+  }
+
+  async openSubRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range[]>> {
+    const wrapper = new observe.Observer<Range[]>();
+    const base = await this.ontologyClient.trackChildren(this.ontologyID);
+    base.onChange((resources: Resource[]) =>
+      wrapper.notify(
+        this.rangeClient.sugar(
+          resources.map((r) => ({
+            key: r.id.key,
+            name: r.data?.name as string,
+            timeRange: new TimeRange(r.data?.timeRange as CrudeTimeRange),
+          })),
+        ),
+      ),
+    );
+    wrapper.setCloser(async () => await base.close());
+    return wrapper;
+  }
+}
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -62,6 +204,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   private readonly channels: ChannelRetriever;
   private readonly active: Active;
   private readonly labelClient: label.Client;
+  private readonly ontologyClient: ontology.Client;
 
   constructor(
     frameClient: framer.Client,
@@ -69,6 +212,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     unary: UnaryClient,
     channels: ChannelRetriever,
     labelClient: label.Client,
+    ontologyClient: ontology.Client,
   ) {
     this.frameClient = frameClient;
     this.writer = writer;
@@ -76,15 +220,19 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     this.channels = channels;
     this.active = new Active(unary);
     this.labelClient = labelClient;
+    this.ontologyClient = ontologyClient;
   }
 
-  async create(range: NewPayload): Promise<Range>;
+  async create(range: NewPayload, options?: CreateOptions): Promise<Range>;
 
-  async create(ranges: NewPayload[]): Promise<Range[]>;
+  async create(ranges: NewPayload[], options?: CreateOptions): Promise<Range[]>;
 
-  async create(ranges: NewPayload | NewPayload[]): Promise<Range | Range[]> {
+  async create(
+    ranges: NewPayload | NewPayload[],
+    options?: CreateOptions,
+  ): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
-    const res = this.sugar(await this.writer.create(toArray(ranges)));
+    const res = this.sugar(await this.writer.create(toArray(ranges), options));
     return single ? res[0] : res;
   }
 
@@ -148,7 +296,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     await this.active.clearActive(range);
   }
 
-  private sugar(payloads: Payload[]): Range[] {
+  sugar(payloads: Payload[]): Range[] {
     return payloads.map((payload) => {
       return new Range(
         payload.name,
@@ -160,6 +308,8 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
         new Aliaser(payload.key, this.frameClient, this.unaryClient),
         this.channels,
         this.labelClient,
+        this.ontologyClient,
+        this,
       );
     });
   }

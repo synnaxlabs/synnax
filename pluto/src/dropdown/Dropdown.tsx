@@ -51,6 +51,7 @@ export interface DialogProps
   keepMounted?: boolean;
   variant?: Variant;
   maxHeight?: ComponentSize | number;
+  zIndex?: number;
 }
 
 interface State {
@@ -86,6 +87,7 @@ export const Dialog = ({
   // get an invalid prop on div tag error.
   open: _o,
   toggle: _t,
+  zIndex = 5,
   ...props
 }: DialogProps): ReactElement => {
   const targetRef = useRef<HTMLDivElement>(null);
@@ -131,12 +133,25 @@ export const Dialog = ({
     if (variant === "connected") dialogStyle.width = box.width(dialogBox);
   }
   if (typeof maxHeight === "number") dialogStyle.maxHeight = maxHeight;
+  if (visible) dialogStyle.zIndex = zIndex;
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
   useClickOutside({
     ref: dialogRef,
-    exclude: [targetRef],
+    exclude: (e) => {
+      if (targetRef.current?.contains(e.target as Node)) return true;
+      // If the target has a parent with the role of dialog, don't close the dialog.
+      let parent = e.target as HTMLElement;
+      while (parent != null) {
+        if (parent.getAttribute("role") === "dialog") {
+          const zi = parent.style.zIndex;
+          return Number(zi) > zIndex;
+        }
+        parent = parent.parentElement as HTMLElement;
+      }
+      return false;
+    },
     onClickOutside: close,
   });
 
@@ -166,6 +181,7 @@ export const Dialog = ({
         role="dialog"
         empty
         align="center"
+        style={{ zIndex }}
       >
         {child}
       </Align.Space>,

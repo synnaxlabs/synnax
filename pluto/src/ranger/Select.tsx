@@ -122,7 +122,7 @@ export const SelectMultiple = ({
 export interface SelectSingleProps
   extends Omit<Select.SingleProps<ranger.Key, ranger.Payload>, "columns"> {}
 
-interface UseSingleReturn extends Haul.UseDragReturn {
+interface UseSingleReturn extends Omit<Haul.UseDragReturn, "startDrag"> {
   emptyContent?: ReactElement;
   dragging: DraggingState;
   onDragStart: (e: DragEvent<HTMLDivElement>) => void;
@@ -147,7 +147,7 @@ const useSingle = ({
     [id],
   );
 
-  const dragProps = Haul.useDragAndDrop({
+  const { startDrag, ...dragProps } = Haul.useDragAndDrop({
     type: "Ranger.SelectSingle",
     canDrop: useCallback((hauled) => canDrop(hauled, nullToArr(value)), [value]),
     onDrop: useCallback(
@@ -167,8 +167,8 @@ const useSingle = ({
 
   const dragging = Haul.useDraggingState();
   const onDragStart = useCallback(
-    () => value != null && dragProps.startDrag([{ type: HAUL_TYPE, key: value }]),
-    [dragProps.startDrag, value],
+    () => value != null && startDrag([{ type: HAUL_TYPE, key: value }]),
+    [startDrag, value],
   );
   return {
     emptyContent,

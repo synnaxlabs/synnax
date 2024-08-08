@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { keyZ, type Label, labelZ, type Params } from "@/label/payload";
 import { ontology } from "@/ontology";
+import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
   keys: keyZ.array().optional(),
@@ -25,7 +26,7 @@ const reqZ = z.object({
 type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  labels: labelZ.array().optional().default([]),
+  labels: nullableArrayZ(labelZ),
 });
 
 export class Retriever {

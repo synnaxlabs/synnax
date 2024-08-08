@@ -15,21 +15,28 @@ import { z } from "zod";
 import { framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";
 import { signals } from "@/signals";
+import { nullableArrayZ } from "@/util/zod";
 
 const getReqZ = z.object({
   range: keyZ,
   keys: z.string().array(),
 });
 
+const kvPairZ = z.object({
+  range: keyZ,
+  key: z.string(),
+  value: z.string(),
+});
+
 const getResZ = z.object({
-  pairs: z.record(z.string(), z.string()),
+  pairs: nullableArrayZ(kvPairZ),
 });
 
 export type GetRequest = z.infer<typeof getReqZ>;
 
 const setReqZ = z.object({
   range: keyZ,
-  pairs: z.record(z.string(), z.string()),
+  pairs: kvPairZ.array(),
 });
 
 export type SetRequest = z.infer<typeof setReqZ>;
@@ -40,12 +47,6 @@ const deleteReqZ = z.object({
 });
 
 export type DeleteRequest = z.infer<typeof deleteReqZ>;
-
-const kvPairZ = z.object({
-  range: keyZ,
-  key: z.string(),
-  value: z.string().optional(),
-});
 
 export type KVPair = z.infer<typeof kvPairZ>;
 
@@ -68,14 +69,15 @@ export class KV {
   async get(keys: string[]): Promise<Record<string, string>>;
 
   async get(keys: string | string[]): Promise<string | Record<string, string>> {
-    const [res, err] = await this.client.send(
+    const res = await sendRequired(
+      this.client,
       KV.GET_ENDPOINT,
       { range: this.rangeKey, keys: toArray(keys) },
       getReqZ,
       getResZ,
     );
-    if (err != null) throw err;
-    return Array.isArray(keys) ? res.pairs : res.pairs[keys];
+    if (typeof keys === "string") return res.pairs[0].value;
+    return Object.fromEntries(res.pairs.map((pair) => [pair.key, pair.value]));
   }
 
   async list(): Promise<Record<string, string>> {
@@ -87,13 +89,18 @@ export class KV {
   async set(kv: Record<string, string>): Promise<void>;
 
   async set(key: string | Record<string, string>, value: string = ""): Promise<void> {
+    let pairs: KVPair[];
+    if (isObject(key))
+      pairs = Object.entries(key).map(([k, v]) => ({
+        range: this.rangeKey,
+        key: k,
+        value: v,
+      }));
+    else pairs = [{ range: this.rangeKey, key: key, value: value }];
     await sendRequired(
       this.client,
       KV.SET_ENDPOINT,
-      {
-        range: this.rangeKey,
-        pairs: isObject(key) ? key : { [key]: value },
-      },
+      { range: this.rangeKey, pairs },
       setReqZ,
       z.unknown(),
     );
@@ -118,7 +125,7 @@ export class KV {
         if (variant === "delete")
           return data.toStrings().map((combinedKey) => {
             const [range, key] = combinedKey.split("<--->");
-            return { variant, key: combinedKey, value: { range, key } };
+            return { variant, key: combinedKey, value: { range, key, value: "" } };
           });
         return data.parseJSON(kvPairZ).map((pair) => ({
           variant,

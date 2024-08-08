@@ -30,7 +30,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createEditLayout } from "@/range/EditLayout";
-import { overviewLayout } from "@/range/Overview";
+import { overviewLayout } from "@/range/overview/Overview";
 import { select, useSelect } from "@/range/selectors";
 import {
   add,
@@ -61,7 +61,8 @@ const handleSelect: Ontology.HandleSelect = async ({
 }): Promise<void> => {
   const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
   store.dispatch(add({ ranges: fromClientRange(ranges) }));
-  placeLayout({ ...overviewLayout, key: selection[0].id.key });
+  const first = ranges[0];
+  placeLayout({ ...overviewLayout, name: first.name, key: first.key });
 };
 
 const handleRename: Ontology.HandleTreeRename = {

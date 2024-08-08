@@ -49,6 +49,21 @@ describe("Ranger", () => {
       expect(createdRanges[0].timeRange).toEqual(ranges[0].timeRange);
       expect(createdRanges[1].timeRange).toEqual(ranges[1].timeRange);
     });
+    it("should create a range with a parent", async () => {
+      const parentRange = await client.ranges.create({
+        name: "My New Parent Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ranges.create(
+        {
+          name: "My New Child Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+        { parent: parentRange.ontologyID },
+      );
+      const children = await client.ontology.retrieveChildren(parentRange.ontologyID);
+      expect(children).toHaveLength(1);
+    });
   });
 
   describe("delete", () => {
@@ -108,6 +123,24 @@ describe("Ranger", () => {
       const retrieved = await client.ranges.retrieve(timeRange);
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved.map((r) => r.key)).toContain(range.key);
+    });
+  });
+
+  describe("retrieveParent", () => {
+    it("should retrieve the parent of a range", async () => {
+      const parentRange = await client.ranges.create({
+        name: "My New Parent Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const childRange = await client.ranges.create(
+        {
+          name: "My New Child Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+        { parent: parentRange.ontologyID },
+      );
+      const parent = await childRange.retrieveParent();
+      expect(parent?.key).toEqual(parentRange.key);
     });
   });
 
@@ -197,7 +230,7 @@ describe("Ranger", () => {
         expect(pair.length).toBeGreaterThan(0);
         expect(pair[0].value?.range).toEqual(rng.key);
         expect(pair[0].value?.key).toEqual("foo");
-        expect(pair[0].value?.value).toBeUndefined();
+        expect(pair[0].value?.value).toHaveLength(0);
       });
     });
   });

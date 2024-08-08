@@ -334,6 +334,7 @@ export const Icon: IconType = {
   Object: wrapIcon(MdDataObject, "object"),
   Type: wrapIcon(MdTypeSpecimen, "type"),
   Array: wrapIcon(MdDataArray, "array"),
+  Label: wrapIcon(MdLabel, "label"),
 };
 
 export interface IconType {
@@ -454,4 +455,5 @@ export interface IconType {
   Type: IconFC;
   LinePlot: IconFC;
   Array: IconFC;
+  Label: IconFC;
 }

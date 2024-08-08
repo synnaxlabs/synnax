@@ -10,28 +10,50 @@
  */
 
 .pluto-tag {
-    padding: 0rem 1rem;
+    padding: 0rem 1.25rem;
     border-radius: var(--pluto-border-radius);
     border: var(--pluto-border);
-    user-select: none;
     width: fit-content;
     height: 100%;
     height: 4rem;
     background: var(--pluto-gray-l0);
+    transition: padding-right 0.3s ease;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 
-
-    &.pluto-tag--closeable {
-        padding-right: 0;
+    & .pluto-text {
+        text-overflow: ellipsis;
+        overflow: hidden;
     }
+
+    position: relative;
 
     .pluto-tag__close {
         z-index: 3;
+        opacity: 0;
+        position: absolute;
+        background-color: var(--pluto-gray-l0);
+        z-index: 20;
+        left: 0;
+        transition:
+            width 0.1s ease-in,
+            opacity 0.1s ease-in;
+        width: 0;
+
         & svg {
             color: var(--pluto-gray-l6);
             height: 50%;
             width: 50%;
         }
     }
+
+    &:hover .pluto-tag__close {
+        opacity: 1;
+        transition:
+            width 0.1s ease-out,
+            opacity 0.1s ease-out;
+        width: 3.5rem;
+    }
 }
-
-

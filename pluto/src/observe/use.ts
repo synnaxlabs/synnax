@@ -1,21 +1,17 @@
-import { compare, observe, Optional, Primitive } from "@synnaxlabs/x";
+import { observe, Optional, Primitive } from "@synnaxlabs/x";
 import { useState as reactUseState } from "react";
 
 import { useAsyncEffect } from "@/hooks";
-import { useMemoCompare } from "@/memo";
+import { useMemoPrimitiveArray } from "@/memo";
 
-interface UseProps<D> {
+export interface UseListenerProps<D> {
   key: Primitive[];
   open?: () => Promise<observe.ObservableAsyncCloseable<D> | undefined>;
   onChange: observe.Handler<D>;
 }
 
-export const useListener = <D>({ key, open, onChange }: UseProps<D>) => {
-  const memoKey = useMemoCompare(
-    () => key,
-    ([prev], [next]) => compare.unorderedPrimitiveArrays(prev, next) === compare.EQUAL,
-    [key],
-  );
+export const useListener = <D>({ key, open, onChange }: UseListenerProps<D>) => {
+  const memoKey = useMemoPrimitiveArray(key);
   useAsyncEffect(async () => {
     if (open == null) return;
     const obs = await open();
@@ -25,19 +21,17 @@ export const useListener = <D>({ key, open, onChange }: UseProps<D>) => {
   }, [open == null, memoKey]);
 };
 
-type UseStateProps<D> = Optional<UseProps<D>, "onChange">;
-
-export interface UseStatePropsWithInitial<D> extends UseStateProps<D> {
-  initialValue: D;
+export interface UseStateProps<D> extends UseListenerProps<D> {
+  fetchInitialValue: () => Promise<D>;
 }
 
-interface UseState {
-  <D>(props: UseStatePropsWithInitial<D>): D;
-  <D>(props: UseStateProps<D>): D | undefined;
-}
+interface UseState {}
 
-export const useState = (<D>(props: UseStatePropsWithInitial<D>) => {
-  const [v, setV] = reactUseState<D | undefined>(props.initialValue as D);
+export const useState = (<D>({ fetchInitialValue, ...props }: UseStateProps<D>) => {
+  const [v, setV] = reactUseState<D | undefined>(undefined);
+  useAsyncEffect(async () => {
+    setV(await fetchInitialValue());
+  }, [fetchInitialValue]);
   useListener({ ...props, onChange: setV });
   return v;
 }) as UseState;

@@ -24,7 +24,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Range = ranger.Range
+type (
+	Range       = ranger.Range
+	RangeKVPair = ranger.KVPair
+)
 
 type RangeService struct {
 	dbProvider
@@ -42,7 +45,8 @@ func NewRangeService(p Provider) *RangeService {
 
 type (
 	RangeCreateRequest struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
+		Parent ontology.ID `json:"parent" msgpack:"parent"`
+		Ranges []Range     `json:"ranges" msgpack:"ranges"`
 	}
 	RangeCreateResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -58,7 +62,7 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Ranges)
+		err := s.internal.NewWriter(tx).CreateManyWithParent(ctx, &req.Ranges, req.Parent)
 		res = RangeCreateResponse{Ranges: req.Ranges}
 		return err
 	})
@@ -165,7 +169,7 @@ type (
 		Keys  []string  `json:"keys" msgpack:"keys"`
 	}
 	RangeKVGetResponse struct {
-		Pairs map[string]string `json:"pairs" msgpack:"pairs"`
+		Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
 	}
 )
 
@@ -179,27 +183,19 @@ func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res Ra
 		Action:  access.Retrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
-		return res, err
+		return RangeKVGetResponse{}, err
 	}
 	if len(req.Keys) == 0 {
 		res.Pairs, err = r.ListMetaData()
 		return
 	}
-	res.Pairs = make(map[string]string, len(req.Keys))
-	var value string
-	for _, key := range req.Keys {
-		value, err = r.Get(ctx, key)
-		if err != nil {
-			return
-		}
-		res.Pairs[key] = value
-	}
+	res.Pairs, err = r.GetMany(ctx, req.Keys)
 	return
 }
 
 type RangeKVSetRequest struct {
-	Range uuid.UUID         `json:"range" msgpack:"range"`
-	Pairs map[string]string `json:"pairs" msgpack:"pairs"`
+	Range uuid.UUID       `json:"range" msgpack:"range"`
+	Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
 }
 
 func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res types.Nil, _ error) {
@@ -218,12 +214,7 @@ func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res ty
 			return err
 		}
 		rng = rng.UseTx(tx)
-		for k, v := range req.Pairs {
-			if err := rng.Set(ctx, k, v); err != nil {
-				return err
-			}
-		}
-		return nil
+		return rng.SetMany(ctx, req.Pairs)
 	})
 }
 

@@ -120,7 +120,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 	})
-	Describe("DeleteChannel", func() {
+	Describe("Delete", func() {
 		It("Should delete a range by its key", func() {
 			r := &ranger.Range{
 				Name: "Range",
@@ -185,6 +185,71 @@ var _ = Describe("Ranger", Ordered, func() {
 			svc.ClearActiveRange(ctx)
 			_, err := svc.RetrieveActiveRange(ctx, tx)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+	Describe("KV", func() {
+		It("Should be able to store key-value pairs in a range", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(r.Set(ctx, "key", "value")).To(Succeed())
+		})
+		It("Should be able to retrieve key-value pairs from a range", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(r.Set(ctx, "key", "value")).To(Succeed())
+			value, err := r.Get(ctx, "key")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal("value"))
+		})
+		It("Should be able to delete key-value pairs from a range", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(r.Set(ctx, "key", "value")).To(Succeed())
+			Expect(r.Delete(ctx, "key")).To(Succeed())
+			_, err := r.Get(ctx, "key")
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should be able to list all key-value pairs in a range", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(r.Set(ctx, "key1", "value1")).To(Succeed())
+			Expect(r.Set(ctx, "key2", "value2")).To(Succeed())
+			meta, err := r.ListMetaData()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta).To(Equal(map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			}))
+			Expect(r.Delete(ctx, "key1")).To(Succeed())
+			meta, err = r.ListMetaData()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta).To(Equal(map[string]string{
+				"key2": "value2",
+			}))
 		})
 	})
 })
