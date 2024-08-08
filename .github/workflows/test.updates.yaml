@@ -1,13 +1,14 @@
 name: Check Versions
-
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
+      - rc
       - main
-
+  push:
+    branches:
+      - rc
+      - main
+  workflow_dispatch:
 jobs:
   check-versions:
     runs-on: ubuntu-latest
