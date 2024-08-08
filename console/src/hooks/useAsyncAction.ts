@@ -1,4 +1,14 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Status } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -14,7 +24,7 @@ export const useAsyncAction = ({ key, action }: UseAsyncActionProps) => {
     mutationFn: action,
     onError: (error) => {
       addStatus({
-        key,
+        key: id.id(),
         variant: "error",
         message: error.message,
       });
@@ -34,9 +44,9 @@ export const useAsyncActionMenu = (
   const res = useMutation({
     mutationKey,
     mutationFn: async (key: string) => await actions[key](),
-    onError: (error, key) => {
+    onError: (error) => {
       addStatus({
-        key,
+        key: id.id(),
         variant: "error",
         message: error.message,
       });

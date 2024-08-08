@@ -10,7 +10,7 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
@@ -51,6 +51,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
       addStatus({
+        key: id.id(),
         variant: "error",
         message: "Failed to delete schematic",
         description: err.message,
@@ -133,13 +134,14 @@ const useDownload = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       const savePath = await save({
         defaultPath: `${resources[0].name}.json`,
         filters: [{ name: "JSON", extensions: ["json"] }],
-      })
+      });
       if (savePath == null) return;
       const data = new TextEncoder().encode(JSON.stringify(state));
       await writeFile(savePath, data);
     },
     onError: (err, { addStatus }) => {
       addStatus({
+        key: id.id(),
         variant: "error",
         message: "Failed to download schematic",
         description: err.message,

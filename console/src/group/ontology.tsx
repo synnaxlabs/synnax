@@ -11,7 +11,7 @@ import { NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { errors } from "@synnaxlabs/x";
+import { errors, id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
@@ -112,7 +112,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       if (selection.parent == null || prevNodes == null) return;
       setNodes(prevNodes);
       addStatus({
-        key: uuid(),
+        key: id.id(),
         variant: "error",
         message: "Failed to ungroup resources",
         description: message,
@@ -212,7 +212,7 @@ export const useCreateEmpty = (): ((
       if (selection.resources.length === 0) return;
       if (!errors.CANCELED.matches(message))
         addStatus({
-          key: uuid(),
+          key: id.id(),
           variant: "error",
           message: "Failed to create group",
           description: message,
@@ -284,7 +284,7 @@ export const useCreateFromSelection = (): ((
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(message)) return;
       addStatus({
-        key: uuid(),
+        key: id.id(),
         variant: "error",
         message: "Failed to group resources",
         description: message,

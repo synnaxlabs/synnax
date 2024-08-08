@@ -20,6 +20,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -109,6 +110,7 @@ const Content = (): ReactElement => {
     },
     onError: ({ message }, _, toDelete) => {
       addStatus({
+        key: id.id(),
         variant: "error",
         message: "Failed to delete tasks",
         description: message,

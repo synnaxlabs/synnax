@@ -19,7 +19,7 @@ import {
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
-import { deep } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
 import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
@@ -318,6 +318,7 @@ export const Tree = (): ReactElement => {
     onError: (error, _, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       addStatus({
+        key: id.id(),
         variant: "error",
         message: `Failed to move resources`,
         description: error.message,
@@ -423,6 +424,7 @@ export const Tree = (): ReactElement => {
         }),
       ]);
       addStatus({
+        key: id.id(),
         variant: "error",
         message: `Failed to rename ${prevName} to ${name}`,
         description: message,
