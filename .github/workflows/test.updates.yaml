@@ -1,0 +1,23 @@
+name: Check Versions
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Grant execute permissions for check_version.sh
+      run: chmod +x ./path/to/check_version.sh
+
+    - name: Run version check script
+      run: ./path/to/check_version.sh
