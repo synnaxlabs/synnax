@@ -606,6 +606,11 @@ static inline bool dlls_available(){
         "nistc3ru.dll",
         "nixfmrru.dll",
         "nixsru.dll",
+        "nisyscfg.dll" // add additional information in the log error saying which are daqmx and which are syscfg
+        // "nidaqsys.dll",
+        // "nimxipci.dll",
+        // "nimxipxi.dll",
+        // "nimxpisae.dll"
     };
 
     bool d = true;
