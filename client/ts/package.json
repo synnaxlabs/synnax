@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/client",
   "private": false,
-  "version": "0.26.1",
+  "version": "0.26.7",
   "type": "module",
   "description": "The Client Library for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
