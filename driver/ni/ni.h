@@ -421,6 +421,8 @@ public:
 
     void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
 
+    void log_err(std::string err_msg);
+
 private:
     json get_device_properties(NISysCfgResourceHandle resource);
 
@@ -605,7 +607,7 @@ static inline bool dlls_available(){
         "nisciu.dll",
         "nistc3ru.dll",
         "nixfmrru.dll",
-        "nixsru.dll",
+        "nixsru.dll"
     };
 
     bool d = true;

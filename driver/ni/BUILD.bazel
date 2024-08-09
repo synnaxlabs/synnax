@@ -101,7 +101,7 @@ cc_library(
             "/DELAYLOAD:nimdnsResponder.dll",
             "/DELAYLOAD:nirocoapi.dll",
             "/DELAYLOAD:nisysapi.dll",
-            "/DELAYLOAD:niprtsiu.dll",
+            "/DELAYLOAD:niprtsiu.dll"
         ],
         "//conditions:default": [],
     }),

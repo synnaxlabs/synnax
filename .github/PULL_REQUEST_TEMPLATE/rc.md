@@ -30,17 +30,18 @@ I have verified that the following packages have the same minor version number:
 I have verified that, when released, the following packages will not conflict
 with any previously released packages:
 
-- [ ] x/ts
-- [ ] alamos/ts
-- [ ] freighter/ts
-- [ ] client/ts
-- [ ] alamos/py
-- [ ] freighter/py
-- [ ] client/py
-- [ ] synnax server
-- [ ] drift
-- [ ] pluto
-- [ ] console
+- [ ] [x/ts](https://www.npmjs.com/package/@synnaxlabs/x)
+- [ ] [alamos/ts](https://www.npmjs.com/package/@synnaxlabs/alamos)
+- [ ] [freighter/ts](https://www.npmjs.com/package/@synnaxlabs/freighter)
+- [ ] [client/ts](https://www.npmjs.com/package/@synnaxlabs/client)
+- [ ] [alamos/py](https://pypi.org/project/alamos/)
+- [ ] [freighter/py](https://pypi.org/project/synnax-freighter/)
+- [ ] [client/py](https://pypi.org/project/synnax/)
+- [ ] [synnax server](https://github.com/synnaxlabs/synnax/releases)
+- [ ] [drift](https://www.npmjs.com/package/@synnaxlabs/drift)
+- [ ] [pluto](https://npmjs.com/package/@synnaxlabs/pluto)
+- [ ] [console](https://github.com/synnaxlabs/synnax/releases)
+
 
 ## CI Tests
 
