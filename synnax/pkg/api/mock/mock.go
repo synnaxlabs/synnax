@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	securitymock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/user"
+	"github.com/synnaxlabs/synnax/pkg/access"
 )
 
 type Builder struct {
