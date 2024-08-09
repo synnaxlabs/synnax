@@ -56,17 +56,14 @@ const dataChannel2 = await client.channels.create(
 // just before the first timestamp we write.
 const start = TimeStamp.now();
 
-// Set a rough rate of 20 Hz. This won't be exact because we're sleeping for a fixed
+// Set a rough rate of 25 Hz. This won't be exact because we're sleeping for a fixed
 // amount of time, but it's close enough for demonstration purposes.
 const roughRate = Rate.hz(25);
-
-// Make the writer commit every 500 samples. This will make the data available for
-// historical reads every 500 samples.
-const commitInterval = 500;
 
 const writer = await client.openWriter({
     start,
     channels: [timeChannel.key, dataChannel1.key, dataChannel2.key],
+    enableAutoCommit: true,
 });
 
 try {
@@ -77,8 +74,8 @@ try {
         );
         i++;
         const timestamp = TimeStamp.now();
-        const data2 = i % 2;
         const data1 = Math.sin(i / 10);
+        const data2 = i % 2;
         await writer.write({
             [timeChannel.key]: timestamp,
             [dataChannel1.key]: data1,
@@ -87,14 +84,9 @@ try {
 
         if (i % 60 == 0)
             console.log(`Writing sample ${i} at ${timestamp.toISOString()}`);
-
-        // Commit the writer. This method will return false if the commit fails i.e.
-        // we've mad an invalid write or someone has already written to this region.
-        if (i % commitInterval == 0 && !(await writer.commit())) {
-            console.error("Failed to commit data");
-            break;
-        }
     }
 } finally {
+    // Close the writer and the client when you are done
     await writer.close();
+    client.close();
 }

@@ -3,9 +3,10 @@ layout: "@/layouts/MainLayout.astro"
 title: "Write Data"
 description: "Use the TypeScript client to write to a Synnax cluster."
 ---
+
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
-import { Divider } from "@synnaxlabs/pluto"
+import { Divider } from "@synnaxlabs/pluto";
 import Note from "@/components/Note.astro";
 
 The Synnax TypeScript client supports multiple methods for writing data to a
@@ -32,7 +33,7 @@ const timeChannel = await client.channels.create({
 const temperatureChannel = await client.channels.create({
     name: "temperature",
     dataType: DataType.FLOAT32,
-    index: timeChannel.key
+    index: timeChannel.key,
 });
 ```
 
@@ -42,16 +43,15 @@ the index channel before writing to the regular channel, so we will write to
 array:
 
 ```typescript
-
 import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
 
 const start = TimeStamp.now();
 const timestamps = new BigInt64Array([
-    start.valueOf(),    // valueOf() converts a TimeSpan to a bigint.
+    start.valueOf(), // valueOf() converts a TimeSpan to a bigint.
     start.add(TimeSpan.seconds(1)).valueOf(),
     start.add(TimeSpan.seconds(2)).valueOf(),
     start.add(TimeSpan.seconds(3)).valueOf(),
-    start.add(TimeSpan.seconds(4)).valueOf()
+    start.add(TimeSpan.seconds(4)).valueOf(),
 ]);
 const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
 
@@ -70,16 +70,16 @@ corresponding timestamp for every sample in the data array. After all, it
 wouldn't make sense to have a temperature reading without an associated
 timestamp.
 
-<Divider.Divider direction="x"/>
+<Divider.Divider direction="x" />
 
 ## Using a Writer
 
 While the above methods are great for writing static, existing data, it's common
 to want to write data in a streaming fashion as it's acquired. This is useful for
-for use in control sequences and live data processing. The `Writer` class is designed 
+for use in control sequences and live data processing. The `Writer` class is designed
 to handle this use case (and is actually used under the hood by the above methods).
 
-To keep things intuitive, we've designed the writer API around a file-like interface. 
+To keep things intuitive, we've designed the writer API around a file-like interface.
 There are a few key differences, the most important being that writers are governed
 by a transaction. If you'd like to learn more about transactions, see the
 [concepts](/references/concepts/writes) page.
@@ -98,7 +98,7 @@ const timeChannel = await client.channels.create({
 const temperatureChannel = await client.channels.create({
     name: "temperature",
     dataType: DataType.FLOAT32,
-    index: timeChannel.key
+    index: timeChannel.key,
 });
 ```
 
@@ -163,25 +163,27 @@ await writer.write("temperature", [20.0, 20.1, 20.2, 20.3, 20.4]);
 
 // Write a single sample for several channels
 await writer.write({
-    "time": TimeStamp.now(),
-    "temperature": 20.0
+    time: TimeStamp.now(),
+    temperature: 20.0,
 });
 
 // Write multiple samples for several channels
 const start = TimeStamp.now();
 await writer.write({
-    "time": [start, start.add(TimeSpan.seconds(1))],
-    "temperature": [20.0, 20.1]
+    time: [start, start.add(TimeSpan.seconds(1))],
+    temperature: [20.0, 20.1],
 });
 
 // Write typed arrays for several channels
-await writer.write(new Frame({
-    [timeChannel.key]: new BigInt64Array([
-        start.valueOf(), 
-        start.add(TimeSpan.seconds(1)).valueOf()
-    ]),
-    [temperatureChannel.key]:  new Float32Array([20.0, 20.1])
-}));
+await writer.write(
+    new Frame({
+        [timeChannel.key]: new BigInt64Array([
+            start.valueOf(),
+            start.add(TimeSpan.seconds(1)).valueOf(),
+        ]),
+        [temperatureChannel.key]: new Float32Array([20.0, 20.1]),
+    }),
+);
 ```
 
 ### Auto-Commit
@@ -196,20 +198,22 @@ import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 const writer = await client.openWriter({
     start: TimeStamp.now(),
     channels: ["time", "temperature"],
-    enableAutoCommit: true
+    enableAutoCommit: true,
 });
 
 try {
     for (let i = 0; i < 100; i++) {
         const start = TimeStamp.now();
-        await writer.write(new Frame({
-            "time": start,
-            "temperature": Math.sin(i / 100)
-        }));
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await writer.write(
+            new Frame({
+                time: start,
+                temperature: Math.sin(i / 100),
+            }),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 100));
     }
 } finally {
-    await writer.close()
+    await writer.close();
 }
 ```
 
@@ -219,12 +223,12 @@ Writers support dynamic control handoff. Multiple writers can be opened on a cha
 at the same time, but only one writer is allowed to write to the channel. To determine
 which writer has control, an authority from 0 to 255 is assigned to each writer (or, optionally,
 each channel in the writer). The writer with the highest authority will be allowed to
-write. If two writers have the same authority, the writer that opened first will be 
+write. If two writers have the same authority, the writer that opened first will be
 allowed to write. For more information, see the [concepts](/reference/concepts/writes#dynamic-control---write-authorities)
 page on writers.
 
 By default, writers are opened with an authority of `ABSOLUTE` i.e. 255. This means that
-no other writers can write to the channel as long as the writer is open. 
+no other writers can write to the channel as long as the writer is open.
 
 #### Opening a writer with the same authority on all channels
 
@@ -237,7 +241,7 @@ import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 const writer = await client.openWriter({
     start: TimeStamp.now(),
     channels: ["time", "temperature"],
-    authority: 100
+    authority: 100,
 });
 ```
 
@@ -253,7 +257,7 @@ import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 const writer = await client.openWriter({
     start: TimeStamp.now(),
     channels: ["time", "temperature"],
-    authority: [100, 200]
+    authority: [100, 200],
 });
 ```
 
@@ -267,15 +271,17 @@ method:
 await writer.setAuthority(200);
 // Set the authority on just a few channels
 await writer.setAuthority({
-    "time": 200,
-    "temperature": 100
+    time: 200,
+    temperature: 100,
 });
 ```
+
 ### Persistence/Streaming Mode
 
-By default, writers are opened in stream + persist [mode](/reference/concepts/writes#persistencestreaming-modes).
-To change the mode of a writer, specify the value of  the `mode` argument when opening the writer. 
-This can be `persist`, `stream`, or `persistStream`.
+By default, writers are opened in stream + persist
+[mode](/reference/concepts/writes#persistencestreaming-modes). To change the mode of a
+writer, specify the value of the `mode` argument when opening the writer. This can be
+`persist`, `stream`, or `persistStream`.
 
 For example, to open a writer that only persists data:
 
@@ -285,7 +291,7 @@ import { TimeStamp, Series, Frame, WriterMode } from "@synnaxlabs/client";
 const writer = await client.openWriter({
     start: TimeStamp.now(),
     channels: ["time", "temperature"],
-    mode: "persist"
+    mode: "persist",
 });
 ```
 
@@ -320,16 +326,15 @@ for (let i = 0; i < 100; i++) {
     const writer = await client.openWriter({
         start: TimeStamp.now(),
         channels: ["time", "temperature"],
-        enableAutoCommit: true
+        enableAutoCommit: true,
     });
     await writer.write({
-        "time": TimeStamp.now(),
-        "temperature": Math.sin(i / 100)
+        time: TimeStamp.now(),
+        temperature: Math.sin(i / 100),
     });
     await writer.close();
 }
 ```
-
 
 Instead, repeatedly call `write` on a single writer:
 
@@ -341,7 +346,7 @@ const writer = await client.openWriter({
     enableAutoCommit: true
 });
 try {
-    for (let i = 0; i < 100; i++) 
+    for (let i = 0; i < 100; i++)
         await writer.write({
             "time": TimeStamp.now(),
             "temperature": Math.sin(i / 100)
@@ -351,18 +356,18 @@ try {
 }
 ```
 
-### Calling Commit on Every Write 
+### Calling Commit on Every Write
 
 If you're not using auto-commit, it's important to call `commit` on the writer
 periodically to ensure that the data is persisted to the cluster. However, calling
-`commit` on every write is a bad idea. This is because `commit` requires a round-trip
-to the cluster to ensure that the data is persisted. This can be very slow if you're
-writing a lot of data. If you're writing a lot of data, commit every few seconds or
-turn on auto-commit.
+`commit` on every write is a bad idea. This is because `commit` requires a round-trip to
+the cluster to ensure that the data is persisted. This can be very slow if you're
+writing a lot of data. If you're writing a lot of data, commit every few seconds or turn
+on auto-commit.
 
 This is a bad idea:
 
-```python
+```typescript
 const writer = await client.openWriter({
     start: TimeStamp.now(),
     channels: ["time", "temperature"],
@@ -370,8 +375,8 @@ const writer = await client.openWriter({
 try {
     for (let i = 0; i < 100; i++) {
         await writer.write({
-            "time": TimeStamp.now(),
-            "temperature": Math.sin(i / 100)
+            time: TimeStamp.now(),
+            temperature: Math.sin(i / 100),
         });
         await writer.commit();
     }
@@ -382,20 +387,19 @@ try {
 
 Instead, use auto-commit:
 
-```python
+```typescript
 const writer = await client.openWriter({
     start: TimeStamp.now(),
     channels: ["time", "temperature"],
-    enableAutoCommit: true
+    enableAutoCommit: true,
 });
 try {
-    for (let i = 0; i < 100; i++) 
+    for (let i = 0; i < 100; i++)
         await writer.write({
-            "time": TimeStamp.now(),
-            "temperature": Math.sin(i / 100)
+            time: TimeStamp.now(),
+            temperature: Math.sin(i / 100),
         });
 } finally {
     await writer.close();
 }
 ```
-

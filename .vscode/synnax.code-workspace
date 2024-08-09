@@ -108,8 +108,7 @@
   "settings": {
     "editor.formatOnSave": true,
     "[css]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode",
-      "editor.formatOnSave": true
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "[python]": {
       "editor.defaultFormatter": "ms-python.black-formatter"
@@ -218,7 +217,8 @@
       "shared_mutex": "cpp",
       "unordered_set": "cpp",
       "variant": "cpp",
-      "*.inc": "cpp"
+      "*.inc": "cpp",
+      "*.code-workspace": "json"
     },
     "cSpell.words": [
       "Aliaser",
@@ -247,16 +247,16 @@
       "telem",
       "zodutil"
     ],
-    "cSpell.enableFiletypes": [
-      "mdx"
-    ],
+    "cSpell.enableFiletypes": ["mdx"],
+    "rewrap.autoWrap.enabled": true,
+    "rewrap.wrappingColumn": 88
   },
   "extensions": {
     "recommendations": [
       "ms-vsliveshare.vsliveshare",
       "golang.go",
+      "stkb.rewrap",
       "rvest.vs-code-prettier-eslint"
     ]
   }
 }
-

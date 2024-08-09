@@ -19,14 +19,9 @@ export const operationsNav: PageNavNode = {
       key: "/guides/operations/overview",
     },
     {
-      name: "Manually Controlling Simulated Tank Pressure",
-      href: "/guides/operations/manual-tank-pressure",
-      key: "/guides/operations/manual-tank-pressure",
-    },
-    {
-      name: "Writing and Simulating a Pressure Control Sequence",
-      href: "/guides/operations/automated-tank-pressure",
-      key: "/guides/operations/automated-tank-pressure",
+      name: "Writing Automated Control Sequences",
+      href: "/guides/operations/automated-control",
+      key: "/guides/operations/automated-control",
     },
   ],
 };
