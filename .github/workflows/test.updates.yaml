@@ -17,8 +17,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Navigate to scripts directory
+      run: cd ./scripts
+
     - name: Grant execute permissions for check_version.sh
-      run: chmod +x ./scripts/check_version.sh
+      run: chmod +x check_version.sh
+      working-directory: ./scripts
 
     - name: Run version check script
-      run: ./scripts/check_version.sh
+      run: ./check_version.sh
+      working-directory: ./scripts
+
