@@ -50,7 +50,7 @@ func (b *Builder) NewConfig(ctx context.Context) api.Config {
 		Token:         &token.Service{KeyProvider: securitymock.KeyProvider{Key: key}, Expiration: 10000 * time.Hour},
 		Authenticator: &auth.KV{DB: dist.Storage.Gorpify()},
 		RBAC:        MustSucceed(rbac.NewService(rbac.Config{DB: dist.Storage.Gorpify()})),
-		Enforcer:	   access.AllowAll{},
+		Enforcer:	   &access.AllowAll{},
 		Cluster:       dist.Cluster,
 	}
 
