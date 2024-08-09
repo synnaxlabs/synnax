@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
@@ -164,7 +165,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		accessSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
+		rbacSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
 		if err != nil {
 			return err
 		}
@@ -213,7 +214,7 @@ func start(cmd *cobra.Command) {
 		}()
 
 		// Provision the root user.
-		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, accessSvc); err != nil {
+		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil {
 			return err
 		}
 
@@ -221,7 +222,8 @@ func start(cmd *cobra.Command) {
 		_api, err := api.New(api.Config{
 			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
-			Access:          accessSvc,
+			Enforcer:        &access.AllowAll{},
+			RBAC:            rbacSvc,
 			Schematic:       schematicSvc,
 			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
@@ -434,7 +436,7 @@ func maybeProvisionRootUser(
 	db *gorp.DB,
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
-	accessSvc *rbac.Service,
+	rbacSvc *rbac.Service,
 ) error {
 	creds := auth.InsecureCredentials{
 		Username: viper.GetString(usernameFlag),
@@ -454,7 +456,7 @@ func maybeProvisionRootUser(
 		if err = userSvc.NewWriter(tx).Create(ctx, &userObj); err != nil {
 			return err
 		}
-		return accessSvc.NewWriter(tx).Create(
+		return rbacSvc.NewWriter(tx).Create(
 			ctx,
 			&rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},
