@@ -18,7 +18,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Grant execute permissions for check_version.sh
-      run: chmod +x ./path/to/check_version.sh
+      run: chmod +x ./scripts/check_version.sh
 
     - name: Run version check script
       run: ./path/to/check_version.sh
