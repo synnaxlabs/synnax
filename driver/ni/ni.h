@@ -607,10 +607,9 @@ static inline bool dlls_available(){
         "nisciu.dll",
         "nistc3ru.dll",
         "nixfmrru.dll",
-        "nixsru.dll",
-        "nisyscfg.dll"  
+        "nixsru.dll"
     };
-    
+
     bool d = true;
     for (const auto &dll: dlls) 
         if (!does_dll_exist(dll.c_str())) 
