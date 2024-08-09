@@ -101,10 +101,7 @@ cc_library(
             "/DELAYLOAD:nimdnsResponder.dll",
             "/DELAYLOAD:nirocoapi.dll",
             "/DELAYLOAD:nisysapi.dll",
-            "/DELAYLOAD:niprtsiu.dll",
-            "/DELAYLOAD:nisyscfg.dll",
-            "/DELAYLOAD:nisyscfgExpert.dll",
-            "/DELAYLOAD:nimdnsNSP.dll",
+            "/DELAYLOAD:niprtsiu.dll"
         ],
         "//conditions:default": [],
     }),

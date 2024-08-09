@@ -608,11 +608,9 @@ static inline bool dlls_available(){
         "nistc3ru.dll",
         "nixfmrru.dll",
         "nixsru.dll",
-        "nisyscfg.dll" // add additional information in the log error saying which are daqmx and which are syscfg
-        // "nisyscfgExpert.dll",
-        // "nimdnsNSP.dll",
+        "nisyscfg.dll"  
     };
-
+    
     bool d = true;
     for (const auto &dll: dlls) 
         if (!does_dll_exist(dll.c_str())) 
