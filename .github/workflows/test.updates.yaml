@@ -21,4 +21,4 @@ jobs:
       run: chmod +x ./scripts/check_version.sh
 
     - name: Run version check script
-      run: ./path/to/check_version.sh
+      run: ./scripts/check_version.sh
