@@ -103,6 +103,13 @@ func (w Writer) Label(
 	return nil
 }
 
+func (w Writer) Clear(
+	ctx context.Context,
+	target ontology.ID,
+) error {
+	return w.otg.DeleteOutgoingRelationshipsOfType(ctx, target, LabeledBy)
+}
+
 func (w Writer) RemoveLabel(
 	ctx context.Context,
 	target ontology.ID,

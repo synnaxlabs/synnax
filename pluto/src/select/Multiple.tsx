@@ -175,7 +175,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   } else {
     const arrValue = toArray(value);
     trigger = (
-      <Align.Space direction="x" align="center" grow style={style}>
+      <Align.Space direction="x" align="center" grow style={style} size="small">
         {arrValue.map((k) => {
           const e = selected.find((v) => v.key === k);
           return renderTag({
@@ -316,6 +316,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
         className={CSS.BE("select-multiple", "tags")}
         align="center"
         grow
+        size="small"
       >
         {toArray(selectedKeys).map((k, i) => {
           const e = selected[i];

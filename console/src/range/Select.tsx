@@ -107,7 +107,7 @@ const SelectEmptyContent = (): ReactElement => {
       <Button.Button
         variant="outlined"
         onClick={() => {
-          newLayout(createEditLayout());
+          newLayout(createEditLayout({}));
         }}
       >
         Define a Range

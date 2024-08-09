@@ -42,6 +42,7 @@ type (
 		IDs              []ontology.ID `json:"ids" msgpack:"ids" validate:"required"`
 		Children         bool          `json:"children" msgpack:"children"`
 		Parents          bool          `json:"parents" msgpack:"parents"`
+		TraverseTo       string        `json:"traverse_to" msgpack:"traverse_to"`
 		IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema"`
 		ExcludeFieldData bool          `json:"exclude_field_data" msgpack:"exclude_field_data"`
 		Term             string        `json:"term" msgpack:"term"`

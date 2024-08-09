@@ -53,6 +53,8 @@ export const stringIDZ = z.string().transform((v) => {
 
 export const crudeIDZ = z.union([stringIDZ, idZ]);
 
+export type CrudeID = z.infer<typeof crudeIDZ>;
+
 export class ID {
   type: ResourceType;
   key: string;

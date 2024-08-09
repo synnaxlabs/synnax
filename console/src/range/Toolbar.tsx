@@ -51,13 +51,13 @@ export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const selectedRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
-    const layout = createEditLayout(key == null ? "Range.Create" : "Range.Edit");
-    placeLayout({ ...layout, key: key ?? layout.key });
+    placeLayout(createEditLayout({ initial: { key } }));
   };
 
   const handleRemove = (keys: string[]): void => {
@@ -84,6 +84,7 @@ export const List = (): ReactElement => {
       )
         throw errors.CANCELED;
       handleRemove([key]);
+      removeLayout(key);
       return rng;
     },
     mutationFn: async (key: string) => await client?.ranges.delete(key),
@@ -302,7 +303,7 @@ const Content = (): ReactElement => {
           {[
             {
               children: <Icon.Add />,
-              onClick: () => p(createEditLayout("Range.Create")),
+              onClick: () => p(createEditLayout({})),
             },
           ]}
         </Header.Actions>

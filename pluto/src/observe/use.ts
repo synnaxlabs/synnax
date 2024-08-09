@@ -17,7 +17,7 @@ export const useListener = <D>({ key, open, onChange }: UseListenerProps<D>) => 
     const obs = await open();
     if (obs == null) return;
     obs.onChange(onChange);
-    return () => obs.close();
+    return async () => await obs.close();
   }, [open == null, memoKey]);
 };
 

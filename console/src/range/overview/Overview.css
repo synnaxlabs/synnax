@@ -9,13 +9,31 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-meta-data__item {
-    .console-meta-data__delete {
-        opacity: 0;
+@container (max-width: 500px) {
+    .console-header {
+        flex-direction: column-reverse !important;
     }
-    &:hover {
-        & .console-meta-data__delete {
-            opacity: 1;
+    .console-time-range {
+        flex-direction: column !important;
+        align-items: start !important;
+        gap: 0;
+        .console-time-range-divider {
+            display: none;
+        }
+    }
+}
+
+.console-range__overview {
+    container-type: size;
+    height: 100%;
+    .console-meta-data__item {
+        .console-meta-data__delete {
+            opacity: 0;
+        }
+        &:hover {
+            & .console-meta-data__delete {
+                opacity: 1;
+            }
         }
     }
 }

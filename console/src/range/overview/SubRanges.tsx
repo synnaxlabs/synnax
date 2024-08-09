@@ -1,18 +1,16 @@
-import { ontology, ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   componentRenderProp,
   List,
-  Observe,
   Ranger,
+  Status,
   Synnax,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { use } from "@synnaxlabs/pluto/dist/src/dialog/use.js";
-import { useQuery } from "@tanstack/react-query";
 import { FC, useState } from "react";
 
 import { Layout } from "@/layout";
@@ -49,17 +47,34 @@ export const SubRangeListItem = (props: List.ItemProps<string, ranger.Payload>) 
 
 const subRangeListItem = componentRenderProp(SubRangeListItem);
 
-export const SubRanges: FC<{ rng: ranger.Range }> = ({ rng }) => {
+export interface SubRangesProps {
+  rangeKey: string;
+}
+
+export const SubRanges: FC<SubRangesProps> = ({ rangeKey }) => {
+  const client = Synnax.use();
   const placer = Layout.usePlacer();
   const [subRanges, setSubRanges] = useState<ranger.Range[]>([]);
+  const addStatus = Status.useAggregator();
 
   useAsyncEffect(async () => {
-    const subRanges = await rng.retrieveChildren();
-    setSubRanges(subRanges);
-    const tracker = await rng.openSubRangeTracker();
-    tracker.onChange((ranges) => setSubRanges(ranges));
-    return async () => await tracker.close();
-  }, [rng.key]);
+    try {
+      if (client == null) return;
+      const rng = await client.ranges.retrieve(rangeKey);
+      const subRanges = await rng.retrieveChildren();
+      setSubRanges(subRanges);
+      const tracker = await rng.openSubRangeTracker();
+      tracker.onChange((ranges) => setSubRanges(ranges));
+      return async () => await tracker.close();
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        message: `Failed to retrieve sub ranges`,
+        description: (e as Error).message,
+      });
+      return undefined;
+    }
+  }, [rangeKey, client?.key]);
 
   return (
     <Align.Space direction="y">
@@ -70,14 +85,12 @@ export const SubRanges: FC<{ rng: ranger.Range }> = ({ rng }) => {
         <List.Core empty>{subRangeListItem}</List.Core>
       </List.List>
       <Button.Button
-        size="small"
+        size="medium"
         shade={8}
         weight={500}
         startIcon={<Icon.Add />}
         variant="text"
-        onClick={() => {
-          placer(createEditLayout(undefined, { parent: rng.key }));
-        }}
+        onClick={() => placer(createEditLayout({ initial: { parent: rangeKey } }))}
       >
         Add Sub Range
       </Button.Button>

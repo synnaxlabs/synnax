@@ -12,7 +12,7 @@ import { observe, Primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 
-import { ContextValue, OnChangeProps, use, UseReturn } from "@/form/Form";
+import { ContextValue, OnChangeProps, use, UseProps, UseReturn } from "@/form/Form";
 import { useAsyncEffect } from "@/hooks";
 import { useMemoPrimitiveArray } from "@/memo";
 import { Observe } from "@/observe";
@@ -32,10 +32,9 @@ interface SyncLocalProps<Z extends z.ZodTypeAny> extends OnChangeProps<Z> {
   client: Client;
 }
 
-interface UseSyncedProps<Z extends z.ZodTypeAny, O = Z> {
+interface UseSyncedProps<Z extends z.ZodTypeAny, O = Z> extends UseProps<Z> {
   name: string;
   key: Primitive[];
-  initialValues: z.output<Z>;
   queryFn: (props: QueryFnProps) => Promise<z.output<Z>>;
   openObservable?: (client: Client) => Promise<observe.ObservableAsyncCloseable<O>>;
   applyObservable?: (props: ApplyObservableProps<Z, O>) => void;
@@ -46,10 +45,11 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
   key,
   name,
   queryFn,
+  values: initialValues,
   openObservable,
   applyChanges,
-  initialValues,
   applyObservable,
+  ...props
 }: UseSyncedProps<Z, O>): UseReturn<Z> => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
@@ -57,6 +57,7 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
 
   const methods = use({
     values: initialValues,
+    ...props,
     sync: false,
     onChange: (props) => {
       if (client == null) return;

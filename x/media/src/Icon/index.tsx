@@ -11,6 +11,7 @@ import "@/Icon/Icon.css";
 
 import { type runtime } from "@synnaxlabs/x";
 import clsx from "clsx";
+import { wrap } from "module";
 import { type FC } from "react";
 import {
   AiFillDelete,
@@ -335,6 +336,7 @@ export const Icon: IconType = {
   Type: wrapIcon(MdTypeSpecimen, "type"),
   Array: wrapIcon(MdDataArray, "array"),
   Label: wrapIcon(MdLabel, "label"),
+  Details: wrapIcon(MdOutlineTableRows, "details"),
 };
 
 export interface IconType {
@@ -456,4 +458,5 @@ export interface IconType {
   LinePlot: IconFC;
   Array: IconFC;
   Label: IconFC;
+  Details: IconFC;
 }

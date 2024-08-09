@@ -413,7 +413,7 @@ func (a *API) BindTo(t Transport) {
 	t.LabelCreate.BindHandler(a.Label.Create)
 	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
 	t.LabelDelete.BindHandler(a.Label.Delete)
-	t.LabelSet.BindHandler(a.Label.Set)
+	t.LabelSet.BindHandler(a.Label.Add)
 	t.LabelRemove.BindHandler(a.Label.Remove)
 
 	// HARDWARE

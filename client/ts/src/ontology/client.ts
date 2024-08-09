@@ -17,6 +17,7 @@ import { framer } from "@/framer";
 import { Frame } from "@/framer/frame";
 import { group } from "@/ontology/group";
 import {
+  CrudeID,
   ID,
   IDPayload,
   idZ,
@@ -52,7 +53,7 @@ const retrieveResZ = z.object({
   resources: resourceSchemaZ.array(),
 });
 
-const parseIDs = (ids: ID | ID[] | string | string[]): IDPayload[] =>
+export const parseIDs = (ids: CrudeID | CrudeID[] | string | string[]): IDPayload[] =>
   toArray(ids).map((id) => new ID(id).payload);
 
 /** The core client class for executing queries against a Synnax cluster ontology */
@@ -79,7 +80,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   async retrieve(ids: ID[] | string[], options?: RetrieveOptions): Promise<Resource[]>;
 
   async retrieve(
-    ids: ID | ID[] | string | string[],
+    ids: CrudeID | CrudeID[] | string | string[],
     options?: RetrieveOptions,
   ): Promise<Resource | Resource[]> {
     const resources = await this.execRetrieve({ ids: parseIDs(ids), ...options });
@@ -98,28 +99,32 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   }
 
   async retrieveChildren(
-    ids: ID | ID[],
+    ids: CrudeID | CrudeID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
     return await this.execRetrieve({ ids: parseIDs(ids), children: true, ...options });
   }
 
   async retrieveParents(
-    ids: ID | ID[],
+    ids: CrudeID | CrudeID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
     return await this.execRetrieve({ ids: parseIDs(ids), parents: true, ...options });
   }
 
-  async addChildren(id: ID, ...children: ID[]): Promise<void> {
+  async addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
     return await this.writer.addChildren(id, ...children);
   }
 
-  async removeChildren(id: ID, ...children: ID[]): Promise<void> {
+  async removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
     return await this.writer.removeChildren(id, ...children);
   }
 
-  async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
+  async moveChildren(
+    from: CrudeID,
+    to: CrudeID,
+    ...children: CrudeID[]
+  ): Promise<void> {
     return await this.writer.moveChildren(from, to, ...children);
   }
 
@@ -127,10 +132,18 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     return await ChangeTracker.open(this.framer, this);
   }
 
-  async trackChildren(
+  async trackRelationships(
     parent: ID,
+    type: string = "parent",
+    retrieveInitial?: (parent: ID) => Promise<Resource[]>,
   ): Promise<observe.ObservableAsyncCloseable<Resource[]>> {
-    return await ChildTracker.open(parent, this, this.framer);
+    return await RelationshipTracker.open(
+      parent,
+      this,
+      this.framer,
+      type,
+      retrieveInitial,
+    );
   }
 
   newSearcherWithOptions(
@@ -263,37 +276,44 @@ export class ChangeTracker {
   }
 }
 
-export class ChildTracker
+export class RelationshipTracker
   extends observe.Observer<Resource[]>
   implements observe.ObservableAsyncCloseable<Resource[]>
 {
   private readonly internal: ChangeTracker;
-  private readonly parent: ID;
+  private readonly from: ID;
   private children: Resource[];
   private readonly client: Client;
+  private readonly type: string;
 
   private constructor(
-    parent: ID,
+    from: ID,
     internal: ChangeTracker,
-    children: Resource[],
+    to: Resource[],
     client: Client,
+    type: string = "parent",
   ) {
     super();
     this.internal = internal;
-    this.parent = parent;
-    this.children = children;
+    this.from = from;
+    this.children = to;
     this.client = client;
+    this.type = type;
     this.internal.resources.onChange(this.handleResourceChange);
     this.internal.relationships.onChange(this.handleRelationshipChange);
   }
   static async open(
-    parent: ID,
+    from: ID,
     client: Client,
     framer: framer.Client,
-  ): Promise<ChildTracker> {
+    type: string = "parent",
+    retrieveInitial?: (parent: ID) => Promise<Resource[]>,
+  ): Promise<RelationshipTracker> {
     const internal = await ChangeTracker.open(framer, client);
-    const currChildren = await client.retrieveChildren(parent);
-    return new ChildTracker(parent, internal, currChildren, client);
+    let currChildren: Resource[];
+    if (retrieveInitial != null) currChildren = await retrieveInitial(from);
+    else currChildren = await client.retrieveChildren(from);
+    return new RelationshipTracker(from, internal, currChildren, client, type);
   }
 
   private handleResourceChange = (changes: ResourceChange[]): void => {
@@ -311,19 +331,16 @@ export class ChildTracker
       (child) =>
         !deletes.some(
           (del) =>
-            del.key.to.toString() === child.id.toString() && del.key.type === "parent",
+            del.key.to.toString() === child.id.toString() && del.key.type === this.type,
         ),
     );
     const sets = changes.filter(
       (c) =>
         c.variant === "set" &&
-        c.key.type === "parent" &&
-        c.key.from.toString() === this.parent.toString(),
+        c.key.type === this.type &&
+        c.key.from.toString() === this.from.toString(),
     );
-    if (sets.length === 0) {
-      this.notify(this.children);
-      return;
-    }
+    if (sets.length === 0) return this.notify(this.children);
     this.client.retrieve(sets.map((s) => s.key.to)).then((resources) => {
       this.children = this.children.concat(resources);
       this.notify(this.children);

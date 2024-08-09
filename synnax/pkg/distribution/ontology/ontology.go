@@ -150,6 +150,16 @@ type Writer interface {
 	// DeleteRelationship deletes the relationship with the given Keys and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
 	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
+	// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
+	// types from the resource with the given Task. If the resource does not exist, or if
+	// it has no outgoing relationships of the given types, DeleteOutgoingRelationshipsOfTypes
+	// does nothing.
+	DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, type_ RelationshipType) error
+	// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
+	// types to the resource with the given Task. If the resource does not exist, or if
+	// it has no incoming relationships of the given types, DeleteIncomingRelationshipsOfTypes
+	// does nothing.
+	DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, type_ RelationshipType) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending
 	// operations merged with the underlying database. If the Writer is executing directly
 	// against the underlying database, the Retrieve query behaves exactly as if calling

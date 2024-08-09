@@ -18,7 +18,7 @@ import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface MetaDataProps {
-  rng: ranger.Range;
+  rangeKey: string;
 }
 
 const metaDataFormSchema = z.object({
@@ -111,21 +111,22 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
 
 const metaDataItem = componentRenderProp(MetaDataListItem);
 
-export const MetaData = ({ rng }: MetaDataProps) => {
+export const MetaData = ({ rangeKey }: MetaDataProps) => {
   const formCtx = Form.useSynced<
     typeof metaDataFormSchema,
     change.Change<string, ranger.KVPair>[]
   >({
-    initialValues: { pairs: [] },
+    values: { pairs: [] },
     name: "Range Meta Data",
-    key: ["range", rng.key, "metadata"],
-    queryFn: async () => {
-      const res = await rng.kv.list();
+    key: ["range", rangeKey, "metadata"],
+    queryFn: async ({ client }) => {
+      const kv = client.ranges.getKV(rangeKey);
+      const res = await kv.list();
       const pairs = Object.entries(res).map(([key, value]) => ({ key, value }));
       pairs.push({ key: "", value: "" });
       return { pairs };
     },
-    openObservable: async () => await rng.kv.openTracker(),
+    openObservable: async (client) => await client.ranges.getKV(rangeKey).openTracker(),
     applyObservable: ({ changes, ctx }) => {
       const existingPairs = ctx.get<kv.Pair[]>("pairs").value;
       const fu = Form.fieldArrayUtils(ctx, "pairs");
@@ -138,8 +139,9 @@ export const MetaData = ({ rng }: MetaDataProps) => {
         } else if (c.variant === "delete" && pos !== -1) ctx.remove(`pairs.${pos}`);
       });
     },
-    applyChanges: async ({ values, path, prev }) => {
+    applyChanges: async ({ client, values, path, prev }) => {
       if (path === "") return;
+      const kv = client.ranges.getKV(rangeKey);
       if (path === "pairs") {
         const tPrev = prev as kv.Pair[];
         if (values.pairs.length >= tPrev.length) return;
@@ -147,15 +149,14 @@ export const MetaData = ({ rng }: MetaDataProps) => {
         const newKeys = values.pairs.map((v) => v.key);
         const diff = tPrev.filter((p) => !newKeys.includes(p.key));
         if (diff.length === 0) return;
-        await rng.kv.delete(diff[0].key);
+        await kv.delete(diff[0].key);
         return;
       }
       const split = path.split(".").slice(0, -1).join(".");
       const pair = deep.get<kv.Pair>(values, split, { optional: true });
-      console.log(values, path, prev, pair);
       if (pair == null || pair.key === "") return;
-      if (path.includes("key")) await rng.kv.delete(prev as string);
-      await rng.kv.set(pair.key, pair.value);
+      if (path.includes("key")) await kv.delete(prev as string);
+      await kv.set(pair.key, pair.value);
     },
   });
   const arr = Form.useFieldArray<kv.Pair>({ path: "pairs", ctx: formCtx });

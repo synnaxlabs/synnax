@@ -9,13 +9,7 @@
 
 import "@/range/EditLayout.css";
 
-import {
-  ontology,
-  Synnax as Client,
-  TimeRange,
-  TimeStamp,
-  UnexpectedError,
-} from "@synnaxlabs/client";
+import { ontology, TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Align,
@@ -31,7 +25,7 @@ import {
   Triggers,
 } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useRef } from "react";
 import { useDispatch } from "react-redux";
@@ -40,40 +34,45 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { type TimeRange as TimeRangeT } from "@/range/migrations";
 import { useSelect } from "@/range/selectors";
-import { add, StaticRange } from "@/range/slice";
+import { add } from "@/range/slice";
 
 const formSchema = z.object({
+  key: z.string().optional(),
   name: z.string().min(1, "Name must not be empty"),
-  timeRange: z.object({
-    start: z.number().int(),
-    end: z.number().int(),
-  }),
+  timeRange: z.object({ start: z.number(), end: z.number() }),
   labels: z.string().array(),
   parent: z.string().optional(),
 });
 
-type FormSchema = z.infer<typeof formSchema>;
+type Args = Partial<z.infer<typeof formSchema>>;
 
 export const EDIT_LAYOUT_TYPE = "editRange";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const createEditLayout = (
-  name: string = "Range.Create",
-  initial?: Partial<FormSchema>,
-): Layout.State => ({
+interface CreateEditLayoutProps extends Partial<Layout.State> {
+  initial?: Partial<Args>;
+}
+
+export const createEditLayout = ({
+  name,
+  initial = {},
+  window,
+  ...rest
+}: CreateEditLayoutProps): Layout.State => ({
+  ...rest,
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
   windowKey: EDIT_LAYOUT_TYPE,
-  name,
   icon: "Range",
   location: "modal",
+  name: name ?? (initial.key != null ? "Range.Edit" : "Range.Create"),
   window: {
     resizable: false,
     size: { height: 370, width: 700 },
     navTop: true,
+    ...window,
   },
   args: initial,
 });
@@ -89,47 +88,40 @@ const parentRangeIcon = (
 export const Edit = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
-  const range = useSelect(layoutKey);
-  const args = Layout.useSelectArgs<Partial<FormSchema>>(layoutKey);
+  const args = Layout.useSelectArgs<Args>(layoutKey);
+  const range = useSelect(args.key);
   const client = Synnax.use();
-  const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
+  const isCreate = args.key == null;
+  console.log("KEY", args.key);
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
   const initialValues = useQuery<DefineRangeFormProps>({
-    queryKey: ["range", layoutKey],
+    queryKey: ["range-edit", args.key],
     queryFn: async () => {
-      if (isCreate) {
+      if (isCreate)
         return {
           name: "",
           labels: [],
-          timeRange: {
-            start: now,
-            end: now,
-          },
+          timeRange: { start: now, end: now },
           parent: "",
           ...args,
         };
-      }
       if (range == null || range.persisted) {
+        const key = args.key as string;
         if (client == null) throw new UnexpectedError("Client is not available");
-        const rng = await client.ranges.retrieve(layoutKey);
-        const parent = await client.ontology.retrieveParents(
-          new ontology.ID({ key: layoutKey, type: "range" }),
-        );
-        const labels = await client.labels.retrieveFor(
-          new ontology.ID({ key: layoutKey, type: "range" }),
-        );
+        const rng = await client.ranges.retrieve(key);
+        const parent = await rng.retrieveParent();
+        const labels = await rng.labels();
         return {
+          key: rng.key,
           name: rng.name,
-          timeRange: {
-            start: Number(rng.timeRange.start.valueOf()),
-            end: Number(rng.timeRange.end.valueOf()),
-          },
+          timeRange: rng.timeRange.numeric,
           labels: labels.map((l) => l.key),
-          parent: parent.length > 0 ? parent[0].id.key : "",
+          parent: parent?.key ?? "",
         };
       }
       if (range.variant !== "static") throw new UnexpectedError("Range is not static");
       return {
+        key: range.key,
         name: range.name,
         timeRange: range.timeRange,
         labels: [],
@@ -154,17 +146,6 @@ interface EditLayoutFormProps extends Layout.RendererProps {
   onClose: () => void;
 }
 
-export const updateLabels = async (
-  client: Client,
-  key: string,
-  prevLabels: string[],
-  labels: string[],
-): Promise<void> => {
-  const removed = prevLabels.filter((l) => !labels.includes(l));
-  await client.labels.label(new ontology.ID({ key, type: "range" }), labels);
-  await client.labels.removeLabels(new ontology.ID({ key, type: "range" }), removed);
-};
-
 const EditLayoutForm = ({
   layoutKey,
   initialValues,
@@ -174,62 +155,30 @@ const EditLayoutForm = ({
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
   const dispatch = useDispatch();
   const client = Synnax.use();
-  const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
   const addStatus = Status.useAggregator();
+  const isCreate = initialValues.key == null;
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (persist: boolean) => {
       if (!methods.validate()) return;
       const values = methods.value();
-      const { timeRange } = methods.value();
-
-      const startTS = new TimeStamp(timeRange.start, "UTC");
-      const endTS = new TimeStamp(timeRange.end, "UTC");
+      const { timeRange: tr, parent } = methods.value();
+      const timeRange = new TimeRange(tr);
       const name = values.name.trim();
-      const key = isCreate ? uuidv4() : layoutKey;
+      const key = isCreate ? uuidv4() : initialValues.key;
       const persisted = persist || isRemoteEdit;
-      const tr = new TimeRange(startTS, endTS);
+      const parentID = primitiveIsZero(parent)
+        ? undefined
+        : new ontology.ID({ key: parent as string, type: "range" });
+      const otgID = new ontology.ID({ key, type: "range" });
       if (persisted && client != null) {
-        const parent = values.parent;
-        await client.ranges.create(
-          { key, name, timeRange: tr },
-          {
-            parent:
-              parent != null && parent !== ""
-                ? new ontology.ID({ key: parent, type: "range" })
-                : undefined,
-          },
-        );
-        await updateLabels(client, key, initialValues.labels, values.labels);
-        if (parent != null && parent !== "") {
-          if (!isCreate) {
-            if (initialValues.parent != null)
-              await client?.ontology.moveChildren(
-                new ontology.ID({ key: initialValues.parent, type: "range" }),
-                new ontology.ID({ key: parent, type: "range" }),
-                new ontology.ID({ key: layoutKey, type: "range" }),
-              );
-            else
-              await client?.ontology.addChildren(
-                new ontology.ID({ key: parent, type: "range" }),
-                new ontology.ID({ key: layoutKey, type: "range" }),
-              );
-          }
-        }
+        await client.ranges.create({ key, name, timeRange }, { parent: parentID });
+        await client.labels.label(otgID, values.labels, { replace: true });
       }
       dispatch(
         add({
           ranges: [
-            {
-              variant: "static",
-              name,
-              timeRange: {
-                start: Number(startTS.valueOf()),
-                end: Number(endTS.valueOf()),
-              },
-              key,
-              persisted,
-            },
+            { variant: "static", name, timeRange: timeRange.numeric, key, persisted },
           ],
         }),
       );
@@ -329,14 +278,20 @@ const EditLayoutForm = ({
             To Save
           </Text.Text>
         </Nav.Bar.Start>
-        <Nav.Bar.End style={{ padding: "1rem" }}>
-          <Button.Button variant="outlined" onClick={() => mutate(false)}>
+        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+          <Button.Button
+            variant="outlined"
+            onClick={() => mutate(false)}
+            disabled={isPending}
+          >
             Save {!isRemoteEdit && "Locally"}
           </Button.Button>
           {(isCreate || !isRemoteEdit) && (
             <Button.Button
               onClick={() => mutate(true)}
               disabled={client == null || isPending}
+              tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
+              tooltipLocation="bottom"
               loading={isPending}
               triggers={[SAVE_TRIGGER]}
             >

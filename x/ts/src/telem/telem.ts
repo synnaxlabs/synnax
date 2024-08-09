@@ -930,6 +930,13 @@ export class TimeRange implements Stringer {
   }
 
   /**
+   * @returns the TimeRange as a numeric object with start and end properties.
+   */
+  get numeric(): NumericTimeRange {
+    return { start: Number(this.start.valueOf()), end: Number(this.end.valueOf()) };
+  }
+
+  /**
    * Creates a new TimeRange with the start and end swapped.
    *
    * @returns A TimeRange with the start and end swapped.
@@ -1423,6 +1430,10 @@ export type SizeT = number;
 export interface CrudeTimeRange {
   start: CrudeTimeStamp;
   end: CrudeTimeStamp;
+}
+export interface NumericTimeRange {
+  start: number;
+  end: number;
 }
 
 export const typedArrayZ = z.union([

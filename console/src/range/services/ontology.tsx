@@ -159,6 +159,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       state: { nodes, setNodes },
       selection: { resources },
       store,
+      removeLayout,
     }) => {
       if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
@@ -170,6 +171,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       ]);
       const keys = resources.map(({ id }) => id.key);
       store.dispatch(remove({ keys }));
+      removeLayout(...keys);
       return prevNodes;
     },
     mutationFn: async ({ selection, client }) =>
@@ -204,10 +206,7 @@ const handleEdit = ({
   selection: { resources },
   placeLayout,
 }: Ontology.TreeContextMenuProps): void => {
-  placeLayout({
-    ...createEditLayout("Range.Edit"),
-    key: resources[0].id.key,
-  });
+  placeLayout(createEditLayout({ initial: { key: resources[0].id.key } }));
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {

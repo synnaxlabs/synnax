@@ -16,14 +16,16 @@
     padding: 0 2rem;
     font-family: var(--pluto-font-family);
     text-decoration: none;
+    width: fit-content;
+    flex-shrink: 0;
 
     &.pluto--small {
         padding: 0 1.5rem;
     }
 
     transition:
-        background 0.1s ease-in-out,
-        border-color 0.1s ease-in-out;
+        background 0.15s ease-in-out,
+        border-color 0.15s ease-in-out;
 }
 
 /* |||| FILLED |||| */
@@ -89,7 +91,7 @@
 /* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
-    --pluto-bg: var(--pluto-gray-l0);
+    --pluto-bg: var(--pluto-gray-l1);
     background: var(--pluto-bg);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 

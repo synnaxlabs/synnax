@@ -28,7 +28,7 @@ func (w Writer) Create(
 	ctx context.Context,
 	r *Range,
 ) error {
-	return w.CreateWithParent(ctx, r, w.group.OntologyID())
+	return w.CreateWithParent(ctx, r, ontology.ID{})
 }
 
 func (w Writer) CreateWithParent(
@@ -36,7 +36,8 @@ func (w Writer) CreateWithParent(
 	r *Range,
 	parent ontology.ID,
 ) (err error) {
-	if parent.IsZero() {
+	hasParent := !parent.IsZero()
+	if !hasParent {
 		parent = w.group.OntologyID()
 	}
 	if r.Key == uuid.Nil {
@@ -45,6 +46,7 @@ func (w Writer) CreateWithParent(
 	if err = w.validate(*r); err != nil {
 		return
 	}
+	exists, err := gorp.NewRetrieve[uuid.UUID, Range]().WhereKeys(r.Key).Exists(ctx, w.tx)
 	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return
 	}
@@ -52,11 +54,23 @@ func (w Writer) CreateWithParent(
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return
 	}
-	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
-		return err
+	// Range already exists and parent provided  = delete incoming relationships and define new parent
+	// Range already exists and no parent provided = do nothing
+	// Range does not exist = define parent
+	if exists && hasParent {
+		if err = w.otg.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
+			return
+		}
+		if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+			return
+		}
+	} else if !exists {
+		if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+			return
+		}
 	}
 	r.tx = w.tx
-	return nil
+	return
 }
 
 func (w Writer) CreateMany(

@@ -126,9 +126,7 @@ export class Range {
   }
 
   async retrieveParent(): Promise<Range | null> {
-    const res = await this.ontologyClient.retrieveParents(this.ontologyID);
-    if (res.length === 0) return null;
-    return this.rangeClient.retrieve(res[0].id.key);
+    return this.rangeClient.retrieveParent(this.key);
   }
 
   async retrieveChildren(): Promise<Range[]> {
@@ -162,7 +160,7 @@ export class Range {
 
   async openSubRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range[]>> {
     const wrapper = new observe.Observer<Range[]>();
-    const base = await this.ontologyClient.trackChildren(this.ontologyID);
+    const base = await this.ontologyClient.trackRelationships(this.ontologyID);
     base.onChange((resources: Resource[]) =>
       wrapper.notify(
         this.rangeClient.sugar(
@@ -261,7 +259,8 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   async retrieve(params: Params | CrudeTimeRange): Promise<Range | Range[]> {
     if (typeof params === "object" && "start" in params)
       return await this.execRetrieve({ overlapsWith: new TimeRange(params) });
-    const { single, actual, variant, normalized } = analyzeParams(params);
+    const { single, actual, variant, normalized, empty } = analyzeParams(params);
+    if (empty) return [];
     const ranges = await this.execRetrieve({ [variant]: normalized });
     if (!single) return ranges;
     if (ranges.length === 0)
@@ -269,6 +268,10 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     if (ranges.length > 1)
       throw new MultipleFoundError(`multiple ranges matching ${actual} found`);
     return ranges[0];
+  }
+
+  getKV(range: Key): KV {
+    return new KV(range, this.unaryClient, this.frameClient);
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Range[]> {
@@ -294,6 +297,17 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
 
   async clearActive(range: Key): Promise<void> {
     await this.active.clearActive(range);
+  }
+
+  async retrieveParent(range: Key): Promise<Range | null> {
+    const res = await this.ontologyClient.retrieveParents({
+      key: range,
+      type: "range",
+    });
+    if (res.length === 0) return null;
+    const first = res[0];
+    if (first.id.type !== "range") return null;
+    return await this.retrieve(first.id.key);
   }
 
   sugar(payloads: Payload[]): Range[] {

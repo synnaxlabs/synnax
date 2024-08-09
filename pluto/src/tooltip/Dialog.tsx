@@ -157,21 +157,34 @@ export const Dialog = ({
   const { startAccelerating, delay: configDelay } = useConfig();
   const parsedDelay = new TimeSpan(delay ?? configDelay);
   const [state, setState] = useState<State | null>(null);
+  const [loadCLS, setLoadCLS] = useState<string>("");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const id = useId();
   const visibleCleanup = useRef<Destructor | null>(null);
+  const updateCLSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setStateAndLoadCLS = useCallback((s: State | null): void => {
+    if (updateCLSTimeoutRef.current != null) clearTimeout(updateCLSTimeoutRef.current);
+    if (s != null) {
+      setState(s);
+      updateCLSTimeoutRef.current = setTimeout(() => setLoadCLS(CSS.M("loaded")), 1);
+    } else {
+      setLoadCLS("");
+      updateCLSTimeoutRef.current = setTimeout(() => setState(null), 500);
+    }
+  }, []);
 
   const handleVisibleChange = useCallback(
     (e: React.MouseEvent, visible: boolean): void => {
       if (!visible || hide) {
         visibleCleanup.current?.();
-        return setState(null);
+        return setStateAndLoadCLS(null);
       }
       startAccelerating();
       const targetBox = box.construct(resolveTarget(e.target as HTMLElement, id));
       if (!box.contains(targetBox, xy.construct(e))) {
         visibleCleanup.current?.();
-        return setState(null);
+        setStateAndLoadCLS(null);
       }
       const window = box.construct(document.documentElement);
       const xyLoc = chooseLocation(cornerOrLocation, targetBox, window);
@@ -181,7 +194,7 @@ export const Dialog = ({
       if (translate != null) pos = translate(pos, targetBox);
 
       const root = box.construct(document.body);
-      setState({
+      setStateAndLoadCLS({
         location: xyLoc,
         position: xy.translate(pos, xy.scale(box.topLeft(root), -1)),
         triggerDims: box.dims(targetBox),
@@ -191,7 +204,7 @@ export const Dialog = ({
       const handleMove = (e: MouseEvent): void => {
         const cursor = xy.construct(e);
         if (box.contains(targetBox, cursor)) return;
-        setState(null);
+        setStateAndLoadCLS(null);
         document.removeEventListener("mousemove", handleMove);
         visibleCleanup.current = null;
         if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
@@ -203,7 +216,7 @@ export const Dialog = ({
       document.addEventListener(
         "mousedown",
         () => {
-          setState(null);
+          setStateAndLoadCLS(null);
           visibleCleanup.current?.();
         },
         { once: true },
@@ -212,7 +225,8 @@ export const Dialog = ({
     [startAccelerating, cornerOrLocation, hide, id, parsedDelay.milliseconds],
   );
 
-  if (hide && state != null) setState(null);
+  // TODO: fix this in-component state update.
+  if (hide && state != null) setStateAndLoadCLS(null);
 
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent): void => {
@@ -241,10 +255,12 @@ export const Dialog = ({
       {state != null &&
         createPortal(
           <div
+            key={id}
             className={CSS(
               CSS.B("tooltip"),
               CSS.loc(state.location.x),
               CSS.loc(state.location.y),
+              loadCLS,
             )}
             style={{
               // @ts-expect-error - css

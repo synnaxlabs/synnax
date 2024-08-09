@@ -328,10 +328,12 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           break;
         case "range":
           placer(
-            Range.createEditLayout(undefined, {
-              timeRange: {
-                start: Number(timeRange.start.valueOf()),
-                end: Number(timeRange.end.valueOf()),
+            Range.createEditLayout({
+              initial: {
+                timeRange: {
+                  start: Number(timeRange.start.valueOf()),
+                  end: Number(timeRange.end.valueOf()),
+                },
               },
             }),
           );

@@ -11,6 +11,7 @@ import {
   Input,
   List,
   Text,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { change } from "@synnaxlabs/x";
 import { ReactElement } from "react";
@@ -93,12 +94,10 @@ export const Edit: Layout.Renderer = (): ReactElement => {
     typeof formSchema,
     change.Change<string, label.Label>[]
   >({
-    initialValues: initialState,
+    values: initialState,
     key: ["labels"],
     name: "Labels",
-    queryFn: async ({ client }) => ({
-      labels: await client.labels.page(0, 100),
-    }),
+    queryFn: async ({ client }) => ({ labels: await client.labels.page(0, 100) }),
     applyChanges: async ({ values, path, prev, client }) => {
       if (path === "labels") {
         const tPrev = prev as label.Label[];
@@ -113,18 +112,13 @@ export const Edit: Layout.Renderer = (): ReactElement => {
       const idx = Number(path.split(".")[1]);
       const label = values.labels[idx];
       if (label == null) return;
-      await client.labels.create({
-        key: label.key,
-        name: label.name,
-        color: label.color,
-      });
+      await client.labels.create({ ...label, color: Color.toHex(label.color) });
     },
   });
 
-  const arr = Form.useFieldArray<label.Label>({
-    path: "labels",
-    ctx: methods,
-  });
+  const arr = Form.useFieldArray<label.Label>({ path: "labels", ctx: methods });
+  const theme = Theming.use();
+  console.log(arr);
 
   return (
     <Align.Space direction="y" style={{ padding: "2rem" }} grow>
@@ -154,7 +148,7 @@ export const Edit: Layout.Renderer = (): ReactElement => {
                 arr.push({
                   key: uuid(),
                   name: "New Label",
-                  color: "#000000",
+                  color: theme.colors.primary.z,
                 })
               }
               startIcon={<Icon.Add />}

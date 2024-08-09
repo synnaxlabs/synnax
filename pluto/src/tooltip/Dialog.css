@@ -19,7 +19,18 @@
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
     box-shadow: var(--pluto-shadow-menu);
-    padding: 1rem;
+    padding: 1rem 1.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+
+    .pluto-text {
+        color: var(--pluto-gray-l9);
+        font-weight: 300;
+    }
+
+    &.pluto--loaded {
+        opacity: 1;
+    }
 
     &.pluto--center {
         &.pluto--top {

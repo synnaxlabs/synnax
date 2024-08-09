@@ -16,7 +16,7 @@ export const defineCommand: Command = {
   key: "define-range",
   name: "Create a Range",
   icon: <Icon.Range />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createEditLayout()),
+  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createEditLayout({})),
 };
 
 export const COMMANDS = [defineCommand];

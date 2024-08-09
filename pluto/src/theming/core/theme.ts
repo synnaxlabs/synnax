@@ -207,7 +207,7 @@ const SYNNAX_BASE: ThemeSpec = {
   sizes: {
     base: baseSize,
     border: {
-      radius: 2,
+      radius: 3,
       width: 1,
     },
     schematic: {

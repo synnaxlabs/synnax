@@ -39,37 +39,41 @@ export type ParamAnalysisResult =
       variant: "keys";
       normalized: Keys;
       actual: Key;
+      empty: never;
     }
   | {
       single: true;
       variant: "names";
       normalized: Names;
       actual: Name;
+      empty: never;
     }
   | {
       single: false;
       variant: "keys";
       normalized: Keys;
       actual: Keys;
+      empty: boolean;
     }
   | {
       single: false;
       variant: "names";
       normalized: Names;
       actual: Names;
+      empty: boolean;
     };
 
 export const analyzeParams = (params: Params): ParamAnalysisResult => {
   const normal = toArray(params) as Keys | Names;
-  if (normal.length === 0) {
-    throw new Error("Range params must not be empty");
-  }
-  const isKey = keyZ.safeParse(normal[0]).success;
+  const empty = normal.length === 0;
+  let isKey = false;
+  if (!empty) isKey = keyZ.safeParse(normal[0]).success;
   return {
     single: !Array.isArray(params),
     variant: isKey ? "keys" : "names",
     normalized: normal,
     actual: params,
+    empty,
   } as const as ParamAnalysisResult;
 };
 
