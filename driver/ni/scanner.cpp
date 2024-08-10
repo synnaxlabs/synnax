@@ -33,7 +33,7 @@ ni::Scanner::Scanner(
         &this->session // session handle
     );
 
-    if (status != NISysCfg_OK) log_err("failed to initialize scanner");
+    if (status != NISysCfg_OK) return log_err("failed to initialize scanner");
 
     // create a filter to only identify NI devices rather than chassis and devices which are connected (which includes simulated devices)
     this->filter = NULL;
@@ -101,7 +101,6 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     char propertyValue[1024] = "";
     int status;
 
-    // serial number
     status = ni::NiSysCfgInterface::GetResourceProperty(
         resource,
         NISysCfgResourcePropertySerialNumber,
@@ -110,7 +109,6 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     if (status != NISysCfg_OK) log_err("failed to get serial number");
     device["serial_number"] = propertyValue;
 
-    // product name
     status = ni::NiSysCfgInterface::GetResourceProperty(
         resource,
         NISysCfgResourcePropertyProductName,
@@ -121,7 +119,6 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     if (model.size() > 3) model = model.substr(3); 
     device["model"] = model;
 
-    // location
     status = ni::NiSysCfgInterface::GetResourceIndexedProperty(
         resource,
         NISysCfgIndexedPropertyExpertUserAlias,
@@ -131,8 +128,6 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     if (status != NISysCfg_OK) log_err("failed to get location");
     device["location"] = propertyValue;
 
-
-    // resource name
     status = ni::NiSysCfgInterface::GetResourceIndexedProperty(
         resource,
         NISysCfgIndexedPropertyExpertResourceName,
@@ -145,7 +140,6 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     else  log_err("resource name too short to extract name");
     device["resource_name"] = rsrc_name;
     
-    // temperature
     double temp = 0;
     status = ni::NiSysCfgInterface::GetResourceProperty(
         resource,
@@ -154,7 +148,6 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     );
     device["temperature"] = temp;
 
-    // whether it is a simulated device 
     NISysCfgBool isSimulated;
     status = ni::NiSysCfgInterface::GetResourceProperty(
         resource,
