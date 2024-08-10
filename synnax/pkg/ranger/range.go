@@ -92,6 +92,10 @@ func (r Range) Set(ctx context.Context, key, value string) error {
 }
 
 func (r Range) SetMany(ctx context.Context, pairs []KVPair) error {
+	for i, p := range pairs {
+		p.Range = r.Key
+		pairs[i] = p
+	}
 	return gorp.NewCreate[string, KVPair]().
 		Entries(&pairs).
 		Exec(ctx, r.tx)

@@ -159,7 +159,7 @@ export class Range {
 
   async openSubRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range[]>> {
     const wrapper = new observe.Observer<Range[]>();
-    const base = await this.ontologyClient.trackRelationships(this.ontologyID);
+    const base = await this.ontologyClient.openDependentTracker(this.ontologyID);
     base.onChange((resources: Resource[]) =>
       wrapper.notify(
         this.rangeClient.sugar(

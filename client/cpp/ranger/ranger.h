@@ -143,7 +143,7 @@ public:
         std::unique_ptr<RangeCreateClient> create_client,
         std::shared_ptr<RangeKVGetClient> kv_get_client,
         std::shared_ptr<RangeKVSetClient> kv_set_client,
-        std::shared_ptr<RangeKVDeleteClient> kv_delete_client,
+        std::shared_ptr<RangeKVDeleteClient> kv_delete_client
     ) : retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),
         kv_get_client(kv_get_client),

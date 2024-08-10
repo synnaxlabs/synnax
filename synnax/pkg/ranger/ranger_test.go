@@ -318,8 +318,8 @@ var _ = Describe("Ranger", Ordered, func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			Expect(r.SetMany(ctx, []ranger.KVPair{
-				{Range: r.Key, Key: "key1", Value: "value1"},
-				{Range: r.Key, Key: "key2", Value: "value2"},
+				{Key: "key1", Value: "value1"},
+				{Key: "key2", Value: "value2"},
 			})).To(Succeed())
 			value, err := r.Get(ctx, "key1")
 			Expect(err).ToNot(HaveOccurred())

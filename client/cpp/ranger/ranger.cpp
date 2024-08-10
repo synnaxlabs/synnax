@@ -145,13 +145,17 @@ std::pair<std::string, freighter::Error> RangeKV::get(const std::string &key) co
     req.set_range_key(range_key);
     auto [res, err] = kv_get_client->send(KV_GET_ENDPOINT, req);
     if (err) return {"", err};
-    return {res.pairs().at(key), err};
+    if (res.pairs_size() == 0)
+        return {"", freighter::Error(synnax::NOT_FOUND, "key not found")};
+    return {res.pairs().at(0).value(), err};
 }
 
 freighter::Error RangeKV::set(const std::string &key, const std::string &value) const {
     auto req = api::v1::RangeKVSetRequest();
     req.set_range_key(range_key);
-    (*req.mutable_pairs())[key] = value;
+    const auto pair = req.add_pairs();
+    pair->set_key(key);
+    pair->set_value(value);
     auto [res, err] = kv_set_client->send(KV_SET_ENDPOINT, req);
     return err;
 }

@@ -104,7 +104,7 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
     id: ontology.CrudeID,
   ): Promise<observe.ObservableAsyncCloseable<Label[]>> {
     const wrapper = new observe.Observer<Label[]>();
-    const base = await this.ontology.trackRelationships(
+    const base = await this.ontology.openDependentTracker(
       new ontology.ID(id),
       "labeled_by",
       async (p) =>
