@@ -32,6 +32,7 @@ func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
 	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), baseTX: tx, otg: otg}
 }
 
+// Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Entry binds the Range that Retrieve will fill results into. If multiple results match

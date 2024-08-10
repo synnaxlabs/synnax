@@ -13,31 +13,45 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/label"
+	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"io"
-
-	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"time"
 )
 
 var _ = Describe("Ranger", Ordered, func() {
 	var (
-		db     *gorp.DB
-		svc    *ranger.Service
-		w      ranger.Writer
-		tx     gorp.Tx
-		closer io.Closer
+		db       *gorp.DB
+		svc      *ranger.Service
+		labelSvc *label.Service
+		w        ranger.Writer
+		otg      *ontology.Ontology
+		tx       gorp.Tx
+		closer   io.Closer
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
+			DB:           db,
+			EnableSearch: config.True(),
+		}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{DB: db, Ontology: otg, Group: g}))
+		labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
 		closer = xio.MultiCloser{db, otg, g, svc}
 	})
 	AfterAll(func() {
@@ -75,7 +89,103 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).To(Equal(k))
 		})
+		Context("Parent Management", func() {
+			It("Should set a custom parent for the range", func() {
+				parent := ranger.Range{
+					Name:      "Parent",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.Create(ctx, &parent)).To(Succeed())
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.CreateWithParent(ctx, r, parent.OntologyID())).To(Succeed())
+				var res ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(parent.OntologyID()).
+					TraverseTo(ontology.Children).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.ID.Key).To(Equal(r.Key.String()))
+			})
+			It("Should NOT re-set the custom parent when the range exists but no parent is provided", func() {
+				parent := ranger.Range{
+					Name:      "Parent",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.Create(ctx, &parent)).To(Succeed())
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.CreateWithParent(ctx, r, parent.OntologyID())).To(Succeed())
+				Expect(w.Create(ctx, r)).To(Succeed())
+				var res ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(parent.OntologyID()).
+					TraverseTo(ontology.Children).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.ID.Key).To(Equal(r.Key.String()))
+			})
+			It("Should change the custom parent when the range exists and a new parent is provided", func() {
+				parent1 := ranger.Range{
+					Name:      "Parent1",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.Create(ctx, &parent1)).To(Succeed())
+				parent2 := ranger.Range{
+					Name:      "Parent2",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.Create(ctx, &parent2)).To(Succeed())
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.CreateWithParent(ctx, r, parent1.OntologyID())).To(Succeed())
+				Expect(w.CreateWithParent(ctx, r, parent2.OntologyID())).To(Succeed())
+				var res ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(parent2.OntologyID()).
+					TraverseTo(ontology.Children).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.ID.Key).To(Equal(r.Key.String()))
+				var res2 ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(parent1.OntologyID()).
+					TraverseTo(ontology.Children).
+					Entry(&res2).
+					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+			})
+			It("Should create multiple ranges with the same parent", func() {
+				parent := ranger.Range{
+					Name:      "Parent",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.Create(ctx, &parent)).To(Succeed())
+				r1 := ranger.Range{
+					Name:      "Range1",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				r2 := ranger.Range{
+					Name:      "Range2",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.CreateManyWithParent(ctx, &[]ranger.Range{r1, r2}, parent.OntologyID())).To(Succeed())
+				var res []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(parent.OntologyID()).
+					TraverseTo(ontology.Children).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(2))
+			})
+		})
 	})
+
 	Describe("Retrieve", func() {
 		It("Should retrieve a range by its key", func() {
 			r := &ranger.Range{
@@ -120,6 +230,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 	})
+
 	Describe("Delete", func() {
 		It("Should delete a range by its key", func() {
 			r := &ranger.Range{
@@ -134,59 +245,29 @@ var _ = Describe("Ranger", Ordered, func() {
 			var retrieveR ranger.Range
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
 		})
-	})
-	Describe("SetActiveRange", func() {
-		It("Should set the active range", func() {
-			r := &ranger.Range{
-				Name: "Range",
+		It("Should delete all sub-ranges when a range is deleted", func() {
+			parent := ranger.Range{
+				Name: "Parent",
 				TimeRange: telem.TimeRange{
 					Start: telem.TimeStamp(5 * telem.Second),
 					End:   telem.TimeStamp(10 * telem.Second),
 				},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(svc.SetActiveRange(ctx, r.Key, tx)).To(Succeed())
-		})
-		It("Should not allow the active range to be set to a range that does not exist", func() {
-			Expect(svc.SetActiveRange(ctx, uuid.New(), nil)).ToNot(Succeed())
-		})
-	})
-	Describe("RetrieveActiveRange", func() {
-		It("Should return the active range", func() {
-			r := &ranger.Range{
+			Expect(svc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+			r := ranger.Range{
 				Name: "Range",
 				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
+					Start: telem.TimeStamp(7 * telem.Second),
+					End:   telem.TimeStamp(9 * telem.Second),
 				},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(svc.SetActiveRange(ctx, r.Key, tx)).To(Succeed())
-			activeRange, err := svc.RetrieveActiveRange(ctx, tx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(activeRange.Key).To(Equal(r.Key))
-		})
-		It("Should return an error if there is no active range", func() {
-			_, err := svc.RetrieveActiveRange(ctx, tx)
-			Expect(err).To(HaveOccurred())
+			Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, parent.Key)).To(Succeed())
+			var retrieveR ranger.Range
+			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
-	Describe("ClearActiveRange", func() {
-		It("Should clear the active range", func() {
-			r := &ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(svc.SetActiveRange(ctx, r.Key, tx)).To(Succeed())
-			svc.ClearActiveRange(ctx)
-			_, err := svc.RetrieveActiveRange(ctx, tx)
-			Expect(err).To(HaveOccurred())
-		})
-	})
+
 	Describe("KV", func() {
 		It("Should be able to store key-value pairs in a range", func() {
 			r := &ranger.Range{
@@ -227,6 +308,26 @@ var _ = Describe("Ranger", Ordered, func() {
 			_, err := r.Get(ctx, "key")
 			Expect(err).To(HaveOccurred())
 		})
+		It("Should set many key-value pairs on the range", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(r.SetMany(ctx, []ranger.KVPair{
+				{Range: r.Key, Key: "key1", Value: "value1"},
+				{Range: r.Key, Key: "key2", Value: "value2"},
+			})).To(Succeed())
+			value, err := r.Get(ctx, "key1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal("value1"))
+			value, err = r.Get(ctx, "key2")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal("value2"))
+		})
 		It("Should be able to list all key-value pairs in a range", func() {
 			r := &ranger.Range{
 				Name: "Range",
@@ -240,16 +341,175 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(r.Set(ctx, "key2", "value2")).To(Succeed())
 			meta, err := r.ListMetaData()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(meta).To(Equal(map[string]string{
-				"key1": "value1",
-				"key2": "value2",
+			Expect(meta).To(Equal([]ranger.KVPair{
+				{Range: r.Key, Key: "key1", Value: "value1"},
+				{Range: r.Key, Key: "key2", Value: "value2"},
 			}))
 			Expect(r.Delete(ctx, "key1")).To(Succeed())
 			meta, err = r.ListMetaData()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(meta).To(Equal(map[string]string{
-				"key2": "value2",
+			Expect(meta).To(Equal([]ranger.KVPair{
+				{Range: r.Key, Key: "key2", Value: "value2"},
 			}))
+		})
+	})
+
+	Describe("Alias", func() {
+		It("Should set an alias for a channel on a range", func() {
+			r := ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+				Entry(&ch).
+				Exec(ctx, tx)).To(Succeed())
+			r = r.UseTx(tx)
+			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+			alias, err := r.GetAlias(ctx, ch.Key())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(alias).To(Equal("alias"))
+		})
+		It("Should delete an alias for a channel on a range", func() {
+			r := ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+				Entry(&ch).
+				Exec(ctx, tx)).To(Succeed())
+			r = r.UseTx(tx)
+			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+			Expect(r.DeleteAlias(ctx, ch.Key())).To(Succeed())
+			_, err := r.GetAlias(ctx, ch.Key())
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should resolve an alias for a channel on a range", func() {
+			r := ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+				Entry(&ch).
+				Exec(ctx, tx)).To(Succeed())
+			r = r.UseTx(tx)
+			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+			alias, err := r.ResolveAlias(ctx, "alias")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(alias).To(Equal(ch.Key()))
+		})
+		Specify("Aliases should be searchable by the ontology", func() {
+			time.Sleep(10 * time.Millisecond)
+			r := ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+				Entry(&ch).
+				Exec(ctx, tx)).To(Succeed())
+			r = r.UseTx(tx)
+			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(r.SearchAliases(ctx, "alias")).To(ContainElement(ch.Key()))
+			}).Should(Succeed())
+		})
+		It("Should list the aliases on a range", func() {
+			r := ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+				Entry(&ch).
+				Exec(ctx, tx)).To(Succeed())
+			r = r.UseTx(tx)
+			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+			aliases, err := r.ListAliases(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(aliases).To(HaveKeyWithValue(ch.Key(), "alias"))
+		})
+		Context("Ontology", func() {
+			It("Should find a created alias in the ontology", func() {
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				r = r.UseTx(tx)
+				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				var res ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(ranger.AliasOntologyID(r.Key, ch.Key())).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res.Data["alias"]).To(Equal("alias"))
+			})
+		})
+	})
+
+	Describe("Labels", func() {
+		It("Should set labels on a range", func() {
+			r := ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			l := label.Label{Name: "Label"}
+			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(r.SetLabels(ctx, l.Key)).To(Succeed())
+			labels := MustSucceed(labelSvc.RetrieveFor(ctx, r.OntologyID(), tx))
+			Expect(labels).To(HaveLen(1))
+			Expect(labels[0].Key).To(Equal(l.Key))
+		})
+		It("Should delete labels on a range", func() {
+			r := ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			l := label.Label{Name: "Label"}
+			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(r.SetLabels(ctx, l.Key)).To(Succeed())
+			Expect(r.DeleteLabels(ctx, l.Key)).To(Succeed())
+			labels := MustSucceed(labelSvc.RetrieveFor(ctx, r.OntologyID(), tx))
+			Expect(labels).To(BeEmpty())
 		})
 	})
 })

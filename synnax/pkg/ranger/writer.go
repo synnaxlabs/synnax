@@ -20,9 +20,10 @@ import (
 )
 
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	group group.Group
+	tx        gorp.Tx
+	otgWriter ontology.Writer
+	otg       *ontology.Ontology
+	group     group.Group
 }
 
 func (w Writer) Create(
@@ -52,25 +53,26 @@ func (w Writer) CreateWithParent(
 		return
 	}
 	otgID := OntologyID(r.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return
 	}
 	// Range already exists and parent provided  = delete incoming relationships and define new parent
 	// Range already exists and no parent provided = do nothing
 	// Range does not exist = define parent
 	if exists && hasParent {
-		if err = w.otg.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
 			return
 		}
-		if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
 			return
 		}
 	} else if !exists {
-		if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
 			return
 		}
 	}
 	r.tx = w.tx
+	r.otg = w.otg
 	return
 }
 
@@ -115,7 +117,7 @@ func (w Writer) Rename(
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	// Query the ontology to find all children of the range and delete them as well
 	var children []ontology.Resource
-	if err := w.otg.NewRetrieve().
+	if err := w.otgWriter.NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.Children).
 		Entries(&children).
@@ -136,7 +138,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	if err := gorp.NewDelete[uuid.UUID, Range]().WhereKeys(key).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteResource(ctx, OntologyID(key))
+	return w.otgWriter.DeleteResource(ctx, OntologyID(key))
 }
 
 func (w Writer) validate(r Range) error {

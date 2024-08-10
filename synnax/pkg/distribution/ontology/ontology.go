@@ -202,25 +202,9 @@ func (o *Ontology) RegisterService(s Service) {
 	}
 	o.search.Register(context.TODO(), *s.Schema())
 
-	o.search.Go.Go(func(ctx context.Context) error {
-		n, err := s.OpenNexter()
-		if err != nil {
-			return err
-		}
-		err = o.search.Index.WithTx(func(tx search.Tx) error {
-			for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
-				if err := tx.Index(r); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		return errors.CombineErrors(err, n.Close())
-	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
-
 	d1 := s.OnChange(o.ResourceObserver.Notify)
 
-	// Label up a change handler to index new resources.
+	// Set up a change handler to index new resources.
 	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
@@ -243,6 +227,23 @@ func (o *Ontology) RegisterService(s Service) {
 			)
 		}
 	})
+
+	o.search.Go.Go(func(ctx context.Context) error {
+		n, err := s.OpenNexter()
+		if err != nil {
+			return err
+		}
+		err = o.search.Index.WithTx(func(tx search.Tx) error {
+			for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
+				if err := tx.Index(r); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return errors.CombineErrors(err, n.Close())
+	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
+
 	o.disconnectObservers = append(o.disconnectObservers, d1, d2)
 }
 

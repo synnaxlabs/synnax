@@ -13,6 +13,7 @@ package label
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -30,3 +31,5 @@ func (l Label) GorpKey() uuid.UUID { return l.Key }
 
 // SetOptions implements gorp.Entry.
 func (l Label) SetOptions() []interface{} { return nil }
+
+func (l Label) OntologyID() ontology.ID { return OntologyID(l.Key) }

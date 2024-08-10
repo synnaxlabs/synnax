@@ -184,7 +184,12 @@ func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) 
 func (r Range) SetLabels(ctx context.Context, labels ...uuid.UUID) error {
 	w := r.otg.NewWriter(r.tx)
 	for _, l := range labels {
-		if err := w.DefineRelationship(ctx, OntologyID(r.Key), label.LabeledBy, label.OntologyID(l)); err != nil {
+		if err := w.DefineRelationship(
+			ctx,
+			OntologyID(r.Key),
+			label.LabeledBy,
+			label.OntologyID(l),
+		); err != nil {
 			return err
 		}
 	}
@@ -200,3 +205,5 @@ func (r Range) DeleteLabels(ctx context.Context, labels ...uuid.UUID) error {
 	}
 	return nil
 }
+
+func (r Range) OntologyID() ontology.ID { return OntologyID(r.Key) }

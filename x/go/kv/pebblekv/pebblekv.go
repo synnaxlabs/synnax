@@ -82,7 +82,8 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 	if err != nil {
 		return translateError(err)
 	}
-	d.Notify(ctx, txn.NewReader())
+	// We need to notify with a generator so that each subscriber gets a fresh reader.
+	d.NotifyGenerator(ctx, func() kv.TxReader { return txn.NewReader() })
 	return nil
 }
 
