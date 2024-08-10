@@ -27,6 +27,7 @@
     "dev:docs": "npx turbo dev --filter @synnaxlabs/docs",
     "dev:landing": "npx turbo dev --filter @synnaxlabs/landing",
     "test": "npx turbo test",
+    "test:console": "npx turbo test --filter @synnaxlabs/console",
     "test:pluto": "npx turbo test --filter @synnaxlabs/pluto",
     "test:drift": "npx turbo test --filter @synnaxlabs/drift",
     "test:freighter": "npx turbo test --filter @synnaxlabs/freighter",
@@ -54,11 +55,16 @@
     "fix:client": "npx turbo fix --filter @synnaxlabs/client",
     "fix:drift": "npx turbo fix --filter @synnaxlabs/drift",
     "fix:alamos": "npx turbo fix --filter @synnaxlabs/alamos",
+    "genApi": "npx turbo genApi",
+    "genApi:client": "npx turbo genApi --filter @synnaxlabs/client",
+    "checkApi": "npx turbo checkApi",
+    "checkApi:client": "npx turbo checkApi --filter @synnaxlabs/client",
     "devtools": "npx turbo devtools --filter console"
   },
   "devDependencies": {
+    "@microsoft/api-extractor": "^7.47.5",
     "prettier": "3.3.2",
-    "turbo": "^2.0.11"
+    "turbo": "^2.0.12"
   },
   "engines": {
     "node": ">=18"

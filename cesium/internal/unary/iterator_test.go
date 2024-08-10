@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -38,7 +38,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				BeforeEach(func() {
 					fs, cleanUp = makeFS()
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("index")),
+						FS:        MustSucceed(fs.Sub("index")),
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      index,
 							DataType: telem.TimeStampT,
@@ -48,7 +49,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("data")),
+						FS:        MustSucceed(fs.Sub("data")),
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      data,
 							DataType: telem.Int64T,
@@ -165,7 +167,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 
 				Describe("Requests Exhaustion", func() {
-					Specify("Single TimeRange", func() {
+					Specify("Single Time Range", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 						iter := db.OpenIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(10 * telem.Second)))
@@ -179,7 +181,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
 						Expect(iter.Close()).To(Succeed())
 					})
-					Specify("Multi TimeRange", func() {
+					Specify("Multi Time Range", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25))).To(Succeed())
@@ -363,7 +365,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 							Expect(iter.Close()).To(Succeed())
 						})
-						Specify("Multi Domain - Uneven Crossing", func() {
+						Specify("Multi domain - Uneven Crossing", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
@@ -407,7 +409,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
-						Specify("Multi Domain - Regression 1", func() {
+						Specify("Multi domain - Regression 1", func() {
 							var i telem.TimeStamp
 							for i = 1; i < 6; i++ {
 								Expect(unary.Write(ctx, indexDB, telem.SecondTS*i, telem.NewSecondsTSV(i))).To(Succeed())
@@ -433,7 +435,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(unary.Write(ctx, indexDB, 13*telem.SecondTS, telem.NewSecondsTSV(13, 15, 17))).To(Succeed())
 								Expect(unary.Write(ctx, db, 13*telem.SecondTS, telem.NewSeriesV[int64](13, 15, 17))).To(Succeed())
 							})
-							Specify("Multiple domain - Forward - View in discontinuity", func() {
+							Specify("Multiple Domain - Forward - View in discontinuity", func() {
 								// This test is to address an error where if an iterator
 								// first moves to a discontinuity in the index (no data),
 								// then moves to a view that overlaps more than one domain,
@@ -473,7 +475,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
 								Expect(iter.Close()).To(Succeed())
 							})
-							Specify("Multiple domain - Forward - uneven crossing", func() {
+							Specify("Multiple Domain - Forward - uneven crossing", func() {
 								// This test addresses the bug where if an iterator reads
 								// a domain but does not read all of it, the internal
 								// iterator still moves on to the next domain.
@@ -541,7 +543,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.Next(ctx, 1*telem.Second)).To(BeFalse())
 								Expect(i.Close()).To(Succeed())
 							})
-							Specify("Multiple domain - Backward - view in discontinuity", func() {
+							Specify("Multiple Domain - Backward - view in discontinuity", func() {
 								// This test is to address an error where if an iterator
 								// first moves to a discontinuity in the index (no data),
 								// then moves to a view that overlaps more than one domain,
@@ -575,7 +577,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.Prev(ctx, 1*telem.Nanosecond)).To(BeFalse())
 								Expect(i.Close()).To(Succeed())
 							})
-							Specify("Multiple domain - Backward - uneven crossing", func() {
+							Specify("Multiple Domain - Backward - uneven crossing", func() {
 								// This test addresses the bug where if an iterator reads
 								// a domain but does not read all of it, the internal
 								// iterator still moves on to the previous domain.
@@ -720,10 +722,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					})
 					It("Should auto-span through a domain split between two indices", func() {
 						var (
-							iKey     = testutil.GenerateChannelKey()
-							dbKey    = testutil.GenerateChannelKey()
+							iKey     = GenerateChannelKey()
+							dbKey    = GenerateChannelKey()
 							indexDB2 = MustSucceed(unary.Open(unary.Config{
-								FS: MustSucceed(fs.Sub("index")),
+								FS:        MustSucceed(fs.Sub("index")),
+								MetaCodec: codec,
 								Channel: core.Channel{
 									Key:      iKey,
 									DataType: telem.TimeStampT,
@@ -733,34 +736,35 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Instrumentation: PanicLogger(),
 								FileSize:        40 * telem.ByteSize,
 							}))
-							db2 = MustSucceed(unary.Open(unary.Config{
-								FS: MustSucceed(fs.Sub("data")),
+							dataDB2 = MustSucceed(unary.Open(unary.Config{
+								FS:        MustSucceed(fs.Sub("data")),
+								MetaCodec: codec,
 								Channel: core.Channel{
 									Key:      dbKey,
-									DataType: telem.Int32T,
+									DataType: telem.Int64T,
 									Index:    iKey,
 								},
 								Instrumentation: PanicLogger(),
 								FileSize:        40 * telem.ByteSize,
 							}))
 						)
-						db2.SetIndex(indexDB2.Index())
+						dataDB2.SetIndex(indexDB2.Index())
 						w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
 						MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15)))
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Write(telem.NewSecondsTSV(16, 17, 18, 19, 20)))
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
-						Expect(unary.Write(ctx, db2, 10*telem.SecondTS, telem.NewSeriesV[int32](10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
-						i := db2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 8})
+						Expect(unary.Write(ctx, dataDB2, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+						i := dataDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 8})
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
-						Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int32{10, 11, 12, 13, 14, 15, 16, 17}))
+						Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{10, 11, 12, 13, 14, 15, 16, 17}))
 						Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
-						Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int32{18, 19, 20}))
+						Expect(i.Value().Series[0].Data).To(EqualUnmarshal([]int64{18, 19, 20}))
 						Expect(i.Close()).To(Succeed())
 
-						Expect(db2.Close()).To(Succeed())
+						Expect(dataDB2.Close()).To(Succeed())
 						Expect(indexDB2.Close()).To(Succeed())
 					})
 
@@ -770,9 +774,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							indexDB2 *unary.DB
 						)
 						BeforeEach(func() {
-							iKey = testutil.GenerateChannelKey()
+							iKey = GenerateChannelKey()
 							indexDB2 = MustSucceed(unary.Open(unary.Config{
-								FS: MustSucceed(fs.Sub("index3")),
+								FS:        MustSucceed(fs.Sub("index3")),
+								MetaCodec: codec,
 								Channel: core.Channel{
 									Key:      iKey,
 									DataType: telem.TimeStampT,
@@ -853,8 +858,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 				BeforeEach(func() {
 					fs, cleanUp = makeFS()
+					key = GenerateChannelKey()
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: fs,
+						FS:        fs,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      key,
 							Name:     "ludwig",

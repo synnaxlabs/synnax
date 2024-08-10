@@ -84,8 +84,8 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 	if series.DataType != c.DataType {
 		return errors.Wrapf(
 			validate.Error,
-			"invalid array data type for channel %s, expected %s, got %s",
-			c.Key,
+			"invalid data type for channel %v, expected %s, got %s",
+			c,
 			c.DataType,
 			series.DataType,
 		)

@@ -11,6 +11,7 @@
     "build-vite": "vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.ts*\"",
+    "test": "vitest",
     "fix": "eslint \"src/**/*.ts*\" --fix",
     "devtools": "pnpm react-devtools",
     "react-devtools": "npx react-devtools"

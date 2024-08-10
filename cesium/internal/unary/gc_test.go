@@ -25,19 +25,24 @@ var _ = Describe("Garbage Collection", func() {
 		Context("FS: "+fsName, func() {
 			var (
 				rateDB   *unary.DB
+				rateFS   xfs.FS
 				dataDB   *unary.DB
+				dataFS   xfs.FS
 				indexDB  *unary.DB
+				indexFS  xfs.FS
 				rateKey  core.ChannelKey = 1
 				dataKey  core.ChannelKey = 2
 				indexKey core.ChannelKey = 3
-				fs       xfs.FS
 				cleanUp  func() error
 			)
 			Describe("Garbage collection without threshold", func() {
 				BeforeEach(func() {
+					var fs xfs.FS
 					fs, cleanUp = makeFS()
+					rateFS = MustSucceed(fs.Sub("rate"))
 					rateDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("rate")),
+						FS:        rateFS,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      rateKey,
 							DataType: telem.Int64T,
@@ -47,8 +52,10 @@ var _ = Describe("Garbage Collection", func() {
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
+					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("index")),
+						FS:        indexFS,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
@@ -59,8 +66,10 @@ var _ = Describe("Garbage Collection", func() {
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
+					dataFS = MustSucceed(fs.Sub("data"))
 					dataDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("data")),
+						FS:        dataFS,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      dataKey,
 							DataType: telem.Int64T,
@@ -95,9 +104,9 @@ var _ = Describe("Garbage Collection", func() {
 						End:   75 * telem.SecondTS,
 					})).To(Succeed())
 
-					Expect(MustSucceed(rateDB.FS.Stat("1.domain")).Size()).To(Equal(int64(720)))
+					Expect(MustSucceed(rateFS.Stat("1.domain")).Size()).To(Equal(int64(720)))
 					Expect(rateDB.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(rateDB.FS.Stat("1.domain")).Size()).To(Equal(int64(384)))
+					Expect(MustSucceed(rateFS.Stat("1.domain")).Size()).To(Equal(int64(384)))
 
 					By("Writing some new data")
 					Expect(unary.Write(ctx, rateDB, 100*telem.SecondTS, telem.NewSeriesV[int64](100, 101)))
@@ -140,9 +149,9 @@ var _ = Describe("Garbage Collection", func() {
 						End:   75 * telem.SecondTS,
 					})).To(Succeed())
 
-					Expect(MustSucceed(dataDB.FS.Stat("1.domain")).Size()).To(Equal(int64(720)))
+					Expect(MustSucceed(dataFS.Stat("1.domain")).Size()).To(Equal(int64(720)))
 					Expect(dataDB.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(dataDB.FS.Stat("1.domain")).Size()).To(Equal(int64(384)))
+					Expect(MustSucceed(dataFS.Stat("1.domain")).Size()).To(Equal(int64(384)))
 
 					By("Reading data from the channel")
 					frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
@@ -160,9 +169,12 @@ var _ = Describe("Garbage Collection", func() {
 
 			Describe("GC with threshold and many files", func() {
 				BeforeEach(func() {
+					var fs xfs.FS
 					fs, cleanUp = makeFS()
+					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("index")),
+						FS:        indexFS,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
@@ -172,9 +184,10 @@ var _ = Describe("Garbage Collection", func() {
 						FileSize:        50 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
-
+					dataFS = MustSucceed(fs.Sub("data"))
 					dataDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("data")),
+						FS:        dataFS,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      dataKey,
 							DataType: telem.Int64T,
@@ -212,9 +225,9 @@ var _ = Describe("Garbage Collection", func() {
 
 					By("Expecting files 2 and 3 to garbage collect")
 					Expect(dataDB.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(dataDB.FS.Stat("1.domain")).Size()).To(Equal(int64(72)))
-					Expect(MustSucceed(dataDB.FS.Stat("2.domain")).Size()).To(Equal(int64(8)))
-					Expect(MustSucceed(dataDB.FS.Stat("3.domain")).Size()).To(Equal(int64(64)))
+					Expect(MustSucceed(dataFS.Stat("1.domain")).Size()).To(Equal(int64(72)))
+					Expect(MustSucceed(dataFS.Stat("2.domain")).Size()).To(Equal(int64(8)))
+					Expect(MustSucceed(dataFS.Stat("3.domain")).Size()).To(Equal(int64(64)))
 
 					By("Writing more data")
 					Expect(unary.Write(ctx, dataDB, 50*telem.SecondTS, telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56))).To(Succeed())
