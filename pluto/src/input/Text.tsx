@@ -65,6 +65,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       status,
       shade,
       weight,
+      color,
       onlyChangeOnBlur = false,
       ...props
     },
@@ -151,7 +152,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}
             placeholder={typeof placeholder === "string" ? placeholder : undefined}
-            style={{ fontWeight: weight }}
+            style={{ fontWeight: weight, color }}
             {...props}
           />
         </div>

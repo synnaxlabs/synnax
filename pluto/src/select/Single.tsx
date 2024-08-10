@@ -48,7 +48,8 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
     >,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled">,
-    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
+    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">>,
+    Pick<CoreList.SearchProps<K, E>, "filter"> {
   entryRenderKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
@@ -101,6 +102,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   inputPlaceholder = placeholder,
   triggerTooltip,
   dropdownZIndex,
+  filter,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close, toggle } = Dropdown.use();
@@ -141,7 +143,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 
   const searchInput = (
-    <InputWrapper<K, E> searcher={searcher}>
+    <InputWrapper<K, E> searcher={searcher} filter={filter}>
       {({ onChange: handleChange }) => (
         <SingleInput<K, E>
           size="large"

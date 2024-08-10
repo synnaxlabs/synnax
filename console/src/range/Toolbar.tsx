@@ -271,7 +271,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
         onChange={onRename}
         allowDoubleClick={false}
       />
-      <Ranger.TimeRangeChip timeRange={entry.timeRange} />
+      <Ranger.TimeRangeChip level="small" timeRange={entry.timeRange} />
       {labels.length > 0 && (
         <Align.Space
           direction="x"

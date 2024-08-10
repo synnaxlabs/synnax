@@ -51,7 +51,7 @@ export const listColumns: Array<List.ColumnSpec<string, Range>> = [
             {new TimeSpan(entry.span).toString()}
           </Text.WithIcon>
         );
-      return <Ranger.TimeRangeChip timeRange={entry.timeRange} />;
+      return <Ranger.TimeRangeChip level="small" timeRange={entry.timeRange} />;
     },
   },
 ];
@@ -59,7 +59,6 @@ export const listColumns: Array<List.ColumnSpec<string, Range>> = [
 const RenderTag = ({
   entry,
   onClose,
-  loading: _,
 }: Select.MultipleTagProps<string, Range>): ReactElement => (
   <Tag.Tag
     icon={entry?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}

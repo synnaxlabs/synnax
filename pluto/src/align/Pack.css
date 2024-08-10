@@ -22,7 +22,7 @@
     --all: var(--pluto-pack-br);
 
     &.pluto--rounded {
-        --pluto-pack-br: var(--pluto-back-br, 2px);
+        --pluto-pack-br: var(--pluto-back-br, var(--pluto-border-radius));
     }
 
     &.pluto--bordered {
@@ -118,6 +118,27 @@
         }
     }
 
+    > *:not(:first-child):not(:last-child):not(:has(+ .pluto--hidden)) {
+        border-radius: var(--pluto-pack--middle);
+    }
+
+    &:has(+ .pluto--hidden)
+        > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
+        border-radius: var(--pluto-pack--first);
+    }
+
+    > *:last-child:not(:only-child) {
+        border-radius: var(--pluto-pack--last);
+    }
+
+    > *:only-child {
+        border-radius: var(--pluto-pack--only);
+    }
+
+    > .pluto-pack {
+        border: none;
+    }
+
     &.pluto--y {
         --pluto-pack--first: var(--t);
         --pluto-pack--last: var(--b);
@@ -179,25 +200,5 @@
                 }
             }
         }
-    }
-
-    > *:not(:first-child):not(:last-child):not(:has(+ .pluto--hidden)) {
-        border-radius: var(--pluto-pack--middle);
-    }
-
-    > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
-        border-radius: var(--pluto-pack--first);
-    }
-
-    > *:last-child:not(:only-child) {
-        border-radius: var(--pluto-pack--last);
-    }
-
-    > *:only-child {
-        border-radius: var(--pluto-pack--only);
-    }
-
-    > .pluto-pack {
-        border: none;
     }
 }

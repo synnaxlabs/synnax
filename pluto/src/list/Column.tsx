@@ -128,35 +128,39 @@ const Header = <K extends Key, E extends Keyed<K>>({
 
   return (
     <ColumnContext.Provider value={ctxValue as ColumnContextValue}>
-      <Align.Space
-        direction="x"
-        size="medium"
-        className={CSS(CSS.BE("list-col-header", "container"), CSS.visible(!hide))}
-      >
-        {ctxValue.columns
-          .filter(({ visible = true }) => visible)
-          .map(({ key, cWidth: width, name }) => {
-            const [sortKey, dir] = sort;
-            let endIcon;
-            const entry = sourceData[0];
-            if (key === sortKey)
-              endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
-            return (
-              <Text.WithIcon
-                className={CSS.BE("list-col-header", "item")}
-                key={key.toString()}
-                justify="spaceBetween"
-                level="p"
-                endIcon={endIcon}
-                style={{ width }}
-                shrink={false}
-                onClick={() => entry != null && key in entry && onSort(key as keyof E)}
-              >
-                {name}
-              </Text.WithIcon>
-            );
-          })}
-      </Align.Space>
+      {!hide && (
+        <Align.Space
+          direction="x"
+          size="medium"
+          className={CSS(CSS.BE("list-col-header", "container"), CSS.visible(!hide))}
+        >
+          {ctxValue.columns
+            .filter(({ visible = true }) => visible)
+            .map(({ key, cWidth: width, name }) => {
+              const [sortKey, dir] = sort;
+              let endIcon;
+              const entry = sourceData[0];
+              if (key === sortKey)
+                endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
+              return (
+                <Text.WithIcon
+                  className={CSS.BE("list-col-header", "item")}
+                  key={key.toString()}
+                  justify="spaceBetween"
+                  level="p"
+                  endIcon={endIcon}
+                  style={{ width }}
+                  shrink={false}
+                  onClick={() =>
+                    entry != null && key in entry && onSort(key as keyof E)
+                  }
+                >
+                  {name}
+                </Text.WithIcon>
+              );
+            })}
+        </Align.Space>
+      )}
       {children}
     </ColumnContext.Provider>
   );

@@ -99,11 +99,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
         },
       });
     },
-    applyChanges: async ({ client, values, prev }) => {
+    applyChanges: async ({ client, path, values, prev }) => {
       if (client == null || deep.equal(values, prev)) return;
       const { name, timeRange } = values;
       await client.ranges.create({ key: rangeKey, name, timeRange });
       if (existingRangeInState == null) return;
+      if (path.includes("name")) dispatch(Layout.rename({ key: rangeKey, name }));
       const newRange: StaticRange = {
         key: rangeKey,
         persisted: true,

@@ -11,11 +11,12 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { change, compare, deep, kv } from "@synnaxlabs/x";
-import { FC, useMemo } from "react";
+import { FC, ReactElement, useMemo } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { Link } from "@/link";
 
 interface MetaDataProps {
   rangeKey: string;
@@ -25,12 +26,48 @@ const metaDataFormSchema = z.object({
   pairs: kv.stringPairZ.array(),
 });
 
+const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement => {
+  const isLink = Link.isLink(value);
+  const copyToClipboard = useCopyToClipboard();
+  return (
+    <Input.Text
+      value={value}
+      onChange={onChange}
+      style={{
+        width: "unset",
+        flexGrow: 2,
+      }}
+      variant="shadow"
+      selectOnFocus={true}
+      resetOnBlurIfEmpty={true}
+      onlyChangeOnBlur={true}
+      placeholder="Value"
+      color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l8)"}
+    >
+      <Button.Icon onClick={() => copyToClipboard(value, "value")}>
+        <Icon.Copy />
+      </Button.Icon>
+      {isLink && (
+        <Button.Link
+          variant="outlined"
+          href={value}
+          target="_blank"
+          style={{ padding: "1rem" }}
+        >
+          <Icon.LinkExternal />
+        </Button.Link>
+      )}
+    </Input.Text>
+  );
+};
+
+const valueInput = componentRenderProp(ValueInput);
+
 const MetaDataListItem: FC<List.ItemProps> = (props) => {
   const { index } = props;
   const ctx = Form.useContext();
   const arr = Form.fieldArrayUtils(ctx, "pairs");
   const key = ctx.get<string>(`pairs.${index}.key`, { optional: true })?.value;
-  const copyToClipboard = useCopyToClipboard();
   return (
     <List.ItemFrame
       style={{ padding: "0.5rem", border: "none" }}
@@ -72,36 +109,17 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
             showHelpText={false}
             hideIfNull
           >
-            {(p) => (
-              <Input.Text
-                {...p}
-                style={{ width: "unset", flexGrow: 2 }}
-                variant="shadow"
-                selectOnFocus={true}
-                resetOnBlurIfEmpty={true}
-                onlyChangeOnBlur={true}
-                placeholder="Value"
-              >
-                <Button.Icon
-                  onClick={() => {
-                    copyToClipboard(p.value, "value");
-                  }}
-                >
-                  <Icon.Copy />
-                </Button.Icon>
-              </Input.Text>
-            )}
+            {valueInput}
           </Form.Field>
           <Button.Icon
             className={CSS.BE("meta-data", "delete")}
             size="small"
             variant="text"
-            onClick={() => {}}
+            onClick={() => {
+              arr.remove(index);
+            }}
           >
-            <Icon.Delete
-              style={{ color: "var(--pluto-gray-l8)" }}
-              onClick={() => arr.remove(index)}
-            />
+            <Icon.Delete style={{ color: "var(--pluto-gray-l8)" }} />
           </Button.Icon>
         </>
       )}
@@ -110,6 +128,12 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
 };
 
 const metaDataItem = componentRenderProp(MetaDataListItem);
+
+const sortF: compare.CompareF<kv.Pair> = (a, b) => {
+  if (a.key === "") return 1;
+  if (b.key === "") return -1;
+  return compare.stringsWithNumbers(a.key, b.key);
+};
 
 export const MetaData = ({ rangeKey }: MetaDataProps) => {
   const formCtx = Form.useSynced<
@@ -129,15 +153,18 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
     openObservable: async (client) => await client.ranges.getKV(rangeKey).openTracker(),
     applyObservable: ({ changes, ctx }) => {
       const existingPairs = ctx.get<kv.Pair[]>("pairs").value;
-      const fu = Form.fieldArrayUtils(ctx, "pairs");
-      changes.map((c) => {
-        const pos = existingPairs.findIndex((p) => p.key === c.value?.key);
-        if (c.variant === "set") {
-          if (pos === -1) fu.push({ key: c.value.key, value: c.value.value });
-          if (existingPairs[pos].value == c.value.value) return;
-          ctx.set(`pairs.${pos}.value`, c.value.value);
-        } else if (c.variant === "delete" && pos !== -1) ctx.remove(`pairs.${pos}`);
-      });
+      const fu = Form.fieldArrayUtils<kv.Pair>(ctx, "pairs");
+      changes
+        .filter((c) => c.value?.range === rangeKey)
+        .map((c) => {
+          const pos = existingPairs.findIndex((p) => p.key === c.value?.key);
+          if (c.variant === "set") {
+            if (pos === -1)
+              return fu.push({ key: c.value.key, value: c.value.value }, sortF);
+            if (existingPairs[pos].value == c.value.value) return;
+            ctx.set(`pairs.${pos}.value`, c.value.value);
+          } else if (c.variant === "delete" && pos !== -1) ctx.remove(`pairs.${pos}`);
+        });
     },
     applyChanges: async ({ client, values, path, prev }) => {
       if (path === "") return;
@@ -160,15 +187,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
     },
   });
   const arr = Form.useFieldArray<kv.Pair>({ path: "pairs", ctx: formCtx });
-  const sorted = useMemo(
-    () =>
-      arr.value.sort((a, b) => {
-        if (a.key === "") return 1;
-        if (b.key === "") return -1;
-        return compare.stringsWithNumbers(a.key, b.key);
-      }),
-    [arr.value],
-  );
+  const sorted = useMemo(() => arr.value.sort(), [arr.value]);
   return (
     <Align.Space direction="y">
       <Text.Text level="h4" shade={8} weight={500}>

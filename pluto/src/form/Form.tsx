@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
-import { type Destructor, shallowCopy, toArray } from "@synnaxlabs/x";
+import { compare, type Destructor, shallowCopy, toArray } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
 import { zodutil } from "@synnaxlabs/x/zodutil";
 import {
@@ -226,11 +226,12 @@ export interface UseFieldArrayProps {
 }
 
 export interface FieldArrayUtils<V> {
-  push: (value: V | V[]) => void;
+  push: (value: V | V[], sort?: compare.CompareF<V>) => void;
   add: (value: V | V[], start: number) => void;
   remove: (index: number | number[]) => void;
   keepOnly: (indices: number | number[]) => void;
   set: (values: state.SetArg<V[]>) => void;
+  sort?: (compareFn: compare.CompareF<V>) => void;
 }
 
 export const fieldArrayUtils = <V extends unknown = unknown>(
@@ -242,9 +243,10 @@ export const fieldArrayUtils = <V extends unknown = unknown>(
     copy.splice(start, 0, ...toArray(value));
     ctx.set(path, copy, { validateChildren: false });
   },
-  push: (value) => {
+  push: (value, sort) => {
     const copy = shallowCopy(ctx.get<V[]>(path).value);
     copy.push(...toArray(value));
+    if (sort != null) copy.sort(sort);
     ctx.set(path, copy, { validateChildren: false });
   },
   remove: (index) => {
@@ -264,6 +266,11 @@ export const fieldArrayUtils = <V extends unknown = unknown>(
     );
   },
   set: (values) => ctx.set(path, state.executeSetter(values, ctx.get<V[]>(path).value)),
+  sort: (compareFn) => {
+    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    copy.sort(compareFn);
+    ctx.set(path, copy);
+  },
 });
 
 export interface UseFieldArrayReturn<V extends unknown> {

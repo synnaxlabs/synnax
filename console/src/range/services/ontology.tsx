@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
+import { ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   type Haul,
@@ -19,7 +19,7 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, id, toArray } from "@synnaxlabs/x";
+import { CrudeTimeRange, errors, id, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -153,23 +153,29 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   }).mutate;
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({ type: "Range" });
+  const confirm = useConfirmDelete({
+    type: "Range",
+    description: "Deleting this range will also delete all sub-ranges.",
+  });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes },
-      selection: { resources },
+      selection: { resources, nodes: selectedNodes },
       store,
       removeLayout,
     }) => {
       if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
+      const descendants = Tree.getDescendants(...selectedNodes).map(
+        (n) => new ontology.ID(n.key).key,
+      );
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
           keys: resources.map(({ id }) => id.toString()),
         }),
       ]);
-      const keys = resources.map(({ id }) => id.key);
+      const keys = descendants.concat(resources.map(({ id }) => id.key));
       store.dispatch(remove({ keys }));
       removeLayout(...keys);
       return prevNodes;
@@ -311,7 +317,10 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
       >
         {entry.name}{" "}
       </Text.WithIcon>
-      <Ranger.TimeRangeChip level="small" timeRange={entry.data?.timeRange} />
+      <Ranger.TimeRangeChip
+        level="small"
+        timeRange={entry.data?.timeRange as CrudeTimeRange}
+      />
     </List.ItemFrame>
   );
 };

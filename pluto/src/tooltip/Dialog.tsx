@@ -35,6 +35,7 @@ import { CSS } from "@/css";
 import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
 import { isRenderProp, type RenderProp } from "@/util/renderProp";
+import { useCombinedStateAndRef } from "@/hooks";
 
 export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   delay?: CrudeTimeSpan;
@@ -156,7 +157,7 @@ export const Dialog = ({
 }: DialogProps): ReactElement => {
   const { startAccelerating, delay: configDelay } = useConfig();
   const parsedDelay = new TimeSpan(delay ?? configDelay);
-  const [state, setState] = useState<State | null>(null);
+  const [state, setState, stateRef] = useCombinedStateAndRef<State | null>(null);
   const [loadCLS, setLoadCLS] = useState<string>("");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const id = useId();
@@ -164,13 +165,20 @@ export const Dialog = ({
   const updateCLSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setStateAndLoadCLS = useCallback((s: State | null): void => {
-    if (updateCLSTimeoutRef.current != null) clearTimeout(updateCLSTimeoutRef.current);
+    if ((s == null && stateRef.current == null) || updateCLSTimeoutRef.current != null)
+      return;
     if (s != null) {
       setState(s);
-      updateCLSTimeoutRef.current = setTimeout(() => setLoadCLS(CSS.M("loaded")), 1);
+      updateCLSTimeoutRef.current = setTimeout(() => {
+        setLoadCLS(CSS.M("loaded"));
+        updateCLSTimeoutRef.current = null;
+      }, 1);
     } else {
       setLoadCLS("");
-      updateCLSTimeoutRef.current = setTimeout(() => setState(null), 500);
+      updateCLSTimeoutRef.current = setTimeout(() => {
+        setState(null);
+        updateCLSTimeoutRef.current = null;
+      }, 500);
     }
   }, []);
 

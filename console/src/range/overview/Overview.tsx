@@ -38,6 +38,7 @@ export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => {
       direction="y"
       style={{ padding: "5rem", maxWidth: "1200px", margin: "0 auto" }}
       className={CSS.BE("range", "overview")}
+      size="large"
     >
       <Details rangeKey={layoutKey} />
       <Labels rangeKey={layoutKey} />

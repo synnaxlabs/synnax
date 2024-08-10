@@ -1074,6 +1074,10 @@ export class DataType extends String implements Stringer {
     return this.valueOf() === other.valueOf();
   }
 
+  matches(...others: CrudeDataType[]): boolean {
+    return others.some((o) => this.equals(o));
+  }
+
   /** @returns a string representation of the DataType. */
   toString(): string {
     return this.valueOf();

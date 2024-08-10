@@ -9,7 +9,13 @@
 
 import "@/range/EditLayout.css";
 
-import { ontology, TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
+import {
+  ontology,
+  ranger,
+  TimeRange,
+  TimeStamp,
+  UnexpectedError,
+} from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Align,
@@ -27,7 +33,7 @@ import {
 import { Input } from "@synnaxlabs/pluto/input";
 import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactElement, useRef } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -92,10 +98,9 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   const range = useSelect(args.key);
   const client = Synnax.use();
   const isCreate = args.key == null;
-  console.log("KEY", args.key);
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
   const initialValues = useQuery<DefineRangeFormProps>({
-    queryKey: ["range-edit", args.key],
+    queryKey: ["range-edit", args],
     queryFn: async () => {
       if (isCreate)
         return {
@@ -165,7 +170,7 @@ const EditLayoutForm = ({
       const { timeRange: tr, parent } = methods.value();
       const timeRange = new TimeRange(tr);
       const name = values.name.trim();
-      const key = isCreate ? uuidv4() : initialValues.key;
+      const key = isCreate ? uuidv4() : (initialValues.key as string);
       const persisted = persist || isRemoteEdit;
       const parentID = primitiveIsZero(parent)
         ? undefined
@@ -186,6 +191,14 @@ const EditLayoutForm = ({
     },
     onError: (e) => addStatus({ message: e.message, variant: "error" }),
   });
+
+  const showSaveToSynnax = isCreate || !isRemoteEdit;
+
+  // Makes sure the user doesn't have the option to select the range itself as a parent
+  const recursiveParentFilter = useCallback(
+    (data: ranger.Range[]) => data.filter((r) => r.key !== initialValues.key),
+    [initialValues.key],
+  );
 
   return (
     <Align.Space className={CSS.B("range-edit-layout")} grow empty>
@@ -227,7 +240,8 @@ const EditLayoutForm = ({
                   dropdownVariant="modal"
                   style={{ width: "fit-content" }}
                   zIndex={100}
-                  entryRenderKey={(e) => (
+                  filter={recursiveParentFilter}
+                  entryRenderKey={(e: ranger.Range) => (
                     <Text.WithIcon
                       level="p"
                       shade={9}
@@ -249,9 +263,7 @@ const EditLayoutForm = ({
                       Parent Range
                     </Text.WithIcon>
                   }
-                  onChange={(v) => {
-                    onChange(v ?? "");
-                  }}
+                  onChange={(v: string) => onChange(v ?? "")}
                   {...p}
                 />
               )}
@@ -280,13 +292,14 @@ const EditLayoutForm = ({
         </Nav.Bar.Start>
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.Button
-            variant="outlined"
+            variant={showSaveToSynnax ? "outlined" : "filled"}
             onClick={() => mutate(false)}
             disabled={isPending}
+            triggers={showSaveToSynnax ? undefined : [SAVE_TRIGGER]}
           >
             Save {!isRemoteEdit && "Locally"}
           </Button.Button>
-          {(isCreate || !isRemoteEdit) && (
+          {showSaveToSynnax && (
             <Button.Button
               onClick={() => mutate(true)}
               disabled={client == null || isPending}

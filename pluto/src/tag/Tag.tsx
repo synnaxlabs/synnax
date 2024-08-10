@@ -17,8 +17,10 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
+import { Optional } from "@synnaxlabs/x";
 
-export interface TagProps extends Omit<Text.TextProps, "level" | "size" | "wrap"> {
+export interface TagProps
+  extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
   icon?: ReactElement;
   onClose?: () => void;
   color?: Color.Crude;

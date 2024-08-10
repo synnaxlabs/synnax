@@ -12,6 +12,7 @@ package ranger
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/gorp"
@@ -112,6 +113,26 @@ func (w Writer) Rename(
 }
 
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
+	// Query the ontology to find all children of the range and delete them as well
+	var children []ontology.Resource
+	if err := w.otg.NewRetrieve().
+		WhereIDs(OntologyID(key)).
+		TraverseTo(ontology.Children).
+		Entries(&children).
+		ExcludeFieldData(true).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	keys := lo.Map(children, func(r ontology.Resource, _ int) string { return r.ID.Key })
+	for _, k := range keys {
+		uK, err := uuid.Parse(k)
+		if err != nil {
+			return err
+		}
+		if err = w.Delete(ctx, uK); err != nil {
+			return err
+		}
+	}
 	if err := gorp.NewDelete[uuid.UUID, Range]().WhereKeys(key).Exec(ctx, w.tx); err != nil {
 		return err
 	}

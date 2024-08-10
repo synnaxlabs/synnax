@@ -118,7 +118,6 @@ export const Edit: Layout.Renderer = (): ReactElement => {
 
   const arr = Form.useFieldArray<label.Label>({ path: "labels", ctx: methods });
   const theme = Theming.use();
-  console.log(arr);
 
   return (
     <Align.Space direction="y" style={{ padding: "2rem" }} grow>

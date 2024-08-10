@@ -326,7 +326,9 @@ export class RelationshipTracker
   };
 
   private handleRelationshipChange = (changes: RelationshipChange[]): void => {
-    const deletes = changes.filter((c) => c.variant === "delete");
+    const deletes = changes.filter(
+      (c) => c.variant === "delete" && c.key.from.toString() === this.from.toString(),
+    );
     this.children = this.children.filter(
       (child) =>
         !deletes.some(

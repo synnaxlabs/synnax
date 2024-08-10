@@ -91,7 +91,7 @@
 /* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
-    --pluto-bg: var(--pluto-gray-l1);
+    --pluto-bg: var(--pluto-gray-l0);
     background: var(--pluto-bg);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 

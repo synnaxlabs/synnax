@@ -16,12 +16,11 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
   const client = Synnax.use();
   const formCtx = Form.useSynced<typeof labelFormSchema, label.Label[]>({
     name: "Labels",
-    key: ["range", "labels"],
+    key: ["range", "labels", rangeKey],
     schema: labelFormSchema,
     values: { labels: [] },
     queryFn: async ({ client }) => {
       const labels = await client.labels.retrieveFor(otgID);
-      console.log(labels);
       return { labels: labels.map((l) => l.key) };
     },
     openObservable: async (client) => await client.labels.trackLabelsOf(otgID),
