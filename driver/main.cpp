@@ -45,8 +45,6 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
 std::atomic<bool> stopped = false;
 
 int main(int argc, char *argv[]) {
-    //sleep for 5 seconds
-    std::this_thread::sleep_for(std::chrono::seconds(5));
     std::string config_path = "./synnax-driver-config.json";
     // Use the first argument as the config path if provided
     if (argc > 1) config_path = argv[1];
