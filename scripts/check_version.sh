@@ -12,11 +12,23 @@ get_version() {
     fi
 }
 
-# Function to check the version in a Python pyproject.toml file
-check_python_version() {
+# Combined function to check the version in either a TypeScript package.json or Python pyproject.toml file
+check_version() {
     local path=$1
     local version=$2
-    if [[ -f "$path/pyproject.toml" ]]; then
+
+    if [[ -f "$path/package.json" ]]; then
+        # Check TypeScript package.json
+        ts_version=$(grep '"version": ' "$path/package.json" | cut -d '"' -f4)
+        if [[ "$ts_version" == "$version" ]]; then
+            echo "Version match in $path/package.json"
+            return 0
+        else
+            echo "Version mismatch in $path/package.json: found $ts_version, expected $version"
+            return 1
+        fi
+    elif [[ -f "$path/pyproject.toml" ]]; then
+        # Check Python pyproject.toml
         py_version=$(grep '^version = ' "$path/pyproject.toml" | cut -d '"' -f2)
         if [[ "$py_version" == "$version" ]]; then
             echo "Version match in $path/pyproject.toml"
@@ -26,26 +38,7 @@ check_python_version() {
             return 1
         fi
     else
-        echo "pyproject.toml not found in $path!"
-        return 1
-    fi
-}
-
-# Function to check the version in a TypeScript package.json file
-check_typescript_version() {
-    local path=$1
-    local version=$2
-    if [[ -f "$path/package.json" ]]; then
-        ts_version=$(grep '"version": ' "$path/package.json" | cut -d '"' -f4)
-        if [[ "$ts_version" == "$version" ]]; then
-            echo "Version match in $path/package.json"
-            return 0
-        else
-            echo "Version mismatch in $path/package.json: found $ts_version, expected $version"
-            return 1
-        fi
-    else
-        echo "package.json not found in $path!"
+        echo "No package.json or pyproject.toml found in $path!"
         return 1
     fi
 }
@@ -53,31 +46,25 @@ check_typescript_version() {
 # Main script execution
 get_version
 
-# Arrays for paths and results
-typescript_paths=("../x/ts" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts")
-python_paths=("../freighter/py" "../alamos/py" "../client/py")
+# Array of paths
+paths=("../x/ts" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py")
 
-# Check TypeScript versions
-typescript_results=()
-for path in "${typescript_paths[@]}"; do
-    check_typescript_version "$path" "$VERSION"
-    typescript_results+=($?)
-done
+# Initialize a flag to track version check status
+version_check_passed=true
 
-# Check Python versions
-python_results=()
-for path in "${python_paths[@]}"; do
-    check_python_version "$path" "$VERSION"
-    python_results+=($?)
-done
-
-# Exit with status code 1 if any version check fails
-for result in "${typescript_results[@]}" "${python_results[@]}"; do
-    if [[ $result -ne 0 ]]; then
-        echo "Version check failed."
-        exit 1
+# Check versions in all specified paths
+for path in "${paths[@]}"; do
+    check_version "$path" "$VERSION"
+    if [[ $? -ne 0 ]]; then
+        version_check_passed=false
     fi
 done
 
-echo "All versions match."
-exit 0
+# Print result based on the checks
+if [[ "$version_check_passed" == true ]]; then
+    echo "All versions match."
+    exit 0
+else
+    echo "Version check failed."
+    exit 1
+fi
