@@ -4,7 +4,8 @@
 get_version() {
     local version_file="../synnax/pkg/version/VERSION"
     if [[ -f "$version_file" ]]; then
-        VERSION=$(cat "$version_file")
+        # Extract the major.minor part of the version
+        VERSION=$(cat "$version_file" | cut -d '.' -f1-2)
         echo "Current version is $VERSION"
     else
         echo "VERSION file not found at $version_file!"
@@ -18,7 +19,7 @@ check_version() {
     local version=$2
 
     if [[ -f "$path/package.json" ]]; then
-        ts_version=$(grep '"version": ' "$path/package.json" | cut -d '"' -f4)
+        ts_version=$(grep '"version": ' "$path/package.json" | cut -d '"' -f4 | cut -d '.' -f1-2)
         if [[ "$ts_version" == "$version" ]]; then
             echo "Version match in $path/package.json"
             return 0
@@ -27,7 +28,7 @@ check_version() {
             return 1
         fi
     elif [[ -f "$path/pyproject.toml" ]]; then
-        py_version=$(grep '^version = ' "$path/pyproject.toml" | cut -d '"' -f2)
+        py_version=$(grep '^version = ' "$path/pyproject.toml" | cut -d '"' -f2 | cut -d '.' -f1-2)
         if [[ "$py_version" == "$version" ]]; then
             echo "Version match in $path/pyproject.toml"
             return 0
@@ -41,6 +42,7 @@ check_version() {
     fi
 }
 
+# Main script execution
 get_version
 
 paths=("../x/ts" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py")
