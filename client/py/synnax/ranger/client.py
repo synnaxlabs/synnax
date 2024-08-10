@@ -19,7 +19,6 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.framer.frame import CrudeFrame
-from synnax.ranger.active import Active
 from synnax.ranger.alias import Aliaser
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import (
@@ -417,7 +416,6 @@ class RangeClient:
     __retriever: RangeRetriever
     __writer: RangeWriter
     __unary_client: UnaryClient
-    __active: Active
     __signals: Registry
 
     def __init__(
@@ -434,7 +432,6 @@ class RangeClient:
         self.__writer = writer
         self.__retriever = retriever
         self.__channel_retriever = channel_retriever
-        self.__active = Active(self.__unary_client)
         self.__signals = signals
 
     @overload
@@ -587,16 +584,6 @@ class RangeClient:
     ) -> None:
         _ranges = self.__retriever.retrieve(params)
         self.__writer.delete([r.key for r in _ranges])
-
-    def set_active(self, key: RangeKey):
-        self.__active.set(key)
-
-    def clear_active(self):
-        self.__active.clear()
-
-    def retrieve_active(self) -> Range | None:
-        rng = self.__active.retrieve()
-        return None if rng is None else self.__sugar([rng])[0]
 
     def search(
         self,

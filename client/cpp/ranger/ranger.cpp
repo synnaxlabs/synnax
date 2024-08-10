@@ -76,10 +76,6 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByName(
     return {rng, err};
 }
 
-std::pair<Range, freighter::Error> RangeClient::activeRange() {
-    return {Range(), freighter::NIL};
-}
-
 std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(
     api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -136,32 +132,6 @@ std::pair<Range, freighter::Error> RangeClient::create(
     auto rng = Range(name, time_range);
     auto err = create(rng);
     return {rng, err};
-}
-
-const std::string SET_ACTIVE_ENDPOINT = "/range/set-active";
-const std::string RETRIEVE_ACTIVE_ENDPOINT = "/range/retrieve-active";
-const std::string CLEAR_ACTIVE_ENDPOINT = "/range/clear-active";
-
-freighter::Error RangeClient::setActive(const std::string &key) const {
-    auto req = api::v1::RangeSetActiveRequest();
-    req.set_range(key);
-    auto res = set_active_client->send(SET_ACTIVE_ENDPOINT, req);
-    return res.second;
-}
-
-std::pair<Range, freighter::Error> RangeClient::retrieveActive() const {
-    auto req = google::protobuf::Empty();
-    auto [res, err] = retrieve_active_client->send(RETRIEVE_ACTIVE_ENDPOINT, req);
-    if (err) return {Range(), err};
-    auto rng = Range(res.range());
-    rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
-    return {rng, err};
-}
-
-freighter::Error RangeClient::clearActive() const {
-    auto req = google::protobuf::Empty();
-    auto res = clear_active_client->send(CLEAR_ACTIVE_ENDPOINT, req);
-    return res.second;
 }
 
 const std::string KV_SET_ENDPOINT = "/range/kv/set";

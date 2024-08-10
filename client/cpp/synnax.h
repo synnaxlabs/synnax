@@ -105,9 +105,6 @@ public:
             t.range_kv_get,
             t.range_kv_set,
             t.range_kv_delete,
-            std::move(t.range_set_active),
-            std::move(t.range_retrieve_active),
-            std::move(t.range_clear_active)
         );
         telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
         hardware = HardwareClient(

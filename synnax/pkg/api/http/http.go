@@ -70,9 +70,6 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.RangeAliasResolve = fhttp.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse](router, false, "/api/v1/range/alias/resolve")
 	t.RangeAliasList = fhttp.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse](router, false, "/api/v1/range/alias/list")
 	t.RangeAliasDelete = fhttp.UnaryServer[api.RangeAliasDeleteRequest, types.Nil](router, false, "/api/v1/range/alias/delete")
-	t.RangeSetActive = fhttp.UnaryServer[api.RangeSetActiveRequest, types.Nil](router, false, "/api/v1/range/set-active")
-	t.RangeRetrieveActive = fhttp.UnaryServer[types.Nil, api.RangeRetrieveActiveResponse](router, false, "/api/v1/range/retrieve-active")
-	t.RangeClearActive = fhttp.UnaryServer[types.Nil, types.Nil](router, false, "/api/v1/range/clear-active")
 
 	// WORKSPACE
 	t.WorkspaceCreate = fhttp.UnaryServer[api.WorkspaceCreateRequest, api.WorkspaceCreateResponse](router, false, "/api/v1/workspace/create")

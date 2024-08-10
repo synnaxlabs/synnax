@@ -47,26 +47,6 @@ service RangeAliasListService{
     rpc Exec(RangeAliasListRequest) returns (RangeAliasListResponse) {}
 }
 
-service RangeSetActiveService {
-    rpc Exec(RangeSetActiveRequest) returns (google.protobuf.Empty) {}
-}
-
-service RangeRetrieveActiveService {
-    rpc Exec(google.protobuf.Empty) returns (RangeRetrieveActiveResponse) {}
-}
-
-service RangeClearActiveService {
-    rpc Exec(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-}
-
-message RangeSetActiveRequest {
-    string range = 1;
-}
-
-message RangeRetrieveActiveResponse {
-    Range range = 1;
-}
-
 message RangeAliasSetRequest {
     string range = 1;
     map<uint32, string> aliases = 2;
