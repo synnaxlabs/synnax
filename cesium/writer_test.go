@@ -1174,7 +1174,7 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w.Close()).To(Succeed())
 					})
 				})
-				Describe("Add authority", func() {
+				Describe("Set Authority", func() {
 					It("Should set the authority of writers", func() {
 						var (
 							key  = GenerateChannelKey()
