@@ -18,7 +18,6 @@ check_version() {
     local version=$2
 
     if [[ -f "$path/package.json" ]]; then
-        # Check TypeScript package.json
         ts_version=$(grep '"version": ' "$path/package.json" | cut -d '"' -f4)
         if [[ "$ts_version" == "$version" ]]; then
             echo "Version match in $path/package.json"
@@ -28,7 +27,6 @@ check_version() {
             return 1
         fi
     elif [[ -f "$path/pyproject.toml" ]]; then
-        # Check Python pyproject.toml
         py_version=$(grep '^version = ' "$path/pyproject.toml" | cut -d '"' -f2)
         if [[ "$py_version" == "$version" ]]; then
             echo "Version match in $path/pyproject.toml"
@@ -43,13 +41,10 @@ check_version() {
     fi
 }
 
-# Main script execution
 get_version
 
-# Array of paths
 paths=("../x/ts" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py")
 
-# Initialize a flag to track version check status
 version_check_passed=true
 
 # Check versions in all specified paths
@@ -60,7 +55,6 @@ for path in "${paths[@]}"; do
     fi
 done
 
-# Print result based on the checks
 if [[ "$version_check_passed" == true ]]; then
     echo "All versions match."
     exit 0

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Check if a version argument is provided
 if [[ -z "$1" ]]; then
     echo "Usage: $0 <version>"
     exit 1
@@ -21,11 +20,9 @@ update_version() {
     local version=$2
 
     if [[ -f "$path/package.json" ]]; then
-        # Update TypeScript package.json
         sed -i '' "s/\"version\": \".*\"/\"version\": \"$version\"/" "$path/package.json"
         echo "Updated version in $path/package.json"
     elif [[ -f "$path/pyproject.toml" ]]; then
-        # Update Python pyproject.toml
         sed -i '' "s/^version = \".*\"/version = \"$version\"/" "$path/pyproject.toml"
         echo "Updated version in $path/pyproject.toml"
     else
@@ -33,31 +30,24 @@ update_version() {
     fi
 }
 
-# Main script execution
 update_version_file
 
-# Array of paths
 paths=("../x/ts" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py")
 
-# Update versions in all specified paths
 for path in "${paths[@]}"; do
     update_version "$path" "$VERSION"
 done
 
 echo "Version update complete."
 
-# Call the check_version.sh script to verify the updates
 ./check_version.sh
 
-# Capture the exit status of check_version.sh
 CHECK_VERSION_STATUS=$?
 
-# Print a message based on the status
 if [[ $CHECK_VERSION_STATUS -eq 0 ]]; then
     echo "All version checks passed successfully."
 else
     echo "Some version checks failed. Please review the output above."
 fi
 
-# Exit with the status of check_version.sh
 exit $CHECK_VERSION_STATUS
