@@ -19,7 +19,7 @@ import (
 // Delete adds all pointers ranging from
 // [db.get(startPosition).offset + startOffset, db.get(endPosition).offset + length - endOffset)
 // into tombstone.
-// Note that the deletion timerange includes the sample at startOffset, and ends at
+// Note that the deletion time range includes the sample at startOffset, and ends at
 // the sample immediately before endOffset. Therefore, endOffset=0 denotes the sample past
 // the pointer at endPosition.
 //
@@ -41,12 +41,14 @@ func (db *DB) Delete(
 	tr telem.TimeRange,
 	den telem.Density,
 ) (err error) {
-	ctx, span := db.T.Bench(ctx, "Delete")
+	ctx, span := db.cfg.T.Bench(ctx, "Delete")
 	defer span.End()
 
 	if db.closed.Load() {
 		return errDBClosed
 	}
+	db.entityCount.Add(1)
+	defer db.entityCount.Add(-1)
 
 	// Ensure that there cannot be deletion operations on the index between index lookup
 	// as that would invalidate the offsets.
@@ -123,7 +125,7 @@ func (db *DB) Delete(
 	if db.idx.mu.pointers[startPosition] != start {
 		startPosition, exact = db.idx.unprotectedSearch(start.TimeRange)
 		// Edge cases such as startPosition is after the end must have been already
-		// handled before: a timerange that existed in the domain before must not cease
+		// handled before: a time range that existed in the domain before must not cease
 		// to exist.
 		if !exact {
 			startPosition += 1
@@ -174,12 +176,14 @@ func (db *DB) Delete(
 // GarbageCollect rewrites all files that are over the size limit of a file and has
 // enough tombstones to garbage collect, as defined by GCThreshold.
 func (db *DB) GarbageCollect(ctx context.Context) error {
-	ctx, span := db.T.Bench(ctx, "garbage_collect")
+	ctx, span := db.cfg.T.Bench(ctx, "garbage_collect")
 	defer span.End()
 
 	if db.closed.Load() {
 		return errDBClosed
 	}
+	db.entityCount.Add(1)
+	defer db.entityCount.Add(-1)
 
 	_, err := db.fc.gcWriters()
 	if err != nil {
@@ -217,11 +221,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		if db.fc.hasWriter(fileKey) {
 			continue
 		}
-		s, err := db.FS.Stat(fileKeyToName(fileKey))
+		s, err := db.cfg.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
 			return span.Error(err)
 		}
-		if s.Size() < int64(db.FileSize) {
+		if s.Size() < int64(db.cfg.FileSize) {
 			continue
 		}
 
@@ -282,18 +286,18 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	db.idx.mu.RUnlock()
 
 	// Decide whether we should GC
-	if tombstoneSize < int64(db.GCThreshold*float32(db.FileSize)) {
+	if tombstoneSize < int64(db.cfg.GCThreshold*float32(db.cfg.FileSize)) {
 		return nil
 	}
 
 	// Open a reader on the old file.
-	r, err := db.FS.Open(name, os.O_RDONLY)
+	r, err := db.cfg.FS.Open(name, os.O_RDONLY)
 	if err != nil {
 		return err
 	}
 
 	// Open a writer to the copy file.
-	w, err := db.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
+	w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
 	if err != nil {
 		return err
 	}
@@ -332,12 +336,12 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	// not be garbage collected in this run of GC.)
 	// However, two things cannot change:
 	// 1. The resulting pointers from a pointer deletion, no matter into how many,
-	// cannot end up in a larger timerange than the original pointer.
+	// cannot end up in a larger time range than the original pointer.
 	// 2. The delta in offset, i.e. oldOffset - newOffset are the same for all smaller,
 	// resulting pointers from the original split.
 	//
 	// Using these two principles, we can find the new offset for any pointer with a
-	// timerange contained in the original pointer by subtracting it by the same delta.
+	// time range contained in the original pointer by subtracting it by the same delta.
 	db.idx.mu.Lock()
 	for i, ptr := range db.idx.mu.pointers {
 		if ptr.fileKey == key {
@@ -347,11 +351,11 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		}
 	}
 
-	if err = db.FS.Rename(name, name+"_temp"); err != nil {
+	if err = db.cfg.FS.Rename(name, name+"_temp"); err != nil {
 		db.idx.mu.Unlock()
 		return err
 	}
-	if err = db.FS.Rename(copyName, name); err != nil {
+	if err = db.cfg.FS.Rename(copyName, name); err != nil {
 		db.idx.mu.Unlock()
 		return err
 	}
@@ -361,7 +365,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		return err
 	}
 
-	return db.FS.Remove(name + "_temp")
+	return db.cfg.FS.Remove(name + "_temp")
 }
 
 func resolvePointerOffset(ptrRange telem.TimeRange, offsetDeltaMap map[telem.TimeRange]uint32) (uint32, bool) {

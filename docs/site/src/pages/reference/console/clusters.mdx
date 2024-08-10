@@ -7,7 +7,7 @@ import { Divider } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
 import { Video } from "@/components/Media";
 import Note from "@/components/Note.astro";
-import { Table } from "@/components/Table";
+import Table from "@/components/Table.astro";
 
 <Divider.Divider direction="x" />
 
@@ -25,45 +25,36 @@ UI.
 
 ### Parameters
 
-<Table
-  columns={[
-    {
-      key: "name",
-      name: "Name"
-    },
-    {
-      key: "description",
-      name: "Description"
-    }
-  ]}
-  data={[
-    {
-      name: "Name",
-      description: "A human-readable name for the cluster."
-    },
-    {
-      name: "Host",
-      description: "The hostname or IP address of the cluster."
-    },
-    {
-      name: "Port",
-      description: "The port number of the cluster."
-    },
-    {
-      name: "Username",
-      description: "The username to use when connecting to the cluster."
-    },
-    {
-      name: "Password",
-      description: "The password to use when connecting to the cluster."
-    },
-    {
-      name: "Secure",
-      description:
-        "Whether to use TLS when connecting to the cluster. This parameter only works with secure clusters."
-    }
-  ]}
-/>
+<Table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Host</b></td>
+      <td>The hostname or IP address of the cluster.</td>
+    </tr>
+    <tr>
+      <td><b>Port</b></td>
+      <td>The port number of the cluster.</td>
+    </tr>
+    <tr>
+      <td><b>Username</b></td>
+      <td>The username to use when connecting to the cluster.</td>
+    </tr>
+    <tr>
+      <td><b>Password</b></td>
+      <td>The password to use when connecting to the cluster.</td>
+    </tr>
+    <tr>
+      <td><b>Secure</b></td>
+      <td>Whether to use TLS when connecting to the cluster. This parameter only works with secure clusters.</td>
+    </tr>
+  </tbody>
+</Table>
 
 <Note variant="warning">
 The console will not connect to remote clusters (i.e. host is not 'localhost') started
@@ -75,11 +66,36 @@ with the `--insecure` flag.
 Synnax has a demo cluster that can be connected to which always plots some data. To
 connect, enter the following parameters:
 
-- **Host**: demo.synnaxlabs.com
-- **Port**: 9090
-- **Username**: synnax
-- **Password**: seldon
-- **Secure**: true
+<Table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Host</b></td>
+      <td>demo.synnaxlabs.com</td>
+    </tr>
+    <tr>
+      <td><b>Port</b></td>
+      <td>9090</td>
+    </tr>
+    <tr>
+      <td><b>Username</b></td>
+      <td>synnax</td>
+    </tr>
+    <tr>
+      <td><b>Password</b></td>
+      <td>seldon</td>
+    </tr>
+    <tr>
+      <td><b>Secure</b></td>
+      <td>true</td>
+    </tr>
+  </tbody>
+</Table>
 
 <Divider.Divider direction="x" />
 

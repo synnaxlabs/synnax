@@ -13,7 +13,6 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -72,11 +71,11 @@ func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, err
 func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
 	uCh, uOk := db.unaryDBs[key]
 	if uOk {
-		return uCh.Channel, nil
+		return uCh.Channel(), nil
 	}
 	vCh, vOk := db.virtualDBs[key]
 	if vOk {
-		return vCh.Channel, nil
+		return vCh.Channel(), nil
 	}
 	return Channel{}, core.NewErrChannelNotFound(key)
 }
@@ -117,12 +116,7 @@ func (db *DB) renameChannel(_ context.Context, key ChannelKey, newName string) e
 		// read or streamed from or written to. We choose to not address this since
 		// the name is purely decorative in Cesium and not used to identify channels
 		// whereas the key is the unique identifier. The same goes for the virtual database.
-		if udb.Channel.Name == newName {
-			return nil
-		}
-		udb.Channel.Name = newName
-		err := meta.Create(udb.FS, db.metaECD, udb.Channel)
-		if err != nil {
+		if err := udb.RenameChannelInMeta(newName); err != nil {
 			return err
 		}
 		db.unaryDBs[key] = udb
@@ -130,12 +124,7 @@ func (db *DB) renameChannel(_ context.Context, key ChannelKey, newName string) e
 	}
 	vdb, vok := db.virtualDBs[key]
 	if vok {
-		if vdb.Channel.Name == newName {
-			return nil
-		}
-		vdb.Channel.Name = newName
-		err := meta.Create(vdb.FS, db.metaECD, vdb.Channel)
-		if err != nil {
+		if err := vdb.RenameChannel(newName); err != nil {
 			return err
 		}
 		db.virtualDBs[key] = vdb
@@ -191,9 +180,10 @@ func (db *DB) validateNewChannel(ch Channel) error {
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index != 0 {
 			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel <%d> does not exist", ch.Index)
-			v.Funcf(func() bool {
-				return !db.unaryDBs[ch.Index].Channel.IsIndex
-			}, "channel %v is not an index", db.unaryDBs[ch.Index].Channel)
+			indexDB, ok := db.unaryDBs[ch.Index]
+			if ok {
+				v.Ternaryf("index", !indexDB.Channel().IsIndex, "channel %v is not an index", indexDB.Channel())
+			}
 		} else {
 			validate.Positive(v, "rate", ch.Rate)
 		}
@@ -211,72 +201,62 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 	_, uok := db.unaryDBs[newKey]
 	_, vok := db.virtualDBs[newKey]
 	if uok || vok {
-		return errors.Newf("cannot rekey to %d since it channel %d already exists", newKey, newKey)
+		return errors.Newf(
+			"cannot rekey channel to %d since a channel with the same key already exists in the database",
+			newKey,
+		)
 	}
 
+	oldDir := keyToDirName(oldKey)
+	newDir := keyToDirName(newKey)
 	udb, uok := db.unaryDBs[oldKey]
 	if uok {
 		if err := udb.Close(); err != nil {
 			return err
 		}
-		if err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey)); err != nil {
+		if err := db.fs.Rename(oldDir, newDir); err != nil {
 			return err
 		}
-
 		newFS, err := db.fs.Sub(keyToDirName(newKey))
 		if err != nil {
 			return err
 		}
-
-		newConfig := udb.Config
-		newConfig.FS = newFS
-		newConfig.Channel.Key = newKey
-		if newConfig.Channel.IsIndex {
-			newConfig.Channel.Index = newKey
+		newCh := udb.Channel()
+		newCh.Key = newKey
+		if newCh.IsIndex {
+			newCh.Index = newKey
 		}
-
-		if err = meta.Create(newFS, db.metaECD, newConfig.Channel); err != nil {
-			return err
-		}
-
-		_udb, err := unary.Open(newConfig)
+		_udb, err := unary.Open(unary.Config{
+			Instrumentation: db.Instrumentation,
+			MetaCodec:       db.metaCodec,
+			Channel:         newCh,
+			FS:              newFS,
+		})
 		if err != nil {
 			return err
 		}
-
+		if err = _udb.SetChannelKeyInMeta(newKey); err != nil {
+			return err
+		}
 		delete(db.unaryDBs, oldKey)
 		db.unaryDBs[newKey] = *_udb
 
-		if udb.Channel.IsIndex {
+		// If the DB is an index channel, we need to update the databases that depend
+		// on this channel.
+		if udb.Channel().IsIndex {
 			for otherDBKey := range db.unaryDBs {
 				otherDB := db.unaryDBs[otherDBKey]
-				if otherDB.Channel.Index == oldKey && otherDBKey != newKey {
-					if err = otherDB.Close(); err != nil {
+				// If the other database uses this channel as its index, and it's not
+				// the index itself.
+				if otherDB.Channel().Index == oldKey && otherDBKey != newKey {
+					if err = otherDB.SetIndexKeyInMeta(newKey); err != nil {
 						return err
 					}
-
-					newFS, err = db.fs.Sub(keyToDirName(otherDBKey))
-					if err != nil {
-						return err
-					}
-
-					newConfig = otherDB.Config
-					newConfig.Channel.Index = newKey
-
-					if err = meta.Create(newFS, db.metaECD, newConfig.Channel); err != nil {
-						return err
-					}
-
-					_otherDB, err := unary.Open(newConfig)
-					if err != nil {
-						return err
-					}
-					_otherDB.SetIndex((*_udb).Index())
-					db.unaryDBs[otherDBKey] = *_otherDB
+					otherDB.SetIndex((*_udb).Index())
+					db.unaryDBs[otherDBKey] = otherDB
 				}
 			}
 		}
-
 		return nil
 	}
 	vdb, vok := db.virtualDBs[oldKey]
@@ -284,27 +264,27 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err := vdb.Close(); err != nil {
 			return err
 		}
-		if err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey)); err != nil {
+		if err := db.fs.Rename(oldDir, newDir); err != nil {
 			return err
 		}
-
 		newFS, err := db.fs.Sub(keyToDirName(newKey))
 		if err != nil {
 			return err
 		}
-
-		newConfig := vdb.Config
-		newConfig.Channel.Key = newKey
-
-		if err = meta.Create(newFS, db.metaECD, newConfig.Channel); err != nil {
-			return err
-		}
-
-		_vdb, err := virtual.Open(newConfig)
+		newChannel := vdb.Channel()
+		newChannel.Key = newKey
+		_vdb, err := virtual.Open(virtual.Config{
+			Instrumentation: db.Instrumentation,
+			Channel:         newChannel,
+			MetaCodec:       db.metaCodec,
+			FS:              newFS,
+		})
 		if err != nil {
 			return err
 		}
-
+		if err = _vdb.SetChannelKeyInMeta(newKey); err != nil {
+			return err
+		}
 		delete(db.virtualDBs, oldKey)
 		db.virtualDBs[newKey] = *_vdb
 	}

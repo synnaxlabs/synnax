@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-let timeOut: any = null;
+let timeOut: NodeJS.Timeout;
+
 export const addCodeButtonListeners = (): void => {
   const listeners: { button: Element; listener: () => void }[] = [];
+
   const handleCopy = (button: Element) => {
     const code = button.parentElement?.querySelector("code");
     if (code == null) return;
@@ -21,7 +23,7 @@ export const addCodeButtonListeners = (): void => {
         if (copy == null || check == null) return;
         copy.style.display = "none";
         check.style.display = "block";
-        clearTimeout(timeOut as string);
+        clearTimeout(timeOut);
         timeOut = setTimeout(() => {
           copy.style.display = "block";
           check.style.display = "none";
@@ -29,6 +31,7 @@ export const addCodeButtonListeners = (): void => {
       })
       .catch(console.error);
   };
+
   setInterval(() => {
     const buttons = document.querySelectorAll(".astro-code-wrapper button");
     listeners.forEach(({ button, listener }) =>

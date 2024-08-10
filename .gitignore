@@ -24,6 +24,11 @@ dist-ssr
 nyc_output
 *.tsbuildinfo
 *.ts.timestamp-*
+**/tsdoc-metadata.json
+**/temp/
+*.test
+
+# |||| GO ||||
 *.test
 
 # |||| RUST ||||
@@ -101,3 +106,4 @@ driver/vendor/mbedtls/mbedtls
 
 # |||| GENERAL ||||
 **/ignore*
+*.test

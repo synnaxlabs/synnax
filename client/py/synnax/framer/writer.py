@@ -55,11 +55,11 @@ class WriterMode(int, Enum):
 
 
 CrudeWriterMode: TypeAlias = (
-    WriterMode | 
-    Literal["persist_stream"] | 
-    Literal["persist"] | 
-    Literal["stream"] | 
-    int
+    WriterMode
+    | Literal["persist_stream"]
+    | Literal["persist"]
+    | Literal["stream"]
+    | int
 )
 
 
@@ -73,8 +73,10 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if isinstance(mode, WriterMode):
         return mode
     if isinstance(mode, int):
-        return WriterMode(mode)
-    raise ValueError(f"invalid writer mode {mode}")
+        try:
+            return WriterMode(mode)
+        except:
+            raise ValueError(f"invalid writer mode {mode}")
 
 
 class _Config(Payload):
@@ -185,29 +187,24 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
-        ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
-        channels_or_data: ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | CrudeFrame,
+        channels_or_data: (
+            ChannelName | ChannelKey | ChannelKeys | ChannelNames | CrudeFrame
+        ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given data to the database. The formats are listed below. Before
@@ -262,30 +259,29 @@ class Writer:
         return True
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool:
-        ...
+    def set_authority(self, value: CrudeAuthority) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def set_authority(
         self,
-        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
-        | ChannelKey
-        | ChannelName
-        | CrudeAuthority,
+        value: (
+            dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
+            | ChannelKey
+            | ChannelName
+            | CrudeAuthority
+        ),
         authority: CrudeAuthority | None = None,
     ) -> bool:
         if isinstance(value, int) and authority is None:

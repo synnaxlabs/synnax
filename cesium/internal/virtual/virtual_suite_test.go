@@ -2,6 +2,7 @@ package virtual_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/binary"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -9,7 +10,8 @@ import (
 )
 
 var (
-	ctx = context.Background()
+	ctx   = context.Background()
+	codec = &binary.JSONCodec{}
 )
 
 func TestVirtual(t *testing.T) {
