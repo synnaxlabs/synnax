@@ -33,7 +33,10 @@ ni::Scanner::Scanner(
         &this->session // session handle
     );
 
-    if (status != NISysCfg_OK) return log_err("failed to initialize scanner");
+    if (status != NISysCfg_OK) {
+        log_err("failed to initialize scanner");
+        return;
+    }
 
     // create a filter to only identify NI devices rather than chassis and devices which are connected (which includes simulated devices)
     this->filter = NULL;
