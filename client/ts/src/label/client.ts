@@ -104,26 +104,26 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
     id: ontology.CrudeID,
   ): Promise<observe.ObservableAsyncCloseable<Label[]>> {
     const wrapper = new observe.Observer<Label[]>();
+    const initial = (await this.retrieveFor(id)).map((l) => ({
+      id: new ontology.ID({ key: l.key, type: "label" }),
+      key: l.key,
+      name: l.name,
+      data: l,
+    }));
     const base = await this.ontology.openDependentTracker(
       new ontology.ID(id),
+      initial,
       "labeled_by",
-      async (p) =>
-        (await this.retrieveFor(p)).map((l) => ({
-          id: new ontology.ID({ key: l.key, type: "label" }),
-          key: l.key,
-          name: l.name,
-          data: l,
-        })),
     );
-    base.onChange((resources: ontology.Resource[]) => {
+    base.onChange((resources: ontology.Resource[]) =>
       wrapper.notify(
         resources.map((r) => ({
           key: r.id.key,
           color: r.data?.color as string,
           name: r.data?.name as string,
         })),
-      );
-    });
+      ),
+    );
     return wrapper;
   }
 }

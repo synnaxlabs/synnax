@@ -159,7 +159,14 @@ export class Range {
 
   async openSubRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range[]>> {
     const wrapper = new observe.Observer<Range[]>();
-    const base = await this.ontologyClient.openDependentTracker(this.ontologyID);
+    const initial: ontology.Resource[] = (await this.retrieveChildren()).map((r) => {
+      const id = new ontology.ID({ key: r.key, type: "range" });
+      return { id, key: id.toString(), name: r.name, data: r.payload };
+    });
+    const base = await this.ontologyClient.openDependentTracker(
+      this.ontologyID,
+      initial,
+    );
     base.onChange((resources: Resource[]) =>
       wrapper.notify(
         this.rangeClient.sugar(
