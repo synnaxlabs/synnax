@@ -1,15 +1,18 @@
 #!/bin/bash
 
-# Function to read the version from the VERSION file
-get_version() {
+# Check if a version argument is provided
+if [[ -z "$1" ]]; then
+    echo "Usage: $0 <version>"
+    exit 1
+fi
+
+VERSION=$1
+
+# Function to update the version in the VERSION file
+update_version_file() {
     local version_file="../synnax/pkg/version/VERSION"
-    if [[ -f "$version_file" ]]; then
-        VERSION=$(cat "$version_file")
-        echo "Current version is $VERSION"
-    else
-        echo "VERSION file not found at $version_file!"
-        exit 1
-    fi
+    echo "$VERSION" > "$version_file"
+    echo "Updated VERSION file to $VERSION"
 }
 
 # Function to update the version in a Python pyproject.toml file
@@ -17,7 +20,6 @@ update_python_version() {
     local path=$1
     local version=$2
     if [[ -f "$path/pyproject.toml" ]]; then
-        # Replace the version in the pyproject.toml file
         sed -i '' "s/^version = \".*\"/version = \"$version\"/" "$path/pyproject.toml"
         echo "Updated version in $path/pyproject.toml"
     else
@@ -30,7 +32,6 @@ update_typescript_version() {
     local path=$1
     local version=$2
     if [[ -f "$path/package.json" ]]; then
-        # Replace the version in the package.json file
         sed -i '' "s/\"version\": \".*\"/\"version\": \"$version\"/" "$path/package.json"
         echo "Updated version in $path/package.json"
     else
@@ -39,22 +40,21 @@ update_typescript_version() {
 }
 
 # Main script execution
-get_version
+update_version_file
+
+# Arrays for paths
+typescript_paths=("../x/ts" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts")
+python_paths=("../freighter/py" "../alamos/py" "../client/py")
 
 # Update TypeScript versions
-update_typescript_version "../x/ts" "$VERSION"
-update_typescript_version "../alamos/ts" "$VERSION"
-update_typescript_version "../client/ts" "$VERSION"
-update_typescript_version "../pluto" "$VERSION"
-update_typescript_version "../console" "$VERSION"
-update_typescript_version "../drift" "$VERSION"
-update_typescript_version ".." "$VERSION"
-update_typescript_version "../freighter/ts" "$VERSION"
+for path in "${typescript_paths[@]}"; do
+    update_typescript_version "$path" "$VERSION"
+done
 
 # Update Python versions
-update_python_version "../freighter/py" "$VERSION"
-update_python_version "../alamos/py" "$VERSION"
-update_python_version "../client/py" "$VERSION"
+for path in "${python_paths[@]}"; do
+    update_python_version "$path" "$VERSION"
+done
 
 echo "Version update complete."
 

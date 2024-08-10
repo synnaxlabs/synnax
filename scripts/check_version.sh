@@ -53,49 +53,31 @@ check_typescript_version() {
 # Main script execution
 get_version
 
+# Arrays for paths and results
+typescript_paths=("../x/ts" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts")
+python_paths=("../freighter/py" "../alamos/py" "../client/py")
+
 # Check TypeScript versions
-check_typescript_version "../x/ts" "$VERSION"
-TYPESCRIPT_RESULT_1=$?
-
-check_typescript_version "../alamos/ts" "$VERSION"
-TYPESCRIPT_RESULT_2=$?
-
-check_typescript_version "../client/ts" "$VERSION"
-TYPESCRIPT_RESULT_3=$?
-
-check_typescript_version "../pluto" "$VERSION"
-TYPESCRIPT_RESULT_4=$?
-
-check_typescript_version "../console" "$VERSION"
-TYPESCRIPT_RESULT_5=$?
-
-check_typescript_version "../drift" "$VERSION"
-TYPESCRIPT_RESULT_6=$?
-
-check_typescript_version ".." "$VERSION"
-TYPESCRIPT_RESULT_7=$?
-
-check_typescript_version "../freighter/ts" "$VERSION"
-TYPESCRIPT_RESULT_8=$?
+typescript_results=()
+for path in "${typescript_paths[@]}"; do
+    check_typescript_version "$path" "$VERSION"
+    typescript_results+=($?)
+done
 
 # Check Python versions
-check_python_version "../freighter/py" "$VERSION"
-PYTHON_RESULT_1=$?
-
-check_python_version "../alamos/py" "$VERSION"
-PYTHON_RESULT_2=$?
-
-check_python_version "../client/py" "$VERSION"
-PYTHON_RESULT_3=$?
+python_results=()
+for path in "${python_paths[@]}"; do
+    check_python_version "$path" "$VERSION"
+    python_results+=($?)
+done
 
 # Exit with status code 1 if any version check fails
-if [[ $TYPESCRIPT_RESULT_1 -ne 0 || $TYPESCRIPT_RESULT_2 -ne 0 || $TYPESCRIPT_RESULT_3 -ne 0 || \
-      $TYPESCRIPT_RESULT_4 -ne 0 || $TYPESCRIPT_RESULT_5 -ne 0 || $TYPESCRIPT_RESULT_6 -ne 0 || \
-      $TYPESCRIPT_RESULT_7 -ne 0 || $TYPESCRIPT_RESULT_8 -ne 0 || \
-      $PYTHON_RESULT_1 -ne 0 || $PYTHON_RESULT_2 -ne 0 || $PYTHON_RESULT_3 -ne 0 ]]; then
-    echo "Version check failed."
-    exit 1
-else
-    echo "All versions match."
-    exit 0
-fi
+for result in "${typescript_results[@]}" "${python_results[@]}"; do
+    if [[ $result -ne 0 ]]; then
+        echo "Version check failed."
+        exit 1
+    fi
+done
+
+echo "All versions match."
+exit 0
