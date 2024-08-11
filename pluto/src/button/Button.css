@@ -9,6 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-space.pluto--y {
+    > .pluto-btn {
+        flex-shrink: 0;
+    }
+}
+
 .pluto-btn {
     margin: 0;
     cursor: pointer;
@@ -16,8 +22,6 @@
     padding: 0 2rem;
     font-family: var(--pluto-font-family);
     text-decoration: none;
-    width: fit-content;
-    flex-shrink: 0;
 
     &.pluto--small {
         padding: 0 1.5rem;

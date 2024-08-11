@@ -89,6 +89,7 @@ export const SubRanges: FC<SubRangesProps> = ({ rangeKey }) => {
         shade={8}
         weight={500}
         startIcon={<Icon.Add />}
+        style={{ width: "fit-content" }}
         variant="text"
         onClick={() => placer(createEditLayout({ initial: { parent: rangeKey } }))}
       >

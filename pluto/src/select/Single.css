@@ -18,6 +18,7 @@
 
 .pluto-select-dialog-content {
     width: 500px;
+    height: 200px;
 
     .pluto-input__internal {
         border-top-left-radius: 1rem;

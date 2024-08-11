@@ -13,6 +13,7 @@ package label
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -23,16 +24,31 @@ import (
 	"io"
 )
 
+// Config is the configuration for the label service. Config is provided to the
+// OpenService method.
 type Config struct {
-	DB       *gorp.DB
+	// DB specifies the database that the label service will use to store and retrieve
+	// labels.
+	// [REQUIRED]
+	DB *gorp.DB
+	// Ontology is the ontology service that the label service will use to manage
+	// resources and relationships between other objects.
+	// [REQUIRED]
 	Ontology *ontology.Ontology
-	Group    *group.Service
-	Signals  *signals.Provider
+	// Group is used to create and manage a root group for holding all labels.
+	// [REQUIRED]
+	Group *group.Service
+	// Signals is the signal service used to propagate changes to labels.
+	// [OPTIONAL]
+	Signals *signals.Provider
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default for the label service. This configuration is not
+	// valid, and must be overridden with a valid configuration before the service can
+	// be opened.
+	DefaultConfig = Config{}
 )
 
 // Validate implements config.Properties.
@@ -53,23 +69,22 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
+// Service is the main entry point for managing labels within Synnax. It provides
+// mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
 	Config
 	signals io.Closer
 	group   group.Group
 }
 
-//const groupName = "Labels"
-
+// OpenService opens a new label service using the provided configuration. If error
+// is nil, the service is ready for use and must be closed by calling Close in order
+// to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	//g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	//if err != nil {
-	//	return nil, err
-	//}
 	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
@@ -81,8 +96,18 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	return s, err
 }
 
-func (s *Service) NewRetrieve() Retrieve { return NewRetrieve(s.DB, s.Ontology) }
+// NewRetrieve opens a new Retrieve query to fetch labels.
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{
+		baseTx: s.DB,
+		gorp:   gorp.NewRetrieve[uuid.UUID, Label](),
+		otg:    s.Ontology,
+	}
+}
 
+// NewWriter opens a new Writer to create, update, and delete labels. If tx is not nil
+// the writer will use it, otherwise it will execute operations directly against the
+// underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{tx: tx, otg: s.Ontology.NewWriter(tx)}
 }

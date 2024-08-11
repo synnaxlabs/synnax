@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Retrieve is a builder for querying labels.
 type Retrieve struct {
 	baseTx     gorp.Tx
 	gorp       gorp.Retrieve[uuid.UUID, Label]
@@ -28,18 +29,13 @@ type Retrieve struct {
 	searchTerm string
 }
 
-func NewRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
-	return Retrieve{
-		baseTx: tx,
-		gorp:   gorp.NewRetrieve[uuid.UUID, Label](),
-		otg:    otg,
-	}
-}
-
+// Search executes a fuzzy search for labels whose Name attribute matches the provided term.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
+// Limit limits the number of results that Retrieve will return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
 
+// Offset marks the starting index of results that Retrieve will return.
 func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
 
 // Entry binds the Label that Retrieve will fill results into. If multiple results match
@@ -58,6 +54,10 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 	return r
 }
 
+// Exec executes the Retrieve query. If a tx is provided, Exec will use it to execute
+// the query. Otherwise, it will execute against the underlying gorp.DB. It's important
+// to note that fuzzy search will not be aware of any writers/deletes executed on the
+// tx, and will only search the underlying database.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
 	if r.searchTerm != "" {
@@ -77,7 +77,14 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, tx)
 }
 
-func (s *Service) RetrieveFor(ctx context.Context, id ontology.ID, tx gorp.Tx) ([]Label, error) {
+// RetrieveFor retrieves all labels that are associated with the provided ontology ID.
+// If a tx is provided, RetrieveFor will use it to execute the query. Otherwise, it will
+// execute against the underlying gorp.DB.
+func (s *Service) RetrieveFor(
+	ctx context.Context,
+	id ontology.ID,
+	tx gorp.Tx,
+) ([]Label, error) {
 	var labelResources []ontology.Resource
 	tx = gorp.OverrideTx(s.DB, tx)
 	if err := s.Ontology.NewRetrieve().
@@ -92,7 +99,7 @@ func (s *Service) RetrieveFor(ctx context.Context, id ontology.ID, tx gorp.Tx) (
 		return nil, err
 	}
 	labels := make([]Label, 0, len(keys))
-	return labels, NewRetrieve(tx, s.Ontology).
+	return labels, s.NewRetrieve().
 		WhereKeys(keys...).
 		Entries(&labels).
 		Exec(ctx, tx)

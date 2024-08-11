@@ -70,6 +70,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       render.Controller.requestRender(this.ctx, render.REASON_TOOL);
       this.setState((s) => ({ ...s, count: i.ranges.size }));
     });
+    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
   private async fetchInitial(timeRange: TimeRange): Promise<void> {
