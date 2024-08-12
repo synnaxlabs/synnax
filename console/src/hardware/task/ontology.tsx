@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
-import { errors, id } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -45,7 +45,7 @@ const handleSelect: Ontology.HandleSelect = ({
         key: selection[0].id.key,
       });
     } catch (e) {
-      addStatus({ key: id.id(), variant: "error", message: (e as Error).message });
+      addStatus({ variant: "error", message: (e as Error).message });
     }
   })();
 };
@@ -80,7 +80,6 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (errors.CANCELED.matches(e)) return;
       addStatus({
         variant: "error",
-        key: id.id(),
         message,
         description: e.message,
       });

@@ -10,7 +10,7 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
-import { errors, id } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -46,7 +46,6 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
       addStatus({
-        key: id.id(),
         variant: "error",
         message: "Failed to delete line plot",
         description: err.message,

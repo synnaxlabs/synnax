@@ -25,7 +25,7 @@ import {
   Tooltip,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, id } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -90,7 +90,6 @@ export const List = (): ReactElement => {
     onError: (e, _, range) => {
       if (errors.CANCELED.matches(e)) return;
       addStatus({
-        key: id.id(),
         variant: "error",
         message: "Failed to rename range",
         description: e.message,
@@ -112,7 +111,6 @@ export const List = (): ReactElement => {
     },
     onError: (e, _, range) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: "Failed to save range",
         description: e.message,

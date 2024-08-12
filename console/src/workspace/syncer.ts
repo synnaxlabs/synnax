@@ -9,7 +9,7 @@
 
 import { QueryError } from "@synnaxlabs/client";
 import { Status, Synnax, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { deep, id, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useStore } from "react-redux";
@@ -44,7 +44,6 @@ export const useSyncLayout = async (): Promise<void> => {
     onError: (e) => {
       if (QueryError.matches(e)) {
         addStatus({
-          key: id.id(),
           variant: "error",
           message: "Layout not found in cluster. Clearing.",
         });
@@ -52,7 +51,6 @@ export const useSyncLayout = async (): Promise<void> => {
         return;
       }
       addStatus({
-        key: id.id(),
         variant: "error",
         message: "Failed to save workspace",
         description: e.message,

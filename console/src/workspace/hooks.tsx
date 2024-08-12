@@ -10,7 +10,6 @@
 import { type Dispatch, type PayloadAction, type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useStore } from "react-redux";
@@ -46,7 +45,6 @@ export const useSyncComponent = <P extends unknown>(
         if (data != null) message = `Failed to save ${data.name}`;
       }
       addStatus({
-        key: id.id(),
         variant: "error",
         message,
         description: e.message,

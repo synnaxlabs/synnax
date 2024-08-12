@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -24,7 +23,6 @@ export const useAsyncAction = ({ key, action }: UseAsyncActionProps) => {
     mutationFn: action,
     onError: (error) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: error.message,
       });
@@ -46,7 +44,6 @@ export const useAsyncActionMenu = (
     mutationFn: async (key: string) => await actions[key](),
     onError: (error) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: error.message,
       });
