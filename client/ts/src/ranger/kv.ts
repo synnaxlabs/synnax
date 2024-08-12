@@ -124,7 +124,7 @@ export class KV {
       (variant, data) => {
         if (variant === "delete")
           return data.toStrings().map((combinedKey) => {
-            const [range, key] = combinedKey.split("<--->");
+            const [range, key] = combinedKey.split("<--->", 2);
             return { variant, key: combinedKey, value: { range, key, value: "" } };
           });
         return data.parseJSON(kvPairZ).map((pair) => ({

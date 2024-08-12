@@ -15,6 +15,9 @@
     border-radius: var(--pluto-border-radius);
     padding: 0.666rem;
     display: inline-flex;
-    /* make the line height the same as the font size */
+    /* 
+    * Make the line height the same as the font size.
+    * This makes sure the padding looks consistent on all sides.
+    */
     line-height: 1;
 }

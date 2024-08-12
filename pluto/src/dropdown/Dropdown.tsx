@@ -33,6 +33,7 @@ import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hoo
 import { Triggers } from "@/triggers";
 import { ComponentSize } from "@/util/component";
 import { getRootElement } from "@/util/rootElement";
+import { findParent } from "@/util/findParent";
 
 export type UseProps = CoreDialog.UseProps;
 export type UseReturn = CoreDialog.UseReturn;
@@ -142,15 +143,13 @@ export const Dialog = ({
     exclude: (e) => {
       if (targetRef.current?.contains(e.target as Node)) return true;
       // If the target has a parent with the role of dialog, don't close the dialog.
-      let parent = e.target as HTMLElement;
-      while (parent != null) {
-        if (parent.getAttribute("role") === "dialog") {
-          const zi = parent.style.zIndex;
-          return Number(zi) > zIndex;
-        }
-        parent = parent.parentElement as HTMLElement;
-      }
-      return false;
+      const parent = findParent(e.target as HTMLElement, (el) => {
+        const isDialog = el?.getAttribute("role") === "dialog";
+        if (!isDialog) return false;
+        const zi = el.style.zIndex;
+        return Number(zi) > zIndex;
+      });
+      return parent != null;
     },
     onClickOutside: close,
   });

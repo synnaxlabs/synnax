@@ -16,7 +16,7 @@ export const editCommand: Command = {
   key: "edit-labels",
   name: "Edit Labels",
   icon: <Icon.Label />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createEditLayout()),
+  onSelect: ({ placeLayout }) => placeLayout(createEditLayout()),
 };
 
 export const COMMANDS = [editCommand];

@@ -18,6 +18,7 @@ import { Dialog } from "@/dialog";
 import { useClickOutside } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { getRootElement } from "@/util/rootElement";
+import { findParent } from "@/util/findParent";
 
 export interface ModalProps
   extends Pick<Dialog.UseReturn, "visible" | "close">,
@@ -34,12 +35,11 @@ export const Modal = ({
   useClickOutside({
     ref,
     exclude: (e: MouseEvent) => {
-      let parent = e.target as HTMLElement;
-      while (parent != null) {
-        if (parent.getAttribute("role") === "dialog") return true;
-        parent = parent.parentElement as HTMLElement;
-      }
-      return false;
+      const parent = findParent(
+        e.target as HTMLElement,
+        (e) => (e as HTMLElement).getAttribute("role") === "dialog",
+      );
+      return parent != null;
     },
     onClickOutside: close,
   });
