@@ -23,6 +23,7 @@
 
     &.pluto--rounded {
         --pluto-pack-br: var(--pluto-back-br, var(--pluto-border-radius));
+        border-radius: 0 !important;
     }
 
     &.pluto--bordered {
@@ -122,8 +123,7 @@
         border-radius: var(--pluto-pack--middle);
     }
 
-    &:has(+ .pluto--hidden)
-        > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
+    > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
         border-radius: var(--pluto-pack--first);
     }
 

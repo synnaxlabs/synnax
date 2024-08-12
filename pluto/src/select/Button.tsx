@@ -60,6 +60,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   allowMultiple = false,
   data,
   replaceOnSingle,
+  className,
   ...props
 }: ButtonProps<K, E>): JSX.Element => {
   const { onSelect } = useSelect<K, E>({
@@ -72,7 +73,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   } as const as UseSelectProps<K, E>);
 
   return (
-    <Align.Pack {...props}>
+    <Align.Pack className={CSS(CSS.B("select-button"), className)} {...props}>
       {data.map((e) => {
         return children({
           key: e.key,
@@ -132,7 +133,7 @@ export const BaseButton = ({
   ...props
 }: DropdownButtonButtonProps<any, any>): ReactElement => (
   <CoreButton.Button
-    className={CSS.B("select-button")}
+    className={CSS.B("select-dropdown-button")}
     onClick={toggle}
     variant="outlined"
     endIcon={
