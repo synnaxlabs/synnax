@@ -6,7 +6,7 @@ get_version() {
     if [[ -f "$version_file" ]]; then
         # Extract the major.minor part of the version
         VERSION=$(cat "$version_file" | cut -d '.' -f1-2)
-        echo "Current version is $VERSION"
+        echo "Current version is ${VERSION}.x"
     else
         echo "VERSION file not found at $version_file!"
         exit 1
