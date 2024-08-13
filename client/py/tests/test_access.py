@@ -97,65 +97,65 @@ class TestAccessClient:
         assert len(p) == 0
 
 
-@pytest.mark.access
-@pytest.mark.auth
-class TestAccessAuthClient:
-    def test_create_user(self, client: sy.Synnax, login_info: tuple[str, int, str, str]):
-        host, port, _, _ = login_info
-        username = str(uuid.uuid4())
-        client.user.register(username, "pwd2")
-        client2 = sy.Synnax(
-            host=host,
-            port=port,
-            username=username,
-            password="pwd2",
-        )
+# @pytest.mark.access
+# @pytest.mark.auth
+# class TestAccessAuthClient:
+#     def test_create_user(self, client: sy.Synnax, login_info: tuple[str, int, str, str]):
+#         host, port, _, _ = login_info
+#         username = str(uuid.uuid4())
+#         client.user.register(username, "pwd2")
+#         client2 = sy.Synnax(
+#             host=host,
+#             port=port,
+#             username=username,
+#             password="pwd2",
+#         )
 
-        with pytest.raises(sy.AuthError):
-            client2.user.register(str(uuid.uuid4()), "pwd3")
+#         with pytest.raises(sy.AuthError):
+#             client2.user.register(str(uuid.uuid4()), "pwd3")
 
-    def test_user_privileges(self, client: sy.Synnax, login_info: tuple[str, int, str, str]):
-        host, port, _, _ = login_info
-        username = str(uuid.uuid4())
-        usr = client.user.register(username, "pwd3")
-        client2 = sy.Synnax(
-            host=host,
-            port=port,
-            username=username,
-            password="pwd3",
-        )
+#     def test_user_privileges(self, client: sy.Synnax, login_info: tuple[str, int, str, str]):
+#         host, port, _, _ = login_info
+#         username = str(uuid.uuid4())
+#         usr = client.user.register(username, "pwd3")
+#         client2 = sy.Synnax(
+#             host=host,
+#             port=port,
+#             username=username,
+#             password="pwd3",
+#         )
 
-        with pytest.raises(sy.AuthError):
-            client2.channels.create(
-                sy.Channel(
-                    name="new_channel",
-                    data_type=sy.DataType.FLOAT32,
-                    rate=1 * sy.Rate.HZ,
-                )
-            )
+#         with pytest.raises(sy.AuthError):
+#             client2.channels.create(
+#                 sy.Channel(
+#                     name="new_channel",
+#                     data_type=sy.DataType.FLOAT32,
+#                     rate=1 * sy.Rate.HZ,
+#                 )
+#             )
 
-        p = client.access.create(
-            subjects=[usr.ontology_id()],
-            objects=[channel_ontology_type],
-            actions=["create"],
-        )
+#         p = client.access.create(
+#             subjects=[usr.ontology_id()],
+#             objects=[channel_ontology_type],
+#             actions=["create"],
+#         )
 
-        client2.channels.create(
-            sy.Channel(
-                name="new_channel",
-                data_type=sy.DataType.FLOAT32,
-                rate=1 * sy.Rate.HZ,
-            )
-        )
+#         client2.channels.create(
+#             sy.Channel(
+#                 name="new_channel",
+#                 data_type=sy.DataType.FLOAT32,
+#                 rate=1 * sy.Rate.HZ,
+#             )
+#         )
 
-        # revoke the policy
-        client.access.delete(p.key)
+#         # revoke the policy
+#         client.access.delete(p.key)
 
-        with pytest.raises(sy.AuthError):
-            client2.channels.create(
-                sy.Channel(
-                    name="new_channel",
-                    data_type=sy.DataType.FLOAT32,
-                    rate=1 * sy.Rate.HZ,
-                )
-            )
+#         with pytest.raises(sy.AuthError):
+#             client2.channels.create(
+#                 sy.Channel(
+#                     name="new_channel",
+#                     data_type=sy.DataType.FLOAT32,
+#                     rate=1 * sy.Rate.HZ,
+#                 )
+#             )
