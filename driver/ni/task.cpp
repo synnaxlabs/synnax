@@ -59,16 +59,6 @@ void ni::ScannerTask::exec(task::Command &cmd) {
     if (cmd.type == "scan") {
         scanner.scan();
         scanner.create_devices();
-        if (!scanner.ok()) {
-            ctx->setState({
-                .task = task.key,
-                .variant = "error",
-                .details = {"message", "failed to scan"}
-            });
-            LOG(ERROR) << "[ni.task] failed to scan for task " << this->task.name;
-        } else {
-            auto devices = scanner.get_devices(); 
-        }
     } else if (cmd.type == "stop") {
         this->stop();
     } else {

@@ -96,6 +96,7 @@ with client.open_streamer([c.key for c in valve_command_channels]) as streamer:
             *[c.key for c in valve_response_channels],
         ],
         name="Simulated DAQ",
+        enable_auto_commit=True,
     ) as writer:
         press = 0
         while True:
@@ -120,6 +121,3 @@ with client.open_streamer([c.key for c in valve_command_channels]) as streamer:
             writer.write(state)
 
             i += 1
-            if (i % 100) == 0:
-                if not writer.commit():
-                    break

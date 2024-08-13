@@ -10,8 +10,8 @@
 import synnax as sy
 import time
 
-# We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/python-client/get-started for more information.
+# We've logged in via the CLI, so there's no need to provide credentials here. See
+# https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
 # Define the control channel names
@@ -19,15 +19,15 @@ PRESS_VALVE = "valve_command_0"
 VENT_VALVE = "valve_command_1"
 PRESSURE = "sensor_0"
 
-# Open a control sequence under a context manager, so that the control is released
-# when the block exits
+# Open a control sequence under a context manager, so that the control is released when
+# the block exits
 with client.control.acquire(
     # A useful name that identifies the sequence to the rest of the system. We highly
     # recommend keeping these names unique across your sequences.
     name="Press Sequence",
-    # Defines the authorities at which the sequence controls the valve channels. This
-    # is a number from 0 to 255, where 0 is the lowest and 255 is the highest. It's
-    # up to you to define what these mean in your system.
+    # Defines the authorities at which the sequence controls the valve channels. This is
+    # a number from 0 to 255, where 0 is the lowest and 255 is the highest. It's up to
+    # you to define what these mean in your system.
     write_authorities=[200],
     # We need to set the channels we'll be writing to and reading from.
     write=[PRESS_VALVE, VENT_VALVE],
@@ -43,14 +43,14 @@ with client.control.acquire(
     curr_target = 20
 
     # Pressurize the system five times in 20 psi increments
-    for i in range(1):
+    for i in range(5):
         # Open the pressurization valve
         controller[PRESS_VALVE] = True
         if controller.wait_until(
             # Wait until the pressure is greater than the current target
             lambda c: c[PRESSURE] > curr_target,
-            # If the pressure doesn't reach the target in 20 seconds, break the loop
-            # and vent the system
+            # If the pressure doesn't reach the target in 20 seconds, break the loop and
+            # vent the system
             timeout=20 * sy.TimeSpan.SECOND,
         ):
             # Close the pressurization valve
@@ -79,6 +79,6 @@ with client.control.acquire(
         name=f"Auto Pressurization Sequence {end}",
         time_range=sy.TimeRange(
             start=start,
-            end=sy.TimeStamp.now(),
+            end=end,
         ),
     )

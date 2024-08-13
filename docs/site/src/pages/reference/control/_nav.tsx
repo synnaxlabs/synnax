@@ -9,19 +9,19 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const opcuaNav: PageNavNode = {
-  key: "opc-ua",
-  name: "OPC UA",
+export const controlNav: PageNavNode = {
+  key: "control",
+  name: "Control",
   children: [
     {
-      key: "/reference/device-drivers/opc-ua/connect-server",
-      href: "/reference/device-drivers/opc-ua/connect-server",
-      name: "Connect to a Server",
+      key: "/reference/control/get-started",
+      href: "/reference/control/get-started",
+      name: "Get Started",
     },
     {
-      key: "/reference/device-drivers/opc-ua/read-task",
-      href: "/reference/device-drivers/opc-ua/read-task",
-      name: "Configure a Read Task",
+      key: "/reference/control/sequence-basics",
+      href: "/reference/control/sequence-basics",
+      name: "Sequence Basics",
     },
   ],
 };

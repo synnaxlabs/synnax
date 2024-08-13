@@ -98,3 +98,7 @@ driver/vendor/mbedtls/mbedtls
 # |||| PROFILING ||||
 **/mem.out
 **/profile**.png
+
+# |||| GENERAL ||||
+**/ignore*
+*.test
