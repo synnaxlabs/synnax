@@ -93,7 +93,6 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: `Failed to activate range`,
         description: e.message,
@@ -119,7 +118,6 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -144,7 +142,6 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -199,7 +196,6 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (resources.length === 1)
         message = `Failed to delete range ${resources[0].name}`;
       addStatus({
-        key: id.id(),
         variant: "error",
         message,
         description: e.message,
