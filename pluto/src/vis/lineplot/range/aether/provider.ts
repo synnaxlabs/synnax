@@ -130,7 +130,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           { x: startPos, y: box.top(region) - 1 },
           { x: endPos, y: box.bottom(region) - 1 },
         ),
-        backgroundColor: c.setAlpha(0.07),
+        backgroundColor: c.setAlpha(0.2),
         bordered: false,
       });
       const titleRegion = box.construct(

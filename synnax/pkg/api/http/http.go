@@ -97,7 +97,7 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.LabelCreate = fhttp.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse](router, false, "/api/v1/label/create")
 	t.LabelRetrieve = fhttp.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse](router, false, "/api/v1/label/retrieve")
 	t.LabelDelete = fhttp.UnaryServer[api.LabelDeleteRequest, types.Nil](router, false, "/api/v1/label/delete")
-	t.LabelSet = fhttp.UnaryServer[api.LabelSetRequest, types.Nil](router, false, "/api/v1/label/set")
+	t.LabelAdd = fhttp.UnaryServer[api.LabelAddRequest, types.Nil](router, false, "/api/v1/label/set")
 	t.LabelRemove = fhttp.UnaryServer[api.LabelRemoveRequest, types.Nil](router, false, "/api/v1/label/remove")
 
 	// DEVICE

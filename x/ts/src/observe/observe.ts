@@ -91,12 +91,3 @@ export class BaseObserver<V> implements Observable<V> {
     this.handlers.forEach((_, handler) => handler(value));
   }
 }
-
-export const wrapWithTransform = <I, O>(
-  base: Observable<I>,
-  transform: Transform<I, O>,
-): Observable<O> => {
-  const observer = new Observer<I, O>(transform);
-  base.onChange((b) => observer.notify(b));
-  return observer;
-};

@@ -1070,10 +1070,16 @@ export class DataType extends String implements Stringer {
     return v;
   }
 
+  /**
+   * @returns true if the DataType is equal to the given DataType.
+   */
   equals(other: CrudeDataType): boolean {
     return this.valueOf() === other.valueOf();
   }
 
+  /**
+   * @returns true if the DataType is equal to any of the given DataTypes.
+   */
   matches(...others: CrudeDataType[]): boolean {
     return others.some((o) => this.equals(o));
   }
@@ -1435,6 +1441,11 @@ export interface CrudeTimeRange {
   start: CrudeTimeStamp;
   end: CrudeTimeStamp;
 }
+
+/**
+ * A time range backed by numbers instead of TimeStamps/BigInts.
+ * Involves a loss of precision, but can be useful for serialization.
+ */
 export interface NumericTimeRange {
   start: number;
   end: number;

@@ -120,6 +120,10 @@ export class Range {
     return await this.aliaser.list();
   }
 
+  async resolveAlias(alias: string): Promise<ChannelKey> {
+    return await this.aliaser.resolve(alias);
+  }
+
   async openAliasTracker(): Promise<signals.Observable<string, Alias>> {
     return await this.aliaser.openChangeTracker();
   }

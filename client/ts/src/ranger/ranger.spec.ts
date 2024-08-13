@@ -236,6 +236,40 @@ describe("Ranger", () => {
   });
 
   describe("Alias", () => {
+    describe("set + resolve", () => {
+      it("should set and resolve an alias for the range", async () => {
+        const ch = await client.channels.create({
+          name: "My New Channel",
+          dataType: DataType.FLOAT32,
+          rate: Rate.hz(1),
+        });
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await rng.setAlias(ch.key, "myalias");
+        const resolved = await rng.resolveAlias("myalias");
+        expect(resolved).toEqual(ch.key);
+      });
+    });
+    describe("deleteAlias", () => {
+      it("should remove an alias for the range", async () => {
+        const ch = await client.channels.create({
+          name: "My New Channel",
+          dataType: DataType.FLOAT32,
+          rate: Rate.hz(1),
+        });
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await rng.setAlias(ch.key, "myalias");
+        await rng.deleteAlias(ch.key);
+        await expect(async () => await rng.resolveAlias("myalias")).rejects.toThrow(
+          QueryError,
+        );
+      });
+    });
     describe("list", () => {
       it("should list the aliases for the range", async () => {
         const ch = await client.channels.create({

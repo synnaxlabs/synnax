@@ -94,6 +94,9 @@ func (w Writer) CreateManyWithParent(
 	rs *[]Range,
 	parent ontology.ID,
 ) (err error) {
+	if rs == nil {
+		return
+	}
 	for i, r := range *rs {
 		if err = w.CreateWithParent(ctx, &r, parent); err != nil {
 			return

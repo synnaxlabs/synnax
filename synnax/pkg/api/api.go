@@ -182,7 +182,7 @@ type Transport struct {
 	LabelCreate   freighter.UnaryServer[LabelCreateRequest, LabelCreateResponse]
 	LabelRetrieve freighter.UnaryServer[LabelRetrieveRequest, LabelRetrieveResponse]
 	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
-	LabelSet      freighter.UnaryServer[LabelSetRequest, types.Nil]
+	LabelAdd      freighter.UnaryServer[LabelAddRequest, types.Nil]
 	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
 	// DEVICE
 	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
@@ -308,7 +308,7 @@ func (a *API) BindTo(t Transport) {
 		t.LabelCreate,
 		t.LabelRetrieve,
 		t.LabelDelete,
-		t.LabelSet,
+		t.LabelAdd,
 		t.LabelRemove,
 
 		// HARDWARE
@@ -404,7 +404,7 @@ func (a *API) BindTo(t Transport) {
 	t.LabelCreate.BindHandler(a.Label.Create)
 	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
 	t.LabelDelete.BindHandler(a.Label.Delete)
-	t.LabelSet.BindHandler(a.Label.Add)
+	t.LabelAdd.BindHandler(a.Label.Add)
 	t.LabelRemove.BindHandler(a.Label.Remove)
 
 	// HARDWARE

@@ -11,7 +11,6 @@ import "@/Icon/Icon.css";
 
 import { type runtime } from "@synnaxlabs/x";
 import clsx from "clsx";
-import { wrap } from "module";
 import { type FC } from "react";
 import {
   AiFillDelete,

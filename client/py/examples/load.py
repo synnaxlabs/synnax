@@ -125,6 +125,3 @@ with client.open_streamer([a.key for a in valve_commands]) as streamer:
             sensor_states[sensor_idx.key] = sy.TimeStamp.now()
             writer.write(sensor_states)
             i += 1
-
-
-    

@@ -10,7 +10,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { CrudeID, ID, idZ } from "@/ontology/payload";
+import { type CrudeID, ID, idZ } from "@/ontology/payload";
 
 const ENDPOINTS = {
   ADD_CHILDREN: "/ontology/add-children",

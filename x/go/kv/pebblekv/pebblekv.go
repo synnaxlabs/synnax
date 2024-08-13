@@ -13,13 +13,14 @@ package pebblekv
 
 import (
 	"context"
+	"io"
+
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
-	"io"
 )
 
 type db struct {
@@ -83,7 +84,7 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 		return translateError(err)
 	}
 	// We need to notify with a generator so that each subscriber gets a fresh reader.
-	d.NotifyGenerator(ctx, func() kv.TxReader { return txn.NewReader() })
+	d.NotifyGenerator(ctx, txn.NewReader)
 	return nil
 }
 

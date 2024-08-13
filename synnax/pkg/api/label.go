@@ -143,7 +143,7 @@ func (s *LabelService) Delete(
 	})
 }
 
-type LabelSetRequest struct {
+type LabelAddRequest struct {
 	Labels  []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
 	Replace bool        `json:"replace" msgpack:"replace"`
 	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
@@ -151,7 +151,7 @@ type LabelSetRequest struct {
 
 func (s *LabelService) Add(
 	ctx context.Context,
-	req LabelSetRequest,
+	req LabelAddRequest,
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),

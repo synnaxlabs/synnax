@@ -180,17 +180,15 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
   };
 };
 
-export const isLink = (string: string): boolean => {
-  const urlRegex = new RegExp(
-    "^(https?:\\/\\/)?" + // http:// or https:// (optional)
-      "((([a-zA-Z0-9][a-zA-Z0-9-]*\\.)+[a-zA-Z]{2,})|" + // domain name and extension
-      "localhost|" + // localhost
-      "(\\d{1,3}\\.){3}\\d{1,3})" + // or IP address
-      "(\\:\\d+)?" + // port (optional)
-      "(\\/[-a-zA-Z0-9@:%._\\+~#=]*)*" + // path (optional)
-      "(\\?[;&a-zA-Z0-9%_.,~+=-]*)?" + // query string (optional)
-      "(#[-a-zA-Z0-9_]*)?$", // fragment identifier (optional)
-  );
+const urlRegex = new RegExp(
+  "^(https?:\\/\\/)?" + // http:// or https:// (optional)
+    "((([a-zA-Z0-9][a-zA-Z0-9-]*\\.)+[a-zA-Z]{2,})|" + // domain name and extension
+    "localhost|" + // localhost
+    "(\\d{1,3}\\.){3}\\d{1,3})" + // or IP address
+    "(\\:\\d+)?" + // port (optional)
+    "(\\/[-a-zA-Z0-9@:%._\\+~#=]*)*" + // path (optional)
+    "(\\?[;&a-zA-Z0-9%_.,~+=-]*)?" + // query string (optional)
+    "(#[-a-zA-Z0-9_]*)?$", // fragment identifier (optional)
+);
 
-  return urlRegex.test(string);
-};
+export const isLink = (string: string): boolean => urlRegex.test(string);
