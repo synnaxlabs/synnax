@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -57,8 +57,7 @@ export const Aggregator = Aether.wrap<AggregatorProps>(
 
     const handleAdd: ContextValue["add"] = useCallback(
       (status) => {
-        const t = TimeStamp.now();
-        const spec: status.Spec = { time: t, key: t.toString(), ...status };
+        const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
         setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
       },
       [setState],

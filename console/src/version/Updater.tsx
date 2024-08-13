@@ -26,7 +26,6 @@ export const useCheckForUpdates = (): boolean => {
     if (update?.available !== true || available) return;
     setAvailable(true);
     addStatus({
-      key: "versionUpdate",
       variant: "info",
       message: `Update available`,
     });
