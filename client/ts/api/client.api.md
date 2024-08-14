@@ -478,8 +478,8 @@ class Client_2 implements AsyncTermSearcher<string, string, Resource> {
 // @public
 class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
     constructor(frameClient: framer.Client, retriever: Retriever, client: UnaryClient, writer: Writer_2);
-    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
     // Warning: (tsdoc-tag-should-not-have-braces) The TSDoc tag "@see" is not an inline tag; it must not be enclosed in "{ }" braces
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
     // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
     // Warning: (ae-forgotten-export) The symbol "CreateOptions" needs to be exported by the entry point index.d.ts
     create(channel: NewPayload, options?: CreateOptions): Promise<Channel>;
