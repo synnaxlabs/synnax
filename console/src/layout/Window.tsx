@@ -18,7 +18,7 @@ import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/
 import { Logo } from "@synnaxlabs/media";
 import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
-import { getCurrent } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -89,7 +89,7 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 export const Window = (): ReactElement | null => {
-  const win = useSelectWindowKey(getCurrent().label) ?? "";
+  const win = useSelectWindowKey(getCurrentWindow().label) ?? "";
   const layout = useSelect(win);
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();

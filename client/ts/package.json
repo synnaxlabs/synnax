@@ -34,13 +34,13 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^20.14.9",
-    "@vitest/coverage-v8": "^1.6.0",
-    "eslint": "^9.6.0",
+    "@types/node": "^22.2.0",
+    "@vitest/coverage-v8": "^2.0.5",
+    "eslint": "^9.9.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.5.3",
-    "vite": "5.3.3",
-    "vitest": "^1.6.0"
+    "typescript": "^5.5.4",
+    "vite": "5.4.0",
+    "vitest": "^2.0.5"
   },
   "peerDependencies": {
     "zod": "^3.23.8"
