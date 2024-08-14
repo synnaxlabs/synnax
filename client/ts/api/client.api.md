@@ -1976,6 +1976,8 @@ class Range_2 {
     // (undocumented)
     removeLabel(...labels: label.Key[]): Promise<void>;
     // (undocumented)
+    resolveAlias(alias: string): Promise<Key>;
+    // (undocumented)
     retrieveChildren(): Promise<Range_2[]>;
     // (undocumented)
     retrieveParent(): Promise<Range_2 | null>;
