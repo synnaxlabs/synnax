@@ -15,7 +15,6 @@ client = sy.Synnax(
 def process(rng: sy.Range) -> None:
     print(f"New range created: {rng.name}")
     time = np.array(sy.elapsed_seconds(rng["daq_time"]))
-    np
     pressure = np.array(rng["press_pt_1"])
     plt.plot(time, pressure, label=rng.name)
     min_time = np.min(time)

@@ -39,24 +39,24 @@ releases all write-related resources and the transaction is complete.
 To start a new transaction, we need to provide the following information.
 
 <Table>
-    <thead>
-        <tr>
-            <th>Argument</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Channels</td>
-            <td>The channels we're interested in writing to.</td>
-        </tr>
-        <tr>
-            <td>Timestamp</td>
-            {/* prettier-ignore */}
-            <td>The timestamp marking the time at or just before the first written
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Channels</td>
+      <td>The channels we're interested in writing to.</td>
+    </tr>
+    <tr>
+      <td>Timestamp</td>
+      {/* prettier-ignore */}
+      <td>The timestamp marking the time at or just before the first written
                 sample was recorded.</td>
-        </tr>
-    </tbody>
+    </tr>
+  </tbody>
 </Table>
 
 Synnax will use these arguments to validate two things before opening the writer:
@@ -69,36 +69,36 @@ Synnax will use these arguments to validate two things before opening the writer
 There are also a few optional arguments we can provide when opening a writer:
 
 <Table>
-    <thead>
-        <tr>
-            <th>Argument</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-                <a href="#persistencestreaming-modes">Mode</a>
-            </td>
-            {/* prettier-ignore */}
-            <td>The persistence/streaming mode of the writer. This can be persist only,
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <a href="#persistencestreaming-modes">Mode</a>
+      </td>
+      {/* prettier-ignore */}
+      <td>The persistence/streaming mode of the writer. This can be persist only,
                 stream only, or stream + persist.</td>
-        </tr>
-        <tr>
-            <td>
-                <a href="#dynamic-control---write-authorities">Authority</a>
-            </td>
-            {/* prettier-ignore */}
-            <td>The authority to set for the writer. This is used for dynamic control
+    </tr>
+    <tr>
+      <td>
+        <a href="#dynamic-control---write-authorities">Authority</a>
+      </td>
+      {/* prettier-ignore */}
+      <td>The authority to set for the writer. This is used for dynamic control
                 handoff between multiple writers.</td>
-        </tr>
-        <tr>
-            <td>Auto-Commit</td>
-            {/* prettier-ignore */}
-            <td>Whether writes should be immediately committed to the Synnax
+    </tr>
+    <tr>
+      <td>Auto-Commit</td>
+      {/* prettier-ignore */}
+      <td>Whether writes should be immediately committed to the Synnax
             Cluster.</td>
-        </tr>
-    </tbody>
+    </tr>
+  </tbody>
 </Table>
 
 ### Write Phase
@@ -189,10 +189,10 @@ mode for a writer.
 Synnax supports multi-writer control transfer over a single channel. This enables
 patterns such as:
 
--   Handoff between a manual operator and automated system.
--   Handoff between multiple manual operators.
--   Handoff between multiple automated systems, such as nominal control loops and abort
-    sequences.
+- Handoff between a manual operator and automated system.
+- Handoff between multiple manual operators.
+- Handoff between multiple automated systems, such as nominal control loops and abort
+  sequences.
 
 The control handoff mechanism is based on numeric authorities between 0 and 255, where 0
 is the lowest authority and 255 is the highest. When a writer is opened, the user can

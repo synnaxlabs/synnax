@@ -80,7 +80,6 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (errors.CANCELED.matches(e)) return;
       addStatus({
         variant: "error",
-        key: "deleteTaskError",
         message,
         description: e.message,
       });

@@ -109,7 +109,6 @@ const Wrapped = ({
     mutationKey: [client?.key, "configure"],
     onError: ({ message }) =>
       addStatus({
-        key: `configure-${layoutKey}`,
         variant: "error",
         message,
       }),

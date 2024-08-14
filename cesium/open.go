@@ -12,7 +12,6 @@ package cesium
 import (
 	"fmt"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/signal"
@@ -81,16 +80,13 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 	if err != nil {
 		return err
 	}
-	ch, err = meta.ReadOrCreate(fs, ch, db.metaECD)
-	if err != nil {
-		return err
-	}
 	if ch.Virtual {
 		_, isOpen := db.virtualDBs[ch.Key]
 		if isOpen {
 			return nil
 		}
 		v, err := virtual.Open(virtual.Config{
+			MetaCodec:       db.metaCodec,
 			FS:              fs,
 			Channel:         ch,
 			Instrumentation: db.options.Instrumentation,
@@ -98,7 +94,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if err != nil {
 			return err
 		}
-		err = v.CheckMigration(db.metaECD)
+		err = v.CheckMigration(db.metaCodec)
 		if err != nil {
 			return err
 		}
@@ -110,6 +106,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		}
 		u, err := unary.Open(unary.Config{
 			FS:              fs,
+			MetaCodec:       db.metaCodec,
 			Channel:         ch,
 			Instrumentation: db.options.Instrumentation,
 			FileSize:        db.options.fileSize,
@@ -118,25 +115,25 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if err != nil {
 			return err
 		}
-		err = u.CheckMigration(db.metaECD)
+		err = u.CheckMigration(db.metaCodec)
 		if err != nil {
 			return err
 		}
 		// In the case where we index the data using a separate index database, we
 		// need to set the index on the unary database. Otherwise, we assume the database
 		// is self-indexing.
-		if u.Channel.Index != 0 && !u.Channel.IsIndex {
-			idxDB, ok := db.unaryDBs[u.Channel.Index]
+		if u.Channel().Index != 0 && !u.Channel().IsIndex {
+			idxDB, ok := db.unaryDBs[u.Channel().Index]
 			if ok {
 				u.SetIndex(idxDB.Index())
 			}
-			err = db.openVirtualOrUnary(Channel{Key: u.Channel.Index})
+			err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index})
 			if err != nil {
 				return err
 			}
-			idxDB, ok = db.unaryDBs[u.Channel.Index]
+			idxDB, ok = db.unaryDBs[u.Channel().Index]
 			if !ok {
-				return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel.Index)}
+				return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index)}
 			}
 		}
 		db.unaryDBs[ch.Key] = *u

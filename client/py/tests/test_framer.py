@@ -369,8 +369,9 @@ class TestWriter:
             w1.close()
             w2.close()
 
-    def test_set_authority_on_all_channels(self, client: sy.Synnax,
-                                           channel: sy.channel):
+    def test_set_authority_on_all_channels(
+        self, client: sy.Synnax, channel: sy.channel
+    ):
         w1 = client.open_writer(0, channel.key, 100, enable_auto_commit=True)
         w2 = client.open_writer(0, channel.key, 200, enable_auto_commit=True)
         try:

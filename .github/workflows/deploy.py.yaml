@@ -54,27 +54,6 @@ jobs:
               - "client/py/**"
               - ".github/workflows/pypi.publish.yaml"
 
-      - name: Conditionally Bump Alamos Version
-        if: steps.alamos.outputs.changed == 'true'
-        working-directory: ./alamos/py
-        run: |
-          poetry version patch
-          ALAMOS_VERSION=$(poetry version -s)
-
-      - name: Conditionally Bump Freighter Version
-        if: steps.freighter.outputs.changed == 'true'
-        working-directory: ./freighter/py
-        run: |
-          poetry version patch
-          FREIGHTER_VERSION=$(poetry version -s)
-
-      - name: Conditionally Bump Client Version
-        if: steps.client.outputs.changed == 'true'
-        working-directory: ./client/py
-        run: |
-          poetry version patch
-          CLIENT_VERSION=$(poetry version -s)
-
       - name: Update packages with correct versions
         run: |
           cd ./client/py

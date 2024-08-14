@@ -58,17 +58,17 @@ rough_rate = sy.Rate.HZ * 50
 # this example, we provide the keys of the channels we want to write to, but you can
 # also provide the names and write that way.
 with client.open_writer(
-    start, 
-    [time_ch.key, data_ch_1.key, data_ch_2.key],
-    enable_auto_commit=True
+    start, [time_ch.key, data_ch_1.key, data_ch_2.key], enable_auto_commit=True
 ) as writer:
     i = 0
     while True:
         # Write the data to the writer
-        writer.write({
+        writer.write(
+            {
                 time_ch.key: np.int64(sy.TimeStamp.now()),
                 data_ch_1.key: np.float32(np.sin(i / 10)),
                 data_ch_2.key: i % 2,
-        })
-        i+=1
+            }
+        )
+        i += 1
         time.sleep(rough_rate.period.seconds)

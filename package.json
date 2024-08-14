@@ -27,6 +27,7 @@
     "dev:docs": "npx turbo dev --filter @synnaxlabs/docs",
     "dev:landing": "npx turbo dev --filter @synnaxlabs/landing",
     "test": "npx turbo test",
+    "test:console": "npx turbo test --filter @synnaxlabs/console",
     "test:pluto": "npx turbo test --filter @synnaxlabs/pluto",
     "test:drift": "npx turbo test --filter @synnaxlabs/drift",
     "test:freighter": "npx turbo test --filter @synnaxlabs/freighter",
@@ -54,11 +55,16 @@
     "fix:client": "npx turbo fix --filter @synnaxlabs/client",
     "fix:drift": "npx turbo fix --filter @synnaxlabs/drift",
     "fix:alamos": "npx turbo fix --filter @synnaxlabs/alamos",
+    "genApi": "npx turbo genApi",
+    "genApi:client": "npx turbo genApi --filter @synnaxlabs/client",
+    "checkApi": "npx turbo checkApi",
+    "checkApi:client": "npx turbo checkApi --filter @synnaxlabs/client",
     "devtools": "npx turbo devtools --filter console"
   },
   "devDependencies": {
+    "@microsoft/api-extractor": "^7.47.5",
     "prettier": "3.3.2",
-    "turbo": "^2.0.11"
+    "turbo": "^2.0.12"
   },
   "engines": {
     "node": ">=18"
@@ -70,22 +76,22 @@
       "uuid": "^9.0.1",
       "@reduxjs/toolkit": "^2.2.3",
       "react-redux": "^9.1.0",
-      "vite": "5.3.3",
-      "vite-tsconfig-paths": "4.3.2",
-      "vite-plugin-dts": "3.9.1",
+      "vite": "5.3.0",
+      "vite-tsconfig-paths": "5.0.1",
+      "vite-plugin-dts": "4.0.2",
       "@vitejs/plugin-react": "^4.3.1",
-      "vitest": "^1.6.0",
-      "@vitest/coverage-v8": "^1.6.0",
-      "typescript": "^5.5.3",
+      "vitest": "^2.0.5",
+      "@vitest/coverage-v8": "^2.0.5",
+      "typescript": "^5.5.4",
       "proxy-memoize": "1.2.0",
-      "@tanstack/react-virtual": "3.8.1",
+      "@tanstack/react-virtual": "3.8.6",
       "zod": "3.23.8",
       "node-fetch": "2.6.11",
-      "prettier": "3.3.2",
-      "@tauri-apps/api": "^2.0.0-beta.14",
-      "eslint": "^9.6.0"
+      "prettier": "3.3.3",
+      "@tauri-apps/api": "^2.0.0-rc.0",
+      "eslint": "^9.9.0"
     }
   },
-  "packageManager": "pnpm@9.4.0",
+  "packageManager": "pnpm@9.7.0",
   "name": "synnax"
 }

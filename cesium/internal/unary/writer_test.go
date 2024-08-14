@@ -24,6 +24,12 @@ import (
 	"os"
 )
 
+func filterDataFiles(l []os.FileInfo) []os.FileInfo {
+	return lo.Filter(l, func(item os.FileInfo, _ int) bool {
+		return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain" && item.Name() != "meta.json"
+	})
+}
+
 var _ = Describe("Writer Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
@@ -36,7 +42,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				BeforeEach(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: fs,
+						FS:        fs,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      2,
 							DataType: telem.TimeStampT,
@@ -55,8 +62,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Subject: control.Subject{Key: "foo"},
 					}))
 					Expect(t.Occurred()).To(BeTrue())
-					Expect(MustSucceed(w.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.LeadingAlignment(0)))
-					Expect(MustSucceed(w.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.LeadingAlignment(6)))
+					v, err := w.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(v).To(Equal(telem.LeadingAlignment(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.LeadingAlignment(1, 6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -76,17 +85,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			Describe("Channel Indexed", func() {
 				var (
-					db      *unary.DB
+					dataDB  *unary.DB
+					dataFS  xfs.FS
 					indexDB *unary.DB
+					indexFS xfs.FS
 					index   = testutil.GenerateChannelKey()
 					data    = testutil.GenerateChannelKey()
-					fs      xfs.FS
 					cleanUp func() error
 				)
 				BeforeEach(func() {
+					var fs xfs.FS
 					fs, cleanUp = makeFS()
+					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("index")),
+						FS:        indexFS,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      index,
 							Name:     "Cayley",
@@ -96,8 +109,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FileSize:        telem.Size(10*telem.TimeStampT.Density()) * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
-					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("data")),
+					dataFS = MustSucceed(fs.Sub("data"))
+					dataDB = MustSucceed(unary.Open(unary.Config{
+						FS:        dataFS,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      data,
 							Name:     "Maxwell",
@@ -107,41 +122,41 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FileSize:        telem.Size(5*telem.Int64T.Density()) * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
-					db.SetIndex(indexDB.Index())
+					dataDB.SetIndex(indexDB.Index())
 				})
 				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
+					Expect(dataDB.Close()).To(Succeed())
 					Expect(indexDB.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
 				Specify("Happy Path", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
-					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+					w, t := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					}))
 					By("Taking control of the DB")
-					Expect(db.LeadingControlState().Subject).To(Equal(control.Subject{Key: "foo"}))
+					Expect(dataDB.LeadingControlState().Subject).To(Equal(control.Subject{Key: "foo"}))
 					Expect(t.Occurred()).To(BeTrue())
-					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(telem.LeadingAlignment(0)))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(telem.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
 					By("Releasing control of the DB")
-					Expect(db.LeadingControlState()).To(BeNil())
+					Expect(dataDB.LeadingControlState()).To(BeNil())
 				})
 				Specify("Open Writer domain overlap", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
-					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					}))
-					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(telem.LeadingAlignment(0)))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(telem.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
 					_, err := w.Close()
 					Expect(err).ToNot(HaveOccurred())
 
-					w, _, err = db.OpenWriter(ctx, unary.WriterConfig{
+					w, _, err = dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   12 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					})
@@ -151,7 +166,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Describe("Auto file switch", func() {
 					Specify("File cutoff on commit with no preset end", func() {
 						w1, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "foo"}}))
-						w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
+						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
 						_, err := w1.Write(telem.NewSecondsTSV(10, 11, 13, 14, 15, 16, 17))
@@ -160,17 +175,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that both writers have still written to one file")
-						l := MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain" && item.Name() != "tombstone.domain"
-						})
+						l := filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(7 * telem.Int64T.Density())))
 
-						l = MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(7 * telem.Int64T.Density())))
 
@@ -185,17 +194,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the second writer is now writing to a different file")
-						l = MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(13 * telem.Int64T.Density())))
 
-						l = MustSucceed(db.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(dataFS.List("")))
 						Expect(l).To(HaveLen(2))
 						Expect([]int64{l[0].Size(), l[1].Size()}).To(ConsistOf(int64(7*telem.Int64T.Density()), int64(6*telem.Int64T.Density())))
 
@@ -208,10 +211,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the first writer is now writing to a different file")
-						l = MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(2))
 						Expect([]int64{l[0].Size(), l[1].Size()}).To(ConsistOf(int64(13*telem.Int64T.Density()), int64(2*telem.Int64T.Density())))
 
@@ -223,7 +223,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -237,7 +237,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					})
 					Specify("Special case where the file exceeds limit by 1", func() {
 						w1, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "foo"}}))
-						w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
+						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
 						_, err := w1.Write(telem.NewSecondsTSV(10, 11, 13, 14, 15, 16, 17))
@@ -246,17 +246,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that both writers have still written to one file")
-						l := MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l := filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(7 * telem.Int64T.Density())))
 
-						l = MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(7 * telem.Int64T.Density())))
 
@@ -271,17 +265,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the second writer is now writing to a different file")
-						l = MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(13 * telem.Int64T.Density())))
 
-						l = MustSucceed(db.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(dataFS.List("")))
 						Expect(l).To(HaveLen(2))
 						Expect([]int64{l[0].Size(), l[1].Size()}).To(ConsistOf(int64(7*telem.Int64T.Density()), int64(6*telem.Int64T.Density())))
 
@@ -294,10 +282,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the first writer is now writing to a different file")
-						l = MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(2))
 						Expect([]int64{l[0].Size(), l[1].Size()}).To(ConsistOf(int64(13*telem.Int64T.Density()), int64(2*telem.Int64T.Density())))
 
@@ -309,7 +294,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -323,7 +308,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					})
 					Specify("File cutoff on commit with preset end", func() {
 						w1, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "foo"}}))
-						w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
+						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
 						_, err := w1.Write(telem.NewSecondsTSV(10, 11, 13, 14, 15, 16, 17, 18, 20, 23, 25))
@@ -346,17 +331,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(43*telem.SecondTS + 1))
 
 						By("Asserting that both writers are now writing to a different file")
-						l := MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l := filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(2))
 						Expect([]int64{l[0].Size(), l[1].Size()}).To(ConsistOf(int64(11*telem.Int64T.Density()), int64(5*telem.Int64T.Density())))
 
-						l = MustSucceed(db.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(dataFS.List("")))
 						Expect(l).To(HaveLen(3))
 						Expect([]int64{l[0].Size(), l[1].Size(), l[2].Size()}).To(ConsistOf(int64(11*telem.Int64T.Density()), int64(5*telem.Int64T.Density()), int64(0)))
 
@@ -366,7 +345,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -381,7 +360,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					Specify("Just enough data to switch files", func() {
 						w1, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "foo"}}))
-						w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
+						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
 						_, err := w1.Write(telem.NewSecondsTSV(10))
@@ -404,17 +383,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(19*telem.SecondTS + 1))
 
 						By("Asserting that both writers have only written to one file")
-						l := MustSucceed(indexDB.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l := filterDataFiles(MustSucceed(indexFS.List("")))
 						Expect(l).To(HaveLen(2))
 						Expect([]int64{l[0].Size(), l[1].Size()}).To(ConsistOf(int64(10*telem.Int64T.Density()), int64(0)))
 
-						l = MustSucceed(db.FS.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(dataFS.List("")))
 						Expect(l).To(HaveLen(2))
 						Expect([]int64{l[0].Size(), l[1].Size()}).To(ConsistOf(int64(10*telem.Int64T.Density()), int64(0)))
 
@@ -424,7 +397,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -444,7 +417,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				)
 				BeforeEach(func() {
 					fs, cleanUp = makeFS()
-					db = MustSucceed(unary.Open(unary.Config{FS: fs,
+					db = MustSucceed(unary.Open(unary.Config{
+						FS:        fs,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      2,
 							DataType: telem.TimeStampT,
@@ -465,14 +440,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Subject:   control.Subject{Key: "foo"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.LeadingAlignment(0)))
+						Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.LeadingAlignment(1, 0)))
 						w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
 							Authority: control.Absolute,
 							Subject:   control.Subject{Key: "bar"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w2.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.LeadingAlignment(6)))
+						Expect(MustSucceed(w2.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.LeadingAlignment(1, 6)))
 						a, err := w1.Write(telem.NewSecondsTSV(12, 13, 14, 15, 16, 17))
 						Expect(err).To(MatchError(control.Unauthorized))
 						Expect(a).To(Equal(telem.AlignmentPair(0)))
@@ -480,7 +455,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).To(MatchError(control.Unauthorized))
 						t = MustSucceed(w2.Close())
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(telem.LeadingAlignment(12)))
+						Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(telem.LeadingAlignment(1, 12)))
 						Expect(MustSucceed(w1.Commit(ctx))).To(Equal(17*telem.SecondTS + 1))
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())
@@ -521,7 +496,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				)
 				BeforeEach(func() {
 					fs, cleanUp = makeFS()
-					db = MustSucceed(unary.Open(unary.Config{FS: fs,
+					db = MustSucceed(unary.Open(unary.Config{
+						FS:        fs,
+						MetaCodec: codec,
 						Channel: core.Channel{
 							Key:      key,
 							Name:     "gauss",

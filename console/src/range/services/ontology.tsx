@@ -11,7 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Icon as PIcon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { errors, id, toArray } from "@synnaxlabs/x";
+import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -81,7 +81,6 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: `Failed to activate range`,
         description: e.message,
@@ -107,7 +106,6 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -132,7 +130,6 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
@@ -179,7 +176,6 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (resources.length === 1)
         message = `Failed to delete range ${resources[0].name}`;
       addStatus({
-        key: id.id(),
         variant: "error",
         message,
         description: e.message,
