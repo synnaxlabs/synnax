@@ -20,11 +20,12 @@ export class MockGLBufferController implements GLBufferController {
   counter: number = 0;
   buffers: Record<number, ArrayBuffer> = {};
 
-  createBufferMock: Mock<[], WebGLBuffer | null> = vi.fn();
-  bufferDataMock: Mock<[number, ArrayBufferLike | number, number]> = vi.fn();
-  bufferSubDataMock: Mock<[number, number, ArrayBufferLike]> = vi.fn();
-  bindBufferMock: Mock<[number, WebGLBuffer | null]> = vi.fn();
-  deleteBufferMock: Mock<[WebGLBuffer | null]> = vi.fn();
+  createBufferMock: Mock<() => WebGLBuffer | null> = vi.fn();
+  bufferDataMock: Mock<(a: number, b: ArrayBufferLike | number, c: number) => void> =
+    vi.fn();
+  bufferSubDataMock: Mock<(a: number, b: number, c: ArrayBufferLike) => void> = vi.fn();
+  bindBufferMock: Mock<(a: number, b: WebGLBuffer | null) => void> = vi.fn();
+  deleteBufferMock: Mock<(a: WebGLBuffer | null) => void> = vi.fn();
 
   deleteBuffer(buffer: WebGLBuffer | null): void {
     if (buffer != null) delete this.buffers[buffer as number];
