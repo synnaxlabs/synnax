@@ -265,9 +265,7 @@ describe("Ranger", () => {
         });
         await rng.setAlias(ch.key, "myalias");
         await rng.deleteAlias(ch.key);
-        await expect(async () => await rng.resolveAlias("myalias")).rejects.toThrow(
-          QueryError,
-        );
+        expect(await rng.resolveAlias("myalias")).toBeUndefined();
       });
     });
     describe("list", () => {
