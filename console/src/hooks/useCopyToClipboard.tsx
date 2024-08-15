@@ -14,7 +14,7 @@ export const useCopyToClipboard = (): ((text: string, name: string) => void) => 
       .catch((e) => {
         addStatus({
           variant: "error",
-          message: `Copied ${name} to clipboard.`,
+          message: `Failed to copy ${name} to clipboard.`,
           description: e.message,
         });
       });

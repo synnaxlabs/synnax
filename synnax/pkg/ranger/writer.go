@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Writer is used to create ranges within the DB.
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
@@ -26,6 +27,9 @@ type Writer struct {
 	group     group.Group
 }
 
+// Create creates a new range within the DB, assigning it a unique key if it does not
+// already have one. If the Range already has a key and an existing Range already
+// exists with that key, the existing range will be updated.
 func (w Writer) Create(
 	ctx context.Context,
 	r *Range,
@@ -33,6 +37,13 @@ func (w Writer) Create(
 	return w.CreateWithParent(ctx, r, ontology.ID{})
 }
 
+// CreateWithParent creates a new range as a sub-range of the ontology.Resource with the given
+// ID. If the range does not already have a key, a new key will be assigned. If the range
+// already exists, it will be updated. If the range already exists and a parent is
+// provided, the existing parent relationship will be deleted and a new parent
+// relationship will be created. If the range already exists and no parent is provided,
+// the existing parent relationship will be preserved. If an empty parent is provided,
+// the range will be created under the top level "Ranges" group.
 func (w Writer) CreateWithParent(
 	ctx context.Context,
 	r *Range,
@@ -76,6 +87,8 @@ func (w Writer) CreateWithParent(
 	return
 }
 
+// CreateMany creates multiple ranges within the DB. If any of the ranges already exist,
+// they will be updated.
 func (w Writer) CreateMany(
 	ctx context.Context,
 	rs *[]Range,
@@ -89,6 +102,12 @@ func (w Writer) CreateMany(
 	return err
 }
 
+// CreateManyWithParent creates multiple ranges within the DB as sub-ranges of the ontology.Resource
+// with the given ID. If any of the ranges already exist, they will be updated. If the range
+// already exists and a parent is provided, the existing parent relationship will be deleted
+// and a new parent relationship will be created. If the range already exists and no parent
+// is provided, the existing parent relationship will be preserved. If an empty parent is
+// provided, the range will be created under the top level "Ranges" group.
 func (w Writer) CreateManyWithParent(
 	ctx context.Context,
 	rs *[]Range,
@@ -106,6 +125,7 @@ func (w Writer) CreateManyWithParent(
 	return err
 }
 
+// Rename renames the range with the given key.
 func (w Writer) Rename(
 	ctx context.Context,
 	key uuid.UUID,
@@ -117,6 +137,8 @@ func (w Writer) Rename(
 	}).Exec(ctx, w.tx)
 }
 
+// Delete deletes the range with the given key. Delete will also delete all children
+// of the range.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	// Query the ontology to find all children of the range and delete them as well
 	var children []ontology.Resource

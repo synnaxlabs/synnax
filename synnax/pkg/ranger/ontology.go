@@ -23,17 +23,21 @@ import (
 
 const OntologyType ontology.Type = "range"
 
+// OntologyID returns the unique ID to identify the range within the Synnax ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
+// OntologyIDs converts a slice of keys to a slice of ontology IDs.
 func OntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
 	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID {
 		return OntologyID(k)
 	})
 }
 
-func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
+// KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys, returning
+// an error if any of the IDs are invalid.
+func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
 		keys[i], err = uuid.Parse(id.Key)
@@ -44,6 +48,7 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
+// OntologyIDsFromRanges converts a slice of ranges to a slice of ontology IDs.
 func OntologyIDsFromRanges(ranges []Range) (ids []ontology.ID) {
 	return lo.Map(ranges, func(r Range, _ int) ontology.ID {
 		return OntologyID(r.Key)

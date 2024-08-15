@@ -56,7 +56,7 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 
 // Exec executes the Retrieve query. If a tx is provided, Exec will use it to execute
 // the query. Otherwise, it will execute against the underlying gorp.DB. It's important
-// to note that fuzzy search will not be aware of any writers/deletes executed on the
+// to note that fuzzy search will not be aware of any writes/deletes executed on the
 // tx, and will only search the underlying database.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)

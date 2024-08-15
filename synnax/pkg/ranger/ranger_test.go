@@ -278,7 +278,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(r.Set(ctx, "key", "value")).To(Succeed())
+			Expect(r.SetKV(ctx, "key", "value")).To(Succeed())
 		})
 		It("Should be able to retrieve key-value pairs from a range", func() {
 			r := &ranger.Range{
@@ -289,7 +289,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(r.Set(ctx, "key", "value")).To(Succeed())
+			Expect(r.SetKV(ctx, "key", "value")).To(Succeed())
 			value, err := r.Get(ctx, "key")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal("value"))
@@ -303,8 +303,8 @@ var _ = Describe("Ranger", Ordered, func() {
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(r.Set(ctx, "key", "value")).To(Succeed())
-			Expect(r.Delete(ctx, "key")).To(Succeed())
+			Expect(r.SetKV(ctx, "key", "value")).To(Succeed())
+			Expect(r.DeleteKV(ctx, "key")).To(Succeed())
 			_, err := r.Get(ctx, "key")
 			Expect(err).To(HaveOccurred())
 		})
@@ -317,7 +317,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(r.SetMany(ctx, []ranger.KVPair{
+			Expect(r.SetManyKV(ctx, []ranger.KVPair{
 				{Key: "key1", Value: "value1"},
 				{Key: "key2", Value: "value2"},
 			})).To(Succeed())
@@ -337,16 +337,16 @@ var _ = Describe("Ranger", Ordered, func() {
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			Expect(r.Set(ctx, "key1", "value1")).To(Succeed())
-			Expect(r.Set(ctx, "key2", "value2")).To(Succeed())
-			meta, err := r.ListMetaData()
+			Expect(r.SetKV(ctx, "key1", "value1")).To(Succeed())
+			Expect(r.SetKV(ctx, "key2", "value2")).To(Succeed())
+			meta, err := r.ListKV()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta).To(Equal([]ranger.KVPair{
 				{Range: r.Key, Key: "key1", Value: "value1"},
 				{Range: r.Key, Key: "key2", Value: "value2"},
 			}))
-			Expect(r.Delete(ctx, "key1")).To(Succeed())
-			meta, err = r.ListMetaData()
+			Expect(r.DeleteKV(ctx, "key1")).To(Succeed())
+			meta, err = r.ListKV()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta).To(Equal([]ranger.KVPair{
 				{Range: r.Key, Key: "key2", Value: "value2"},
@@ -475,41 +475,6 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.Data["alias"]).To(Equal("alias"))
 			})
-		})
-	})
-
-	Describe("Labels", func() {
-		It("Should set labels on a range", func() {
-			r := ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			l := label.Label{Name: "Label"}
-			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			Expect(r.SetLabels(ctx, l.Key)).To(Succeed())
-			labels := MustSucceed(labelSvc.RetrieveFor(ctx, r.OntologyID(), tx))
-			Expect(labels).To(HaveLen(1))
-			Expect(labels[0].Key).To(Equal(l.Key))
-		})
-		It("Should delete labels on a range", func() {
-			r := ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			l := label.Label{Name: "Label"}
-			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			Expect(r.SetLabels(ctx, l.Key)).To(Succeed())
-			Expect(r.DeleteLabels(ctx, l.Key)).To(Succeed())
-			labels := MustSucceed(labelSvc.RetrieveFor(ctx, r.OntologyID(), tx))
-			Expect(labels).To(BeEmpty())
 		})
 	})
 })

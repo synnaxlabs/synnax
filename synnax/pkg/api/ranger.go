@@ -186,10 +186,10 @@ func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res Ra
 		return RangeKVGetResponse{}, err
 	}
 	if len(req.Keys) == 0 {
-		res.Pairs, err = r.ListMetaData()
+		res.Pairs, err = r.ListKV()
 		return
 	}
-	res.Pairs, err = r.GetMany(ctx, req.Keys)
+	res.Pairs, err = r.GetManyKV(ctx, req.Keys)
 	return
 }
 
@@ -214,7 +214,7 @@ func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res ty
 			return err
 		}
 		rng = rng.UseTx(tx)
-		return rng.SetMany(ctx, req.Pairs)
+		return rng.SetManyKV(ctx, req.Pairs)
 	})
 }
 

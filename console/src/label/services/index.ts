@@ -1,1 +1,1 @@
-export * as LabelServices from "@/label/services/palette";
+export * as LabelServices from "@/label/services/external";

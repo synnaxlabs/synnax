@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"io"
 	"sync"
 
@@ -24,11 +25,19 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Config is the configuration for opening the ranger.Service.
 type Config struct {
-	DB       *gorp.DB
+	// DB is the underlying database that the service will use to store Ranges.
+	DB *gorp.DB
+	// Ontology will be used to create relationships between ranges (parent-child) and
+	// with other resources within the Synnax cluster.
 	Ontology *ontology.Ontology
-	Group    *group.Service
-	Signals  *signals.Provider
+	// Group is used to create the top level "Ranges" group that will be the default
+	// parent of all ranges.
+	Group *group.Service
+	// Signals is used to publish signals on channels when ranges are created, updated,
+	// deleted, along with changes to aliases and key-value pairs.
+	Signals *signals.Provider
 }
 
 var (
@@ -54,6 +63,10 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
+// Service is the main entrypoint for managing ranges within Synnax. It provides
+// mechanisms for creating, deleting, and listening to changes in ranges. It also
+// provides mechanisms for setting channel aliases for a specific range, and for
+// setting meta-data on a range.
 type Service struct {
 	Config
 	group           group.Group
@@ -63,6 +76,9 @@ type Service struct {
 
 const groupName = "Ranges"
 
+// OpenService opens a new ranger.Service with the provided configuration. If error
+// is nil, the services is ready for use and must be closed by calling Close to
+// prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -100,6 +116,9 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	return
 }
 
+// Close closes the service and releases any resources that it may have acquired. Close
+// is not safe to call concurrently with any other Service methods (including Writer(s)
+// and Retrieve(s)).
 func (s *Service) Close() error {
 	if s.shutdownSignals != nil {
 		return s.shutdownSignals.Close()
@@ -107,6 +126,9 @@ func (s *Service) Close() error {
 	return nil
 }
 
+// NewWriter opens a new Writer to create, update, and delete ranges. If tx is not nil,
+// the writer will use it to execute all operations. If tx is nil, the writer will execute
+// all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:        tx,
@@ -116,6 +138,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
+// NewRetrieve opens a new Retrieve query to fetch ranges from the database.
 func (s *Service) NewRetrieve() Retrieve {
-	return newRetrieve(s.DB, s.Ontology)
+	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), baseTX: s.DB, otg: s.Ontology}
 }
