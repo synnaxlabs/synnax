@@ -119,8 +119,8 @@ I can successfully:
 - [ ] Open the range overview dialog from the resources view.
 - [ ] Edit range properties from the overview dialog.
 - [ ] Edit meta-data properties on the range.
-- [ ] Add sub-ranges to a range.
-- [ ] Navigate to and from sub-ranges on a range.
+- [ ] Add child ranges to a range.
+- [ ] Navigate to and from child ranges on a range.
 - [ ] Make a change to the range in the edit dialog and see the changes propagate to the
       overview dialog.
 - [ ] Save a local range to Synnax in the range toolbar.

@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -31,13 +30,12 @@ import (
 
 var _ = Describe("Ranger", Ordered, func() {
 	var (
-		db       *gorp.DB
-		svc      *ranger.Service
-		labelSvc *label.Service
-		w        ranger.Writer
-		otg      *ontology.Ontology
-		tx       gorp.Tx
-		closer   io.Closer
+		db     *gorp.DB
+		svc    *ranger.Service
+		w      ranger.Writer
+		otg    *ontology.Ontology
+		tx     gorp.Tx
+		closer io.Closer
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
@@ -47,11 +45,6 @@ var _ = Describe("Ranger", Ordered, func() {
 		}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{DB: db, Ontology: otg, Group: g}))
-		labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-		}))
 		closer = xio.MultiCloser{db, otg, g, svc}
 	})
 	AfterAll(func() {
@@ -183,6 +176,31 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))
 			})
+			Context("Parent Method", func() {
+				It("Should get the parent of the range", func() {
+					parent := ranger.Range{
+						Name:      "Parent",
+						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					}
+					Expect(w.Create(ctx, &parent)).To(Succeed())
+					r := ranger.Range{
+						Name:      "Range",
+						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					}
+					Expect(w.CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+					p := MustSucceed(r.Parent(ctx))
+					Expect(p.Key).To(Equal(parent.Key))
+				})
+				It("Should return an error if the range has no parent", func() {
+					p := ranger.Range{
+						Name:      "Parent",
+						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					}
+					Expect(w.Create(ctx, &p)).To(Succeed())
+					_, err := p.Parent(ctx)
+					Expect(err).To(HaveOccurredAs(query.NotFound))
+				})
+			})
 		})
 	})
 
@@ -245,7 +263,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			var retrieveR ranger.Range
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
 		})
-		It("Should delete all sub-ranges when a range is deleted", func() {
+		It("Should delete all child ranges when a range is deleted", func() {
 			parent := ranger.Range{
 				Name: "Parent",
 				TimeRange: telem.TimeRange{
@@ -355,63 +373,213 @@ var _ = Describe("Ranger", Ordered, func() {
 	})
 
 	Describe("Alias", func() {
-		It("Should set an alias for a channel on a range", func() {
-			r := ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
-				Entry(&ch).
-				Exec(ctx, tx)).To(Succeed())
-			r = r.UseTx(tx)
-			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
-			alias, err := r.GetAlias(ctx, ch.Key())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(alias).To(Equal("alias"))
+
+		Describe("Set", func() {
+			It("Should set an alias for a channel on a range", func() {
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				r = r.UseTx(tx)
+				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+			})
 		})
-		It("Should delete an alias for a channel on a range", func() {
-			r := ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
-				Entry(&ch).
-				Exec(ctx, tx)).To(Succeed())
-			r = r.UseTx(tx)
-			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
-			Expect(r.DeleteAlias(ctx, ch.Key())).To(Succeed())
-			_, err := r.GetAlias(ctx, ch.Key())
-			Expect(err).To(HaveOccurred())
+
+		Describe("Get", func() {
+			It("Should get an alias for a channel on a range", func() {
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				r = r.UseTx(tx)
+				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				alias, err := r.GetAlias(ctx, ch.Key())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(alias).To(Equal("alias"))
+			})
+
+			It("Should return an error if an alias can't be found", func() {
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				r = r.UseTx(tx)
+				_, err := r.GetAlias(ctx, ch.Key())
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("Should fallback to the parent range if the alias is not found", func() {
+				parent := ranger.Range{
+					Name: "Parent",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				parent = parent.UseTx(tx)
+				Expect(parent.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(7 * telem.Second),
+						End:   telem.TimeStamp(9 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+				alias, err := r.GetAlias(ctx, ch.Key())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(alias).To(Equal("alias"))
+			})
 		})
-		It("Should resolve an alias for a channel on a range", func() {
-			r := ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
-				Entry(&ch).
-				Exec(ctx, tx)).To(Succeed())
-			r = r.UseTx(tx)
-			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
-			alias, err := r.ResolveAlias(ctx, "alias")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(alias).To(Equal(ch.Key()))
+
+		Describe("Delete", func() {
+			It("Should delete an alias for a channel on a range", func() {
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				r = r.UseTx(tx)
+				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(r.DeleteAlias(ctx, ch.Key())).To(Succeed())
+				_, err := r.GetAlias(ctx, ch.Key())
+				Expect(err).To(HaveOccurred())
+			})
 		})
+
+		Describe("Resolve", func() {
+
+			It("Should resolve an alias for a channel on a range", func() {
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				r = r.UseTx(tx)
+				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				alias, err := r.ResolveAlias(ctx, "alias")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(alias).To(Equal(ch.Key()))
+			})
+
+			It("Should return an error if an alias can't be resolved", func() {
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				r = r.UseTx(tx)
+				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				_, err := r.ResolveAlias(ctx, "not_an_alias")
+				Expect(err).To(HaveOccurredAs(query.NotFound))
+			})
+
+			It("Should fallback to the parent range if the alias is not found", func() {
+				parent := ranger.Range{
+					Name: "Parent",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				parent = parent.UseTx(tx)
+				Expect(parent.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(7 * telem.Second),
+						End:   telem.TimeStamp(9 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+				alias, err := r.ResolveAlias(ctx, "alias")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(alias).To(Equal(ch.Key()))
+			})
+
+			It("Should return an error if the alias can't be resolved on both the child range and its parent", func() {
+				parent := ranger.Range{
+					Name: "Parent",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				parent = parent.UseTx(tx)
+				Expect(parent.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(7 * telem.Second),
+						End:   telem.TimeStamp(9 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+				_, err := r.ResolveAlias(ctx, "not_an_alias")
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
 		Specify("Aliases should be searchable by the ontology", func() {
 			time.Sleep(10 * time.Millisecond)
 			r := ranger.Range{

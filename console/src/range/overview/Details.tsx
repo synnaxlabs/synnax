@@ -10,9 +10,11 @@ import {
   Synnax,
   Text,
   useAsyncEffect,
+  usePrevious,
 } from "@synnaxlabs/pluto";
 import { change, deep } from "@synnaxlabs/x";
-import { FC, ReactElement, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { FC, ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -40,8 +42,8 @@ const ParentRangeButton = ({
     try {
       if (client == null) return;
       const rng = await client.ranges.retrieve(rangeKey);
-      const subRanges = await rng.retrieveParent();
-      setParent(subRanges);
+      const childRanges = await rng.retrieveParent();
+      setParent(childRanges);
       const tracker = await rng.openParentRangeTracker();
       if (tracker == null) return;
       tracker.onChange((ranges) => setParent(ranges));
@@ -49,7 +51,7 @@ const ParentRangeButton = ({
     } catch (e) {
       addStatus({
         variant: "error",
-        message: `Failed to retrieve sub ranges`,
+        message: `Failed to retrieve child ranges`,
         description: (e as Error).message,
       });
       return undefined;
@@ -58,7 +60,7 @@ const ParentRangeButton = ({
   if (parent == null) return null;
   return (
     <Align.Space direction="x" size="small" align="center">
-      <Text.Text level="p">Sub-range of</Text.Text>
+      <Text.Text level="p">Child Range of</Text.Text>
       <Button.Button
         variant="text"
         shade={7}
@@ -90,7 +92,10 @@ const formSchema = z.object({
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const existingRangeInState = useSelect(rangeKey);
+  const layoutName = Layout.useSelect(rangeKey)?.name;
+  const prevLayoutName = usePrevious(layoutName);
   const dispatch = useDispatch();
+
   const formCtx = Form.useSynced<
     typeof formSchema,
     change.Change<string, ranger.Range>[]
@@ -140,7 +145,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           end: Number(timeRange.end),
         },
       };
-      dispatch(add({ ranges: [newRange] }));
+      dispatch(add({ ranges: [newRange], switchActive: false }));
     },
   });
   const name = Form.useFieldValue<string>("name", false, formCtx);
@@ -148,6 +153,11 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const handleCopyLink = () => {
     handleLink({ name, ontologyID: { key: rangeKey, type: "range" } });
   };
+
+  useEffect(() => {
+    if (prevLayoutName == layoutName || prevLayoutName == null) return;
+    formCtx.set("name", layoutName);
+  }, [layoutName]);
 
   const copy = useCopyToClipboard();
   const handleCopyPythonCode = () => {

@@ -15,7 +15,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,7 +39,7 @@ func (w Writer) Create(
 	return w.CreateWithParent(ctx, r, ontology.ID{})
 }
 
-// CreateWithParent creates a new range as a sub-range of the ontology.Resource with the given
+// CreateWithParent creates a new range as a child range of the ontology.Resource with the given
 // ID. If the range does not already have a key, a new key will be assigned. If the range
 // already exists, it will be updated. If the range already exists and a parent is
 // provided, the existing parent relationship will be deleted and a new parent
@@ -102,7 +104,7 @@ func (w Writer) CreateMany(
 	return err
 }
 
-// CreateManyWithParent creates multiple ranges within the DB as sub-ranges of the ontology.Resource
+// CreateManyWithParent creates multiple ranges within the DB as child ranges of the ontology.Resource
 // with the given ID. If any of the ranges already exist, they will be updated. If the range
 // already exists and a parent is provided, the existing parent relationship will be deleted
 // and a new parent relationship will be created. If the range already exists and no parent
@@ -138,7 +140,7 @@ func (w Writer) Rename(
 }
 
 // Delete deletes the range with the given key. Delete will also delete all children
-// of the range.
+// of the range. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	// Query the ontology to find all children of the range and delete them as well
 	var children []ontology.Resource
@@ -147,7 +149,9 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 		TraverseTo(ontology.Children).
 		Entries(&children).
 		ExcludeFieldData(true).
-		Exec(ctx, w.tx); err != nil {
+		// The check for query.NotFound is necessary because the child may have already
+		// been deleted, and delete is idempotent.
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
 	keys := lo.Map(children, func(r ontology.Resource, _ int) string { return r.ID.Key })

@@ -240,7 +240,7 @@ func (s *RangeService) KVDelete(ctx context.Context, req RangeKVDeleteRequest) (
 		}
 		rng = rng.UseTx(tx)
 		for _, key := range req.Keys {
-			if err := rng.Delete(ctx, key); err != nil {
+			if err := rng.DeleteKV(ctx, key); err != nil {
 				return err
 			}
 		}

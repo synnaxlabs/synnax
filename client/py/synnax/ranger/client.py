@@ -243,7 +243,7 @@ class Range(RangePayload):
     __aliaser: Aliaser | None = PrivateAttr(None)
     """For setting and resolving aliases."""
     __cache: dict[ChannelKey, _InternalScopedChannel] = PrivateAttr(dict())
-    """A writer for creating sub-ranges"""
+    """A writer for creating child ranges"""
     __client: RangeClient | None = PrivateAttr(None)
 
     class Config:

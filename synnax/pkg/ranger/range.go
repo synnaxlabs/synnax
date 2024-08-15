@@ -136,6 +136,13 @@ func (r Range) GetAlias(ctx context.Context, ch channel.Key) (string, error) {
 		WhereKeys(alias{Range: r.Key, Channel: ch}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, r.tx)
+	if errors.Is(err, query.NotFound) {
+		p, pErr := r.Parent(ctx)
+		if errors.Is(pErr, query.NotFound) {
+			return res.Alias, err
+		}
+		return p.GetAlias(ctx, ch)
+	}
 	return res.Alias, err
 }
 
@@ -151,7 +158,41 @@ func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error)
 		Where(matcher).
 		Entry(&res).
 		Exec(ctx, r.tx)
+	if errors.Is(err, query.NotFound) {
+		p, pErr := r.Parent(ctx)
+		if errors.Is(pErr, query.NotFound) {
+			return res.Channel, err
+		}
+		return p.ResolveAlias(ctx, al)
+	}
 	return res.Channel, err
+}
+
+// Parent returns the parent of the given range.
+func (r Range) Parent(ctx context.Context) (Range, error) {
+	var resources []ontology.Resource
+	if err := r.otg.NewRetrieve().WhereIDs(r.OntologyID()).
+		TraverseTo(ontology.Parents).
+		WhereTypes(OntologyType).
+		ExcludeFieldData(true).
+		IncludeSchema(false).
+		Entries(&resources).Exec(ctx, r.tx); err != nil {
+		return Range{}, err
+	}
+	if len(resources) == 0 {
+		return Range{}, errors.Wrapf(query.NotFound, "range %s has no parent", r.Key)
+	}
+	key, err := KeyFromOntologyID(resources[0].ID)
+	var res Range
+	if err = gorp.NewRetrieve[uuid.UUID, Range]().
+		WhereKeys(key).
+		Entry(&res).
+		Exec(ctx, r.tx); err != nil {
+		return Range{}, err
+	}
+	res.tx = r.tx
+	res.otg = r.otg
+	return res.UseTx(r.tx), nil
 }
 
 // SearchAliases searches for aliases fuzzily matching the given term.

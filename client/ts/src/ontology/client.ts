@@ -419,7 +419,6 @@ export class DependentTracker
   }
 
   private handleResourceChange = (changes: ResourceChange[]): void => {
-    console.log(this.direction);
     this.dependents = this.dependents.map((child) => {
       const change = changes.find((c) => c.key.toString() == child.id.toString());
       if (change == null || change.variant === "delete") return child;

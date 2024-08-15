@@ -14,10 +14,10 @@ import { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
-import { SubRanges } from "@/range/overview/SubRanges";
 
 export const OVERVIEW_TYPE = "overview";
 
@@ -27,9 +27,6 @@ export const overviewLayout: Layout.State = {
   type: "overview",
   name: "Overview",
   location: "mosaic",
-  tab: {
-    editable: false,
-  },
 };
 
 export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => {
@@ -45,7 +42,7 @@ export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => {
       <Divider.Divider direction="x" />
       <MetaData rangeKey={layoutKey} />
       <Divider.Divider direction="x" />
-      <SubRanges rangeKey={layoutKey} />
+      <ChildRanges rangeKey={layoutKey} />
     </Align.Space>
   );
 };

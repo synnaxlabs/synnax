@@ -153,7 +153,7 @@ export class Range {
     await this.labelClient.removeLabels(ontologyID(this.key), labels);
   }
 
-  async openSubRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range[]>> {
+  async openChildRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range[]>> {
     const wrapper = new observe.Observer<Range[]>();
     const initial: ontology.Resource[] = (await this.retrieveChildren()).map((r) => {
       const id = new ontology.ID({ key: r.key, type: "range" });

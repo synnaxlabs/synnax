@@ -16,7 +16,7 @@ import { FC, useState } from "react";
 import { Layout } from "@/layout";
 import { createEditLayout, overviewLayout } from "@/range/external";
 
-export const SubRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
+export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
   const { entry } = props;
   const placer = Layout.usePlacer();
   return (
@@ -45,31 +45,31 @@ export const SubRangeListItem = (props: List.ItemProps<string, ranger.Payload>) 
   );
 };
 
-const subRangeListItem = componentRenderProp(SubRangeListItem);
+const childRangeListItem = componentRenderProp(ChildRangeListItem);
 
-export interface SubRangesProps {
+export interface ChildRangesProps {
   rangeKey: string;
 }
 
-export const SubRanges: FC<SubRangesProps> = ({ rangeKey }) => {
+export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const client = Synnax.use();
   const placer = Layout.usePlacer();
-  const [subRanges, setSubRanges] = useState<ranger.Range[]>([]);
+  const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
   const addStatus = Status.useAggregator();
 
   useAsyncEffect(async () => {
     try {
       if (client == null) return;
       const rng = await client.ranges.retrieve(rangeKey);
-      const subRanges = await rng.retrieveChildren();
-      setSubRanges(subRanges);
-      const tracker = await rng.openSubRangeTracker();
-      tracker.onChange((ranges) => setSubRanges(ranges));
+      const childRanges = await rng.retrieveChildren();
+      setChildRanges(childRanges);
+      const tracker = await rng.openChildRangeTracker();
+      tracker.onChange((ranges) => setChildRanges(ranges));
       return async () => await tracker.close();
     } catch (e) {
       addStatus({
         variant: "error",
-        message: `Failed to retrieve sub ranges`,
+        message: `Failed to retrieve child ranges`,
         description: (e as Error).message,
       });
       return undefined;
@@ -79,10 +79,10 @@ export const SubRanges: FC<SubRangesProps> = ({ rangeKey }) => {
   return (
     <Align.Space direction="y">
       <Text.Text level="h4" shade={8} weight={500}>
-        Sub Ranges
+        Child Ranges
       </Text.Text>
-      <List.List data={subRanges}>
-        <List.Core empty>{subRangeListItem}</List.Core>
+      <List.List data={childRanges}>
+        <List.Core empty>{childRangeListItem}</List.Core>
       </List.List>
       <Button.Button
         size="medium"
@@ -93,7 +93,7 @@ export const SubRanges: FC<SubRangesProps> = ({ rangeKey }) => {
         variant="text"
         onClick={() => placer(createEditLayout({ initial: { parent: rangeKey } }))}
       >
-        Add Sub Range
+        Add Child Range
       </Button.Button>
     </Align.Space>
   );
