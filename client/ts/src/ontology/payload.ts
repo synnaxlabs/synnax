@@ -121,6 +121,8 @@ export type Resource<T extends UnknownRecord = UnknownRecord> = Omit<
   "data"
 > & { data?: T | null };
 
+export type RelationshipDirection = "from" | "to";
+
 export const relationshipSchemaZ = z.object({
   from: ID.z,
   type: z.string(),

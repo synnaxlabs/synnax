@@ -10,14 +10,6 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-// Copyright 2024 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
 import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
@@ -172,16 +164,30 @@ export class Range {
       initial,
     );
     base.onChange((resources: Resource[]) =>
-      wrapper.notify(
-        this.rangeClient.sugar(
-          resources.map((r) => ({
-            key: r.id.key,
-            name: r.data?.name as string,
-            timeRange: new TimeRange(r.data?.timeRange as CrudeTimeRange),
-          })),
-        ),
-      ),
+      wrapper.notify(this.rangeClient.resourcesToRanges(resources)),
     );
+    wrapper.setCloser(async () => await base.close());
+    return wrapper;
+  }
+
+  async openParentRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range> | null> {
+    const wrapper = new observe.Observer<Range>();
+    const p = await this.retrieveParent();
+    if (p == null) return null;
+    const id = new ontology.ID({ key: p.key, type: "range" });
+    const resourceP = { id, key: id.toString(), name: p.name, data: p.payload };
+    const base = await this.ontologyClient.openDependentTracker(
+      this.ontologyID,
+      [resourceP],
+      "parent",
+      "to",
+    );
+    base.onChange((resources: Resource[]) => {
+      const ranges = this.rangeClient.resourcesToRanges(resources);
+      if (ranges.length === 0) return;
+      const p = ranges[0];
+      wrapper.notify(p);
+    });
     wrapper.setCloser(async () => await base.close());
     return wrapper;
   }
@@ -333,6 +339,16 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
         const sugared = this.sugar(data.parseJSON(payloadZ));
         return sugared.map((r) => ({ variant, key: r.key, value: r }));
       },
+    );
+  }
+
+  resourcesToRanges(resources: Resource[]): Range[] {
+    return this.sugar(
+      resources.map((r) => ({
+        key: r.id.key,
+        name: r.data?.name as string,
+        timeRange: new TimeRange(r.data?.timeRange as CrudeTimeRange),
+      })),
     );
   }
 }

@@ -23,6 +23,7 @@ import {
   idZ,
   parseRelationship,
   RelationshipChange,
+  RelationshipDirection,
   type Resource,
   ResourceChange,
   resourceSchemaZ,
@@ -221,8 +222,16 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     parent: ID,
     initial: Resource[],
     type: string = "parent",
+    direction: RelationshipDirection = "from",
   ): Promise<observe.ObservableAsyncCloseable<Resource[]>> {
-    return await DependentTracker.open(parent, this, this.framer, initial, type);
+    return await DependentTracker.open(
+      parent,
+      this,
+      this.framer,
+      initial,
+      type,
+      direction,
+    );
   }
 
   newSearcherWithOptions(
@@ -364,32 +373,36 @@ export class ChangeTracker {
 }
 
 /**
- * A class that tracks a resource (called the 'from' resource) and related resources
- * of a particular type (called the 'type') in a Synnax cluster ontology.
+ * A class that tracks a resource (called the 'target' resource) and related resources
+ * (called 'dependents') of a particular type (called the 'type') in a Synnax cluster
+ * ontology.
  */
 export class DependentTracker
   extends observe.Observer<Resource[]>
   implements observe.ObservableAsyncCloseable<Resource[]>
 {
   private readonly internal: ChangeTracker;
-  private readonly from: ID;
-  private to: Resource[];
+  private readonly target: ID;
+  private readonly direction: RelationshipDirection;
+  private dependents: Resource[];
   private readonly client: Client;
   private readonly type: string;
 
   private constructor(
-    from: ID,
+    target: ID,
     internal: ChangeTracker,
-    to: Resource[],
+    dependents: Resource[],
     client: Client,
     type: string = "parent",
+    direction: RelationshipDirection = "from",
   ) {
     super();
     this.internal = internal;
-    this.from = from;
-    this.to = to;
+    this.target = target;
+    this.dependents = dependents;
     this.client = client;
     this.type = type;
+    this.direction = direction;
     this.internal.resources.onChange(this.handleResourceChange);
     this.internal.relationships.onChange(this.handleRelationshipChange);
   }
@@ -399,25 +412,29 @@ export class DependentTracker
     framer: framer.Client,
     initial: Resource[],
     type: string = "parent",
+    direction: RelationshipDirection = "from",
   ): Promise<DependentTracker> {
     const internal = await ChangeTracker.open(framer, client);
-    return new DependentTracker(from, internal, initial, client, type);
+    return new DependentTracker(from, internal, initial, client, type, direction);
   }
 
   private handleResourceChange = (changes: ResourceChange[]): void => {
-    this.to = this.to.map((child) => {
+    console.log(this.direction);
+    this.dependents = this.dependents.map((child) => {
       const change = changes.find((c) => c.key.toString() == child.id.toString());
       if (change == null || change.variant === "delete") return child;
       return change.value;
     });
-    this.notify(this.to);
+    this.notify(this.dependents);
   };
 
   private handleRelationshipChange = (changes: RelationshipChange[]): void => {
     const deletes = changes.filter(
-      (c) => c.variant === "delete" && c.key.from.toString() === this.from.toString(),
+      (c) =>
+        c.variant === "delete" &&
+        c.key[this.direction].toString() === this.target.toString(),
     );
-    this.to = this.to.filter(
+    this.dependents = this.dependents.filter(
       (child) =>
         !deletes.some(
           (del) =>
@@ -428,12 +445,12 @@ export class DependentTracker
       (c) =>
         c.variant === "set" &&
         c.key.type === this.type &&
-        c.key.from.toString() === this.from.toString(),
+        c.key[this.direction].toString() === this.target.toString(),
     );
-    if (sets.length === 0) return this.notify(this.to);
+    if (sets.length === 0) return this.notify(this.dependents);
     this.client.retrieve(sets.map((s) => s.key.to)).then((resources) => {
-      this.to = this.to.concat(resources);
-      this.notify(this.to);
+      this.dependents = this.dependents.concat(resources);
+      this.notify(this.dependents);
     });
   };
 

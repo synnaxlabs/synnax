@@ -1,9 +1,18 @@
 import { ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Divider, Form, Input, Synnax, Text } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Divider,
+  Form,
+  Input,
+  Status,
+  Synnax,
+  Text,
+  useAsyncEffect,
+} from "@synnaxlabs/pluto";
 import { change, deep } from "@synnaxlabs/x";
-import { useQuery } from "@tanstack/react-query";
-import { FC, ReactElement } from "react";
+import { FC, ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -23,16 +32,30 @@ const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
-  const parent = useQuery({
-    queryKey: [rangeKey, "parent"],
-    queryFn: async () => {
-      if (client == null) return;
-      return await client.ranges.retrieveParent(rangeKey);
-    },
-  });
+  const addStatus = Status.useAggregator();
+  const [parent, setParent] = useState<ranger.Range | null>();
   const placer = Layout.usePlacer();
-  if (parent.isPending || parent.data == null) return null;
-  const data = parent.data as ranger.Range;
+
+  useAsyncEffect(async () => {
+    try {
+      if (client == null) return;
+      const rng = await client.ranges.retrieve(rangeKey);
+      const subRanges = await rng.retrieveParent();
+      setParent(subRanges);
+      const tracker = await rng.openParentRangeTracker();
+      if (tracker == null) return;
+      tracker.onChange((ranges) => setParent(ranges));
+      return async () => await tracker.close();
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        message: `Failed to retrieve sub ranges`,
+        description: (e as Error).message,
+      });
+      return undefined;
+    }
+  }, [rangeKey, client?.key]);
+  if (parent == null) return null;
   return (
     <Align.Space direction="x" size="small" align="center">
       <Text.Text level="p">Sub-range of</Text.Text>
@@ -43,9 +66,11 @@ const ParentRangeButton = ({
         startIcon={<Icon.Range />}
         iconSpacing="small"
         style={{ padding: "1rem" }}
-        onClick={() => placer({ ...overviewLayout, key: data.key, name: data.name })}
+        onClick={() =>
+          placer({ ...overviewLayout, key: parent.key, name: parent.name })
+        }
       >
-        {parent.data?.name}
+        {parent.name}
       </Button.Button>
     </Align.Space>
   );
