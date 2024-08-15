@@ -23,6 +23,7 @@ const synnax::TimeSpan MEDIUM_RES_THRESHOLD = synnax::Rate(20).period();
 
 const uint64_t RESOLUTION = (100 * synnax::MICROSECOND).value;
 
+/// @brief fine grain sleep function (https://blog.bearcats.nl/accurate-sleep-function/)
 inline void preciseSleep(const synnax::TimeSpan &dur) {
     const auto ns = dur.chrono();
     const auto end = hs_clock::now() + ns;
