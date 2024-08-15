@@ -143,7 +143,9 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     };
 
     // start and stop to catch any immediate errors
-    ni_source->cycle();
+    if(ni_source->ok()){
+        ni_source->cycle();
+    }
 
     auto p = std::make_unique<ni::ReaderTask>(ctx,
                                               task,
@@ -271,7 +273,10 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 
     auto state_writer = daq_writer->writer_state_source;
 
-    daq_writer->cycle();
+    if(daq_writer->ok()) {
+        daq_writer->cycle();
+    }
+
     VLOG(1) << "[ni.writer] constructed writer for " << task.name;
     auto p = std::make_unique<ni::WriterTask>(ctx,
                                               task,
