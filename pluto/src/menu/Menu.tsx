@@ -16,7 +16,6 @@ import {
   useMemo,
 } from "react";
 
-import { Align } from "@/align";
 import { Divider as CoreDivider } from "@/divider";
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
