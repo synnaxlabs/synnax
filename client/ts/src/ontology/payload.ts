@@ -53,6 +53,8 @@ export const stringIDZ = z.string().transform((v) => {
 
 export const crudeIDZ = z.union([stringIDZ, idZ]);
 
+export type CrudeID = { type: ResourceType; key: string } | string;
+
 export class ID {
   type: ResourceType;
   key: string;
@@ -118,6 +120,8 @@ export type Resource<T extends UnknownRecord = UnknownRecord> = Omit<
   z.output<typeof resourceSchemaZ>,
   "data"
 > & { data?: T | null };
+
+export type RelationshipDirection = "from" | "to";
 
 export const relationshipSchemaZ = z.object({
   from: ID.z,

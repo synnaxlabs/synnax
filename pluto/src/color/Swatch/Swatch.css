@@ -10,8 +10,9 @@
  */
 
 .pluto-color-swatch {
-    border-radius: var(--pluto-border-radius);
+    border-radius: 1rem;
     aspect-ratio: 1.5;
+    transform: scale(0.8);
 
     &.pluto--no-border {
         border-color: transparent;

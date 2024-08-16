@@ -50,8 +50,7 @@ warehouse queries fall into the OLAP category of workloads. <br />
 
 Separating storage and compute has become a popular technique for scaling data
 intensive systems (
-see [The Firebolt Cloud Data Warehouse Whitepaper](https://www.firebolt.io/resources/firebolt-cloud-data-warehouse-whitepaper))
-.
+see [The Firebolt Cloud Data Warehouse Whitepaper](https://www.firebolt.io/resources/firebolt-cloud-data-warehouse-whitepaper)).
 
 This decoupling is a double-edged sword. Processing engines and storage layers
 can de developed and deployed independently, allowing the data warehouse to
@@ -243,7 +242,7 @@ consistent, and time-ordered values. Channels have a few important fields:
    generating the channel's data (e.g. a sensor).
 
 Channel data is partitioned into entities called _segments_. A segment is a
-reasonably sized (roughly one byte to ten megabyte) sub-range of a channel's
+reasonably sized (roughly one byte to ten megabyte) sub range of a channel's
 data. When a client wants to add data to a channel, they submit a set of one or
 more segments in a write request. The size of these segments typically grows
 with the data rate.

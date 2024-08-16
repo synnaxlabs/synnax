@@ -82,6 +82,7 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
+import { overviewLayout } from "@/range/external";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -327,9 +328,13 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           break;
         case "range":
           placer(
-            Range.createEditLayout(undefined, {
-              start: Number(timeRange.start.valueOf()),
-              end: Number(timeRange.end.valueOf()),
+            Range.createEditLayout({
+              initial: {
+                timeRange: {
+                  start: Number(timeRange.start.valueOf()),
+                  end: Number(timeRange.end.valueOf()),
+                },
+              },
             }),
           );
           break;
@@ -405,11 +410,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
                     download({ client, lines, timeRange, name });
                     break;
                   case "meta-data":
-                    placer({
-                      ...Range.metaDataWindowLayout,
-                      name: `${name} Meta Data`,
-                      key: key,
-                    });
+                    placer({ ...overviewLayout, name, key });
                     break;
                   default:
                     break;
@@ -425,7 +426,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
                     Open in New Plot
                   </PMenu.Item>
                   <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
-                    View Meta Data
+                    View Details
                   </PMenu.Item>
                 </PMenu.Menu>
               );

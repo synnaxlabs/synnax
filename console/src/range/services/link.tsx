@@ -10,8 +10,8 @@
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { fromClientRange } from "@/range/services/ontology";
 import { add, setActive } from "@/range/slice";
+import { fromClientRange } from "@/range/Toolbar";
 
 export const linkHandler: Link.Handler = async ({
   resource,
@@ -30,10 +30,7 @@ export const linkHandler: Link.Handler = async ({
     placer(
       LinePlot.create({
         name: `Plot for ${range.name}`,
-        ranges: {
-          x1: [range.key],
-          x2: [],
-        },
+        ranges: { x1: [range.key], x2: [] },
       }),
     );
     dispatch(Layout.setNavDrawerVisible({ windowKey, key: "range" }));

@@ -9,19 +9,23 @@
 
 import "@/input/Input.css";
 
-import { forwardRef, useRef } from "react";
+import { forwardRef, useRef, useState } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
 import { Status } from "@/status";
-import { Text as CoreText } from "@/text";
+import { Text as BaseText, Text as CoreText } from "@/text";
 
 export interface TextExtraProps {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
+  onlyChangeOnBlur?: boolean;
+  shade?: BaseText.Shade;
+  weight?: BaseText.Weight;
 }
 
 export interface TextProps extends BaseProps<string>, TextExtraProps {}
@@ -59,17 +63,50 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       disabled,
       resetOnBlurIfEmpty = false,
       status,
+      shade,
+      weight,
+      color,
+      onlyChangeOnBlur = false,
       ...props
     },
     ref,
   ) => {
     const cachedFocusRef = useRef("");
+    const [tempValue, setTempValue] = useState<string | null>(null);
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
       if (resetOnBlurIfEmpty && e.target.value === "")
         onChange?.(cachedFocusRef.current);
+      else if (onlyChangeOnBlur) {
+        if (tempValue != null) onChange?.(tempValue);
+      }
+      setTempValue(null);
       onBlur?.(e);
     };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+      if (!onlyChangeOnBlur) onChange?.(e.target.value);
+      else setTempValue(e.target.value);
+    };
+
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>): void => {
+      if (onlyChangeOnBlur) setTempValue(value);
+      onFocus?.(e);
+      cachedFocusRef.current = e.target.value;
+      // This looks hacky, but it's the only way to consistently select the text
+      // after the focus event.
+      if (!selectOnFocus) return;
+      const interval = setInterval(() => e.target.select(), 2);
+      setTimeout(() => clearInterval(interval), 50);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+      if (!onlyChangeOnBlur) return;
+      if (e.key === "Enter") e.currentTarget.blur();
+    };
+
+    const internalRef = useRef<HTMLInputElement>(null);
+    const combinedRef = useCombinedRefs(ref, internalRef);
 
     return (
       <Align.Pack
@@ -78,6 +115,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           CSS.B("input"),
           disabled && CSS.BM("input", "disabled"),
           level == null && CSS.size(size),
+          shade != null && CSS.shade(shade),
           CSS.BM("input", variant),
           CSS.sharp(sharp),
           status != null && CSS.M(status),
@@ -87,7 +125,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         size={size}
       >
         <div className={CSS.BE("input", "internal")}>
-          {(value == null || value.length === 0) && (
+          {(value == null || value.length === 0) && tempValue == null && (
             <div
               className={CSS(
                 CSS.BE("input", "placeholder"),
@@ -101,24 +139,20 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             </div>
           )}
           <input
-            ref={ref}
-            value={value}
-            onChange={(e) => {
-              onChange?.(e.target.value);
-            }}
+            ref={combinedRef}
+            value={tempValue ?? value}
+            onChange={handleChange}
             role="textbox"
             autoCapitalize="off"
             autoComplete="off"
             autoCorrect="off"
-            onFocus={(e) => {
-              onFocus?.(e);
-              cachedFocusRef.current = e.target.value;
-              if (selectOnFocus) setTimeout(() => e.target.select(), 2);
-            }}
+            onFocus={handleFocus}
+            onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}
             placeholder={typeof placeholder === "string" ? placeholder : undefined}
+            style={{ fontWeight: weight, color }}
             {...props}
           />
         </div>

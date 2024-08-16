@@ -14,18 +14,24 @@ from freighter import Payload, UnaryClient
 from synnax.util.normalize import normalize
 
 
+class KVPair(Payload):
+    range: uuid.UUID
+    key: str
+    value: str
+
+
 class _GetRequest(Payload):
     range: uuid.UUID
     keys: list[str]
 
 
 class _GetResponse(Payload):
-    pairs: dict[str, str]
+    pairs: list[KVPair]
 
 
 class _SetRequest(Payload):
     range: uuid.UUID
-    pairs: dict[str, str]
+    pairs: list[KVPair]
 
 
 class _DeleteRequest(Payload):
@@ -43,23 +49,23 @@ class KV:
     __DELETE_ENDPOINT = "/range/kv/delete"
 
     __client: UnaryClient
-    __rng: uuid.UUID
+    __rng_key: uuid.UUID
 
     def __init__(self, rng: uuid.UUID, client: UnaryClient) -> None:
         self.__client = client
-        self.__rng = rng
+        self.__rng_key = rng
 
     def get(self, keys: str) -> str:
         ...
 
     def get(self, keys: str | list[str]) -> dict[str, str]:
-        req = _GetRequest(range=self.__rng, keys=normalize(keys))
+        req = _GetRequest(range=self.__rng_key, keys=normalize(keys))
         res, exc = self.__client.send(self.__GET_ENDPOINT, req, _GetResponse)
         if exc is not None:
             raise exc
         if isinstance(keys, str):
-            return res.pairs[keys]
-        return res.pairs
+            return res.pairs[0].value
+        return {pair.key: pair.value for pair in res.pairs}
 
     def set(self, key: str, value: str):
         ...
@@ -68,17 +74,19 @@ class KV:
         ...
 
     def set(self, key: str | dict[str, str], value: str | None = None) -> None:
+        pairs = list()
         if isinstance(key, str):
-            if value is None:
-                raise ValueError("value is required when providing a single key")
-            key = {key: value}
-        req = _SetRequest(range=self.__rng, pairs=key)
+            pairs.append(KVPair(range=self.__rng_key, key=key, value=value))
+        else:
+            for k, v in key.items():
+                pairs.append(KVPair(range=self.__rng_key, key=k, value=v))
+        req = _SetRequest(range=self.__rng_key, pairs=pairs)
         res, exc = self.__client.send(self.__SET_ENDPOINT, req, _EmptyResponse)
         if exc is not None:
             raise exc
 
     def delete(self, keys: str | list[str]) -> None:
-        req = _DeleteRequest(range=self.__rng, keys=normalize(keys))
+        req = _DeleteRequest(range=self.__rng_key, keys=normalize(keys))
         res, exc = self.__client.send(self.__DELETE_ENDPOINT, req, _EmptyResponse)
         if exc is not None:
             raise exc

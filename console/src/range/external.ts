@@ -9,11 +9,11 @@
 
 import { Layout } from "@/layout";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/range/EditLayout";
-import { MetaData, metaDataWindowLayout } from "@/range/MetaData";
+import { Overview, overviewLayout } from "@/range/overview/Overview";
 
 export * from "@/range/ContextMenu";
 export * from "@/range/EditLayout";
-export * from "@/range/MetaData";
+export * from "@/range/overview/Overview";
 export * from "@/range/Select";
 export * from "@/range/selectors";
 export * from "@/range/slice";
@@ -22,5 +22,5 @@ export * from "@/range/Toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EDIT_LAYOUT_TYPE]: Edit,
-  [metaDataWindowLayout.type]: MetaData,
+  [overviewLayout.type]: Overview,
 };

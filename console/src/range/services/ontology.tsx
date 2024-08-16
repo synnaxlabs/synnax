@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
+import { ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Icon as PIcon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { errors, toArray } from "@synnaxlabs/x";
+import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
+import { CrudeTimeRange, errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -22,45 +22,42 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createEditLayout } from "@/range/EditLayout";
+import { overviewLayout } from "@/range/overview/Overview";
 import { select, useSelect } from "@/range/selectors";
+import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 import {
-  add,
-  type Range,
-  remove,
-  rename,
-  setActive,
-  type StoreState,
-} from "@/range/slice";
-
-export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
-  toArray(ranges).map((range) => ({
-    variant: "static",
-    key: range.key,
-    name: range.name,
-    timeRange: {
-      start: Number(range.timeRange.start.valueOf()),
-      end: Number(range.timeRange.end.valueOf()),
-    },
-    persisted: true,
-  }));
+  addChildRangeMenuItem,
+  addToActivePlotMenuItem,
+  addToNewPlotMenuItem,
+  fromClientRange,
+  setAsActiveMenuItem,
+} from "@/range/Toolbar";
 
 const handleSelect: Ontology.HandleSelect = async ({
   selection,
   client,
   store,
+  placeLayout,
 }): Promise<void> => {
   const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
   store.dispatch(add({ ranges: fromClientRange(ranges) }));
+  const first = ranges[0];
+  placeLayout({ ...overviewLayout, name: first.name, key: first.key });
 };
 
 const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ store, id, name }) => store.dispatch(rename({ key: id.key, name })),
+  eager: ({ store, id, name }) => {
+    store.dispatch(rename({ key: id.key, name }));
+    store.dispatch(Layout.rename({ key: id.key, name: name }));
+  },
   execute: async ({ client, id, name }) => await client.ranges.rename(id.key, name),
-  rollback: ({ store, id }, prevName) =>
-    store.dispatch(rename({ key: id.key, name: prevName })),
+  rollback: ({ store, id }, prevName) => {
+    store.dispatch(rename({ key: id.key, name: prevName }));
+    store.dispatch(Layout.rename({ key: id.key, name: prevName }));
+  },
 };
 
-const fetchIfNotInState = async (
+export const fetchIfNotInState = async (
   store: Store<StoreState>,
   client: Synnax,
   key: string,
@@ -138,23 +135,35 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   }).mutate;
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({ type: "Range" });
+  const confirm = useConfirmDelete({
+    type: "Range",
+    description: "Deleting this range will also delete all child ranges.",
+  });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes },
-      selection: { resources },
+      selection: { resources, nodes: selectedNodes },
       store,
+      removeLayout,
     }) => {
       if (!(await confirm(resources))) throw errors.CANCELED;
       const prevNodes = Tree.deepCopy(nodes);
+      const minDepth = Math.min(...selectedNodes.map((n) => n.depth));
+      const nodesOfMinDepth = selectedNodes.filter((n) => n.depth === minDepth);
+      const descendants = Tree.getDescendants(...nodesOfMinDepth).map(
+        (n) => new ontology.ID(n.key).key,
+      );
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => id.toString()),
+          keys: nodesOfMinDepth.map((n) => n.key),
         }),
       ]);
-      const keys = resources.map(({ id }) => id.key);
+      const keys = descendants.concat(
+        nodesOfMinDepth.map(({ key }) => new ontology.ID(key).key),
+      );
       store.dispatch(remove({ keys }));
+      removeLayout(...keys);
       return prevNodes;
     },
     mutationFn: async ({ selection, client }) =>
@@ -188,10 +197,7 @@ const handleEdit = ({
   selection: { resources },
   placeLayout,
 }: Ontology.TreeContextMenuProps): void => {
-  placeLayout({
-    ...createEditLayout("Range.Edit"),
-    key: resources[0].id.key,
-  });
+  placeLayout(createEditLayout({ initial: { key: resources[0].id.key } }));
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -207,10 +213,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activate = useActivate();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
+  const placeLayout = Layout.usePlacer();
+  const handleAddChildRange = () => {
+    placeLayout(createEditLayout({ initial: { parent: resources[0].id.key } }));
+  };
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(nodes[0].key),
-    activate: () => activate(props),
+    setAsActive: () => activate(props),
     addToActivePlot: () => addToActivePlot(props),
     addToNewPlot: () => addToNewPlot(props),
     edit: () => handleEdit(props),
@@ -218,8 +228,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     link: () =>
       handleLink({
         name: resources[0].name,
-        resource: resources[0].id.payload,
+        ontologyID: resources[0].id.payload,
       }),
+    addChildRange: handleAddChildRange,
   };
   const isSingle = resources.length === 1;
   return (
@@ -227,38 +238,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Group.GroupMenuItem selection={selection} />
       {isSingle && (
         <>
-          {resources[0].id.key !== activeRange?.key && (
-            <PMenu.Item itemKey="activate">Set as Active Range</PMenu.Item>
-          )}
+          {resources[0].id.key !== activeRange?.key && setAsActiveMenuItem}
           <Menu.RenameItem />
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
           </PMenu.Item>
+          {addChildRangeMenuItem}
         </>
       )}
       <PMenu.Divider />
-      {layout?.type === "lineplot" && (
-        <PMenu.Item
-          itemKey="addToActivePlot"
-          startIcon={
-            <PIcon.Icon topRight={<Icon.Range />}>
-              <Icon.Visualize key="plot" />
-            </PIcon.Icon>
-          }
-        >
-          Add to {layout.name}
-        </PMenu.Item>
-      )}
-      <PMenu.Item
-        itemKey="addToNewPlot"
-        startIcon={
-          <PIcon.Create>
-            <Icon.Visualize key="plot" />
-          </PIcon.Create>
-        }
-      >
-        Add to New Plot
-      </PMenu.Item>
+      {layout?.type === "lineplot" && addToActivePlotMenuItem}
+      {addToNewPlotMenuItem}
       <PMenu.Divider />
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
@@ -277,6 +267,33 @@ const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
   },
 ];
 
+const PaletteListItem: Ontology.PaletteListItem = (props) => {
+  const { entry } = props;
+  return (
+    <List.ItemFrame
+      direction="y"
+      size={0.5}
+      style={{ padding: "1.5rem" }}
+      highlightHovered
+      {...props}
+    >
+      <Text.WithIcon
+        startIcon={<Icon.Range />}
+        level="p"
+        weight={450}
+        shade={9}
+        size="medium"
+      >
+        {entry.name}{" "}
+      </Text.WithIcon>
+      <Ranger.TimeRangeChip
+        level="small"
+        timeRange={entry.data?.timeRange as CrudeTimeRange}
+      />
+    </List.ItemFrame>
+  );
+};
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "range",
   hasChildren: true,
@@ -287,4 +304,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   haulItems,
   allowRename: () => true,
   onRename: handleRename,
+  PaletteListItem,
 };

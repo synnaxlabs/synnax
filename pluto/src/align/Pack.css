@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
- .pluto-pack {
+.pluto-pack {
     --t: var(--pluto-pack-br) var(--pluto-pack-br) 0 0;
     --b: 0 0 var(--pluto-pack-br) var(--pluto-pack-br);
     --l: var(--pluto-pack-br) 0 0 var(--pluto-pack-br);
@@ -21,10 +21,9 @@
     --pluto-pack--middle: 0 !important;
     --all: var(--pluto-pack-br);
 
-    
-
     &.pluto--rounded {
-        --pluto-pack-br: 2px;
+        --pluto-pack-br: var(--pluto-back-br, var(--pluto-border-radius));
+        border-radius: 0 !important;
     }
 
     &.pluto--bordered {
@@ -33,7 +32,6 @@
         &:not(.pluto-pack--shadow) > * {
             border: var(--pluto-border-l4);
         }
-
 
         &.pluto-pack--shadow {
             &:is(:hover, :focus-within) > * {
@@ -45,7 +43,6 @@
                 opacity: 0;
             }
         }
-
     }
 
     &.pluto--x {
@@ -122,6 +119,26 @@
         }
     }
 
+    > *:not(:first-child):not(:last-child):not(:has(+ .pluto--hidden)) {
+        border-radius: var(--pluto-pack--middle);
+    }
+
+    > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
+        border-radius: var(--pluto-pack--first);
+    }
+
+    > *:last-child:not(:only-child) {
+        border-radius: var(--pluto-pack--last);
+    }
+
+    > *:only-child {
+        border-radius: var(--pluto-pack--only);
+    }
+
+    > .pluto-pack {
+        border: none;
+    }
+
     &.pluto--y {
         --pluto-pack--first: var(--t);
         --pluto-pack--last: var(--b);
@@ -184,24 +201,10 @@
             }
         }
     }
+}
 
-    > *:not(:first-child):not(:last-child):not(:has(+ .pluto--hidden)) {
-        border-radius: var(--pluto-pack--middle);
-    }
-
-    > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
-        border-radius: var(--pluto-pack--first);
-    }
-
-    > *:last-child:not(:only-child) {
-        border-radius: var(--pluto-pack--last);
-    }
-
-    > *:only-child {
-        border-radius: var(--pluto-pack--only);
-    }
-
-    > .pluto-pack {
-        border: none;
+.pluto-pack {
+    & .pluto-btn--filled {
+        z-index: 4;
     }
 }

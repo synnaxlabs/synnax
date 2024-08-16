@@ -143,14 +143,15 @@ func (s *LabelService) Delete(
 	})
 }
 
-type LabelSetRequest struct {
-	Labels []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
-	ID     ontology.ID `json:"id" msgpack:"id" validate:"required"`
+type LabelAddRequest struct {
+	Labels  []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
+	Replace bool        `json:"replace" msgpack:"replace"`
+	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
 }
 
-func (s *LabelService) Set(
+func (s *LabelService) Add(
 	ctx context.Context,
-	req LabelSetRequest,
+	req LabelAddRequest,
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
@@ -160,7 +161,13 @@ func (s *LabelService) Set(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Label(ctx, req.ID, req.Labels)
+		w := s.internal.NewWriter(tx)
+		if req.Replace {
+			if err := w.Clear(ctx, req.ID); err != nil {
+				return err
+			}
+		}
+		return w.Label(ctx, req.ID, req.Labels)
 	})
 }
 

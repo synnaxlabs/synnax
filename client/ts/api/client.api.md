@@ -141,16 +141,14 @@ class CacheRetriever implements Retriever {
 
 // Warning: (ae-missing-release-tag) "ChangeTracker" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
-// @public (undocumented)
+// @public
 class ChangeTracker {
     constructor(streamer: framer.Streamer, client: Client_2);
     // (undocumented)
     close(): Promise<void>;
     // (undocumented)
     static open(client: framer.Client, retriever: Client_2): Promise<ChangeTracker>;
-    // (undocumented)
     readonly relationships: observe.Observable<RelationshipChange[]>;
-    // (undocumented)
     readonly resources: observe.Observable<ResourceChange[]>;
 }
 
@@ -426,29 +424,50 @@ class Client_17 {
 // @public
 class Client_2 implements AsyncTermSearcher<string, string, Resource> {
     constructor(unary: UnaryClient, framer: framer.Client);
-    // (undocumented)
-    addChildren(id: ID, ...children: ID[]): Promise<void>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void>;
     // (undocumented)
     groups: group.Client;
-    // (undocumented)
-    moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    moveChildren(from: CrudeID, to: CrudeID, ...children: CrudeID[]): Promise<void>;
     // (undocumented)
     newSearcherWithOptions(options: RetrieveOptions_2): AsyncTermSearcher<string, string, Resource>;
-    // (undocumented)
     openChangeTracker(): Promise<ChangeTracker>;
     // (undocumented)
+    openDependentTracker(parent: ID, initial: Resource[], type?: string, direction?: RelationshipDirection): Promise<observe.ObservableAsyncCloseable<Resource[]>>;
     page(offset: number, limit: number, options?: RetrieveOptions_2): Promise<Resource[]>;
-    // (undocumented)
-    removeChildren(id: ID, ...children: ID[]): Promise<void>;
-    // (undocumented)
-    retrieve(id: ID | string, options?: RetrieveOptions_2): Promise<Resource>;
-    // (undocumented)
-    retrieve(ids: ID[] | string[], options?: RetrieveOptions_2): Promise<Resource[]>;
-    // (undocumented)
-    retrieveChildren(ids: ID | ID[], options?: RetrieveOptions_2): Promise<Resource[]>;
-    // (undocumented)
-    retrieveParents(ids: ID | ID[], options?: RetrieveOptions_2): Promise<Resource[]>;
-    // (undocumented)
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    retrieve(id: CrudeID, options?: RetrieveOptions_2): Promise<Resource>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    retrieve(ids: CrudeID[], options?: RetrieveOptions_2): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    retrieveChildren(ids: CrudeID | CrudeID[], options?: RetrieveOptions_2): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    retrieveParents(ids: CrudeID | CrudeID[], options?: RetrieveOptions_2): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
     search(term: string, options?: RetrieveOptions_2): Promise<Resource[]>;
     // (undocumented)
     readonly type: string;
@@ -504,43 +523,8 @@ class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-class Client_5 implements AsyncTermSearcher<string, Key_3, Range_2> {
-    constructor(frameClient: framer.Client, writer: Writer_4, unary: UnaryClient, channels: Retriever, labelClient: label.Client);
-    // (undocumented)
-    clearActive(range: Key_3): Promise<void>;
-    // (undocumented)
-    create(range: NewPayload_2): Promise<Range_2>;
-    // (undocumented)
-    create(ranges: NewPayload_2[]): Promise<Range_2[]>;
-    // (undocumented)
-    delete(key: Key_3 | Keys_3): Promise<void>;
-    // (undocumented)
-    openTracker(): Promise<signals.Observable<string, Range_2>>;
-    // (undocumented)
-    page(): Promise<Range_2[]>;
-    // (undocumented)
-    rename(key: Key_3, name: Name_3): Promise<void>;
-    // (undocumented)
-    retrieve(range: CrudeTimeRange): Promise<Range_2[]>;
-    // (undocumented)
-    retrieve(range: Key_3 | Name_3): Promise<Range_2>;
-    // (undocumented)
-    retrieve(range: Keys_3 | Names_3): Promise<Range_2[]>;
-    // (undocumented)
-    retrieveActive(): Promise<Range_2 | null>;
-    // (undocumented)
-    search(term: string): Promise<Range_2[]>;
-    // (undocumented)
-    setActive(range: Key_3): Promise<void>;
-    // (undocumented)
-    readonly type: string;
-}
-
-// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
-//
-// @public (undocumented)
-class Client_6 implements AsyncTermSearcher<string, Key_4, Label> {
-    constructor(client: UnaryClient, frameClient: framer.Client);
+class Client_5 implements AsyncTermSearcher<string, Key_4, Label> {
+    constructor(client: UnaryClient, frameClient: framer.Client, ontology: ontology.Client);
     // (undocumented)
     create(label: NewLabelPayload): Promise<Label>;
     // (undocumented)
@@ -550,21 +534,60 @@ class Client_6 implements AsyncTermSearcher<string, Key_4, Label> {
     // (undocumented)
     delete(keys: Key_4[]): Promise<void>;
     // (undocumented)
-    label(id: ontology.ID, labels: Key_4[]): Promise<void>;
+    label(id: ontology.CrudeID, labels: Key_4[], opts?: SetOptions): Promise<void>;
     // (undocumented)
     openChangeTracker(): Promise<signals.Observable<string, Label>>;
     // (undocumented)
     page(offset: number, limit: number): Promise<Label[]>;
     // (undocumented)
-    removeLabels(id: ontology.ID, labels: Key_4[]): Promise<void>;
+    removeLabels(id: ontology.CrudeID, labels: Key_4[]): Promise<void>;
     // (undocumented)
     retrieve(key: Key_4): Promise<Label>;
     // (undocumented)
     retrieve(keys: Key_4[]): Promise<Label[]>;
     // (undocumented)
-    retrieveFor(id: ontology.ID): Promise<Label[]>;
+    retrieveFor(id: ontology.CrudeID): Promise<Label[]>;
     // (undocumented)
     search(term: string): Promise<Label[]>;
+    // (undocumented)
+    trackLabelsOf(id: ontology.CrudeID): Promise<observe.ObservableAsyncCloseable<Label[]>>;
+    // (undocumented)
+    readonly type: string;
+}
+
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+class Client_6 implements AsyncTermSearcher<string, Key_3, Range_2> {
+    constructor(frameClient: framer.Client, writer: Writer_4, unary: UnaryClient, channels: Retriever, labelClient: label.Client, ontologyClient: ontology.Client);
+    // (undocumented)
+    create(range: NewPayload_2, options?: CreateOptions_2): Promise<Range_2>;
+    // (undocumented)
+    create(ranges: NewPayload_2[], options?: CreateOptions_2): Promise<Range_2[]>;
+    // (undocumented)
+    delete(key: Key_3 | Keys_3): Promise<void>;
+    // (undocumented)
+    getKV(range: Key_3): KV;
+    // (undocumented)
+    openTracker(): Promise<signals.Observable<string, Range_2>>;
+    // (undocumented)
+    page(offset: number, limit: number): Promise<Range_2[]>;
+    // (undocumented)
+    rename(key: Key_3, name: Name_3): Promise<void>;
+    // (undocumented)
+    resourcesToRanges(resources: Resource[]): Range_2[];
+    // (undocumented)
+    retrieve(range: CrudeTimeRange): Promise<Range_2[]>;
+    // (undocumented)
+    retrieve(range: Key_3 | Name_3): Promise<Range_2>;
+    // (undocumented)
+    retrieve(range: Keys_3 | Names_3): Promise<Range_2[]>;
+    // (undocumented)
+    retrieveParent(range: Key_3): Promise<Range_2 | null>;
+    // (undocumented)
+    search(term: string): Promise<Range_2[]>;
+    // (undocumented)
+    sugar(payloads: Payload_3[]): Range_2[];
     // (undocumented)
     readonly type: string;
 }
@@ -642,6 +665,12 @@ declare namespace control {
     }
 }
 
+// Warning: (ae-forgotten-export) The symbol "CreateRequest" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "CreateOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type CreateOptions_2 = Pick<CreateRequest, "parent">;
+
 export { CrudeDataType }
 
 export { CrudeDensity }
@@ -650,6 +679,14 @@ export { CrudeDensity }
 //
 // @public (undocumented)
 type CrudeFrame = Frame | FramePayload | Map<KeyOrName, Series[] | Series> | Record<KeyOrName, Series[] | Series>;
+
+// Warning: (ae-missing-release-tag) "CrudeID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type CrudeID = {
+    type: ResourceType;
+    key: string;
+} | string;
 
 // Warning: (ae-missing-release-tag) "crudeIDZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -709,7 +746,23 @@ type Decoder<K, V> = (variant: change_2.Variant, data: Series) => Array<change_2
 // @public (undocumented)
 type DeleteProps = z.input<typeof deleteReqZ>;
 
+// Warning: (ae-forgotten-export) The symbol "deleteReqZ_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "DeleteRequest" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type DeleteRequest = z.infer<typeof deleteReqZ_2>;
+
 export { Density }
+
+// Warning: (ae-missing-release-tag) "DependentTracker" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public
+class DependentTracker extends observe.Observer<Resource[]> implements observe.ObservableAsyncCloseable<Resource[]> {
+    // (undocumented)
+    close(): Promise<void>;
+    // (undocumented)
+    static open(from: ID, client: Client_2, framer: framer.Client, initial: Resource[], type?: string, direction?: RelationshipDirection): Promise<DependentTracker>;
+}
 
 // Warning: (ae-missing-release-tag) "Device" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -986,6 +1039,12 @@ const frameZ: z.ZodObject<{
     }[] | null | undefined;
 }>;
 
+// Warning: (ae-forgotten-export) The symbol "getReqZ" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "GetRequest" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type GetRequest = z.infer<typeof getReqZ>;
+
 declare namespace hardware {
     export {
         Client_13 as Client
@@ -1132,6 +1191,33 @@ const keyZ_4: z.ZodString;
 // @public (undocumented)
 const keyZ_7: z.ZodString;
 
+// Warning: (ae-missing-release-tag) "KV" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+class KV {
+    constructor(rng: Key_3, client: UnaryClient, frameClient: framer.Client);
+    // (undocumented)
+    delete(key: string | string[]): Promise<void>;
+    // (undocumented)
+    get(key: string): Promise<string>;
+    // (undocumented)
+    get(keys: string[]): Promise<Record<string, string>>;
+    // (undocumented)
+    list(): Promise<Record<string, string>>;
+    // (undocumented)
+    openTracker(): Promise<signals.Observable<string, KVPair>>;
+    // (undocumented)
+    set(key: string, value: string): Promise<void>;
+    // (undocumented)
+    set(kv: Record<string, string>): Promise<void>;
+}
+
+// Warning: (ae-forgotten-export) The symbol "kvPairZ" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "KVPair" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type KVPair = z.infer<typeof kvPairZ>;
+
 // Warning: (ae-missing-release-tag) "Label" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
@@ -1139,7 +1225,7 @@ type Label = z.infer<typeof labelZ>;
 
 declare namespace label {
     export {
-        Client_6 as Client,
+        Client_5 as Client,
         keyZ_4 as keyZ,
         Key_4 as Key,
         Params_3 as Params,
@@ -1150,6 +1236,7 @@ declare namespace label {
         Retriever_2 as Retriever,
         newLabelPayloadZ,
         NewLabelPayload,
+        SetOptions,
         Writer_3 as Writer
     }
 }
@@ -1328,7 +1415,7 @@ const newPayload: z.ZodObject<z.objectUtil.extendShape<{
 // Warning: (ae-missing-release-tag) "NewPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type NewPayload_2 = z.infer<typeof newPayloadZ>;
+type NewPayload_2 = z.input<typeof newPayloadZ>;
 
 // Warning: (ae-missing-release-tag) "newPayloadZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1513,8 +1600,10 @@ class ObservableStreamer<V = Frame> extends observe.Observer<Frame, V> implement
 declare namespace ontology {
     export {
         RetrieveOptions_2 as RetrieveOptions,
+        parseIDs,
         Client_2 as Client,
         ChangeTracker,
+        DependentTracker,
         ResourceChange,
         ResourceSet,
         ResourceDelete,
@@ -1529,6 +1618,7 @@ declare namespace ontology {
         IDPayload,
         stringIDZ,
         crudeIDZ,
+        CrudeID,
         ID,
         Root,
         schemaFieldZ,
@@ -1537,6 +1627,7 @@ declare namespace ontology {
         Schema,
         resourceSchemaZ,
         Resource,
+        RelationshipDirection,
         relationshipSchemaZ,
         Relationship,
         parseRelationship
@@ -1591,21 +1682,25 @@ type ParamAnalysisResult_3 = {
     variant: "keys";
     normalized: Keys_3;
     actual: Key_3;
+    empty: never;
 } | {
     single: true;
     variant: "names";
     normalized: Names_3;
     actual: Name_3;
+    empty: never;
 } | {
     single: false;
     variant: "keys";
     normalized: Keys_3;
     actual: Keys_3;
+    empty: boolean;
 } | {
     single: false;
     variant: "names";
     normalized: Names_3;
     actual: Names_3;
+    empty: boolean;
 };
 
 // Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1627,6 +1722,11 @@ type Params_4 = Key_3 | Name_3 | Keys_3 | Names_3;
 //
 // @public (undocumented)
 type Params_8 = Key_7 | Key_7[];
+
+// Warning: (ae-missing-release-tag) "parseIDs" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const parseIDs: (ids: CrudeID | CrudeID[] | string | string[]) => IDPayload[];
 
 // Warning: (ae-missing-release-tag) "parseRelationship" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1845,7 +1945,7 @@ const rackZ: z.ZodObject<{
 // @public (undocumented)
 class Range_2 {
     // Warning: (ae-forgotten-export) The symbol "Aliaser" needs to be exported by the entry point index.d.ts
-    constructor(name: string, timeRange: TimeRange | undefined, key: string, color: string | undefined, _frameClient: framer.Client, _kv: KV, _aliaser: Aliaser, _channels: Retriever, _labelClient: label.Client);
+    constructor(name: string, timeRange: TimeRange_2 | undefined, key: string, color: string | undefined, _frameClient: framer.Client, _kv: KV, _aliaser: Aliaser, _channels: Retriever, _labelClient: label.Client, _ontologyClient: ontology.Client, _rangeClient: Client_6);
     // (undocumented)
     addLabel(...labels: label.Key[]): Promise<void>;
     // (undocumented)
@@ -1856,8 +1956,6 @@ class Range_2 {
     deleteAlias(...channels: Key[]): Promise<void>;
     // (undocumented)
     key: string;
-    // Warning: (ae-forgotten-export) The symbol "KV" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly kv: KV;
     // (undocumented)
@@ -1867,17 +1965,31 @@ class Range_2 {
     // (undocumented)
     name: string;
     // (undocumented)
+    get ontologyID(): ontology.ID;
+    // (undocumented)
     openAliasTracker(): Promise<signals.Observable<string, Alias>>;
     // (undocumented)
-    read(channel: Key | Name): Promise<Series>;
+    openChildRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range_2[]>>;
     // (undocumented)
-    read(channels: Params): Promise<framer.Frame>;
+    openParentRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range_2> | null>;
+    // (undocumented)
+    get payload(): Payload_3;
+    // (undocumented)
+    read(channel: Key_3 | Name_3): Promise<Series>;
+    // (undocumented)
+    read(channels: Params_4): Promise<framer.Frame>;
     // (undocumented)
     removeLabel(...labels: label.Key[]): Promise<void>;
     // (undocumented)
-    setAlias(channel: Key | Name, alias: string): Promise<void>;
+    resolveAlias(alias: string): Promise<Key>;
     // (undocumented)
-    readonly timeRange: TimeRange;
+    retrieveChildren(): Promise<Range_2[]>;
+    // (undocumented)
+    retrieveParent(): Promise<Range_2 | null>;
+    // (undocumented)
+    setAlias(channel: Key | Name_3, alias: string): Promise<void>;
+    // (undocumented)
+    readonly timeRange: TimeRange_2;
 }
 
 // Warning: (ae-missing-release-tag) "rangeAliasOntologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1904,8 +2016,14 @@ declare namespace ranger {
     export {
         Alias,
         AliasChange,
+        Range_2 as Range,
         RetrieveRequest_2 as RetrieveRequest,
-        Client_5 as Client,
+        Client_6 as Client,
+        GetRequest,
+        SetRequest,
+        DeleteRequest,
+        KVPair,
+        KV,
         keyZ_2 as keyZ,
         Key_3 as Key,
         Name_3 as Name,
@@ -1922,7 +2040,7 @@ declare namespace ranger {
         RangeAliasOntologyType,
         rangeOntologyID,
         rangeAliasOntologyID,
-        Range_2 as Range,
+        CreateOptions_2 as CreateOptions,
         Writer_4 as Writer
     }
 }
@@ -1943,6 +2061,11 @@ type RelationshipChange = change.Change<Relationship, undefined>;
 //
 // @public (undocumented)
 type RelationshipDelete = change.Delete<Relationship, undefined>;
+
+// Warning: (ae-missing-release-tag) "RelationshipDirection" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type RelationshipDirection = "from" | "to";
 
 // Warning: (ae-missing-release-tag) "relationshipSchemaZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2339,6 +2462,18 @@ type SeriesPayload = z.infer<typeof series>;
 // @public (undocumented)
 const seriesToPayload: (series: Series) => SeriesPayload;
 
+// Warning: (ae-forgotten-export) The symbol "SetReq" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "SetOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type SetOptions = Pick<SetReq, "replace">;
+
+// Warning: (ae-forgotten-export) The symbol "setReqZ_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "SetRequest" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type SetRequest = z.infer<typeof setReqZ_2>;
+
 declare namespace signals {
     export {
         Decoder,
@@ -2573,8 +2708,8 @@ export type SynnaxProps = z.input<typeof synnaxPropsZ>;
 export const synnaxPropsZ: z.ZodObject<{
     host: z.ZodString;
     port: z.ZodUnion<[z.ZodNumber, z.ZodString]>;
-    username: z.ZodOptional<z.ZodString>;
-    password: z.ZodOptional<z.ZodString>;
+    username: z.ZodString;
+    password: z.ZodString;
     connectivityPollFrequency: z.ZodDefault<z.ZodUnion<[z.ZodEffects<z.ZodObject<{
         value: z.ZodBigInt;
     }, "strip", z.ZodTypeAny, {
@@ -2587,19 +2722,19 @@ export const synnaxPropsZ: z.ZodObject<{
     secure: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
     name: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
+    username: string;
+    password: string;
     host: string;
     port: string | number;
     connectivityPollFrequency: TimeSpan;
     secure: boolean;
     name?: string | undefined;
-    username?: string | undefined;
-    password?: string | undefined;
 }, {
+    username: string;
+    password: string;
     host: string;
     port: string | number;
     name?: string | undefined;
-    username?: string | undefined;
-    password?: string | undefined;
     connectivityPollFrequency?: string | number | Number | TimeSpan | {
         value: bigint;
     } | undefined;
@@ -2880,7 +3015,7 @@ class Writer_3 {
     // (undocumented)
     remove(id: ontology.ID, labels: Key_4[]): Promise<void>;
     // (undocumented)
-    set(id: ontology.ID, labels: Key_4[]): Promise<void>;
+    set(id: ontology.ID, labels: Key_4[], { replace }?: SetOptions): Promise<void>;
 }
 
 // Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -2891,7 +3026,7 @@ class Writer_4 {
     // (undocumented)
     client: UnaryClient;
     // (undocumented)
-    create(ranges: NewPayload_2[]): Promise<Payload_3[]>;
+    create(ranges: NewPayload_2[], options?: CreateOptions_2): Promise<Payload_3[]>;
     // (undocumented)
     delete(keys: string[]): Promise<void>;
     // (undocumented)

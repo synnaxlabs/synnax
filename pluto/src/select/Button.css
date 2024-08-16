@@ -9,12 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-select-button {
+.pluto-select-dropdown-button {
     /* This is so it matches the background style of input components */
     background: var(--pluto-gray-l1) !important;
 
     & .pluto-caret-animated {
         margin-left: auto;
+    }
+}
+
+.pluto-select-button {
+    & .pluto-btn--filled {
+        z-index: 3;
     }
 }
 

@@ -27,7 +27,7 @@ export const isStringer = (value: unknown): boolean =>
 
 export type PrimitiveRecord = Record<Key, Primitive>;
 
-export const primitiveIsZero = (value: Primitive): boolean => {
+export const primitiveIsZero = <V extends Primitive>(value: V): boolean => {
   if (isStringer(value)) return value?.toString().length === 0;
   switch (typeof value) {
     case "string":

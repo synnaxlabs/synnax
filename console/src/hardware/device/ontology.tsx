@@ -101,7 +101,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     link: () =>
       handleLink({
         name: resources[0].name,
-        resource: resources[0].id.payload,
+        ontologyID: resources[0].id.payload,
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
   };

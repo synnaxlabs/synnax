@@ -16,8 +16,8 @@
     border-bottom: var(--pluto-border);
     border-color: var(--pluto-gray-l2);
 
-    &:is(:hover, .pluto--hovered) {
-        --pluto-bg: var(--pluto-gray-l3);
+    &.pluto--selectable:is(:hover, .pluto--hovered) {
+        --pluto-bg: var(--pluto-gray-l2);
         background: var(--pluto-bg);
         border-top-color: var(--pluto-bg);
 

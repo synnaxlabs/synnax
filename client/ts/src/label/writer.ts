@@ -33,9 +33,13 @@ const deleteReqZ = z.object({
 const setReqZ = z.object({
   id: ontology.idZ,
   labels: keyZ.array(),
+  replace: z.boolean().optional(),
 });
 
-const removeReqZ = setReqZ;
+type SetReq = z.infer<typeof setReqZ>;
+export type SetOptions = Pick<SetReq, "replace">;
+
+const removeReqZ = setReqZ.omit({ replace: true });
 
 const emptyResZ = z.object({});
 
@@ -72,11 +76,15 @@ export class Writer {
     );
   }
 
-  async set(id: ontology.ID, labels: Key[]): Promise<void> {
+  async set(
+    id: ontology.ID,
+    labels: Key[],
+    { replace }: SetOptions = {},
+  ): Promise<void> {
     await sendRequired<typeof setReqZ, typeof emptyResZ>(
       this.client,
       SET_ENDPOINT,
-      { id, labels },
+      { id, labels, replace },
       setReqZ,
       emptyResZ,
     );

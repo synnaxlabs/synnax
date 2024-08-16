@@ -282,7 +282,7 @@ export const DefaultItem = memo(
         border: "none",
         position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
-        [offsetKey]: `${depth * 1.5 + (actuallyHasChildren && useMargin ? 0 : 2)}rem`,
+        [offsetKey]: `${depth * 1.5 + 1.5}rem`,
         // @ts-expect-error - CSS variable
         "--pluto-tree-indicator-offset": `${depth * 1.5 + (depth === 0 ? 0 : 0.5)}rem`,
       },

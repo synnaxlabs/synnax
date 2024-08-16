@@ -22,7 +22,7 @@ type options struct {
 
 func WithInstrumentation(i alamos.Instrumentation) Option {
 	return func(o *options) {
-		i.L = i.L.WithOptions(zap.AddCallerSkip(3))
+		i.L = i.L.WithOptions(zap.AddCallerSkip(0))
 		o.Instrumentation = i
 	}
 }

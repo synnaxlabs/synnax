@@ -124,6 +124,24 @@ describe("Form", () => {
         const field = result.current.get("name");
         expect(field.value).toBe("Jane Doe");
       });
+      it("should correctly set all values in the form at once", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
+        );
+        result.current.set("", {
+          name: "Jane Doe",
+          age: 43,
+          nested: { ssn: "123-45-6786", ein: "" },
+          array: [{ name: "Jane Doe" }],
+        });
+        expect(result.current.get("name").value).toBe("Jane Doe");
+        expect(result.current.get("age").value).toBe(43);
+        expect(result.current.get("nested.ssn").value).toBe("123-45-6786");
+        expect(result.current.get("array.0.name").value).toBe("Jane Doe");
+      });
     });
     describe("bind", () => {
       it("should bind a listener for form changes", () => {

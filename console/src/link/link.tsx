@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
-import { Synnax } from "@synnaxlabs/client";
+import { ontology, Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
@@ -137,16 +137,13 @@ export const CopyMenuItem = (): ReactElement => (
 export interface CopyToClipboardProps {
   clusterKey?: string;
   name: string;
-  resource?: {
-    key: string;
-    type: string;
-  };
+  ontologyID?: ontology.IDPayload;
 }
 
 export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) => {
   const activeClusterKey = Cluster.useSelectActiveKey();
   const addStatus = Status.useAggregator();
-  return ({ resource, name, clusterKey }) => {
+  return ({ ontologyID, name, clusterKey }) => {
     let url = "synnax://cluster/";
     const key = clusterKey ?? activeClusterKey;
     if (key == null) {
@@ -158,7 +155,7 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
       return;
     }
     url += key;
-    if (resource != undefined) url += `/${resource.type}/${resource.key}`;
+    if (ontologyID != undefined) url += `/${ontologyID.type}/${ontologyID.key}`;
     navigator.clipboard.writeText(url).then(
       () => {
         addStatus({
@@ -175,3 +172,16 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
     );
   };
 };
+
+const urlRegex = new RegExp(
+  "^(https?:\\/\\/)?" + // http:// or https:// (optional)
+    "((([a-zA-Z0-9][a-zA-Z0-9-]*\\.)+[a-zA-Z]{2,})|" + // domain name and extension
+    "localhost|" + // localhost
+    "(\\d{1,3}\\.){3}\\d{1,3})" + // or IP address
+    "(\\:\\d+)?" + // port (optional)
+    "(\\/[-a-zA-Z0-9@:%._\\+~#=]*)*" + // path (optional)
+    "(\\?[;&a-zA-Z0-9%_.,~+=-]*)?" + // query string (optional)
+    "(#[-a-zA-Z0-9_]*)?$", // fragment identifier (optional)
+);
+
+export const isLink = (string: string): boolean => urlRegex.test(string);

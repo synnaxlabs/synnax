@@ -106,7 +106,8 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             type="submit"
             form="create-workspace"
             loading={isPending}
-            disabled={isPending}
+            disabled={isPending || client == null}
+            tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
             onClick={() => mutate()}
             triggers={[SAVE_TRIGGER]}
           >
