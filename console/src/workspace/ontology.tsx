@@ -15,6 +15,7 @@ import { useMutation } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement } from "react";
+import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
@@ -111,6 +112,8 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
 
 const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = Confirm.useModal();
+  const dispatch = useDispatch();
+  let name = "schematic";
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({ client, placeLayout, selection, store }) => {
       const fileResponse = await open({
@@ -123,7 +126,7 @@ const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       const file = await readFile(fileResponse.path);
       const fileName = fileResponse.path.split("/").pop();
       if (fileName == null) throw new UnexpectedError("File name is null");
-      const name = fileName.slice(0, -5);
+      name = fileName.slice(0, -5);
       const fileAsJSON = JSON.parse(new TextDecoder().decode(file));
       const newState = parser(fileAsJSON);
       if (newState == null) throw new Error(`${fileName} is not a valid schematic.`);
@@ -134,7 +137,6 @@ const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       });
       const existingState = Schematic.select(store.getState(), newState.key);
       if (existingState != null) {
-        if (deep.equal(existingState, newState)) throw Error(`${name} already exists.`);
         if (
           !(await confirm({
             message: `${name} already exists`,
@@ -143,32 +145,31 @@ const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
             confirm: { label: "Replace", variant: "error" },
           }))
         )
-          throw errors.CANCELED;
-        Layout.remove({ keys: [key] });
+          return;
+        dispatch(Layout.remove({ keys: [key] }));
         Schematic.remove({ keys: [key] });
       }
-      if (client != null) {
-        try {
-          await client.workspaces.schematic.retrieve(key);
-          await client.workspaces.schematic.setData(
-            key,
-            newState as unknown as UnknownRecord,
-          );
-        } catch (e) {
-          if (!NotFoundError.matches(e)) throw e;
-          await client.workspaces.schematic.create(selection.resources[0].id.key, {
-            name,
-            data: newState as unknown as UnknownRecord,
-            ...newState,
-          });
-        }
-      }
       placeLayout(creator);
+      if (client == null) return;
+      try {
+        await client.workspaces.schematic.retrieve(key);
+        await client.workspaces.schematic.setData(
+          key,
+          newState as unknown as UnknownRecord,
+        );
+      } catch (e) {
+        if (!NotFoundError.matches(e)) throw e;
+        await client.workspaces.schematic.create(selection.resources[0].id.key, {
+          name,
+          data: newState as unknown as UnknownRecord,
+          ...newState,
+        });
+      }
     },
     onError: (e, { addStatus }) => {
       addStatus({
         variant: "error",
-        message: "Failed to import schematic.",
+        message: `Failed to import ${name}.`,
         description: e.message,
       });
     },
