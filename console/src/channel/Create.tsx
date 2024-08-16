@@ -127,7 +127,14 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
               }}
             />
             <Form.Field<DataType> path="dataType" label="Data Type" grow>
-              {(p) => <Select.DataType {...p} disabled={isIndex} maxHeight="small" />}
+              {(p) => (
+                <Select.DataType
+                  {...p}
+                  disabled={isIndex}
+                  maxHeight="small"
+                  zIndex={100}
+                />
+              )}
             </Form.Field>
           </Align.Space>
           <Form.Field<channel.Key> path="index" label="Index">
@@ -139,6 +146,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
                 disabled={isIndex}
                 maxHeight="small"
                 allowNone={false}
+                zIndex={100}
                 {...p}
               />
             )}

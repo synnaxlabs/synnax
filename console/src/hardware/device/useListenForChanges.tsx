@@ -34,7 +34,6 @@ export const useListenForChanges = (): void => {
       sets.forEach(({ value: dev }) => {
         if (dev.configured === true) return;
         addStatus({
-          key: `new-device-${dev.key}`,
           variant: "info",
           message: `New ${dev.model} connected`,
           data: dev,

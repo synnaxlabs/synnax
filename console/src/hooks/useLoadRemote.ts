@@ -1,7 +1,7 @@
 import { PayloadAction } from "@reduxjs/toolkit";
 import { Synnax } from "@synnaxlabs/client";
 import { Status, Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { id, migrate } from "@synnaxlabs/x";
+import { migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 
@@ -34,7 +34,6 @@ export const useLoadRemote = <V extends migrate.Migratable>({
     },
     onError: (e) =>
       addStatus({
-        key: id.id(),
         variant: "error",
         message: `Failed to load ${name}`,
         description: e.message,

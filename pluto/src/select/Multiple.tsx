@@ -9,6 +9,7 @@
 
 import "@/select/Multiple.css";
 
+import { Icon } from "@synnaxlabs/media";
 import {
   type AsyncTermSearcher,
   compare,
@@ -20,6 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import {
   type ReactElement,
+  ReactNode,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -28,6 +30,7 @@ import {
 } from "react";
 
 import { Align } from "@/align";
+import { Button } from "@/button";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
@@ -58,6 +61,9 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   children?: CoreList.VirtualCoreProps<K, E>["children"];
+  dropdownVariant?: Dropdown.Variant;
+  addPlaceholder?: ReactNode;
+  actions?: Input.ExtensionProps["children"];
 }
 
 /**
@@ -88,7 +94,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   entryRenderKey = "key",
   emptyContent,
   searcher,
-  renderTag,
+  renderTag = componentRenderProp(MultipleTag<K, E>),
   placeholder,
   onTagDragStart,
   allowMultiple,
@@ -96,7 +102,10 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   replaceOnSingle,
   onTagDragEnd,
   style,
+  addPlaceholder = "Add",
   children,
+  dropdownVariant = "connected",
+  actions,
   ...props
 }: MultipleProps<K, E>): ReactElement => {
   const { visible, open, close } = Dropdown.use();
@@ -140,22 +149,10 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     [searchMode],
   );
 
-  return (
-    <Core<K, E>
-      close={close}
-      open={open}
-      data={data}
-      emptyContent={emptyContent}
-      visible={visible}
-      value={value}
-      onChange={handleChange}
-      allowNone={allowNone}
-      replaceOnSingle={replaceOnSingle}
-      columns={columns}
-      allowMultiple
-      listItem={children}
-      {...props}
-    >
+  let searchInput: ReactElement | undefined;
+  let trigger: ReactElement;
+  if (dropdownVariant === "connected") {
+    trigger = (
       <InputWrapper<K, E> searcher={searcher}>
         {({ onChange, value: inputValue }) => (
           <MultipleInput<K, E>
@@ -173,10 +170,82 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
             onTagDragStart={onTagDragStart}
             onTagDragEnd={onTagDragEnd}
             style={style}
-          />
+          >
+            {actions}
+          </MultipleInput>
         )}
       </InputWrapper>
-    </Core>
+    );
+  } else {
+    const arrValue = toArray(value);
+    trigger = (
+      <Align.Space direction="x" align="center" grow style={style} size="small">
+        {arrValue.map((k) => {
+          const e = selected.find((v) => v.key === k);
+          return renderTag({
+            key: k,
+            entryKey: k,
+            entryRenderKey,
+            loading,
+            entry: e,
+            onClose: () => {
+              const next = arrValue.filter((v) => v !== k);
+              onChange(next, {
+                clicked: null,
+                clickedIndex: -1,
+                entries: [],
+              });
+            },
+            onDragStart: (ev) => onTagDragStart?.(ev, k),
+            onDragEnd: (ev) => onTagDragEnd?.(ev, k),
+          });
+        })}
+        {arrValue.length > 0 ? (
+          <Button.Icon onClick={open}>
+            <Icon.Add style={{ color: "var(--pluto-gray-l7)" }} />
+          </Button.Icon>
+        ) : (
+          <Button.Button
+            onClick={open}
+            shade={7}
+            startIcon={<Icon.Add />}
+            variant="text"
+          >
+            {addPlaceholder}
+          </Button.Button>
+        )}
+      </Align.Space>
+    );
+    searchInput = (
+      <InputWrapper<K, E> searcher={searcher}>
+        {(p) => (
+          <Input.Text autoFocus placeholder="Search" {...p}>
+            {actions}
+          </Input.Text>
+        )}
+      </InputWrapper>
+    );
+  }
+
+  return (
+    <Core<K, E>
+      close={close}
+      open={open}
+      data={data}
+      emptyContent={emptyContent}
+      visible={visible}
+      value={value}
+      onChange={handleChange}
+      allowNone={allowNone}
+      replaceOnSingle={replaceOnSingle}
+      columns={columns}
+      allowMultiple
+      listItem={children}
+      trigger={trigger}
+      extraDialogContent={searchInput}
+      variant={dropdownVariant}
+      {...props}
+    />
   );
 };
 
@@ -187,7 +256,7 @@ interface SelectMultipleInputProps<K extends Key, E extends Keyed<K>>
   selected: readonly E[];
   entryRenderKey: keyof E | ((e: E) => string | number);
   visible: boolean;
-  renderTag?: RenderProp<MultipleTagProps<K, E>>;
+  renderTag: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onFocus?: () => void;
@@ -201,12 +270,13 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
   onFocus,
   visible,
   entryRenderKey,
-  renderTag = componentRenderProp(MultipleTag<K, E>),
+  renderTag,
   placeholder = DEFAULT_PLACEHOLDER,
   onTagDragStart,
   onTagDragEnd,
   value,
   className,
+  children,
   ...props
 }: SelectMultipleInputProps<K, E>): ReactElement => {
   const { onSelect, clear } = CoreList.useSelectionUtils();
@@ -255,6 +325,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
         className={CSS.BE("select-multiple", "tags")}
         align="center"
         grow
+        size="small"
       >
         {toArray(selectedKeys).map((k, i) => {
           const e = selected[i];
@@ -270,6 +341,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
           });
         })}
       </Align.Space>
+      {children}
       <ClearButton onClick={clear} />
     </Input.Text>
   );

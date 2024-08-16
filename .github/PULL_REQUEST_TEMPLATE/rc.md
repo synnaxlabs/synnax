@@ -27,8 +27,8 @@ I have verified that the following packages have the same minor version number:
 
 #### Version Conflicts
 
-I have verified that, when released, the following packages will not conflict
-with any previously released packages:
+I have verified that, when released, the following packages will not conflict with any
+previously released packages:
 
 - [ ] [x/ts](https://www.npmjs.com/package/@synnaxlabs/x)
 - [ ] [alamos/ts](https://www.npmjs.com/package/@synnaxlabs/alamos)
@@ -55,34 +55,35 @@ with any previously released packages:
 
 ### Content Changes
 
-I have verified that user facing documentation for each of the following
-services has been updated to match any changes in the release candidate. If not,
-I will note why the documentation has been left stale.
+I have verified that user facing documentation for each of the following services has
+been updated to match any changes in the release candidate. If not, I will note why the
+documentation has been left stale.
 
 - [ ] reference/concepts
-- [ ] references/cluster
-- [ ] references/python-client
-- [ ] references/typescript-client
-- [ ] references/console
-- [ ] references/pluto
-- [ ] references/device-drivers/opcua
-- [ ] references/device-drivers/ni
+- [ ] reference/cluster
+- [ ] reference/python-client
+- [ ] reference/typescript-client
+- [ ] reference/console
+- [ ] reference/control
+- [ ] reference/pluto
+- [ ] reference/device-drivers/opcua
+- [ ] reference/device-drivers/ni
 
 ### Examples
 
-I have verified that code examples for each of the following services run
-correctly:
+I have verified that code examples for each of the following services run correctly:
 
 - [ ] client/py
 - [ ] client/ts
+  - [ ] version number in examples/node is up-to-date
 - [ ] pluto
 
 ## Console
 
 ### Auto Update
 
-- [ ] I have verified that the nightly builds of the Console are able to
-  auto-update correctly.
+- [ ] I have verified that the nightly builds of the console are able to auto-update
+      correctly.
 
 ### Cluster Connection
 
@@ -99,6 +100,12 @@ I can successfully:
 - [ ] Remove a cluster.
 - [ ] Rename a cluster.
 
+### Labels
+
+- [ ] I can successfully open the label editing dialog from the command palette.
+- [ ] I can add a new label.
+- [ ] I can edit an existing label.
+
 ### Ranges
 
 I can successfully:
@@ -108,6 +115,15 @@ I can successfully:
 - [ ] Open create range dialog from context menu in range toolbar.
 - [ ] Create a new local range.
 - [ ] Create a new persisted range.
+- [ ] Set a parent range for a range.
+- [ ] Attach labels to a range.
+- [ ] Open the range overview dialog from the resources view.
+- [ ] Edit range properties from the overview dialog.
+- [ ] Edit meta-data properties on the range.
+- [ ] Add child ranges to a range.
+- [ ] Navigate to and from child ranges on a range.
+- [ ] Make a change to the range in the edit dialog and see the changes propagate to the
+      overview dialog.
 - [ ] Save a local range to Synnax in the range toolbar.
 - [ ] Switch the active range in the range toolbar.
 - [ ] Load a local range from the search bar.
@@ -134,8 +150,7 @@ I can successfully:
 - [ ] Delete multiple channels in the resources view.
 - [ ] Set the alias for a channel under a range.
 - [ ] Clear the alias for a channel uner a range.
-- [ ] Copy a link to a channel in the resources view and open it from outside
-  Synnax.
+- [ ] Copy a link to a channel in the resources view and open it from outside Synnax.
 
 ### Line Plots
 
@@ -143,7 +158,7 @@ I can successfully:
 
 - [ ] Create a new line plot from the mosaic.
 - [ ] Move the line plot to a new mosaic.
-- [ ] Rename a line plot from the resourcs view.
+- [ ] Rename a line plot from the resources view.
 - [ ] Rename a line plot from its tab title.
 - [ ] Copy the link to a line plot and open it from the resources view.
 - [ ] Create a new line plot from the search bar.
@@ -157,14 +172,15 @@ I can successfully:
 - [ ] Download a range as a CSV.
 - [ ] Create a range from line plot selection.
 - [ ] Use the measuring tool on the line plot.
+- [ ] I can repeatedly start and stop an acquisition read task, and tooltips will appear
+      in the correct location.
 
 ### Schematics
 
 I can successfully:
 
 - [ ] Create a new schematic from the mosaic.
-- [ ] Create a new schematic from the workspace context menu in the resources
-  view.
+- [ ] Create a new schematic from the workspace context menu in the resources view.
 - [ ] Create a new schematic from the command search bar.
 - [ ] Move the schematic to a new mosaic.
 - [ ] Download a schematic from the context menu.
@@ -193,7 +209,7 @@ I can successfully:
 - [ ] Delete a line plot in a workspace.
 - [ ] Delete a schematic in a workspace.
 - [ ] Create a workspace in a previous version of Synnax, add visualizations, and open
-     it in the release candidate.
+      it in the release candidate.
 
 ### Resources
 
@@ -215,7 +231,11 @@ I can successfully:
 
 #### Configuration
 
+I successfully: 
+- [ ] Updated the license on TC before continuing QA 
+
 I can successfully:
+
 - [ ] Enable and disable OPC UA integration when starting the server.
 - [ ] Connect to an OPC UA server running unencrypted.
 - [ ] Connect to an OPC UA server running encrypted.
@@ -232,20 +252,20 @@ I can successfully:
 - [ ] Single Sampling - Auto-generate timestamps on the driver.
 - [ ] Single Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - Read from multiple channels in array-sampling mode.
-- [ ] Array Sampling - Read from multiple channels in array-sampling mode with
-  different array sizes. 
-    - [ ] 1
-    - [ ] 10
-    - [ ] 100
+- [ ] Array Sampling - Read from multiple channels in array-sampling mode with different
+      array sizes.
+  - [ ] 1
+  - [ ] 10
+  - [ ] 100
 - [ ] Array Sampling - Auto-generate timestamps on the driver.
 - [ ] Array Sampling - Read timestamps from the OPC UA server.
 - [ ] Array Sampling - The driver will not crash if I specify an improper array size.
-- [ ] Channel Selection - The read task dialog will recommend synnax channels
-based on the configured OPC UA node.
+- [ ] Channel Selection - The read task dialog will recommend synnax channels based on
+      the configured OPC UA node.
 - [ ] Connect to a physical device and read data from it.
-- [ ]	Maintain operation of the driver when a device is disconnected or a channel is 
-removed from the device while it is running.
-- [ ]	Enable and disable data saving at will.
+- [ ] Maintain operation of the driver when a device is disconnected or a channel is
+      removed from the device while it is running.
+- [ ] Enable and disable data saving at will.
 - [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
 
 ### National Instruments
@@ -253,19 +273,18 @@ removed from the device while it is running.
 #### Configuration
 
 I can successfully:
+
 - [ ] Enable and disable NI integration when starting the server.
-- [ ] Recognize and connect to a National Instruments device available on local
-  machine.
-- [ ] Recognize and connect to a National Instruments devices available on
-  network.
+- [ ] Recognize and connect to a National Instruments device available on local machine.
+- [ ] Recognize and connect to a National Instruments devices available on network.
 - [ ] Recognize and connect to physcial and simulated devices.
 - [ ] Disconnect a physical device from the machine with a task running without faulting.
 - [ ] Save device configuration.
 - [ ] Not see chassis devices connected to the machine
 - [ ] See devices connected to a chassis
 - [ ] Run the driver without the Daqmx and Syscfg libraries installed on the machine.
-- [ ] Get feedback when trying to create an NI task on a machine that doesn't have the 
-  required libraries installed.
+- [ ] Get feedback when trying to create an NI task on a machine that doesn't have the
+      required libraries installed.
 
 #### Read Task
 
@@ -274,50 +293,49 @@ I can successfully:
 - [ ] Plot live data from an analog read task.
 - [ ] Plot live data from a digital read task.
 - [ ] Stop, start and reconfigure task at will.
-- [ ] Disconnect a device while tasks are active and provide meaningful feedback
-  in the task dialogue.
-- [ ] Begin several tasks at different times and see them all plotting live
-  data.
+- [ ] Disconnect a device while tasks are active and provide meaningful feedback in the
+      task dialogue.
+- [ ] Begin several tasks at different times and see them all plotting live data.
 - [ ] Enable and disable data saving at will.
 - [ ] verify there is no lag between sensor input and data written to sever.
 
 ##### Special Purpose Channels
 
-- [ ] I can succesfully configure and run an analog read task for each of the
-  following channels:
-     - [ ] Acceleration
-     - [ ] Acceleration 4 wire 
-     - [ ] Bridge
-          - [ ] All bridge configurations
-     - [ ] Charge
-     - [ ] Current
-     - [ ] Force bridge polynomial
-     - [ ] Force bridge table
-     - [ ] Force bridge two point linear
-     - [ ] Force iepe
-     - [ ] Microphone
-     - [ ] Pressure bridge polynomial
-     - [ ] Pressure bridge table
-     - [ ] Pressure bridge two point linear
-     - [ ] Resistance
-     - [ ] RTD
-          - [ ] All RTD types.
-          - [ ] All resistance configs.
-     - [ ] Strain gauge
-          - [ ] all strain guage configurations.
-     - [ ] Built in temperature sensor
-     - [ ] Thermocouple
-          - [ ] All thermocouple types.
-          - [ ] All cjc options.
-     - [ ] Torque bridge polynomial
-     - [ ] Torque bridge table
-     - [ ] Torque bridge two point linear
-     - [ ] Velocity iepe
-     - [ ] Voltage
-          - [ ] All terminal configurations.
+- [ ] I can succesfully configure and run an analog read task for each of the following
+      channels:
+  - [ ] Acceleration
+  - [ ] Acceleration 4 wire
+  - [ ] Bridge
+    - [ ] All bridge configurations
+  - [ ] Charge
+  - [ ] Current
+  - [ ] Force bridge polynomial
+  - [ ] Force bridge table
+  - [ ] Force bridge two point linear
+  - [ ] Force iepe
+  - [ ] Microphone
+  - [ ] Pressure bridge polynomial
+  - [ ] Pressure bridge table
+  - [ ] Pressure bridge two point linear
+  - [ ] Resistance
+  - [ ] RTD
+    - [ ] All RTD types.
+    - [ ] All resistance configs.
+  - [ ] Strain gauge
+    - [ ] all strain guage configurations
+  - [ ] Built in temperature sensor
+  - [ ] Thermocouple
+    - [ ] All thermocouple types.
+    - [ ] All cjc options.
+  - [ ] Torque bridge polynomial
+  - [ ] Torque bridge table
+  - [ ] Torque bridge two point linear
+  - [ ] Velocity iepe
+  - [ ] Voltage
+    - [ ] All terminal configurations.
 - [ ] I can sucessfully configure the following scales:
-     - [ ] Linear
-     - [ ] Map
+  - [ ] Linear
+  - [ ] Map
 
 #### Write Task
 
@@ -325,11 +343,11 @@ I can successfully:
 
 - [ ] Begin a digital write task and perform control actions with a schematic.
 - [ ] Stop, start and reconfigure task at will.
-- [ ] Disconnect a device while tasks are active and provide meaningful feedback
-  in the task dialogue.
+- [ ] Disconnect a device while tasks are active and provide meaningful feedback in the
+      task dialogue.
 - [ ] Configure response time based on state rate specified:
-     - [ ] 1 Hz (should have visible delay in response)
-     - [ ] 20 Hz (should feel almost immediate)
+  - [ ] 1 Hz (should have visible delay in response)
+  - [ ] 20 Hz (should feel almost immediate)
 
 #### General Usage
 
@@ -337,36 +355,36 @@ I can successfully:
 
 - [ ] Run multiple types of tasks on a single device
 - [ ] Run multiple tasks across multiple devices simultaneously
-- [ ] I can reliably stream data at the following sample rates
-     = [ ] 1 Hz
-     - [ ] 10 Hz
-     - [ ] 50 Hz
-     - [ ] 100 Hz
-     - [ ] 500 Hz
-     - [ ] 1 kHz
-     - [ ] 2 kHz
-     - [ ] 5 kHz
-- [ ] Configure the following stream rates
-     - [ ] 1 Hz
-     - [ ] 5 Hz
-     - [ ] 10 Hz
-     - [ ] 20 Hz
-     - [ ] 30 Hz
+- [ ] Reliably stream data at the following sample rates:
+  - [ ] 1 Hz
+  - [ ] 10 Hz
+  - [ ] 50 Hz
+  - [ ] 100 Hz
+  - [ ] 500 Hz
+  - [ ] 1 kHz
+  - [ ] 2 kHz
+  - [ ] 5 kHz
+- [ ] Configure the following stream rates:
+  - [ ] 1 Hz
+  - [ ] 5 Hz
+  - [ ] 10 Hz
+  - [ ] 20 Hz
+  - [ ] 30 Hz
 
 #### Error Handling
 
 I can successfully:
 
 - [ ] Pass in an invalid device configuration and receive meaningful feedback.
-     - [ ] Invalid ports
-     - [ ] Invalid task type for devices (e.g. analog read on a analog output
-       device)
-     - [ ] Out of range values
-     - [ ] Multiple tasks using the same channel
-- [ ] Shut down the driver with an embedded driver without receiving an error from
-the driver routine.
+  - [ ] Invalid ports
+  - [ ] Invalid task type for devices (e.g. analog read on a analog output device)
+  - [ ] Out of range values
+  - [ ] Multiple tasks using the same channel
+- [ ] Shut down the driver with an embedded driver without receiving an error from the
+      driver routine.
 
 ### Other
 
 I can successfully:
+
 - [ ] Toggle the color theme from the command search bar.

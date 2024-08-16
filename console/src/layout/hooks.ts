@@ -19,7 +19,7 @@ import {
   useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-import { getCurrent } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -112,7 +112,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const dispatch = useDispatch();
 
   useAsyncEffect(async () => {
-    if (getCurrent().label !== Drift.MAIN_WINDOW) return;
+    if (getCurrentWindow().label !== Drift.MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
     const cleanup = await synchronizeWithOS(dispatch);
     return cleanup;
@@ -128,7 +128,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
   const [theme, setTheme] = useState<Theming.ThemeSpec | null>(Theming.SYNNAX_LIGHT);
   useAsyncEffect(async () => {
-    const theme = matchThemeChange({ payload: await getCurrent().theme() });
+    const theme = matchThemeChange({ payload: await getCurrentWindow().theme() });
     setTheme(Theming.SYNNAX_THEMES[theme]);
   }, []);
   return {
@@ -154,13 +154,15 @@ const matchThemeChange = ({
 const synchronizeWithOS = async (
   dispatch: Dispatch<UnknownAction>,
 ): AsyncDestructor => {
-  await getCurrent().onThemeChanged((e) =>
+  await getCurrentWindow().onThemeChanged((e) =>
     dispatch(setActiveTheme(matchThemeChange(e))),
   );
 };
 
 const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
-  dispatch(setActiveTheme(matchThemeChange({ payload: await getCurrent().theme() })));
+  dispatch(
+    setActiveTheme(matchThemeChange({ payload: await getCurrentWindow().theme() })),
+  );
 
 export interface NavMenuItem {
   key: string;

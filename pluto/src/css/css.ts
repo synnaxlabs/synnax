@@ -37,6 +37,7 @@ export interface CSSType extends BEM {
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
+  shade: (value: number) => string;
 }
 
 const newCSS = (prefix: string): CSSType => {
@@ -65,6 +66,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.dropRegion = (active) => active && CSS.B("haul-drop-region");
   CSS.px = (value: number) => `${value}px`;
   CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");
+  CSS.shade = (value) => CSS.M(`shade-${value}`);
   return CSS;
 };
 

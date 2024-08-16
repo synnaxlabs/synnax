@@ -132,9 +132,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 		if err != nil {
 			return 0, 0, nil, err
 		}
-
 		size := s.Size()
-
 		if size < int64(fc.FileSize) && w.tryAcquire() {
 			fc.writers.RUnlock()
 			return w.fileKey, size, &w, nil

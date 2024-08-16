@@ -18,6 +18,8 @@ import {
   Input,
   Nav,
   Status,
+  Text,
+  Triggers,
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
@@ -31,12 +33,15 @@ import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+
 export const connectWindowLayout: Layout.State = {
   key: "connectCluster",
   windowKey: "connectCluster",
   type: "connectCluster",
-  name: "Connect Cluster",
-  location: "window",
+  name: "Cluster.Connect",
+  icon: "Cluster",
+  location: "modal",
   window: {
     resizable: false,
     size: { height: 430, width: 650 },
@@ -55,9 +60,12 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const names = useSelectMany().map((c) => c.name);
 
   const formSchema = synnaxPropsZ.omit({ connectivityPollFrequency: true }).extend({
-    name: z.string().refine((n) => !names.includes(n), {
-      message: "A cluster with this name already exists",
-    }),
+    name: z
+      .string()
+      .min(1, { message: "Name is required" })
+      .refine((n) => !names.includes(n), {
+        message: "A cluster with this name already exists",
+      }),
   });
 
   const methods = Form.use<typeof formSchema>({
@@ -110,10 +118,16 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
       <Form.Form {...methods}>
-        <Align.Space className="console-form" grow empty justify="center">
-          <Form.Field<string> path="name">
-            {(p) => <Input.Text placeholder="My Synnax Cluster" autoFocus {...p} />}
-          </Form.Field>
+        <Align.Space className="console-form" grow size={0.5} justify="center">
+          <Form.TextField
+            path="name"
+            inputProps={{
+              autoFocus: true,
+              variant: "natural",
+              level: "h2",
+              placeholder: "My Synnax Cluster",
+            }}
+          />
           <Align.Space direction="x">
             <Form.Field<string> path="host" grow>
               {(p) => <Input.Text placeholder="localhost" {...p} />}
@@ -136,13 +150,20 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
         </Align.Space>
       </Form.Form>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start className={CSS.BE("footer", "start")}>
-          {connState != null && (
+        <Nav.Bar.Start className={CSS.BE("footer", "start")} size="small">
+          {connState != null ? (
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
                 ? caseconv.capitalize(connState.status)
                 : connState.message}
             </Status.Text>
+          ) : (
+            <>
+              <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
+              <Text.Text shade={7} level="small">
+                To Test Connection
+              </Text.Text>
+            </>
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End className={CSS.BE("footer", "end")}>
@@ -151,6 +172,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             disabled={loading !== null}
             variant="text"
             onClick={handleTestConnection}
+            triggers={[SAVE_TRIGGER]}
           >
             Test Connection
           </Button.Button>

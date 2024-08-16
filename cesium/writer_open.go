@@ -230,25 +230,25 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if err != nil {
 				return nil, err
 			}
-			if u.Channel.Index != 0 {
+			if u.Channel().Index != 0 {
 				// Hot path optimization: in the common case we only write to a rate based
 				// index or a domain indexed channel, not both. In either case we can avoid a
 				// map allocation.
 				if domainWriters == nil {
 					domainWriters = make(map[ChannelKey]*idxWriter)
 				}
-				idxW, exists := domainWriters[u.Channel.Index]
+				idxW, exists := domainWriters[u.Channel().Index]
 				if !exists {
 					// If there is no existing index writer for this index-group.
-					idxW, err = db.openDomainIdxWriter(u.Channel.Index, cfg)
+					idxW, err = db.openDomainIdxWriter(u.Channel().Index, cfg)
 					if err != nil {
 						return nil, err
 					}
-					idxW.writingToIdx = u.Channel.IsIndex
-					domainWriters[u.Channel.Index] = idxW
-				} else if u.Channel.IsIndex {
+					idxW.writingToIdx = u.Channel().IsIndex
+					domainWriters[u.Channel().Index] = idxW
+				} else if u.Channel().IsIndex {
 					idxW.writingToIdx = true
-					domainWriters[u.Channel.Index] = idxW
+					domainWriters[u.Channel().Index] = idxW
 				}
 
 				idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
@@ -260,10 +260,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 					rateWriters = make(map[telem.Rate]*idxWriter)
 				}
 
-				idxW, ok := rateWriters[u.Channel.Rate]
+				idxW, ok := rateWriters[u.Channel().Rate]
 				if !ok {
-					idxW = db.openRateIdxWriter(u.Channel.Rate, cfg)
-					rateWriters[u.Channel.Rate] = idxW
+					idxW = db.openRateIdxWriter(u.Channel().Rate, cfg)
+					rateWriters[u.Channel().Rate] = idxW
 				}
 
 				idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
@@ -308,10 +308,9 @@ func (db *DB) openDomainIdxWriter(
 	if !ok {
 		return nil, core.NewErrChannelNotFound(idxKey)
 	}
-	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.key = idxKey
-	w.idx.Index = idx
+	w.idx.Index = u.Index()
 	w.idx.highWaterMark = cfg.Start
 	w.writingToIdx = false
 	w.start = cfg.Start

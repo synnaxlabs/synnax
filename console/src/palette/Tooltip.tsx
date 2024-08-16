@@ -22,11 +22,15 @@ export const TooltipContent = ({ triggers }: TooltipContentProps): ReactElement 
   <Align.Space>
     <Align.Space direction="x" justify="spaceBetween" align="center">
       <Text.Text level={TOOLTIP_TEXT_LEVEL}>Search</Text.Text>
-      <Triggers.Text trigger={triggers.resource[0]} level={TOOLTIP_TEXT_LEVEL} />
+      <Align.Space direction="x" size="small">
+        <Triggers.Text trigger={triggers.resource[0]} level={TOOLTIP_TEXT_LEVEL} />
+      </Align.Space>
     </Align.Space>
     <Align.Space direction="x" justify="spaceBetween" align="center">
       <Text.Text level={TOOLTIP_TEXT_LEVEL}>Command Palette</Text.Text>
-      <Triggers.Text trigger={triggers.command[0]} level={TOOLTIP_TEXT_LEVEL} />
+      <Align.Space direction="x" size="small">
+        <Triggers.Text trigger={triggers.command[0]} level={TOOLTIP_TEXT_LEVEL} />
+      </Align.Space>
     </Align.Space>
   </Align.Space>
 );

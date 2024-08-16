@@ -60,10 +60,10 @@ var _ = Describe("Delete", Ordered, func() {
 					secondData []byte,
 				) {
 					Expect(db.Delete(ctx, createCalcOffset(startOffset), createCalcOffset(endOffset), tr, telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal(firstTr))
-					r := MustSucceed(iter.NewReader(ctx))
+					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, len(firstData))
 					_, err := r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
@@ -71,7 +71,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(r.Close()).To(Succeed())
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal(secondTr))
-					r = MustSucceed(iter.NewReader(ctx))
+					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, len(secondData))
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
@@ -85,10 +85,10 @@ var _ = Describe("Delete", Ordered, func() {
 
 				It("Should delete with the end being end of db", func() {
 					Expect(db.Delete(ctx, createCalcOffset(2), createCalcOffset(10), (12 * telem.SecondTS).Range(40*telem.SecondTS), telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(12 * telem.SecondTS)))
-					r := MustSucceed(iter.NewReader(ctx))
+					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 2)
 					_, err := r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
@@ -101,10 +101,10 @@ var _ = Describe("Delete", Ordered, func() {
 
 				It("Should delete nothing", func() {
 					Expect(db.Delete(ctx, createCalcOffset(4), createCalcOffset(4), (24 * telem.SecondTS).Range(24*telem.SecondTS), telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(20 * telem.SecondTS)))
-					r := MustSucceed(iter.NewReader(ctx))
+					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 10)
 					_, err := r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
@@ -112,7 +112,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeTrue())
-					r = MustSucceed(iter.NewReader(ctx))
+					r = MustSucceed(iter.OpenReader(ctx))
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:10]).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
@@ -122,7 +122,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 				It("Should delete the entire db", func() {
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(10), (10 * telem.SecondTS).Range(40*telem.SecondTS), telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
@@ -134,10 +134,10 @@ var _ = Describe("Delete", Ordered, func() {
 					// 10 / 15, 16, ..., 19
 					Expect(db.Delete(ctx, createCalcOffset(2), createCalcOffset(4), (17 * telem.SecondTS).Range(19*telem.SecondTS), telem.Density(1))).To(Succeed())
 					// 10 / 15, 16 / 19
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
-					r := MustSucceed(iter.NewReader(ctx))
+					r := MustSucceed(iter.OpenReader(ctx))
 					p := make([]byte, 1)
 					_, err := r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
@@ -146,7 +146,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((15 * telem.SecondTS).Range(17 * telem.SecondTS)))
-					r = MustSucceed(iter.NewReader(ctx))
+					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 2)
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
@@ -155,7 +155,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((19 * telem.SecondTS).Range(20 * telem.SecondTS)))
-					r = MustSucceed(iter.NewReader(ctx))
+					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 1)
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
@@ -164,7 +164,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((20 * telem.SecondTS).Range(30 * telem.SecondTS)))
-					r = MustSucceed(iter.NewReader(ctx))
+					r = MustSucceed(iter.OpenReader(ctx))
 					p = make([]byte, 10)
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
@@ -182,7 +182,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(0), (23 * telem.SecondTS).Range(30*telem.SecondTS), telem.Density(1))).To(Succeed())
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(0), (35 * telem.SecondTS).Range(40*telem.SecondTS), telem.Density(1))).To(Succeed())
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(0), (10 * telem.SecondTS).Range(12*telem.SecondTS), telem.Density(1))).To(Succeed())
-					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					iter := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 
 					Expect(iter.SeekFirst(ctx)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())

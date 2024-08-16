@@ -45,7 +45,7 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-      
+
       - name: Login to Github Container Registry
         uses: docker/login-action@v2
         with:
@@ -53,16 +53,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download Latest Earthly 
+      - name: Download Latest Earthly
         uses: earthly/actions-setup@v1
 
       - name: Build Image
         run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
         working-directory: ./synnax
-      
+
       - name: Push to Github Container Registry
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
-      
+
   test-python:
     needs: [setup, build-server]
     runs-on: ubuntu-latest

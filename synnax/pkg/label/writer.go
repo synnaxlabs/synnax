@@ -17,15 +17,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
+// Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
 	group group.Group
 }
 
+// Create creates a new label, assigning it a unique key if one is not provided. If
+// a label with the same key already exists, it will be overwritten.
 func (w Writer) Create(
 	ctx context.Context,
 	l *Label,
@@ -36,10 +38,11 @@ func (w Writer) Create(
 	if err = gorp.NewCreate[uuid.UUID, Label]().Entry(l).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	otgID := OntologyID(l.Key)
-	return w.otg.DefineResource(ctx, otgID)
+	return w.otg.DefineResource(ctx, OntologyID(l.Key))
 }
 
+// CreateMany creates multiple labels in a single transaction. If any of the labels
+// exist, they will be overwritten.
 func (w Writer) CreateMany(
 	ctx context.Context,
 	ls *[]Label,
@@ -53,21 +56,8 @@ func (w Writer) CreateMany(
 	return err
 }
 
-func (w Writer) Update(
-	ctx context.Context,
-	l Label,
-) (err error) {
-	return gorp.NewUpdate[uuid.UUID, Label]().WhereKeys(l.Key).Change(func(ol Label) Label {
-		if l.Name != "" {
-			ol.Name = l.Name
-		}
-		if !l.Color.IsZero() {
-			ol.Color = l.Color
-		}
-		return l
-	}).Exec(ctx, w.tx)
-}
-
+// Delete removes a label from the database and ontology. Delete is idempotent, and will
+// not return an error if the label does not exist.
 func (w Writer) Delete(
 	ctx context.Context,
 	k uuid.UUID,
@@ -78,6 +68,7 @@ func (w Writer) Delete(
 	return w.otg.DeleteResource(ctx, OntologyID(k))
 }
 
+// DeleteMany removes multiple labels from the database and ontology.
 func (w Writer) DeleteMany(
 	ctx context.Context,
 	ks []uuid.UUID,
@@ -90,6 +81,8 @@ func (w Writer) DeleteMany(
 	return err
 }
 
+// Label assigns a set of labels to the target resource. If the target resource already
+// has labels, Label will add the new labels to the existing set.
 func (w Writer) Label(
 	ctx context.Context,
 	target ontology.ID,
@@ -103,6 +96,16 @@ func (w Writer) Label(
 	return nil
 }
 
+// Clear removes all labels from the target resource.
+func (w Writer) Clear(
+	ctx context.Context,
+	target ontology.ID,
+) error {
+	return w.otg.DeleteOutgoingRelationshipsOfType(ctx, target, LabeledBy)
+}
+
+// RemoveLabel removes a set of labels from the target resource. RemoveLabel is idempotent,
+// and will not return an error if the target resource does not have the specified labels.
 func (w Writer) RemoveLabel(
 	ctx context.Context,
 	target ontology.ID,
@@ -114,12 +117,4 @@ func (w Writer) RemoveLabel(
 		}
 	}
 	return nil
-}
-
-func (w Writer) validate(l Label) error {
-	v := validate.New("label.Label")
-	validate.NotNil(v, "Task", l.Key)
-	validate.NotEmptyString(v, "Name", l.Name)
-	validate.NonZeroable(v, "Color", l.Color)
-	return v.Error()
 }

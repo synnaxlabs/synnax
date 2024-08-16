@@ -66,7 +66,7 @@ const {
         getVersion().then((version) => {
             const versionElement = document.querySelector(".version");
             if (versionElement == null) return;
-            versionElement.innerHTML = version;
+            versionElement.innerHTML = version.split(".").slice(0, -1).join(".") + ".x";
         });
     </script>
 
@@ -450,7 +450,6 @@ const {
                 cursor: pointer;
             }
         }
-
 
         table > :not(caption) > * {
             border-width: 1px 0;

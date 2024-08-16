@@ -28,15 +28,18 @@ type Retrieve struct {
 	searchTerm string
 }
 
-func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), baseTX: tx, otg: otg}
-}
-
+// Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Entry binds the Range that Retrieve will fill results into. If multiple results match
 // the query, only the first result will be filled into the provided Range.
 func (r Retrieve) Entry(rng *Range) Retrieve { r.gorp.Entry(rng); return r }
+
+// Limit sets the maximum number of results that Retrieve will return.
+func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
+
+// Offset sets the number of results that Retrieve will skip before returning results.
+func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
 
 // Entries binds a slice that Retrieve will fill results into.
 func (r Retrieve) Entries(rng *[]Range) Retrieve { r.gorp.Entries(rng); return r }
@@ -56,6 +59,9 @@ func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 	return r
 }
 
+// Exec executes the query and fills the results into the provided Range or slice of
+// Ranges. It's important to note that fuzzy search will not be aware of any writes/
+// deletes executed on the tx, and will only search the underlying database.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
 	if r.searchTerm != "" {
@@ -66,7 +72,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		keys, err := KeysFromOntologyIds(ids)
+		keys, err := KeysFromOntologyIDs(ids)
 		if err != nil {
 			return err
 		}

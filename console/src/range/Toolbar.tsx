@@ -9,12 +9,14 @@
 
 import "@/range/Toolbar.css";
 
-import { type label, TimeRange } from "@synnaxlabs/client";
+import { Store } from "@reduxjs/toolkit";
+import { type label, ranger, Synnax as Client, TimeRange } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
   Header,
+  Icon as PIcon,
   List as Core,
   Menu as PMenu,
   Ranger,
@@ -25,19 +27,21 @@ import {
   Tooltip,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { create as createLinePlot } from "@/lineplot/LinePlot";
+import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
-import { useSelect, useSelectMultiple } from "@/range/selectors";
+import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
   add,
   type Range,
@@ -45,19 +49,147 @@ import {
   rename,
   setActive,
   type StaticRange,
+  StoreState,
 } from "@/range/slice";
+import { RootState } from "@/store";
+
+export const addToNewPlotMenuItem = (
+  <PMenu.Item
+    itemKey="addToNewPlot"
+    startIcon={
+      <PIcon.Create>
+        <Icon.Visualize key="plot" />
+      </PIcon.Create>
+    }
+  >
+    Add to New Plot
+  </PMenu.Item>
+);
+
+export const addToActivePlotMenuItem = (
+  <PMenu.Item
+    itemKey="addToActivePlot"
+    startIcon={
+      <PIcon.Icon topRight={<Icon.Range />}>
+        <Icon.Visualize key="plot" />
+      </PIcon.Icon>
+    }
+  >
+    Add to Active Plot
+  </PMenu.Item>
+);
+
+export const addChildRangeMenuItem = (
+  <PMenu.Item
+    itemKey="addChildRange"
+    startIcon={
+      <PIcon.Create>
+        <Icon.Range />
+      </PIcon.Create>
+    }
+  >
+    Add Child Range
+  </PMenu.Item>
+);
+
+export const setAsActiveMenuItem = (
+  <PMenu.Item itemKey="setAsActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
+    Set as Active
+  </PMenu.Item>
+);
+
+export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
+  toArray(ranges).map((range) => ({
+    variant: "static",
+    key: range.key,
+    name: range.name,
+    timeRange: {
+      start: Number(range.timeRange.start.valueOf()),
+      end: Number(range.timeRange.end.valueOf()),
+    },
+    persisted: true,
+  }));
+
+export const fetchIfNotInState = async (
+  store: Store<StoreState>,
+  client: Client,
+  key: string,
+): Promise<Range> => {
+  const existing = select(store.getState(), key);
+  if (existing == null) {
+    const range = fromClientRange(await client.ranges.retrieve(key));
+    store.dispatch(add({ ranges: range }));
+    return range[0];
+  }
+  return existing;
+};
+
+export const useAddToActivePlot = (): ((key: string) => void) => {
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+  return useMutation<void, Error, string>({
+    mutationKey: ["add-to-active-plot", client?.key],
+    mutationFn: async (key: string) => {
+      const active = Layout.selectActiveMosaicLayout(store.getState());
+      if (active == null || client == null) return;
+      await fetchIfNotInState(store, client, key);
+      store.dispatch(
+        setLinePlotRanges({
+          key: active.key,
+          axisKey: "x1",
+          mode: "add",
+          ranges: [key],
+        }),
+      );
+    },
+    onError: (e) => {
+      addStatus({
+        variant: "error",
+        message: `Failed to add range to plot`,
+        description: e.message,
+      });
+    },
+  }).mutate;
+};
+
+const useAddToNewPlot = (): ((key: string) => void) => {
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const placeLayout = Layout.usePlacer();
+  const addStatus = Status.useAggregator();
+  return useMutation<void, Error, string>({
+    mutationFn: async (key: string) => {
+      if (client == null) return;
+      const res = await fetchIfNotInState(store, client, key);
+      placeLayout(
+        createLinePlot({
+          name: `Plot for ${res.name}`,
+          ranges: { x1: [key], x2: [] },
+        }),
+      );
+    },
+    onError: (e) => {
+      addStatus({
+        variant: "error",
+        message: `Failed to add range to plot`,
+        description: e.message,
+      });
+    },
+  }).mutate;
+};
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
-  const selectedRange = useSelect();
+  const activeRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
-    const layout = createEditLayout(key == null ? "Range.Create" : "Range.Edit");
-    placeLayout({ ...layout, key: key ?? layout.key });
+    placeLayout(createEditLayout({ initial: { key } }));
   };
 
   const handleRemove = (keys: string[]): void => {
@@ -84,6 +216,7 @@ export const List = (): ReactElement => {
       )
         throw errors.CANCELED;
       handleRemove([key]);
+      removeLayout(key);
       return rng;
     },
     mutationFn: async (key: string) => await client?.ranges.delete(key),
@@ -91,7 +224,7 @@ export const List = (): ReactElement => {
       if (errors.CANCELED.matches(e)) return;
       addStatus({
         variant: "error",
-        message: "Failed to rename range",
+        message: "Failed to delete range",
         description: e.message,
       });
       dispatch(add({ ranges: [range as Range] }));
@@ -143,6 +276,17 @@ export const List = (): ReactElement => {
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
     const rng = ranges.find((r) => r.key === key);
+    const activeLayout = Layout.useSelectActiveMosaicLayout();
+    const addToActivePlot = useAddToActivePlot();
+    const addToNewPlot = useAddToNewPlot();
+    const placeLayout = Layout.usePlacer();
+    const handleSetActive = () => {
+      dispatch(setActive(key));
+    };
+
+    const handleAddChildRange = () => {
+      placeLayout(createEditLayout({ initial: { parent: key } }));
+    };
 
     const handleSelect = {
       rename: (): void => Text.edit(`text-${key}`),
@@ -155,11 +299,15 @@ export const List = (): ReactElement => {
         rng != null &&
         handleLink({
           name: rng.name,
-          resource: {
+          ontologyID: {
             key: rng.key,
             type: "range",
           },
         }),
+      addToActivePlot: () => addToActivePlot(key),
+      addToNewPlot: () => addToNewPlot(key),
+      addChildRange: handleAddChildRange,
+      setAsActive: handleSetActive,
     };
 
     return (
@@ -174,6 +322,11 @@ export const List = (): ReactElement => {
             <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
               Edit
             </PMenu.Item>
+            {addChildRangeMenuItem}
+            <PMenu.Divider />
+            {rng.key !== activeRange?.key && setAsActiveMenuItem}
+            {activeLayout?.type === "lineplot" && addToActivePlotMenuItem}
+            {addToNewPlotMenuItem}
             <PMenu.Divider />
             <PMenu.Item startIcon={<Icon.Close />} itemKey="remove">
               Remove from List
@@ -213,7 +366,7 @@ export const List = (): ReactElement => {
         emptyContent={<NoRanges />}
       >
         <Core.Selector
-          value={selectedRange?.key ?? null}
+          value={activeRange?.key ?? null}
           onChange={handleSelect}
           allowMultiple={false}
           allowNone={true}
@@ -242,6 +395,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
   const onRename = (name: string): void => {
     if (name.length === 0) return;
     dispatch(rename({ key: entry.key, name }));
+    dispatch(Layout.rename({ key: entry.key, name }));
     if (!entry.persisted) return;
     void (async () => {
       await client?.ranges.rename(entry.key, name);
@@ -270,7 +424,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
         onChange={onRename}
         allowDoubleClick={false}
       />
-      <Ranger.TimeRangeChip timeRange={entry.timeRange} />
+      <Ranger.TimeRangeChip level="small" timeRange={entry.timeRange} />
       {labels.length > 0 && (
         <Align.Space
           direction="x"
@@ -302,7 +456,7 @@ const Content = (): ReactElement => {
           {[
             {
               children: <Icon.Add />,
-              onClick: () => p(createEditLayout("Range.Create")),
+              onClick: () => p(createEditLayout({})),
             },
           ]}
         </Header.Actions>

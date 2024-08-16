@@ -71,7 +71,7 @@ var _ = Describe("Streamer Behavior", func() {
 					f := <-o.Outlet()
 					Expect(f.Frame.Keys).To(HaveLen(1))
 					Expect(f.Frame.Series).To(HaveLen(1))
-					d.Alignment = telem.LeadingAlignment(0)
+					d.Alignment = telem.LeadingAlignment(1, 0)
 					Expect(f.Frame.Series[0]).To(Equal(d))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
@@ -131,15 +131,17 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
+					written := telem.NewSeriesV[int64](1, 2, 3)
 					Expect(w.Write(cesium.NewFrame(
 						[]cesium.ChannelKey{basic2},
-						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
+						[]telem.Series{written},
 					))).To(BeTrue())
 					var f cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&f))
 					Expect(f.Frame.Keys).To(HaveLen(1))
 					Expect(f.Frame.Series).To(HaveLen(1))
-					Expect(f.Frame.Series[0]).To(Equal(telem.NewSeriesV[int64](1, 2, 3)))
+					written.Alignment = telem.LeadingAlignment(1, 0)
+					Expect(f.Frame.Series[0]).To(Equal(written))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())

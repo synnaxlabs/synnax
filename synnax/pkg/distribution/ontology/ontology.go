@@ -144,12 +144,22 @@ type Writer interface {
 	// does nothing.
 	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DefineFromOneToManyRelationships defines a directional relationship of type t from
-	// the resource with the given Task to multiple resources. If any of the relationships
+	// the resource with the given ID to multiple resources. If any of the relationships
 	// already exist, DefineFromOneToManyRelationships does nothing.
 	DefineFromOneToManyRelationships(ctx context.Context, from ID, t RelationshipType, to []ID) error
 	// DeleteRelationship deletes the relationship with the given Keys and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
 	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
+	// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
+	// types from the resource with the given ID. If the resource does not exist, or if
+	// it has no outgoing relationships of the given types, DeleteOutgoingRelationshipsOfTypes
+	// does nothing.
+	DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, type_ RelationshipType) error
+	// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
+	// types to the resource with the given ID. If the resource does not exist, or if
+	// it has no incoming relationships of the given types, DeleteIncomingRelationshipsOfTypes
+	// does nothing.
+	DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, type_ RelationshipType) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending
 	// operations merged with the underlying database. If the Writer is executing directly
 	// against the underlying database, the Retrieve query behaves exactly as if calling
@@ -192,25 +202,9 @@ func (o *Ontology) RegisterService(s Service) {
 	}
 	o.search.Register(context.TODO(), *s.Schema())
 
-	o.search.Go.Go(func(ctx context.Context) error {
-		n, err := s.OpenNexter()
-		if err != nil {
-			return err
-		}
-		err = o.search.Index.WithTx(func(tx search.Tx) error {
-			for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
-				if err := tx.Index(r); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		return errors.CombineErrors(err, n.Close())
-	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
-
 	d1 := s.OnChange(o.ResourceObserver.Notify)
 
-	// Label up a change handler to index new resources.
+	// SetKV up a change handler to index new resources.
 	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
@@ -233,6 +227,23 @@ func (o *Ontology) RegisterService(s Service) {
 			)
 		}
 	})
+
+	o.search.Go.Go(func(ctx context.Context) error {
+		n, err := s.OpenNexter()
+		if err != nil {
+			return err
+		}
+		err = o.search.Index.WithTx(func(tx search.Tx) error {
+			for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
+				if err := tx.Index(r); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return errors.CombineErrors(err, n.Close())
+	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
+
 	o.disconnectObservers = append(o.disconnectObservers, d1, d2)
 }
 

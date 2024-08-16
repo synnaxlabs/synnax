@@ -136,16 +136,30 @@ type Cluster struct {
 }
 
 // Key implements the Cluster interface.
-func (c *Cluster) Key() uuid.UUID { return c.Store.PeekState().ClusterKey }
+func (c *Cluster) Key() uuid.UUID {
+	s, release := c.Store.PeekState()
+	defer release()
+	return s.ClusterKey
+}
 
 // Host implements the Cluster interface.
-func (c *Cluster) Host() node.Node { return c.Store.GetHost() }
+func (c *Cluster) Host() node.Node {
+	return c.Store.GetHost()
+}
 
 // HostKey implements the Cluster interface.
-func (c *Cluster) HostKey() node.Key { return c.Store.PeekState().HostKey }
+func (c *Cluster) HostKey() node.Key {
+	s, release := c.Store.PeekState()
+	defer release()
+	return s.HostKey
+}
 
 // Nodes implements the Cluster interface.
-func (c *Cluster) Nodes() node.Group { return c.Store.PeekState().Nodes }
+func (c *Cluster) Nodes() node.Group {
+	s, release := c.Store.PeekState()
+	defer release()
+	return s.Nodes
+}
 
 // Node implements the Cluster interface.
 func (c *Cluster) Node(key node.Key) (node.Node, error) {

@@ -11,29 +11,33 @@ package ranger
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"io"
 	"sync"
 
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Config is the configuration for opening the ranger.Service.
 type Config struct {
-	DB       *gorp.DB
+	// DB is the underlying database that the service will use to store Ranges.
+	DB *gorp.DB
+	// Ontology will be used to create relationships between ranges (parent-child) and
+	// with other resources within the Synnax cluster.
 	Ontology *ontology.Ontology
-	Group    *group.Service
-	Signals  *signals.Provider
+	// Group is used to create the top level "Ranges" group that will be the default
+	// parent of all ranges.
+	Group *group.Service
+	// Signals is used to publish signals on channels when ranges are created, updated,
+	// deleted, along with changes to aliases and key-value pairs.
+	Signals *signals.Provider
 }
 
 var (
@@ -59,17 +63,22 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
+// Service is the main entrypoint for managing ranges within Synnax. It provides
+// mechanisms for creating, deleting, and listening to changes in ranges. It also
+// provides mechanisms for setting channel aliases for a specific range, and for
+// setting meta-data on a range.
 type Service struct {
 	Config
-	group                 group.Group
-	shutdownSignals       io.Closer
-	mu                    sync.Mutex
-	activeRange           uuid.UUID
-	activeRangeObservable observe.Observer[[]changex.Change[[]byte, struct{}]]
+	group           group.Group
+	shutdownSignals io.Closer
+	mu              sync.Mutex
 }
 
 const groupName = "Ranges"
 
+// OpenService opens a new ranger.Service with the provided configuration. If error
+// is nil, the services is ready for use and must be closed by calling Close to
+// prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -85,31 +94,31 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	if cfg.Signals == nil {
 		return
 	}
-	rangeCDC, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Range](cfg.DB))
+	rangeSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Range](cfg.DB))
 	if err != nil {
 		return
 	}
-	aliasCDCCfg := signals.GorpPublisherConfigString[alias](cfg.DB)
-	aliasCDCCfg.SetName = "sy_range_alias_set"
-	aliasCDCCfg.DeleteName = "sy_range_alias_delete"
-	aliasCDC, err := signals.PublishFromGorp(ctx, cfg.Signals, aliasCDCCfg)
+	aliasSignalsCfg := signals.GorpPublisherConfigString[alias](cfg.DB)
+	aliasSignalsCfg.SetName = "sy_range_alias_set"
+	aliasSignalsCfg.DeleteName = "sy_range_alias_delete"
+	aliasSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, aliasSignalsCfg)
 	if err != nil {
 		return
 	}
-	s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
-	activeRangeCDC, err := cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
-		Name:          "sy_active_range",
-		SetChannel:    channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT, Internal: true},
-		DeleteChannel: channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT, Internal: true},
-		Observable:    s.activeRangeObservable,
-	})
+	kvSignalsCfg := signals.GorpPublisherConfigString[KVPair](cfg.DB)
+	kvSignalsCfg.SetName = "sy_range_kv_set"
+	kvSignalsCfg.DeleteName = "sy_range_kv_delete"
+	kvSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, kvSignalsCfg)
 	if err != nil {
 		return
 	}
-	s.shutdownSignals = xio.MultiCloser{rangeCDC, aliasCDC, activeRangeCDC}
+	s.shutdownSignals = xio.MultiCloser{rangeSignals, aliasSignals, kvSignals}
 	return
 }
 
+// Close closes the service and releases any resources that it may have acquired. Close
+// is not safe to call concurrently with any other Service methods (including Writer(s)
+// and Retrieve(s)).
 func (s *Service) Close() error {
 	if s.shutdownSignals != nil {
 		return s.shutdownSignals.Close()
@@ -117,50 +126,19 @@ func (s *Service) Close() error {
 	return nil
 }
 
+// NewWriter opens a new Writer to create, update, and delete ranges. If tx is not nil,
+// the writer will use it to execute all operations. If tx is nil, the writer will execute
+// all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    tx,
-		otg:   s.Ontology.NewWriter(tx),
-		group: s.group,
+		tx:        tx,
+		otg:       s.Ontology,
+		otgWriter: s.Ontology.NewWriter(tx),
+		group:     s.group,
 	}
 }
 
+// NewRetrieve opens a new Retrieve query to fetch ranges from the database.
 func (s *Service) NewRetrieve() Retrieve {
-	return newRetrieve(s.DB, s.Ontology)
-}
-
-func (s *Service) SetActiveRange(ctx context.Context, key uuid.UUID, tx gorp.Tx) error {
-	if err := s.NewRetrieve().WhereKeys(key).Exec(ctx, tx); err != nil {
-		return err
-	}
-	s.mu.Lock()
-	s.activeRange = key
-	if s.Signals != nil {
-		s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
-			Variant: changex.Set,
-			Key:     key[:],
-		}})
-	}
-	s.mu.Unlock()
-	return nil
-}
-
-func (s *Service) RetrieveActiveRange(ctx context.Context, tx gorp.Tx) (r Range, err error) {
-	s.mu.Lock()
-	err = s.NewRetrieve().WhereKeys(s.activeRange).Entry(&r).Exec(ctx, tx)
-	s.mu.Unlock()
-	return r, err
-}
-
-func (s *Service) ClearActiveRange(ctx context.Context) {
-	s.mu.Lock()
-	key := s.activeRange
-	if s.Signals != nil {
-		s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
-			Variant: changex.Delete,
-			Key:     key[:],
-		}})
-	}
-	s.activeRange = uuid.Nil
-	s.mu.Unlock()
+	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), baseTX: s.DB, otg: s.Ontology}
 }

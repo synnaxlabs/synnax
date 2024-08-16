@@ -62,9 +62,9 @@ var _ = Describe("Index Persist", Ordered, func() {
 					}))
 
 					By("Asserting that the data is still there")
-					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekFirst(ctx)).To(BeTrue())
-					r := MustSucceed(i.NewReader(ctx))
+					r := MustSucceed(i.OpenReader(ctx))
 					var buf = make([]byte, 2)
 
 					_, err := r.ReadAt(buf, 0)
@@ -73,35 +73,35 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
-					r = MustSucceed(i.NewReader(ctx))
+					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
 					_, err = r.ReadAt(buf, 0)
 					Expect(buf).To(Equal([]byte{15}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
-					r = MustSucceed(i.NewReader(ctx))
+					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 4)
 					_, err = r.ReadAt(buf, 0)
 					Expect(buf).To(Equal([]byte{20, 21, 22, 23}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
-					r = MustSucceed(i.NewReader(ctx))
+					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
 					_, err = r.ReadAt(buf, 0)
 					Expect(buf).To(Equal([]byte{26}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
-					r = MustSucceed(i.NewReader(ctx))
+					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 1)
 					_, err = r.ReadAt(buf, 0)
 					Expect(buf).To(Equal([]byte{30}))
 					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
-					r = MustSucceed(i.NewReader(ctx))
+					r = MustSucceed(i.OpenReader(ctx))
 					buf = make([]byte, 3)
 					_, err = r.ReadAt(buf, 0)
 					_, err = r.ReadAt(buf, 0)
@@ -118,8 +118,9 @@ var _ = Describe("Index Persist", Ordered, func() {
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
 				})
 
 			})

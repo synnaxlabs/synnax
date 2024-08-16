@@ -261,7 +261,7 @@ public:
     void write_to_series(synnax::Series &series, double &data, synnax::DataType data_type);
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
-    uint64_t numAIChannels = 0;
+    uint64_t num_ai_channels = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////

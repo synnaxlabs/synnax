@@ -18,12 +18,14 @@ import {
 import {
   type FocusEventHandler,
   type ReactElement,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
@@ -46,7 +48,8 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
     >,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled">,
-    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
+    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">>,
+    Pick<CoreList.SearchProps<K, E>, "filter"> {
   entryRenderKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
@@ -54,6 +57,12 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
   hideColumnHeader?: boolean;
   omit?: Array<K>;
   children?: List.VirtualCoreProps<K, E>["children"];
+  dropdownVariant?: Dropdown.Variant;
+  dropdownZIndex?: number;
+  placeholder?: ReactNode;
+  inputPlaceholder?: ReactNode;
+  triggerTooltip?: ReactNode;
+  actions?: Input.ExtensionProps["children"];
 }
 
 /**
@@ -89,9 +98,16 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   disabled,
   omit,
   children,
+  dropdownVariant = "connected",
+  placeholder = DEFAULT_PLACEHOLDER,
+  inputPlaceholder = placeholder,
+  triggerTooltip,
+  dropdownZIndex,
+  filter,
+  actions,
   ...props
 }: SingleProps<K, E>): ReactElement => {
-  const { visible, open, close } = Dropdown.use();
+  const { visible, open, close, toggle } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(null);
   const searchMode = searcher != null;
 
@@ -128,9 +144,43 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     [searchMode],
   );
 
+  const searchInput = (
+    <InputWrapper<K, E> searcher={searcher} filter={filter}>
+      {({ onChange: handleChange }) => (
+        <SingleInput<K, E>
+          autoFocus={dropdownVariant === "modal"}
+          variant={variant}
+          onChange={handleChange}
+          onFocus={open}
+          selected={selected}
+          entryRenderKey={entryRenderKey}
+          visible={visible}
+          allowNone={allowNone}
+          className={className}
+          disabled={disabled}
+          placeholder={inputPlaceholder}
+        >
+          {actions}
+        </SingleInput>
+      )}
+    </InputWrapper>
+  );
+
+  const buttonTrigger = (
+    <Button.Button
+      tooltip={triggerTooltip}
+      variant="outlined"
+      onClick={toggle}
+      disabled={disabled}
+    >
+      {selected != null ? getRenderValue(entryRenderKey, selected) : placeholder}
+    </Button.Button>
+  );
+
   return (
     <Core<K, E>
       close={close}
+      zIndex={dropdownZIndex}
       open={open}
       data={data}
       omit={omit}
@@ -143,24 +193,12 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       allowNone={allowNone}
       columns={columns}
       listItem={children}
+      variant={dropdownVariant}
+      trigger={dropdownVariant !== "modal" ? searchInput : buttonTrigger}
+      extraDialogContent={dropdownVariant === "modal" ? searchInput : undefined}
+      keepMounted={false}
       {...props}
-    >
-      <InputWrapper<K, E> searcher={searcher}>
-        {({ onChange }) => (
-          <SingleInput<K, E>
-            variant={variant}
-            onChange={onChange}
-            onFocus={open}
-            selected={selected}
-            entryRenderKey={entryRenderKey}
-            visible={visible}
-            allowNone={allowNone}
-            className={className}
-            disabled={disabled}
-          />
-        )}
-      </InputWrapper>
-    </Core>
+    />
   );
 };
 
@@ -172,9 +210,19 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   debounceSearch?: number;
   allowNone?: boolean;
   onFocus: () => void;
+  zIndex?: number;
 }
 
 export const DEFAULT_PLACEHOLDER = "Select";
+
+const getRenderValue = <K extends Key, E extends Keyed<K>>(
+  entryRenderKey: keyof E | ((e: E) => string | number | ReactNode),
+  selected: E | null,
+): ReactNode => {
+  if (selected == null) return "";
+  if (typeof entryRenderKey === "function") return entryRenderKey(selected);
+  return (selected[entryRenderKey] as string | number).toString();
+};
 
 const SingleInput = <K extends Key, E extends Keyed<K>>({
   entryRenderKey,
@@ -203,12 +251,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     if (visible) return;
     if (primitiveIsZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
-    if (typeof entryRenderKey === "function")
-      return setInternalValue(entryRenderKey(selected).toString());
-    else
-      return setInternalValue(
-        (selected?.[entryRenderKey] as string | number).toString(),
-      );
+    setInternalValue(getRenderValue(entryRenderKey, selected) as string);
   }, [selected, visible, entryRenderKey]);
 
   const handleChange = (v: string): void => {

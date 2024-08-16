@@ -204,8 +204,7 @@ func decodeKey[K Key](
 ) (v K, err error) {
 	// if the key is a byte slice, we can just return it
 	if _, ok := any(v).([]byte); ok {
-		return any(b).(K), nil
+		return any(b[len(prefix):]).(K), nil
 	}
 	return v, decoder.Decode(ctx, b[len(prefix):], &v)
-
 }

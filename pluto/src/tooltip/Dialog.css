@@ -13,13 +13,24 @@
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 6;
+    z-index: 11;
     pointer-events: none;
     background: var(--pluto-gray-l1);
     border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius);
+    border-radius: calc(var(--pluto-border-radius) * 2);
     box-shadow: var(--pluto-shadow-menu);
-    padding: 1rem;
+    padding: 1rem 1.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+
+    .pluto-text {
+        color: var(--pluto-gray-l9);
+        font-weight: 350;
+    }
+
+    &.pluto--loaded {
+        opacity: 1;
+    }
 
     &.pluto--center {
         &.pluto--top {

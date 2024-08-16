@@ -39,6 +39,7 @@ import { type RenderProp } from "@/util/renderProp";
 
 type RenderF<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = RenderProp<{
   key: string | number | symbol;
+  index: number;
   entry: E;
   style: CSSProperties;
 }>;
@@ -127,35 +128,39 @@ const Header = <K extends Key, E extends Keyed<K>>({
 
   return (
     <ColumnContext.Provider value={ctxValue as ColumnContextValue}>
-      <Align.Space
-        direction="x"
-        size="medium"
-        className={CSS(CSS.BE("list-col-header", "container"), CSS.visible(!hide))}
-      >
-        {ctxValue.columns
-          .filter(({ visible = true }) => visible)
-          .map(({ key, cWidth: width, name }) => {
-            const [sortKey, dir] = sort;
-            let endIcon;
-            const entry = sourceData[0];
-            if (key === sortKey)
-              endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
-            return (
-              <Text.WithIcon
-                className={CSS.BE("list-col-header", "item")}
-                key={key.toString()}
-                justify="spaceBetween"
-                level="p"
-                endIcon={endIcon}
-                style={{ width }}
-                shrink={false}
-                onClick={() => entry != null && key in entry && onSort(key as keyof E)}
-              >
-                {name}
-              </Text.WithIcon>
-            );
-          })}
-      </Align.Space>
+      {!hide && (
+        <Align.Space
+          direction="x"
+          size="medium"
+          className={CSS(CSS.BE("list-col-header", "container"), CSS.visible(!hide))}
+        >
+          {ctxValue.columns
+            .filter(({ visible = true }) => visible)
+            .map(({ key, cWidth: width, name }) => {
+              const [sortKey, dir] = sort;
+              let endIcon;
+              const entry = sourceData[0];
+              if (key === sortKey)
+                endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
+              return (
+                <Text.WithIcon
+                  className={CSS.BE("list-col-header", "item")}
+                  key={key.toString()}
+                  justify="spaceBetween"
+                  level="p"
+                  endIcon={endIcon}
+                  style={{ width }}
+                  shrink={false}
+                  onClick={() =>
+                    entry != null && key in entry && onSort(key as keyof E)
+                  }
+                >
+                  {name}
+                </Text.WithIcon>
+              );
+            })}
+        </Align.Space>
+      )}
       {children}
     </ColumnContext.Provider>
   );
@@ -168,6 +173,7 @@ const Item = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   ...props
 }: ItemProps<K, E> & ItemFrameProps<K, E>): ReactElement => {
   const { columns } = useColumnContext<K, E>();
+  const { index } = props;
   return (
     <ItemFrame<K, E>
       key={entry.key.toString()}
@@ -185,7 +191,12 @@ const Item = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       {columns
         .filter(({ visible = true }) => visible)
         .map((col) => (
-          <ListColumnValue key={col.key.toString()} entry={entry} col={col} />
+          <ListColumnValue
+            key={col.key.toString()}
+            entry={entry}
+            col={col}
+            index={index}
+          />
         ))}
     </ItemFrame>
   );
@@ -193,11 +204,13 @@ const Item = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
 interface ListColumnValueProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   entry: E;
+  index: number;
   col: ColumnSpec<K, E>;
 }
 
 const ListColumnValue = <K extends Key, E extends Keyed<K>>({
   entry,
+  index,
   col: { width, ...col },
 }: ListColumnValueProps<K, E>): ReactElement | null => {
   const style: CSSProperties = {
@@ -206,7 +219,7 @@ const ListColumnValue = <K extends Key, E extends Keyed<K>>({
     padding: "1rem",
     flexShrink: 0,
   };
-  if (col.render != null) return col.render({ key: col.key, entry, style });
+  if (col.render != null) return col.render({ key: col.key, entry, style, index });
   let rv: E[keyof E] | string;
   if (col.stringer != null) rv = col.stringer(entry);
   else rv = entry[col.key as keyof E];

@@ -186,7 +186,6 @@ const Wrapped = ({
             index: dev.properties.read.index,
           })),
         );
-        console.log;
         channels.forEach((c, i) => {
           dev.properties.read.channels[toCreate[i].nodeId] = c.key;
         });
@@ -198,8 +197,6 @@ const Wrapped = ({
           ? dev.properties.read.index
           : getChannelByNodeID(dev.properties, c.nodeId),
       }));
-
-      console.log(config.channels, dev.properties);
 
       if (modified)
         await client.hardware.devices.create({
