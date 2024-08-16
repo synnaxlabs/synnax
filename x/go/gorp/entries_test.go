@@ -23,4 +23,19 @@ var _ = Describe("Entries", func() {
 			Expect(entries.All()).To(HaveLen(0))
 		})
 	})
+
+	Describe("MapInPlace", func() {
+		It("Should map the entries in place", func() {
+			q := gorp.NewRetrieve[int, entry]()
+			entries := gorp.GetEntries[int, entry](q.Params)
+			entries.Add(entry{ID: 1})
+			entries.Add(entry{ID: 2})
+			Expect(entries.MapInPlace(func(e entry) (entry, bool, error) {
+				return e, e.ID == 2, nil
+			})).To(Succeed())
+			Expect(entries.All()).To(HaveLen(1))
+			Expect(entries.All()[0].ID).To(Equal(2))
+		})
+	})
+
 })

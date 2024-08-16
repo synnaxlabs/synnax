@@ -11,6 +11,7 @@ package ontology
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/errors"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
@@ -222,26 +223,28 @@ func (r Retrieve) retrieveEntities(
 	entries := gorp.GetEntries[ID, Resource](clause.Params)
 	excludeFieldData := getExcludeFieldData(clause.Params)
 	includeSchema := getIncludeSchema(clause.Params)
-	for j, res := range entries.All() {
+	retrieveResource := (!excludeFieldData) || includeSchema
+	// Iterate over the entries in place, retrieving the resource if the query requires it.
+	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
-			return nil, query.NotFound
+			return res, false, nil
 		}
-		var err error
-		if (!excludeFieldData) || includeSchema {
-			res, err = r.registrar.retrieveResource(ctx, res.ID, tx)
-			if err != nil {
-				return nil, err
-			}
-			if excludeFieldData {
-				res.Data = nil
-			}
-			if !includeSchema {
-				res.Schema = nil
-			}
+		if !retrieveResource {
+			return res, true, nil
 		}
-		entries.Set(j, res)
-	}
-	return entries.All(), nil
+		res, err := r.registrar.retrieveResource(ctx, res.ID, tx)
+		if errors.Is(err, query.NotFound) {
+			return res, false, nil
+		}
+		if excludeFieldData {
+			res.Data = nil
+		}
+		if !includeSchema {
+			res.Schema = nil
+		}
+		return res, true, err
+	})
+	return entries.All(), err
 }
 
 func (r Retrieve) traverse(

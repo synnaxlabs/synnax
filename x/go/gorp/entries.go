@@ -66,6 +66,8 @@ func (e *Entries[K, E]) Add(entry E) {
 	e.changes++
 }
 
+// Replace replaces the entries in the query with the provided entries. If Entries
+// holds a single entry, the first entry in the slice will be used.
 func (e *Entries[K, E]) Replace(entries []E) {
 	if e.isMultiple {
 		*e.entries = entries
@@ -78,6 +80,8 @@ func (e *Entries[K, E]) Replace(entries []E) {
 	}
 }
 
+// Set sets the entry at the provided index to the provided value. If the query expects
+// a single entry, the index must be 0.
 func (e *Entries[K, E]) Set(i int, entry E) {
 	if e.isMultiple {
 		(*e.entries)[i] = entry
@@ -86,6 +90,38 @@ func (e *Entries[K, E]) Set(i int, entry E) {
 		*e.entry = entry
 		e.changes++
 	}
+}
+
+// MapInPlace iterates over all entries in the provided query and applies the given
+// function to each entry. If the function returns true, the entry will be replaced
+// with the new entry. If the function returns false, the entry will be removed from
+// the query. If the function returns an error, the iteration will stop and the error
+// will be returned.
+func (e *Entries[K, E]) MapInPlace(f func(E) (E, bool, error)) error {
+	if e.isMultiple {
+		nEntries := make([]E, 0, len(*e.entries))
+		for _, entry := range *e.entries {
+			n, ok, err := f(entry)
+			if err != nil {
+				return err
+			}
+			if ok {
+				nEntries = append(nEntries, n)
+			}
+		}
+		*e.entries = nEntries
+		e.changes += len(nEntries)
+		return nil
+	}
+	n, ok, err := f(*e.entry)
+	if err != nil {
+		return err
+	}
+	if ok {
+		*e.entry = n
+		e.changes++
+	}
+	return nil
 }
 
 // All returns a slice of all entries currently bound to the query.
