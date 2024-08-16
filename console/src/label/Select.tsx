@@ -30,15 +30,13 @@ const SelectEmptyContent = (): ReactElement => {
   );
 };
 
-export const SelectSingle = (props: SelectSingleProps) => {
-  return (
-    <Label.SelectSingle
-      emptyContent={<SelectEmptyContent />}
-      {...props}
-      actions={<AddButton />}
-    />
-  );
-};
+export const SelectSingle = (props: SelectSingleProps) => (
+  <Label.SelectSingle
+    emptyContent={<SelectEmptyContent />}
+    {...props}
+    actions={<AddButton />}
+  />
+);
 
 const AddButton = () => {
   const onClick = useAdd();
@@ -49,12 +47,10 @@ const AddButton = () => {
   );
 };
 
-export const SelectMultiple = (props: Label.SelectMultipleProps) => {
-  return (
-    <Label.SelectMultiple
-      emptyContent={<SelectEmptyContent />}
-      {...props}
-      actions={<AddButton />}
-    />
-  );
-};
+export const SelectMultiple = (props: Label.SelectMultipleProps) => (
+  <Label.SelectMultiple
+    emptyContent={<SelectEmptyContent />}
+    {...props}
+    actions={<AddButton />}
+  />
+);
