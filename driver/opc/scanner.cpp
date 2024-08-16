@@ -121,7 +121,9 @@ static UA_StatusCode nodeIter(
             data_type = dt;
             is_array = is_arr;
             UA_Variant_clear(&value);
-        }
+        } else if (nodeClass == UA_NODECLASS_VARIABLE) {
+            LOG(ERROR) << "[opc.scannner] No value for " << name;
+        }        
         ctx->channels->emplace_back(
             data_type,
             name,

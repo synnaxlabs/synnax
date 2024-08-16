@@ -216,6 +216,9 @@ I can successfully:
 
 #### Configuration
 
+I successfully: 
+- [ ] Updated the license on TC before continuing QA 
+
 I can successfully:
 - [ ] Enable and disable OPC UA integration when starting the server.
 - [ ] Connect to an OPC UA server running unencrypted.
