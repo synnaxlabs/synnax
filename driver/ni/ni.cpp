@@ -738,14 +738,14 @@ void ni::Source::jsonify_error(std::string s) {
     std::regex task_name_line_regex(R"(\nTask Name:.*\n?)");
     s = std::regex_replace(s, task_name_line_regex, "");
 
-    // Remove the redundant Status Code line at the end
-    std::regex status_code_line_regex(R"(\nStatus Code:.*$)");
-    s = std::regex_replace(s, status_code_line_regex, "");
-
-    // Extract status code
+     // Extract status code
     std::string sc = "";
     std::smatch status_code_match;
     if (std::regex_search(s, status_code_match, status_code_regex)) sc = status_code_match[1].str();
+    
+    // Remove the redundant Status Code line at the end
+    std::regex status_code_line_regex(R"(\nStatus Code:.*$)");
+    s = std::regex_replace(s, status_code_line_regex, "");
 
     // Extract device name
     std::string device = "";
