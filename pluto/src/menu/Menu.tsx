@@ -75,13 +75,7 @@ export const Menu = ({
     }),
     [selected, onClick, level, iconSpacing],
   );
-  return (
-    <MenuContext.Provider value={ctxValue}>
-      <Align.Space direction="y" size={1 / 3}>
-        {children}
-      </Align.Space>
-    </MenuContext.Provider>
-  );
+  return <MenuContext.Provider value={ctxValue}>{children}</MenuContext.Provider>;
 };
 
 export const Divider = (): ReactElement => <CoreDivider.Divider direction="x" padded />;

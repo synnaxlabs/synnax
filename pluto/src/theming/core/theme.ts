@@ -168,15 +168,15 @@ const SYNNAX_BASE: ThemeSpec = {
       m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
       m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
       z: color.fromHSLA(ERROR_HSLA),
-      p1: color.fromHSLA(setLightness(ERROR_HSLA, 60)),
-      p2: color.fromHSLA(setLightness(ERROR_HSLA, 70)),
+      p1: color.fromHSLA(setLightness(ERROR_HSLA, 65)),
+      p2: color.fromHSLA(setLightness(ERROR_HSLA, 77)),
     },
     warning: {
       m2: color.fromHSLA(setLightness(WARNING_HSLA, 30)),
       m1: color.fromHSLA(setLightness(WARNING_HSLA, 40)),
       z: color.fromHSLA(WARNING_HSLA),
-      p1: color.fromHSLA(setLightness(WARNING_HSLA, 60)),
-      p2: color.fromHSLA(setLightness(WARNING_HSLA, 70)),
+      p1: color.fromHSLA(setLightness(WARNING_HSLA, 65)),
+      p2: color.fromHSLA(setLightness(WARNING_HSLA, 75)),
     },
     visualization: {
       palettes: {

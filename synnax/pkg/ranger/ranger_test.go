@@ -601,25 +601,59 @@ var _ = Describe("Ranger", Ordered, func() {
 				g.Expect(r.SearchAliases(ctx, "alias")).To(ContainElement(ch.Key()))
 			}).Should(Succeed())
 		})
-		It("Should list the aliases on a range", func() {
-			r := ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
-				Entry(&ch).
-				Exec(ctx, tx)).To(Succeed())
-			r = r.UseTx(tx)
-			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
-			aliases, err := r.ListAliases(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(aliases).To(HaveKeyWithValue(ch.Key(), "alias"))
+
+		Describe("List", func() {
+
+			It("Should list the aliases on a range", func() {
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				r = r.UseTx(tx)
+				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				aliases, err := r.ListAliases(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(aliases).To(HaveKeyWithValue(ch.Key(), "alias"))
+			})
+
+			It("Should list the aliases on a range and its parent", func() {
+				parent := ranger.Range{
+					Name: "Parent",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+				ch := channel.Channel{Leaseholder: 1, LocalKey: 1}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&ch).
+					Exec(ctx, tx)).To(Succeed())
+				parent = parent.UseTx(tx)
+				Expect(parent.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				r := ranger.Range{
+					Name: "Range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(7 * telem.Second),
+						End:   telem.TimeStamp(9 * telem.Second),
+					},
+				}
+				Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+				aliases, err := r.ListAliases(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(aliases).To(HaveKeyWithValue(ch.Key(), "alias"))
+			})
+
 		})
+
 		Context("Ontology", func() {
 			It("Should find a created alias in the ontology", func() {
 				r := ranger.Range{

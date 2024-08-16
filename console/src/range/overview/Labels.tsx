@@ -1,7 +1,9 @@
 import { label, ontology } from "@synnaxlabs/client";
-import { Form, Label, Synnax } from "@synnaxlabs/pluto";
-import { compare, deep, unique } from "@synnaxlabs/x";
+import { Form, Synnax } from "@synnaxlabs/pluto";
+import { compare, unique } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { Label } from "@/label";
 
 const labelFormSchema = z.object({
   labels: z.array(z.string()),

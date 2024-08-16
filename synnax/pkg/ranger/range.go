@@ -224,18 +224,29 @@ func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {
 
 // ListAliases lists all aliases on the range.
 func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) {
+	res := make(map[channel.Key]string)
+	return res, r.listAliases(ctx, res)
+}
+
+func (r Range) listAliases(
+	ctx context.Context,
+	accumulated map[channel.Key]string,
+) error {
 	res := make([]alias, 0)
 	if err := gorp.NewRetrieve[string, alias]().
 		Where(func(a *alias) bool { return a.Range == r.Key }).
 		Entries(&res).
 		Exec(ctx, r.tx); err != nil {
-		return nil, err
+		return err
 	}
-	aliases := make(map[channel.Key]string, len(res))
 	for _, a := range res {
-		aliases[a.Channel] = a.Alias
+		accumulated[a.Channel] = a.Alias
 	}
-	return aliases, nil
+	p, pErr := r.Parent(ctx)
+	if errors.Is(pErr, query.NotFound) {
+		return nil
+	}
+	return p.listAliases(ctx, accumulated)
 }
 
 // OntologyID returns the semantic ID for this range in order to look it up from within

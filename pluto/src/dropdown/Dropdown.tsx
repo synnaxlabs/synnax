@@ -32,8 +32,8 @@ import { Dialog as CoreDialog } from "@/dialog";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { ComponentSize } from "@/util/component";
-import { getRootElement } from "@/util/rootElement";
 import { findParent } from "@/util/findParent";
+import { getRootElement } from "@/util/rootElement";
 
 export type UseProps = CoreDialog.UseProps;
 export type UseReturn = CoreDialog.UseReturn;

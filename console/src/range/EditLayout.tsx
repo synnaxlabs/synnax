@@ -22,7 +22,6 @@ import {
   Button,
   Form,
   Icon as PIcon,
-  Label,
   Nav,
   Ranger,
   Status,
@@ -39,6 +38,7 @@ import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { useSelect } from "@/range/selectors";
 import { add } from "@/range/slice";

@@ -46,10 +46,15 @@ const handleSelect: Ontology.HandleSelect = async ({
 };
 
 const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ store, id, name }) => store.dispatch(rename({ key: id.key, name })),
+  eager: ({ store, id, name }) => {
+    store.dispatch(rename({ key: id.key, name }));
+    store.dispatch(Layout.rename({ key: id.key, name: name }));
+  },
   execute: async ({ client, id, name }) => await client.ranges.rename(id.key, name),
-  rollback: ({ store, id }, prevName) =>
-    store.dispatch(rename({ key: id.key, name: prevName })),
+  rollback: ({ store, id }, prevName) => {
+    store.dispatch(rename({ key: id.key, name: prevName }));
+    store.dispatch(Layout.rename({ key: id.key, name: prevName }));
+  },
 };
 
 export const fetchIfNotInState = async (
