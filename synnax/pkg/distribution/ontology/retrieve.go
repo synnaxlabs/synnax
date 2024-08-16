@@ -157,13 +157,11 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if i != 0 {
 			clause.WhereKeys(nextIDs...)
 		}
-		if err := clause.Exec(ctx, tx); err != nil {
-			return err
-		}
+		cErr := clause.Exec(ctx, tx)
 		atLast := len(r.query.Clauses) == i+1
 		resources, err := r.retrieveEntities(ctx, clause, tx)
-		if err != nil || len(resources) == 0 || atLast {
-			return err
+		if cErr != nil || err != nil || len(resources) == 0 || atLast {
+			return errors.CombineErrors(cErr, err)
 		}
 		if nextIDs, err = r.traverse(
 			ctx,
@@ -220,10 +218,12 @@ func (r Retrieve) retrieveEntities(
 	clause gorp.Retrieve[ID, Resource],
 	tx gorp.Tx,
 ) ([]Resource, error) {
-	entries := gorp.GetEntries[ID, Resource](clause.Params)
-	excludeFieldData := getExcludeFieldData(clause.Params)
-	includeSchema := getIncludeSchema(clause.Params)
-	retrieveResource := (!excludeFieldData) || includeSchema
+	var (
+		entries          = gorp.GetEntries[ID, Resource](clause.Params)
+		excludeFieldData = getExcludeFieldData(clause.Params)
+		includeSchema    = getIncludeSchema(clause.Params)
+		retrieveResource = (!excludeFieldData) || includeSchema
+	)
 	// Iterate over the entries in place, retrieving the resource if the query requires it.
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
