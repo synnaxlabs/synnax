@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Status, Tabs } from "@synnaxlabs/pluto";
+import { Align, Button, Status, Tabs } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { useDownload } from "@/schematic/hooks";
 import {
   useSelect,
   useSelectControlStatus,
@@ -69,6 +70,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const schematic = useSelect(layoutKey);
+  const download = useDownload(name);
+
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       if (!schematic.editable) return <NotEditableContent layoutKey={layoutKey} />;
@@ -102,6 +105,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     >
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Schematic />}>{name}</ToolbarTitle>
+        <Button.Button
+          startIcon={<Icon.Download />}
+          onClick={() => download(schematic.key)}
+          style={{ height: "75%", margin: "auto" }}
+        >
+          Download {name}
+        </Button.Button>
         <Tabs.Selector style={{ borderBottom: "none" }} />
       </ToolbarHeader>
       <Tabs.Content />
