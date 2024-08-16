@@ -109,6 +109,7 @@ export interface FileHandlerProps {
   confirm: CreateConfirmModal;
   client: Synnax | null;
   workspaceKey: string | null;
+  dispatch: Dispatch<UnknownAction>;
 }
 
 export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;
@@ -349,9 +350,8 @@ export const { actions, reducer } = createSlice({
 
       if (key != null) {
         Object.values(navState.drawers).forEach((drawer) => {
-          if (drawer.menuItems.includes(key)) {
-            drawer.activeItem = value ?? drawer.activeItem !== key ? key : null;
-          }
+          if (drawer.menuItems.includes(key))
+            drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
         });
       } else if (location != null) {
         let drawer = navState.drawers[location];

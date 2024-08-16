@@ -8,7 +8,7 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
 import { parser } from "@/schematic/migrations";
@@ -22,6 +22,7 @@ export const fileHandler: Layout.FileHandler = async ({
   placer,
   loc,
   name,
+  dispatch,
   client,
   workspaceKey,
   confirm,
@@ -40,7 +41,6 @@ export const fileHandler: Layout.FileHandler = async ({
   const key = newState.key;
   const existingState = select(store.getState(), key);
   if (existingState != null) {
-    if (deep.equal(existingState, newState)) throw Error(`${name} already exists.`);
     if (
       !(await confirm({
         message: `${name} already exists`,
@@ -49,27 +49,28 @@ export const fileHandler: Layout.FileHandler = async ({
         confirm: { label: "Replace", variant: "error" },
       }))
     )
-      throw errors.CANCELED;
-    Layout.remove({ keys: [key] });
+      return true;
+    dispatch(Layout.remove({ keys: [key] }));
     remove({ keys: [key] });
   }
-  if (client != null) {
-    try {
-      await client.workspaces.schematic.retrieve(key);
-      await client.workspaces.schematic.setData(
-        key,
-        newState as unknown as UnknownRecord,
-      );
-    } catch (e) {
-      if (!NotFoundError.matches(e)) throw e;
-      if (workspaceKey != null)
-        await client.workspaces.schematic.create(workspaceKey, {
-          name,
-          data: newState as unknown as UnknownRecord,
-          ...newState,
-        });
-    }
-  }
   placer(creator);
+  if (client == null) return true;
+
+  // Logic for changing the schematic in the cluster
+  try {
+    await client.workspaces.schematic.retrieve(key);
+    await client.workspaces.schematic.setData(
+      key,
+      newState as unknown as UnknownRecord,
+    );
+  } catch (e) {
+    if (!NotFoundError.matches(e)) throw e;
+    if (workspaceKey != null)
+      await client.workspaces.schematic.create(workspaceKey, {
+        name,
+        data: newState as unknown as UnknownRecord,
+        ...newState,
+      });
+  }
   return true;
 };

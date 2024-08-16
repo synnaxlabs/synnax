@@ -15,6 +15,7 @@ import {
   Eraser,
   Mosaic as Core,
   Nav,
+  Status,
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
@@ -142,32 +143,48 @@ export const Mosaic = memo((): ReactElement => {
 
   const workspaceKey = Workspace.useSelectActiveKey();
   const confirm = Confirm.useModal();
+  const addStatus = Status.useAggregator();
 
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
-      const files = Array.from(event.dataTransfer.files);
-      if (files.length === 0) return;
-      files.forEach((file) => {
-        if (file.type !== "application/json") return;
-        file
-          ?.arrayBuffer()
-          .then((b) => {
-            const fileAsJSON = JSON.parse(new TextDecoder().decode(b));
-            const name = file.name.slice(0, -5);
-            SchematicServices.fileHandler({
-              mosaicKey: nodeKey,
-              file: fileAsJSON,
-              placer,
-              name,
-              store,
-              confirm,
-              client,
-              workspaceKey,
-              loc,
-            });
-          })
-          .catch((e) => console.error(e));
-      });
+      void (async () => {
+        const files = Array.from(event.dataTransfer.files);
+        for (const file of files) {
+          const name = file.name;
+          try {
+            if (file.type !== "application/json")
+              throw Error(`${name} is not a JSON file`);
+            const buffer = await file.arrayBuffer();
+            const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
+
+            for (const fileHandler of FILE_HANDLERS) {
+              if (
+                await fileHandler({
+                  mosaicKey: nodeKey,
+                  file: fileAsJSON,
+                  placer,
+                  name: name.slice(0, -5),
+                  store,
+                  confirm,
+                  client,
+                  workspaceKey,
+                  dispatch,
+                  loc,
+                })
+              )
+                break;
+            }
+          } catch (e) {
+            if (e instanceof Error) {
+              addStatus({
+                variant: "error",
+                message: `Failed to read ${name}`,
+                description: e.message,
+              });
+            }
+          }
+        }
+      })();
     },
     [dispatch],
   );

@@ -43,6 +43,15 @@ export const insertTab = (
     return root;
   }
 
+  const firstChildKey = node.key * 2;
+  const lastChildKey = node.key * 2 + 1;
+  const potentialChildKey =
+    loc === "top" || loc === "left" ? firstChildKey : lastChildKey;
+
+  // Allow for inserting into one of the existing children.
+  if (findNodeOrAncestor(root, potentialChildKey).key !== node.key)
+    return insertTab(root, tab, "center", potentialChildKey);
+
   // If we're not dropping the tab in the center,
   // and we have no tabs in the current node,
   // we can't split the node (because one side would be empty),
@@ -58,8 +67,8 @@ export const insertTab = (
   if (node.first == null || node.last == null) throw InvalidMosaic;
 
   // Assigning these keeps the mosaic sorted so we can do ancestor searches.
-  node.first.key = node.key * 2;
-  node.last.key = node.key * 2 + 1;
+  node.first.key = firstChildKey;
+  node.last.key = lastChildKey;
 
   // Clear the previous node, as it's now been and is not used
   // for rendering.
