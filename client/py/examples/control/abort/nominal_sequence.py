@@ -15,20 +15,19 @@ import time
 client = sy.Synnax()
 
 # Define the control channel names
-PRESS_VALVE = "valve_command_0"
-VENT_VALVE = "valve_command_1"
-PRESSURE = "sensor_0"
+PRESS_VALVE = "press_vlv_cmd"
+VENT_VALVE = "vent_vlv_cmd"
+PRESSURE = "pressure"
 
 # Open a control sequence under a context manager, so that the control is released when
 # the block exits
 with client.control.acquire(
     name="Press Sequence",
-    # Defines the authorities at which the sequence controls the valve channels. This is
-    # you to define what these mean in your system.
+    # Defines the authorities at which the sequence controls the valve channels.
     #
     # ####
     # Notice that we take a higher control authority here than we do at the start of the
-    # abort sequence. This means that the abort sequence will have to take control OVER
+    # abort sequence. This means that the abort sequence will take control OVER
     # this sequence.
     # ####
     write_authorities=[200],
