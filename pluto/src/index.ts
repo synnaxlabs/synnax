@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Dialog } from "@/dialog";
+
 export { Accordion } from "@/accordion";
 export { Aether } from "@/aether";
 export { Align } from "@/align";
@@ -15,6 +17,7 @@ export { Caret } from "@/caret";
 export { Channel } from "@/channel";
 export { Color } from "@/color";
 export * from "@/css";
+export { Dialog } from "@/dialog";
 export { Divider } from "@/divider";
 export { Dropdown } from "@/dropdown";
 export { Form } from "@/form";

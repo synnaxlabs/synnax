@@ -63,6 +63,7 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
   children?: CoreList.VirtualCoreProps<K, E>["children"];
   dropdownVariant?: Dropdown.Variant;
   addPlaceholder?: ReactNode;
+  actions?: Input.ExtensionProps["children"];
 }
 
 /**
@@ -104,6 +105,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   addPlaceholder = "Add",
   children,
   dropdownVariant = "connected",
+  actions,
   ...props
 }: MultipleProps<K, E>): ReactElement => {
   const { visible, open, close } = Dropdown.use();
@@ -168,7 +170,9 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
             onTagDragStart={onTagDragStart}
             onTagDragEnd={onTagDragEnd}
             style={style}
-          />
+          >
+            {actions}
+          </MultipleInput>
         )}
       </InputWrapper>
     );
@@ -214,7 +218,11 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     );
     searchInput = (
       <InputWrapper<K, E> searcher={searcher}>
-        {(p) => <Input.Text autoFocus placeholder="Search" {...p} />}
+        {(p) => (
+          <Input.Text autoFocus placeholder="Search" {...p}>
+            {actions}
+          </Input.Text>
+        )}
       </InputWrapper>
     );
   }
@@ -268,6 +276,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
   onTagDragEnd,
   value,
   className,
+  children,
   ...props
 }: SelectMultipleInputProps<K, E>): ReactElement => {
   const { onSelect, clear } = CoreList.useSelectionUtils();
@@ -332,6 +341,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
           });
         })}
       </Align.Space>
+      {children}
       <ClearButton onClick={clear} />
     </Input.Text>
   );

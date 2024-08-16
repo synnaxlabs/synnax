@@ -62,6 +62,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
   placeholder?: ReactNode;
   inputPlaceholder?: ReactNode;
   triggerTooltip?: ReactNode;
+  actions?: Input.ExtensionProps["children"];
 }
 
 /**
@@ -103,6 +104,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   triggerTooltip,
   dropdownZIndex,
   filter,
+  actions,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close, toggle } = Dropdown.use();
@@ -146,7 +148,6 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     <InputWrapper<K, E> searcher={searcher} filter={filter}>
       {({ onChange: handleChange }) => (
         <SingleInput<K, E>
-          size="large"
           autoFocus={dropdownVariant === "modal"}
           variant={variant}
           onChange={handleChange}
@@ -158,7 +159,9 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           className={className}
           disabled={disabled}
           placeholder={inputPlaceholder}
-        />
+        >
+          {actions}
+        </SingleInput>
       )}
     </InputWrapper>
   );
@@ -207,6 +210,7 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   debounceSearch?: number;
   allowNone?: boolean;
   onFocus: () => void;
+  zIndex?: number;
 }
 
 export const DEFAULT_PLACEHOLDER = "Select";

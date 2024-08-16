@@ -22,13 +22,23 @@
         border-radius: 1rem;
         min-width: 400px;
         min-height: 150px;
-        overflow: hidden;
 
         & > div {
             border: var(--pluto-border-l4);
             border-radius: 1rem;
-            overflow: hidden;
             height: 100%;
+
+            & > div:first-child {
+                border-radius: 1rem 1rem 0 0;
+            }
+
+            & > div:last-child {
+                border-radius: 0 0 1rem 1rem;
+            }
+
+            & > div {
+                overflow: hidden;
+            }
         }
     }
 

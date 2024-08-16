@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Key, type Keyed } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -54,7 +54,7 @@ export const Core = <K extends Key, E extends Keyed<K>>({
   autoSelectOnNone,
   trigger,
   extraDialogContent,
-  variant,
+  variant = "connected",
   ...props
 }: SelectListProps<K, E>): ReactElement => {
   let dialogContent = (

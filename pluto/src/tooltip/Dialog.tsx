@@ -32,10 +32,10 @@ import {
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
+import { useCombinedStateAndRef } from "@/hooks";
 import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
 import { isRenderProp, type RenderProp } from "@/util/renderProp";
-import { useCombinedStateAndRef } from "@/hooks";
 
 export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   delay?: CrudeTimeSpan;

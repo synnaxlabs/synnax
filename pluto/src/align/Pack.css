@@ -202,3 +202,9 @@
         }
     }
 }
+
+.pluto-pack {
+    & .pluto-btn--filled {
+        z-index: 4;
+    }
+}

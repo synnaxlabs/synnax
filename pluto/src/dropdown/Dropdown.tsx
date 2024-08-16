@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/dropdown/Dropdown.css";
+
 import {
   box,
   invert,
@@ -21,6 +23,7 @@ import {
   type ReactNode,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -56,14 +59,20 @@ export interface DialogProps
 }
 
 interface State {
-  dialogBox: box.Box;
+  left: number;
+  width: number;
   dialogLoc: loc.XY;
+  top?: number;
+  bottom?: number;
 }
 
 const ZERO_STATE: State = {
-  dialogBox: box.ZERO,
+  width: 0,
+  left: 0,
   dialogLoc: location.BOTTOM_LEFT,
 };
+
+const Z_INDEX_VARIABLE = "--pluto-dropdown-z-index";
 
 /**
  * A controlled dropdown dialog component that wraps its children. For the simplest case, use
@@ -86,8 +95,8 @@ export const Dialog = ({
   maxHeight,
   // It's common to pass these in, so we'll destructure and ignore them so we don't
   // get an invalid prop on div tag error.
-  open: _o,
-  toggle: _t,
+  open,
+  toggle,
   zIndex = 5,
   ...props
 }: DialogProps): ReactElement => {
@@ -96,7 +105,9 @@ export const Dialog = ({
   const dialogRef = useRef<HTMLDivElement>(null);
   const prevLocation = useRef<location.XY | undefined>(undefined);
 
-  const [{ dialogBox, dialogLoc }, setState] = useState<State>({ ...ZERO_STATE });
+  const [{ dialogLoc, width, ...stateDialogStyle }, setState] = useState<State>({
+    ...ZERO_STATE,
+  });
 
   const calculatePosition = useCallback(() => {
     if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
@@ -109,7 +120,17 @@ export const Dialog = ({
       prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
     });
     prevLocation.current = location;
-    setState({ dialogLoc: location, dialogBox: adjustedDialog });
+    const nextState: State = {
+      dialogLoc: location,
+      width: box.width(adjustedDialog),
+      left: box.left(adjustedDialog),
+    };
+    if (location.y === "bottom") nextState.top = box.top(adjustedDialog);
+    else {
+      const windowBox = box.construct(window.document.documentElement);
+      nextState.bottom = box.height(windowBox) - box.bottom(adjustedDialog);
+    }
+    setState(nextState);
   }, [propsLocation, variant]);
 
   useLayoutEffect(() => {
@@ -118,23 +139,23 @@ export const Dialog = ({
 
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
 
-  const resizeParentRef = useResize(calculatePosition, {
-    enabled: visible,
-  });
+  const resizeParentRef = useResize(calculatePosition, { enabled: visible });
   const combinedParentRef = useCombinedRefs(targetRef, resizeParentRef);
 
-  const resizeDialogRef = useResize(calculatePosition, {
-    enabled: visible,
-  });
+  const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
   let dialogStyle: CSSProperties = {};
-  if (variant !== "modal") {
-    dialogStyle = { ...xy.css(box.topLeft(dialogBox)) };
-    if (variant === "connected") dialogStyle.width = box.width(dialogBox);
+  if (variant !== "modal" && targetRef.current != null) {
+    dialogStyle = { ...stateDialogStyle };
+    if (variant === "connected") dialogStyle.width = width;
   }
   if (typeof maxHeight === "number") dialogStyle.maxHeight = maxHeight;
-  if (visible) dialogStyle.zIndex = zIndex;
+  if (visible) {
+    dialogStyle.zIndex = zIndex;
+    // @ts-expect-error - css variable
+    dialogStyle[Z_INDEX_VARIABLE] = zIndex;
+  }
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
@@ -180,7 +201,8 @@ export const Dialog = ({
         role="dialog"
         empty
         align="center"
-        style={{ zIndex }}
+        // @ts-expect-error - css variable
+        style={{ zIndex, [Z_INDEX_VARIABLE]: zIndex }}
       >
         {child}
       </Align.Space>,
@@ -188,24 +210,32 @@ export const Dialog = ({
     );
   }
 
+  const ctxValue = useMemo(() => ({ close }), [close]);
   return (
-    <C
-      {...props}
-      ref={combinedParentRef}
-      className={CSS(
-        className,
-        CSS.B("dropdown"),
-        CSS.visible(visible),
-        CSS.M(variant),
-        CSS.loc(dialogLoc.x),
-        CSS.loc(dialogLoc.y),
-      )}
-      direction="y"
-      reverse={dialogLoc.y === "top"}
-    >
-      {children[0]}
-      {child}
-    </C>
+    <CoreDialog.Context.Provider value={ctxValue}>
+      <C
+        {...props}
+        ref={combinedParentRef}
+        className={CSS(
+          className,
+          CSS.B("dropdown"),
+          CSS.visible(visible),
+          CSS.M(variant),
+          CSS.loc(dialogLoc.x),
+          CSS.loc(dialogLoc.y),
+        )}
+        direction="y"
+        reverse={dialogLoc.y === "top"}
+        style={{
+          ...props.style,
+          // @ts-expect-error - css variable
+          [Z_INDEX_VARIABLE]: zIndex,
+        }}
+      >
+        {children[0]}
+        {child}
+      </C>
+    </CoreDialog.Context.Provider>
   );
 };
 Dialog.displayName = "Dropdown";
