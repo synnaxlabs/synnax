@@ -161,7 +161,7 @@ const Wrapped = ({
         const channels = await client.channels.create(
           toCreate.map((c) => ({
             name: `${dev.properties.identifier}_ai_${c.port}`,
-            dataType: "float32",
+            dataType: "float32", // TODO: also support float64 
             index: dev.properties.analogInput.index,
           })),
         );

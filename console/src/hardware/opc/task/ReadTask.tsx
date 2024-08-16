@@ -186,7 +186,6 @@ const Wrapped = ({
             index: dev.properties.read.index,
           })),
         );
-        console.log;
         channels.forEach((c, i) => {
           dev.properties.read.channels[toCreate[i].nodeId] = c.key;
         });
