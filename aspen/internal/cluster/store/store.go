@@ -104,24 +104,34 @@ type core struct {
 }
 
 // ClusterKey implements Store.
-func (c *core) ClusterKey() uuid.UUID { return c.Observable.PeekState().ClusterKey }
+func (c *core) ClusterKey() uuid.UUID {
+	s, release := c.Observable.PeekState()
+	ck := s.ClusterKey
+	release()
+	return ck
+}
 
 // SetClusterKey implements Store.
 func (c *core) SetClusterKey(ctx context.Context, key uuid.UUID) {
-	s := c.Observable.PeekState()
+	s := c.Observable.CopyState()
 	s.ClusterKey = key
 	c.Observable.SetState(ctx, s)
 }
 
 // GetNode implements Store.
 func (c *core) GetNode(key node.Key) (node.Node, bool) {
-	n, ok := c.Observable.PeekState().Nodes[key]
+	state, release := c.Observable.PeekState()
+	defer release()
+	n, ok := state.Nodes[key]
 	return n, ok
 }
 
 // GetHost implements Store.
 func (c *core) GetHost() node.Node {
-	n, _ := c.GetNode(c.Observable.PeekState().HostKey)
+	state, release := c.Observable.PeekState()
+	h := state.HostKey
+	release()
+	n, _ := c.GetNode(h)
 	return n
 }
 
