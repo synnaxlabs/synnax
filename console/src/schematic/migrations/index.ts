@@ -55,7 +55,8 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   def: ZERO_SLICE_STATE,
 });
 
-const STATES_Z = [v0.stateZ, v1.stateZ, v2.stateZ, v3.stateZ];
+// Descending order so that the latest state is tried first
+const STATES_Z = [v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ];
 
 export const parser: (potentialState: any) => State | null = (potentialState) => {
   const stateZ = STATES_Z.find((stateZ) => stateZ.safeParse(potentialState).success);
