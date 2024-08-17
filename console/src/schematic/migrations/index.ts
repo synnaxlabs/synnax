@@ -31,13 +31,13 @@ export type AnySliceState =
 export const ZERO_STATE = v3.ZERO_STATE;
 export const ZERO_SLICE_STATE = v3.ZERO_SLICE_STATE;
 
-export const STATE_MIGRATIONS: migrate.Migrations = {
+const STATE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.stateMigration,
   "1.0.0": v2.stateMigration,
   "2.0.0": v3.stateMigration,
 };
 
-export const SLICE_MIGRATIONS: migrate.Migrations = {
+const SLICE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.sliceMigration,
   "1.0.0": v2.sliceMigration,
   "2.0.0": v3.sliceMigration,
@@ -55,9 +55,9 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   def: ZERO_SLICE_STATE,
 });
 
-export const STATES_Z = [v0.stateZ, v1.stateZ, v2.stateZ, v3.stateZ];
+const STATES_Z = [v0.stateZ, v1.stateZ, v2.stateZ, v3.stateZ];
 
 export const parser: (potentialState: any) => State | null = (potentialState) => {
-  const z = STATES_Z.find((stateZ) => stateZ.safeParse(potentialState).success);
-  return z == null ? null : migrateState(z.parse(potentialState));
+  const stateZ = STATES_Z.find((stateZ) => stateZ.safeParse(potentialState).success);
+  return stateZ == null ? null : migrateState(stateZ.parse(potentialState));
 };

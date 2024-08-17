@@ -9,7 +9,6 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
@@ -52,14 +51,6 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
     },
   }).mutate;
 };
-
-export interface useImportOptions {
-  workspaceKey?: string;
-  tab?: {
-    mosaicKey: number;
-    location: location.Location;
-  };
-}
 
 export const useImport = (workspaceKey?: string): (() => void) => {
   const placer = Layout.usePlacer();
