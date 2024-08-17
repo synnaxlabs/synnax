@@ -18,6 +18,7 @@ import { Dialog } from "@/dialog";
 import { useClickOutside } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { getRootElement } from "@/util/rootElement";
+import { findParent } from "@/util/findParent";
 
 export interface ModalProps
   extends Pick<Dialog.UseReturn, "visible" | "close">,
@@ -27,15 +28,25 @@ export const Modal = ({
   visible,
   children,
   close,
+  style,
   ...props
 }: ModalProps): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside({ ref, onClickOutside: close });
+  useClickOutside({
+    ref,
+    exclude: (e: MouseEvent) => {
+      const parent = findParent(
+        e.target as HTMLElement,
+        (e) => (e as HTMLElement).getAttribute("role") === "dialog",
+      );
+      return parent != null;
+    },
+    onClickOutside: close,
+  });
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
   return createPortal(
     <Align.Space
       className={CSS(CSS.BE("modal", "bg"), CSS.visible(visible))}
-      role="dialog"
       empty
       align="center"
     >
@@ -45,8 +56,9 @@ export const Modal = ({
         empty
         ref={ref}
         {...props}
+        style={{ zIndex: 11, ...style }}
       >
-        <Align.Space className={CSS(CSS.BE("modal", "content"))} role="dialog" empty>
+        <Align.Space className={CSS(CSS.BE("modal", "content"))} empty>
           {children}
         </Align.Space>
       </Align.Space>

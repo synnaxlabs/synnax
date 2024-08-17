@@ -46,6 +46,8 @@
         border: none;
         background: none;
         width: 100%;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         height: 100%;
 
         padding: 0 1.5rem;
@@ -123,6 +125,18 @@
 }
 
 .pluto-input--shadow {
+    & .pluto-input__internal {
+        background: var(--pluto-bg);
+    }
+    &:hover {
+        & > .pluto-input__internal {
+            background: var(--pluto-gray-l2) !important;
+            cursor: pointer;
+            & input {
+                cursor: pointer;
+            }
+        }
+    }
     /* When not focused or hovered, hide the border */
     &:not(:focus):not(:focus-within):not(:hover) {
         & > * {
@@ -132,13 +146,11 @@
             opacity: 0;
         }
     }
-    & .pluto-input__internal {
-        background: var(--pluto-gray-l0) !important;
-    }
 }
 
 .pluto-input--natural {
     background: none !important;
+    border-radius: 0 !important;
     & > * {
         border-color: transparent;
     }

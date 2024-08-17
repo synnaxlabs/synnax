@@ -198,13 +198,20 @@ export const { actions, reducer } = createSlice({
       delete mosaicTab.location;
       delete mosaicTab.mosaicKey;
 
+      let mosaicKey = tab?.mosaicKey;
+      // If we didn't explicitly specify a mosaic node to put the new tab in, and
+      // the user has selected an active tab, we'll put the new tab in the same node
+      // that the user has selected.
+      if (mosaic.activeTab != null && mosaicKey == null)
+        mosaicKey = Mosaic.findTabNode(mosaic.root, mosaic.activeTab)?.key;
+
       // If we're moving to a mosaic, insert a tab.
       if (prev?.location !== "mosaic" && location === "mosaic") {
         mosaic.root = Mosaic.insertTab(
           mosaic.root,
           mosaicTab,
           tab?.location,
-          tab?.mosaicKey,
+          mosaicKey,
         );
         mosaic.activeTab = key;
       }

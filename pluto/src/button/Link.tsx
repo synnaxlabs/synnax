@@ -32,5 +32,5 @@ export const Link = <L extends Text.Level = "h1">({
   ...props
 }: LinkProps<L>): ReactElement => {
   // @ts-expect-error - generic element issues
-  return <Button<"a"> el="a" href={href} {...props} />;
+  return <Button<"a"> el="a" href={href} target={target} {...props} />;
 };

@@ -11,9 +11,11 @@ from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient
 
 from synnax.ranger.payload import RangeKey, RangePayload
+from synnax.ontology.id import OntologyID
 
 
 class _CreateRequest(Payload):
+    parent: OntologyID | None
     ranges: list[RangePayload]
 
 
@@ -45,8 +47,13 @@ class RangeWriter:
         self.instrumentation = instrumentation
 
     @trace("debug", "range.create")
-    def create(self, ranges: list[RangePayload]) -> list[RangePayload]:
-        req = _CreateRequest(ranges=ranges)
+    def create(
+        self,
+        ranges: list[RangePayload],
+        *,
+        parent: OntologyID | None = None
+    ) -> list[RangePayload]:
+        req = _CreateRequest(ranges=ranges, parent=parent)
         res, exc = self.__client.send(_CREATE_ENDPOINT, req, _CreateResponse)
         if exc is not None:
             raise exc

@@ -930,6 +930,13 @@ export class TimeRange implements Stringer {
   }
 
   /**
+   * @returns the TimeRange as a numeric object with start and end properties.
+   */
+  get numeric(): NumericTimeRange {
+    return { start: Number(this.start.valueOf()), end: Number(this.end.valueOf()) };
+  }
+
+  /**
    * Creates a new TimeRange with the start and end swapped.
    *
    * @returns A TimeRange with the start and end swapped.
@@ -1063,8 +1070,18 @@ export class DataType extends String implements Stringer {
     return v;
   }
 
+  /**
+   * @returns true if the DataType is equal to the given DataType.
+   */
   equals(other: CrudeDataType): boolean {
     return this.valueOf() === other.valueOf();
+  }
+
+  /**
+   * @returns true if the DataType is equal to any of the given DataTypes.
+   */
+  matches(...others: CrudeDataType[]): boolean {
+    return others.some((o) => this.equals(o));
   }
 
   /** @returns a string representation of the DataType. */
@@ -1423,6 +1440,15 @@ export type SizeT = number;
 export interface CrudeTimeRange {
   start: CrudeTimeStamp;
   end: CrudeTimeStamp;
+}
+
+/**
+ * A time range backed by numbers instead of TimeStamps/BigInts.
+ * Involves a loss of precision, but can be useful for serialization.
+ */
+export interface NumericTimeRange {
+  start: number;
+  end: number;
 }
 
 export const typedArrayZ = z.union([

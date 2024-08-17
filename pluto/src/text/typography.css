@@ -58,7 +58,8 @@ h4,
     font-weight: var(--pluto-h4-weight);
 }
 
-h5 {
+h5,
+.pluto-text--h5 {
     font-size: var(--pluto-h5-size);
     line-height: var(--pluto-h5-line-height);
     font-weight: var(--pluto-h5-weight);
@@ -66,7 +67,8 @@ h5 {
 }
 
 small,
-text {
+text,
+.pluto-text--small {
     font-size: var(--pluto-small-size);
     line-height: var(--pluto-small-line-height);
     font-weight: var(--pluto-small-weight);
@@ -77,8 +79,49 @@ label,
 code,
 li,
 td,
-th {
+th,
+.pluto-text--p {
     font-size: var(--pluto-p-size);
     line-height: var(--pluto-p-line-height);
     font-weight: var(--pluto-p-weight);
+}
+
+.pluto--shade-1 {
+    color: var(--pluto-gray-l1);
+}
+
+.pluto--shade-2 {
+    color: var(--pluto-gray-l2);
+}
+
+.pluto--shade-3 {
+    color: var(--pluto-gray-l3);
+}
+
+.pluto--shade-4 {
+    color: var(--pluto-gray-l4);
+}
+
+.pluto--shade-5 {
+    color: var(--pluto-gray-l5);
+}
+
+.pluto--shade-6 {
+    color: var(--pluto-gray-l6);
+}
+
+.pluto--shade-7 {
+    color: var(--pluto-gray-l7);
+}
+
+.pluto--shade-8 {
+    color: var(--pluto-gray-l8);
+}
+
+.pluto--shade-9 {
+    color: var(--pluto-gray-l9);
+}
+
+.pluto--shade-10 {
+    color: var(--pluto-gray-l10);
 }

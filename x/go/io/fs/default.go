@@ -8,10 +8,12 @@ type defaultFS struct {
 
 var Default FS = &defaultFS{perm: defaultPerm}
 
+// Open implements FS.
 func (d *defaultFS) Open(name string, flag int) (File, error) {
 	return os.OpenFile(name, flag, d.perm)
 }
 
+// Sub implements FS.
 func (d *defaultFS) Sub(name string) (FS, error) {
 	if err := os.MkdirAll(name, d.perm); err != nil {
 		return nil, err
@@ -19,6 +21,7 @@ func (d *defaultFS) Sub(name string) (FS, error) {
 	return &subFS{dir: name, FS: d}, nil
 }
 
+// Exists implements FS.
 func (d *defaultFS) Exists(name string) (bool, error) {
 	_, err := os.Stat(name)
 	if os.IsNotExist(err) {
@@ -27,6 +30,7 @@ func (d *defaultFS) Exists(name string) (bool, error) {
 	return true, err
 }
 
+// List implements FS.
 func (d *defaultFS) List(name string) ([]os.FileInfo, error) {
 	entries, err := os.ReadDir(name)
 	if err != nil {
@@ -42,14 +46,17 @@ func (d *defaultFS) List(name string) ([]os.FileInfo, error) {
 	return infos, nil
 }
 
+// Remove implements FS.
 func (d *defaultFS) Remove(name string) error {
 	return os.RemoveAll(name)
 }
 
+// Rename implements FS.
 func (d *defaultFS) Rename(name string, newName string) error {
 	return os.Rename(name, newName)
 }
 
+// Stat implements FS.
 func (d *defaultFS) Stat(name string) (os.FileInfo, error) {
 	return os.Stat(name)
 }

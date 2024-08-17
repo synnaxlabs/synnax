@@ -180,6 +180,22 @@ export const moveTab = (
   return [r3, selected];
 };
 
+export const findTabNode = (root: Node, tabKey: string): Node | undefined => {
+  if (root.tabs != null) {
+    if (root.tabs.some((t) => t.tabKey === tabKey)) return root;
+    return undefined;
+  }
+  if (root.first != null) {
+    const node = findTabNode(root.first, tabKey);
+    if (node != null) return node;
+  }
+  if (root.last != null) {
+    const node = findTabNode(root.last, tabKey);
+    if (node != null) return node;
+  }
+  return undefined;
+};
+
 /**
  * Resizes the given mosaic leaf.
  *

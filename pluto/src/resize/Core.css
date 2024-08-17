@@ -33,7 +33,7 @@
         top: 0;
     }
 
-    &.pluto--x  {
+    &.pluto--x {
         & > .pluto-resize__handle {
             width: var(--resize-panel-handle-size);
             height: 100%;
@@ -57,7 +57,9 @@
 
 .pluto-resize__handle {
     position: absolute;
-    transition: border-color 0.1s ease-in-out, border-width 0.1s ease-in-out;
+    transition:
+        border-color 0.1s ease-in-out,
+        border-width 0.1s ease-in-out;
     z-index: 4;
 
     &:hover {

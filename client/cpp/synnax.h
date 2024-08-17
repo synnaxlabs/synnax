@@ -64,8 +64,7 @@ public:
     /// @brief Client for creating and retrieving channels in a cluster.
     ChannelClient channels = ChannelClient(nullptr, nullptr);
     /// @brief Client for creating, retrieving, and performing operations on ranges in a cluster.
-    RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr,
-                                     nullptr, nullptr, nullptr);
+    RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr);
     /// @brief Client for managing devices and their configuration.
@@ -104,10 +103,7 @@ public:
             std::move(t.range_create),
             t.range_kv_get,
             t.range_kv_set,
-            t.range_kv_delete,
-            std::move(t.range_set_active),
-            std::move(t.range_retrieve_active),
-            std::move(t.range_clear_active)
+            t.range_kv_delete
         );
         telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
         hardware = HardwareClient(

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 export interface KV<K = string, V = string, WK = K, WV = V, D = K>
   extends Reader<K, V>,
     Writer<WK, WV>,
@@ -49,4 +51,15 @@ export interface AsyncWriter<K = string, V = string> {
 export interface AsyncDeleter<K = string> {
   /** Deletes a key-value pair from the store. */
   delete: (key: K) => Promise<void>;
+}
+
+export const stringPairZ = z.object({
+  key: z.string(),
+  value: z.string(),
+});
+
+/** A general purpose key-value pair. */
+export interface Pair<K = string, V = string> {
+  key: K;
+  value: V;
 }

@@ -24,6 +24,8 @@ export const selectedStateZ = ranger.payloadZ.extend({
 
 export type SelectedState = z.infer<typeof selectedStateZ>;
 
+const hasColor = (c?: string): boolean => color.Color.z.safeParse(c).success;
+
 export const providerStateZ = z.object({
   cursor: xy.xy.or(z.null()),
   hovered: selectedStateZ.or(z.null()),
@@ -65,11 +67,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.tracker.onChange(async (c) => {
       c.forEach(async (r) => {
         if (r.variant === "delete") i.ranges.delete(r.key);
-        else i.ranges.set(r.key, r.value);
+        else if (hasColor(r.value.color)) i.ranges.set(r.key, r.value);
       });
       render.Controller.requestRender(this.ctx, render.REASON_TOOL);
       this.setState((s) => ({ ...s, count: i.ranges.size }));
     });
+    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
   private async fetchInitial(timeRange: TimeRange): Promise<void> {
@@ -81,7 +84,9 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       return;
     this.fetchedInitial = timeRange;
     const ranges = await i.client.ranges.retrieve(timeRange);
-    ranges.forEach((r) => i.ranges.set(r.key, r));
+    ranges.forEach((r) => {
+      if (hasColor(r.color)) i.ranges.set(r.key, r);
+    });
     this.setState((s) => ({ ...s, count: i.ranges.size }));
   }
 
@@ -129,7 +134,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           { x: startPos, y: box.top(region) - 1 },
           { x: endPos, y: box.bottom(region) - 1 },
         ),
-        backgroundColor: c.setAlpha(0.07),
+        backgroundColor: c.setAlpha(0.2),
         bordered: false,
       });
       const titleRegion = box.construct(
