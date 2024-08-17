@@ -128,7 +128,7 @@ const Wrapped = ({
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
-    task?.state != null ? deep.copy(task.state) : undefined,
+    task?.state,
   );
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
 
