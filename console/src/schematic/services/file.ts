@@ -20,11 +20,11 @@ export const fileHandler: Layout.FileHandler = async ({
   file,
   placer,
   tab,
-  name,
   dispatch,
   client,
   workspaceKey,
   confirm,
+  name,
   store,
 }): Promise<boolean> => {
   const newState = parser(file);
@@ -38,7 +38,7 @@ export const fileHandler: Layout.FileHandler = async ({
   if (existingState != null) {
     if (
       !(await confirm({
-        message: `${name} already exists`,
+        message: `${name} already exists as ${existingState.name}`,
         description: "Would you like to replace the existing schematic?",
         cancel: { label: "Cancel" },
         confirm: { label: "Replace", variant: "error" },
@@ -64,7 +64,6 @@ export const fileHandler: Layout.FileHandler = async ({
       await client.workspaces.schematic.create(workspaceKey, {
         data: newState as unknown as UnknownRecord,
         ...newState,
-        name,
       });
   }
   return true;

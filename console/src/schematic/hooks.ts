@@ -72,7 +72,7 @@ export const useImport = (workspaceKey?: string): (() => void) => {
   if (workspaceKey != null && activeKey !== workspaceKey)
     dispatch(Workspace.setActive(workspaceKey));
 
-  let nameR = "schematic";
+  let name = "schematic";
 
   return useMutation<void, Error>({
     mutationFn: async () => {
@@ -86,14 +86,13 @@ export const useImport = (workspaceKey?: string): (() => void) => {
       const rawData = await readFile(fileResponse.path);
       const fileName = fileResponse.path.split("/").pop();
       if (fileName == null) throw new UnexpectedError("File name is null");
-      nameR = fileName;
-      const name = fileName.slice(0, -5);
+      name = fileName;
       const file = JSON.parse(new TextDecoder().decode(rawData));
       if (
         !(await fileHandler({
           file,
           placer,
-          name,
+          name: fileName,
           store,
           confirm,
           client,
@@ -106,7 +105,7 @@ export const useImport = (workspaceKey?: string): (() => void) => {
     onError: (err) => {
       addStatus({
         variant: "error",
-        message: `Failed to import ${nameR}`,
+        message: `Failed to import ${name}`,
         description: err.message,
       });
     },

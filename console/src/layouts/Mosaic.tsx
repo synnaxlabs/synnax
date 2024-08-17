@@ -162,7 +162,7 @@ export const Mosaic = memo((): ReactElement => {
                 await fileHandler({
                   file: fileAsJSON,
                   placer,
-                  name: name.slice(0, -5),
+                  name,
                   store,
                   confirm,
                   client,
