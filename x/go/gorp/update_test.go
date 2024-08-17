@@ -66,4 +66,22 @@ var _ = Describe("Update", Ordered, func() {
 				return e
 			}).Exec(ctx, tx)).To(testutil.HaveOccurredAs(query.NotFound))
 	})
+	Describe("Where", func() {
+		It("Should correctly update a set of entries based on a where filter function", func() {
+			Expect(gorp.NewUpdate[int, entry]().
+				Where(func(e *entry) bool { return e.ID < 5 }).
+				Change(func(e entry) entry {
+					e.Data = "new data"
+					return e
+				}).Exec(ctx, tx)).To(Succeed())
+			var res []entry
+			Expect(gorp.NewRetrieve[int, entry]().
+				Where(func(e *entry) bool { return e.ID < 5 }).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			for i := range res {
+				Expect(res[i]).To(Equal(entry{ID: i, Data: "new data"}))
+			}
+		})
+	})
 })

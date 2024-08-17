@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
+	"go.uber.org/zap"
 )
 
 // Key is a unique key for an entry of a particular type.
@@ -84,6 +85,10 @@ func (e *Entries[K, E]) Replace(entries []E) {
 // a single entry, the index must be 0.
 func (e *Entries[K, E]) Set(i int, entry E) {
 	if e.isMultiple {
+		if len(*e.entries) <= i {
+			zap.S().DPanic("[gorp.Entries.Set] - index out of range")
+			return
+		}
 		(*e.entries)[i] = entry
 		e.changes++
 	} else if i == 0 {
@@ -119,8 +124,10 @@ func (e *Entries[K, E]) MapInPlace(f func(E) (E, bool, error)) error {
 	}
 	if ok {
 		*e.entry = n
-		e.changes++
+	} else {
+		e.entry = nil
 	}
+	e.changes++
 	return nil
 }
 
