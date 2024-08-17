@@ -14,6 +14,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
+	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -75,70 +77,71 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
+func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
+	_, isOpen := db.virtualDBs[ch.Key]
+	if isOpen {
+		return nil
+	}
+	v, err := virtual.Open(virtual.Config{
+		MetaCodec:       db.metaCodec,
+		FS:              fs,
+		Channel:         ch,
+		Instrumentation: db.options.Instrumentation,
+	})
+	if err != nil {
+		return err
+	}
+	db.virtualDBs[ch.Key] = *v
+	return nil
+}
+
+func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
+	_, isOpen := db.unaryDBs[ch.Key]
+	if isOpen {
+		return nil
+	}
+	u, err := unary.Open(unary.Config{
+		FS:              fs,
+		MetaCodec:       db.metaCodec,
+		Channel:         ch,
+		Instrumentation: db.options.Instrumentation,
+		FileSize:        db.options.fileSize,
+		GCThreshold:     db.options.gcCfg.GCThreshold,
+	})
+	if err != nil {
+		return err
+	}
+	// In the case where we index the data using a separate index database, we
+	// need to set the index on the unary database. Otherwise, we assume the database
+	// is self-indexing.
+	if u.Channel().Index != 0 && !u.Channel().IsIndex {
+		idxDB, ok := db.unaryDBs[u.Channel().Index]
+		if ok {
+			u.SetIndex(idxDB.Index())
+		}
+		err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index})
+		if err != nil {
+			return err
+		}
+		idxDB, ok = db.unaryDBs[u.Channel().Index]
+		if !ok {
+			return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index)}
+		}
+	}
+	db.unaryDBs[ch.Key] = *u
+	return nil
+}
+
 func (db *DB) openVirtualOrUnary(ch Channel) error {
 	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
 	if err != nil {
 		return err
 	}
-	if ch.Virtual {
-		_, isOpen := db.virtualDBs[ch.Key]
-		if isOpen {
-			return nil
-		}
-		v, err := virtual.Open(virtual.Config{
-			MetaCodec:       db.metaCodec,
-			FS:              fs,
-			Channel:         ch,
-			Instrumentation: db.options.Instrumentation,
-		})
-		if err != nil {
-			return err
-		}
-		err = v.CheckMigration(db.metaCodec)
-		if err != nil {
-			return err
-		}
-		db.virtualDBs[ch.Key] = *v
-	} else {
-		_, isOpen := db.unaryDBs[ch.Key]
-		if isOpen {
-			return nil
-		}
-		u, err := unary.Open(unary.Config{
-			FS:              fs,
-			MetaCodec:       db.metaCodec,
-			Channel:         ch,
-			Instrumentation: db.options.Instrumentation,
-			FileSize:        db.options.fileSize,
-			GCThreshold:     db.options.gcCfg.GCThreshold,
-		})
-		if err != nil {
-			return err
-		}
-		err = u.CheckMigration(db.metaCodec)
-		if err != nil {
-			return err
-		}
-		// In the case where we index the data using a separate index database, we
-		// need to set the index on the unary database. Otherwise, we assume the database
-		// is self-indexing.
-		if u.Channel().Index != 0 && !u.Channel().IsIndex {
-			idxDB, ok := db.unaryDBs[u.Channel().Index]
-			if ok {
-				u.SetIndex(idxDB.Index())
-			}
-			err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index})
-			if err != nil {
-				return err
-			}
-			idxDB, ok = db.unaryDBs[u.Channel().Index]
-			if !ok {
-				return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index)}
-			}
-		}
-		db.unaryDBs[ch.Key] = *u
+	err = db.openVirtual(ch, fs)
+	if errors.Is(err, virtual.ErrNotVirtual) {
+		return db.openUnary(ch, fs)
 	}
-	return nil
+	return err
 }
 
 func openFS(opts *options) error {

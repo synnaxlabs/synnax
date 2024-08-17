@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"

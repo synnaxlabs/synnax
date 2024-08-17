@@ -42,7 +42,12 @@ type DB struct {
 	openWriters      *atomic.Int32
 }
 
-var dbClosed = core.EntityClosed("virtual.db")
+var (
+	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
+	ErrNotVirtual = errors.New("channel is not virtual")
+	// DBClosed is returned when an operation is attempted on a closed DB.
+	DBClosed = core.EntityClosed("virtual.db")
+)
 
 // Config is the configuration for opening a DB.
 type Config struct {
@@ -92,6 +97,10 @@ func Open(configs ...Config) (db *DB, err error) {
 	if err != nil {
 		return nil, err
 	}
+	wrapError := core.NewErrorWrapper(cfg.Channel)
+	if !cfg.Channel.Virtual {
+		return nil, wrapError(ErrNotVirtual)
+	}
 	c, err := controller.New[*controlEntity](controller.Config{
 		Concurrency:     control.Shared,
 		Instrumentation: cfg.Instrumentation,
@@ -102,21 +111,21 @@ func Open(configs ...Config) (db *DB, err error) {
 	db = &DB{
 		cfg:              cfg,
 		controller:       c,
-		wrapError:        core.NewErrorWrapper(cfg.Channel),
+		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
 		leadingAlignment: &atomic.Uint32{},
 		openWriters:      &atomic.Int32{},
 	}
 	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
-	return db, nil
+	return db, db.checkMigration()
 }
 
-func (db *DB) CheckMigration(codec binary.Codec) error {
-	if db.cfg.Channel.Version != version.Current {
-		db.cfg.Channel.Version = version.Current
-		return meta.Create(db.cfg.FS, codec, db.cfg.Channel)
+func (db *DB) checkMigration() error {
+	if db.cfg.Channel.Version == version.Current {
+		return nil
 	}
-	return nil
+	db.cfg.Channel.Version = version.Current
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
 func (db *DB) Channel() core.Channel {
@@ -144,7 +153,7 @@ func (db *DB) Close() error {
 // the underlying DB.
 func (db *DB) RenameChannel(newName string) error {
 	if db.closed.Load() {
-		return dbClosed
+		return DBClosed
 	}
 	if db.cfg.Channel.Name == newName {
 		return nil
@@ -157,7 +166,7 @@ func (db *DB) RenameChannel(newName string) error {
 // to the DB's meta file in the underlying filesystem.
 func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
-		return dbClosed
+		return DBClosed
 	}
 	if db.cfg.Channel.Key == key {
 		return nil
