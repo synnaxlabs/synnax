@@ -46,35 +46,33 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
-export const Main = (): ReactElement => {
-  return (
-    <>
-      {/* We need to place notifications here so they are in the proper stacking context */}
-      <Notifications.Notifications />
-      <SideEffect />
-      <NavTop />
-      <Layout.Modals />
-      <Align.Space className="console-main-fixed--y" direction="x" empty>
-        <NavLeft />
-        <Align.Space
-          className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
-          empty
-        >
-          <Align.Space className="console-main--driven" direction="x" empty>
-            <NavDrawer location="left" />
-            <main className="console-main--driven" style={{ position: "relative" }}>
-              <Mosaic />
-            </main>
-            <NavDrawer location="right" />
-          </Align.Space>
-          <NavDrawer location="bottom" />
+export const Main = (): ReactElement => (
+  <>
+    {/* We need to place notifications here so they are in the proper stacking context */}
+    <Notifications.Notifications />
+    <SideEffect />
+    <NavTop />
+    <Layout.Modals />
+    <Align.Space className="console-main-fixed--y" direction="x" empty>
+      <NavLeft />
+      <Align.Space
+        className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
+        empty
+      >
+        <Align.Space className="console-main--driven" direction="x" empty>
+          <NavDrawer location="left" />
+          <main className="console-main--driven" style={{ position: "relative" }}>
+            <Mosaic />
+          </main>
+          <NavDrawer location="right" />
         </Align.Space>
-        <NavRight />
+        <NavDrawer location="bottom" />
       </Align.Space>
-      <NavBottom />
-    </>
-  );
-};
+      <NavRight />
+    </Align.Space>
+    <NavBottom />
+  </>
+);
 
 export const HANDLERS: Link.Handler[] = [
   ChannelServices.linkHandler,
