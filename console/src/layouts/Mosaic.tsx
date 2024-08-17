@@ -239,4 +239,4 @@ export const Window = memo(({ layoutKey }: Layout.RendererProps): ReactElement =
 });
 Window.displayName = "MosaicWindow";
 
-export const FILE_HANDLERS = [SchematicServices.fileHandler];
+export const FILE_HANDLERS = [Workspace.fileHandler, SchematicServices.fileHandler];

@@ -19,12 +19,7 @@ import { useStore } from "react-redux";
 import { useDispatchEffect } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
-import {
-  select,
-  selectActiveKey,
-  selectSliceState,
-  useSelectActiveKey,
-} from "@/workspace/selectors";
+import { select, selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 
 // this fixes conflicts between JSX and TS
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
@@ -74,8 +69,6 @@ export const useExport = (name: string = "workspace"): ((key: string) => void) =
   return useMutation<void, Error, string>({
     mutationFn: async (key) => {
       let workspace = select(store.getState(), key);
-      console.log("Slice State: ");
-      console.log(selectSliceState(store.getState()));
       if (workspace == null) {
         if (client == null) throw new Error("Client is not available");
         workspace = await client.workspaces.retrieve(key);
