@@ -20,7 +20,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
-import { useDownload } from "@/schematic/hooks";
+import { useExport } from "@/schematic/hooks";
 import { create } from "@/schematic/Schematic";
 import { rename, type State } from "@/schematic/slice";
 
@@ -126,14 +126,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useRangeSnapshot();
-  const download = useDownload(resources[0].name);
+  const exprt = useExport(resources[0].name);
   const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu("schematic.menu", {
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    download: () => download(resources[0].id.key),
+    export: () => exprt(resources[0].id.key),
     link: () =>
       handleLink({
         name: resources[0].name,
@@ -156,8 +156,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
-          <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-            Download as JSON
+          <PMenu.Item itemKey="export" startIcon={<Icon.Download />}>
+            Export as JSON
           </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />

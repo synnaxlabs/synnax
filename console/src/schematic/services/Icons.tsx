@@ -17,7 +17,7 @@ export const ImportIcon = (): ReactElement => (
   </PIcon.Upload>
 );
 
-export const DownloadIcon = (): ReactElement => (
+export const ExportIcon = (): ReactElement => (
   <PIcon.Download>
     <Icon.Schematic />
   </PIcon.Download>

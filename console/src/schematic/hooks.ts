@@ -23,7 +23,7 @@ import { type State } from "@/schematic/slice";
 import { RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const useDownload = (name: string = "schematic"): ((key: string) => void) => {
+export const useExport = (name: string = "schematic"): ((key: string) => void) => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   const store = useStore<RootState>();
@@ -46,7 +46,7 @@ export const useDownload = (name: string = "schematic"): ((key: string) => void)
     onError: (err) => {
       addStatus({
         variant: "error",
-        message: `Failed to download ${name}`,
+        message: `Failed to export ${name}`,
         description: err.message,
       });
     },

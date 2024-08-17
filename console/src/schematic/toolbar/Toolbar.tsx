@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
-import { useDownload } from "@/schematic/hooks";
+import { useExport } from "@/schematic/hooks";
 import {
   useSelect,
   useSelectControlStatus,
@@ -70,7 +70,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const schematic = useSelect(layoutKey);
-  const download = useDownload(name);
+  const exprt = useExport(name);
 
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
@@ -105,14 +105,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     >
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Schematic />}>{name}</ToolbarTitle>
-        <Button.Button
-          startIcon={<Icon.Download />}
-          onClick={() => download(schematic.key)}
-          style={{ height: "75%", margin: "auto" }}
-        >
-          Download {name}
-        </Button.Button>
-        <Tabs.Selector style={{ borderBottom: "none" }} />
+        <Align.Space direction="x" align="center" size={0}>
+          <Button.Icon
+            tooltip={`Export ${name}`}
+            style={{ height: "100%" }}
+            onClick={() => exprt(schematic.key)}
+          >
+            <Icon.Download style={{}} />
+          </Button.Icon>
+          <Tabs.Selector style={{ borderBottom: "none" }} />
+        </Align.Space>
       </ToolbarHeader>
       <Tabs.Content />
     </Tabs.Provider>
