@@ -22,3 +22,9 @@ export const ExportIcon = (): ReactElement => (
     <Icon.Schematic />
   </PIcon.Export>
 );
+
+export const CreateIcon = (): ReactElement => (
+  <PIcon.Create>
+    <Icon.Schematic />
+  </PIcon.Create>
+);

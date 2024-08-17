@@ -23,6 +23,7 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
+import { useExport } from "@/workspace/hooks";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -159,6 +160,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const group = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const importSchematic = Schematic.useImport(selection.resources[0].id.key);
+  const exprt = useExport(selection.resources[0].name);
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
@@ -171,6 +173,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
+    export: () => exprt(selection.resources[0].id.key),
   };
   const singleResource = resources.length === 1;
   return (
@@ -189,16 +192,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
             New Line Plot
           </PMenu.Item>
-          <PMenu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
+          <PMenu.Item itemKey="schematic" startIcon={<SchematicServices.CreateIcon />}>
             New Schematic
           </PMenu.Item>
-          <PMenu.Divider />
-          <Link.CopyMenuItem />
           <PMenu.Item
             itemKey="importSchematic"
             startIcon={<SchematicServices.ImportIcon />}
           >
             Import Schematic
+          </PMenu.Item>
+          <PMenu.Divider />
+          <Link.CopyMenuItem />
+          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
+            Export
           </PMenu.Item>
           <PMenu.Divider />
         </>
