@@ -227,13 +227,16 @@ func (r Retrieve) retrieveEntities(
 	// Iterate over the entries in place, retrieving the resource if the query requires it.
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
+			if !entries.IsMultiple() {
+				return res, false, query.NotFound
+			}
 			return res, false, nil
 		}
 		if !retrieveResource {
 			return res, true, nil
 		}
 		res, err := r.registrar.retrieveResource(ctx, res.ID, tx)
-		if errors.Is(err, query.NotFound) {
+		if errors.Is(err, query.NotFound) && entries.IsMultiple() {
 			return res, false, nil
 		}
 		if excludeFieldData {

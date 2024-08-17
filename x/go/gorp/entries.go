@@ -134,7 +134,13 @@ func (e *Entries[K, E]) MapInPlace(f func(E) (E, bool, error)) error {
 // All returns a slice of all entries currently bound to the query.
 func (e *Entries[K, E]) All() []E {
 	if e.isMultiple {
+		if e.entries == nil {
+			return nil
+		}
 		return *e.entries
+	}
+	if e.entry == nil {
+		return nil
 	}
 	return []E{*e.entry}
 }
@@ -145,6 +151,8 @@ func (e *Entries[K, E]) Any() bool {
 	}
 	return e.entry != nil
 }
+
+func (e *Entries[K, E]) IsMultiple() bool { return e.isMultiple }
 
 // SetEntry sets the entry that the query will fill results into or write results to.
 //

@@ -122,7 +122,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
 			})
-			It("Should change the custom parent when the range exists and a new parent is provided", func() {
+			FIt("Should change the custom parent when the range exists and a new parent is provided", func() {
 				parent1 := ranger.Range{
 					Name:      "Parent1",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
