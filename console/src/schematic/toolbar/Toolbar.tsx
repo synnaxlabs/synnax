@@ -111,7 +111,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             style={{ height: "100%" }}
             onClick={() => exprt(schematic.key)}
           >
-            <Icon.Download style={{}} />
+            <Icon.Export />
           </Button.Icon>
           <Tabs.Selector style={{ borderBottom: "none" }} />
         </Align.Space>

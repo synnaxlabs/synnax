@@ -156,8 +156,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
-          <PMenu.Item itemKey="export" startIcon={<Icon.Download />}>
-            Export as JSON
+          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
+            Export
           </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />

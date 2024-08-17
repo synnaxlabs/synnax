@@ -29,6 +29,7 @@ import {
 } from "react-icons/ai";
 import { BiLinkExternal, BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import { CiExport, CiImport } from "react-icons/ci";
 import {
   FaApple,
   FaBezierCurve,
@@ -247,6 +248,8 @@ export const Icon: IconType = {
   Bolt: wrapIcon(HiLightningBolt, "bolt"),
   Download: wrapIcon(HiDownload, "download"),
   Upload: wrapIcon(HiUpload, "upload"),
+  Import: wrapIcon(CiImport, "import"),
+  Export: wrapIcon(CiExport, "export"),
   Range: wrapIcon(MdOutlineAccessTimeFilled, "range"),
   Node: wrapIcon(MdOutlineDeviceHub, "node"),
   Channel: wrapIcon(MdSensors, "channel"),
@@ -381,6 +384,8 @@ export interface IconType {
   Bolt: IconFC;
   Download: IconFC;
   Upload: IconFC;
+  Import: IconFC;
+  Export: IconFC;
   Range: IconFC;
   Node: IconFC;
   Channel: IconFC;

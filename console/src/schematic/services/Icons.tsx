@@ -12,13 +12,13 @@ import { Icon as PIcon } from "@synnaxlabs/pluto";
 import { ReactElement } from "react";
 
 export const ImportIcon = (): ReactElement => (
-  <PIcon.Upload>
+  <PIcon.Import>
     <Icon.Schematic />
-  </PIcon.Upload>
+  </PIcon.Import>
 );
 
 export const ExportIcon = (): ReactElement => (
-  <PIcon.Download>
+  <PIcon.Export>
     <Icon.Schematic />
-  </PIcon.Download>
+  </PIcon.Export>
 );
