@@ -117,11 +117,11 @@ func Open(configs ...Config) (db *DB, err error) {
 }
 
 func (db *DB) checkMigration() error {
-	if db.cfg.Channel.Version != version.Current {
-		db.cfg.Channel.Version = version.Current
-		return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	if db.cfg.Channel.Version == version.Current {
+		return nil
 	}
-	return nil
+	db.cfg.Channel.Version = version.Current
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
 func (db *DB) Channel() core.Channel {
