@@ -25,10 +25,10 @@ using json = nlohmann::json;
 
 Devices Identifiers in NI MAX
 
-Dev 1 : NI USB-6289 (simulated device)
-Dev 2 : NI USB-9211A (simulated device)
-Dev 3 : NI USB-9219 (simulated device)
-Dev 4 : NI USB-6000 (physical device)
+Dev1 : NI USB-6289 (simulated device)
+Dev2 : NI USB-9211A (simulated device)
+Dev3 : NI USB-9219 (simulated device)
+Dev4 : NI USB-6000 (physical device)
 
 PXI1Slot2 : NI PXIe-4302 (simulated device)
 PXI1Slot3 : NI PXIe-4357 (simulated device)
