@@ -37,8 +37,16 @@ export const Icon = ({
   </div>
 );
 
-export interface CreateProps extends Omit<IconProps, "topRight"> {}
+export interface DetailProps extends Omit<IconProps, "topRight"> {}
 
-export const Create = (props: CreateProps): ReactElement => (
+export const Create = (props: DetailProps): ReactElement => (
   <Icon topRight={<MediaIcon.Add />} {...props} />
+);
+
+export const Upload = (props: DetailProps): ReactElement => (
+  <Icon topRight={<MediaIcon.Upload />} {...props} />
+);
+
+export const Download = (props: DetailProps): ReactElement => (
+  <Icon topRight={<MediaIcon.Download />} {...props} />
 );
