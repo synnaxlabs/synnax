@@ -56,12 +56,12 @@ class Frame:
     def __init__(
         self,
         channels: ChannelKeys
-                  | ChannelNames
-                  | DataFrame
-                  | Frame
-                  | FramePayload
-                  | dict[ChannelKey, TypedCrudeSeries]
-                  | None = None,
+        | ChannelNames
+        | DataFrame
+        | Frame
+        | FramePayload
+        | dict[ChannelKey, TypedCrudeSeries]
+        | None = None,
         series: list[TypedCrudeSeries] | None = None,
     ):
         if isinstance(channels, Frame):
@@ -143,8 +143,7 @@ class Frame:
         return MultiSeries([self.series[i] for i in indexes])
 
     def get(
-        self, key: ChannelKey | ChannelName,
-        default: Series | None = None
+        self, key: ChannelKey | ChannelName, default: Series | None = None
     ) -> MultiSeries | None:
         """Gets the series for the given channel key or name. If the channel does not
         exist in the frame, returns the default value or None if no default is provided.

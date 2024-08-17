@@ -27,8 +27,8 @@ with client.control.acquire(
     #
     # ####
     # Notice that we take a higher control authority here than we do at the start of the
-    # abort sequence. This means that the abort sequence will take control OVER
-    # this sequence.
+    # abort sequence (which is at 100). This means that the abort sequence will take
+    # control OVER this sequence.
     # ####
     write_authorities=[200],
     # We need to set the channels we'll be writing to and reading from.

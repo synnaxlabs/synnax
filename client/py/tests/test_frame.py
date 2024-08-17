@@ -111,9 +111,7 @@ class TestWriteFrameAdapter:
         """It should correctly adapt a first argument of a channel name and a second
         argument of a series."""
         adapter, ch = adapter
-        o = adapter.adapt(
-            ch.name, sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
-        )
+        o = adapter.adapt(ch.name, sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64))
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
@@ -163,7 +161,11 @@ class TestWriteFrameAdapter:
     def test_adaptation_of_dict_float(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a dict of channel names to floats."""
         adapter, ch = adapter
-        o = adapter.adapt({ch.name: 1.0, })
+        o = adapter.adapt(
+            {
+                ch.name: 1.0,
+            }
+        )
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
@@ -189,7 +191,11 @@ class TestWriteFrameAdapter:
     def test_adaptation_of_channel_dict(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a dict of channels to series."""
         adapter, ch = adapter
-        o = adapter.adapt({ch: 1.0, })
+        o = adapter.adapt(
+            {
+                ch: 1.0,
+            }
+        )
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key

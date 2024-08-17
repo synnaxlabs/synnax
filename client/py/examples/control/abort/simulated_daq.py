@@ -108,7 +108,6 @@ press_vlv_cmd_ch = client.channels.create(
 )
 
 
-
 state = {
     "press_vlv_state": 0,
     "vent_vlv_state": 0,

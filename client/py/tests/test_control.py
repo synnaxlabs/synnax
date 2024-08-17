@@ -48,7 +48,6 @@ def create_valve_set(
 
 @pytest.mark.control
 class TestController:
-
     def test_valve_toggle(self, client: sy.Synnax):
         """A happy path test that asserts basic functionality on the controller"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
@@ -121,10 +120,12 @@ class TestController:
             write_authorities=[100],
         ) as auto:
             auto[press_en_cmd.key] = True
-            assert auto.set_authority({
-                press_en_cmd.key: 50,
-                press_en.key: 50,
-            })
+            assert auto.set_authority(
+                {
+                    press_en_cmd.key: 50,
+                    press_en.key: 50,
+                }
+            )
             assert auto.set_authority(50)
             assert auto.set_authority(100)
             assert auto.set_authority(press_en_cmd.key, 50)
@@ -184,10 +185,12 @@ class TestController:
 
         daq_ev = threading.Event()
         seq_two_ev = threading.Event()
-        t1 = threading.Thread(target=sequence_one,
-                              kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev})
-        t2 = threading.Thread(target=sequence_two, kwargs={"daq_ev": daq_ev,
-                                                           "seq_two_ev": seq_two_ev})
+        t1 = threading.Thread(
+            target=sequence_one, kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev}
+        )
+        t2 = threading.Thread(
+            target=sequence_two, kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev}
+        )
         t3 = threading.Thread(target=daq, kwargs={"daq_ev": daq_ev})
 
         t3.start()
