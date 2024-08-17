@@ -327,8 +327,8 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
         grow
         size="small"
       >
-        {toArray(selectedKeys).map((k, i) => {
-          const e = selected[i];
+        {toArray(selectedKeys).map((k) => {
+          const e = selected.find((v) => v.key === k);
           return renderTag({
             key: k,
             entryKey: k,
