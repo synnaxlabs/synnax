@@ -117,11 +117,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {singleResource && (
         <>
           <Menu.RenameItem />
-          <PMenu.Divider />
           {first.data?.configured !== true && (
-            <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
-              Configure
-            </PMenu.Item>
+            <>
+              <PMenu.Divider />
+              <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
+                Configure
+              </PMenu.Item>
+            </>
           )}
         </>
       )}

@@ -122,13 +122,15 @@ const Content = (): ReactElement => {
       menu={({ keys }) => {
         const selected = keys.map((k) => tasks.find((t) => t.key === k));
         const canStart = selected.some((t) => t?.state?.details?.running !== true);
-        const canStop = selected.some((t) => t?.state?.details?.running === false);
+        const canStop = selected.some((t) => t?.state?.details?.running === true);
         return (
           <Menu.Menu
             level="small"
             iconSpacing="small"
             onChange={{
               delete: () => del.mutate(keys),
+              start: () => selected.forEach((t) => t?.executeCommand("start")),
+              stop: () => selected.forEach((t) => t?.executeCommand("stop")),
             }}
           >
             {canStart && (
