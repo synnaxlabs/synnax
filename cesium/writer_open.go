@@ -285,16 +285,12 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		internal:     make([]*idxWriter, 0, len(domainWriters)+len(rateWriters)),
 		relay:        db.relay.inlet,
 		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.digests.key},
+		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
+			db.mu.RLock()
+			defer db.mu.RUnlock()
+			return db.updateControlDigests(ctx, update)
+		},
 	}
-	//if *cfg.propagateControlDigests {
-	w.updateDBControl = func(ctx context.Context, update ControlUpdate) error {
-		db.mu.RLock()
-		defer db.mu.RUnlock()
-		return db.updateControlDigests(ctx, update)
-	}
-	//} else {
-	//	w.updateDBControl = func(ctx context.Context, update ControlUpdate) error { return nil }
-	//}
 	for _, idx := range domainWriters {
 		w.internal = append(w.internal, idx)
 	}

@@ -42,8 +42,12 @@ type DB struct {
 	openWriters      *atomic.Int32
 }
 
-var dbClosed = core.EntityClosed("virtual.db")
-var ErrNotVirtual = errors.New("channel is not virtual")
+var (
+	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
+	ErrNotVirtual = errors.New("channel is not virtual")
+	// DBClosed is returned when an operation is attempted on a closed DB.
+	DBClosed = core.EntityClosed("virtual.db")
+)
 
 // Config is the configuration for opening a DB.
 type Config struct {
@@ -149,7 +153,7 @@ func (db *DB) Close() error {
 // the underlying DB.
 func (db *DB) RenameChannel(newName string) error {
 	if db.closed.Load() {
-		return dbClosed
+		return DBClosed
 	}
 	if db.cfg.Channel.Name == newName {
 		return nil
@@ -162,7 +166,7 @@ func (db *DB) RenameChannel(newName string) error {
 // to the DB's meta file in the underlying filesystem.
 func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
-		return dbClosed
+		return DBClosed
 	}
 	if db.cfg.Channel.Key == key {
 		return nil

@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 )
 
+// ErrVirtual is returned when the caller tried to open a unary database on a virtual
+// channel.
 var ErrVirtual = errors.New("cannot open a unary database on a virtual channel")
 
 // Config is the configuration for opening a DB.
