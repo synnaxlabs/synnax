@@ -31,7 +31,7 @@ type Reader[S any] interface {
 	CopyState() S
 	// PeekState returns a read-only view of the current state.
 	// Modifications to the returned state may cause undefined behavior.
-	PeekState() S
+	PeekState() (S, func())
 }
 
 // Writer is a writable Store.
@@ -78,10 +78,9 @@ func (c *core[S]) CopyState() S {
 }
 
 // PeekState implements Store.
-func (c *core[S]) PeekState() S {
+func (c *core[S]) PeekState() (S, func()) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.state
+	return c.state, c.mu.RUnlock
 }
 
 // Observable is a wrapper around a Store that allows the caller to observe
@@ -148,7 +147,8 @@ func WrapObservable[S, O any](
 
 // SetState implements Store.
 func (o *observable[S, O]) SetState(ctx context.Context, state S) {
-	notify, shouldNotify := o.Transform(o.PeekState(), state)
+	prev := o.CopyState()
+	notify, shouldNotify := o.Transform(prev, state)
 	if shouldNotify {
 		lo.Ternary(
 			*o.ObservableConfig.GoNotify,

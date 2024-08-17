@@ -168,7 +168,7 @@ int ni::AnalogReadSource::configure_timing() {
     this->num_samples_per_channel = std::floor(
         this->reader_config.sample_rate.value / this->reader_config.stream_rate.value);
 
-    this->buffer_size = this->numAIChannels * this->num_samples_per_channel;
+    this->buffer_size = this->num_ai_channels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
     return 0;
 }
@@ -244,7 +244,7 @@ int ni::AnalogReadSource::create_channels() {
     for (auto &channel: channels) {
         this->num_channels++;
         if (channel.channel_type == "index" || !channel.enabled || !channel.ni_channel) continue;
-        this->numAIChannels++;
+        this->num_ai_channels++;
         this->check_ni_error(channel.ni_channel->create_ni_scale());
         this->check_ni_error(channel.ni_channel->create_ni_channel());
         if (!this->ok()) {

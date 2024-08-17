@@ -16,7 +16,6 @@
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ScannerTask                                //
 ///////////////////////////////////////////////////////////////////////////////////
-
 ni::ScannerTask::ScannerTask(
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task
@@ -143,7 +142,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     };
 
     // start and stop to catch any immediate errors
-    ni_source->cycle();
+    if(ni_source->ok()) ni_source->cycle();
 
     auto p = std::make_unique<ni::ReaderTask>(ctx,
                                               task,
@@ -223,11 +222,16 @@ ni::WriterTask::WriterTask(const std::shared_ptr<task::Context> &ctx,
                            const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
-    cmd_write_pipe(pipeline::Control(ctx->client, cmd_streamer_config, std::move(sink),
-                                     breaker_config)),
+    cmd_write_pipe(
+        pipeline::Control(  ctx->client, 
+                            cmd_streamer_config,
+                            std::move(sink),
+                            breaker_config)),
     state_write_pipe(
-        pipeline::Acquisition(ctx->client, state_writer_config, state_source,
-                              breaker_config)),
+        pipeline::Acquisition(  ctx->client, 
+                                state_writer_config, 
+                                state_source,
+                                breaker_config)),
     sink(ni_sink) {
 }
 
@@ -269,9 +273,10 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         .start = synnax::TimeStamp::now(),
     };
 
+    if(daq_writer->ok()) daq_writer->cycle();
+
     auto state_writer = daq_writer->writer_state_source;
 
-    daq_writer->cycle();
     VLOG(1) << "[ni.writer] constructed writer for " << task.name;
     auto p = std::make_unique<ni::WriterTask>(ctx,
                                               task,
