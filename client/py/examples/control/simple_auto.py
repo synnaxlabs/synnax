@@ -14,7 +14,7 @@ with client.control.acquire(
     auto.wait_until(lambda auto: auto["pressure_1"] < 100)
 
     # Acquire absolute control on valve 2
-    auto.authorize("valve_2_cmd", sy.Authority.ABSOLUTE)
+    auto.set_authority("valve_2_cmd", sy.Authority.ABSOLUTE)
 
     # Open valve 2
     auto["valve_2_cmd"] = True
