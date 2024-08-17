@@ -160,16 +160,15 @@ export const Mosaic = memo((): ReactElement => {
             for (const fileHandler of FILE_HANDLERS) {
               if (
                 await fileHandler({
-                  mosaicKey: nodeKey,
                   file: fileAsJSON,
                   placer,
                   name: name.slice(0, -5),
                   store,
                   confirm,
                   client,
-                  workspaceKey,
+                  workspaceKey: workspaceKey ?? undefined,
                   dispatch,
-                  loc,
+                  tab: { mosaicKey: nodeKey, location: loc },
                 })
               )
                 break;

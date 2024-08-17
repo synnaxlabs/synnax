@@ -17,10 +17,9 @@ import { select } from "@/schematic/selectors";
 import { remove } from "@/schematic/slice";
 
 export const fileHandler: Layout.FileHandler = async ({
-  mosaicKey,
   file,
   placer,
-  loc,
+  tab,
   name,
   dispatch,
   client,
@@ -32,11 +31,7 @@ export const fileHandler: Layout.FileHandler = async ({
   if (newState == null) return false;
   const creator = create({
     ...newState,
-    name,
-    tab: {
-      mosaicKey: mosaicKey,
-      location: loc,
-    },
+    tab,
   });
   const key = newState.key;
   const existingState = select(store.getState(), key);
@@ -51,7 +46,7 @@ export const fileHandler: Layout.FileHandler = async ({
     )
       return true;
     dispatch(Layout.remove({ keys: [key] }));
-    remove({ keys: [key] });
+    dispatch(remove({ keys: [key] }));
   }
   placer(creator);
   if (client == null) return true;
@@ -67,9 +62,9 @@ export const fileHandler: Layout.FileHandler = async ({
     if (!NotFoundError.matches(e)) throw e;
     if (workspaceKey != null)
       await client.workspaces.schematic.create(workspaceKey, {
-        name,
         data: newState as unknown as UnknownRecord,
         ...newState,
+        name,
       });
   }
   return true;
