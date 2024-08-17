@@ -96,7 +96,7 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     if (channel_type == "ai_rtd")
         return std::make_shared<RTD>(
             parser, this->task_handle, channel_name);
-    if (channel_type == "ai_strain_gage")
+    if (channel_type == "ai_strain_gauge")
         return std::make_shared<StrainGage>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_temp_built_in")
