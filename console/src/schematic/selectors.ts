@@ -20,6 +20,9 @@ import {
 
 export const selectSliceState = (state: StoreState): SliceState => state.schematic;
 
+export const useSelectSliceState = (): SliceState =>
+  useMemoSelect(selectSliceState, []);
+
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
 
@@ -31,6 +34,21 @@ export const selectMany = (state: StoreState, keys: string[]): State[] =>
 
 export const useSelectMany = (keys: string[]): State[] =>
   useMemoSelect((state: StoreState) => selectMany(state, keys), [keys]);
+
+export interface NodeElementInfo {
+  key: string;
+  type: "node";
+  node: Diagram.Node;
+  props: NodeProps;
+}
+
+export interface EdgeElementInfo {
+  key: string;
+  type: "edge";
+  edge: Diagram.Edge;
+}
+
+export type ElementInfo = NodeElementInfo | EdgeElementInfo;
 
 export const selectSelectedElementsProps = (
   state: StoreState,
@@ -55,21 +73,6 @@ export const selectSelectedElementsProps = (
   return [...nodes, ...edges];
 };
 
-export interface NodeElementInfo {
-  key: string;
-  type: "node";
-  node: Diagram.Node;
-  props: NodeProps;
-}
-
-export interface EdgeElementInfo {
-  key: string;
-  type: "edge";
-  edge: Diagram.Edge;
-}
-
-export type ElementInfo = NodeElementInfo | EdgeElementInfo;
-
 export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[] =>
   useMemoSelect(
     (state: StoreState) => selectSelectedElementsProps(state, layoutKey),
@@ -80,10 +83,7 @@ export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps => {
-  const schematic = select(state, layoutKey);
-  return schematic.props[key];
-};
+): NodeProps => select(state, layoutKey).props[key];
 
 export const useSelectNodeProps = (layoutKey: string, key: string): NodeProps =>
   useMemoSelect(
