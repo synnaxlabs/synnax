@@ -50,6 +50,7 @@ import {
   copySelection,
   internalCreate,
   pasteSelection,
+  rename,
   setControlStatus,
   setEdges,
   setEditable,
@@ -121,9 +122,7 @@ const SymbolRenderer = ({
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
-  if (C == null) {
-    throw new Error(`Symbol ${key} not found`);
-  }
+  if (C == null) throw new Error(`Symbol ${key} not found`);
 
   const zoom = useSelectViewport(layoutKey);
 
@@ -150,7 +149,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const prevName = usePrevious(name);
   useEffect(() => {
-    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
+    if (prevName !== name) {
+      dispatch(Layout.rename({ key: layoutKey, name }));
+      dispatch(rename({ key: layoutKey, name }));
+    }
   }, [name, prevName, layoutKey]);
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
