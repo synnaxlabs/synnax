@@ -12,6 +12,8 @@ package unary
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"sync/atomic"
 )
 
 // DB is a database for a single channel. It executes reads (via iterators) and writes
@@ -40,6 +41,7 @@ type DB struct {
 	leadingAlignment *atomic.Uint32
 }
 
+// ErrDBClosed is returned when an operation is attempted on a closed unary database.
 var ErrDBClosed = core.EntityClosed("unary.db")
 
 // Channel returns the channel for this unary database.
