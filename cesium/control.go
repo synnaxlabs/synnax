@@ -11,8 +11,6 @@ package cesium
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/config"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -52,20 +50,19 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		return errors.New("control update channel must be a string virtual channel.")
 	}
 
+	db.digests.key = key
 	w, err := db.newStreamWriter(ctx, WriterConfig{
 		ControlSubject: control.Subject{
 			Name: "cesium_internal_control_digest",
 			Key:  uuid.New().String(),
 		},
-		Start:                   telem.Now(),
-		Channels:                []ChannelKey{key},
-		propagateControlDigests: config.False(),
+		Start:    telem.Now(),
+		Channels: []ChannelKey{key},
 	})
 	if err != nil {
 		return err
 	}
 	db.digests.inlet, db.digests.outlet = confluence.Attach[WriterRequest, WriterResponse](w, 100)
-	db.digests.key = key
 	sCtx, _ := signal.Isolated()
 	w.Flow(
 		sCtx,

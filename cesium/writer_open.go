@@ -85,9 +85,6 @@ type WriterConfig struct {
 	// to AlwaysIndexPersistOnAutoCommit.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// propagateControlDigests determines whether the writer will propagate control changes
-	// to the rest of the DB.
-	propagateControlDigests *bool
 }
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -107,7 +104,6 @@ func DefaultWriterConfig() WriterConfig {
 		Mode:                     WriterPersistStream,
 		EnableAutoCommit:         config.Bool(false),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		propagateControlDigests:  config.True(),
 	}
 }
 
@@ -123,7 +119,6 @@ func (c WriterConfig) Validate() error {
 		len(c.Authorities) != len(c.Channels) && len(c.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)
-	validate.NotNil(v, "propagateControlDigests", c.propagateControlDigests)
 	return v.Error()
 }
 
@@ -139,7 +134,6 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
-	c.propagateControlDigests = override.Nil(c.propagateControlDigests, other.propagateControlDigests)
 	return c
 }
 
@@ -280,7 +274,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 	}
 
-	if len(controlUpdate.Transfers) > 0 && *cfg.propagateControlDigests {
+	if len(controlUpdate.Transfers) > 0 {
 		if err = db.updateControlDigests(ctx, controlUpdate); err != nil {
 			return nil, err
 		}
@@ -292,15 +286,15 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		relay:        db.relay.inlet,
 		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.digests.key},
 	}
-	if *cfg.propagateControlDigests {
-		w.updateDBControl = func(ctx context.Context, update ControlUpdate) error {
-			db.mu.RLock()
-			defer db.mu.RUnlock()
-			return db.updateControlDigests(ctx, update)
-		}
-	} else {
-		w.updateDBControl = func(ctx context.Context, update ControlUpdate) error { return nil }
+	//if *cfg.propagateControlDigests {
+	w.updateDBControl = func(ctx context.Context, update ControlUpdate) error {
+		db.mu.RLock()
+		defer db.mu.RUnlock()
+		return db.updateControlDigests(ctx, update)
 	}
+	//} else {
+	//	w.updateDBControl = func(ctx context.Context, update ControlUpdate) error { return nil }
+	//}
 	for _, idx := range domainWriters {
 		w.internal = append(w.internal, idx)
 	}
