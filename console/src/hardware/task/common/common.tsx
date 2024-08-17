@@ -324,6 +324,8 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
     const args = Layout.useSelectArgs<{ create: boolean }>(layoutKey);
     const altKey = Layout.useSelectAltKey(layoutKey);
     const id = useId();
+    // The query can't take into account state changes, so we need to use a unique
+    // key for every query.
     const fetchTask = useQuery<WrappedTaskLayoutProps<T, P>>({
       queryKey: [layoutKey, client?.key, altKey, id],
       queryFn: async () => {
