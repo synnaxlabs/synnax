@@ -12,6 +12,8 @@ package unary
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"sync/atomic"
 )
 
 // DB is a database for a single channel. It executes reads (via iterators) and writes
@@ -40,7 +41,8 @@ type DB struct {
 	leadingAlignment *atomic.Uint32
 }
 
-var errDBClosed = core.EntityClosed("unary.db")
+// ErrDBClosed is returned when an operation is attempted on a closed unary database.
+var ErrDBClosed = core.EntityClosed("unary.db")
 
 // Channel returns the channel for this unary database.
 func (db *DB) Channel() core.Channel { return db.cfg.Channel }
@@ -99,7 +101,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 // is an open writer that could write into the requested time range
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed.Load() {
-		return false, errDBClosed
+		return false, ErrDBClosed
 	}
 	g, _, err := db.controller.OpenAbsoluteGateIfUncontrolled(
 		tr,
@@ -129,7 +131,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
 	if db.closed.Load() {
-		return frame, errDBClosed
+		return frame, ErrDBClosed
 	}
 	iter := db.OpenIterator(IterRange(tr))
 	if err != nil {
@@ -160,7 +162,7 @@ func (db *DB) Close() error {
 // underlying file system.
 func (db *DB) RenameChannelInMeta(newName string) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	if db.cfg.Channel.Name == newName {
 		return nil
@@ -173,7 +175,7 @@ func (db *DB) RenameChannelInMeta(newName string) error {
 // and persists the change to the underlying file system.
 func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	db.cfg.Channel.Index = key
 	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
@@ -183,7 +185,7 @@ func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
 // and persists the change to the underlying file system.
 func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	if db.cfg.Channel.IsIndex {
 		db.cfg.Channel.Index = key

@@ -19,12 +19,17 @@ import (
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"sync/atomic"
 )
+
+// ErrVirtual is returned when the caller tried to open a unary database on a virtual
+// channel.
+var ErrVirtual = errors.New("cannot open a unary database on a virtual channel")
 
 // Config is the configuration for opening a DB.
 type Config struct {
@@ -90,6 +95,10 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	wrapError := core.NewErrorWrapper(cfg.Channel)
+	if cfg.Channel.Virtual {
+		return nil, wrapError(ErrVirtual)
+	}
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,
 		Instrumentation: cfg.Instrumentation,
@@ -107,7 +116,7 @@ func Open(configs ...Config) (*DB, error) {
 		cfg:              cfg,
 		domain:           domainDB,
 		controller:       c,
-		wrapError:        core.NewErrorWrapper(cfg.Channel),
+		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
 		leadingAlignment: &atomic.Uint32{},
 	}
@@ -117,21 +126,20 @@ func Open(configs ...Config) (*DB, error) {
 	} else if cfg.Channel.Index == 0 {
 		db._idx = index.Rate{Rate: cfg.Channel.Rate, Channel: cfg.Channel}
 	}
-	return db, err
+	return db, db.checkMigration()
 }
 
-// CheckMigration compares the version stored in channel to the current version of the
+// checkMigration compares the version stored in channel to the current version of the
 // data engine format. If there is a migration to be performed, data is migrated and
 // persisted to the new version.
-func (db *DB) CheckMigration(codec binary.Codec) error {
-	if db.cfg.Channel.Version != version.Current {
-		err := version.Migrate(db.cfg.FS, db.cfg.Channel.Version, version.Current)
-		if err != nil {
-			return err
-		}
-
-		db.cfg.Channel.Version = version.Current
-		return meta.Create(db.cfg.FS, codec, db.cfg.Channel)
+func (db *DB) checkMigration() error {
+	if db.cfg.Channel.Version == version.Current {
+		return nil
 	}
-	return nil
+	err := version.Migrate(db.cfg.FS, db.cfg.Channel.Version, version.Current)
+	if err != nil {
+		return err
+	}
+	db.cfg.Channel.Version = version.Current
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }

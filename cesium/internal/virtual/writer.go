@@ -84,7 +84,7 @@ type Writer struct {
 
 func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	if db.closed.Load() {
-		err = dbClosed
+		err = DBClosed
 		return nil, transfer, db.wrapError(err)
 	}
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)

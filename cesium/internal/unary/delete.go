@@ -22,7 +22,7 @@ import (
 // time range is inclusive whereas the end is note.
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	return db.wrapError(db.delete(ctx, tr))
 }
@@ -31,7 +31,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 // concurrently with other GarbageCollect methods.
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	return db.wrapError(db.domain.GarbageCollect(ctx))
 }
