@@ -81,11 +81,13 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
 	o.cluster.Pledge.TransportClient = o.transport.PledgeClient()
 	o.cluster.Pledge.TransportServer = o.transport.PledgeServer()
-	o.kv.BatchTransportServer = o.transport.BatchServer()
-	o.kv.BatchTransportClient = o.transport.BatchClient()
+	o.kv.BatchTransportServer = o.transport.TxServer()
+	o.kv.BatchTransportClient = o.transport.TxClient()
 	o.kv.LeaseTransportServer = o.transport.LeaseServer()
 	o.kv.LeaseTransportClient = o.transport.LeaseClient()
 	o.kv.FeedbackTransportServer = o.transport.FeedbackServer()
 	o.kv.FeedbackTransportClient = o.transport.FeedbackClient()
+	o.kv.RecoveryTransportServer = o.transport.RecoveryServer()
+	o.kv.RecoveryTransportClient = o.transport.RecoveryClient()
 	return transportShutdown, nil
 }

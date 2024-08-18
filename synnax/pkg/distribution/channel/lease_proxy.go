@@ -11,6 +11,8 @@ package channel
 
 import (
 	"context"
+	xtypes "github.com/synnaxlabs/x/types"
+	"go/types"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -20,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,9 +36,11 @@ type leaseProxy struct {
 	external        *set.Integer[LocalKey]
 }
 
-const leasedCounterSuffix = ".distribution.channel.leasedCounter"
-const freeCounterSuffix = ".distribution.channel.counter.free"
-const externalCounterSuffix = ".distribution.channel.externalCounter"
+const (
+	leasedCounterSuffix   = ".distribution.channel.leasedCounter"
+	freeCounterSuffix     = ".distribution.channel.counter.free"
+	externalCounterSuffix = ".distribution.channel.externalCounter"
+)
 
 func newLeaseProxy(
 	cfg ServiceConfig,
@@ -70,17 +73,37 @@ func newLeaseProxy(
 		}
 		p.freeCounter = c
 	}
-	p.Transport.CreateServer().BindHandler(p.handle)
+	p.Transport.CreateServer().BindHandler(p.createHandler)
+	p.Transport.DeleteServer().BindHandler(p.deleteHandler)
+	p.Transport.RenameServer().BindHandler(p.renameHandler)
 	return p, nil
 }
 
-func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
+func (lp *leaseProxy) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
 	txn := lp.ClusterDB.OpenTx()
 	err := lp.create(ctx, txn, &msg.Channels, msg.RetrieveIfNameExists)
 	if err != nil {
 		return CreateMessage{}, err
 	}
 	return CreateMessage{Channels: msg.Channels}, txn.Commit(ctx)
+}
+
+func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
+	txn := lp.ClusterDB.OpenTx()
+	err := lp.delete(ctx, txn, msg.Keys, false)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, txn.Commit(ctx)
+}
+
+func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
+	txn := lp.ClusterDB.OpenTx()
+	err := lp.rename(ctx, txn, msg.Keys, msg.Names, false)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, txn.Commit(ctx)
 }
 
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, retrieveIfNameExists bool) error {
@@ -219,7 +242,7 @@ func (lp *leaseProxy) createGateway(
 	newExternalChannels := len(externalCreatedKeys)
 	totalExternalChannels := LocalKey(newExternalChannels) + lp.externalCounter.value()
 	if newExternalChannels != 0 {
-		if err = lp.IntOverflowCheck(ctx, types.Uint20(totalExternalChannels)); err != nil {
+		if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(totalExternalChannels)); err != nil {
 			return err
 		}
 	}

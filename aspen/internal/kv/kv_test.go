@@ -34,11 +34,11 @@ var _ = Describe("txn", func() {
 		builder = kvmock.NewBuilder(
 			kv.Config{
 				RecoveryThreshold: 12,
-				GossipInterval:    100 * time.Millisecond,
+				GossipInterval:    10 * time.Millisecond,
 			},
 			cluster.Config{
-				Gossip: gossip.Config{Interval: 50 * time.Millisecond},
-				Pledge: pledge.Config{RetryInterval: 50 * time.Millisecond},
+				Gossip: gossip.Config{Interval: 10 * time.Millisecond},
+				Pledge: pledge.Config{RetryInterval: 10 * time.Millisecond},
 			},
 		)
 	})
@@ -256,6 +256,20 @@ var _ = Describe("txn", func() {
 		})
 	})
 
+	Describe("Recovery", func() {
+		It("Should recover the state of the key-value store", func() {
+			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Expect(kv1.Set(ctx, []byte("key2"), []byte("value2"))).To(Succeed())
+			Expect(kv1.Set(ctx, []byte("key3"), []byte("value3"))).To(Succeed())
+			kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			time.Sleep(100 * time.Millisecond)
+			v, closer, err := kv2.Get(ctx, []byte("key"))
+			Expect(err).To(Succeed())
+			Expect(v).To(Equal([]byte("value")))
+			Expect(closer.Close()).To(Succeed())
+		})
+	})
 })
 
 func waitForClusterStateToConverge(builder *kvmock.Builder) {

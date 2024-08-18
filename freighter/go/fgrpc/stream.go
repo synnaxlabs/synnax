@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type StreamClientCore[RQ, RQT, RS, RST freighter.Payload] struct {
+type StreamClient[RQ, RQT, RS, RST freighter.Payload] struct {
 	RequestTranslator  Translator[RQ, RQT]
 	ResponseTranslator Translator[RS, RST]
 	ServiceDesc        *grpc.ServiceDesc
@@ -39,7 +39,7 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	freighter.MiddlewareCollector
 }
 
-func (s *StreamClientCore[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (s *StreamClient[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 
@@ -92,7 +92,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	return errors.Encode(ctx, err, s.Internal)
 }
 
-func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
+func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 	ctx context.Context,
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], _ error) {
@@ -133,7 +133,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
 	}
 }
 
-func (s *StreamClientCore[RQ, RQT, RS, RST]) adaptStream(
+func (s *StreamClient[RQ, RQT, RS, RST]) adaptStream(
 	stream GRPCClientStream[RQT, RST],
 ) freighter.ClientStream[RQ, RS] {
 	return &ClientStream[RQ, RQT, RS, RST]{

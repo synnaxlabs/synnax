@@ -86,7 +86,11 @@ func (t Transport) RenameClient() channel.RenameTransportClient { return t.renam
 func (t Transport) RenameServer() channel.RenameTransportServer { return t.renameServer }
 
 // BindTo implements the fgrpc.BindableTransport interface.
-func (t Transport) BindTo(reg grpc.ServiceRegistrar) { t.createServer.BindTo(reg) }
+func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
+	t.createServer.BindTo(reg)
+	t.deleteServer.BindTo(reg)
+	t.renameServer.BindTo(reg)
+}
 
 var (
 	_ channel.CreateTransportClient        = (*createClient)(nil)
@@ -146,6 +150,7 @@ func New(pool *fgrpc.Pool) Transport {
 		) (*emptypb.Empty, error) {
 			return channelv1.NewChannelRenameServiceClient(conn).Exec(ctx, req)
 		},
+		ServiceDesc: &channelv1.ChannelRenameService_ServiceDesc,
 	}
 	renameServer := &renameServer{
 		RequestTranslator:  renameMessageTranslator{},
@@ -166,4 +171,6 @@ func New(pool *fgrpc.Pool) Transport {
 func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.createClient.Use(middleware...)
 	t.createServer.Use(middleware...)
+	t.deleteClient.Use(middleware...)
+	t.deleteServer.Use(middleware...)
 }

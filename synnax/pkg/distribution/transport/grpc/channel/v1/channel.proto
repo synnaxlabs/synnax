@@ -20,6 +20,7 @@ service ChannelRenameService {
 
 message CreateMessage {
     repeated Channel channels = 1;
+    bool retrieve_if_name_exists = 2;
 }
 
 message DeleteRequest {
@@ -33,10 +34,13 @@ message RenameRequest {
 
 message Channel {
     string name = 1;
-    int32 node_id = 2;
-    uint32 storage_key = 3;
-    double rate = 4;
-    string data_type = 5;
-    int32 storage_index = 6;
-    bool is_index = 7;
+    int32 leaseholder = 2;
+    string data_type = 3;
+    bool is_index = 4;
+    double rate = 5;
+    uint32 local_key = 6;
+    int32 local_index = 7;
+    bool virtual = 8;
+    uint32 concurrency = 9;
+    bool internal = 10;
 }

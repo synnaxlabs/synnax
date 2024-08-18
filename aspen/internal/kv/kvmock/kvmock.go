@@ -27,6 +27,7 @@ type Builder struct {
 	OpNet       *fmock.Network[kv.TxRequest, kv.TxRequest]
 	FeedbackNet *fmock.Network[kv.FeedbackMessage, types.Nil]
 	LeaseNet    *fmock.Network[kv.TxRequest, types.Nil]
+	RecoveryNet *fmock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 	KVs         map[node.Key]kvx.DB
 }
 
@@ -37,6 +38,7 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 		OpNet:       fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
 		FeedbackNet: fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
 		LeaseNet:    fmock.NewNetwork[kv.TxRequest, types.Nil](),
+		RecoveryNet: fmock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 		KVs:         make(map[node.Key]kvx.DB),
 	}
 }
@@ -58,6 +60,8 @@ func (b *Builder) New(ctx context.Context, kvCfg kv.Config, clusterCfg cluster.C
 	kvCfg.FeedbackTransportClient = b.FeedbackNet.UnaryClient()
 	kvCfg.LeaseTransportServer = b.LeaseNet.UnaryServer(addr)
 	kvCfg.LeaseTransportClient = b.LeaseNet.UnaryClient()
+	kvCfg.RecoveryTransportServer = b.RecoveryNet.StreamServer(addr)
+	kvCfg.RecoveryTransportClient = b.RecoveryNet.StreamClient()
 	kve, err := kv.Open(ctx, kvCfg)
 	if err != nil {
 		return nil, err

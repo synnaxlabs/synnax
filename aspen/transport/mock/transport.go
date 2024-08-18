@@ -80,9 +80,9 @@ func (t *transport) GossipClient() gossip.TransportClient { return t.clusterClie
 
 func (t *transport) GossipServer() gossip.TransportServer { return t.clusterServer }
 
-func (t *transport) BatchClient() kv.BatchTransportClient { return t.batchClient }
+func (t *transport) TxClient() kv.TxTransportClient { return t.batchClient }
 
-func (t *transport) BatchServer() kv.BatchTransportServer { return t.batchServer }
+func (t *transport) TxServer() kv.TxTransportServer { return t.batchServer }
 
 func (t *transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient }
 
