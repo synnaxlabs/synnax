@@ -26,6 +26,9 @@ import {
 } from "@/vis/schematic/Forms";
 import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import {
+  Agitator,
+  AgitatorPreview,
+  AgitatorProps,
   AngledReliefValve,
   AngledReliefValvePreview,
   AngledValve,
@@ -67,6 +70,9 @@ import {
   PistonPump,
   PistonPumpPreview,
   type PistonPumpProps,
+  PropellerAgitator,
+  PropellerAgitatorPreview,
+  PropellerAgitatorProps,
   Pump,
   PumpPreview,
   type PumpProps,
@@ -155,6 +161,8 @@ const VARIANTS = [
   "vacuumPump",
   "value",
   "valve",
+  "agitator",
+  "propellerAgitator",
 ] as const;
 
 export const typeZ = z.enum(VARIANTS);
@@ -672,6 +680,34 @@ const setpoint: Spec<SetpointProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const agitator: Spec<AgitatorProps> = {
+  name: "Agitator",
+  key: "agitator",
+  Symbol: Agitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: AgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const propellerAgitator: Spec<PropellerAgitatorProps> = {
+  name: "Propeller Agitator",
+  key: "propellerAgitator",
+  Symbol: PropellerAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Propeller Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: PropellerAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   light,
@@ -702,4 +738,6 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   cap,
   filter,
   orifice,
+  agitator,
+  propellerAgitator,
 };

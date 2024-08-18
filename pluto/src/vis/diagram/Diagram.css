@@ -31,17 +31,15 @@
     }
 }
 
-
 .react-flow__resize-control {
     display: none;
 }
-
 
 .react-flow__handle {
     background: none !important;
     border: var(--pluto-border) !important;
     border-color: transparent !important;
-    pointer-events: none !important;;
+    pointer-events: none !important;
 }
 
 .react-flow__background circle {
@@ -60,12 +58,13 @@
 }
 
 .react-flow__edges {
-    z-index:  6 !important;
+    z-index: 6 !important;
 }
 
 .pluto-diagram {
     &.pluto--editable {
-        & .pluto-symbol-primitive,.pluto-control-chip {
+        & .pluto-symbol-primitive,
+        .pluto-control-chip {
             pointer-events: none;
         }
 
@@ -77,6 +76,7 @@
             width: 1.4rem !important;
             height: 1.4rem !important;
             pointer-events: all !important;
+            z-index: 1;
         }
         & .pluto-symbol {
             &:hover {
@@ -100,6 +100,4 @@
             }
         }
     }
-
-
 }

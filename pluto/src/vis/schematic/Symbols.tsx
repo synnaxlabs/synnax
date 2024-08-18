@@ -1073,3 +1073,83 @@ export const Light = Aether.wrap<SymbolProps<LightProps>>(
 export const LightPreview = (props: LightProps): ReactElement => (
   <Primitives.Light {...props} />
 );
+
+export interface AgitatorProps
+  extends Primitives.AgitatorProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const Agitator = Aether.wrap<SymbolProps<AgitatorProps>>(
+  "agitator",
+  ({
+    aetherKey,
+    label,
+    orientation = "left",
+    color,
+    source,
+    sink,
+    onChange,
+    control,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState orientation={orientation} {...control}>
+          <Primitives.Agitator
+            color={color}
+            enabled={enabled}
+            orientation={orientation}
+            triggered={triggered}
+            onClick={toggle}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const AgitatorPreview = (props: AgitatorProps): ReactElement => (
+  <Primitives.Agitator {...props} />
+);
+
+export interface PropellerAgitatorProps
+  extends Primitives.PropellerAgitatorProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const PropellerAgitator = Aether.wrap<SymbolProps<PropellerAgitatorProps>>(
+  "propellerAgitator",
+  ({
+    aetherKey,
+    label,
+    orientation = "left",
+    color,
+    source,
+    sink,
+    onChange,
+    control,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState orientation={orientation} {...control}>
+          <Primitives.PropellerAgitator
+            color={color}
+            enabled={enabled}
+            orientation={orientation}
+            triggered={triggered}
+            onClick={toggle}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const PropellerAgitatorPreview = (
+  props: PropellerAgitatorProps,
+): ReactElement => <Primitives.PropellerAgitator {...props} />;

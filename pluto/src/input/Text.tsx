@@ -73,8 +73,11 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
   ) => {
     const cachedFocusRef = useRef("");
     const [tempValue, setTempValue] = useState<string | null>(null);
+    const internalRef = useRef<HTMLInputElement>(null);
+    const focusedRef = useRef(false);
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
+      focusedRef.current = false;
       if (resetOnBlurIfEmpty && e.target.value === "")
         onChange?.(cachedFocusRef.current);
       else if (onlyChangeOnBlur) {
@@ -93,11 +96,14 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       if (onlyChangeOnBlur) setTempValue(value);
       onFocus?.(e);
       cachedFocusRef.current = e.target.value;
+    };
+
+    const handleMouseUp = (): void => {
       // This looks hacky, but it's the only way to consistently select the text
       // after the focus event.
-      if (!selectOnFocus) return;
-      const interval = setInterval(() => e.target.select(), 2);
-      setTimeout(() => clearInterval(interval), 50);
+      if (!selectOnFocus || focusedRef.current) return;
+      focusedRef.current = true;
+      internalRef.current?.select();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
@@ -105,7 +111,6 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       if (e.key === "Enter") e.currentTarget.blur();
     };
 
-    const internalRef = useRef<HTMLInputElement>(null);
     const combinedRef = useCombinedRefs(ref, internalRef);
 
     return (
@@ -148,6 +153,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             autoCorrect="off"
             onFocus={handleFocus}
             onKeyDown={handleKeyDown}
+            onMouseUp={handleMouseUp}
             onBlur={handleBlur}
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}

@@ -1004,8 +1004,8 @@ export const Setpoint = ({
       {...props}
     >
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={-2} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={102} top={50} id="2" />
+        <Handle location="left" orientation={orientation} left={-1} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={101} top={50} id="2" />
         <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
         <Handle
           location="bottom"
@@ -1355,7 +1355,7 @@ export const ElectricRegulator = ({
   color,
   scale,
   ...props
-}: RegulatorProps): ReactElement => (
+}: ElectricRegulatorProps): ReactElement => (
   <Div className={CSS(className, CSS.B("regulator"))} {...props}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={5} top={66} id="1" />
@@ -1373,4 +1373,61 @@ export const ElectricRegulator = ({
       <Path d="M44 10.5V8C44 6.34315 45.3431 5 47 5H80C81.6569 5 83 6.34315 83 8V24.4281C83 25.4126 82.517 26.3344 81.7076 26.8947L44 53" />
     </InternalSVG>
   </Div>
+);
+
+export interface AgitatorProps extends ToggleProps, SVGBasedPrimitiveProps {
+  height?: number;
+}
+
+export const Agitator = ({
+  height = 86,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: AgitatorProps): ReactElement => (
+  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+    <HandleBoundary>
+      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 86, height: height }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path
+        d="M1 85V48.8541C1 46.624 3.34694 45.1735 5.34164 46.1708L80.6584 83.8292C82.6531 84.8265 85 83.376 85 81.1459V44"
+        strokeLinecap="round"
+      />
+      <Path d="M42.5 1L42.5 64" strokeLinecap="round" />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface PropellerAgitatorProps extends ToggleProps, SVGBasedPrimitiveProps {
+  height?: number;
+}
+
+export const PropellerAgitator = ({
+  height = 86,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: PropellerAgitatorProps): ReactElement => (
+  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+    <HandleBoundary>
+      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 86, height: height }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M43.5 69.573L14.9534 55.6147C8.97428 52.6911 2 57.0443 2 63.6999V75.4462C2 82.1018 8.97429 86.455 14.9534 83.5314L43.5 69.573ZM43.5 69.573L72.0466 55.6147C78.0257 52.6911 85 57.0443 85 63.6999V75.4462C85 82.1018 78.0257 86.455 72.0466 83.5314L43.5 69.573Z" />
+      <Path d="M43 70L43 2" stroke-linecap="round" />
+    </InternalSVG>
+  </Toggle>
 );
