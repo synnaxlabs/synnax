@@ -71,7 +71,7 @@ documentation has been left stale.
 
 ### Examples
 
-I have verified that code examples for each of the following services run correctly:
+I have verified that code examples for each of the following services run correctly **after releasing new versions of the corresponding packages**:
 
 - [ ] client/py
 - [ ] client/ts
@@ -239,7 +239,6 @@ I can successfully:
 - [ ] Enable and disable OPC UA integration when starting the server.
 - [ ] Connect to an OPC UA server running unencrypted.
 - [ ] Connect to an OPC UA server running encrypted.
-- [ ] Create additional sampling groups and move channels to them.
 - [ ] Create additional channels and move them to existing sampling groups.
 - [ ] Move and rename channels.
 - [ ] Save the device configuration.
