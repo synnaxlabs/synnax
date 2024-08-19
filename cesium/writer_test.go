@@ -137,8 +137,8 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(w.Write(cesium.NewFrame(
 								[]cesium.ChannelKey{basic1, basic1Index},
 								[]telem.Series{
-									telem.NewSeriesV[int64](1, 2, 3, 4),
-									telem.NewSecondsTSV(14, 15, 16, 17),
+									telem.NewSeriesV[int64](1, 2),
+									telem.NewSecondsTSV(14, 15),
 								},
 							))).To(BeTrue())
 							f := <-o.Outlet()
