@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect,test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { newClient } from "@/setupspecs";
 
@@ -19,14 +19,14 @@ describe("LinePlot", () => {
   describe("create", () => {
     test("create one", async () => {
       const ws = await client.workspaces.create({
-        name: "Schematic",
+        name: "Line Plot",
         layout: { one: 1 },
       });
       const linePlot = await client.workspaces.linePlot.create(ws.key, {
-        name: "Schematic",
+        name: "Line Plot",
         data: { one: 1 },
       });
-      expect(linePlot.name).toEqual("Schematic");
+      expect(linePlot.name).toEqual("Line Plot");
       expect(linePlot.key).not.toEqual(ZERO_UUID);
       expect(linePlot.data.one).toEqual(1);
     });
@@ -34,26 +34,26 @@ describe("LinePlot", () => {
   describe("rename", () => {
     test("rename one", async () => {
       const ws = await client.workspaces.create({
-        name: "Schematic",
+        name: "Line Plot",
         layout: { one: 1 },
       });
       const linePlot = await client.workspaces.linePlot.create(ws.key, {
-        name: "Schematic",
+        name: "Line Plot",
         data: { one: 1 },
       });
-      await client.workspaces.linePlot.rename(linePlot.key, "Schematic2");
+      await client.workspaces.linePlot.rename(linePlot.key, "Line Plot2");
       const res = await client.workspaces.linePlot.retrieve(linePlot.key);
-      expect(res.name).toEqual("Schematic2");
+      expect(res.name).toEqual("Line Plot2");
     });
   });
   describe("setData", () => {
     test("set data", async () => {
       const ws = await client.workspaces.create({
-        name: "Schematic",
+        name: "Line Plot",
         layout: { one: 1 },
       });
       const linePlot = await client.workspaces.linePlot.create(ws.key, {
-        name: "Schematic",
+        name: "Line Plot",
         data: { one: 1 },
       });
       await client.workspaces.linePlot.setData(linePlot.key, { two: 2 });
@@ -64,11 +64,11 @@ describe("LinePlot", () => {
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({
-        name: "Schematic",
+        name: "Line Plot",
         layout: { one: 1 },
       });
       const linePlot = await client.workspaces.linePlot.create(ws.key, {
-        name: "Schematic",
+        name: "Line Plot",
         data: { one: 1 },
       });
       await client.workspaces.linePlot.delete(linePlot.key);
