@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -43,7 +45,8 @@ jobs:
         run: git fetch origin ${{ github.base_ref }}
 
       - name: Merge Base Branch
-        run: git merge origin/${{ github.base_ref }} --no-commit --no-ff
+        run: |
+          git merge origin/${{ github.base_ref }} --no-commit --no-ff --allow-unrelated-histories
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
