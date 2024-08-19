@@ -52,6 +52,12 @@ func (g *Gate[E]) State() *State {
 	}
 }
 
+func (g *Gate[E]) PeekEntity() E {
+	g.r.RLock()
+	defer g.r.RUnlock()
+	return g.r.entity
+}
+
 // Authorized authorizes the gates access to the entity. If another gate has precedence,
 // Authorized will return false.
 func (g *Gate[E]) Authorized() (e E, ok bool) {
