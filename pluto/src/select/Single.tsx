@@ -260,6 +260,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   };
 
   const handleFocus: FocusEventHandler<HTMLInputElement> = () => {
+    if (internalValue === "") onChange("");
     setInternalValue("");
     onFocus?.();
   };
