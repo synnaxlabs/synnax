@@ -100,7 +100,7 @@ interface SetAltKeyPayload {
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface FileHandlerProps {
-  file: any;
+  file: Object;
   name: string;
   placer: Placer;
   store: Store;
