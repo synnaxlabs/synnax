@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Triggers, useSyncedRef } from "@synnaxlabs/pluto";
+import { Status, Synnax, Triggers, useSyncedRef } from "@synnaxlabs/pluto";
+import { useMutation } from "@tanstack/react-query";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
-import { useSelectControlState } from "@/lineplot/selectors";
-import { setControlState } from "@/lineplot/slice";
+import { select, useSelectControlState } from "@/lineplot/selectors";
+import { setControlState, type State } from "@/lineplot/slice";
+import { type RootState } from "@/store";
 
 export type Config = Triggers.ModeConfig<"toggle" | "hold">;
 
@@ -40,3 +44,35 @@ export const useTriggerHold = (triggers: Config): void => {
     ),
   });
 };
+
+export const useExport = (name: string = "line plot"): ((key: string) => void) => {
+  const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+  const store = useStore<RootState>();
+
+  return useMutation<void, Error, string>({
+    mutationFn: async (key) => {
+      let state = select(store.getState(), key);
+      if (state == null) {
+        if (client == null) throw new Error("Client is not available");
+        const linePlot = await client.workspaces.linePlot.retrieve(key);
+        state = linePlot.data as unknown as State;
+      }
+      const savePath = await save({
+        defaultPath: `${name}.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (savePath == null) return;
+      await writeFile(savePath, new TextEncoder().encode(JSON.stringify(state)));
+    },
+    onError: (err) => {
+      addStatus({
+        variant: "error",
+        message: `Failed to export ${name}`,
+        description: err.message,
+      });
+    },
+  }).mutate;
+};
+
+export const useImport = () => () => console.log("Importing line plot");
