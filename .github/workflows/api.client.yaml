@@ -39,11 +39,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Checkout Head Branch
-        run: git checkout origin/${{ github.event.pull_request.head.ref }}
-
       - name: Merge Base Branch
-        run: git merge origin/${{ github.event.pull_request.base_ref }} --no-commit --no-ff
+        run: git merge origin/${{ GITHUB_BASE_REF }} --no-commit --no-ff
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
