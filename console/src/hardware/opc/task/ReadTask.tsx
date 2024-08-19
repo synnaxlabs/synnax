@@ -20,12 +20,13 @@ import {
   Input,
   List,
   Menu,
+  Status,
   Synnax,
   Text,
   useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
+import { caseconv, deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -93,6 +94,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
+  const addStatus = Status.useAggregator();
   const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
     undefined,
   );
@@ -205,6 +207,13 @@ const Wrapped = ({
         });
 
       createTask({ key: task?.key, name, type: READ_TYPE, config });
+    },
+    onError: (e) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to configure task",
+        description: e.message,
+      });
     },
   });
 

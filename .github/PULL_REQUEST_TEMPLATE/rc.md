@@ -149,7 +149,7 @@ I can successfully:
 - [ ] Delete a channel in the resources view.
 - [ ] Delete multiple channels in the resources view.
 - [ ] Set the alias for a channel under a range.
-- [ ] Clear the alias for a channel uner a range.
+- [ ] Clear the alias for a channel under a range.
 - [ ] Copy a link to a channel in the resources view and open it from outside Synnax.
 
 ### Line Plots

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
+	"sync"
 	"time"
 )
 
@@ -53,24 +54,36 @@ func NewRouter(configs ...RouterConfig) *Router {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Router{
-		RouterConfig: cfg,
-		ctx:          ctx,
-		cancel:       cancel,
+		RouterConfig:  cfg,
+		streamCtx:     ctx,
+		cancelStreams: cancel,
+		streamWg:      &sync.WaitGroup{},
 	}
 }
 
 type Router struct {
 	RouterConfig
-	ctx    context.Context
-	cancel context.CancelFunc
+	// fiber doesn't manage the lifecycle of websocket connections (streams), so we need
+	// to manage them ourselves. We'll pass in a context object that gets cancelled when
+	// the app is shut down, and we'll use a WaitGroup to wait for all streams to close.
+	// streamCtx is the context object that gets cancelled when the app is shut down.
+	streamCtx context.Context
+	// cancelStreams cancels the streamCtx.
+	cancelStreams context.CancelFunc
+	// streamWg is a WaitGroup that waits for all streams to close.
+	streamWg *sync.WaitGroup
+	// routes is a list of all routes that have been registered with the router.
 	routes []route
 }
 
 var _ BindableTransport = (*Router)(nil)
 
+// BindTo binds the router and all of its routes to the given fiber app.
 func (r *Router) BindTo(app *fiber.App) {
 	app.Hooks().OnShutdown(func() error {
-		r.cancel()
+		// Cancel all streams and wait for them to close.
+		r.cancelStreams()
+		r.streamWg.Wait()
 		return nil
 	})
 	for _, route := range r.routes {
@@ -112,8 +125,9 @@ func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path strin
 		Reporter:        streamReporter,
 		path:            path,
 		Instrumentation: r.Instrumentation,
-		serverCtx:       r.ctx,
+		serverCtx:       r.streamCtx,
 		writeDeadline:   r.StreamWriteDeadline,
+		wg:              r.streamWg,
 	}
 	r.register(path, "GET", s, s.fiberHandler)
 	return s
