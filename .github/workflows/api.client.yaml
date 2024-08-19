@@ -24,14 +24,12 @@ jobs:
         with:
           filters: |
             changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.client.yaml"
+                - "configs/**"
+                - "x/ts/**"
+                - "alamos/ts/**"
+                - "freighter/ts/**"
+                - "client/ts/**"
+                - ".github/workflows/api.client.yaml"
 
   api-typescript:
     needs: setup
@@ -41,41 +39,28 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "client/ts/**"
-                - "freighter/ts/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - ".github/workflows/test.client.yaml"
+      - name: Fetch Base Branch
+        run: git fetch origin/${{ github.event.pull_request.base_ref }}
+
+      - name: Merge Base Branch
+        run: git merge origin/${{ github.event.pull_request.base_ref }} --no-commit --no-ff
 
       - name: Setup pnpm
-        if: steps.filter.outputs.changed == 'true'
         uses: pnpm/action-setup@v3
         with:
           version: 9
 
       - name: Setup Node
-        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
         run: pnpm install
 
-      - name: Build
-        if: steps.filter.outputs.changed == 'true'
+      - name: Build Client
         run: pnpm build:client
 
       - name: Check API
-        if: steps.filter.outputs.changed == 'true'
         run: pnpm checkApi:client
