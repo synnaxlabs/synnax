@@ -64,6 +64,7 @@ class Channel(ChannelPayload):
         index: ChannelKey = 0,
         leaseholder: int = 0,
         key: ChannelKey = 0,
+        virtual: bool = False,
         internal: bool = False,
         _frame_client: FrameClient | None = None,
         _client: ChannelClient | None = None,
@@ -97,6 +98,7 @@ class Channel(ChannelPayload):
             is_index=is_index,
             index=index,
             internal=internal,
+            virtual=virtual,
         )
         self.___frame_client = _frame_client
         self.__client = _client
@@ -233,6 +235,7 @@ class ChannelClient:
         is_index: bool = False,
         index: ChannelKey = 0,
         leaseholder: int = 0,
+        virtual: bool = False,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates a new channel or set of channels in the cluster. Possible arguments
@@ -271,6 +274,7 @@ class ChannelClient:
                     data_type=DataType(data_type),
                     index=index,
                     is_index=is_index,
+                    virtual=virtual,
                 )
             ]
         elif isinstance(channels, Channel):

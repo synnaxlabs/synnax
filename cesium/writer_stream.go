@@ -306,7 +306,8 @@ type unaryWriterState struct {
 
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
-	start telem.TimeStamp
+	domainAlignment uint32
+	start           telem.TimeStamp
 	// internal contains writers for each channel
 	internal map[ChannelKey]*unaryWriterState
 	// writingToIdx is true when the Write is writing to the index

@@ -19,12 +19,15 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -84,6 +87,76 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(frame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 						tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 						Expect(tsFrame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
+					})
+					Context("Disjoint Domain Alignment", func() {
+						It("Should keep streaming alignment values consistent even when the index has more domains than the data channel", func() {
+							var (
+								basic1      = GenerateChannelKey()
+								basic1Index = GenerateChannelKey()
+							)
+
+							By("Creating an index channel")
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{Key: basic1Index, IsIndex: true, DataType: telem.TimeStampT},
+							)).To(Succeed())
+
+							By("Writing to the Index Channel")
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{basic1Index},
+								Start:    10 * telem.SecondTS,
+							}))
+							ok := w.Write(cesium.NewFrame(
+								[]cesium.ChannelKey{basic1Index},
+								[]telem.Series{
+									telem.NewSecondsTSV(10, 11, 12, 13),
+								},
+							))
+							Expect(ok).To(BeTrue())
+							Expect(w.Error()).ToNot(HaveOccurred())
+							end, ok := w.Commit()
+							Expect(ok).To(BeTrue())
+							Expect(w.Close()).To(Succeed())
+							Expect(end).To(Equal(13*telem.SecondTS + 1))
+							// Sleep for 20 ms and schedule to allow the current
+							// frame to be processed by the relay, ensuring we don't
+							// read the first written value out of the streamer.
+							runtime.Gosched()
+							time.Sleep(20 * time.Millisecond)
+
+							By("Creating a data channel")
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{Key: basic1, Index: basic1Index, DataType: telem.Int64T},
+							)).To(Succeed())
+							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{basic1, basic1Index},
+								Start:    14 * telem.SecondTS,
+							}))
+							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{basic1, basic1Index},
+							}))
+							i, o := confluence.Attach(s, 1)
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							s.Flow(sCtx)
+							Expect(w.Write(cesium.NewFrame(
+								[]cesium.ChannelKey{basic1, basic1Index},
+								[]telem.Series{
+									telem.NewSeriesV[int64](1, 2),
+									telem.NewSecondsTSV(14, 15),
+								},
+							))).To(BeTrue())
+							f := <-o.Outlet()
+							Expect(f.Frame.Series).To(HaveLen(2))
+							basic1Alignment := f.Frame.Series[0].Alignment
+							basicIndex1Alignment := f.Frame.Series[1].Alignment
+							Expect(basicIndex1Alignment).To(Equal(basic1Alignment))
+							i.Close()
+							Expect(sCtx.Wait()).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+						})
+
 					})
 				})
 				Context("Multiple Indexes", func() {
@@ -1174,7 +1247,7 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w.Close()).To(Succeed())
 					})
 				})
-				Describe("SetKV Authority", func() {
+				Describe("Write Authority", func() {
 					It("Should set the authority of writers", func() {
 						var (
 							key  = GenerateChannelKey()
