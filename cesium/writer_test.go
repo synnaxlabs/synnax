@@ -142,8 +142,9 @@ var _ = Describe("Writer Behavior", func() {
 								},
 							))).To(BeTrue())
 							f := <-o.Outlet()
-							basicIndex1Alignment := f.Frame.Series[1].Alignment
+							Expect(f.Frame.Series).To(HaveLen(2))
 							basic1Alignment := f.Frame.Series[0].Alignment
+							basicIndex1Alignment := f.Frame.Series[1].Alignment
 							Expect(basicIndex1Alignment).To(Equal(basic1Alignment))
 							i.Close()
 							Expect(sCtx.Wait()).To(Succeed())
