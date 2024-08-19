@@ -87,7 +87,7 @@ var _ = Describe("Writer Behavior", func() {
 						tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 						Expect(tsFrame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 					})
-					Context("Disjoint Domain Alignment", func() {
+					FContext("Disjoint Domain Alignment", func() {
 						It("Should keep streaming alignment values consistent even when the index has more domains than the data channel", func() {
 							var (
 								basic1      = GenerateChannelKey()

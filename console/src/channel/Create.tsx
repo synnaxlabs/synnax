@@ -61,7 +61,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
           path: ["dataType"],
         },
       )
-      .refine((v) => v.isIndex || v.index !== 0, {
+      .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
         message: "Data channel must have an index",
         path: ["index"],
       }),
@@ -74,6 +74,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
       isIndex: false,
       leaseholder: 0,
       rate: Rate.hz(0),
+      virtual: false,
     },
   });
   const [createMore, setCreateMore] = useState(false);
@@ -98,7 +99,8 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
     },
   });
 
-  const isIndex = Form.useFieldValue("isIndex", false, methods);
+  const isIndex = Form.useFieldValue<boolean>("isIndex", false, methods);
+  const isVirtual = Form.useFieldValue<boolean>("virtual", false, methods);
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
@@ -117,13 +119,18 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
           </Form.Field>
           <Align.Space direction="x" size="large">
             <Form.SwitchField
+              path="virtual"
+              label="Virtual"
+              inputProps={{ disabled: isIndex }}
+            />
+            <Form.SwitchField
               path="isIndex"
               label="Is Index"
+              inputProps={{ disabled: isVirtual }}
               onChange={(v, ctx) => {
-                if (v) {
-                  ctx.set("dataType", DataType.TIMESTAMP.toString());
-                  if (ctx.get("index").value !== 0) ctx.set("index", 0);
-                }
+                if (!v) return;
+                ctx.set("dataType", DataType.TIMESTAMP.toString());
+                if (ctx.get("index").value !== 0) ctx.set("index", 0);
               }}
             />
             <Form.Field<DataType> path="dataType" label="Data Type" grow>
@@ -143,7 +150,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
                 client={client}
                 placeholder="Select Index"
                 searchOptions={{ isIndex: true }}
-                disabled={isIndex}
+                disabled={isIndex || isVirtual}
                 maxHeight="small"
                 allowNone={false}
                 zIndex={100}

@@ -245,6 +245,7 @@
       "tauri",
       "Tauri",
       "telem",
+      "Telem",
       "zodutil"
     ],
     "cSpell.enableFiletypes": ["mdx"],
