@@ -27,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -87,7 +88,7 @@ var _ = Describe("Writer Behavior", func() {
 						tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 						Expect(tsFrame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 					})
-					FContext("Disjoint Domain Alignment", func() {
+					Context("Disjoint Domain Alignment", func() {
 						It("Should keep streaming alignment values consistent even when the index has more domains than the data channel", func() {
 							var (
 								basic1      = GenerateChannelKey()
@@ -117,6 +118,11 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(ok).To(BeTrue())
 							Expect(w.Close()).To(Succeed())
 							Expect(end).To(Equal(13*telem.SecondTS + 1))
+							// Sleep for 20 ms and schedule to allow the current
+							// frame to be processed by the relay, ensuring we don't
+							// read the first written value out of the streamer.
+							runtime.Gosched()
+							time.Sleep(20 * time.Millisecond)
 
 							By("Creating a data channel")
 							Expect(db.CreateChannel(
