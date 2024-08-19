@@ -842,7 +842,7 @@ const deviceZ: z.ZodObject<{
 //
 // @public
 export class Frame {
-    constructor(columnsOrData?: Params | CrudeFrame, arrays?: Series | Series[]);
+    constructor(columnsOrData?: Params | CrudeFrame, series?: Series | Series[]);
     // (undocumented)
     at(index: number, required: true): Record<KeyOrName, TelemValue>;
     // (undocumented)
