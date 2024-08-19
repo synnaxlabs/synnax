@@ -1,4 +1,4 @@
-name: "Check API"
+name: "Client API"
 on:
   pull_request:
     branches:
