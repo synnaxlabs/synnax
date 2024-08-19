@@ -53,6 +53,7 @@ export const Simple = ({
             style={{ cursor: "pointer" }}
             direction="x"
             align="center"
+            size="small"
           >
             <Color.Swatch
               value={color}

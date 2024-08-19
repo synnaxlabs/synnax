@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import overload, Union, Literal
+from typing import overload, TypeAlias, Literal
 from uuid import uuid4
 from warnings import warn
 
@@ -54,7 +54,13 @@ class WriterMode(int, Enum):
     STREAM = 3
 
 
-CrudeWriterMode = Union[Literal["persist_stream", "persist", "stream"], WriterMode]
+CrudeWriterMode: TypeAlias = (
+    WriterMode
+    | Literal["persist_stream"]
+    | Literal["persist"]
+    | Literal["stream"]
+    | int
+)
 
 
 def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
@@ -64,7 +70,13 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
         return WriterMode.PERSIST
     if mode == "stream":
         return WriterMode.STREAM
-    return mode
+    if isinstance(mode, WriterMode):
+        return mode
+    if isinstance(mode, int):
+        try:
+            return WriterMode(mode)
+        except:
+            raise ValueError(f"invalid writer mode {mode}")
 
 
 class _Config(Payload):

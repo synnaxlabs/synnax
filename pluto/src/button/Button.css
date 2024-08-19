@@ -9,6 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-space.pluto--y {
+    > .pluto-btn {
+        flex-shrink: 0;
+    }
+}
+
 .pluto-btn {
     margin: 0;
     cursor: pointer;
@@ -20,6 +26,10 @@
     &.pluto--small {
         padding: 0 1.5rem;
     }
+
+    transition:
+        background 0.15s ease-in-out,
+        border-color 0.15s ease-in-out;
 }
 
 /* |||| FILLED |||| */
@@ -184,6 +194,6 @@
 }
 
 .pluto-btn-icon > svg {
-    width: 60%;
-    height: 60%;
+    width: 55%;
+    height: 55%;
 }

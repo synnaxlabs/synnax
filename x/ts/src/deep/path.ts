@@ -36,6 +36,10 @@ type Prev = [
   ...Array<0>,
 ];
 
+/**
+ * A type that represents a deep key in an object.
+ * @example type Key<T, 3> = "a" | "a.b" | "a.b.c"
+ */
 export type Key<T, D extends number = 5> = [D] extends [never]
   ? never
   : T extends object
@@ -46,11 +50,23 @@ export type Key<T, D extends number = 5> = [D] extends [never]
       }[keyof T]
     : "";
 
+/** Options for the get function. */
 export interface GetOptions<O extends boolean | undefined = boolean | undefined> {
   optional: O;
   getter?: (obj: UnknownRecord, key: string) => unknown;
 }
 
+/**
+ * A function that gets the value at the given path on the object. If the path does not exist
+ * and the optional flag is set to true, null will be returned. If the path does not exist and
+ * the optional flag is set to false, an error will be thrown.
+ * @param obj the object to get the value from.
+ * @param path the path to get the value at.
+ * @param options the options for getting the value.
+ * @param options.optional whether the path is optional.
+ * @param options.getter a custom getter function to use on each part of the path.
+ * @returns the value at the given path on the object.
+ */
 export interface Get {
   <V = unknown, T = UnknownRecord>(
     obj: T,
@@ -64,11 +80,20 @@ export interface Get {
   ): V | null;
 }
 
+/** A strongly typed version of the @see Get function. */
 export interface TypedGet<V = unknown, T = UnknownRecord> {
   (obj: T, path: string, options?: GetOptions<false>): V;
   (obj: T, path: string, options?: GetOptions<boolean | undefined>): V | null;
 }
 
+/**
+ * Executes the given replacer function on each part of the path.
+ * @param path the path to transform
+ * @param replacer the function to execute on each part of the path. If multiple
+ * parts are returned, they will be joined with a period. If null/undefined is returned,
+ * the part will be removed from the path.
+ * @returns the transformed path.
+ */
 export const transformPath = (
   path: string,
   replacer: (
@@ -89,6 +114,17 @@ export const transformPath = (
   return result.join(".");
 };
 
+/**
+ * Gets the value at the given path on the object. If the path does not exist
+ * and the optional flag is set to true, null will be returned. If the path does
+ * not exist and the optional flag is set to false, an error will be thrown.
+ * @param obj the object to get the value from.
+ * @param path the path to get the value at.
+ * @param opts the options for getting the value.
+ * @param opts.optional whether the path is optional.
+ * @param opts.getter a custom getter function to use on each part of the path.
+ * @returns the value at the given path on the object.
+ */
 export const get = (<V = unknown, T = UnknownRecord>(
   obj: T,
   path: string,
@@ -109,27 +145,66 @@ export const get = (<V = unknown, T = UnknownRecord>(
   return result as V;
 }) as unknown as Get;
 
+/**
+ * Sets the value at the given path on the object. If the parents of the deep path
+ * do not exist, new objects will be created.
+ * @param obj the object to set the value on.
+ * @param path the path to set the value at.
+ * @param value the value to set.
+ */
 export const set = <V>(obj: V, path: string, value: unknown): void => {
   const parts = path.split(".");
   let result: UnknownRecord = obj as UnknownRecord;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    if (result[part] == null) {
-      throw new Error(`Path ${path} does not exist`);
-    }
+    if (result[part] == null) result[part] = {};
     result = result[part] as UnknownRecord;
   }
   result[parts[parts.length - 1]] = value;
 };
 
+/**
+ * Removes the value at the given path, modifying the object in place.
+ * @param obj the object to remove the value from.
+ * @param path the path to remove the value from.
+ * @returns the object with the value removed.
+ */
+export const remove = <V>(obj: V, path: string): void => {
+  const parts = path.split(".");
+  let result: UnknownRecord = obj as UnknownRecord;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i];
+    if (result[part] == null) return;
+    result = result[part] as UnknownRecord;
+  }
+  // if its an array, we need to splice it
+  if (Array.isArray(result)) {
+    const index = parseInt(parts[parts.length - 1], 10);
+    if (isNaN(index)) return;
+    result.splice(index, 1);
+    return;
+  }
+  delete result[parts[parts.length - 1]];
+};
+
+/**
+ * Returns the element at the given index in the path.
+ * @param path the path to get the element from
+ * @param index the index of the element to get
+ * @returns the element at the given index in the path
+ */
 export const element = (path: string, index: number): string => {
   const parts = path.split(".");
   if (index < 0) return parts[parts.length + index];
   return parts[index];
 };
 
-export const join = (path: string[]): string => path.join(".");
-
+/**
+ * Checks if the path exists in the object.
+ * @param obj the object to check
+ * @param path the path to check
+ * @returns whether the path exists in the object
+ */
 export const has = <V = unknown, T = UnknownRecord>(obj: T, path: string): boolean => {
   try {
     get<V, T>(obj, path);
@@ -139,6 +214,20 @@ export const has = <V = unknown, T = UnknownRecord>(obj: T, path: string): boole
   }
 };
 
+/**
+ * Checks if the path matches the given pattern.
+ *
+ * @param path The path to check.
+ * @param pattern The pattern to match against. Only "*" is supported as a wildcard.
+ * @returns Whether the path matches the pattern.
+ *
+ *  * @example
+ * pathsMatch("a.b.c", "a.b.c") // true
+ * pathsMatch("a.b.c", "a.b") // true
+ * pathsMatch("a.b", "a.b.c") // false
+ * pathsMatch("a.b.c", "a.*") // true
+ * pathsMatch("a.b.c", "a.*.c") // true
+ */
 export const pathsMatch = (path: string, pattern: string): boolean => {
   if (pattern.length === 0) return true;
   const parts = path.split(".");

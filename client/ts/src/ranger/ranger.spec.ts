@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { change } from "@synnaxlabs/x";
 import { DataType, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { QueryError } from "@/errors";
+import { ranger } from "@/ranger";
 import { type NewPayload } from "@/ranger/payload";
 import { newClient } from "@/setupspecs";
 
@@ -46,6 +48,21 @@ describe("Ranger", () => {
       expect(createdRanges[1].key).not.toHaveLength(0);
       expect(createdRanges[0].timeRange).toEqual(ranges[0].timeRange);
       expect(createdRanges[1].timeRange).toEqual(ranges[1].timeRange);
+    });
+    it("should create a range with a parent", async () => {
+      const parentRange = await client.ranges.create({
+        name: "My New Parent Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ranges.create(
+        {
+          name: "My New Child Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+        { parent: parentRange.ontologyID },
+      );
+      const children = await client.ontology.retrieveChildren(parentRange.ontologyID);
+      expect(children).toHaveLength(1);
     });
   });
 
@@ -109,6 +126,43 @@ describe("Ranger", () => {
     });
   });
 
+  describe("retrieveParent", () => {
+    it("should retrieve the parent of a range", async () => {
+      const parentRange = await client.ranges.create({
+        name: "My New Parent Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const childRange = await client.ranges.create(
+        {
+          name: "My New Child Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+        { parent: parentRange.ontologyID },
+      );
+      const parent = await childRange.retrieveParent();
+      expect(parent?.key).toEqual(parentRange.key);
+    });
+  });
+
+  describe("page", () => {
+    it("should page through ranges", async () => {
+      await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ranges.create({
+        name: "My New Two Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+      });
+      const ranges = await client.ranges.page(0, 1);
+      expect(ranges.length).toEqual(1);
+      const keys = ranges.map((r) => r.key);
+      const next = await client.ranges.page(1, 1);
+      expect(next.length).toEqual(1);
+      expect(next.map((r) => r.key)).not.toContain(keys[0]);
+    });
+  });
+
   describe("KV", () => {
     it("should set, get, and delete a single key", async () => {
       const rng = await client.ranges.create({
@@ -141,9 +195,79 @@ describe("Ranger", () => {
       const res = await rng.kv.list();
       expect(res).toEqual({ foo: "bar", baz: "qux" });
     });
+
+    describe("observable", () => {
+      it("should listen to key-value sets on the range", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const obs = await rng.kv.openTracker();
+        const res = new Promise<change.Change<string, ranger.KVPair>[]>((resolve) => {
+          obs.onChange((pair) => resolve(pair));
+        });
+        await rng.kv.set("foo", "bar");
+        const pair = await res;
+        expect(pair.length).toBeGreaterThan(0);
+        expect(pair[0].value?.range).toEqual(rng.key);
+        expect(pair[0].value?.key).toEqual("foo");
+        expect(pair[0].value?.value).toEqual("bar");
+      });
+      it("should listen to key-value deletes on the range", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await rng.kv.set("foo", "bar");
+        const obs = await rng.kv.openTracker();
+        const res = new Promise<change.Change<string, ranger.KVPair>[]>((resolve) => {
+          obs.onChange((changes) => {
+            if (changes.every((c) => c.variant === "delete")) resolve(changes);
+          });
+        });
+        await rng.kv.delete("foo");
+        const pair = await res;
+        expect(pair.length).toBeGreaterThan(0);
+        expect(pair[0].value?.range).toEqual(rng.key);
+        expect(pair[0].value?.key).toEqual("foo");
+        expect(pair[0].value?.value).toHaveLength(0);
+      });
+    });
   });
 
   describe("Alias", () => {
+    describe("set + resolve", () => {
+      it("should set and resolve an alias for the range", async () => {
+        const ch = await client.channels.create({
+          name: "My New Channel",
+          dataType: DataType.FLOAT32,
+          rate: Rate.hz(1),
+        });
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await rng.setAlias(ch.key, "myalias");
+        const resolved = await rng.resolveAlias("myalias");
+        expect(resolved).toEqual(ch.key);
+      });
+    });
+    describe("deleteAlias", () => {
+      it("should remove an alias for the range", async () => {
+        const ch = await client.channels.create({
+          name: "My New Channel",
+          dataType: DataType.FLOAT32,
+          rate: Rate.hz(1),
+        });
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await rng.setAlias(ch.key, "myalias");
+        await rng.deleteAlias(ch.key);
+        expect(await rng.resolveAlias("myalias")).toBeUndefined();
+      });
+    });
     describe("list", () => {
       it("should list the aliases for the range", async () => {
         const ch = await client.channels.create({
@@ -158,65 +282,6 @@ describe("Ranger", () => {
         await rng.setAlias(ch.key, "myalias");
         const aliases = await rng.listAliases();
         expect(aliases).toEqual({ [ch.key]: "myalias" });
-      });
-    });
-  });
-
-  describe("Active", () => {
-    describe("setActive", () => {
-      it("should create and set a range as active", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await client.ranges.setActive(rng.key);
-        const retrieved = await client.ranges.retrieveActive();
-        expect(retrieved).not.toBeNull();
-        expect(retrieved?.key).toEqual(rng.key);
-      });
-      it("should clear the active range", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await client.ranges.setActive(rng.key);
-        await client.ranges.clearActive(rng.key);
-        const retrieved = await client.ranges.retrieveActive();
-        expect(retrieved).toBeNull();
-      });
-    });
-  });
-
-  describe("Labels", () => {
-    describe("set", () => {
-      it("should set a label on a range", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const lbl = await client.labels.create({
-          name: "My New Label",
-          color: "#E774D0",
-        });
-        await rng.addLabel(lbl.key);
-        const retrieved = await rng.labels();
-        expect(retrieved).toEqual([lbl]);
-      });
-    });
-    describe("remove", () => {
-      it("should remove a label from a range", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const lbl = await client.labels.create({
-          name: "My New Label",
-          color: "#E774D0",
-        });
-        await rng.addLabel(lbl.key);
-        await rng.removeLabel(lbl.key);
-        const retrieved = await rng.labels();
-        expect(retrieved).toEqual([]);
       });
     });
   });

@@ -17,11 +17,13 @@ import { framer } from "@/framer";
 import { Frame } from "@/framer/frame";
 import { group } from "@/ontology/group";
 import {
+  CrudeID,
   ID,
   IDPayload,
   idZ,
   parseRelationship,
   RelationshipChange,
+  RelationshipDirection,
   type Resource,
   ResourceChange,
   resourceSchemaZ,
@@ -52,7 +54,7 @@ const retrieveResZ = z.object({
   resources: resourceSchemaZ.array(),
 });
 
-const parseIDs = (ids: ID | ID[] | string | string[]): IDPayload[] =>
+export const parseIDs = (ids: CrudeID | CrudeID[] | string | string[]): IDPayload[] =>
   toArray(ids).map((id) => new ID(id).payload);
 
 /** The core client class for executing queries against a Synnax cluster ontology */
@@ -70,16 +72,50 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     this.framer = framer;
   }
 
+  /**
+   * Executes a fuzzy search on the ontology for resources with names/fields similar to the
+   * given term.
+   *
+   * @param term The search term.
+   * @param options Additional options for the search.
+   * @param options.includeSchema Whether to include the schema of the resources in the
+   * results.
+   * @param options.excludeFieldData Whether to exclude the field data of the resources in
+   * the results.
+   * @returns A list of resources that match the search term.
+   */
   async search(term: string, options?: RetrieveOptions): Promise<Resource[]> {
     return await this.execRetrieve({ term, ...options });
   }
 
-  async retrieve(id: ID | string, options?: RetrieveOptions): Promise<Resource>;
+  /**
+   * Retrieves the resource in the ontology with the given ID.
+   * @param id The ID of the resource to retrieve.
+   * @param options Additional options for the retrieval.
+   * @param options.includeSchema Whether to include the schema of the resource in the
+   * results.
+   * @param options.excludeFieldData Whether to exclude the field data of the resource in
+   * the results.
+   * @returns The resource with the given ID.
+   * @throws {QueryError} If no resource is found with the given ID.
+   */
+  async retrieve(id: CrudeID, options?: RetrieveOptions): Promise<Resource>;
 
-  async retrieve(ids: ID[] | string[], options?: RetrieveOptions): Promise<Resource[]>;
+  /**
+   * Retrieves the resources in the ontology with the given IDs.
+   * @param ids The IDs of the resources to retrieve.
+   * @param options Additional options for the retrieval.
+   * @param options.includeSchema Whether to include the schema of the resources in the
+   * results.
+   * @param options.excludeFieldData Whether to exclude the field data of the resources in
+   * the results.
+   * @returns The resources with the given IDs.
+   * @throws {QueryError} If no resource is found with any of the given IDs.
+   */
+  async retrieve(ids: CrudeID[], options?: RetrieveOptions): Promise<Resource[]>;
 
   async retrieve(
-    ids: ID | ID[] | string | string[],
+    ids: CrudeID | CrudeID[],
     options?: RetrieveOptions,
   ): Promise<Resource | Resource[]> {
     const resources = await this.execRetrieve({ ids: parseIDs(ids), ...options });
@@ -89,6 +125,15 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     return resources[0];
   }
 
+  /**
+   * Retrieves resources from the ontology in a paginated manner.
+   *
+   * @param offset - The offset of the page (i.e. how many resources to skip before
+   * returning results).
+   * @param limit - The maximum number of resources to return.
+   * @param options - Additional options for the retrieval.
+   * @returns A list of resources in the ontology.
+   */
   async page(
     offset: number,
     limit: number,
@@ -97,34 +142,96 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     return await this.execRetrieve({ offset, limit, ...options });
   }
 
+  /**
+   * Retrieves the children of the resources with the given IDs.
+   * @param ids - The IDs of the resources whose children to retrieve.
+   * @param options - Additional options for the retrieval.
+   * @param options.includeSchema - Whether to include the schema of the children in the
+   * results.
+   * @param options.excludeFieldData - Whether to exclude the field data of the children in
+   * the results.
+   * @returns The children of the resources with the given IDs.
+   */
   async retrieveChildren(
-    ids: ID | ID[],
+    ids: CrudeID | CrudeID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
     return await this.execRetrieve({ ids: parseIDs(ids), children: true, ...options });
   }
 
+  /**
+   * Retrieves the parents of the resources with the given IDs.
+   *
+   * @param ids the IDs of the resources whose parents to retrieve
+   * @param options additional options for the retrieval
+   * @param options.includeSchema whether to include the schema of the parents in the results
+   * @param options.excludeFieldData whether to exclude the field data of the parents in the results
+   * @returns the parents of the resources with the given IDs
+   */
   async retrieveParents(
-    ids: ID | ID[],
+    ids: CrudeID | CrudeID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
     return await this.execRetrieve({ ids: parseIDs(ids), parents: true, ...options });
   }
 
-  async addChildren(id: ID, ...children: ID[]): Promise<void> {
+  /**
+   * Adds children to a resource in the ontology.
+   * @param id The ID of the resource to add children to.
+   * @param children The IDs of the children to add.
+   */
+  async addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
     return await this.writer.addChildren(id, ...children);
   }
 
-  async removeChildren(id: ID, ...children: ID[]): Promise<void> {
+  /**
+   * Removes children from a resource in the ontology.
+   * @param id The ID of the resource to remove children from.
+   * @param children The IDs of the children
+   * to remove.
+   */
+  async removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
     return await this.writer.removeChildren(id, ...children);
   }
 
-  async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
+  /**
+   * Moves children from one resource to another in the ontology.
+   * @param from The ID of the resource to move children from.
+   * @param to The ID of the resource to move children to.
+   * @param children The IDs of the children to move.
+   */
+  async moveChildren(
+    from: CrudeID,
+    to: CrudeID,
+    ...children: CrudeID[]
+  ): Promise<void> {
     return await this.writer.moveChildren(from, to, ...children);
   }
 
+  /**
+   * Opens an observable that can be used to subscribe to changes in both the ontology's
+   * resources and relationships.
+   * @see ChangeTracker for more information.
+   * @returns An observable that emits changes to the ontology's resources and relationships.
+   */
   async openChangeTracker(): Promise<ChangeTracker> {
     return await ChangeTracker.open(this.framer, this);
+  }
+
+  async openDependentTracker(
+    parent: ID,
+    initial: Resource[],
+    type: string = "parent",
+    direction: RelationshipDirection = "from",
+  ): Promise<observe.ObservableAsyncCloseable<Resource[]>> {
+    return await DependentTracker.open(
+      parent,
+      this,
+      this.framer,
+      initial,
+      type,
+      direction,
+    );
   }
 
   newSearcherWithOptions(
@@ -155,13 +262,21 @@ const RESOURCE_DELETE_NAME = "sy_ontology_resource_delete";
 const RELATIONSHIP_SET_NAME = "sy_ontology_relationship_set";
 const RELATIONSHIP_DELETE_NAME = "sy_ontology_relationship_delete";
 
+/**
+ * A class that tracks changes to the ontology's resources and relationships.
+ */
 export class ChangeTracker {
-  private readonly resourceObs: observe.Observer<ResourceChange[]>;
-  private readonly relationshipObs: observe.Observer<RelationshipChange[]>;
-
+  /**
+   * An observable that emits changes to the ontology's relationships.
+   */
   readonly relationships: observe.Observable<RelationshipChange[]>;
+  /**
+   * An observable that emits changes to the ontology's resources.
+   */
   readonly resources: observe.Observable<ResourceChange[]>;
 
+  private readonly resourceObs: observe.Observer<ResourceChange[]>;
+  private readonly relationshipObs: observe.Observer<RelationshipChange[]>;
   private readonly streamer: framer.Streamer;
   private readonly client: Client;
   private readonly closePromise: Promise<void>;
@@ -254,5 +369,91 @@ export class ChangeTracker {
       RELATIONSHIP_DELETE_NAME,
     ]);
     return new ChangeTracker(streamer, retriever);
+  }
+}
+
+/**
+ * A class that tracks a resource (called the 'target' resource) and related resources
+ * (called 'dependents') of a particular type (called the 'type') in a Synnax cluster
+ * ontology.
+ */
+export class DependentTracker
+  extends observe.Observer<Resource[]>
+  implements observe.ObservableAsyncCloseable<Resource[]>
+{
+  private readonly internal: ChangeTracker;
+  private readonly target: ID;
+  private readonly direction: RelationshipDirection;
+  private dependents: Resource[];
+  private readonly client: Client;
+  private readonly type: string;
+
+  private constructor(
+    target: ID,
+    internal: ChangeTracker,
+    dependents: Resource[],
+    client: Client,
+    type: string = "parent",
+    direction: RelationshipDirection = "from",
+  ) {
+    super();
+    this.internal = internal;
+    this.target = target;
+    this.dependents = dependents;
+    this.client = client;
+    this.type = type;
+    this.direction = direction;
+    this.internal.resources.onChange(this.handleResourceChange);
+    this.internal.relationships.onChange(this.handleRelationshipChange);
+  }
+  static async open(
+    from: ID,
+    client: Client,
+    framer: framer.Client,
+    initial: Resource[],
+    type: string = "parent",
+    direction: RelationshipDirection = "from",
+  ): Promise<DependentTracker> {
+    const internal = await ChangeTracker.open(framer, client);
+    return new DependentTracker(from, internal, initial, client, type, direction);
+  }
+
+  private handleResourceChange = (changes: ResourceChange[]): void => {
+    this.dependents = this.dependents.map((child) => {
+      const change = changes.find((c) => c.key.toString() == child.id.toString());
+      if (change == null || change.variant === "delete") return child;
+      return change.value;
+    });
+    this.notify(this.dependents);
+  };
+
+  private handleRelationshipChange = (changes: RelationshipChange[]): void => {
+    const deletes = changes.filter(
+      (c) =>
+        c.variant === "delete" &&
+        c.key[this.direction].toString() === this.target.toString(),
+    );
+    this.dependents = this.dependents.filter(
+      (child) =>
+        !deletes.some(
+          (del) =>
+            del.key.to.toString() === child.id.toString() && del.key.type === this.type,
+        ),
+    );
+    const sets = changes.filter(
+      (c) =>
+        c.variant === "set" &&
+        c.key.type === this.type &&
+        c.key[this.direction].toString() === this.target.toString(),
+    );
+    if (sets.length === 0) return this.notify(this.dependents);
+    this.client.retrieve(sets.map((s) => s.key.to)).then((resources) => {
+      this.dependents = this.dependents.concat(resources);
+      this.notify(this.dependents);
+    });
+  };
+
+  async close(): Promise<void> {
+    await this.internal.close();
   }
 }

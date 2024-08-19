@@ -25,6 +25,7 @@ export interface UseSearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<
   searcher?: AsyncTermSearcher<string, K, E>;
   debounce?: number;
   pageSize?: number;
+  filter?: (items: E[]) => E[];
 }
 
 export interface SearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
@@ -66,12 +67,17 @@ const ErrorEmptyContent = ({ error }: ErrorEmptyContentProps): ReactElement => (
   </Status.Text.Centered>
 );
 
+const defaultFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
+  items: E[],
+): E[] => items;
+
 export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   debounce = 250,
   searcher,
   value,
   onChange,
   pageSize = 10,
+  filter = defaultFilter,
 }: UseSearchProps<K, E>): UseSearchReturn => {
   const [internalValue, setInternalValue] = state.usePurePassthrough({
     value,
@@ -102,7 +108,8 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       setEmptyContent(LOADING);
       const fn = async () => {
         try {
-          const r = await searcher.page(offset.current, pageSize);
+          let r = await searcher.page(offset.current, pageSize);
+          r = filter(r);
           if (r.length === 0) setEmptyContent(getDefaultEmptyContent() ?? NO_RESULTS);
           if (r.length < pageSize) {
             hasMore.current = false;
@@ -120,7 +127,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       };
       void fn();
     },
-    [searcher, setSourceData, pageSize],
+    [searcher, setSourceData, pageSize, filter],
   );
 
   useEffect(() => {
@@ -139,7 +146,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         .search(term)
         .then((d) => {
           if (d.length === 0) setEmptyContent(NO_RESULTS);
-          setSourceData(d);
+          setSourceData(filter(d));
         })
         .catch((e) => {
           setEmptyContent(
@@ -150,7 +157,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         });
     },
     debounce,
-    [searcher, setSourceData, setEmptyContent],
+    [searcher, setSourceData, setEmptyContent, filter],
   );
 
   const handleChange = useCallback(
@@ -164,7 +171,11 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   return { value: internalValue, onChange: handleChange };
 };
 
+const searchInput = (props: Input.Control<string>): ReactElement => (
+  <Input.Text placeholder="Search" {...props} />
+);
+
 export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  children = componentRenderProp(Input.Text),
+  children = searchInput,
   ...props
 }: SearchProps<K, E>): ReactElement | null => children(useSearch(props));

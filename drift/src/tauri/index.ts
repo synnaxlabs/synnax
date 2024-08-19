@@ -11,7 +11,11 @@ import type { Action, UnknownAction } from "@reduxjs/toolkit";
 import { debounce as debounceF, type dimensions, type xy } from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
 import { emit, listen, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
-import { getAll, getCurrent, WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import {
+  getAllWebviewWindows as getAll,
+  getCurrentWebviewWindow as getCurrentWindow,
+  WebviewWindow,
+} from "@tauri-apps/api/webviewWindow";
 import {
   LogicalPosition,
   LogicalSize,
@@ -62,7 +66,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
    * This should not be set in 99% of cases. Only use this if you know what you're doing.
    */
   constructor(window?: WebviewWindow) {
-    this.win = window ?? getCurrent();
+    this.win = window ?? getCurrentWindow();
     this.unsubscribe = {};
   }
 

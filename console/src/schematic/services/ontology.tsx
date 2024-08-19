@@ -133,7 +133,7 @@ const useDownload = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       const savePath = await save({
         defaultPath: `${resources[0].name}.json`,
         filters: [{ name: "JSON", extensions: ["json"] }],
-      })
+      });
       if (savePath == null) return;
       const data = new TextEncoder().encode(JSON.stringify(state));
       await writeFile(savePath, data);
@@ -166,7 +166,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     link: () =>
       handleLink({
         name: resources[0].name,
-        resource: resources[0].id.payload,
+        ontologyID: resources[0].id.payload,
       }),
   });
   const isSingle = resources.length === 1;

@@ -66,7 +66,6 @@ void ni::Scanner::set_scan_thread(std::shared_ptr<std::thread> scan_thread) {
 }
 
 ni::Scanner::~Scanner() {
-    // TODO: Error Handling
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->resources_handle);
     ni::NiSysCfgInterface::CloseHandle(this->session);

@@ -76,10 +76,6 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByName(
     return {rng, err};
 }
 
-std::pair<Range, freighter::Error> RangeClient::activeRange() {
-    return {Range(), freighter::NIL};
-}
-
 std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(
     api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -138,32 +134,6 @@ std::pair<Range, freighter::Error> RangeClient::create(
     return {rng, err};
 }
 
-const std::string SET_ACTIVE_ENDPOINT = "/range/set-active";
-const std::string RETRIEVE_ACTIVE_ENDPOINT = "/range/retrieve-active";
-const std::string CLEAR_ACTIVE_ENDPOINT = "/range/clear-active";
-
-freighter::Error RangeClient::setActive(const std::string &key) const {
-    auto req = api::v1::RangeSetActiveRequest();
-    req.set_range(key);
-    auto res = set_active_client->send(SET_ACTIVE_ENDPOINT, req);
-    return res.second;
-}
-
-std::pair<Range, freighter::Error> RangeClient::retrieveActive() const {
-    auto req = google::protobuf::Empty();
-    auto [res, err] = retrieve_active_client->send(RETRIEVE_ACTIVE_ENDPOINT, req);
-    if (err) return {Range(), err};
-    auto rng = Range(res.range());
-    rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
-    return {rng, err};
-}
-
-freighter::Error RangeClient::clearActive() const {
-    auto req = google::protobuf::Empty();
-    auto res = clear_active_client->send(CLEAR_ACTIVE_ENDPOINT, req);
-    return res.second;
-}
-
 const std::string KV_SET_ENDPOINT = "/range/kv/set";
 const std::string KV_GET_ENDPOINT = "/range/kv/get";
 const std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
@@ -175,13 +145,17 @@ std::pair<std::string, freighter::Error> RangeKV::get(const std::string &key) co
     req.set_range_key(range_key);
     auto [res, err] = kv_get_client->send(KV_GET_ENDPOINT, req);
     if (err) return {"", err};
-    return {res.pairs().at(key), err};
+    if (res.pairs_size() == 0)
+        return {"", freighter::Error(synnax::NOT_FOUND, "key not found")};
+    return {res.pairs().at(0).value(), err};
 }
 
 freighter::Error RangeKV::set(const std::string &key, const std::string &value) const {
     auto req = api::v1::RangeKVSetRequest();
     req.set_range_key(range_key);
-    (*req.mutable_pairs())[key] = value;
+    const auto pair = req.add_pairs();
+    pair->set_key(key);
+    pair->set_value(value);
     auto [res, err] = kv_set_client->send(KV_SET_ENDPOINT, req);
     return err;
 }

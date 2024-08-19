@@ -65,17 +65,26 @@ func (cfg WriterConfig) gateConfig() controller.GateConfig {
 }
 
 type Writer struct {
-	Channel   core.Channel
-	onClose   func()
-	control   *controller.Gate[*controlEntity]
-	wrapError func(error) error
-	closed    bool
 	WriterConfig
+	// Channel stores information about the channel being written to, most importantly
+	// the density and index.
+	Channel core.Channel
+	// onClose is called when the writer is closed.
+	onClose func()
+	// control stores the control gate held by the virtual writer, and used to track control
+	// handoff scenarios with other writers.
+	control *controller.Gate[*controlEntity]
+	// wrapError is a function that wraps any error originating from this writer to
+	// provide context including the writer's channel key and name.
+	wrapError func(error) error
+	// closed stores whether the writer is closed. Operations like Write and Commit do
+	// not succeed on closed writers.
+	closed bool
 }
 
 func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	if db.closed.Load() {
-		err = dbClosed
+		err = DBClosed
 		return nil, transfer, db.wrapError(err)
 	}
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)
@@ -84,15 +93,17 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 	}
 	w = &Writer{
 		WriterConfig: cfg,
-		Channel:      db.Channel,
+		Channel:      db.cfg.Channel,
 		wrapError:    db.wrapError,
-		onClose:      func() { db.entityCount.add(-1) },
 	}
 	var g *controller.Gate[*controlEntity]
 	g, transfer, err = db.controller.OpenGateAndMaybeRegister(
 		cfg.gateConfig(),
 		func() (*controlEntity, error) {
-			return &controlEntity{ck: db.Channel.Key, alignment: 0}, nil
+			return &controlEntity{
+				ck:        db.cfg.Channel.Key,
+				alignment: telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0),
+			}, nil
 		},
 	)
 	if err != nil {
@@ -105,8 +116,11 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		}
 	}
 	w.control = g
-	db.entityCount.add(1)
-	return w, transfer, db.wrapError(err)
+	db.openWriters.Add(1)
+	w.onClose = func() {
+		db.openWriters.Add(-1)
+	}
+	return w, transfer, nil
 }
 
 func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
@@ -120,9 +134,11 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
+	// copy the alignment here because we want to return the alignment of the FIRST
+	// sample, not the last.
 	a := e.alignment
 	if series.DataType.Density() != telem.DensityUnknown {
-		e.alignment += telem.AlignmentPair(series.Len())
+		e.alignment = e.alignment.AddSamples(uint32(series.Len()))
 	}
 	return a, nil
 }

@@ -32,7 +32,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 
 // Iterator iterates over the telemetry domains of a DB in time order. Iterator does
 // not read any of the underlying data of a domain, but instead provides a means to access
-// it via calls to Iterator.NewReader.
+// it via calls to Iterator.OpenReader.
 //
 // Iterator is not safe for concurrent use, but it is safe to have multiple iterators over
 // the same DB.
@@ -59,6 +59,22 @@ type Iterator struct {
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
 	// closed stores whether the iterator is still open
 	closed bool
+	// onClose is called when the iterator is closed.
+	onClose func()
+}
+
+// OpenIterator opens a new invalidated Iterator using the given configuration.
+// A seeking call is required before it can be used.
+func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
+	db.entityCount.Add(1)
+	i := &Iterator{
+		Instrumentation: db.cfg.Instrumentation.Child("iterator"),
+		idx:             db.idx,
+		readerFactory:   db.newReader,
+		onClose:         func() { db.entityCount.Add(-1) },
+	}
+	i.SetBounds(cfg.Bounds)
+	return i
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -139,11 +155,11 @@ func (i *Iterator) Position() uint32 { return uint32(i.position) }
 // TimeRange returns the time interval occupied by current domain.
 func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 
-// NewReader returns a new Reader that can be used to read telemetry from the current
+// OpenReader returns a new Reader that can be used to read telemetry from the current
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same domain.
 // Note that the caller is responsible for closing the reader.
-func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
+func (i *Iterator) OpenReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
 		return nil, errIteratorClosed
 	}
@@ -157,6 +173,7 @@ func (i *Iterator) Len() int64 { return int64(i.value.length) }
 func (i *Iterator) Close() error {
 	i.closed = true
 	i.valid = false
+	i.onClose()
 	return nil
 }
 

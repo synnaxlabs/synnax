@@ -93,6 +93,9 @@ class WriteFrameAdapter:
             return ch
         if isinstance(ch, ChannelPayload):
             return ch.key
+        # If it's not a payload or key already, it has to be a name,
+        # which means we need to resolve the key from a remote source
+        # (either cache or server)
         return self.__adapt_ch(ch).key
 
     def __adapt_ch(

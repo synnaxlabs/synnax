@@ -104,24 +104,6 @@ Transport::Transport(
         v1::RangeKVSetService
     > >(pool, base_target);
 
-    range_set_active = std::make_unique<fgrpc::UnaryClient<
-        v1::RangeSetActiveRequest,
-        google::protobuf::Empty,
-        v1::RangeSetActiveService
-    > >(pool, base_target);
-
-    range_retrieve_active = std::make_unique<fgrpc::UnaryClient<
-        google::protobuf::Empty,
-        v1::RangeRetrieveActiveResponse,
-        v1::RangeRetrieveActiveService
-    > >(pool, base_target);
-
-    range_clear_active = std::make_unique<fgrpc::UnaryClient<
-        google::protobuf::Empty,
-        google::protobuf::Empty,
-        v1::RangeClearActiveService
-    > >(pool, base_target);
-
     rack_create_client = std::make_unique<fgrpc::UnaryClient<
         v1::HardwareCreateRackRequest,
         v1::HardwareCreateRackResponse,
@@ -187,9 +169,6 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     range_kv_delete->use(mw);
     range_kv_get->use(mw);
     range_kv_set->use(mw);
-    range_set_active->use(mw);
-    range_retrieve_active->use(mw);
-    range_clear_active->use(mw);
     rack_create_client->use(mw);
     rack_retrieve->use(mw);
     rack_delete->use(mw);

@@ -35,7 +35,7 @@ type (
 // the config.ServiceConfig interface.
 type Config struct {
 	alamos.Instrumentation
-	// Candidates is a ArrayIndex of nodes to contact as candidates for the formation
+	// Candidates is a group of nodes to contact as candidates for the formation
 	// of a jury.
 	// [Required]
 	Candidates func() node.Group

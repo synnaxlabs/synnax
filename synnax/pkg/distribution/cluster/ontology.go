@@ -76,7 +76,7 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(core.Free)); err != nil {
 		s.L.Error("failed to define free node ontology resource", zap.Error(err))
 	}
-	s.update(ctx, s.Cluster.PeekState())
+	s.update(ctx, s.Cluster.CopyState())
 	s.Cluster.OnChange(func(ctx context.Context, change core.ClusterChange) {
 		s.update(ctx, change.State)
 	})
@@ -102,7 +102,7 @@ func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schem
 // OpenNexter implements ontology.Service.
 func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(
-		iter.All(lo.MapToSlice(s.Cluster.PeekState().Nodes, func(_ core.NodeKey, n core.Node) ontology.Resource {
+		iter.All(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ core.NodeKey, n core.Node) ontology.Resource {
 			return newNodeResource(n)
 		})),
 	), nil

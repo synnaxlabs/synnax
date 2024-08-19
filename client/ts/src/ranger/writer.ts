@@ -10,6 +10,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
 import {
   keyZ,
   type NewPayload,
@@ -23,8 +24,12 @@ const createResZ = z.object({
 });
 
 const createReqZ = z.object({
+  parent: ontology.idZ.optional(),
   ranges: newPayloadZ.array(),
 });
+
+type CreateRequest = z.infer<typeof createReqZ>;
+export type CreateOptions = Pick<CreateRequest, "parent">;
 
 const deleteReqZ = z.object({
   keys: keyZ.array(),
@@ -60,11 +65,11 @@ export class Writer {
     );
   }
 
-  async create(ranges: NewPayload[]): Promise<Payload[]> {
+  async create(ranges: NewPayload[], options?: CreateOptions): Promise<Payload[]> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { ranges },
+      { ranges, ...options },
       createReqZ,
       createResZ,
     );

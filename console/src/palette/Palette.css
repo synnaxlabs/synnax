@@ -10,13 +10,14 @@
  */
 
 .console-palette {
-    width: 100%;
+    width: 100% !important;
     max-width: 800px;
 }
 
 .console-palette__btn {
     background-color: var(--pluto-gray-l2) !important;
     border-color: var(--pluto-gray-l4) !important;
+    width: 100%;
 
     &:hover {
         background-color: var(--pluto-gray-l3) !important;
@@ -26,7 +27,7 @@
 .console-palette__content {
     width: 100%;
     max-width: 1200px;
-    max-height: 500px;
+    height: 500px;
 
     .pluto-list__item {
         .console-palette__actions {

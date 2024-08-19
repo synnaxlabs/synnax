@@ -101,6 +101,11 @@ export class Channel {
    * should not be relied upon in the current version of Synnax.
    */
   readonly alias: string | undefined;
+  /**
+   * Whether the channel is virtual. Virtual channels do not store any data in the
+   * database, but can still be used for streaming purposes.
+   */
+  readonly virtual: boolean;
 
   constructor({
     dataType,
@@ -111,6 +116,7 @@ export class Channel {
     isIndex = false,
     index = 0,
     internal = false,
+    virtual = false,
     frameClient,
     alias,
   }: NewPayload & {
@@ -126,6 +132,7 @@ export class Channel {
     this.isIndex = isIndex;
     this.internal = internal;
     this.alias = alias;
+    this.virtual = virtual;
     this._frameClient = frameClient ?? null;
   }
 

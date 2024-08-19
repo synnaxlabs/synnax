@@ -20,12 +20,13 @@ import {
   Input,
   List,
   Menu,
+  Status,
   Synnax,
   Text,
   useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
+import { caseconv, deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -93,6 +94,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
+  const addStatus = Status.useAggregator();
   const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
     undefined,
   );
@@ -186,7 +188,6 @@ const Wrapped = ({
             index: dev.properties.read.index,
           })),
         );
-        console.log;
         channels.forEach((c, i) => {
           dev.properties.read.channels[toCreate[i].nodeId] = c.key;
         });
@@ -199,8 +200,6 @@ const Wrapped = ({
           : getChannelByNodeID(dev.properties, c.nodeId),
       }));
 
-      console.log(config.channels, dev.properties);
-
       if (modified)
         await client.hardware.devices.create({
           ...dev,
@@ -208,6 +207,13 @@ const Wrapped = ({
         });
 
       createTask({ key: task?.key, name, type: READ_TYPE, config });
+    },
+    onError: (e) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to configure task",
+        description: e.message,
+      });
     },
   });
 

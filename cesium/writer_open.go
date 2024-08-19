@@ -193,6 +193,31 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 	}()
 
+	makeUnaryConfig := func(
+		i int,
+		domainAlignment uint32,
+	) unary.WriterConfig {
+		return unary.WriterConfig{
+			Subject:                  cfg.ControlSubject,
+			ErrOnUnauthorized:        cfg.ErrOnUnauthorized,
+			EnableAutoCommit:         cfg.EnableAutoCommit,
+			AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
+			Start:                    cfg.Start,
+			Persist:                  config.Bool(cfg.Mode.Persist()),
+			Authority:                cfg.authority(i),
+			AlignmentDomainIndex:     domainAlignment,
+		}
+	}
+
+	// We do two passes when opening all individual writers. The first pass:
+	// 1. Opens all virtual writers.
+	// 2. Opens all write based writers.
+	// 3. Opens the indexes of all domain indexed writers (if the indexes are in the
+	// 	list of channels).
+	//
+	// For the second pass, we open all indexed writers for particular indexes. This
+	// ensures that we provide a valid domain alignment to all unary writers for a
+	// particular index group.
 	for i, key := range cfg.Channels {
 		u, uOk := db.unaryDBs[key]
 		v, vOk := db.virtualDBs[key]
@@ -204,6 +229,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			transfer controller.Transfer
 		)
 		if vOk {
+			// If the channel is virtual.
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
@@ -216,42 +242,34 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if err != nil {
 				return nil, err
 			}
-		} else {
+		} else if u.Channel().Index == 0 || u.Channel().IsIndex {
+			// If the channel is rate based OR an index.
 			var unaryW *unary.Writer
-			unaryW, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
-				Subject:                  cfg.ControlSubject,
-				Start:                    cfg.Start,
-				Authority:                auth,
-				Persist:                  config.Bool(cfg.Mode.Persist()),
-				EnableAutoCommit:         cfg.EnableAutoCommit,
-				AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
-				ErrOnUnauthorized:        cfg.ErrOnUnauthorized,
-			})
+			unaryW, transfer, err = u.OpenWriter(
+				ctx,
+				// A domain alignment of 0 lets the writer choose the domain alignment,
+				// which is what we want for an index.
+				makeUnaryConfig(i, 0),
+			)
 			if err != nil {
 				return nil, err
 			}
-			if u.Channel.Index != 0 {
+			if u.Channel().IsIndex {
 				// Hot path optimization: in the common case we only write to a rate based
 				// index or a domain indexed channel, not both. In either case we can avoid a
 				// map allocation.
 				if domainWriters == nil {
 					domainWriters = make(map[ChannelKey]*idxWriter)
 				}
-				idxW, exists := domainWriters[u.Channel.Index]
-				if !exists {
-					// If there is no existing index writer for this index-group.
-					idxW, err = db.openDomainIdxWriter(u.Channel.Index, cfg)
-					if err != nil {
-						return nil, err
-					}
-					idxW.writingToIdx = u.Channel.IsIndex
-					domainWriters[u.Channel.Index] = idxW
-				} else if u.Channel.IsIndex {
-					idxW.writingToIdx = true
-					domainWriters[u.Channel.Index] = idxW
+				// If there is no existing index writer for this index-group.
+				idxW, err := db.openDomainIdxWriter(u.Channel().Index, cfg)
+				if err != nil {
+					return nil, err
 				}
-
+				idxW.writingToIdx = true
+				idxW.domainAlignment = unaryW.DomainIndex()
 				idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
+				domainWriters[u.Channel().Index] = idxW
 			} else {
 				// Hot path optimization: in the common case we only write to a rate based
 				// index or an indexed channel, not both. In either case we can avoid a
@@ -259,19 +277,49 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				if rateWriters == nil {
 					rateWriters = make(map[telem.Rate]*idxWriter)
 				}
-
-				idxW, ok := rateWriters[u.Channel.Rate]
+				idxW, ok := rateWriters[u.Channel().Rate]
 				if !ok {
-					idxW = db.openRateIdxWriter(u.Channel.Rate, cfg)
-					rateWriters[u.Channel.Rate] = idxW
+					idxW = db.openRateIdxWriter(u.Channel().Rate, cfg)
+					rateWriters[u.Channel().Rate] = idxW
 				}
-
 				idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
 			}
 			if transfer.Occurred() {
 				controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 			}
 		}
+	}
+
+	// On the second pass, we open all domain indexed writers that have indexes.
+	for i, key := range cfg.Channels {
+		u, uOk := db.unaryDBs[key]
+		// Ignore virtual, index, and rate based channels.
+		if !uOk || u.Channel().IsIndex || u.Channel().Index == 0 {
+			continue
+		}
+		idxW, ok := domainWriters[u.Channel().Index]
+		if !ok {
+			if domainWriters == nil {
+				domainWriters = make(map[ChannelKey]*idxWriter)
+			}
+			idxW, err = db.openDomainIdxWriter(u.Channel().Index, cfg)
+			if err != nil {
+				return nil, err
+			}
+			idxW.writingToIdx = false
+			domainWriters[u.Channel().Index] = idxW
+		}
+		unaryW, transfer, err := u.OpenWriter(
+			ctx,
+			makeUnaryConfig(i, idxW.domainAlignment),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if transfer.Occurred() {
+			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
+		}
+		idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
@@ -308,10 +356,9 @@ func (db *DB) openDomainIdxWriter(
 	if !ok {
 		return nil, core.NewErrChannelNotFound(idxKey)
 	}
-	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.key = idxKey
-	w.idx.Index = idx
+	w.idx.Index = u.Index()
 	w.idx.highWaterMark = cfg.Start
 	w.writingToIdx = false
 	w.start = cfg.Start

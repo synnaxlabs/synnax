@@ -52,6 +52,14 @@ func (g *Gate[E]) State() *State {
 	}
 }
 
+// PeekEntity returns the entity that is controlled by the gate. The entity is NOT valid
+// for modification or use.
+func (g *Gate[E]) PeekEntity() E {
+	g.r.RLock()
+	defer g.r.RUnlock()
+	return g.r.entity
+}
+
 // Authorized authorizes the gates access to the entity. If another gate has precedence,
 // Authorized will return false.
 func (g *Gate[E]) Authorized() (e E, ok bool) {
@@ -336,7 +344,7 @@ func (c *Controller[E]) LeadingState() *State {
 	return first.curr.State()
 }
 
-// OpenAbsoluteGateIfUncontrolled opens a region and an absolute gate on a timerange if
+// OpenAbsoluteGateIfUncontrolled opens a region and an absolute gate on a time range if
 // it is not under control of another region otherwise. Otherwise, it returns an error
 func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s control.Subject, callback func() (E, error)) (g *Gate[E], t Transfer, err error) {
 	c.mu.Lock()
@@ -366,7 +374,7 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 				r.Unlock()
 				return nil, t, errors.Wrapf(
 					control.Unauthorized,
-					"timerange %v overlaps with a controlled region with bounds %v controlled by %v", tr, r.timeRange, r.curr.Subject)
+					"time range %v overlaps with a controlled region with bounds %v controlled by %v", tr, r.timeRange, r.curr.Subject)
 			}
 
 			g = &Gate[E]{
@@ -398,7 +406,7 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 	return
 }
 
-// OpenGateAndMaybeRegister checks whether a region exists in the requested timerange,
+// OpenGateAndMaybeRegister checks whether a region exists in the requested time range,
 // and creates a new one if one does. Otherwise, it registers that region and opens a
 // new gate with absolute authority.
 func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func() (E, error)) (g *Gate[E], t Transfer, err error) {
@@ -410,7 +418,7 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, r := range c.regions {
-		// Check if there is an existing region that overlaps with that timerange.
+		// Check if there is an existing region that overlaps with that time range.
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given time.
 			if exists {

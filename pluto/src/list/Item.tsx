@@ -23,6 +23,7 @@ export interface ItemFrameProps<K extends Key, E extends Keyed<K>>
   draggingOver?: boolean;
   rightAligned?: boolean;
   highlightHovered?: boolean;
+  allowSelect?: boolean;
 }
 
 export const ItemFrame = <K extends Key, E extends Keyed<K>>({
@@ -34,6 +35,7 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
   draggingOver: __,
   rightAligned = false,
   highlightHovered = false,
+  allowSelect = true,
   translate,
   style,
   sourceIndex: _,
@@ -48,6 +50,7 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
       className,
       CONTEXT_TARGET,
       selected && CONTEXT_SELECTED,
+      allowSelect && CSS.M("selectable"),
       hovered && CSS.M("hovered"),
       rightAligned && CSS.M("right-aligned"),
       highlightHovered && CSS.M("highlight-hover"),

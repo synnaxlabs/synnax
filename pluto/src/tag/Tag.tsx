@@ -17,8 +17,10 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
+import { Optional } from "@synnaxlabs/x";
 
-export interface TagProps extends Omit<Text.TextProps, "level" | "size" | "wrap"> {
+export interface TagProps
+  extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
   icon?: ReactElement;
   onClose?: () => void;
   color?: Color.Crude;
@@ -42,7 +44,7 @@ export const Tag = ({
     onClose == null ? undefined : (
       <Button.Icon
         aria-label="close"
-        size={size}
+        size={"small"}
         className={CSS.BE("tag", "close")}
         onClick={(e) => {
           e.stopPropagation();

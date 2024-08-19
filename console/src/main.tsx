@@ -25,6 +25,7 @@ import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
@@ -51,6 +52,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
   ...Confirm.LAYOUTS,
+  ...Label.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

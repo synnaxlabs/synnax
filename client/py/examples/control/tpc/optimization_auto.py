@@ -1,3 +1,12 @@
+#  Copyright 2024 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
 import dataclasses
 import time
 import synnax as sy
@@ -78,6 +87,10 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
         if wait_for_confirm:
             auto.wait_until(start_sim_cmd)
         try:
+            parent_rng = client.ranges.create(
+                name="TPC Test",
+                time_range=sy.TimeRange(sy.TimeStamp.now(), sy.TimeStamp.now()),
+            )
             print("Starting TPC Test. Setting initial system state.")
             auto.set(
                 {
@@ -113,10 +126,9 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 time.sleep(params.press_step_delay)
 
             dual_press_end = sy.TimeStamp.now()
-            client.ranges.create(
-                name=f"{dual_press_start.__str__()[11:16]} Dual Press Sequence",
+            parent_rng.create_sub_range(
+                name=f"Dual Press Sequence",
                 time_range=sy.TimeRange(dual_press_start, dual_press_end),
-                # a nice red
                 color="#D81E5B",
             )
 
@@ -145,10 +157,9 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             time.sleep(2)
 
             press_tank_end = sy.TimeStamp.now()
-            client.ranges.create(
-                name=f"{press_tank_start.__str__()[11:16]} Press Tank Pressurization",
+            parent_rng.create_sub_range(
+                name=f"Press Tank Pressurization",
                 time_range=sy.TimeRange(press_tank_start, press_tank_end),
-                # a nice blue
                 color="#1E90FF",
             )
 
@@ -160,8 +171,8 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             auto.wait_until(lambda c: run_tpc(c))
             print("Test complete. Safeing System")
 
-            rng = client.ranges.create(
-                name=f"{start.__str__()[11:16]} Bang Bang Sim",
+            rng = parent_rng.create_sub_range(
+                name=f"Bang Bang Sim",
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",
             )
@@ -230,7 +241,7 @@ if __name__ == "__main__":
         tpc_upper_bound=50,
         tpc_lower_bound=45,
     )
-    res = execute_auto(initial_params, wait_for_confirm=True)
+    res = execute_auto(initial_params, wait_for_confirm=False)
     next_params = perform_analysis(initial_params, res)
     res = execute_auto(next_params)
     next_params.tpc_upper_bound = initial_params.tpc_upper_bound

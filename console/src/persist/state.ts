@@ -16,7 +16,7 @@ import {
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
-import { getCurrent } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { TauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
@@ -49,7 +49,7 @@ interface StateVersionValue {
 const KEEP_HISTORY = 4;
 
 export const hardClearAndReload = () => {
-  const appWindow = getCurrent();
+  const appWindow = getCurrentWindow();
   if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
   const db = new TauriKV();
   db.clear().finally(() => {
@@ -61,7 +61,7 @@ export const open = async <S extends RequiredState>({
   exclude = [],
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
-  const appWindow = getCurrent();
+  const appWindow = getCurrentWindow();
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;

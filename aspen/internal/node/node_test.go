@@ -27,7 +27,7 @@ var _ = Describe("Node", func() {
 		})
 	})
 
-	Describe("ArrayIndex", func() {
+	Describe("Group", func() {
 
 		Describe("Filter", func() {
 

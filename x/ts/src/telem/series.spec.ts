@@ -507,6 +507,20 @@ describe("Series", () => {
         s.toStrings();
       }).toThrow();
     });
+    it("should not throw an error if the series is of type UUID", () => {
+      const s = new Series({
+        data: new Uint8Array([1, 2, 3]),
+        dataType: DataType.UUID,
+      });
+      expect(() => {
+        s.toStrings();
+      }).not.toThrow();
+    });
+    it("should return an array of length 0 if the series is empty", () => {
+      const s = new Series({ data: new Float32Array([]), dataType: DataType.STRING });
+      const outStrings = s.toStrings();
+      expect(outStrings).toEqual([]);
+    });
   });
 
   describe("JSON series", () => {

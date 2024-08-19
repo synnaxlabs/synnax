@@ -23,7 +23,7 @@
     overflow-x: visible;
     width: fit-content;
     .pluto-color-swatch {
-        width: 3rem;
-        height: 2rem;
+        width: 1rem;
+        height: 2.5rem;
     }
 }
