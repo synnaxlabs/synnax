@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type z, type ZodSchema } from "zod";
 
 import { deep } from "@/deep";
-import { UnknownRecord } from "@/record";
+import { type UnknownRecord } from "@/record";
 
 export const getFieldSchemaPath = (path: string): string =>
   deep.transformPath(path, (part, index, parts) => {
@@ -42,3 +42,28 @@ export const getFieldSchema: deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny> = ((
     getFieldSchemaPath(path),
     { ...options, getter: sourceTypeGetter } as deep.GetOptions<boolean | undefined>,
   ) as z.ZodTypeAny | null) as deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny>;
+
+/**
+ * Creates a transformer function that validates and transforms input values based on
+ * provided schemas. The first schema to successfully validate the input value is used
+ * in the transformation. If no schema is found that validates the input, the
+ * transformer function returns null.
+ *
+ * @template Input - The type of the input value.
+ * @template Output - The type of the output value.
+ * @param transform - The function to transform the input value to the output value.
+ * @param schemas - An array of Zod schemas to validate the input value against.
+ * @returns A function that takes an unknown value, validates it against the schemas,
+ * and uses the first valid schema to transform the input type. If no schema can
+ * validate the input, the function returns null.
+ */
+export const transformer =
+  <Input, Output>(
+    transform: (input: Input) => Output,
+    schemas: ZodSchema<Input>[],
+  ): ((value: unknown) => Output | null) =>
+  (value) => {
+    const matchingSchema = schemas.find((schema) => schema.safeParse(value).success);
+    if (matchingSchema == null) return null;
+    return transform(matchingSchema.parse(value));
+  };
