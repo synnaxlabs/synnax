@@ -19,6 +19,10 @@ import * as latest from "@/schematic/migrations";
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
 export type State = latest.State;
+export interface StateWithName extends State {
+  name: string;
+}
+
 export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
@@ -124,11 +128,6 @@ export interface SetRemoteCreatedPayload {
 export interface SetLegendPayload {
   key: string;
   legend: Partial<LegendState>;
-}
-
-export interface RenamePayload {
-  key: string;
-  name: string;
 }
 
 export const calculatePos = (
@@ -248,14 +247,9 @@ export const { actions, reducer } = createSlice({
       const { keys: layoutKeys } = payload;
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
-        if (schematic == null) return;
         if (schematic?.control === "acquired") schematic.controlAcquireTrigger -= 1;
         delete state.schematics[layoutKey];
       });
-    },
-    rename: (state, { payload }: PayloadAction<RenamePayload>) => {
-      const { key, name } = payload;
-      state.schematics[key].name = name;
     },
     addElement: (state, { payload }: PayloadAction<AddElementPayload>) => {
       const { key: layoutKey, elKey: key, props, node } = payload;
@@ -455,7 +449,6 @@ export const {
   setEdges,
   setNodes,
   remove,
-  rename,
   clearSelection,
   setFitViewOnResize,
   create: internalCreate,

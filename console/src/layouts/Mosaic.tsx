@@ -174,13 +174,12 @@ export const Mosaic = memo((): ReactElement => {
                 break;
             }
           } catch (e) {
-            if (e instanceof Error) {
+            if (e instanceof Error)
               addStatus({
                 variant: "error",
                 message: `Failed to read ${name}`,
                 description: e.message,
               });
-            }
           }
         }
       })();

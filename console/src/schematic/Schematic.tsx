@@ -50,7 +50,6 @@ import {
   copySelection,
   internalCreate,
   pasteSelection,
-  rename,
   setControlStatus,
   setEdges,
   setEditable,
@@ -149,10 +148,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const prevName = usePrevious(name);
   useEffect(() => {
-    if (prevName !== name) {
-      dispatch(Layout.rename({ key: layoutKey, name }));
-      dispatch(rename({ key: layoutKey, name }));
-    }
+    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(

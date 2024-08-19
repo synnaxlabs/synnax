@@ -24,32 +24,60 @@ export const fileHandler: Layout.FileHandler = async ({
   client,
   workspaceKey,
   confirm,
-  name,
+  name: fileName,
   store,
 }): Promise<boolean> => {
   const newState = parser(file);
   if (newState == null) return false;
+  const key = newState.key;
+  const existingState = select(store.getState(), key);
+  const existingName = Layout.select(store.getState(), key)?.name;
+  const potentialFileName = file?.name;
+  let name = typeof potentialFileName === "string" ? potentialFileName : undefined;
+  if (name == null) name = fileName.split(".").slice(0, -1).join(".");
+  if (name.length === 0) name = "New Schematic";
+
   const creator = create({
     ...newState,
     tab,
+    name: fileName,
   });
-  const key = newState.key;
-  const existingState = select(store.getState(), key);
+
   if (existingState != null) {
     if (
       !(await confirm({
-        message: `${name} already exists as ${existingState.name}`,
+        message:
+          `${fileName} already exists` +
+          (existingName != null ? ` as ${existingName}` : ""),
         description: "Would you like to replace the existing schematic?",
         cancel: { label: "Cancel" },
         confirm: { label: "Replace", variant: "error" },
       }))
     )
       return true;
-    dispatch(Layout.remove({ keys: [key] }));
-    dispatch(remove({ keys: [key] }));
+  } else if (client != null) {
+    try {
+      const existing = await client.workspaces.schematic.retrieve(key);
+      if (
+        !(await confirm({
+          message: `${fileName} already exists in the cluster as ${existing.name}`,
+          description: "Would you like to replace the existing schematic?",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Replace", variant: "error" },
+        }))
+      )
+        return true;
+    } catch (e) {
+      if (!NotFoundError.matches(e)) throw e;
+    }
   }
-  placer(creator);
-  if (client == null) return true;
+  dispatch(Layout.remove({ keys: [key] }));
+  dispatch(remove({ keys: [key] }));
+
+  if (client == null) {
+    placer(creator);
+    return true;
+  }
 
   // Logic for changing the schematic in the cluster
   try {
@@ -58,13 +86,17 @@ export const fileHandler: Layout.FileHandler = async ({
       key,
       newState as unknown as UnknownRecord,
     );
+    await client.workspaces.schematic.rename(key, name);
   } catch (e) {
     if (!NotFoundError.matches(e)) throw e;
     if (workspaceKey != null)
       await client.workspaces.schematic.create(workspaceKey, {
         data: newState as unknown as UnknownRecord,
-        ...newState,
+        name,
+        snapshot: newState.snapshot,
+        key,
       });
   }
+  placer(creator);
   return true;
 };

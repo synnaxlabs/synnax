@@ -40,7 +40,7 @@ import {
 } from "react-icons/fa";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
-import { HiDownload, HiLightningBolt, HiOutlinePlus, HiUpload } from "react-icons/hi";
+import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
@@ -247,7 +247,6 @@ export const Icon: IconType = {
   Reference: wrapIcon(IoBookSharp, "reference"),
   Bolt: wrapIcon(HiLightningBolt, "bolt"),
   Download: wrapIcon(HiDownload, "download"),
-  Upload: wrapIcon(HiUpload, "upload"),
   Import: wrapIcon(CiImport, "import"),
   Export: wrapIcon(CiExport, "export"),
   Range: wrapIcon(MdOutlineAccessTimeFilled, "range"),
@@ -383,7 +382,6 @@ export interface IconType {
   Reference: IconFC;
   Bolt: IconFC;
   Download: IconFC;
-  Upload: IconFC;
   Import: IconFC;
   Export: IconFC;
   Range: IconFC;

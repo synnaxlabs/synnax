@@ -18,7 +18,7 @@ import { Confirm } from "@/confirm";
 import { Layout } from "@/layout";
 import { select } from "@/schematic/selectors";
 import { fileHandler } from "@/schematic/services/file";
-import { type State } from "@/schematic/slice";
+import { type State, type StateWithName } from "@/schematic/slice";
 import { RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
@@ -29,18 +29,31 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
 
   return useMutation<void, Error, string>({
     mutationFn: async (key) => {
-      let state = select(store.getState(), key);
+      const storeState = store.getState();
+      let state = select(storeState, key);
+      let name = Layout.select(storeState, key)?.name;
       if (state == null) {
-        if (client == null) throw new Error("Client is not available");
+        if (client == null) throw new UnexpectedError("Client is unavailable");
         const schematic = await client.workspaces.schematic.retrieve(key);
-        state = schematic.data as unknown as State;
+        state = {
+          ...(schematic.data as unknown as State),
+          snapshot: schematic.snapshot,
+          key: schematic.key,
+        };
+        name = schematic.name;
       }
+      if (name == null)
+        throw new UnexpectedError("Schematic with key is missing in store state");
       const savePath = await save({
         defaultPath: `${name}.json`,
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (savePath == null) return;
-      await writeFile(savePath, new TextEncoder().encode(JSON.stringify(state)));
+      const schematicData: StateWithName = { ...state, name };
+      await writeFile(
+        savePath,
+        new TextEncoder().encode(JSON.stringify(schematicData)),
+      );
     },
     onError: (err) => {
       addStatus({

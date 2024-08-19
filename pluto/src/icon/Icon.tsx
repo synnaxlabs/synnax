@@ -52,10 +52,6 @@ export const Create = (props: DetailProps): ReactElement => (
   <Icon topRight={<MediaIcon.Add />} {...props} />
 );
 
-export const Export = (props: DetailProps): ReactElement => (
-  <Icon topRight={<MediaIcon.Export />} {...props} />
-);
-
 export const Import = (props: DetailProps): ReactElement => (
   <Icon topRight={<MediaIcon.Import />} {...props} />
 );
