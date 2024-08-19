@@ -52,6 +52,8 @@ func (g *Gate[E]) State() *State {
 	}
 }
 
+// PeekEntity returns the entity that is controlled by the gate. The entity is NOT valid
+// for modification or use.
 func (g *Gate[E]) PeekEntity() E {
 	g.r.RLock()
 	defer g.r.RUnlock()
