@@ -39,6 +39,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Checkout Head Branch
+        run: git checkout ${{ github.event.pull_request.head.ref }}
+
       - name: Merge Base Branch
         run: git merge ${{ github.event.pull_request.base_ref }} --no-commit --no-ff
 
