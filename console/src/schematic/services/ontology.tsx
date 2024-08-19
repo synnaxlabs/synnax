@@ -201,6 +201,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const schematic = await client.workspaces.schematic.retrieve(id.key);
     placeLayout(
       create({
+        name: schematic.name,
         ...(schematic.data as unknown as State),
         location: "mosaic",
         tab: {

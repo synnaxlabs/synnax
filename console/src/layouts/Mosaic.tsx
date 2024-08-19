@@ -157,6 +157,7 @@ export const Mosaic = memo((): ReactElement => {
             const buffer = await file.arrayBuffer();
             const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
 
+            let handlerFound = false;
             for (const fileHandler of FILE_HANDLERS) {
               if (
                 await fileHandler({
@@ -170,9 +171,13 @@ export const Mosaic = memo((): ReactElement => {
                   dispatch,
                   tab: { mosaicKey: nodeKey, location: loc },
                 })
-              )
+              ) {
+                handlerFound = true;
                 break;
+              }
             }
+            if (!handlerFound)
+              throw Error(`${name} is not recognized as a Synnax object`);
           } catch (e) {
             if (e instanceof Error)
               addStatus({

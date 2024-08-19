@@ -19,10 +19,6 @@ import * as latest from "@/schematic/migrations";
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
 export type State = latest.State;
-export interface StateWithName extends State {
-  name: string;
-}
-
 export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
@@ -247,7 +243,8 @@ export const { actions, reducer } = createSlice({
       const { keys: layoutKeys } = payload;
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
-        if (schematic?.control === "acquired") schematic.controlAcquireTrigger -= 1;
+        if (schematic == null) return;
+        if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
         delete state.schematics[layoutKey];
       });
     },

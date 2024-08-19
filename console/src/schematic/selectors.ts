@@ -20,9 +20,6 @@ import {
 
 export const selectSliceState = (state: StoreState): SliceState => state.schematic;
 
-export const useSelectSliceState = (): SliceState =>
-  useMemoSelect(selectSliceState, []);
-
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
 

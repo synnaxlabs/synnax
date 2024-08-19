@@ -27,20 +27,20 @@ export const fileHandler: Layout.FileHandler = async ({
   name: fileName,
   store,
 }): Promise<boolean> => {
-  const newState = parser(file);
-  if (newState == null) return false;
-  const key = newState.key;
-  const existingState = select(store.getState(), key);
-  const existingName = Layout.select(store.getState(), key)?.name;
-  const potentialFileName = file?.name;
-  let name = typeof potentialFileName === "string" ? potentialFileName : undefined;
-  if (name == null) name = fileName.split(".").slice(0, -1).join(".");
+  const state = parser(file);
+  if (state == null) return false;
+  const key = state.key;
+  let name = file?.name;
+  if (typeof name !== "string") name = fileName.split(".").slice(0, -1).join(".");
   if (name.length === 0) name = "New Schematic";
 
+  const existingState = select(store.getState(), key);
+  const existingName = Layout.select(store.getState(), key)?.name;
+
   const creator = create({
-    ...newState,
+    ...state,
     tab,
-    name: fileName,
+    name,
   });
 
   if (existingState != null) {
@@ -55,45 +55,24 @@ export const fileHandler: Layout.FileHandler = async ({
       }))
     )
       return true;
-  } else if (client != null) {
-    try {
-      const existing = await client.workspaces.schematic.retrieve(key);
-      if (
-        !(await confirm({
-          message: `${fileName} already exists in the cluster as ${existing.name}`,
-          description: "Would you like to replace the existing schematic?",
-          cancel: { label: "Cancel" },
-          confirm: { label: "Replace", variant: "error" },
-        }))
-      )
-        return true;
-    } catch (e) {
-      if (!NotFoundError.matches(e)) throw e;
-    }
   }
   dispatch(Layout.remove({ keys: [key] }));
   dispatch(remove({ keys: [key] }));
 
-  if (client == null) {
-    placer(creator);
-    return true;
-  }
+  if (client == null) return true;
 
   // Logic for changing the schematic in the cluster
   try {
     await client.workspaces.schematic.retrieve(key);
-    await client.workspaces.schematic.setData(
-      key,
-      newState as unknown as UnknownRecord,
-    );
+    await client.workspaces.schematic.setData(key, state as unknown as UnknownRecord);
     await client.workspaces.schematic.rename(key, name);
   } catch (e) {
     if (!NotFoundError.matches(e)) throw e;
     if (workspaceKey != null)
       await client.workspaces.schematic.create(workspaceKey, {
-        data: newState as unknown as UnknownRecord,
+        data: state as unknown as UnknownRecord,
         name,
-        snapshot: newState.snapshot,
+        snapshot: state.snapshot,
         key,
       });
   }
