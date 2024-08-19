@@ -457,8 +457,8 @@ var (
 
 // NewAlignmentPair takes the given array index and sample index within that array and
 // returns a new AlignmentPair (see AlignmentPair for more information).
-func NewAlignmentPair(arrayIndex, sampleIndex uint32) AlignmentPair {
-	return AlignmentPair(arrayIndex)<<32 | AlignmentPair(sampleIndex)
+func NewAlignmentPair(domainIdx, sampleIdx uint32) AlignmentPair {
+	return AlignmentPair(domainIdx)<<32 | AlignmentPair(sampleIdx)
 }
 
 // ZeroLeadingAlignment represents the start of a region reserved for written data that
@@ -468,11 +468,11 @@ const ZeroLeadingAlignment = math.MaxUint32 - 1e6
 
 // LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
 // and whose sample index is the provided value.
-func LeadingAlignment(offset uint32, sampleIndex uint32) AlignmentPair {
-	return NewAlignmentPair(ZeroLeadingAlignment+offset, sampleIndex)
+func LeadingAlignment(domainIdx, sampleIdx uint32) AlignmentPair {
+	return NewAlignmentPair(ZeroLeadingAlignment+domainIdx, sampleIdx)
 }
 
-// DomainIndex returns the group index of the AlignmentPair. See AlignmentPair for more information.
+// DomainIndex returns the domain index of the AlignmentPair. See AlignmentPair for more information.
 func (a AlignmentPair) DomainIndex() uint32 { return uint32(a >> 32) }
 
 // SampleIndex returns the sample index of the AlignmentPair. See AlignmentPair for more information.
