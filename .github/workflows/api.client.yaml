@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Merge Base Branch
-        run: git merge origin/${{ GITHUB_BASE_REF }} --no-commit --no-ff
+        run: git merge origin/${{ github.base_ref }} --no-commit --no-ff
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
