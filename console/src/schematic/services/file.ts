@@ -31,7 +31,8 @@ export const fileHandler: Layout.FileHandler = async ({
   if (state == null) return false;
   const key = state.key;
   let name = file?.name;
-  if (typeof name !== "string") name = fileName.split(".").slice(0, -1).join(".");
+  if (typeof name !== "string" || name.length === 0)
+    name = fileName.split(".").slice(0, -1).join(".");
   if (name.length === 0) name = "New Schematic";
 
   const existingState = select(store.getState(), key);
@@ -58,7 +59,7 @@ export const fileHandler: Layout.FileHandler = async ({
     dispatch(Layout.remove({ keys: [key] }));
     dispatch(remove({ keys: [key] }));
   }
-
+  placer(creator);
   if (client == null) return true;
 
   // Logic for changing the schematic in the cluster
@@ -76,6 +77,5 @@ export const fileHandler: Layout.FileHandler = async ({
         key,
       });
   }
-  placer(creator);
   return true;
 };
