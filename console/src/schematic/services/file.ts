@@ -59,7 +59,7 @@ export const fileHandler: Layout.FileHandler = async ({
     dispatch(Layout.remove({ keys: [key] }));
     dispatch(remove({ keys: [key] }));
   }
-
+  placer(creator);
   if (client == null) return true;
 
   // Logic for changing the schematic in the cluster
@@ -77,6 +77,5 @@ export const fileHandler: Layout.FileHandler = async ({
         key,
       });
   }
-  placer(creator);
   return true;
 };
