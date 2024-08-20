@@ -54,5 +54,10 @@ class Deleter:
         tr: TimeRange,
     ) -> None:
         normal = normalize_channel_params(channels)
-        req = _Request(**{normal.variant: normal.params, "bounds": tr, })
+        req = _Request(
+            **{
+                normal.variant: normal.params,
+                "bounds": tr,
+            }
+        )
         send_required(self._client, _ENDPOINT, req, _Response)

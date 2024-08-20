@@ -64,11 +64,7 @@ class Client:
         ...
 
     def create(
-        self,
-        racks: Rack | list[Rack] | None = None,
-        *,
-        key: int = 0,
-        name: str = ""
+        self, racks: Rack | list[Rack] | None = None, *, key: int = 0, name: str = ""
     ) -> list[Rack]:
         is_single = True
         if racks is None:

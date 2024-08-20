@@ -485,6 +485,7 @@ class AIVoltageChan(BaseAIChan, MinMaxVal):
 
     https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechan.html
     """
+
     type: Literal["ai_voltage"] = "ai_voltage"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Volts"] = "Volts"
@@ -629,7 +630,10 @@ class AnalogReadTask(MetaTask):
             self.internal = internal
             self.config = AnalogReadTaskConfig.parse_obj(json.loads(internal.config))
             return
-        self.internal = Task(name=name, type=self.TYPE, )
+        self.internal = Task(
+            name=name,
+            type=self.TYPE,
+        )
         self.config = AnalogReadTaskConfig(
             device=device,
             sample_rate=sample_rate,

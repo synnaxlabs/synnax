@@ -15,7 +15,6 @@ _REGISTER_ENDPOINT = "/user/register"
 
 
 class UserClient:
-
     client: UnaryClient
 
     def __init__(

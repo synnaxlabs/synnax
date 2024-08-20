@@ -17,7 +17,7 @@ from freighter import (
     Next,
     Payload,
     UnaryClient,
-send_required,
+    send_required,
 )
 
 from synnax.user.payload import UserPayload

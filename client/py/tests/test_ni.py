@@ -356,9 +356,20 @@ class TestNITask:
         DigitalReadConfig.parse_obj(data)
 
     def test_parse_digital_write_task(self):
-        data = {'device': '474503CF-49FD-11EF-80E5-91C59E7C9645', 'state_rate': 10,
-                'channels': [
-                    {'key': 'Xph3kNL7twt', 'type': 'digital_output', 'enabled': True,
-                     'cmd_channel': 1048605, 'state_channel': 1048603, 'port': 0,
-                     'line': 1}], 'data_saving': True}
+        data = {
+            "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+            "state_rate": 10,
+            "channels": [
+                {
+                    "key": "Xph3kNL7twt",
+                    "type": "digital_output",
+                    "enabled": True,
+                    "cmd_channel": 1048605,
+                    "state_channel": 1048603,
+                    "port": 0,
+                    "line": 1,
+                }
+            ],
+            "data_saving": True,
+        }
         DigitalWriteConfig.parse_obj(data)

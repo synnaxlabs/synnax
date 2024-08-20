@@ -11,7 +11,7 @@ import uuid
 import pytest
 
 import synnax as sy
-from synnax.channel.client import channel_ontology_type
+from synnax.channel.client import CHANNEL_ONTOLOGY_TYPE
 from synnax.ontology.id import OntologyID
 
 

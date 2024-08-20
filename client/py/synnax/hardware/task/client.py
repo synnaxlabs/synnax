@@ -16,7 +16,7 @@ from uuid import uuid4
 from synnax.hardware.task.payload import TaskPayload
 from synnax.framer import Client as FrameClient
 from synnax.telem import TimeStamp
-from synnax.util.normalize import normalize
+from synnax.util.normalize import normalize, override, check_for_none
 from synnax.hardware.rack import Rack, Client as RackClient
 
 
@@ -24,8 +24,7 @@ class _CreateRequest(Payload):
     tasks: list[TaskPayload]
 
 
-class _CreateResponse(Payload):
-    tasks: list[TaskPayload]
+_CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(Payload):
@@ -90,8 +89,10 @@ class Task:
     def execute_command(self, type_: str, args: dict | None = None) -> str:
         w = self.__frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
         key = str(uuid4())
-        w.write(_TASK_CMD_CHANNEL,
-                [{"task": self.key, "type": type_, "key": key, "args": args}])
+        w.write(
+            _TASK_CMD_CHANNEL,
+            [{"task": self.key, "type": type_, "key": key, "args": args}],
+        )
         w.close()
         return str(key)
 
@@ -106,10 +107,10 @@ class MetaTask(Protocol):
 
 class Client:
     _client: UnaryClient
-    __frame_client: FrameClient
-    instrumentation: Instrumentation = NOOP
+    _frame_client: FrameClient
     _default_rack: Rack | None
-    __racks: RackClient
+    _racks: RackClient
+    instrumentation: Instrumentation = NOOP
 
     def __init__(
         self,
@@ -119,8 +120,8 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
-        self.__frame_client = frame_client
-        self.__racks = rack_client
+        self._frame_client = frame_client
+        self._racks = rack_client
         self._default_rack = None
         self.instrumentation = instrumentation
 
@@ -174,11 +175,11 @@ class Client:
 
     def get_default_rack(self) -> Rack:
         if self._default_rack is None:
-            self._default_rack = self.__racks.retrieve(names=["sy_node_1_rack"])[0]
+            self._default_rack = self._racks.retrieve(names=["sy_node_1_rack"])[0]
         return self._default_rack
 
     def configure(self, task: MetaTask) -> MetaTask:
-        with self.__frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
+        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
             pld = task.to_payload()
             if pld.key == 0:
                 pld.key = (self.get_default_rack().key << 32) + 0
@@ -189,8 +190,10 @@ class Client:
                 frame = streamer.read(5)
                 if frame is None:
                     break
-                elif _TASK_STATE_CHANNEL not in frame or len(
-                    frame[_TASK_STATE_CHANNEL]) == 0:
+                elif (
+                    _TASK_STATE_CHANNEL not in frame
+                    or len(frame[_TASK_STATE_CHANNEL]) == 0
+                ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 state = frame["sy_task_state"][0]
@@ -231,17 +234,11 @@ class Client:
         names: list[str] | None = None,
         keys: list[int] | None = None,
     ) -> list[Task] | Task:
-        is_single = False
-        if key is not None:
-            keys = [key]
-            is_single = True
-        if name is not None:
-            names = [name]
-            is_single = True
+        is_single = check_for_none(names, keys)
         res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(keys=keys, names=names),
+            _RetrieveRequest(keys=override(key, keys), names=override(name, names)),
             _RetrieveResponse,
         )
         sug = self.__sugar(res.tasks)
@@ -249,6 +246,9 @@ class Client:
 
     def __sugar(self, tasks: list[Payload]):
         return [
-            Task(**t.dict(), _frame_client=self.__frame_client, )
+            Task(
+                **t.dict(),
+                _frame_client=self._frame_client,
+            )
             for t in tasks
         ]

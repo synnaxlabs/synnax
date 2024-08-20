@@ -31,6 +31,7 @@ def normalize(*args: T | tuple[T] | list[T] | None) -> list[T]:
             results.append(arg)
     return results
 
+
 def check_for_none(*args: T | None) -> bool:
     """Check if any of the arguments are None.
 
@@ -41,6 +42,7 @@ def check_for_none(*args: T | None) -> bool:
         True if any of the arguments are None, False otherwise.
     """
     return all(arg is None for arg in args)
+
 
 def override(
     *args: T | tuple[T] | list[T] | None,

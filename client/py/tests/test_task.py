@@ -16,10 +16,7 @@ class TestTaskClient:
     def test_create_single(self, client: sy.Synnax):
         r = client.hardware.racks.create(name="dog")
         task = client.hardware.tasks.create(
-            name="test",
-            type="test",
-            rack=r.key,
-            config="{}"
+            name="test", type="test", rack=r.key, config="{}"
         )
         assert task.key != 0
 

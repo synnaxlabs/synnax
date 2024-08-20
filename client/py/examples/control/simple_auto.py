@@ -8,10 +8,12 @@ with client.control.acquire(
     write=["valve_1_cmd", "valve_2_cmd", "valve_3_cmd", "valve_4_cmd"],
 ) as auto:
     # Set initial valve states
-    auto.set({
-        "valve_1_cmd": False,
-        "valve_2_cmd": True,
-    })
+    auto.set(
+        {
+            "valve_1_cmd": False,
+            "valve_2_cmd": True,
+        }
+    )
 
     # Wait until pressure_1 is less than 100 psi
     auto.wait_until(lambda auto: auto["pressure_1"] < 100)
@@ -19,14 +21,10 @@ with client.control.acquire(
 
     # Schedule valve commands on the driver side exactly 30 milliseconds apart.
     auto.schedule(
+        sy.ScheduledCommand(at=0, values={"valve_3_cmd": True}),
         sy.ScheduledCommand(
-            at=0,
-            values={"valve_3_cmd": True}
+            at=sy.TimeSpan.MILLISECOND * 30, values={"valve_2_cmd": True}
         ),
-        sy.ScheduledCommand(
-            at=sy.TimeSpan.MILLISECOND * 30,
-            values={"valve_2_cmd": True}
-        )
     )
 
     # Wait until the second valve has been opened before proceeding

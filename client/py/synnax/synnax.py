@@ -143,8 +143,9 @@ class Synnax(Client):
         )
         self.control = ControlClient(self, ch_retriever)
         racks = RackClient(client=self._transport.unary)
-        tasks = TaskClient(client=self._transport.unary, frame_client=self,
-                           rack_client=racks)
+        tasks = TaskClient(
+            client=self._transport.unary, frame_client=self, rack_client=racks
+        )
         devices = DeviceClient(client=self._transport.unary)
         self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)
         self.access = PolicyClient(self._transport.unary, instrumentation)

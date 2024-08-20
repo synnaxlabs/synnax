@@ -32,7 +32,6 @@ class _DeleteRequest(Payload):
     names: ChannelNames | None
 
 
-
 _CREATE_ENDPOINT = "/channel/create"
 _DELETE_ENDPOINT = "/channel/delete"
 _RENAME_ENDPOINT = "/channel/rename"
@@ -45,7 +44,7 @@ class _RenameRequest(Payload):
 
 class ChannelWriter:
     _client: UnaryClient
-    __cache: CacheChannelRetriever
+    _cache: CacheChannelRetriever
     instrumentation: Instrumentation
 
     def __init__(
@@ -56,7 +55,7 @@ class ChannelWriter:
     ):
         self._client = client
         self.instrumentation = instrumentation
-        self.__cache = cache
+        self._cache = cache
 
     @trace("debug")
     def create(
@@ -65,7 +64,7 @@ class ChannelWriter:
     ) -> list[ChannelPayload]:
         req = _CreateRequest(channels=channels)
         res = send_required(self._client, _CREATE_ENDPOINT, req, _Response)
-        self.__cache.set(res.channels)
+        self._cache.set(res.channels)
         return res.channels
 
     @trace("debug")
@@ -73,10 +72,10 @@ class ChannelWriter:
         normal = normalize_channel_params(channels)
         req = _DeleteRequest(**{normal.variant: normal.params})
         send_required(self._client, _DELETE_ENDPOINT, req, Empty)
-        self.__cache.delete(normal.params)
+        self._cache.delete(normal.params)
 
     @trace("debug")
     def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
         req = _RenameRequest(keys=keys, names=names)
         send_required(self._client, _RENAME_ENDPOINT, req, Empty)
-        self.__cache.rename(keys, names)
+        self._cache.rename(keys, names)

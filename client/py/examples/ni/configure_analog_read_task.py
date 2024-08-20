@@ -13,9 +13,7 @@ import time
 
 client = sy.Synnax()
 
-# dev = client.hardware.devices.retrieve(model=["USB-6000"])
-# dev = [d for d in dev if d.model == "USB-6289"][0]
-# print(dev)
+dev = client.hardware.devices.retrieve(model="USB-6289")
 
 volts_idx = client.channels.create(
     name="USB-6289 Time",
@@ -29,41 +27,17 @@ volts_1 = client.channels.create(
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
-volts_2 = client.channels.create(
-    name="USB-6289 Voltage 2",
-    index=volts_idx.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
-volts_3 = client.channels.create(
-    name="USB-6289 Voltage 3",
-    index=volts_idx.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
 
 tsk = ni.AnalogReadTask(
     name="USB-6289 Analog Read",
-    device="123",
-    sample_rate=sy.Rate.HZ * 200,
+    device=dev.key,
+    sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
-    channels=[
-        ni.AIVoltageChan(channel=volts_1.key, port=0),
-        ni.AIVoltageChan(channel=volts_2.key, port=1),
-        ni.AIVoltageChan(channel=volts_3.key, port=2),
-    ]
+    channels=[ni.AIVoltageChan(channel=volts_1.key, port=0)],
 )
 
-# while True:
 client.hardware.tasks.configure(tsk)
-    # tsk.start()
-    # time.sleep(5)
-    # tsk.stop()
-    # tsk.config.sample_rate *= 2
-    # tsk.config.stream_rate *= 2
-    # print(f"""
-    # Sample Rate: {tsk.config.sample_rate}
-    # Stream Rate: {tsk.config.stream_rate}
-    # """)
-    #
+tsk.start()
+time.sleep(5)
+tsk.stop()

@@ -19,8 +19,7 @@ class _CreateRequest(Payload):
     devices: list[Device]
 
 
-class _CreateDeviceResponse(Payload):
-    devices: list[Device]
+_CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(Payload):
@@ -90,30 +89,27 @@ class Client:
         model: str = "",
         properties: str = "",
     ):
-        is_single = True
+        is_single = not isinstance(devices, list)
         if devices is None:
-            devices = [Device(
-                key=key,
-                location=location,
-                rack=rack,
-                name=name,
-                make=make,
-                model=model,
-                properties=properties,
-            )]
-        elif isinstance(devices, Device):
-            devices = [devices]
-        else:
-            is_single = False
+            devices = [
+                Device(
+                    key=key,
+                    location=location,
+                    rack=rack,
+                    name=name,
+                    make=make,
+                    model=model,
+                    properties=properties,
+                )
+            ]
+        req = _CreateRequest(devices=normalize(devices))
         res = send_required(
             self._client,
             _CREATE_ENDPOINT,
-            _CreateRequest(devices=devices),
-            _CreateDeviceResponse,
+            req,
+            _CreateResponse,
         )
-        if is_single:
-            return res.devices[0]
-        return res.devices
+        return res.devices[0] if is_single else res.devices
 
     def delete(self, keys: list[str]) -> None:
         req = _DeleteRequest(keys=keys)
@@ -157,8 +153,9 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
-    ) -> list[Device]:
+    ) -> list[Device] | Device:
         is_single = check_for_none(keys, makes, models, locations, names)
+        print(is_single)
         res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,

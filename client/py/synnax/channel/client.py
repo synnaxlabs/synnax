@@ -6,6 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 from __future__ import annotations
 
 from typing import overload
@@ -35,11 +36,10 @@ from synnax.telem import (
     Series,
     TimeRange,
 )
+from synnax.util.normalize import normalize, check_for_none, override
 
-from synnax.util.normalize import normalize
 
-
-channel_ontology_type = OntologyID(type="channel")
+CHANNEL_ONTOLOGY_TYPE = OntologyID(type="channel")
 
 
 class Channel(ChannelPayload):

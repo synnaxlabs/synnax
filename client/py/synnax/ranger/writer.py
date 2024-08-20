@@ -26,7 +26,6 @@ class _DeleteRequest(Payload):
     keys: list[RangeKey]
 
 
-
 _CREATE_ENDPOINT = "/range/create"
 _DELETE_ENDPOINT = "/range/delete"
 
@@ -48,7 +47,9 @@ class RangeWriter:
         self, ranges: list[RangePayload], *, parent: OntologyID | None = None
     ) -> list[RangePayload]:
         req = _CreateRequest(ranges=ranges, parent=parent)
-        return send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse).ranges
+        return send_required(
+            self._client, _CREATE_ENDPOINT, req, _CreateResponse
+        ).ranges
 
     @trace("debug", "range.delete")
     def delete(self, keys: list[RangeKey]):

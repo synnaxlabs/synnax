@@ -15,14 +15,12 @@ from uuid import uuid4
 def basic_device(rack: int, n: int) -> sy.Device:
     key = str(uuid4())
     return sy.Device(
-        key=key,
-        name=f"My Device {n} {key}",
-        rack=rack,
-        location=f"dev{n}"
+        key=key, name=f"My Device {n} {key}", rack=rack, location=f"dev{n}"
     )
 
 
 BasicDevices = tuple[sy.Device, sy.Device]
+
 
 @pytest.mark.device
 class TestDevice:
@@ -56,6 +54,7 @@ class TestDevice:
         assert devices[0].name.startswith("My Device 1")
         assert devices[1].name.startswith("My Device 2")
 
+
     def test_retrieve_by_names(self, client: sy.Synnax, new_devices: BasicDevices):
         d1, d2 = new_devices
         client.hardware.devices.create(devices=[d1, d2])
@@ -76,8 +75,11 @@ class TestDevice:
         assert device.key == d1.key
         assert device.name.startswith("My Device 1")
 
-
-
-
-
-
+    def test_retrieve_by_model(self, client: sy.Synnax, new_devices: BasicDevices):
+        d1, _ = new_devices
+        d1.model = str(uuid4())
+        client.hardware.devices.create(d1)
+        device = client.hardware.devices.retrieve(model=d1.model)
+        assert device.key == d1.key
+        assert device.name.startswith("My Device 1")
+        assert device.model == d1.model
