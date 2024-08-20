@@ -39,6 +39,7 @@ export interface ControlsProps {
   startingOrStopping: boolean;
   onConfigure: () => void;
   configuring: boolean;
+  snapshot?: boolean;
   state?: task.State<{ running?: boolean; message?: string }>;
 }
 
@@ -180,6 +181,7 @@ export const Controls = ({
   startingOrStopping,
   onConfigure,
   configuring,
+  snapshot = false,
 }: ControlsProps) => (
   <Align.Space direction="x" className={CSS.B("task-controls")} justify="spaceBetween">
     <Align.Space
@@ -210,7 +212,7 @@ export const Controls = ({
       <Align.Space direction="y">
         <Button.Icon
           loading={startingOrStopping}
-          disabled={startingOrStopping || state == null}
+          disabled={startingOrStopping || state == null || snapshot}
           onClick={onStartStop}
           variant="outlined"
         >
@@ -220,7 +222,7 @@ export const Controls = ({
       <Align.Space direction="y">
         <Button.Button
           loading={configuring}
-          disabled={configuring}
+          disabled={configuring || snapshot}
           onClick={onConfigure}
           triggers={[CONFIGURE_TRIGGER]}
           tooltip={

@@ -20,8 +20,9 @@ from synnax.control import Client as ControlClient
 from synnax.framer import Client
 from synnax.framer.deleter import Deleter
 from synnax.hardware.client import Client as HardwareClient
-from synnax.hardware.retrieve import Retriever as HardwareRetriever
-from synnax.hardware.writer import Writer as HardwareWriter
+from synnax.hardware.task import Client as TaskClient
+from synnax.hardware.device import Client as DeviceClient
+from synnax.hardware.rack import Client as RackClient
 from synnax.options import SynnaxOptions
 from synnax.ranger import RangeRetriever, RangeWriter
 from synnax.ranger.client import RangeClient
@@ -141,10 +142,11 @@ class Synnax(Client):
             signals=self.signals,
         )
         self.control = ControlClient(self, ch_retriever)
-        self.hardware = HardwareClient(
-            HardwareWriter(client=self._transport.unary),
-            HardwareRetriever(client=self._transport.unary),
-        )
+        racks = RackClient(client=self._transport.unary)
+        tasks = TaskClient(client=self._transport.unary, frame_client=self,
+                           rack_client=racks)
+        devices = DeviceClient(client=self._transport.unary)
+        self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)
         self.access = PolicyClient(self._transport.unary, instrumentation)
         self.user = UserClient(self._transport.unary)
 

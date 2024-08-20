@@ -12,7 +12,7 @@ from typing import TypeVar
 T = TypeVar("T")
 
 
-def normalize(*args: T | tuple[T] | list[T]) -> list[T]:
+def normalize(*args: T | tuple[T] | list[T] | None) -> list[T]:
     """Flatten a list of lists into a single list.
 
     Args:
@@ -22,9 +22,30 @@ def normalize(*args: T | tuple[T] | list[T]) -> list[T]:
         A flattened list.
     """
     results: list[T] = list()
+    if args[0] is None:
+        return results
     for arg in args:
         if isinstance(arg, (list, tuple)):
             results.extend(arg)
         else:
             results.append(arg)
     return results
+
+def check_for_none(*args: T | None) -> bool:
+    """Check if any of the arguments are None.
+
+    Args:
+        *args: A list of arguments to check for None.
+
+    Returns:
+        True if any of the arguments are None, False otherwise.
+    """
+    return all(arg is None for arg in args)
+
+def override(
+    *args: T | tuple[T] | list[T] | None,
+) -> list[T] or None:
+    for arg in args:
+        if arg is not None:
+            return normalize(arg)
+    return None

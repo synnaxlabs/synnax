@@ -207,6 +207,7 @@ class TestRangeClient:
             with pytest.raises(sy.exceptions.QueryError):
                 rng.set_alias("not_found", "test")
 
+
 @pytest.mark.ranger
 class TestRangeData:
     def test_basic_read(self, client: sy.Synnax):

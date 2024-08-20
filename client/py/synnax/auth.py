@@ -17,6 +17,7 @@ from freighter import (
     Next,
     Payload,
     UnaryClient,
+send_required,
 )
 
 from synnax.user.payload import UserPayload
@@ -89,14 +90,12 @@ class AuthenticationClient:
         self.password = password
 
     def authenticate(self) -> None:
-        res, exc = self.client.send(
+        res = send_required(
+            self.client,
             self._LOGIN_ENDPOINT,
             InsecureCredentials(username=self.username, password=self.password),
             TokenResponse,
         )
-        if exc is not None:
-            raise exc
-        assert res is not None
         self.token = res.token
         self.user = res.user
 

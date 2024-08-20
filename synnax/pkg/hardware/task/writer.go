@@ -30,7 +30,7 @@ type Writer struct {
 
 func (w Writer) Create(ctx context.Context, r *Task) (err error) {
 	if !r.Key.IsValid() {
-		localKey, err := w.rack.IncrementModuleCount(ctx, r.Rack(), 1)
+		localKey, err := w.rack.IncrementTaskCount(ctx, r.Rack(), 1)
 		if err != nil {
 			return err
 		}
@@ -62,4 +62,29 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		return err
 	}
 	return w.otg.DeleteResource(ctx, OntologyID(key))
+}
+
+func (w Writer) Copy(
+	ctx context.Context,
+	key Key,
+	name string,
+	snapshot bool,
+) (Task, error) {
+	localKey, err := w.rack.IncrementTaskCount(ctx, key.Rack(), 1)
+	if err != nil {
+		return Task{}, err
+	}
+	newKey := NewKey(key.Rack(), localKey)
+	var res Task
+	err = gorp.NewUpdate[Key, Task]().WhereKeys(key).Change(func(t Task) Task {
+		t.Key = newKey
+		t.Name = name
+		t.Snapshot = snapshot
+		res = t
+		return t
+	}).Exec(ctx, w.tx)
+	if err := w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
+		return Task{}, err
+	}
+	return res, err
 }

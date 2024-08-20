@@ -37,7 +37,12 @@ func (r Retrieve) WhereKeys(keys ...string) Retrieve {
 }
 
 func (r Retrieve) WhereMakes(make ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(make, d.Make) })
+	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(make, d.Make) }, gorp.Required())
+	return r
+}
+
+func (r Retrieve) WhereLocations(locations ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(locations, d.Location) }, gorp.Required())
 	return r
 }
 

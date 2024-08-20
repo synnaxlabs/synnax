@@ -9,7 +9,7 @@
 
 import { NotFoundError, QueryError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
@@ -49,6 +49,7 @@ import {
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
@@ -161,7 +162,7 @@ const Wrapped = ({
         const channels = await client.channels.create(
           toCreate.map((c) => ({
             name: `${dev.properties.identifier}_ai_${c.port}`,
-            dataType: "float32", // TODO: also support float64 
+            dataType: "float32", // TODO: also support float64
             index: dev.properties.analogInput.index,
           })),
         );
@@ -199,13 +200,36 @@ const Wrapped = ({
     },
   });
 
+  const copy = useCopyToClipboard();
+  const handleCopyPythonCode = () => {
+    const name = methods.get("name").value;
+    copy(
+      `
+      from synnax.hardware.ni import AnalogReadTask
+      # Retrieve ${name}
+      task = AnalogReadTask(client.hardware.tasks.retrieve(key=${task?.key}))
+      `,
+      `Python code for ${name}`,
+    );
+  };
+
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
         <Form.Form {...methods}>
-          <Form.Field<string> path="name">
-            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-          </Form.Field>
+          <Align.Space direction="x" justify="spaceBetween">
+            <Form.Field<string> path="name">
+              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+            </Form.Field>
+            <Button.Icon
+              tooltip={`Copy Python code for ${methods.get("name").value}`}
+              tooltipLocation="left"
+              variant="text"
+              onClick={handleCopyPythonCode}
+            >
+              <Icon.Python style={{ color: "var(--pluto-gray-l7)" }} />
+            </Button.Icon>
+          </Align.Space>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -257,6 +281,7 @@ const Wrapped = ({
           configuring={configure.isPending}
           onStartStop={startOrStop.mutate}
           onConfigure={configure.mutate}
+          snapshot={task?.snapshot}
         />
       </Align.Space>
     </Align.Space>

@@ -13,9 +13,8 @@ import uuid
 from typing import overload
 
 from alamos import Instrumentation, NOOP, trace
-from freighter import Payload, UnaryClient
+from freighter import Payload, UnaryClient, send_required, Empty
 from synnax.access.payload import Policy
-from synnax.exceptions import NotFoundError
 from synnax.ontology.id import OntologyID
 
 
@@ -38,8 +37,6 @@ class _DeleteRequest(Payload):
     keys: list[uuid.UUID]
 
 
-class _DeleteResponse(Payload):
-    ...
 
 
 policy_ontology_type = OntologyID(type="policy")
@@ -105,32 +102,29 @@ class PolicyClient:
             _policies = [policies]
         else:
             _policies = policies
-
         req = _CreateRequest(policies=_policies)
-        res, exc = self.__client.send(self.__CREATE_ENDPOINT, req, _CreateResponse)
-        if exc is not None:
-            raise exc
-
+        res = send_required(
+            self.__client,
+            self.__CREATE_ENDPOINT,
+            req,
+            _CreateResponse
+        )
         return res.policies[0] if len(res.policies) == 1 else res.policies
 
     @trace("debug")
     def retrieve(self, subject: OntologyID) -> list[Policy]:
-        res, exc = self.__client.send(
+        return send_required(
+            self.__client,
             self.__RETRIEVE_ENDPOINT,
             _RetrieveRequest(subject=subject),
             _RetrieveResponse,
-        )
-        if exc is not None:
-            raise exc
-        return res.policies
+        ).policies
 
     @trace("debug")
     def delete(self, keys: uuid.UUID | list[uuid.UUID]) -> None:
-        res, exc = self.__client.send(
+        send_required(
+            self.__client,
             self.__DELETE_ENDPOINT,
             _DeleteRequest(keys=[keys] if isinstance(keys, uuid.UUID) else keys),
-            _DeleteResponse,
+            Empty,
         )
-        if exc is not None:
-            raise exc
-        return res

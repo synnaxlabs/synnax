@@ -9,10 +9,10 @@
 
 from __future__ import annotations
 
-from typing import Protocol, cast
+from typing import Protocol
 
 from alamos import NOOP, Instrumentation, trace
-from freighter import Payload, UnaryClient
+from freighter import Payload, UnaryClient, send_required
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -44,9 +44,11 @@ class ChannelRetriever(Protocol):
         ...
 
 
+_ENDPOINT = "/channel/retrieve"
+
+
 class ClusterChannelRetriever:
-    __ENDPOINT = "/channel/retrieve"
-    __client: UnaryClient
+    _client: UnaryClient
     instrumentation: Instrumentation
 
     def __init__(
@@ -54,7 +56,7 @@ class ClusterChannelRetriever:
         client: UnaryClient,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
-        self.__client = client
+        self._client = client
         self.instrumentation = instrumentation
 
     def _(self) -> ChannelRetriever:
@@ -65,24 +67,14 @@ class ClusterChannelRetriever:
         normal = normalize_channel_params(params)
         if len(normal.params) == 0:
             return list()
-        return self.__execute(
-            _Request(**{normal.variant: normal.params})
-        )  # type: ignore
-
-    def __execute(
-        self,
-        req: _Request,
-    ) -> list[ChannelPayload]:
-        res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
-        if exc is not None:
-            raise exc
-        return res.channels
+        req = _Request(**{normal.variant: normal.params})
+        return send_required(self._client, _ENDPOINT, req, _Response).channels
 
 
 class CacheChannelRetriever:
-    __retriever: ChannelRetriever
-    __channels: dict[ChannelKey, ChannelPayload]
-    __names_to_keys: dict[ChannelName, set[ChannelKey]]
+    _retriever: ChannelRetriever
+    _channels: dict[ChannelKey, ChannelPayload]
+    _names_to_keys: dict[ChannelName, set[ChannelKey]]
     instrumentation: Instrumentation
 
     def __init__(
@@ -90,65 +82,65 @@ class CacheChannelRetriever:
         retriever: ChannelRetriever,
         instrumentation: Instrumentation,
     ) -> None:
-        self.__channels = dict()
-        self.__names_to_keys = dict()
+        self._channels = dict()
+        self._names_to_keys = dict()
         self.instrumentation = instrumentation
-        self.__retriever = retriever
+        self._retriever = retriever
 
     def delete(self, keys: ChannelParams) -> None:
         normal = normalize_channel_params(keys)
         if normal.variant == "names":
             matches = {
-                ch for ch in self.__channels.values() if ch.name in normal.params
+                ch for ch in self._channels.values() if ch.name in normal.params
             }
             for ch in matches:
-                self.__channels.pop(ch.key)
-                self.__names_to_keys.pop(ch.name)
+                self._channels.pop(ch.key)
+                self._names_to_keys.pop(ch.name)
         else:
             for key in normal.params:
-                channel = self.__channels.get(key)
+                channel = self._channels.get(key)
                 if channel is not None:
-                    self.__channels.pop(key)
-                    self.__names_to_keys.pop(channel.name)
+                    self._channels.pop(key)
+                    self._names_to_keys.pop(channel.name)
 
     def rename(self, keys: list[ChannelKey], names: list[ChannelName]) -> None:
         for key, name in zip(keys, names):
-            channel = self.__channels.get(key)
+            channel = self._channels.get(key)
             if channel is None:
                 continue
-            self.__channels.pop(key)
-            existing_keys = self.__names_to_keys.get(channel.name)
+            self._channels.pop(key)
+            existing_keys = self._names_to_keys.get(channel.name)
             if existing_keys is not None:
                 existing_keys.remove(key)
             channel.name = name
-            self.__channels[channel.key] = channel
-            existing_keys = self.__names_to_keys.get(name)
+            self._channels[channel.key] = channel
+            existing_keys = self._names_to_keys.get(name)
             if existing_keys is None:
-                self.__names_to_keys[name] = {channel.key}
+                self._names_to_keys[name] = {channel.key}
             else:
                 existing_keys.add(channel.key)
 
     def _(self) -> ChannelRetriever:
         return self
 
-    def __get(self, param: ChannelKey | ChannelName) -> list[ChannelPayload] | None:
+    def _get(self, param: ChannelKey | ChannelName) -> list[ChannelPayload] | None:
         if isinstance(param, ChannelKey):
-            ch = self.__channels.get(param)
+            ch = self._channels.get(param)
             return [ch] if ch is not None else None
-        keys = self.__names_to_keys.get(param, set())
+        keys = self._names_to_keys.get(param, set())
         channels = list()
         for key in keys:
-            ch = self.__channels.get(key)
+            ch = self._channels.get(key)
             if ch is not None:
                 channels.append(ch)
         return None if len(channels) == 0 else channels
 
     def set(self, channels: list[ChannelPayload]) -> None:
         for channel in channels:
-            self.__channels[channel.key] = channel
-            keys = self.__names_to_keys.get(channel.name)
+            self._channels[channel.key] = channel
+            keys = self._names_to_keys.get(channel.name)
             if keys is None:
-                self.__names_to_keys[channel.name] = {channel.key}
+                self._names_to_keys[channel.name] = {channel.key}
             else:
                 keys.add(channel.key)
 
@@ -158,7 +150,7 @@ class CacheChannelRetriever:
         results = list()
         to_retrieve: ChannelKeys | ChannelNames = list()  # type: ignore
         for p in normal.params:
-            ch = self.__get(p)
+            ch = self._get(p)
             if ch is None:
                 to_retrieve.append(p)  # type: ignore
             else:
@@ -167,7 +159,7 @@ class CacheChannelRetriever:
         if len(to_retrieve) == 0:
             return results
 
-        retrieved = self.__retriever.retrieve(to_retrieve)
+        retrieved = self._retriever.retrieve(to_retrieve)
         self.set(retrieved)
         results.extend(retrieved)
         return results

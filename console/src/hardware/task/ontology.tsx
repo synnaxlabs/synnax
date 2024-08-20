@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -20,6 +21,7 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
+import { Range } from "@/range";
 
 const ZERO_LAYOUT_STATES: Record<string, (create?: boolean) => Layout.State> = {
   [OPC.Task.READ_TYPE]: OPC.Task.configureReadLayout,
@@ -39,6 +41,7 @@ const handleSelect: Ontology.HandleSelect = ({
   void (async () => {
     try {
       const t = await client.hardware.tasks.retrieve(task.key);
+      console.log(t.type);
       const baseLayout = ZERO_LAYOUT_STATES[t.type];
       placeLayout({
         ...baseLayout(false),
@@ -87,11 +90,40 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   }).mutate;
 };
 
+const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  useMutation<void, Error, Ontology.TreeContextMenuProps>({
+    mutationFn: async ({ store, client, selection: { resources, parent } }) => {
+      const activeRange = Range.selectActiveKey(store.getState());
+      if (activeRange === null || parent == null) return;
+      const tasks = await Promise.all(
+        resources.map(({ id, name }) =>
+          client.hardware.tasks.copy(id.key, name + " (Snapshot)", true),
+        ),
+      );
+      const otgIDs = tasks.map((t) => t.ontologyID);
+      const rangeID = new ontology.ID({ type: "range", key: activeRange });
+      await client.ontology.moveChildren(
+        new ontology.ID(parent.key),
+        rangeID,
+        ...otgIDs,
+      );
+    },
+    onError: (e: Error, { addStatus }) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to create snapshot",
+        description: e.message,
+      });
+    },
+  }).mutate;
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus } = props;
   const { resources, nodes } = selection;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
+  const snap = useRangeSnapshot();
+  const range = Range.useSelect();
   const onSelect = {
     delete: () => del(props),
     edit: () =>
@@ -110,11 +142,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
+    rangeSnapshot: () => snap(props),
   };
   const singleResource = resources.length === 1;
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
       <Group.GroupMenuItem selection={selection} />
+      {resources.every((r) => r.data?.snapshot === false) && (
+        <Range.SnapshotMenuItem key="snapshot" range={range} />
+      )}
       {singleResource && (
         <>
           <Menu.RenameItem />

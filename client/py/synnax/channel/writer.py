@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation, trace
-from freighter import Payload, UnaryClient
+from freighter import Payload, UnaryClient, send_required, Empty
 
 from synnax.channel.payload import (
     ChannelKeys,
@@ -32,13 +32,10 @@ class _DeleteRequest(Payload):
     names: ChannelNames | None
 
 
-class _DeleteResponse(Payload):
-    ...
 
-
-_CHANNEL_CREATE_ENDPOINT = "/channel/create"
-_CHANNEL_DELETE_ENDPOINT = "/channel/delete"
-_CHANNEL_RENAME_ENDPOINT = "/channel/rename"
+_CREATE_ENDPOINT = "/channel/create"
+_DELETE_ENDPOINT = "/channel/delete"
+_RENAME_ENDPOINT = "/channel/rename"
 
 
 class _RenameRequest(Payload):
@@ -46,13 +43,8 @@ class _RenameRequest(Payload):
     names: ChannelNames
 
 
-class _RenameResponse(Payload):
-    ...
-
-
 class ChannelWriter:
-    __ENDPOINT = "/channel/create"
-    __client: UnaryClient
+    _client: UnaryClient
     __cache: CacheChannelRetriever
     instrumentation: Instrumentation
 
@@ -62,7 +54,7 @@ class ChannelWriter:
         instrumentation: Instrumentation,
         cache: CacheChannelRetriever,
     ):
-        self.__client = client
+        self._client = client
         self.instrumentation = instrumentation
         self.__cache = cache
 
@@ -72,9 +64,7 @@ class ChannelWriter:
         channels: list[ChannelPayload],
     ) -> list[ChannelPayload]:
         req = _CreateRequest(channels=channels)
-        res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
-        if exc is not None:
-            raise exc
+        res = send_required(self._client, _CREATE_ENDPOINT, req, _Response)
         self.__cache.set(res.channels)
         return res.channels
 
@@ -82,17 +72,11 @@ class ChannelWriter:
     def delete(self, channels: ChannelParams) -> None:
         normal = normalize_channel_params(channels)
         req = _DeleteRequest(**{normal.variant: normal.params})
-        res, exc = self.__client.send(_CHANNEL_DELETE_ENDPOINT, req, _DeleteResponse)
-        if exc is not None:
-            raise exc
+        send_required(self._client, _DELETE_ENDPOINT, req, Empty)
         self.__cache.delete(normal.params)
-        return res
 
     @trace("debug")
     def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
         req = _RenameRequest(keys=keys, names=names)
-        res, exc = self.__client.send(_CHANNEL_RENAME_ENDPOINT, req, _RenameResponse)
-        if exc is not None:
-            raise exc
+        send_required(self._client, _RENAME_ENDPOINT, req, Empty)
         self.__cache.rename(keys, names)
-        return res

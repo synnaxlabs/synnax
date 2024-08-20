@@ -11,13 +11,13 @@ from alamos import Instrumentation, trace
 from freighter import (
     Payload,
     UnaryClient,
+    send_required,
 )
 from synnax.channel.payload import (
     ChannelKeys,
     ChannelNames,
     ChannelParams,
     normalize_channel_params,
-    ChannelKey,
 )
 from synnax.telem import TimeRange
 
@@ -32,17 +32,19 @@ class _Response(Payload):
     ...
 
 
+_ENDPOINT = "/frame/delete"
+
+
 class Deleter:
     """
     Deleter is used to delete a time range of telemetry from the data engine.
     """
 
-    __ENDPOINT = "/frame/delete"
-    __client: UnaryClient
+    _client: UnaryClient
     instrumentation: Instrumentation
 
     def __init__(self, client: UnaryClient, instrumentation: Instrumentation) -> None:
-        self.__client = client
+        self._client = client
         self.instrumentation = instrumentation
 
     @trace("debug")
@@ -52,13 +54,5 @@ class Deleter:
         tr: TimeRange,
     ) -> None:
         normal = normalize_channel_params(channels)
-        req = _Request(
-            **{
-                normal.variant: normal.params,
-                "bounds": tr,
-            }
-        )
-        res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
-        if exc is not None:
-            raise exc
-        return res
+        req = _Request(**{normal.variant: normal.params, "bounds": tr, })
+        send_required(self._client, _ENDPOINT, req, _Response)

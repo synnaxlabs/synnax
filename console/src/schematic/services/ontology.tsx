@@ -91,6 +91,13 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
     },
+    onError: (err, { addStatus }) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to copy schematic",
+        description: err.message,
+      });
+    },
   }).mutate;
 
 const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -108,14 +115,14 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
             ),
         ),
       );
-      const otgsIDs = schematics.map(
+      const otgIDs = schematics.map(
         ({ key }) => new ontology.ID({ type: "schematic", key }),
       );
       const rangeID = new ontology.ID({ type: "range", key: activeRange });
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
         rangeID,
-        ...otgsIDs,
+        ...otgIDs,
       );
     },
   }).mutate;

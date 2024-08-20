@@ -18,7 +18,18 @@ import { z } from "zod";
 import { framer } from "@/framer";
 import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
-import { NewTask, newTaskZ, Payload, State, StateObservable, stateZ, TaskKey, taskKeyZ, taskZ } from "@/hardware/task/payload";
+import {
+  NewTask,
+  newTaskZ,
+  Payload,
+  State,
+  StateObservable,
+  stateZ,
+  TaskKey,
+  taskKeyZ,
+  taskZ,
+} from "@/hardware/task/payload";
+import { ontology } from "@/ontology";
 import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
@@ -36,6 +47,7 @@ export class Task<
   readonly internal: boolean;
   readonly type: T;
   readonly config: C;
+  readonly snapshot: boolean;
   state?: State<D>;
   private readonly frameClient: framer.Client;
 
@@ -46,6 +58,7 @@ export class Task<
     config: C,
     frameClient: framer.Client,
     internal: boolean = false,
+    snapshot: boolean = false,
     state?: State<D> | null,
   ) {
     this.key = key;
@@ -53,6 +66,7 @@ export class Task<
     this.type = type;
     this.config = config;
     this.internal = internal;
+    this.snapshot = snapshot;
     if (state !== null) this.state = state;
     this.frameClient = frameClient;
   }
@@ -66,6 +80,10 @@ export class Task<
       state: this.state,
       internal: this.internal,
     };
+  }
+
+  get ontologyID(): ontology.ID {
+    return new ontology.ID({ type: "task", key: this.key });
   }
 
   async executeCommand(type: string, args?: UnknownRecord): Promise<string> {
@@ -143,11 +161,18 @@ export type RetrieveOptions = Pick<
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
 const DELETE_ENDPOINT = "/hardware/task/delete";
+const COPY_ENDPOINT = "/hardware/task/copy";
 
 const createReqZ = z.object({ tasks: newTaskZ.array() });
 const createResZ = z.object({ tasks: taskZ.array() });
 const deleteReqZ = z.object({ keys: taskKeyZ.array() });
 const deleteResZ = z.object({});
+const copyReqZ = z.object({
+  key: taskKeyZ,
+  name: z.string(),
+  snapshot: z.boolean(),
+});
+const copyResZ = z.object({ task: taskZ });
 
 export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   readonly type: string = "task";
@@ -251,6 +276,17 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     return single && variant !== "rack" ? sugared[0] : sugared;
   }
 
+  async copy(key: string, name: string, snapshot: boolean): Promise<Task> {
+    const res = await sendRequired(
+      this.client,
+      COPY_ENDPOINT,
+      { key, name, snapshot },
+      copyReqZ,
+      copyResZ,
+    );
+    return this.sugar([res.task])[0];
+  }
+
   async retrieveByName(name: string, rack?: number): Promise<Task> {
     const tasks = await this.execRetrieve({ names: [name], rack });
     checkForMultipleOrNoResults("Task", name, tasks, true);
@@ -270,8 +306,8 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
 
   private sugar(payloads: Payload[]): Task[] {
     return payloads.map(
-      ({ key, name, type, config, state, internal }) =>
-        new Task(key, name, type, config, this.frameClient, internal, state),
+      ({ key, name, type, config, state, internal, snapshot }) =>
+        new Task(key, name, type, config, this.frameClient, internal, snapshot, state),
     );
   }
 

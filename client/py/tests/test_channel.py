@@ -70,9 +70,7 @@ class TestChannelClient:
     def test_create_virtual(self, client: sy.Synnax):
         """Should create a virtual channel"""
         channel = client.channels.create(
-            name="test",
-            data_type=sy.DataType.JSON,
-            virtual=True
+            name="test", data_type=sy.DataType.JSON, virtual=True
         )
         res = client.channels.retrieve(channel.key)
         assert res.virtual is True

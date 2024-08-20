@@ -34,7 +34,7 @@ from synnax.framer import (
     WriterMode,
     AUTO_SPAN,
 )
-from synnax.hardware import Device, Rack, Task
+from synnax.hardware import Client as HardwareClient
 from synnax.options import SynnaxOptions
 from synnax.ranger import Range
 from synnax.synnax import Synnax
@@ -59,3 +59,6 @@ from synnax.telem import (
     convert_time_units,
     elapsed_seconds,
 )
+from synnax.hardware.task import Task
+from synnax.hardware.rack import Rack
+from synnax.hardware.device import Device

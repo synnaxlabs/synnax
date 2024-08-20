@@ -49,7 +49,7 @@ from synnax.channel.payload import (
     ChannelPayload,
     ChannelKeys,
     ChannelNames,
-    ChannelParams
+    ChannelParams,
 )
 from synnax.util.interop import overload_comparison_operators
 
@@ -399,14 +399,14 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         color: str = "",
-        key: RangeKey = UUID(int=0)
+        key: RangeKey = UUID(int=0),
     ) -> Range:
         return self.__client.create(
             name=name,
             time_range=time_range,
             color=color,
             key=key,
-            parent=OntologyID(type="range", key=str(self.key))
+            parent=OntologyID(type="range", key=str(self.key)),
         )
 
 
@@ -509,12 +509,9 @@ class RangeClient:
     ) -> Range | list[Range]:
         is_single = True
         if ranges is None:
-            to_create = [RangePayload(
-                key=key,
-                name=name,
-                time_range=time_range,
-                color=color
-            )]
+            to_create = [
+                RangePayload(key=key, name=name, time_range=time_range, color=color)
+            ]
         elif isinstance(ranges, Range):
             to_create = [ranges.to_payload()]
         else:
