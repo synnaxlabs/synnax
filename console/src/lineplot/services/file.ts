@@ -24,22 +24,31 @@ export const fileHandler: Layout.FileHandler = async ({
   client,
   workspaceKey,
   confirm,
-  name,
+  name: fileName,
   store,
 }): Promise<boolean> => {
   const linePlot = parser(file);
   if (linePlot == null) return false;
+  const key = linePlot.key;
+  let name = file?.name;
+  if (typeof name !== "string" || name.length === 0)
+    name = fileName.split(".").slice(0, -1).join(".");
+  if (name.length === 0) name = "New Line Plot";
+
   const creator = create({
     ...linePlot,
     tab,
   });
-  const key = linePlot.key;
+
   const existingState = select(store.getState(), key);
-  //TODO: Change naming
+  const existingName = Layout.select(store.getState(), key)?.name;
+
   if (existingState != null) {
     if (
       !(await confirm({
-        message: `${name} already exists as ${"TODO"}.`,
+        message:
+          `${fileName} already exists` +
+          (existingName != null ? ` as ${existingName}` : ""),
         description: "Would you like to replace the existing schematic?",
         cancel: { label: "Cancel" },
         confirm: { label: "Replace", variant: "error" },
@@ -54,17 +63,16 @@ export const fileHandler: Layout.FileHandler = async ({
 
   // Logic for changing the schematic in the cluster
   try {
-    await client.workspaces.schematic.retrieve(key);
-    await client.workspaces.schematic.setData(
-      key,
-      linePlot as unknown as UnknownRecord,
-    );
+    await client.workspaces.linePlot.retrieve(key);
+    await client.workspaces.linePlot.setData(key, linePlot);
+    await client.workspaces.linePlot.rename(key, name);
   } catch (e) {
     if (!NotFoundError.matches(e)) throw e;
     if (workspaceKey != null)
       await client.workspaces.linePlot.create(workspaceKey, {
-        name: "New Line Plot",
+        name,
         data: linePlot as unknown as UnknownRecord,
+        key,
       });
   }
   return true;

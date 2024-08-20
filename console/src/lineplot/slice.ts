@@ -53,6 +53,8 @@ export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
 
+export type StateWithName = State & { name: string };
+
 export const SLICE_NAME = "line";
 
 export interface StoreState {

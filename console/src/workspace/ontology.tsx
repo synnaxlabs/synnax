@@ -192,8 +192,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       <PMenu.Divider />
       {singleResource && (
         <>
-          <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
+          <PMenu.Item itemKey="plot" startIcon={<LinePlotServices.CreateIcon />}>
             New Line Plot
+          </PMenu.Item>
+          <PMenu.Item
+            itemKey="importLinePlot"
+            startIcon={<LinePlotServices.ImportIcon />}
+          >
+            Import Line Plot
           </PMenu.Item>
           <PMenu.Item itemKey="schematic" startIcon={<SchematicServices.CreateIcon />}>
             New Schematic
@@ -204,17 +210,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           >
             Import Schematic
           </PMenu.Item>
-          <PMenu.Item
-            itemKey="importLinePlot"
-            startIcon={<LinePlotServices.ImportIcon />}
-          >
-            Import Line Plot
-          </PMenu.Item>
           <PMenu.Divider />
-          <Link.CopyMenuItem />
           <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
             Export
           </PMenu.Item>
+          <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
       )}

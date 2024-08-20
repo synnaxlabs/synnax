@@ -43,7 +43,9 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
         name = schematic.name;
       }
       if (name == null)
-        throw new UnexpectedError("Schematic with key is missing in store state");
+        throw new UnexpectedError(
+          `{Schematic with key ${key} is missing in store state`,
+        );
       const savePath = await save({
         defaultPath: `${name}.json`,
         filters: [{ name: "JSON", extensions: ["json"] }],

@@ -10,15 +10,16 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Tabs } from "@synnaxlabs/pluto";
+import { Align, Button, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { useExport } from "@/lineplot/hooks";
 import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
-import { setActiveToolbarTab,type ToolbarTab } from "@/lineplot/slice";
+import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
@@ -53,6 +54,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const linePlot = useSelect(layoutKey);
+  const exprt = useExport(name);
+
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
@@ -79,6 +82,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
 
   if (linePlot == null) return null;
+
   return (
     <Align.Space empty className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider
@@ -91,7 +95,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
-          <Tabs.Selector size="medium" />
+          <Align.Space direction="x" align="center" size={0}>
+            <Button.Icon
+              tooltip={`Export ${name}`}
+              style={{ height: "100%" }}
+              onClick={() => exprt(linePlot.key)}
+            >
+              <Icon.Export />
+            </Button.Icon>
+            <Tabs.Selector size="medium" />
+          </Align.Space>
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>
