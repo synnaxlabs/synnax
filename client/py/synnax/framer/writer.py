@@ -187,18 +187,21 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
+        ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ): ...
+    ):
+        ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ): ...
+    ):
+        ...
 
     def write(
         self,
@@ -259,20 +262,23 @@ class Writer:
         return True
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool: ...
+    def set_authority(self, value: CrudeAuthority) -> bool:
+        ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool: ...
+    ) -> bool:
+        ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool: ...
+    ) -> bool:
+        ...
 
     def set_authority(
         self,

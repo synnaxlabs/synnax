@@ -122,9 +122,46 @@ class Controller:
         ch = retrieve_required(self._retriever, ch)[0]
         self._writer.write({ch.key: value, ch.index: TimeStamp.now()})
 
-    def authorize(self, ch: ChannelKey | ChannelName, value: Authority):
-        ch = retrieve_required(self._retriever, ch)[0]
-        self._writer.set_authority({ch.key: value, ch.index: value})
+    @overload
+    def set_authority(
+        self,
+        value: CrudeAuthority,
+    ) -> bool:
+        ...
+
+    @overload
+    def set_authority(
+        self,
+        value: dict[ChannelKey | ChannelName, CrudeAuthority],
+    ) -> bool:
+        ...
+
+    @overload
+    def set_authority(
+        self,
+        ch: ChannelKey | ChannelName,
+        value: CrudeAuthority,
+    ) -> bool:
+        ...
+
+    def set_authority(
+        self,
+        value: (
+            dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
+            | ChannelKey
+            | ChannelName
+            | CrudeAuthority
+        ),
+        authority: CrudeAuthority | None = None,
+    ) -> bool:
+        if isinstance(value, dict):
+            channels = retrieve_required(self._retriever, list(value.keys()))
+            for ch in channels:
+                value[ch.index] = value.get(ch.key, value.get(ch.name))
+        elif authority is not None:
+            ch = retrieve_required(self._retriever, value)[0]
+            value = {ch.key: authority, ch.index: authority}
+        return self._writer.set_authority(value)
 
     def wait_until(
         self,

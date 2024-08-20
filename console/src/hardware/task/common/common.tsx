@@ -26,7 +26,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { caseconv, deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
-import { FC, ReactElement, useCallback, useState } from "react";
+import { FC, ReactElement, useCallback, useId, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -323,8 +323,11 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
     const client = Synnax.use();
     const args = Layout.useSelectArgs<{ create: boolean }>(layoutKey);
     const altKey = Layout.useSelectAltKey(layoutKey);
+    const id = useId();
+    // The query can't take into account state changes, so we need to use a unique
+    // key for every query.
     const fetchTask = useQuery<WrappedTaskLayoutProps<T, P>>({
-      queryKey: [layoutKey, client?.key, altKey],
+      queryKey: [layoutKey, client?.key, altKey, id],
       queryFn: async () => {
         if (client == null || args.create)
           return { initialValues: deep.copy(zeroPayload), layoutKey };
@@ -352,7 +355,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
           </Status.Text.Centered>
         </Align.Space>
       );
-    else if (!fetchTask.isPending)
+    else if (fetchTask.isSuccess)
       content = <Wrapped {...fetchTask.data} layoutKey={layoutKey} />;
     return <Eraser.Eraser>{content}</Eraser.Eraser>;
   };

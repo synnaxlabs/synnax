@@ -22,7 +22,7 @@ import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { useExport } from "@/schematic/hooks";
 import { create } from "@/schematic/Schematic";
-import { rename, type State } from "@/schematic/slice";
+import { type State } from "@/schematic/slice";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Schematic" });
@@ -169,16 +169,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 const handleRename: Ontology.HandleTreeRename = {
-  eager: ({ id: { key }, name, store }) => {
-    store.dispatch(rename({ key, name }));
-    store.dispatch(Layout.rename({ key, name }));
-  },
+  eager: ({ id: { key }, name, store }) => store.dispatch(Layout.rename({ key, name })),
   execute: async ({ client, id, name }) =>
     await client.workspaces.schematic.rename(id.key, name),
-  rollback: ({ id: { key }, name, store }) => {
-    store.dispatch(rename({ key, name }));
-    store.dispatch(Layout.rename({ key, name }));
-  },
+  rollback: ({ id: { key }, name, store }) =>
+    store.dispatch(Layout.rename({ key, name })),
 };
 
 const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout }) => {
@@ -206,6 +201,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const schematic = await client.workspaces.schematic.retrieve(id.key);
     placeLayout(
       create({
+        name: schematic.name,
         ...(schematic.data as unknown as State),
         location: "mosaic",
         tab: {

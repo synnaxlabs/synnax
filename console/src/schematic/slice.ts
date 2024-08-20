@@ -126,11 +126,6 @@ export interface SetLegendPayload {
   legend: Partial<LegendState>;
 }
 
-export interface RenamePayload {
-  key: string;
-  name: string;
-}
-
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -249,13 +244,9 @@ export const { actions, reducer } = createSlice({
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic == null) return;
-        if (schematic?.control === "acquired") schematic.controlAcquireTrigger -= 1;
+        if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
         delete state.schematics[layoutKey];
       });
-    },
-    rename: (state, { payload }: PayloadAction<RenamePayload>) => {
-      const { key, name } = payload;
-      state.schematics[key].name = name;
     },
     addElement: (state, { payload }: PayloadAction<AddElementPayload>) => {
       const { key: layoutKey, elKey: key, props, node } = payload;
@@ -455,7 +446,6 @@ export const {
   setEdges,
   setNodes,
   remove,
-  rename,
   clearSelection,
   setFitViewOnResize,
   create: internalCreate,
