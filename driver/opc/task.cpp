@@ -7,7 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "driver/opc/writer.h"
+#include "driver/opc/util.h"
+#include "driver/config/config.h"
+#include "driver/loop/loop.h"
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                     WriterConfig                              //
+///////////////////////////////////////////////////////////////////////////////////
+opc::WriterConfig::WriterConfig(
+    config::Parser &parser
+): device(parser.required<std::string>("device")){
+    parser.iter("channels", [&](config::Parser &channel_parser) {
+        const auto ch = WriterChannelConfig(channel_parser);
+        if(ch.enabled) channels.push_back(ch);
+    });
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                     Writer Task                               //
+///////////////////////////////////////////////////////////////////////////////////
 void opc::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
         this->start();
@@ -65,8 +84,9 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     const synnax::Task &task
 ) {
     VLOG(2) << "[opc.writer] configuring task " << task.name;
+
     auto config_parser = config::Parser(task.config);
-    auto cfg = ReaderConfig(config_parser);
+    auto cfg = WriterConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.writer] failed to parse configuration for " << task.name;
         ctx->setState({
@@ -76,7 +96,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         });
         return nullptr;
     }
-    VLOG(2) << "[opc.writer] successfully parsed configuration for " << task.name;
+
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.writer] failed to retrieve device " << cfg.device <<
@@ -92,6 +112,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     }
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
+
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
@@ -99,17 +120,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         .scale = 1.2,
     };
     auto breaker = breaker::Breaker(breaker_config);
-    // Fetch additional index channels we also need as part of the configuration.
-    auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
-    if (err) {
-        ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{{"message", err.message()}}
-        });
-        return nullptr;
-    }
-    auto [channelKeys, indexes] = res;
 
     // Connect to the OPC UA server.
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.writer] ");
@@ -122,6 +132,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         return nullptr;
     }
 
+    // Read each node in configuration to ensure successful access.
     for (auto i = 0; i < cfg.channels.size(); i++) {
         auto ch = cfg.channels[i];
         UA_Variant *value = UA_Variant_new();
@@ -143,7 +154,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         }
         UA_Variant_delete(value);
     }
-
     if (!config_parser.ok()) {
         ctx->setState({
             .task = task.key,
@@ -153,26 +163,9 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         return nullptr;
     }
 
-    auto source = std::make_shared<ReaderSource>(
-        cfg,
-        ua_client,
-        indexes,
-        ctx,
-        task
-    );
+    // TODO: instantiate sink
+    // TODO: construct streamer
 
-    auto writer_cfg = synnax::WriterConfig{
-        .channels = channelKeys,
-        .start = TimeStamp::now(),
-        .subject = synnax::ControlSubject{
-            .name = task.name,
-            .key = std::to_string(task.key)
-        },
-        .mode = cfg.data_saving
-                    ? synnax::WriterMode::PersistStream
-                    : synnax::WriterMode::StreamOnly,
-        .enable_auto_commit = true
-    };
 
     ctx->setState({
         .task = task.key,
@@ -182,7 +175,8 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
             {"message", "Task configured successfully"}
         }
     });
-    return std::make_unique<Reader>( 
+
+    return std::make_unique<opc::WriterTask>(
                                 ctx, 
                                 task, 
                                 cfg, 

@@ -32,18 +32,19 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
     std::string log_prefix
 );
 
-// Define constants for the conversion
+///@brief Define constants for the conversion
 static const int64_t UNIX_EPOCH_START_1601 = 11644473600LL; // Seconds from 1601 to 1970
 static const int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
 // 100-nanosecond intervals per second
 
-// Function to convert UA_DateTime to Unix timestamp in nanoseconds
+///@brief Function to convert UA_DateTime to Unix timestamp in nanoseconds
 inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
     int64_t unixEpochStartIn100NanoIntervals =
             UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
     return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
 }
 
+///@brief this function converts a UA_Variant to a synnax::Series
 inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
     if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
         const auto value = *static_cast<UA_Float *>(val->data);
@@ -138,6 +139,8 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
     return Series(1);
 }
 
+///@brief this function returns the appropriate synnax data type that corresponds to
+/// the OPCUA data type
 inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val) {
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT])) return {
         synnax::FLOAT32, true
@@ -188,7 +191,7 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
 }
 }
 
-// Helper function to convert string GUID to UA_Guid
+///@brief Helper function to convert string GUID to UA_Guid
 inline UA_Guid stringToGuid(const std::string &guidStr) {
     UA_Guid guid;
     unsigned int data4[8];
@@ -203,7 +206,7 @@ inline UA_Guid stringToGuid(const std::string &guidStr) {
 }
 
 
-// Helper function to convert a GUID to a string
+///@brief Helper function to convert a GUID to a string
 inline std::string guidToString(const UA_Guid &guid) {
     std::ostringstream stream;
     stream << std::hex << std::setfill('0')
@@ -221,7 +224,7 @@ inline std::string guidToString(const UA_Guid &guid) {
     return stream.str();
 }
 
-// Parses a string NodeId into a UA_NodeId object
+///@brief Parses a string NodeId into a UA_NodeId object
 inline UA_NodeId parseNodeId(const std::string &path, config::Parser &parser) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
@@ -261,7 +264,7 @@ inline UA_NodeId parseNodeId(const std::string &path, config::Parser &parser) {
 }
 
 
-// Function to build a string identifier from a UA_NodeId
+///@brief Function to build a string identifier from a UA_NodeId
 inline std::string nodeIdToString(const UA_NodeId &nodeId) {
     std::ostringstream nodeIdStr;
     nodeIdStr << "NS=" << nodeId.namespaceIndex << ";";
@@ -292,6 +295,7 @@ inline std::string nodeIdToString(const UA_NodeId &nodeId) {
     return nodeIdStr.str();
 }
 
+// TODO: Explain what a UAByteString is here
 inline UA_ByteString stringToUAByteString(const std::string &str) {
     size_t len = str.length();
     const UA_Byte *strData = reinterpret_cast<const UA_Byte *>(str.data());

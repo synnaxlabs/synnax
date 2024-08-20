@@ -34,6 +34,7 @@ namespace opc {
         /// be provided via the JSON configuration.
         Channel ch;
         bool enabled;
+        // TODO: might have to store the data type it is on the OPC server
 
         WriterChannelConfig() = default;
 
@@ -44,21 +45,13 @@ namespace opc {
             channel(parser.required<ChannelKey>("channel")),
             enabled(parser.optional<bool>("enabled", true)) {
         }
-    };
+    }; // struct WriterChannelConfig
+
     struct WriterConfig {
         /// @brief the device representing the OPC UA server to read from.
         std::string device;
-        /// @brief sets the acquisition rate.
-        Rate sample_rate;
-        /// @brief sets the stream rate.
-        Rate stream_rate;
-        /// @brief array_size;
-        size_t array_size;
-        /// @brief whether to enable data saving for this task.
-        bool data_saving;
 
         /// @brief the list of channels to read from the server.
-
         std::vector<WriterChannelConfig> channels;
 
         WriterConfig() = default;
@@ -70,7 +63,7 @@ namespace opc {
             for (const auto &channel : channels) keys.push_back(channel.channel);
             return keys;
         }
-    }
+    }; // struct WriterConfig
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    writer task                                //
@@ -83,15 +76,19 @@ namespace opc {
             WriterConfig cfg,
             const breaker::Config &breaker_cfg,
             std::shared_ptr<pipeline::Sink> sink,
-            synnax::WriterConfig writer_cfg,
+            synnax::StreamerConfig streamer_config,
             std::shared_ptr<UA_Client> ua_client,
             opc::DeviceProperties device_props
         ): ctx(ctx),
            task(std::move(task)),
            cfg(std::move(cfg)),
            breaker_cfg(breaker_cfg),
-           sink(std::move(sink)),
-           writer_cfg(std::move(writer_cfg)),
+           pipe(pipeline::Control(
+               ctx->client,
+               std::move(streamer_config),
+               std::move(sink),
+               breaker_cfg
+           )),
            ua_client(std::move(ua_client)),
            device_props(std::move(device_props)) {
         }
@@ -112,7 +109,7 @@ namespace opc {
         synnax::Task task;
         WriterConfig cfg;
         breaker::Config breaker_cfg;
-        pipeline::Control ctrl pipe;
+        pipeline::Control pipe;
         std::shared_ptr<UA_Client> ua_client;
         opc::DeviceProperties device_props;
     }; // class WriterTask
@@ -122,25 +119,21 @@ namespace opc {
     ///////////////////////////////////////////////////////////////////////////////////
 
     class Sink : public pipeline::Sink {
-        public: 
-            WriterConfig cfg;
-            std::shared_ptr<UA_Client> ua_client;
-            std::set<ChannelKey> indexes;
+        public:
+            // Synnax Resources
             std::shared_ptr<task::Context> ctx;
             synnax::Task task;
             std::map<ChannelKey, WriterChannelConfig> channel_map;
-
-            UA_WriteRequest req; // defined in types_generated.h
-            std::vector<UA_WriteValue> nodes_to_write;
             synnax::Frame fr;
-            std::unique_ptr<int64_t[]> timestamp_buf;
-            int exceed_time_count = 0;
             task::State curr_state;
+            // OPC UA Resources
+            WriterConfig cfg;
+            std::shared_ptr<UA_Client> ua_client;
+            UA_WriteRequest req; // defined in types_generated.h
 
             Sink(
                 WriterConfig cfg,
                 const std::shared_ptr<UA_Client> &ua_client,
-                std::set<ChannelKey> indexes,
                 const std::shared_ptr<task::Context> &ctx,
                 synnax::Task task
             );
@@ -154,10 +147,10 @@ namespace opc {
                 const synnax::Frame &frame,
                 uint32_t &index,
                 WriterChannelConfig &ch,
-                UA_WriteValue &writeValue
+                UA_WriteValue *write_value
             );
 
-            void stopped_with_err(const freighter::Error &err) override;
+            void stoppedWithErr(const freighter::Error &err) override;
    
             [[nodiscard]] freighter::Error communicate_response_error(const UA_StatusCode &status);
 
@@ -165,7 +158,8 @@ namespace opc {
                 const synnax::Frame &frame,
                 const uint32_t &series_index,
                 const WriterChannelConfig &ch,
-                UA_WriteValue &write_value
+                UA_WriteValue *write_value
             );
+
     }; // class Sink
 } // namespace opc

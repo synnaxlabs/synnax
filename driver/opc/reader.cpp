@@ -27,8 +27,9 @@
 
 
 using namespace opc;
-
-
+///////////////////////////////////////////////////////////////////////////////////
+//                                     ReaderConfig                              //
+///////////////////////////////////////////////////////////////////////////////////
 ReaderConfig::ReaderConfig(
     config::Parser &parser
 ): device(parser.required<std::string>("device")),
@@ -43,6 +44,10 @@ ReaderConfig::ReaderConfig(
     });
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                     Helper Functions                          //
+///////////////////////////////////////////////////////////////////////////////////
+///@brief retrieves index channel information for given set of channels
 std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     freighter::Error> retrieveAdditionalChannelInfo(
     const std::shared_ptr<task::Context> &ctx,
@@ -71,6 +76,9 @@ std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     return {{channelKeys, indexes}, freighter::Error()};
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Source                              //
+///////////////////////////////////////////////////////////////////////////////////
 class ReaderSource final : public pipeline::Source {
 public:
     ReaderConfig cfg;
@@ -114,7 +122,7 @@ public:
     void initializeReadRequest() {
         UA_ReadRequest_init(&req);
         // Allocate and prepare readValueIds for enabled channels
-        readValueIds.reserve(cfg.channels.size());
+        readValueIds.reserve(cfg.channels.size()); // TODO: is this reserving every time?
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             UA_ReadValueId rvid;
@@ -434,17 +442,20 @@ public:
         LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName << " for task " << task.name;
     }
 
+    // TODO: this function is 100 lines - feel like it can be broken down into a more digestible format
+    // or at least have comments to explain what is happening
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
-        auto read_calls_per_cycle = static_cast<std::size_t>(
-            cfg.sample_rate.value / cfg.stream_rate.value
-        );
+
+        // TODO: what is read_calls_per_cycle? explain whats happening here
+        auto read_calls_per_cycle = static_cast<std::size_t>(cfg.sample_rate.value / cfg.stream_rate.value);
         auto series_size = read_calls_per_cycle;
         if (cfg.array_size > 1) {
             read_calls_per_cycle = 1;
             series_size = cfg.array_size * read_calls_per_cycle;
         }
 
+        // TODO: what is en_count?
         std::size_t en_count = 0;
         for (const auto &ch: cfg.channels)
             if (ch.enabled) {
@@ -541,7 +552,9 @@ public:
     }
 };
 
-
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Task                                //
+///////////////////////////////////////////////////////////////////////////////////
 std::unique_ptr<task::Task> Reader::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
@@ -549,6 +562,7 @@ std::unique_ptr<task::Task> Reader::configure(
     VLOG(2) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
+    LOG(INFO) << "Config: " << config_parser.get_json().dump(4);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
         ctx->setState({
