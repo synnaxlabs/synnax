@@ -18,6 +18,7 @@
 #include "driver/config/config.h"
 #include "driver/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/errors/errors.h"
 
 #include "include/open62541/types.h"
 #include "include/open62541/types_generated.h"
@@ -49,7 +50,7 @@ opc::Sink::Sink(
                 UA_DataValue value;
             } UA_WriteValue;
  */
-void opc::Sink::initializeWriteRequest(const synnax::Frame &frame){
+void opc::Sink::initialize_write_request(const synnax::Frame &frame){
 
     // the number of frames we are writing corresponds to the number of values in the frame
     this->nodes_to_write.reserve(frames.channels->size());
@@ -72,88 +73,124 @@ void opc::Sink::initializeWriteRequest(const synnax::Frame &frame){
     }
 };
 
-UA_DataValue opc::initializeWriteValue( const synnax::Frame &frame,
-                                        uint32_t &index,
-                                        WriterChannelConfig &ch,
-                                        UA_WriteValue &write_value){
+
+void opc::Sink::initialize_write_value(
+        const synnax::Frame &frame,
+        uint32_t &index,
+        WriterChannelConfig &ch,
+        UA_WriteValue &write_value
+){
     write_value = UA_WriteValue_new();
     write_value.nodeId = ch.node;
     write_value.attributeId = UA_ATTRIBUTEID_VALUE;
     write_value.value.hasValue = true; // TODO what is this
-    write_value.value.storageType = UA_VARIANT_DATA_NODELETE; // do not free integer on deletion
+    write_value.value.value.storageType = UA_VARIANT_DATA_NODELETE; // do not free integer on deletion
 
-    write_value.value.type = &UA_TYPES[UA_TYPES_INT32];// GET THIS IN A SEC;
-    write_value.value.data = &value; // need to cast this to the correct type
+    this->cast_and_set_type(frame, index, ch, write_value);
 }
 
 // Sets the appropriate type for the write value and casts the series data as necessary to one of the supported types
 // on Synnax
-void opc::Sink::CastAndSetType( const synnax::Frame &frame,
-                                uint32_t &series_index,
-                                WriterChannelConfig &ch,
-                                UA_WriteValue &write_value){
+void opc::Sink::cast_and_set_type(const synnax::Frame &frame, const uint32_t &series_index,
+                                  const opc::WriterChannelConfig &ch, UA_WriteValue &write_value) {
     auto &type = frame.series->at(series_index).data_type;
 
     // TODO: Need to test if I could specify writing float32 if the actual node type is float64 or real, etc
     if(type == synnax::FLOAT64) {
-        write_value.value.data = &frame.series->at(series_index).values<double>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_DOUBLE];
+        write_value.value.value.data = &frame.series->at(series_index).values<double>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_DOUBLE];
     }else if(type == synnax::FLOAT32){
-        write_value.value.data = &frame.series->at(series_index).values<float>()[0];;
-        write_value.value.type = &UA_TYPES[UA_TYPES_FLOAT];
+        write_value.value.value.data = &frame.series->at(series_index).values<float>()[0];;
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_FLOAT];
     }
     else if(type == synnax::INT32){
-        write_value.value.data = &frame.series->at(series_index).values<int32_t>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_INT32];
+        write_value.value.value.data = &frame.series->at(series_index).values<int32_t>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_INT32];
     }
     else if(type == synnax::INT16){
-        write_value.value.data = &frame.series->at(series_index).values<int16_t>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_INT16];
+        write_value.value.value.data = &frame.series->at(series_index).values<int16_t>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_INT16];
     }
     else if(type == synnax::INT8){
-        write_value.value.data = &frame.series->at(series_index).values<int8_t>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_INT8];
+        write_value.value.value.data = &frame.series->at(series_index).values<int8_t>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_SBYTE];
     }
     else if(type == synnax::UINT64){
-        write_value.value.data = &frame.series->at(series_index).values<uint64_t>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_UINT64];
+        write_value.value.value.data = &frame.series->at(series_index).values<uint64_t>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_UINT64];
     }
     else if(type == synnax::UINT32){
-        write_value.value.data = &frame.series->at(series_index).values<uint32_t>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_UINT32];
+        write_value.value.value.data = &frame.series->at(series_index).values<uint32_t>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_UINT32];
     }
     else if(type == synnax::UINT16){
-        write_value.value.data = &frame.series->at(series_index).values<uint16_t>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_UINT16];
+        write_value.value.value.data = &frame.series->at(series_index).values<uint16_t>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_UINT16];
     }
     else if(type == synnax::UINT8){
-        write_value.value.data = &frame.series->at(series_index).values<uint8_t>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_UINT8];
+        write_value.value.value.data = &frame.series->at(series_index).values<uint8_t>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_BYTE];
     }
     else if(type == synnax::TIMESTAMP){
-        write_value.value.data = &frame.series->at(series_index).values<int64_t>()[0];
-        write_value.value.type = &UA_TYPES[UA_TYPES_DATETIME];
+        write_value.value.value.data = &frame.series->at(series_index).values<int64_t>()[0];
+        write_value.value.value.type = &UA_TYPES[UA_TYPES_DATETIME];
     }
-//     else if(type == synnax::UINT128){ TODO: Compiler can't find uint128_t
-//         write_value.value.data = &frame.series->at(series_index).values<uint128_t>()[0];
-//        write_value.value.type = &UA_TYPES[UA_TYPES_UINT128];
-//     }
-
-        LOG(ERROR) << "[opc.sink] Unsupported data type " << type;
+    // TODO: add uint128 (compiler has issues with uint128_t)
+//    LOG(ERROR) << "[opc.sink] Unsupported data type" << type;
 }
 
-void stoppedWithErr(const freighter::Error &err){
-
+void opc::Sink::stoppedWithErr(const freighter::Error &err){
+    curr_state.variant = "error";
+    curr_state.details = json{
+            {"message", err.message()},
+            {"running", false}
+    };
+    ctx->setState(curr_state);
 };
 
-freighter::Error communicateResponseError(const UA_StatusCode &status){
-
+// TODO: identical to impl in reader.cpp -> move to util.cpp
+freighter::Error opc::Sink::communicate_response_error(const UA_StatusCode &status){
+    freighter::Error err;
+    if (
+            status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
+            status == UA_STATUSCODE_BADSECURECHANNELCLOSED
+            ) {
+        err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
+        err.data = "connection rejected";
+        curr_state.variant = "warning";
+        curr_state.details = json{
+                {
+                        "message",
+                            "Temporarily unable to reach OPC UA server. Will keep trying."
+                },
+                {"running", true}
+        };
+    } else {
+        err.type = driver::CRITICAL_HARDWARE_ERROR.type;
+        err.data = "failed to execute read: " + std::string(
+                UA_StatusCode_name(status));
+        curr_state.variant = "error";
+        curr_state.details = json{
+                {
+                        "message", "Failed to read from OPC UA server: " + std::string(
+                        UA_StatusCode_name(status))
+                },
+                {"running", false}
+        };
+    }
+    ctx->setState(curr_state);
+    return err;
 };
 
-freighter::Error communciateValueError(const std::string &channel, const UA_StatusCode &status){
+/// @brief sends out write request to the OPC server.
+freighter::Error opc::Sink::write(synnax::Frame frame){
+    this->initialize_write_request(frame);
+    UA_WriteResponse res = UA_Client_Service_write(this->ua_client.get(), this->req);
+    auto status = res.responseHeader.serviceResult;
 
-};
-
-freighter::Error write(synnax::Frame frame){
-
+    if(status != UA_STATUSCODE_GOOD){
+        auto err = this->communicate_response_error(status);
+        UA_WriteResponse_clear(&res);
+        return err;
+    }
 };

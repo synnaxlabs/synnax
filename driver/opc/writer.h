@@ -14,7 +14,14 @@
 #include "util.h"
 #include "driver/config/config.h"
 #include "driver/task/task.h"
-#include "driver/pipeline/acquisition.h"
+#include "driver/pipeline/control.h"
+
+#include "include/open62541/types.h"
+#include "include/open62541/types_generated.h"
+#include "include/open62541/statuscodes.h"
+#include "include/open62541/client_highlevel.h"
+#include "include/open62541/common.h"
+
 
 namespace opc {
     struct WriterChannelConfig{
@@ -108,7 +115,7 @@ namespace opc {
         pipeline::Control ctrl pipe;
         std::shared_ptr<UA_Client> ua_client;
         opc::DeviceProperties device_props;
-    };
+    }; // class WriterTask
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    OPC Sink                                   //
@@ -121,14 +128,14 @@ namespace opc {
             std::set<ChannelKey> indexes;
             std::shared_ptr<task::Context> ctx;
             synnax::Task task;
-            std::map<std::ChannelKey, std::WriterChannelConfig> channel_map;
+            std::map<ChannelKey, WriterChannelConfig> channel_map;
 
             UA_WriteRequest req; // defined in types_generated.h
             std::vector<UA_WriteValue> nodes_to_write;
-            synnax::Frame frl
+            synnax::Frame fr;
             std::unique_ptr<int64_t[]> timestamp_buf;
             int exceed_time_count = 0;
-            task::state curr_state;
+            task::State curr_state;
 
             Sink(
                 WriterConfig cfg,
@@ -141,24 +148,24 @@ namespace opc {
             freighter::Error write(synnax::Frame frame) override;
        
         private:
-            void initializeWriteRequest(const synnax::Frame &frame);
+            void initialize_write_request(const synnax::Frame &frame);
 
-            void initializeDataValue(
-                            const synnax::Frame &frame,
-                            uint32_t &index,
-                            WriterChannelConfig ch,
-                            UA_WriteValue writeValue);
+            void initialize_write_value(
+                const synnax::Frame &frame,
+                uint32_t &index,
+                WriterChannelConfig &ch,
+                UA_WriteValue &writeValue
+            );
 
-            void stoppedWithErr(const freighter::Error &err) override;
+            void stopped_with_err(const freighter::Error &err) override;
    
-            [[nodiscard]] freighter::Error communicateResponseError(const UA_StatusCode &status);
-            [[nodiscard]] freighter::Error communciateValueError(const std:;string &channel, const UA_StatusCode &status);
+            [[nodiscard]] freighter::Error communicate_response_error(const UA_StatusCode &status);
 
-    }
-
-}
-        //  cfg(std::move(cfg)),
-        //         ua_client(ua_client),
-        //         indexes(std::move(indexes)),
-        //         ctx(std::move(ctx)),
-        //         task(std::move(task))
+            void cast_and_set_type(
+                const synnax::Frame &frame,
+                const uint32_t &series_index,
+                const WriterChannelConfig &ch,
+                UA_WriteValue &write_value
+            );
+    }; // class Sink
+} // namespace opc
