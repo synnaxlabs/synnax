@@ -260,6 +260,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   };
 
   const handleFocus: FocusEventHandler<HTMLInputElement> = () => {
+    // Trigger an onChange to make sure the parent component is aware of the focus event.
     if (internalValue === "") onChange("");
     setInternalValue("");
     onFocus?.();
