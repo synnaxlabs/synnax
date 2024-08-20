@@ -55,9 +55,9 @@ export const fileHandler: Layout.FileHandler = async ({
       }))
     )
       return true;
+    dispatch(Layout.remove({ keys: [key] }));
+    dispatch(remove({ keys: [key] }));
   }
-  dispatch(Layout.remove({ keys: [key] }));
-  dispatch(remove({ keys: [key] }));
 
   if (client == null) return true;
 
