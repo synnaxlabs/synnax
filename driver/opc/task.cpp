@@ -133,6 +133,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     }
 
     // Read each node in configuration to ensure successful access.
+    // TODO: do I still need this for writes? probably
     for (auto i = 0; i < cfg.channels.size(); i++) {
         auto ch = cfg.channels[i];
         UA_Variant *value = UA_Variant_new();
@@ -164,8 +165,18 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     }
 
     // TODO: instantiate sink
-    // TODO: construct streamer
+    auto sink = std::make_shared<opc::Sink>(
+                                    cfg,
+                                    ua_client,
+                                    ctx,
+                                    task
+                                );
 
+    // TODO: construct streamer
+    auto cmd_streamer_config = synnax::StreamerConfig{
+        .channels = cfg.channelKeys(),
+        .start = synnax::TimeStamp::now(),
+    };
 
     ctx->setState({
         .task = task.key,
@@ -181,8 +192,8 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
                                 task, 
                                 cfg, 
                                 breaker_config, 
-                                std::move(source),
-                                writer_cfg, 
+                                std::move(sink),
+                                cmd_streamer_config,
                                 ua_client,
                                 properties
                             );

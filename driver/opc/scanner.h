@@ -23,6 +23,8 @@
 using json = nlohmann::json;
 
 namespace opc {
+
+///@brief The parameters for connecting to and iterating through nodes in the OPC UA server.A
 struct ScannerScanCommandArgs {
     ConnectionConfig connection;
     std::string node_id;
@@ -40,6 +42,9 @@ struct ScannerScanCommandArgs {
 const std::string SCAN_CMD_TYPE = "scan";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Scanner Task                               //
+///////////////////////////////////////////////////////////////////////////////////
 class Scanner final : public task::Task {
 public:
     explicit Scanner(
@@ -54,6 +59,7 @@ public:
 
     std::string name() override { return task.name; }
 
+    ///@brief Executes the command on the task. Possible commands are SCAN_CMD_TYPE and TEST_CONNECTION_CMD_TYPE
     void exec(task::Command &cmd) override;
 
     void stop() override {

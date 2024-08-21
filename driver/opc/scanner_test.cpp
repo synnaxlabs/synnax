@@ -9,7 +9,7 @@
 
 #include <include/gtest/gtest.h>
 #include "nlohmann/json.hpp"
-#include "driver/opcua/scanner.h"
+#include "driver/opc/scanner.h"
 #include "client/cpp/synnax.h"
 
 using json = nlohmann::json;

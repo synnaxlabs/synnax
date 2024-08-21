@@ -75,7 +75,7 @@ struct DeviceNodeProperties {
         std::string node_id,
         std::string node_class,
         bool is_array
-    ) : data_type(data_type), name(name), node_id(node_id), is_array(is_array), node_class(node_class) {
+    ) : data_type(data_type), name(name), node_id(node_id), node_class(node_class),is_array(is_array) {
     }
 
     explicit DeviceNodeProperties(config::Parser parser) : data_type(
