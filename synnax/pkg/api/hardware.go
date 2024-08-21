@@ -334,6 +334,7 @@ type HardwareRetrieveDeviceRequest struct {
 	Keys      []string `json:"keys" msgpack:"keys"`
 	Names     []string `json:"names" msgpack:"names"`
 	Makes     []string `json:"makes" msgpack:"makes"`
+	Models    []string `json:"models" msgpack:"models"`
 	Locations []string `json:"locations" msgpack:"locations"`
 	Search    string   `json:"search" msgpack:"search"`
 	Limit     int      `json:"limit" msgpack:"limit"`
@@ -353,6 +354,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 		hasLimit     = req.Limit > 0
 		hasOffset    = req.Offset > 0
 		hasLocations = len(req.Locations) > 0
+		hasModels    = len(req.Models) > 0
 	)
 	q := svc.internal.Device.NewRetrieve()
 	if hasKeys {
@@ -375,6 +377,9 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	}
 	if hasLocations {
 		q = q.WhereLocations(req.Locations...)
+	}
+	if hasModels {
+		q = q.WhereModels(req.Models...)
 	}
 	err := q.Entries(&res.Devices).Exec(ctx, nil)
 	if err != nil {

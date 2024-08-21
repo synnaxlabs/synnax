@@ -90,7 +90,6 @@ class KV:
         req = _DeleteRequest(range=self._rng_key, keys=normalize(keys))
         send_required(self._client, _DELETE_ENDPOINT, req, _EmptyResponse)
 
-    # Implement dict-like interface
     def __getitem__(self, key: str) -> str:
         return self.get(key)
 

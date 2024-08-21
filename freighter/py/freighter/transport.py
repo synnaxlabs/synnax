@@ -20,6 +20,7 @@ Payload: TypeAlias = BaseModel
 
 class Empty(Payload):
     """Empty represents an empty payload."""
+
     pass
 
 
@@ -69,7 +70,8 @@ Middleware = Callable[[Context, Next], tuple[Context, Exception | None]]
 metadata to a request or alter its behvaior."""
 
 AsyncMiddleware = Callable[
-    [Context, AsyncNext], Awaitable[tuple[Context, Exception | None]]]
+    [Context, AsyncNext], Awaitable[tuple[Context, Exception | None]]
+]
 """Middleware is a general middleware function that can be used to parse/attach
 metadata to a request or alter its behvaior."""
 

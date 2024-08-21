@@ -52,6 +52,7 @@ from synnax.channel.payload import (
     ChannelParams,
 )
 from synnax.util.interop import overload_comparison_operators
+from synnax.hardware.task import Task
 
 from uuid import UUID
 from typing import overload

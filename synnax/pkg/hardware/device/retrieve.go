@@ -46,6 +46,11 @@ func (r Retrieve) WhereLocations(locations ...string) Retrieve {
 	return r
 }
 
+func (r Retrieve) WhereModels(models ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(models, d.Model) }, gorp.Required())
+	return r
+}
+
 func (r Retrieve) WhereNames(names ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(names, d.Name) })
 	return r

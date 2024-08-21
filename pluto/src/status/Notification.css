@@ -28,7 +28,10 @@
         }
     }
     .pluto-notification__content {
-        padding: 1rem;
+        padding-top: 0;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-bottom: 1rem;
     }
     .pluto-notification__message {
         font-weight: 450;

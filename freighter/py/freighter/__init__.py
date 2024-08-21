@@ -35,7 +35,7 @@ from freighter.transport import (
     Next,
     Payload,
     Transport,
-    Empty
+    Empty,
 )
 from freighter.unary import UnaryClient, AsyncUnaryClient, send_required
 from freighter.url import URL
