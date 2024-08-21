@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import warnings
 from typing import overload, Protocol
 
@@ -18,6 +20,7 @@ from synnax.framer import Client as FrameClient
 from synnax.telem import TimeStamp
 from synnax.util.normalize import normalize, override, check_for_none
 from synnax.hardware.rack import Rack, Client as RackClient
+from synnax.exceptions import ConfigurationError
 
 
 class _CreateRequest(Payload):
@@ -57,7 +60,7 @@ class Task:
     type: str = ""
     config: str = ""
     snapshot: bool = False
-    __frame_client: FrameClient | None = None
+    _frame_client: FrameClient | None = None
 
     def __init__(
         self,
@@ -77,7 +80,7 @@ class Task:
         self.type = type
         self.config = config
         self.snapshot = snapshot
-        self.__frame_client = _frame_client
+        self._frame_client = _frame_client
 
     def to_payload(self) -> TaskPayload:
         return TaskPayload(
@@ -87,8 +90,16 @@ class Task:
             config=self.config,
         )
 
+    def set_internal(self, task: Task):
+        self.key = task.key
+        self.name = task.name
+        self.type = task.type
+        self.config = task.config
+        self.snapshot = task.snapshot
+        self._frame_client = task._frame_client
+
     def execute_command(self, type_: str, args: dict | None = None) -> str:
-        w = self.__frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
+        w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
         key = str(uuid4())
         w.write(
             _TASK_CMD_CHANNEL,
@@ -99,6 +110,8 @@ class Task:
 
 
 class MetaTask(Protocol):
+    key: int
+
     def to_payload(self) -> TaskPayload:
         ...
 
@@ -182,16 +195,17 @@ class Client:
             pld.key = (rack << 32) + 0
         return pld
 
-    def configure(self, task: MetaTask) -> MetaTask:
+    def configure(self, task: MetaTask, timeout: float = 5) -> MetaTask:
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
             res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
             task.set_internal(self.__sugar(res.tasks)[0])
             while True:
-                frame = streamer.read(5)
+                frame = streamer.read(timeout)
                 if frame is None:
-                    break
+                    raise TimeoutError("task - timeout waiting for driver to "
+                                       "acknowledge configuration")
                 elif (
                     _TASK_STATE_CHANNEL not in frame
                     or len(frame[_TASK_STATE_CHANNEL]) == 0
@@ -199,13 +213,13 @@ class Client:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 state = frame["sy_task_state"][0]
-                if state["task"] != task.key:
+                if int(state["task"]) != task.key:
                     continue
                 variant = state["variant"]
                 if variant == "success":
                     break
                 if variant == "error":
-                    raise Exception(state["details"]["message"])
+                    raise ConfigurationError(state["details"]["message"])
         return task
 
     def delete(self, keys: int | list[int]):

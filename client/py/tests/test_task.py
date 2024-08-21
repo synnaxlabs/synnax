@@ -6,9 +6,12 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+import json
+import time
 
 import pytest
 import synnax as sy
+import threading
 from uuid import uuid4
 
 
@@ -39,3 +42,59 @@ class TestTaskClient:
         res = client.hardware.tasks.retrieve(type=type)
         assert res.type == type
         assert res.key == task.key
+
+    def test_task_configure_success(self, client: sy.Synnax):
+        """Should not throw an error when the task is configured successfully."""
+
+        def driver():
+            with client.open_streamer("sy_task_set") as s:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                    f = s.read(timeout=0.5)
+                    key = f["sy_task_set"][0]
+                    w.write(
+                        "sy_task_state",
+                        [{
+
+                            "task": int(key),
+                            "variant": "success",
+                            "details": {"message": "Task configured."}
+                        }]
+                    )
+
+        tsk = sy.Task()
+        t = threading.Thread(target=driver)
+        t.start()
+        time.sleep(0.05)
+        client.hardware.tasks.configure(tsk)
+        t.join()
+
+    def test_task_configure_invalid_config(self, client: sy.Synnax):
+        """Should throw an error when the driver responds with an error"""
+
+        def driver():
+            with client.open_streamer("sy_task_set") as s:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                    f = s.read(timeout=0.5)
+                    key = f["sy_task_set"][0]
+                    w.write(
+                        "sy_task_state",
+                        [{
+                            "task": int(key),
+                            "variant": "error",
+                            "details": {"message": "Invalid Configuration."}
+                        }]
+                    )
+
+        tsk = sy.Task()
+        t = threading.Thread(target=driver)
+        t.start()
+        time.sleep(0.05)
+        with pytest.raises(sy.ConfigurationError, match="Invalid Configuration."):
+            client.hardware.tasks.configure(tsk)
+        t.join()
+
+    def test_task_configure_timeout(self, client: sy.Synnax):
+        """Should throw an error when the task is not configured within the timeout."""
+        tsk = sy.Task()
+        with pytest.raises(TimeoutError):
+            client.hardware.tasks.configure(tsk, timeout=0.1)
