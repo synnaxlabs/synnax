@@ -9,35 +9,55 @@
 
 import synnax as sy
 from synnax.hardware import ni
-import time
 
-client = sy.Synnax()
+client = sy.Synnax(
+    host="nuc",
+    port=9090,
+    username="synnax",
+    password="seldon",
+    secure=False,
+)
 
 dev = client.hardware.devices.retrieve(model="USB-6289")
 
 volts_idx = client.channels.create(
-    name="USB-6289 Time",
+    name="6289_di_time",
     is_index=True,
     retrieve_if_name_exists=True,
     data_type=sy.DataType.TIMESTAMP,
 )
-volts_1 = client.channels.create(
-    name="USB-6289 Voltage 1",
+di_0 = client.channels.create(
+    name="6289_di_0",
     index=volts_idx.key,
-    data_type=sy.DataType.FLOAT32,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+di_1 = client.channels.create(
+    name="6289_di_1",
+    index=volts_idx.key,
+    data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
-tsk = ni.AnalogReadTask(
-    name="USB-6289 Analog Read",
+tsk = ni.DigitalReadTask(
+    name="USB-6289 Digital Read",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
-    channels=[ni.AIVoltageChan(channel=volts_1.key, port=0)],
+    channels=[
+        ni.DIChan(channel=di_0.key, port=0, line=0),
+        ni.DIChan(channel=di_1.key, port=0, line=1),
+    ],
 )
 
 client.hardware.tasks.configure(tsk)
 tsk.start()
-time.sleep(5)
+total_reads = 100
+frame = sy.Frame()
+with client.open_streamer(["6289_di_0", "6289_di_1"]) as streamer:
+    while total_reads > 0:
+        frame.append(streamer.read())
+        total_reads -= 1
+frame.to_df().to_csv("digital_read_result.csv")
 tsk.stop()

@@ -155,7 +155,6 @@ class Client:
         locations: list[str] | None = None,
     ) -> list[Device] | Device:
         is_single = check_for_none(keys, makes, models, locations, names)
-        print(is_single)
         res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,

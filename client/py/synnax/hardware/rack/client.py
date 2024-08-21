@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from alamos import NOOP, Instrumentation, trace
+from alamos import NOOP, Instrumentation
 from freighter import Payload, UnaryClient, send_required, Empty
 from synnax.hardware.rack.payload import Rack
 from typing import overload
+from synnax.util.normalize import check_for_none, override
 
 
 class _CreateRequest(Payload):
@@ -84,18 +85,29 @@ class Client:
         req = _DeleteRequest(keys=keys)
         send_required(self._client, _DELETE_ENDPOINT, req, Empty)
 
-    @trace("debug")
+    @overload
     def retrieve(
         self,
+        key: int | None = None,
+        name: str | None = None,
+    ) -> Rack:
+        ...
+
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
         keys: list[int] | None = None,
         names: list[str] | None = None,
     ) -> list[Rack]:
+        is_single = check_for_none(keys, names)
         res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(keys=keys, names=names),
+            _RetrieveRequest(
+                keys=override(key, keys),
+                names=override(name, names)
+            ),
             _RetrieveResponse,
         )
-        if res.racks is None:
-            return list()
-        return res.racks
+        return res.racks[0] if is_single else res.racks

@@ -174,7 +174,7 @@ class Frame:
         """Converts the frame to a pandas DataFrame. Each column in the DataFrame
         corresponds to a channel in the frame.
         """
-        return DataFrame({k: s for k, s in self.items()})
+        return DataFrame({k: self.get(k) for k in set(self.channels)})
 
     def __contains__(self, key: ChannelKey | ChannelName) -> bool:
         return key in self.channels

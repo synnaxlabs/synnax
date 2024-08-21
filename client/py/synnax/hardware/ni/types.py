@@ -2,7 +2,8 @@ from pydantic import BaseModel, conint, confloat, constr, validator, Field
 from typing import List, Literal, Union, Optional, Dict
 from uuid import uuid4
 from synnax.hardware.task import TaskPayload, Task, MetaTask
-from synnax.telem import Rate, CrudeRate
+from synnax.telem import CrudeRate
+from contextlib import contextmanager
 import json
 
 UnitsVolts = Literal["Volts"]
@@ -100,17 +101,19 @@ TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
 ExcitationSource = Literal["Internal", "External", "None"]
 
 
-class BaseAIChan(BaseModel):
-    name: str = ""
+class BaseChan(BaseModel):
     key: str
-    channel: Optional[int]
-    port: int
     enabled: bool = True
 
     def __init__(self, **data):
         if "key" not in data:
             data["key"] = str(uuid4())
         super().__init__(**data)
+
+
+class BaseAIChan(BaseChan):
+    port: int
+    channel: int
 
 
 class MinMaxVal(BaseModel):
@@ -532,10 +535,8 @@ AIChan = Union[
 ]
 
 
-class DOChan(BaseModel):
-    key: str
+class DOChan(BaseChan):
     type: Literal["digital_output"] = "digital_output"
-    enabled: bool
     cmd_channel: int
     state_channel: int
     port: int
@@ -543,12 +544,10 @@ class DOChan(BaseModel):
 
 
 class DIChan(BaseModel):
-    key: str
+    channel: int
     type: Literal["digital_input"] = "digital_input"
-    enabled: bool
     port: int
     line: int
-    channel: int
 
 
 class AnalogReadTaskConfig(BaseModel):
@@ -600,20 +599,117 @@ class AnalogReadStateDetails(TaskStateDetails):
     errors: Optional[List[Dict[str, str]]]
 
 
-class DigitalWriteTask(BaseModel):
+class DigitalWriteTask(MetaTask):
+    TYPE = "ni_digital_write"
     config: DigitalWriteConfig
-    state: TaskStateDetails
+    _internal: Task
+
+    def __init__(
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        state_rate: CrudeRate = 0,
+        data_saving: bool = False,
+        channels: List[DOChan] = None,
+    ):
+        if internal is not None:
+            self._internal = internal
+            self.config = DigitalWriteConfig.parse_obj(json.loads(internal.config))
+            return
+        self._internal = Task(name=name, type=self.TYPE)
+        self.config = DigitalWriteConfig(
+            device=device,
+            state_rate=state_rate,
+            data_saving=data_saving,
+            channels=channels,
+        )
+
+    @property
+    def name(self) -> str:
+        return self._internal.name
+
+    @property
+    def key(self) -> int:
+        return self._internal.key
+
+    def to_payload(self) -> TaskPayload:
+        pld = self._internal.to_payload()
+        pld.config = json.dumps(self.config.dict())
+        return pld
+
+    def set_internal(self, task: Task):
+        self._internal = task
+
+    @contextmanager
+    def start(self):
+        self._internal.execute_command("start")
+        try:
+            yield
+        finally:
+            self.stop()
+
+    def stop(self):
+        self._internal.execute_command("stop")
 
 
-class DigitalReadTask(BaseModel):
+class DigitalReadTask(MetaTask):
+    TYPE = "ni_digital_read"
     config: DigitalReadConfig
-    state: TaskStateDetails
+    _internal: Task
+
+    def __init__(
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        sample_rate: CrudeRate = 0,
+        stream_rate: CrudeRate = 0,
+        data_saving: bool = False,
+        channels: List[DIChan] = None,
+    ) -> None:
+        if internal is not None:
+            self._internal = internal
+            self.config = DigitalReadConfig.parse_obj(json.loads(internal.config))
+            return
+        self._internal = Task(name=name, type=self.TYPE)
+        self.config = DigitalReadConfig(
+            device=device,
+            sample_rate=sample_rate,
+            stream_rate=stream_rate,
+            data_saving=data_saving,
+            channels=channels,
+        )
+
+    @property
+    def name(self) -> str:
+        return self._internal.name
+
+    @property
+    def key(self) -> int:
+        return self._internal.key
+
+    def to_payload(self) -> TaskPayload:
+        pld = self._internal.to_payload()
+        pld.config = json.dumps(self.config.dict())
+        return pld
+
+    def set_internal(self, task: Task):
+        self._internal = task
+
+    def start(self):
+        self._internal.execute_command("start")
+
+    def stop(self):
+        self._internal.execute_command("stop")
 
 
 class AnalogReadTask(MetaTask):
     TYPE = "ni_analog_read"
     config: AnalogReadTaskConfig
-    internal: Task
+    _internal: Task
 
     def __init__(
         self,
@@ -627,13 +723,10 @@ class AnalogReadTask(MetaTask):
         channels: List[AIChan] = None,
     ) -> None:
         if internal is not None:
-            self.internal = internal
+            self._internal = internal
             self.config = AnalogReadTaskConfig.parse_obj(json.loads(internal.config))
             return
-        self.internal = Task(
-            name=name,
-            type=self.TYPE,
-        )
+        self._internal = Task(name=name, type=self.TYPE)
         self.config = AnalogReadTaskConfig(
             device=device,
             sample_rate=sample_rate,
@@ -644,22 +737,22 @@ class AnalogReadTask(MetaTask):
 
     @property
     def name(self) -> str:
-        return self.internal.name
+        return self._internal.name
 
     @property
     def key(self) -> int:
-        return self.internal.key
+        return self._internal.key
 
     def to_payload(self) -> TaskPayload:
-        pld = self.internal.to_payload()
+        pld = self._internal.to_payload()
         pld.config = json.dumps(self.config.dict())
         return pld
 
     def set_internal(self, task: Task):
-        self.internal = task
+        self._internal = task
 
     def start(self):
-        self.internal.execute_command("start")
+        self._internal.execute_command("start")
 
     def stop(self):
-        self.internal.execute_command("stop")
+        self._internal.execute_command("stop")

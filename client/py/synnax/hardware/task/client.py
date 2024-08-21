@@ -35,6 +35,7 @@ class _RetrieveRequest(Payload):
     rack: int | None = None
     keys: list[int] | None = None
     names: list[str] | None = None
+    types: list[str] | None = None
     include_state: bool = False
 
 
@@ -156,9 +157,6 @@ class Client:
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
-        if key == 0:
-            # rack as first 32 bits, 0 as last 32 bits
-            key = (rack << 32) + 0
         if tasks is None:
             tasks = [TaskPayload(key=key, name=name, type=type, config=config)]
         elif isinstance(tasks, Task):
@@ -166,23 +164,27 @@ class Client:
         else:
             is_single = False
             tasks = [t.to_payload() for t in tasks]
+        for pld in tasks:
+            self.maybe_assign_def_rack(pld, rack)
         req = _CreateRequest(tasks=tasks)
         res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
         st = self.__sugar(res.tasks)
-        if is_single:
-            return st[0]
-        return st
+        return st[0] if is_single else st
 
-    def get_default_rack(self) -> Rack:
+    def maybe_assign_def_rack(self, pld: TaskPayload, rack: int = 0) -> Rack:
         if self._default_rack is None:
-            self._default_rack = self._racks.retrieve(names=["sy_node_1_rack"])[0]
-        return self._default_rack
+            # Hardcoded as this value for now. Will be changed once we have multi-rack
+            # systems
+            self._default_rack = self._racks.retrieve(name="sy_node_1_rack")
+        if pld is not None and pld.key == 0:
+            if rack == 0:
+                rack = self._default_rack.key
+            pld.key = (rack << 32) + 0
+        return pld
 
     def configure(self, task: MetaTask) -> MetaTask:
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
-            pld = task.to_payload()
-            if pld.key == 0:
-                pld.key = (self.get_default_rack().key << 32) + 0
+            pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
             res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
             task.set_internal(self.__sugar(res.tasks)[0])
@@ -216,6 +218,7 @@ class Client:
         *,
         key: int | None = None,
         name: str | None = None,
+        type: str | None = None,
     ) -> Task:
         ...
 
@@ -224,6 +227,7 @@ class Client:
         self,
         names: list[str] | None = None,
         keys: list[int] | None = None,
+        types: list[str] | None = None,
     ) -> list[Task]:
         ...
 
@@ -231,14 +235,20 @@ class Client:
         self,
         key: int | None = None,
         name: str | None = None,
+        type: str | None = None,
         names: list[str] | None = None,
         keys: list[int] | None = None,
+        types: list[str] | None = None,
     ) -> list[Task] | Task:
-        is_single = check_for_none(names, keys)
+        is_single = check_for_none(names, keys, types)
         res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(keys=override(key, keys), names=override(name, names)),
+            _RetrieveRequest(
+                keys=override(key, keys),
+                names=override(name, names),
+                types=override(type, types)
+            ),
             _RetrieveResponse,
         )
         sug = self.__sugar(res.tasks)
