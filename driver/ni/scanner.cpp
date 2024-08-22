@@ -93,6 +93,7 @@ void ni::Scanner::scan() {
                &resource
            ) == NISysCfg_OK) {
         auto device = get_device_properties(resource);
+        device["failed_to_create"] = false;
         devices["devices"].push_back(device);
     }
 }
@@ -166,8 +167,9 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
 void ni::Scanner::create_devices() {
     if(!this->ok_state) return;
     for (auto &device: devices["devices"]) {
+        // If model is not found or failed to create previously, skip
+        if(device["model"] == "" || device["failed_to_create"] == true) continue;
         // first  try to rereive the device and if found, do not create a new device, simply continue
-        if(device["model"] == "") continue;
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(
             device["key"]);
         if (!err) {
@@ -186,9 +188,12 @@ void ni::Scanner::create_devices() {
             device["model"].get<std::string>(), // model
             device.dump() // device properties
         );
-        if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL)
+        if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL){
             LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] <<
                     " with key " << device["key"] << " for task " << this->task.name;
+            device["failed_to_create"] = true;
+        }
+
         VLOG(1) << "[ni.scanner] successfully created device " << device["model"] <<
                 " with key " << device["key"] << " for task " << this->task.name;
     }
