@@ -167,8 +167,9 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
 void ni::Scanner::create_devices() {
     if(!this->ok_state) return;
     for (auto &device: devices["devices"]) {
-        // first  try to rereive the device and if found, do not create a new device, simply continue
+        // If model is not found or failed to create previously, skip
         if(device["model"] == "" || device["failed_to_create"] == true) continue;
+        // first  try to rereive the device and if found, do not create a new device, simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(
             device["key"]);
         if (!err) {
