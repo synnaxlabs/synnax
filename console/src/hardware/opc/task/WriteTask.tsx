@@ -37,21 +37,21 @@ import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
-import {
-  Read,
-  READ_TYPE,
-  type ReadChannelConfig,
-  type ReadConfig,
-  readConfigZ,
-  ReadPayload,
-  type ReadStateDetails,
-  ReadType,
-  ZERO_READ_PAYLOAD,
+import{
+  Write,
+  WRITE_TYPE,
+  type WriteChannelConfig,
+  type WriteConfig,
+  writeConfigZ,
+  WritePayload,
+  type WriteStateDetails,
+  WriteType,
+  ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import {
-  ChannelListContextMenu,
+  // ChannelListContextMenu,
   Controls,
-  EnableDisableButton,
+  // EnableDisableButton,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -59,11 +59,11 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
-export const configureReadLayout = (create: boolean = false): Layout.State => ({
-  name: "Configure OPC UA Read Task",
+export const configureWriteLayout = (create: boolean = false): Layout.State => ({
+  name: "Configure OPC UA Write Task",
   key: uuid(),
-  type: READ_TYPE,
-  windowKey: READ_TYPE,
+  type: WRITE_TYPE,
+  windowKey: WRITE_TYPE,
   location: "mosaic",
   window: {
     resizable: true,
@@ -73,16 +73,16 @@ export const configureReadLayout = (create: boolean = false): Layout.State => ({
   args: { create },
 });
 
-export const READ_SELECTABLE: Layout.Selectable = {
-  key: READ_TYPE,
-  title: "OPC UA Read Task",
+export const WRITE_SELECTABLE: Layout.Selectable = {
+  key: WRITE_TYPE,
+  title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({ ...configureWriteLayout(true), key: layoutKey }),
 };
 
 const schema = z.object({
   name: z.string(),
-  config: readConfigZ,
+  config: writeConfigZ,
 });
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
@@ -92,7 +92,7 @@ const Wrapped = ({
   layoutKey,
   initialValues,
   task,
-}: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
+}: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
@@ -130,7 +130,7 @@ const Wrapped = ({
     task?.key,
     task?.state,
   );
-  const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
+  const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
 
   const configure = useMutation<void>({
     mutationKey: [client?.key],
@@ -161,7 +161,7 @@ const Wrapped = ({
         dev.properties.read.channels = {};
       }
 
-      const toCreate: ReadChannelConfig[] = [];
+      const toCreate: WriteChannelConfig[] = [];
       for (const ch of config.channels) {
         if (ch.useAsIndex) continue;
         const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
@@ -206,7 +206,7 @@ const Wrapped = ({
           properties: dev.properties,
         });
 
-      createTask({ key: task?.key, name, type: READ_TYPE, config });
+      createTask({ key: task?.key, name, type: WRITE_TYPE, config });
     },
     onError: (e) => {
       addStatus({
@@ -225,7 +225,6 @@ const Wrapped = ({
     },
   });
 
-  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
   const placer = Layout.usePlacer();
 
@@ -278,16 +277,6 @@ const Wrapped = ({
               >
                 {(p) => <Input.Switch {...p} />}
               </Form.Field>
-              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
-              <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
-              <Form.Field<number>
-                label={arrayMode ? "Array Size" : "Stream Rate"}
-                path={arrayMode ? "config.arraySize" : "config.streamRate"}
-              >
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
             </Align.Space>
           </Align.Space>
           <Align.Space
@@ -309,7 +298,7 @@ const Wrapped = ({
               </Header.Header>
               <Browser device={device} />
             </Align.Space>
-            <ChannelList path="config.channels" device={device} />
+            {/* <ChannelList path="config.channels" device={device} /> */}
           </Align.Space>
         </Form.Form>
         <Controls
@@ -324,209 +313,209 @@ const Wrapped = ({
   );
 };
 
-export interface ChannelListProps {
-  path: string;
-  device?: device.Device<Device.Properties>;
-}
+// export interface ChannelListProps {
+//   path: string;
+//   device?: device.Device<Device.Properties>;
+// }
 
-export const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
-  const valueRef = useSyncedRef(value);
+// export const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
+//   const { value, push, remove } = Form.useFieldArray<WriteChannelConfig>({ path });
+//   const valueRef = useSyncedRef(value);
 
-  const menuProps = Menu.useContextMenu();
+//   const menuProps = Menu.useContextMenu();
 
-  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
-    const dropped = items.filter(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
-    );
-    const toAdd = dropped
-      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
-      .map((i) => {
-        const nodeId = i.data?.nodeId as string;
-        const name = i.data?.name as string;
-        return {
-          key: nodeId,
-          name,
-          nodeName: name,
-          channel: 0,
-          enabled: true,
-          nodeId,
-          useAsIndex: false,
-          dataType: (i.data?.dataType as string) ?? "float32",
-        };
-      });
-    push(toAdd);
-    return dropped;
-  }, []);
+//   const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
+//     const dropped = items.filter(
+//       (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+//     );
+//     const toAdd = dropped
+//       .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
+//       .map((i) => {
+//         const nodeId = i.data?.nodeId as string;
+//         const name = i.data?.name as string;
+//         return {
+//           key: nodeId,
+//           name,
+//           nodeName: name,
+//           channel: 0,
+//           enabled: true,
+//           nodeId,
+//           useAsIndex: false,
+//           dataType: (i.data?.dataType as string) ?? "float32",
+//         };
+//       });
+//     push(toAdd);
+//     return dropped;
+//   }, []);
 
-  const canDrop = useCallback((state: Haul.DraggingState): boolean => {
-    const v = state.items.some(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
-    );
-    return v;
-  }, []);
+//   const canDrop = useCallback((state: Haul.DraggingState): boolean => {
+//     const v = state.items.some(
+//       (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+//     );
+//     return v;
+//   }, []);
 
-  const props = Haul.useDrop({
-    type: "opc.ReadTask",
-    canDrop,
-    onDrop: handleDrop,
-  });
+//   const props = Haul.useDrop({
+//     type: "opc.WriteTask",
+//     canDrop,
+//     onDrop: handleDrop,
+//   });
 
-  const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
+//   const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
 
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(
-    value.length > 0 ? [value[0].key] : [],
-  );
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
-    value.length > 0 ? 0 : null,
-  );
+//   const [selectedChannels, setSelectedChannels] = useState<string[]>(
+//     value.length > 0 ? [value[0].key] : [],
+//   );
+//   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+//     value.length > 0 ? 0 : null,
+//   );
 
-  return (
-    <Align.Space
-      className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
-      grow
-      empty
-      bordered
-      rounded
-      {...props}
-    >
-      <Header.Header level="h4">
-        <Header.Title weight={500}>Channels</Header.Title>
-      </Header.Header>
-      <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
-          <ChannelListContextMenu
-            path={path}
-            keys={keys}
-            value={value}
-            remove={remove}
-            onSelect={(k, i) => {
-              setSelectedChannels(k);
-              setSelectedChannelIndex(i);
-            }}
-          />
-        )}
-        {...menuProps}
-      >
-        <List.List<string, ReadChannelConfig>
-          data={value}
-          emptyContent={
-            <Align.Center>
-              <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
-                No channels added. Drag a variable{" "}
-                <Icon.Variable
-                  style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
-                />{" "}
-                from the browser to add a channel to the task.
-              </Text.Text>
-            </Align.Center>
-          }
-        >
-          <List.Selector<string, ReadChannelConfig>
-            value={selectedChannels}
-            allowNone={false}
-            autoSelectOnNone={false}
-            allowMultiple
-            onChange={(keys, { clickedIndex }) => {
-              if (clickedIndex == null) return;
-              setSelectedChannels(keys);
-              setSelectedChannelIndex(clickedIndex);
-            }}
-            replaceOnSingle
-          >
-            <List.Core<string, ReadChannelConfig> grow>
-              {({ key, ...props }) => (
-                <ChannelListItem
-                  key={key}
-                  {...props}
-                  path={path}
-                  remove={() => {
-                    const indices = selectedChannels
-                      .map((k) => value.findIndex((v) => v.key === k))
-                      .filter((i) => i >= 0);
-                    remove(indices);
-                    setSelectedChannels([]);
-                    setSelectedChannelIndex(null);
-                  }}
-                />
-              )}
-            </List.Core>
-          </List.Selector>
-        </List.List>
-      </Menu.ContextMenu>
-      {value.length > 0 && (
-        <ChannelForm
-          selectedChannelIndex={selectedChannelIndex}
-          deviceProperties={device?.properties}
-        />
-      )}
-    </Align.Space>
-  );
-};
+//   return (
+//     <Align.Space
+//       className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
+//       grow
+//       empty
+//       bordered
+//       rounded
+//       {...props}
+//     >
+//       <Header.Header level="h4">
+//         <Header.Title weight={500}>Channels</Header.Title>
+//       </Header.Header>
+//       <Menu.ContextMenu
+//         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
+//           <ChannelListContextMenu
+//             path={path}
+//             keys={keys}
+//             value={value}
+//             remove={remove}
+//             onSelect={(k, i) => {
+//               setSelectedChannels(k);
+//               setSelectedChannelIndex(i);
+//             }}
+//           />
+//         )}
+//         {...menuProps}
+//       >
+//         <List.List<string, WriteChannelConfig>
+//           data={value}
+//           emptyContent={
+//             <Align.Center>
+//               <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+//                 No channels added. Drag a variable{" "}
+//                 <Icon.Variable
+//                   style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
+//                 />{" "}
+//                 from the browser to add a channel to the task.
+//               </Text.Text>
+//             </Align.Center>
+//           }
+//         >
+//           <List.Selector<string, WriteChannelConfig>
+//             value={selectedChannels}
+//             allowNone={false}
+//             autoSelectOnNone={false}
+//             allowMultiple
+//             onChange={(keys, { clickedIndex }) => {
+//               if (clickedIndex == null) return;
+//               setSelectedChannels(keys);
+//               setSelectedChannelIndex(clickedIndex);
+//             }}
+//             replaceOnSingle
+//           >
+//             <List.Core<string, WriteChannelConfig> grow>
+//               {({ key, ...props }) => (
+//                 <ChannelListItem
+//                   key={key}
+//                   {...props}
+//                   path={path}
+//                   remove={() => {
+//                     const indices = selectedChannels
+//                       .map((k) => value.findIndex((v) => v.key === k))
+//                       .filter((i) => i >= 0);
+//                     remove(indices);
+//                     setSelectedChannels([]);
+//                     setSelectedChannelIndex(null);
+//                   }}
+//                 />
+//               )}
+//             </List.Core>
+//           </List.Selector>
+//         </List.List>
+//       </Menu.ContextMenu>
+//       {value.length > 0 && (
+//         <ChannelForm
+//           selectedChannelIndex={selectedChannelIndex}
+//           deviceProperties={device?.properties}
+//         />
+//       )}
+//     </Align.Space>
+//   );
+// };
 
-export const ChannelListItem = ({
-  path,
-  remove,
-  ...props
-}: List.ItemProps<string, ReadChannelConfig> & {
-  path: string;
-  remove?: () => void;
-}): ReactElement => {
-  const { entry } = props;
-  const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<ReadChannelConfig>({
-    path: `${path}.${props.index}`,
-    optional: true,
-  });
-  if (childValues == null) return <></>;
-  const opcNode =
-    childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
-  let opcNodeColor = undefined;
-  if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
+// export const ChannelListItem = ({
+//   path,
+//   remove,
+//   ...props
+// }: List.ItemProps<string, WriteChannelConfig> & {
+//   path: string;
+//   remove?: () => void;
+// }): ReactElement => {
+//   const { entry } = props;
+//   const ctx = Form.useContext();
+//   const childValues = Form.useChildFieldValues<WriteChannelConfig>({
+//     path: `${path}.${props.index}`,
+//     optional: true,
+//   });
+//   if (childValues == null) return <></>;
+//   const opcNode =
+//     childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
+//   let opcNodeColor = undefined;
+//   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
 
-  return (
-    <List.ItemFrame
-      {...props}
-      entry={childValues}
-      justify="spaceBetween"
-      align="center"
-      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && remove?.()}
-    >
-      <Align.Space direction="y" size="small">
-        <Text.WithIcon
-          startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l7)" }} />}
-          level="p"
-          weight={500}
-          shade={9}
-          align="end"
-        >
-          {entry.name}
-        </Text.WithIcon>
-        <Text.WithIcon
-          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
-          level="small"
-          weight={350}
-          shade={7}
-          color={opcNodeColor}
-          size="small"
-        >
-          {entry.nodeName} {opcNode}
-        </Text.WithIcon>
-      </Align.Space>
-      <Align.Space direction="x" align="center">
-        {childValues.useAsIndex && (
-          <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
-            Index
-          </Text.Text>
-        )}
-        <EnableDisableButton
-          value={childValues.enabled}
-          onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
-        />
-      </Align.Space>
-    </List.ItemFrame>
-  );
-};
+//   return (
+//     <List.ItemFrame
+//       {...props}
+//       entry={childValues}
+//       justify="spaceBetween"
+//       align="center"
+//       onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && remove?.()}
+//     >
+//       <Align.Space direction="y" size="small">
+//         <Text.WithIcon
+//           startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l7)" }} />}
+//           level="p"
+//           weight={500}
+//           shade={9}
+//           align="end"
+//         >
+//           {entry.name}
+//         </Text.WithIcon>
+//         <Text.WithIcon
+//           startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
+//           level="small"
+//           weight={350}
+//           shade={7}
+//           color={opcNodeColor}
+//           size="small"
+//         >
+//           {entry.nodeName} {opcNode}
+//         </Text.WithIcon>
+//       </Align.Space>
+//       <Align.Space direction="x" align="center">
+//         {childValues.useAsIndex && (
+//           <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
+//             Index
+//           </Text.Text>
+//         )}
+//         <EnableDisableButton
+//           value={childValues.enabled}
+//           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+//         />
+//       </Align.Space>
+//     </List.ItemFrame>
+//   );
+// };
 
 interface ChannelFormProps {
   selectedChannelIndex?: number | null;
@@ -563,4 +552,4 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   );
 };
 
-export const ReadTask: Layout.Renderer = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
+export const WriteTask: Layout.Renderer = wrapTaskLayout(Wrapped, ZERO_WRITE_PAYLOAD);

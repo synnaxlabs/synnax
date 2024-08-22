@@ -12,6 +12,7 @@ import { Icon as PIcon } from "@synnaxlabs/pluto";
 
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
+import { configureWriteLayout } from "@/hardware/opc/task/WriteTask";
 import { type Command } from "@/palette/Palette";
 
 export const connectServerCommand: Command = {
@@ -32,4 +33,11 @@ export const createReadTaskCommand: Command = {
   onSelect: ({ placeLayout }) => placeLayout(configureReadLayout(true)),
 };
 
-export const COMMANDS = [connectServerCommand, createReadTaskCommand];
+export const createWriteTaskCommand: Command = {
+  key: "opc-create-write-task",
+  name: "Create an OPC UA Write Task",
+  icon: <Icon.Logo.OPC />,
+  onSelect: ({ placeLayout }) => placeLayout(configureWriteLayout(true)),
+};
+
+export const COMMANDS = [connectServerCommand, createReadTaskCommand, createWriteTaskCommand];
