@@ -177,9 +177,11 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
     };
     if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return {synnax::FLOAT32, false};
     if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return {synnax::FLOAT64, false};
+    if (val.type == &UA_TYPES[UA_TYPES_SBYTE]) return {synnax::INT8, false};
     if (val.type == &UA_TYPES[UA_TYPES_INT16]) return {synnax::INT16, false};
     if (val.type == &UA_TYPES[UA_TYPES_INT32]) return {synnax::INT32, false};
     if (val.type == &UA_TYPES[UA_TYPES_INT64]) return {synnax::INT64, false};
+    if(val.type == &UA_TYPES[UA_TYPES_BYTE]) return {synnax::UINT8, false};
     if (val.type == &UA_TYPES[UA_TYPES_UINT16]) return {synnax::UINT16, false};
     if (val.type == &UA_TYPES[UA_TYPES_UINT32]) return {synnax::UINT32, false};
     if (val.type == &UA_TYPES[UA_TYPES_UINT64]) return {synnax::UINT64, false};

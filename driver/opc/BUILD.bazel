@@ -5,15 +5,15 @@ cc_library(
         "reader.cpp",
         "scanner.cpp",
         "util.cpp",
-        "task.cpp", #wip
-        "sink.cpp", #wip
+#        "task.cpp", #wip
+#        "sink.cpp", #wip
     ],
     hdrs = [
         "opc.h",
         "reader.h",
         "scanner.h",
         "util.h",
-        "writer.h" #wip
+#        "writer.h" #wip
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
@@ -54,7 +54,7 @@ cc_test(
     name = "opc_test",
     srcs = [
         "mock_server.h",
-#        "reader_test.cpp",
+        "reader_test.cpp",
         "scanner_test.cpp",
 #        "writer_test.cpp"
     ],
