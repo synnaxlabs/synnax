@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -212,18 +212,24 @@ const handleRename: Ontology.HandleTreeRename = {
     store.dispatch(Layout.rename({ key: id.key, name })),
 };
 
+export const loadSchematic = async (
+  client: Synnax,
+  id: ontology.ID,
+  placeLayout: Layout.Placer,
+) => {
+  const schematic = await client.workspaces.schematic.retrieve(id.key);
+  return placeLayout(
+    create({
+      ...(schematic.data as unknown as State),
+      key: schematic.key,
+      name: schematic.name,
+      snapshot: schematic.snapshot,
+    }),
+  );
+};
+
 const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout }) => {
-  void (async () => {
-    const schematic = await client.workspaces.schematic.retrieve(selection[0].id.key);
-    placeLayout(
-      create({
-        ...(schematic.data as unknown as State),
-        key: schematic.key,
-        name: schematic.name,
-        snapshot: schematic.snapshot,
-      }),
-    );
-  })();
+  void loadSchematic(client, selection[0].id, placeLayout);
 };
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({

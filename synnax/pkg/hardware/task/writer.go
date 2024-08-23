@@ -40,7 +40,7 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 	// We don't create ontology resources for internal tasks.
 	if err = gorp.NewCreate[Key, Task]().
 		GuardExisting(func(e Task) error {
-			if !e.Snapshot {
+			if !e.Snapshot || e.Config == t.Config {
 				return nil
 			}
 			return errors.Wrapf(validate.Error, "snapshot task %v cannot be overwritten", e)

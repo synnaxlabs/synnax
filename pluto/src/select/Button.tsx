@@ -189,6 +189,14 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
     [onChange, value, close, setSelected],
   );
 
+  const childrenProps: DropdownButtonButtonProps<K, E> = {
+    selected,
+    renderKey: entryRenderKey,
+    toggle,
+    visible,
+  };
+  if (variant != null) childrenProps.variant = variant;
+
   return (
     <Core<K, E>
       close={close}
@@ -201,17 +209,7 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
       columns={columns}
       hideColumnHeader={hideColumnHeader}
       variant={dropdownVariant}
-      trigger={
-        <>
-          {children({
-            selected,
-            renderKey: entryRenderKey,
-            toggle,
-            visible,
-            variant,
-          })}
-        </>
-      }
+      trigger={<>{children(childrenProps)}</>}
       {...props}
     />
   );

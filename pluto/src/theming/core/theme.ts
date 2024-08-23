@@ -232,9 +232,9 @@ const SYNNAX_BASE: ThemeSpec = {
       lineHeight: 3.5 * 1.5,
     },
     h4: {
-      size: 2.75,
+      size: 2.6666,
       weight: "medium",
-      lineHeight: 2.75 * 1.5,
+      lineHeight: 2.6666 * 1.5,
     },
     h5: {
       size: 2.333333,

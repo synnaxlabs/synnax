@@ -221,19 +221,9 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   }
 
   async openDependentTracker(
-    parent: ID,
-    initial: Resource[],
-    type: string = "parent",
-    direction: RelationshipDirection = "from",
+    props: DependentTrackerProps,
   ): Promise<observe.ObservableAsyncCloseable<Resource[]>> {
-    return await DependentTracker.open(
-      parent,
-      this,
-      this.framer,
-      initial,
-      type,
-      direction,
-    );
+    return await DependentTracker.open(props, this.framer, this);
   }
 
   newSearcherWithOptions(
@@ -374,6 +364,17 @@ export class ChangeTracker {
   }
 }
 
+const oppositeDirection = (dir: RelationshipDirection): RelationshipDirection =>
+  dir === "from" ? "to" : "from";
+
+interface DependentTrackerProps {
+  target: ID;
+  dependents: Resource[];
+  relationshipType?: string;
+  relationshipDirection?: RelationshipDirection;
+  resourceType?: string;
+}
+
 /**
  * A class that tracks a resource (called the 'target' resource) and related resources
  * (called 'dependents') of a particular type (called the 'type') in a Synnax cluster
@@ -385,39 +386,43 @@ export class DependentTracker
 {
   private readonly internal: ChangeTracker;
   private readonly target: ID;
-  private readonly direction: RelationshipDirection;
+  private readonly relDir: RelationshipDirection;
+  private readonly resourceType?: string;
   private dependents: Resource[];
   private readonly client: Client;
-  private readonly type: string;
+  private readonly relType: string;
 
   private constructor(
-    target: ID,
+    {
+      target,
+      dependents,
+      relationshipType = "parent",
+      relationshipDirection = "from",
+      resourceType,
+    }: DependentTrackerProps,
     internal: ChangeTracker,
-    dependents: Resource[],
     client: Client,
-    type: string = "parent",
-    direction: RelationshipDirection = "from",
   ) {
     super();
+    this.resourceType = resourceType;
     this.internal = internal;
     this.target = target;
     this.dependents = dependents;
+    if (this.resourceType != null)
+      this.dependents = this.dependents.filter((r) => r.id.type === this.resourceType);
     this.client = client;
-    this.type = type;
-    this.direction = direction;
+    this.relType = relationshipType;
+    this.relDir = relationshipDirection;
     this.internal.resources.onChange(this.handleResourceChange);
     this.internal.relationships.onChange(this.handleRelationshipChange);
   }
   static async open(
-    from: ID,
-    client: Client,
+    props: DependentTrackerProps,
     framer: framer.Client,
-    initial: Resource[],
-    type: string = "parent",
-    direction: RelationshipDirection = "from",
+    client: Client,
   ): Promise<DependentTracker> {
     const internal = await ChangeTracker.open(framer, client);
-    return new DependentTracker(from, internal, initial, client, type, direction);
+    return new DependentTracker(props, internal, client);
   }
 
   private handleResourceChange = (changes: ResourceChange[]): void => {
@@ -433,20 +438,25 @@ export class DependentTracker
     const deletes = changes.filter(
       (c) =>
         c.variant === "delete" &&
-        c.key[this.direction].toString() === this.target.toString(),
+        c.key[this.relDir].toString() === this.target.toString() &&
+        (this.resourceType == null ||
+          c.key[oppositeDirection(this.relDir)].type === this.resourceType),
     );
     this.dependents = this.dependents.filter(
       (child) =>
         !deletes.some(
           (del) =>
-            del.key.to.toString() === child.id.toString() && del.key.type === this.type,
+            del.key.to.toString() === child.id.toString() &&
+            del.key.type === this.relType,
         ),
     );
     const sets = changes.filter(
       (c) =>
         c.variant === "set" &&
-        c.key.type === this.type &&
-        c.key[this.direction].toString() === this.target.toString(),
+        c.key.type === this.relType &&
+        c.key[this.relDir].toString() === this.target.toString() &&
+        (this.resourceType == null ||
+          c.key[oppositeDirection(this.relDir)].type === this.resourceType),
     );
     if (sets.length === 0) return this.notify(this.dependents);
     this.client.retrieve(sets.map((s) => s.key.to)).then((resources) => {

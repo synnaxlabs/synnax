@@ -39,19 +39,15 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
       {...props}
     >
       <Text.WithIcon
-        startIcon={
-          <Icon.Range
-            style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l9)" }}
-          />
-        }
+        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l9)" }} />}
         level="p"
         weight={450}
         shade={9}
         size="small"
       >
-        {entry.name}{" "}
+        {entry.name}
       </Text.WithIcon>
-      <Ranger.TimeRangeChip level="small" timeRange={entry.timeRange} />
+      <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} />
     </List.ItemFrame>
   );
 };
@@ -89,7 +85,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
 
   return (
     <Align.Space direction="y">
-      <Text.Text level="h4" shade={8} weight={500}>
+      <Text.Text level="h4" shade={9} weight={450}>
         Child Ranges
       </Text.Text>
       <List.List data={childRanges}>
@@ -101,6 +97,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         weight={500}
         startIcon={<Icon.Add />}
         style={{ width: "fit-content" }}
+        iconSpacing="small"
         variant="text"
         onClick={() => placer(createEditLayout({ initial: { parent: rangeKey } }))}
       >

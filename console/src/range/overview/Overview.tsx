@@ -34,9 +34,14 @@ export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => {
   return (
     <Align.Space
       direction="y"
-      style={{ padding: "5rem", maxWidth: "1200px", margin: "0 auto" }}
+      style={{
+        padding: "5rem",
+        maxWidth: "1150px",
+        margin: "0 auto",
+        overflowY: "auto",
+      }}
       className={CSS.BE("range", "overview")}
-      size="large"
+      size="medium"
     >
       <Details rangeKey={layoutKey} />
       <Labels rangeKey={layoutKey} />

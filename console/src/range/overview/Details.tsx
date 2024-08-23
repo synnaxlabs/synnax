@@ -22,7 +22,6 @@ import {
   usePrevious,
 } from "@synnaxlabs/pluto";
 import { change, deep } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 import { FC, ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
@@ -192,76 +191,78 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   return (
     <Form.Form {...formCtx}>
-      <Align.Space direction="x" justify="spaceBetween" className={CSS.B("header")}>
-        <Align.Space direction="y" grow>
-          <Form.TextField
-            path="name"
-            showLabel={false}
-            inputProps={{
-              variant: "natural",
-              level: "h1",
-              placeholder: "Name",
-              onlyChangeOnBlur: true,
-              resetOnBlurIfEmpty: true,
-            }}
-            padHelpText={false}
-          />
-          <ParentRangeButton rangeKey={rangeKey} />
-        </Align.Space>
-        <Align.Space
-          direction="x"
-          className={CSS.B("copy-buttons")}
-          style={{ height: "fit-content" }}
-          size="small"
-        >
-          <Align.Space direction="x">
+      <Align.Space direction="y" size="large">
+        <Align.Space direction="x" justify="spaceBetween" className={CSS.B("header")}>
+          <Align.Space direction="y" grow>
+            <Form.TextField
+              path="name"
+              showLabel={false}
+              inputProps={{
+                variant: "natural",
+                level: "h1",
+                placeholder: "Name",
+                onlyChangeOnBlur: true,
+                resetOnBlurIfEmpty: true,
+              }}
+              padHelpText={false}
+            />
+            <ParentRangeButton rangeKey={rangeKey} />
+          </Align.Space>
+          <Align.Space
+            direction="x"
+            className={CSS.B("copy-buttons")}
+            style={{ height: "fit-content" }}
+            size="small"
+          >
+            <Align.Space direction="x">
+              <Button.Icon
+                tooltip={`Copy Python code for ${name}`}
+                tooltipLocation="bottom"
+                variant="text"
+              >
+                <Icon.Python
+                  onClick={handleCopyPythonCode}
+                  style={{ color: "var(--pluto-gray-l7)" }}
+                />
+              </Button.Icon>
+              <Button.Icon
+                variant="text"
+                tooltip={`Copy TypeScript code for ${name}`}
+                tooltipLocation="bottom"
+                onClick={handleCopyTypeScriptCode}
+              >
+                <Icon.TypeScript style={{ color: "var(--pluto-gray-l7)" }} />
+              </Button.Icon>
+            </Align.Space>
+            <Divider.Divider direction="y" />
             <Button.Icon
-              tooltip={`Copy Python code for ${name}`}
-              tooltipLocation="bottom"
               variant="text"
-            >
-              <Icon.Python
-                onClick={handleCopyPythonCode}
-                style={{ color: "var(--pluto-gray-l7)" }}
-              />
-            </Button.Icon>
-            <Button.Icon
-              variant="text"
-              tooltip={`Copy TypeScript code for ${name}`}
+              tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
-              onClick={handleCopyTypeScriptCode}
+              onClick={handleCopyLink}
             >
-              <Icon.TypeScript style={{ color: "var(--pluto-gray-l7)" }} />
+              <Icon.Link />
             </Button.Icon>
           </Align.Space>
-          <Divider.Divider direction="y" />
-          <Button.Icon
-            variant="text"
-            tooltip={`Copy link to ${name}`}
-            tooltipLocation="bottom"
-            onClick={handleCopyLink}
-          >
-            <Icon.Link />
-          </Button.Icon>
         </Align.Space>
-      </Align.Space>
-      <Align.Space
-        className={CSS.B("time-range")}
-        direction="x"
-        size="medium"
-        align="center"
-      >
-        <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
-          {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
-        </Form.Field>
-        <Text.WithIcon
-          className={CSS.B("time-range-divider")}
-          level="h4"
-          startIcon={<Icon.Arrow.Right />}
-        />
-        <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-          {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
-        </Form.Field>
+        <Align.Space
+          className={CSS.B("time-range")}
+          direction="x"
+          size="medium"
+          align="center"
+        >
+          <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
+            {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+          </Form.Field>
+          <Text.WithIcon
+            className={CSS.B("time-range-divider")}
+            level="h4"
+            startIcon={<Icon.Arrow.Right />}
+          />
+          <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
+            {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+          </Form.Field>
+        </Align.Space>
       </Align.Space>
     </Form.Form>
   );

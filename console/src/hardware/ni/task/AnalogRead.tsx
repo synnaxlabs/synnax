@@ -14,7 +14,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { binary, caseconv, deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { binary, deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
@@ -224,7 +224,7 @@ const Wrapped = ({
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
-        <Form.Form {...methods} mode="preview">
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
             <Form.Field<string> path="name">
               {(p) => (

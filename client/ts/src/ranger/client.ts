@@ -160,12 +160,13 @@ export class Range {
       const id = new ontology.ID({ key: r.key, type: "range" });
       return { id, key: id.toString(), name: r.name, data: r.payload };
     });
-    const base = await this.ontologyClient.openDependentTracker(
-      this.ontologyID,
-      initial,
-    );
-    base.onChange((resources: Resource[]) =>
-      wrapper.notify(this.rangeClient.resourcesToRanges(resources)),
+    const base = await this.ontologyClient.openDependentTracker({
+      target: this.ontologyID,
+      dependents: initial,
+      resourceType: "range",
+    });
+    base.onChange((r: Resource[]) =>
+      wrapper.notify(this.rangeClient.resourcesToRanges(r)),
     );
     wrapper.setCloser(async () => await base.close());
     return wrapper;
@@ -177,12 +178,11 @@ export class Range {
     if (p == null) return null;
     const id = new ontology.ID({ key: p.key, type: "range" });
     const resourceP = { id, key: id.toString(), name: p.name, data: p.payload };
-    const base = await this.ontologyClient.openDependentTracker(
-      this.ontologyID,
-      [resourceP],
-      "parent",
-      "to",
-    );
+    const base = await this.ontologyClient.openDependentTracker({
+      target: this.ontologyID,
+      dependents: [resourceP],
+      relationshipDirection: "to",
+    });
     base.onChange((resources: Resource[]) => {
       const ranges = this.rangeClient.resourcesToRanges(resources);
       if (ranges.length === 0) return;

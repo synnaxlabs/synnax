@@ -1,4 +1,5 @@
 import { ontology } from "@synnaxlabs/client";
+import { Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -13,39 +14,53 @@ import { FC, ReactElement, useState } from "react";
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/external";
+import { State as SchematicState } from "@/schematic/Schematic";
 
 interface SnapshotService {
   icon: ReactElement;
-  onClick: (res: ontology.Resource, placer: Layout.Placer) => void;
+  onClick: (client: Client, res: ontology.Resource, placer: Layout.Placer) => void;
 }
 
 const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   schematic: {
     icon: <Icon.Schematic />,
-    onClick: (res, placer) => {
-      placer(create({ key: res.key }));
+    onClick: (client, res, placer) => {
+      void (async () => {
+        const s = await client.workspaces.schematic.retrieve(res.id.key);
+        placer(
+          create({
+            ...(s.data as unknown as SchematicState),
+            key: s.key,
+            name: s.name,
+            snapshot: s.snapshot,
+          }),
+        );
+      })();
     },
   },
   task: {
     icon: <Icon.Task />,
-    onClick: (res, placer) => {
-      placer(Task.createTaskLayout(res.id.key, res.data?.type as string));
-    },
+    onClick: (_, res, placer) =>
+      placer(Task.createTaskLayout(res.id.key, res.data?.type as string)),
   },
 };
 
 const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => {
   const { entry } = props;
   const { id, name } = entry;
-  const svc = SNAPSHOTS[id.type];
+  const svc = SNAPSHOTS[id.type as keyof typeof SNAPSHOTS];
   const placeLayout = Layout.usePlacer();
-  console.log(svc);
+  const client = Synnax.use();
+  const handleSelect = () => {
+    if (client == null) return;
+    svc.onClick(client, entry, placeLayout);
+  };
   return (
     <List.ItemFrame
       style={{ padding: "1.5rem" }}
       size={0.5}
       {...props}
-      onSelect={() => svc.onClick(entry, placeLayout)}
+      onSelect={handleSelect}
     >
       <Text.WithIcon startIcon={svc.icon} level="p" weight={450} shade={9}>
         {name}
@@ -70,16 +85,16 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
     const children = await client.ontology.retrieveChildren(otgID);
     const relevant = children.filter((child) => child.data?.snapshot === true);
     setSnapshots(relevant);
-    const tracker = await client.ontology.openDependentTracker(
-      otgID,
-      relevant,
-      "parent",
-      "to",
-    );
+    const tracker = await client.ontology.openDependentTracker({
+      target: otgID,
+      dependents: relevant,
+      relationshipDirection: "from",
+    });
     tracker.onChange((snapshots) => {
       const relevant = snapshots.filter((child) => child.data?.snapshot === true);
       setSnapshots(relevant);
     });
+    return async () => await tracker.close();
   }, [client, rangeKey]);
 
   return (
