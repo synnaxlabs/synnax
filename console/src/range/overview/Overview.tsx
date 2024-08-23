@@ -36,7 +36,7 @@ export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => {
       direction="y"
       style={{
         padding: "5rem",
-        maxWidth: "1150px",
+        maxWidth: 1050,
         margin: "0 auto",
         overflowY: "auto",
       }}

@@ -47,7 +47,7 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
       >
         {entry.name}
       </Text.WithIcon>
-      <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} />
+      <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
     </List.ItemFrame>
   );
 };

@@ -21,12 +21,14 @@ export interface TimeRangeChipProps
   extends Align.SpaceProps<"div">,
     Pick<Text.TextProps, "level" | "shade"> {
   timeRange: CrudeTimeRange;
+  showSpan?: boolean;
 }
 
 export const TimeRangeChip = ({
   timeRange,
   level = "p",
   shade = 7,
+  showSpan = false,
   ...props
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
@@ -72,7 +74,7 @@ export const TimeRangeChip = ({
           {endTS}
         </Text.DateTime>
       )}
-      {!span.isZero && (
+      {!span.isZero && showSpan && (
         <Text.Text level={level} shade={shade} weight={450}>
           ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
         </Text.Text>
