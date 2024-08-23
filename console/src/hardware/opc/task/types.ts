@@ -205,11 +205,11 @@ export type WriteState = task.State<WriteStateDetails>;
 export const writeChanZ = z.object({
   key: z.string(),
   name: z.string(),
-  channel: z.number(),
+  cmdChannel: z.number(),
+  stateChannel: z.number(),
   nodeName: z.string(),
   nodeId: z.string(),
   enabled: z.boolean(),
-  useAsIndex: z.boolean(),
   dataType: z.string(),
 });
 
@@ -222,11 +222,11 @@ export const writeConfigZ = z
   // Error if channel ahs been duplicated
   .superRefine((cfg, ctx) => {
     const channels = new Map<number, number>();
-    cfg.channels.forEach(({ channel }) =>
-      channels.set(channel, (channels.get(channel) ?? 0) + 1),
+    cfg.channels.forEach(({ cmdChannel }) =>
+      channels.set(cmdChannel, (channels.get(cmdChannel) ?? 0) + 1),
     );
-    cfg.channels.forEach(({ channel }, i) => {
-      if (channel === 0 || (channels.get(channel) ?? 0) < 2) return;
+    cfg.channels.forEach(({ cmdChannel }, i) => {
+      if (cmdChannel === 0 || (channels.get(cmdChannel) ?? 0) < 2) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["channels", i, "channel"],

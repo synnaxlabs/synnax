@@ -135,87 +135,133 @@ const Wrapped = ({
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
+      console.log("Configuring task...");
       if (client == null) return;
       const { config, name } = methods.value();
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
+      console.log("Device retrieved: ", dev);
+
       let modified = false;
-      let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);
-      if (!shouldCreateIndex) {
+      let shouldCreateStateIndex = primitiveIsZero(dev.properties.write);
+      if (!shouldCreateStateIndex) {
         try {
           await client.channels.retrieve(dev.properties.read.index);
         } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateIndex = true;
+          if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
         }
       }
-      if (shouldCreateIndex) {
+
+      if (shouldCreateStateIndex) {
         modified = true;
-        const idx = await client.channels.create({
-          name: `${dev.name} time`,
+        const stateIndex = await client.channels.create({
+          name: `${dev.name}_state_time`,
           dataType: "timestamp",
           isIndex: true,
         });
-        dev.properties.read.index = idx.key;
-        dev.properties.read.channels = {};
+        dev.properties.write.stateIndex = stateIndex.key;
+        dev.properties.write.channels = {};
       }
 
-      const toCreate: WriteChannelConfig[] = [];
-      for (const ch of config.channels) {
-        if (ch.useAsIndex) continue;
-        const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
-        if (primitiveIsZero(exKey)) toCreate.push(ch);
-        else {
+      const commandsToCreate: WriteChannelConfig[] = [];
+      const statesToCreate: WriteChannelConfig[] = [];
+      for (const channel of config.channels) {
+        const key = getChannelByNodeID(dev.properties, channel.nodeId);
+        const exPair = dev.properties.write.channels[key];
+        if (exPair == null) {
+          commandsToCreate.push(channel);
+          statesToCreate.push(channel);
+        } else {
           try {
-            const rCh = await client.channels.retrieve(exKey);
-            if (rCh.name !== ch.name) {
-              await client.channels.rename(Number(exKey), ch.name);
-            }
-          } catch (e) {
-            if (NotFoundError.matches(e)) toCreate.push(ch);
+            await client.channels.retrieve(exPair.command);
+          } catch (e){
+            if(NotFoundError.matches(e)) commandsToCreate.push(channel);
+            else throw e;
+          }
+          try {
+            await client.channels.retrieve(exPair.state);
+          } catch (e){
+            if(NotFoundError.matches(e)) statesToCreate.push(channel);
             else throw e;
           }
         }
-      }
+      } 
 
-      if (toCreate.length > 0) {
+      if (statesToCreate.length > 0) {
         modified = true;
-        const channels = await client.channels.create(
-          toCreate.map((c) => ({
-            name: c.name,
+        const states = await client.channels.create(
+          statesToCreate.map((c) => ({
+            name: `${c.name}_state`,
             dataType: c.dataType,
-            index: dev.properties.read.index,
+            index: dev.properties.write.stateIndex,
           })),
         );
-        channels.forEach((c, i) => {
-          dev.properties.read.channels[toCreate[i].nodeId] = c.key;
+        states.forEach((c, i) => {
+          dev.properties.write.channels[getChannelByNodeID(dev.properties, statesToCreate[i].nodeId)] = {
+            command: 0,
+            state: c.key,
+          };
         });
       }
 
-      config.channels = config.channels.map((c) => ({
-        ...c,
-        channel: c.useAsIndex
-          ? dev.properties.read.index
-          : getChannelByNodeID(dev.properties, c.nodeId),
-      }));
-
+      if(commandsToCreate.length > 0) {
+        const commandIndexes = await client.channels.create(
+          commandsToCreate.map((c) => ({
+            name: `${c.name}_cmd_time`,
+            dataType: "timestamp",
+            isIndex: true,
+          })),
+        );
+        const commands = await client.channels.create(
+          commandsToCreate.map((c,i) => ({
+            name: `${c.name}_cmd`,
+            dataType: c.dataType,
+            index: commandIndexes[i].key,
+          })),
+        );
+        commands.forEach((c, i) => {
+          dev.properties.write.channels[getChannelByNodeID(dev.properties, commandsToCreate[i].nodeId)] = {
+            command: c.key,
+            state: 0,
+          };
+        });
+      }
+  
       if (modified)
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
+      
+      config.channels = config.channels.map((c) => {
+        const key = getChannelByNodeID(dev.properties, c.nodeId);
+        const pair = dev.properties.write.channels[key];
+        return {
+          ...c,
+          cmdChannel: pair.command,
+          stateChannel: pair.state,
+        };
+      });
+      methods.set("config", config);
 
-      createTask({ key: task?.key, name, type: WRITE_TYPE, config });
+      await createTask({
+        key: task?.key,
+        name,
+        type: WRITE_TYPE,
+        config,
+      });
     },
     onError: (e) => {
-      addStatus({
-        variant: "error",
-        message: "Failed to configure task",
-        description: e.message,
+      addStatus({ 
+        variant: "error", 
+        message:"Failed to configure task", 
+        description: e.message, 
       });
     },
   });
+
 
   const start = useMutation({
     mutationKey: [client?.key, "start"],
