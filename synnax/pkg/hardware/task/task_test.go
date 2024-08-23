@@ -69,6 +69,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(k.LocalKey()).To(Equal(uint32(2)))
 		})
 	})
+
 	Describe("Create", func() {
 		It("Should correctly create a task and assign it a unique key", func() {
 			m := &task.Task{
@@ -96,6 +97,51 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Name).To(Equal("Test Task"))
 		})
 	})
+
+	Describe("Copy", func() {
+
+		It("Should copy a task", func() {
+			m := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Test Task",
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Name).To(Equal("Test Task"))
+			t, err := w.Copy(ctx, m.Key, "New Task", false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 2)))
+		})
+
+		It("Should create a snapshot of an existing task", func() {
+			m := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Test Task",
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Name).To(Equal("Test Task"))
+			t, err := w.Copy(ctx, m.Key, "New Task", true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 2)))
+			Expect(t.Snapshot).To(BeTrue())
+		})
+
+		It("Should not allow the re-creation of a snapshot", func() {
+			m := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Test Task",
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Name).To(Equal("Test Task"))
+			t, err := w.Copy(ctx, m.Key, "New Task", true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(w.Create(ctx, &t)).To(HaveOccurredAs(validate.Error))
+		})
+
+	})
+
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a task", func() {
 			m := &task.Task{
@@ -110,6 +156,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(Equal(*m))
 		})
 	})
+
 	Describe("Delete", func() {
 		It("Should correctly delete a task", func() {
 			m := &task.Task{
@@ -134,4 +181,5 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Delete(ctx, m.Key, false)).To(HaveOccurredAs(validate.Error))
 		})
 	})
+
 })

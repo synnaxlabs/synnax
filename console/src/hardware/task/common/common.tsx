@@ -47,15 +47,21 @@ const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export interface ChannelListEmptyContentProps {
   onAdd: () => void;
+  snapshot?: boolean;
 }
 
-export const ChannelListEmptyContent = ({ onAdd }: ChannelListEmptyContentProps) => (
+export const ChannelListEmptyContent = ({
+  onAdd,
+  snapshot = false,
+}: ChannelListEmptyContentProps) => (
   <Align.Space direction="y" style={{ height: "100%" }}>
     <Align.Center direction="y">
       <Text.Text level="p">No channels in task.</Text.Text>
-      <Text.Link level="p" onClick={onAdd}>
-        Add a channel
-      </Text.Link>
+      {!snapshot && (
+        <Text.Link level="p" onClick={onAdd}>
+          Add a channel
+        </Text.Link>
+      )}
     </Align.Center>
   </Align.Space>
 );
@@ -65,8 +71,9 @@ interface ChannelListContextMenuProps<T> {
   value: T[];
   onSelect: (keys: string[], index: number) => void;
   remove: (indices: number[]) => void;
-  onDuplicate?: (indices: number[]) => void;
   path: string;
+  onDuplicate?: (indices: number[]) => void;
+  snapshot?: boolean;
 }
 
 export const ChannelListContextMenu = <
@@ -79,6 +86,7 @@ export const ChannelListContextMenu = <
   remove,
   onDuplicate,
   path,
+  snapshot,
 }: ChannelListContextMenuProps<T>) => {
   const methods = Form.useContext();
   const indices = keys.map((k) => value.findIndex((v) => v.key === k));
@@ -109,26 +117,30 @@ export const ChannelListContextMenu = <
       }}
       level="small"
     >
-      <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-        Remove
-      </Menu.Item>
-      {onDuplicate != null && (
-        <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
-          Duplicate
-        </Menu.Item>
+      {!snapshot && (
+        <>
+          <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+            Remove
+          </Menu.Item>
+          {onDuplicate != null && (
+            <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+              Duplicate
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {allowDisable && (
+            <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+              Disable
+            </Menu.Item>
+          )}
+          {allowEnable && (
+            <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+              Enable
+            </Menu.Item>
+          )}
+          {(allowEnable || allowDisable) && <Menu.Divider />}
+        </>
       )}
-      <Menu.Divider />
-      {allowDisable && (
-        <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
-          Disable
-        </Menu.Item>
-      )}
-      {allowEnable && (
-        <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
-          Enable
-        </Menu.Item>
-      )}
-      {(allowEnable || allowDisable) && <Menu.Divider />}
       <CMenu.HardReloadItem />
     </Menu.Menu>
   );
@@ -194,6 +206,11 @@ export const Controls = ({
         width: "100%",
       }}
     >
+      {snapshot && (
+        <Status.Text.Centered variant="disabled" hideIcon>
+          This task is a snapshot and cannot be modified or started.
+        </Status.Text.Centered>
+      )}
       {state?.details?.message != null && (
         <Status.Text variant={state?.variant as Status.Variant}>
           {state?.details?.message}
@@ -241,35 +258,44 @@ export const Controls = ({
   </Align.Space>
 );
 
-export const ChannelListHeader = ({ onAdd }: ChannelListEmptyContentProps) => (
+export interface ChannelListHeaderProps extends ChannelListEmptyContentProps {}
+
+export const ChannelListHeader = ({ onAdd, snapshot }: ChannelListHeaderProps) => (
   <Header.Header level="h4">
     <Header.Title weight={500}>Channels</Header.Title>
-    <Header.Actions>
-      {[
-        {
-          key: "add",
-          onClick: onAdd,
-          children: <Icon.Add />,
-          size: "large",
-        },
-      ]}
-    </Header.Actions>
+    {!snapshot && (
+      <Header.Actions>
+        {[
+          {
+            key: "add",
+            onClick: onAdd,
+            children: <Icon.Add />,
+            size: "large",
+          },
+        ]}
+      </Header.Actions>
+    )}
   </Header.Header>
 );
 
 export interface EnableDisableButtonProps {
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
+  snapshot?: boolean;
 }
 
 export const EnableDisableButton = ({
   value,
   onChange: onClick,
+  disabled,
+  snapshot = false,
 }: EnableDisableButtonProps) => (
   <Button.Toggle
-    checkedVariant="outlined"
-    uncheckedVariant="outlined"
+    checkedVariant={snapshot ? "preview" : "outlined"}
+    uncheckedVariant={snapshot ? "preview" : "outlined"}
     className={CSS.B("enable-disable-button")}
+    disabled={disabled}
     value={value}
     size="small"
     onClick={(e) => e.stopPropagation()}

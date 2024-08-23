@@ -28,20 +28,28 @@ type Writer struct {
 	group group.Group
 }
 
-func (w Writer) Create(ctx context.Context, r *Task) (err error) {
-	if !r.Key.IsValid() {
-		localKey, err := w.rack.IncrementTaskCount(ctx, r.Rack(), 1)
+func (w Writer) Create(ctx context.Context, t *Task) (err error) {
+	if !t.Key.IsValid() {
+		localKey, err := w.rack.IncrementTaskCount(ctx, t.Rack(), 1)
 		if err != nil {
 			return err
 		}
-		r.Key = NewKey(r.Rack(), localKey)
+		t.Key = NewKey(t.Rack(), localKey)
 	}
-	r.State = nil
+	t.State = nil
 	// We don't create ontology resources for internal tasks.
-	if err = gorp.NewCreate[Key, Task]().Entry(r).Exec(ctx, w.tx); err != nil || r.Internal {
+	if err = gorp.NewCreate[Key, Task]().
+		GuardExisting(func(e Task) error {
+			if !e.Snapshot {
+				return nil
+			}
+			return errors.Wrapf(validate.Error, "snapshot task %v cannot be overwritten", e)
+		}).
+		Entry(t).
+		Exec(ctx, w.tx); err != nil || t.Internal {
 		return
 	}
-	otgID := OntologyID(r.Key)
+	otgID := OntologyID(t.Key)
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}

@@ -24,7 +24,7 @@ import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
 
 /** The variant of button */
-export type Variant = "filled" | "outlined" | "text" | "suggestion";
+export type Variant = "filled" | "outlined" | "text" | "suggestion" | "preview";
 
 export interface ButtonExtensionProps {
   variant?: Variant;
@@ -93,7 +93,7 @@ export const Button = Tooltip.wrap(
     if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
-      if (disabled) return;
+      if (disabled || variant === "preview") return;
       const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
       if (span.isZero) return onClick?.(e);
     };
@@ -102,12 +102,12 @@ export const Button = Tooltip.wrap(
       triggers,
       callback: useCallback<(e: Triggers.UseEvent) => void>(
         ({ stage }) => {
-          if (stage === "end")
-            handleClick(
-              new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
-            );
+          if (stage !== "end" || disabled || variant === "preview") return;
+          handleClick(
+            new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
+          );
         },
-        [handleClick],
+        [handleClick, disabled],
       ),
     });
 
@@ -118,7 +118,7 @@ export const Button = Tooltip.wrap(
           CSS.B("btn"),
           CSS.size(size),
           CSS.sharp(sharp),
-          CSS.disabled(disabled),
+          variant !== "preview" && CSS.disabled(disabled),
           status != null && CSS.M(status),
           CSS.BM("btn", variant),
           className,

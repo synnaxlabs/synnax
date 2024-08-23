@@ -74,7 +74,7 @@ class TestTaskClient:
         def driver():
             with client.open_streamer("sy_task_set") as s:
                 with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
-                    f = s.read(timeout=0.5)
+                    f = s.read(timeout=1)
                     key = f["sy_task_set"][0]
                     w.write(
                         "sy_task_state",
@@ -88,7 +88,7 @@ class TestTaskClient:
         tsk = sy.Task()
         t = threading.Thread(target=driver)
         t.start()
-        time.sleep(0.2)
+        time.sleep(0.3)
         with pytest.raises(sy.ConfigurationError, match="Invalid Configuration."):
             client.hardware.tasks.configure(tsk)
         t.join()

@@ -14,7 +14,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { binary, caseconv, deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
@@ -213,22 +213,46 @@ const Wrapped = ({
     );
   };
 
+  const handleCopyAsJSON = () => {
+    const name = methods.get("name").value;
+    copy(
+      binary.JSON_CODEC.encodeString(methods.value().config),
+      `configuration JSON for ${name}`,
+    );
+  };
+
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
-        <Form.Form {...methods}>
+        <Form.Form {...methods} mode="preview">
           <Align.Space direction="x" justify="spaceBetween">
             <Form.Field<string> path="name">
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+              {(p) => (
+                <Input.Text
+                  variant={task?.snapshot ? "preview" : "natural"}
+                  level="h1"
+                  {...p}
+                />
+              )}
             </Form.Field>
-            <Button.Icon
-              tooltip={`Copy Python code for ${methods.get("name").value}`}
-              tooltipLocation="left"
-              variant="text"
-              onClick={handleCopyPythonCode}
-            >
-              <Icon.Python style={{ color: "var(--pluto-gray-l7)" }} />
-            </Button.Icon>
+            <Align.Space direction="x" size="small">
+              <Button.Icon
+                tooltip={`Copy Python code for ${methods.get("name").value}`}
+                tooltipLocation="left"
+                variant="text"
+                onClick={handleCopyPythonCode}
+              >
+                <Icon.Python style={{ color: "var(--pluto-gray-l7)" }} />
+              </Button.Icon>
+              <Button.Icon
+                tooltip={`Copy configuration JSON for ${methods.get("name").value}`}
+                tooltipLocation="left"
+                variant="text"
+                onClick={handleCopyAsJSON}
+              >
+                <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
+              </Button.Icon>
+            </Align.Space>
           </Align.Space>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
@@ -251,6 +275,7 @@ const Wrapped = ({
             empty
           >
             <ChannelList
+              snapshot={task?.snapshot}
               path="config.channels"
               selected={selectedChannels}
               onSelect={useCallback(
@@ -261,18 +286,7 @@ const Wrapped = ({
                 [setSelectedChannels, setSelectedChannelIndex],
               )}
             />
-            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h4">
-                <Header.Title weight={500} wrap={false}>
-                  Details
-                </Header.Title>
-              </Header.Header>
-              <Align.Space className={CSS.B("details")}>
-                {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
-                )}
-              </Align.Space>
-            </Align.Space>
+            <ChannelDetails selectedChannelIndex={selectedChannelIndex} />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -283,6 +297,52 @@ const Wrapped = ({
           onConfigure={configure.mutate}
           snapshot={task?.snapshot}
         />
+      </Align.Space>
+    </Align.Space>
+  );
+};
+
+interface ChannelDetailsProps {
+  selectedChannelIndex?: number | null;
+}
+
+const ChannelDetails = ({
+  selectedChannelIndex,
+}: ChannelDetailsProps): ReactElement => {
+  const ctx = Form.useContext();
+
+  const copy = useCopyToClipboard();
+  const handleCopyChannelDetails = () => {
+    if (selectedChannelIndex == null) return;
+    copy(
+      binary.JSON_CODEC.encodeString(
+        ctx.get(`config.channels.${selectedChannelIndex}`).value,
+      ),
+      "Channel details",
+    );
+  };
+
+  return (
+    <Align.Space className={CSS.B("channel-form")} direction="y" grow>
+      <Header.Header level="h4">
+        <Header.Title weight={500} wrap={false}>
+          Details
+        </Header.Title>
+        <Header.Actions>
+          <Button.Icon
+            tooltip="Copy channel details as JSON"
+            tooltipLocation="left"
+            variant="text"
+            onClick={handleCopyChannelDetails}
+          >
+            <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
+          </Button.Icon>
+        </Header.Actions>
+      </Header.Header>
+      <Align.Space className={CSS.B("details")}>
+        {selectedChannelIndex != null && (
+          <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+        )}
       </Align.Space>
     </Align.Space>
   );
@@ -313,6 +373,7 @@ interface ChannelListProps {
   path: string;
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
+  snapshot?: boolean;
 }
 
 const availablePortFinder = (channels: Chan[]): (() => number) => {
@@ -325,7 +386,12 @@ const availablePortFinder = (channels: Chan[]): (() => number) => {
   };
 };
 
-const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
+const ChannelList = ({
+  path,
+  snapshot,
+  selected,
+  onSelect,
+}: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<Chan>({ path });
   const handleAdd = (): void => {
     const key = id.id();
@@ -339,7 +405,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
           <ChannelListContextMenu
@@ -348,6 +414,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             value={value}
             remove={remove}
             onSelect={onSelect}
+            snapshot={snapshot}
             onDuplicate={(indices) => {
               const pf = availablePortFinder(value);
               push(
@@ -365,7 +432,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       >
         <List.List<string, Chan>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+          }
         >
           <List.Selector<string, Chan>
             value={selected}
@@ -377,7 +446,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => <ChannelListItem {...props} path={path} />}
+              {(props) => (
+                <ChannelListItem {...props} path={path} snapshot={snapshot} />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>
@@ -388,9 +459,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 
 const ChannelListItem = ({
   path: basePath,
+  snapshot = false,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
+  snapshot?: boolean;
 }): ReactElement => {
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
@@ -423,6 +496,7 @@ const ChannelListItem = ({
       <EnableDisableButton
         value={childValues.enabled}
         onChange={(v) => ctx.set(`${path}.enabled`, v)}
+        snapshot={snapshot}
       />
     </List.ItemFrame>
   );

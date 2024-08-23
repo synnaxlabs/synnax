@@ -18,6 +18,7 @@ import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
+import { Snapshots } from "@/range/overview/Snapshots";
 
 export const OVERVIEW_TYPE = "overview";
 
@@ -43,6 +44,8 @@ export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => {
       <MetaData rangeKey={layoutKey} />
       <Divider.Divider direction="x" />
       <ChildRanges rangeKey={layoutKey} />
+      <Divider.Divider direction="x" />
+      <Snapshots rangeKey={layoutKey} />
     </Align.Space>
   );
 };

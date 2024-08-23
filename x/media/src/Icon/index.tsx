@@ -337,6 +337,7 @@ export const Icon: IconType = {
   Label: wrapIcon(MdLabel, "label"),
   Details: wrapIcon(MdOutlineTableRows, "details"),
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
+  JSON: wrapIcon(MdDataObject, "json"),
 };
 
 export interface IconType {
@@ -460,4 +461,5 @@ export interface IconType {
   Label: IconFC;
   Details: IconFC;
   LinkExternal: IconFC;
+  JSON: IconFC;
 }

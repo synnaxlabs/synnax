@@ -37,9 +37,10 @@
             .console-channels {
                 border-right: var(--pluto-border);
                 overflow: hidden;
-                max-width: 300px;
-                width: 100%;
+                max-width: 250px;
                 height: 100%;
+                flex-shrink: 1;
+                flex-grow: 1;
 
                 .pluto-menu-context__container {
                     overflow: hidden;

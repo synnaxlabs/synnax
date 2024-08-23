@@ -181,6 +181,14 @@
     }
 }
 
+/** |||| PREVIEW |||| */
+
+.pluto-btn--preview {
+    background: none !important;
+    border: none !important;
+    padding-left: 0;
+}
+
 /* |||| ICON |||| */
 
 .pluto-btn-icon {

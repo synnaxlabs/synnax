@@ -15,6 +15,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
 
@@ -70,7 +72,8 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
-	Describe("Multiple entries", func() {
+
+	Context("Multiple entries", func() {
 		It("Should create the entries in the db", func() {
 			var e []entry
 			for i := 0; i < 10; i++ {
@@ -87,6 +90,33 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
+
+	Describe("Guard", func() {
+		It("Should prevent the accidental override of existing entries", func() {
+			e := &entry{
+				ID:   42,
+				Data: "The answer to life, the universe, and everything",
+			}
+			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewCreate[int, entry]().Entry(e).GuardExisting(func(e entry) error {
+				Expect(e.GorpKey()).To(Equal(42))
+				return validate.Error
+			}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
+		})
+		It("Should not call the filter if no entry with a matching GorpKey is found", func() {
+			e := &entry{
+				ID:   42,
+				Data: "The answer to life, the universe, and everything",
+			}
+			c := 0
+			Expect(gorp.NewCreate[int, entry]().Entry(e).GuardExisting(func(e entry) error {
+				c++
+				return validate.Error
+			}).Exec(ctx, tx)).To(Succeed())
+			Expect(c).To(Equal(0))
+		})
+	})
+
 	Describe("Writer", func() {
 		It("Should execute operations within a transaction", func() {
 			var (

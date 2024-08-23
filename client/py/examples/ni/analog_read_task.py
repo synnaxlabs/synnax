@@ -11,14 +11,14 @@ import synnax as sy
 from synnax.hardware import ni
 
 client = sy.Synnax(
-    host="nuc",
-    port=9090,
-    username="synnax",
-    password="seldon",
-    secure=False,
+    # host="nuc",
+    # port=9090,
+    # username="synnax",
+    # password="seldon",
+    # secure=False,
 )
 
-dev = client.hardware.devices.retrieve(model="USB-6289")
+# dev = client.hardware.devices.retrieve(model="USB-6289")
 
 volts_idx = client.channels.create(
     name="6289_ai_time",
@@ -46,7 +46,7 @@ ai_2 = client.channels.create(
 
 tsk = ni.AnalogReadTask(
     name="USB-6289 Analog Read",
-    device=dev.key,
+    device="",
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
