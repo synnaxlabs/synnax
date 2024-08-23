@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package binary
 
 import (
@@ -246,4 +255,47 @@ func UnmarshalStringUint64(b []byte) (n uint64, err error) {
 	}
 	n, err = strconv.ParseUint(str, 10, 64)
 	return n, err
+}
+
+// DecodeFallbackCodec wraps a set of Codecs. When the first Codec in the chain fails to
+// decode a value, it falls back to the next Codec in the chain.
+type DecodeFallbackCodec struct {
+	// Codecs is the list of codecs to fallback on.
+	Codecs []Codec
+}
+
+var _ Codec = (*DecodeFallbackCodec)(nil)
+
+// Encode implements the Encoder interface.
+func (f *DecodeFallbackCodec) Encode(ctx context.Context, value interface{}) (b []byte, err error) {
+	if len(f.Codecs) == 0 {
+		panic("[binary] - no codecs provided to DecodeFallbackCodec")
+	}
+	return f.Codecs[0].Encode(ctx, value)
+}
+
+// Decode implements the Decoder interface.
+func (f *DecodeFallbackCodec) Decode(ctx context.Context, data []byte, value interface{}) (err error) {
+	if len(f.Codecs) == 0 {
+		panic("[binary] - no codecs provided to DecodeFallbackCodec")
+	}
+	for _, c := range f.Codecs {
+		if err = c.Decode(ctx, data, value); err == nil {
+			return
+		}
+	}
+	return
+}
+
+// DecodeStream implements the Decoder interface.
+func (f *DecodeFallbackCodec) DecodeStream(ctx context.Context, r io.Reader, value interface{}) (err error) {
+	if len(f.Codecs) == 0 {
+		panic("[binary] - no codecs provided to DecodeFallbackCodec")
+	}
+	for _, c := range f.Codecs {
+		if err = c.DecodeStream(ctx, r, value); err == nil {
+			return
+		}
+	}
+	return
 }

@@ -52,9 +52,10 @@ class TestController:
         """A happy path test that asserts basic functionality on the controller"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
-        assertions = {}
+        assertions = dict()
 
         def sequence(ev: threading.Event):
+            # Wait for the simulated DAQ to boot up
             ev.wait()
             with client.control.acquire(
                 name="Basic Valve Toggle",
@@ -90,6 +91,7 @@ class TestController:
 
         t2.start()
         t1.start()
+
         t1.join()
         t2.join()
 
@@ -107,3 +109,96 @@ class TestController:
             ) as auto:
                 v = auto[press_en.key]
                 assert v is None
+
+    def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
+        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+
+        with client.control.acquire(
+            name="Basic Valve Toggle",
+            read=[press_en.key],
+            write=[press_en_cmd.key],
+            write_authorities=[100],
+        ) as auto:
+            auto[press_en_cmd.key] = True
+            assert auto.set_authority(
+                {
+                    press_en_cmd.key: 50,
+                    press_en.key: 50,
+                }
+            )
+            assert auto.set_authority(50)
+            assert auto.set_authority(100)
+            assert auto.set_authority(press_en_cmd.key, 50)
+
+    def test_controller_authority_transfer(self, client: sy.Synnax):
+        """Test that the controller can transfer authority to another controller"""
+        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+
+        assertions = dict()
+
+        def sequence_one(daq_ev: threading.Event, seq_two_ev: threading.Event):
+            daq_ev.wait()
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en.key],
+                write_authorities=[100],
+                write=[press_en_cmd.key],
+            ) as auto:
+                seq_two_ev.wait()
+                auto[press_en_cmd.key] = True
+                assertions["seq_one_first_ack"] = auto.wait_until(
+                    lambda c: c[press_en.key],
+                    timeout=50 * sy.TimeSpan.MILLISECOND,
+                )
+                time.sleep(0.15)
+                auto[press_en_cmd.key] = True
+                assertions["seq_one_second_ack"] = auto.wait_until(
+                    lambda c: c[press_en.key],
+                    timeout=50 * sy.TimeSpan.MILLISECOND,
+                )
+                auto[press_en_cmd.key] = False
+
+        def sequence_two(daq_ev: threading.Event, seq_two_ev: threading.Event):
+            daq_ev.wait()
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en.key],
+                write=[press_en_cmd.key],
+                write_authorities=[255],
+            ) as auto:
+                seq_two_ev.set()
+                time.sleep(0.1)
+                auto.set_authority({press_en_cmd.key: 50})
+                time.sleep(0.2)
+
+        def daq(daq_ev: threading.Event):
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en_cmd.key],
+                write=[press_en.key],
+            ) as auto:
+                daq_ev.set()
+                auto.wait_until(lambda c: c[press_en_cmd.key])
+                auto[press_en.key] = True
+                auto.wait_until(lambda c: not c[press_en_cmd.key])
+                auto[press_en.key] = False
+
+        daq_ev = threading.Event()
+        seq_two_ev = threading.Event()
+        t1 = threading.Thread(
+            target=sequence_one, kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev}
+        )
+        t2 = threading.Thread(
+            target=sequence_two, kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev}
+        )
+        t3 = threading.Thread(target=daq, kwargs={"daq_ev": daq_ev})
+
+        t3.start()
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        t3.join()
+
+        assert assertions["seq_one_first_ack"] is False
+        assert assertions["seq_one_second_ack"] is True

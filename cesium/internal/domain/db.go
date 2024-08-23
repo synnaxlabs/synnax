@@ -69,10 +69,11 @@ func NewErrRangeNotFound(tr telem.TimeRange) error {
 //
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
-	Config
-	idx    *index
-	files  *fileController
-	closed *atomic.Bool
+	cfg         Config
+	idx         *index
+	fc          *fileController
+	closed      *atomic.Bool
+	entityCount *atomic.Int64
 }
 
 // Config is the configuration for opening a DB.
@@ -129,7 +130,6 @@ func (c Config) Override(other Config) Config {
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GCThreshold = override.Numeric(c.GCThreshold, other.GCThreshold)
-
 	// Store 0.8 * the desired maximum file size as file size since we must leave some
 	// buffer for when we stop acquiring a new writer on a file.
 	c.FileSize = telem.Size(math.Round(0.8 * float64(c.FileSize)))
@@ -157,29 +157,17 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &DB{
-		Config: cfg,
-		idx:    idx,
-		files:  controller,
-		closed: &atomic.Bool{},
+		cfg:         cfg,
+		idx:         idx,
+		fc:          controller,
+		closed:      &atomic.Bool{},
+		entityCount: &atomic.Int64{},
 	}, nil
 }
 
-// NewIterator opens a new invalidated Iterator using the given configuration.
-// A seeking call is required before it can be used.
-func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
-	i := &Iterator{
-		Instrumentation: db.Instrumentation.Child("iterator"),
-		idx:             db.idx,
-		readerFactory:   db.newReader,
-	}
-	i.SetBounds(cfg.Bounds)
-	return i
-}
-
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
-	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
+	internal, err := db.fc.acquireReader(ctx, ptr.fileKey)
 	if err != nil {
 		return nil, err
 	}
@@ -192,15 +180,13 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	if db.closed.Load() {
 		return false, errDBClosed
 	}
-	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
-
+	i := db.OpenIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
 		return true, i.Close()
 	}
 	if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
 		return true, i.Close()
 	}
-
 	return false, i.Close()
 }
 
@@ -209,9 +195,14 @@ func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-
+	count := db.entityCount.Load()
+	if count > 0 {
+		err := errors.Newf("cannot close domain because there are %d unclosed writers/iterators accessing it", count)
+		db.closed.Store(false)
+		return err
+	}
 	w := errors.NewCatcher(errors.WithAggregation())
-	w.Exec(db.files.close)
+	w.Exec(db.fc.close)
 	w.Exec(db.idx.close)
 	return w.Error()
 }

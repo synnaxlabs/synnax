@@ -1,6 +1,14 @@
-import time
+#  Copyright 2024 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 import synnax as sy
+import numpy as np
 import matplotlib.pyplot as plt
 import asyncio
 
@@ -14,10 +22,17 @@ client = sy.Synnax(
 
 @client.ranges.on_create
 def process(rng: sy.Range) -> None:
-    time.sleep(2)  # Temp fix to wait for data to commit
     print(f"New range created: {rng.name}")
-    plt.plot(sy.elapsed_seconds(rng["daq_time"]), rng["fuel_tank_pt"], label=rng.name)
-    plt.title(f"{rng.name} - OX Pressure")
+    time = np.array(sy.elapsed_seconds(rng["daq_time"]))
+    pressure = np.array(rng["press_pt_1"])
+    plt.plot(time, pressure, label=rng.name)
+    min_time = np.min(time)
+    max_time = np.max(time)
+    min_pressure = np.min(pressure)
+    max_pressure = np.max(pressure)
+    plt.plot(min_time, min_pressure, "ro")
+    plt.plot(max_time, max_pressure, "ro")
+    plt.title(f"{rng.name} - Fuel Pressure")
     plt.xlabel("Time (s)")
     plt.ylabel("Pressure (PSI)")
     plt.legend()

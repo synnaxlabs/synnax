@@ -259,3 +259,12 @@ export const findNodeParent = ({ tree, key }: FindNodeParentProps): Node | null 
 
 export const deepCopy = (nodes: Node[]): Node[] =>
   nodes.map((node) => ({ ...node, children: deepCopy(node.children ?? []) }));
+
+export const getDescendants = (...node: Node[]): Node[] => {
+  const descendants: Node[] = [];
+  node.forEach((n) => {
+    descendants.push(n);
+    if (n.children != null) descendants.push(...getDescendants(...n.children));
+  });
+  return descendants;
+};

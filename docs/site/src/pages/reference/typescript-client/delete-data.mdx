@@ -6,6 +6,7 @@ description: "Use the TypeScript client to delete data from a Synnax cluster."
 import { Divider } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro"
 export const components = { pre: Code }
+import Note from "@/components/Note.astro";
 
 The Synnax client allows deletion of time ranges of data in any channel: after each
 deletion operation is complete, all future reads will no longer include the deleted data.

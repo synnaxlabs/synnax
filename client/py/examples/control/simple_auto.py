@@ -1,3 +1,12 @@
+#  Copyright 2024 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
 import synnax as sy
 
 client = sy.Synnax()
@@ -14,7 +23,7 @@ with client.control.acquire(
     auto.wait_until(lambda auto: auto["pressure_1"] < 100)
 
     # Acquire absolute control on valve 2
-    auto.authorize("valve_2_cmd", sy.Authority.ABSOLUTE)
+    auto.set_authority("valve_2_cmd", sy.Authority.ABSOLUTE)
 
     # Open valve 2
     auto["valve_2_cmd"] = True

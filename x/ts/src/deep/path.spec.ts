@@ -144,4 +144,33 @@ describe("path", () => {
       expect(deep.pathsMatch("a.b.c", "")).toEqual(true);
     });
   });
+  describe("delete", () => {
+    const a: TestRecord = {
+      a: 1,
+      b: {
+        c: 2,
+      },
+      c: [1, 2, 3],
+    };
+    it("should delete a key", () => {
+      const cpy = deep.copy(a);
+      deep.remove(a, "b.c");
+      expect(a).toEqual({ ...cpy, b: {} });
+    });
+    it("should delete an array index", () => {
+      const cpy = deep.copy(a);
+      deep.remove(a, "c.1");
+      expect(a).toEqual({ ...cpy, c: [1, 3] });
+    });
+    it("should not throw an error when the index is out of bounds", () => {
+      const cpy = deep.copy(a);
+      deep.remove(a, "c.100");
+      expect(a).toEqual(cpy);
+    });
+    it("should not throw an error when the key exists", () => {
+      const cpy = deep.copy(a);
+      deep.remove(a, "b.d");
+      expect(a).toEqual(cpy);
+    });
+  });
 });

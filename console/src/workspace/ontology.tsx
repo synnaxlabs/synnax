@@ -10,7 +10,7 @@
 import { NotFoundError, ontology, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, id, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -57,7 +57,6 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
       addStatus({
-        key: id.id(),
         variant: "error",
         message: "Failed to delete workspace.",
         description: e.message,
@@ -103,7 +102,6 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       addStatus({
-        key: id.id(),
         variant: "error",
         message: "Failed to create schematic.",
         description: e.message,
@@ -169,7 +167,6 @@ const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (e, { addStatus }) => {
       addStatus({
-        key: id.id(),
         variant: "error",
         message: "Failed to import schematic.",
         description: e.message,
@@ -213,7 +210,6 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       addStatus({
-        key: id.id(),
         variant: "error",
         message: "Failed to create line plot.",
         description: e.message,
@@ -242,7 +238,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     link: () =>
       handleLink({
         name: resources[0].name,
-        resource: resources[0].id.payload,
+        ontologyID: resources[0].id.payload,
       }),
   };
   const singleResource = resources.length === 1;

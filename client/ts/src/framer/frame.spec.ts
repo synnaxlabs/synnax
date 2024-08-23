@@ -156,7 +156,7 @@ describe("framer.Frame", () => {
   });
 
   describe("weaklyAligned", () => {
-    it("should return true if all keys have the same timerange", () => {
+    it("should return true if all keys have the same time range", () => {
       const f = new framer.Frame(
         new Map([
           [
@@ -182,7 +182,7 @@ describe("framer.Frame", () => {
       expect(f.isWeaklyAligned).toEqual(true);
     });
 
-    it("should return false if any key has a different timerange", () => {
+    it("should return false if any key has a different time range", () => {
       const f = new framer.Frame(
         new Map([
           [

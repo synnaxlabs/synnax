@@ -243,9 +243,11 @@ var _ = Describe("PledgeServer", func() {
 					mu         sync.Mutex
 					nodes      = make(node.Group)
 					candidates = func(i int) func() node.Group {
-						mu.Lock()
-						defer mu.Unlock()
-						return func() node.Group { return nodes.Copy() }
+						return func() node.Group {
+							mu.Lock()
+							defer mu.Unlock()
+							return nodes.Copy()
+						}
 					}
 					numCandidates = 10
 					numPledges    = 2

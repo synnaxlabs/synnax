@@ -138,12 +138,12 @@ const handleRelationshipsChange = async (
   await mu.runExclusive(async () => {
     // Remove any relationships that were deleted
     const removed = changes
-      .filter(({ variant }) => variant === "delete")
+      .filter(({ variant, key: { type } }) => variant === "delete" && type === "parent")
       .map(({ key: { to } }) => to.toString());
     let nextTree = Core.removeNode({ tree: nodes, keys: removed });
 
     const allSets = changes
-      .filter(({ variant }) => variant === "set")
+      .filter(({ variant, key: { type } }) => variant === "set" && type === "parent")
       .map(({ key }) => key);
 
     // Find all the parent nodes in the current tree that are visible i.e. they

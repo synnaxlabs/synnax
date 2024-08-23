@@ -37,9 +37,6 @@ public:
     std::shared_ptr<RangeKVDeleteClient> range_kv_delete;
     std::shared_ptr<RangeKVGetClient> range_kv_get;
     std::shared_ptr<RangeKVSetClient> range_kv_set;
-    std::unique_ptr<RangeSetActiveClient> range_set_active;
-    std::unique_ptr<RangeRetrieveActiveClient> range_retrieve_active;
-    std::unique_ptr<RangeClearActiveClient> range_clear_active;
     std::unique_ptr<HardwareCreateRackClient> rack_create_client;
     std::unique_ptr<HardwareRetrieveRackClient> rack_retrieve;
     std::unique_ptr<HardwareDeleteRackClient> rack_delete;

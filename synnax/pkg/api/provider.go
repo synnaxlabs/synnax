@@ -10,7 +10,7 @@
 package api
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -35,7 +35,7 @@ func NewProvider(cfg Config) Provider {
 	p := Provider{Config: cfg}
 	p.db = dbProvider{DB: gorp.Wrap(cfg.Storage.KV)}
 	p.user = userProvider{user: cfg.User}
-	p.access = accessProvider{access: cfg.Access}
+	p.access = accessProvider{access: cfg.RBAC}
 	p.auth = authProvider{token: cfg.Token, authenticator: cfg.Authenticator}
 	p.cluster = clusterProvider{cluster: cfg.Cluster}
 	p.ontology = OntologyProvider{Ontology: cfg.Ontology}
@@ -54,7 +54,7 @@ type userProvider struct {
 
 // AccessProvider provides access control information and utilities to services.
 type accessProvider struct {
-	access *rbac.Service
+	access access.Enforcer
 }
 
 // authProvider provides authentication and token utilities to services. In most cases

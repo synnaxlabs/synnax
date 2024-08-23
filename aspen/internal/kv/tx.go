@@ -101,11 +101,18 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	for _, dig := range b.digests {
 		op := dig.Operation()
 		if op.Variant == change.Set {
-			v, err := b.Tx.Get(ctx, dig.Key)
-			if err != nil && !errors.Is(err, kvx.NotFound) {
+			v, closer, err := b.Tx.Get(ctx, dig.Key)
+			if err != nil {
 				return nil, err
 			}
+			if errors.Is(err, kvx.NotFound) {
+				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
+				continue
+			}
 			op.Value = binary.MakeCopy(v)
+			if err = closer.Close(); err != nil {
+				return nil, err
+			}
 		}
 		br, ok := dm[op.Leaseholder]
 		if !ok {

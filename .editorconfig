@@ -24,13 +24,13 @@ indent_size = 2
 
 # |||| JSON ||||
 
-[*.json]
+[*.{json,code-workspace}]
 indent_size = 2
 
 # |||| MARKDOWN ||||
 
-[*.{md,mx}]
-max_line_length = 88
+[*.{md,mdx}]
+indent_size = 2
 
 # |||| YAML ||||
 

@@ -194,7 +194,7 @@ TEST(RangerTests, testGetFromRetrieved) {
 
 
 /// @brief it should delete a key-value pair on the range.
-TEST(RangerTests, testKVDeelete) {
+TEST(RangerTests, testKVDelete) {
     auto client = new_test_client();
     auto [range, err] = client.ranges.create(
             "test",
@@ -211,45 +211,4 @@ TEST(RangerTests, testKVDeelete) {
     auto [val, err2] = range.kv.get("test");
     ASSERT_TRUE(err2) << err2.message();
     ASSERT_EQ(val, "");
-}
-
-/// @brief it should set a created range as the active range.
-TEST(RangerTests, testSetActive) {
-    auto client = new_test_client();
-    auto [range, err] = client.ranges.create(
-            "test",
-            synnax::TimeRange(
-                    synnax::TimeStamp(30),
-                    synnax::TimeStamp(10 * synnax::SECOND)
-            )
-    );
-    ASSERT_FALSE(err);
-    err = client.ranges.setActive(range.key);
-    ASSERT_FALSE(err);
-    auto [got, err2] = client.ranges.retrieveActive();
-    ASSERT_FALSE(err2);
-    ASSERT_EQ(got.name, "test");
-    ASSERT_FALSE(got.key.length() == 0);
-    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(30));
-    ASSERT_EQ(got.time_range.end, synnax::TimeStamp(10 * synnax::SECOND));
-}
-
-/// @brief it should clear the active range.
-TEST(RangerTests, testClearActive) {
-    auto client = new_test_client();
-    auto [range, err] = client.ranges.create(
-            "test",
-            synnax::TimeRange(
-                    synnax::TimeStamp(30),
-                    synnax::TimeStamp(10 * synnax::SECOND)
-            )
-    );
-    ASSERT_FALSE(err);
-    err = client.ranges.setActive(range.key);
-    ASSERT_FALSE(err);
-    err = client.ranges.clearActive();
-    ASSERT_FALSE(err);
-    auto [got, err2] = client.ranges.retrieveActive();
-    ASSERT_TRUE(err2);
-    ASSERT_EQ(err2, synnax::NOT_FOUND);
 }

@@ -1,63 +1,69 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Channels"
-description: "Learn how to work with channels using the Synnax Python client."
+description: "Create, retrieve, and delete channels using the Synnax Python client."
 ---
 import { Divider } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro";
 export const components = {pre: Code};
 import Note from "@/components/Note.astro";
 
-The Python client provides interfaces for creating, retrieving, and deleting
-channels. We'll cover the details of each of these operations in this guide.
+The Python client provides interfaces for creating, retrieving, and deleting channels.
+We'll cover the details of each of these operations in this guide.
 
-If you're unfamiliar with what channels are and how they work, check out the
-[channels concepts guide](../concepts/channels).
+If you're unfamiliar with what channels are and how they work, check out the [channels
+concepts guide](/reference/concepts/channels).
 
 <Divider.Divider direction="x" />
 
 ## Creating Channels
 
-We can create channels using the `channels.create` method on the client.
+We can create channels using the `channels.create` method on the client. The method can
+be called in three different ways: a set of arguments for creating a channel, a single
+channel that has already been created locally, or a list of channels that have already been
+created locally.
 
 ### Creating a Data Channel and its Index 
 
-Creating a data channel first requires us to create an index channel to store
-its timestamps:
+Creating a data channel first requires us to create an index channel to store its
+timestamps:
 
 ```python
 # Create a time channel to store the timestamps of our data channel
 time_index_channel = client.channels.create(
     name="time",
-    # Index channels must have a data type of TIMESTAMP and is_index 
-    # set to True
+    # Index channels must have a data type of TIMESTAMP and is_index set to True
     data_type=sy.DataType.TIMESTAMP, 
     is_index=True,
 )
 
-# Create a data channel that stores 32-bit floats
-my_sensor = client.channels.create(
+# You can also create a channel by creating the channel locally and passing it to the
+# create method on the client.
+my_sensor = sy.Channel(
     name="my_sensor",
     data_type=sy.DataType.FLOAT32,
     index=time_index_channel.key, # Pass the key of the index channel here.
 )
+
+# Create a data channel that stores 32-bit floats
+data_channel = client.channels.create(my_sensor)
 ```
+
 
 ### Creating Multiple Channels
 
-We can create multiple channels by passing a list to the `create` method. This
-is more efficient than creating many channels individually, and provides the
-atomic guarantee that either all or no channels will be created.
+We can create multiple channels by passing a list to the `create` method. This is more
+efficient than creating many channels individually, and provides the atomic guarantee
+that either all or no channels will be created.
 
-Keep in mind that we need to create index channels before we can create the
-channels that use them. We're working on adding functionality to the client that
-will allow us to create all of these channels in a single call.
+Keep in mind that we need to create index channels before we can create the data
+channels that use them.
 
 ```python
 import numpy as np
 
-# We need to create the index first, that way we can provide the index
-# key to our data channels.
+# We need to create the index first, that way we can provide the index key to our data
+# channels.
 time_index = client.channels.create(
     name="time",
     data_type=sy.DataType.TIMESTAMP,
@@ -82,7 +88,7 @@ sensor_three = sy.Channel(
     index=time_index.key,
 )
 
-client.channels.create([
+data_channels = client.channels.create([
     sensor_one,
     sensor_two,
     sensor_three,
@@ -97,7 +103,7 @@ accomplish this, we can use the `retrieve_if_name_exists` flag:
 
 ```python
 # Create a channel if it doesn't exist
-my_channel = client.channels.create(
+data_channel = client.channels.create(
     name="my_channel",
     data_type=sy.DataType.FLOAT32,
     index=my_index.key,
@@ -109,7 +115,7 @@ This also works when creating multiple channels:
 
 ```python
 # Create multiple channels if they don't exist
-my_channels = client.channels.create(
+data_channels = client.channels.create(
     [my_channel_one, my_channel_two, my_channel_three],
     retrieve_if_name_exists=True,
 )
@@ -123,23 +129,23 @@ We can retrieve channels using the `channels.retrieve` method.
 
 ### Retrieving a Single Channel
 
-To retrieve a single channel, pass the channel's name or key to the `retrieve`
-method:
+To retrieve a single channel, pass the channel's name or key to the `retrieve` method:
 
 ```python
 # By name
 my_sensor = client.channels.retrieve("my_sensor")
+
 # If you know the key, you can also retrieve by key
 my_sensor = client.channels.retrieve(my_sensor.key)
 ```
 
 The client will raise a `NotFoundError` if no channels match the query, and a
-`MultipleFoundError` if more than one channel matches the query. If you'd like
-to accept no or multiple results, provide a list to the `retrieve` method as
-shown in the next section.
+`MultipleFoundError` if more than one channel matches the query. If you'd like to accept
+no or multiple results, provide a list to the `retrieve` method as shown in the next
+section.
 
 <Note variant="info">
-Retrieving by key is more efficient than by name, and we recommend doing so when
+Retrieving by key is faster than retrieving by name, and we recommend doing so when
 possible.
 </Note>
 
@@ -151,58 +157,80 @@ To retrieve multiple channels, pass a list of names or a list of keys to the
 ```python
 # By name
 my_channels = client.channels.retrieve(["sensor_one", "sensor_two"])
-# By key if you know them
+
+# By key
 my_channels = client.channels.retrieve([sensor_one.key, sensor_two.key])
+
 # This won't work!
 my_channels = client.channels.retrieve(["sensor_one", sensor_two.key])
 ```
 
-Note that Synnax will not raise a `NotFoundError` if it cannot find a channel
-matching a key or name. Instead, the missing channel will simply be omitted from
-the list of results.
+Note that Synnax will not raise a `NotFoundError` if it cannot find a channel matching a
+key or name. Instead, the missing channel will simply be omitted from the list of
+results.
 
 ### Retrieving a Channel Using a Range
 
-If you've queried a [range](ranges), you can access channels as properties. If
-the channel name is not a valid Python identifier, you can use the dictionary
-accessor (`[]`) instead:
+If you've queried a [range](/reference/python-client/ranges), you can access channels as
+properties. If the channel name is not a valid Python identifier, you can use the
+dictionary accessor instead:
 
 ```python
-# Retrieve the range - see the highlighted link above for how these work
+# Retrieve the range
 test_one = client.ranges.retrieve("02/22/23 Testing")
 
-# Grab a channel
+# Grab a channel like this
 ch = test_one["sensor_one"]
+
 # Or like this
 ch = test_one.sensor_one
 ```
 
 <Note variant="info">
-When using a range, it's possible to retrieve a channel by it's alias instead of
-its name. For more information, see <a href="ranges#aliasing-channels">aliasing channels</a>.
+When using a range, it's possible to retrieve a channel by it's
+[alias](/reference/python-client/ranges#aliasing-channels) instead of its name.
 </Note>
 
 ### Retrieving Channels Using Regular Expressions
 
-If you're familiar with regular expressions, you can use them to retrieve
-channels that match a pattern. For example, if we wanted to retrieve all
-channels that start with "sensor", we could do the following:
+If you're familiar with regular expressions, you can use them to retrieve channels that
+match a pattern. For example, if we wanted to retrieve all channels that start with
+"sensor", we could do the following:
 
 ```python
 sensor_channels = client.channels.retrieve(["^sensor"])
 ```
 
-It's important to note that if we're expecting multiple channels to match our
-pattern, we need to pass in a list to the `retrieve` method, otherwise the
-client will raise a `MultipleFoundError`.
+It's important to note that if we're expecting multiple channels to match our pattern,
+we need to pass in a list to the `retrieve` method, otherwise the client will raise a
+`MultipleFoundError`.
+
+<Divider.Divider direction="x" />
+
+## Renaming Channels
+
+You can also rename channels from the Python client by calling the `channels.rename`
+method. Currently, renaming must be done by key from the client or by calling the rename
+method on an existing channel object.
+
+```python
+# Rename an already existing channel
+data_channel.rename("new_name")
+
+# Renaming from the client by key
+client.channels.rename(data_channel.key, "new_name")
+
+# Renaming multiple channels by key
+client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_two"])
+```
 
 <Divider.Divider direction="x" />
 
 ## Deleting Channels
 
 <Note variant="warning">
-Deleting a channel will also delete all of the data stored in that channel. This
-is a permanent operation that cannot be undone. Be careful!
+Deleting a channel will also delete all of the data stored in that channel. This is a
+permanent operation that cannot be undone. Be careful!
 </Note>
 
 To delete a channel, we can use the `channels.delete` method:
@@ -210,18 +238,20 @@ To delete a channel, we can use the `channels.delete` method:
 ```python
 # Delete a single channel
 client.channels.delete("my_sensor")
+
 # Delete multiple channels
 client.channels.delete(["sensor_one", "sensor_two"])
+
 # Delete by key
 client.channels.delete(sensor_three.key)
+
 # Delete many by key
 client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
 ```
 
-Unlike with retrieving channels, Synnax will not raise an error if it cannot
-find a channel matching the key or name. This means that `delete` is an
-idempotent operation, and is safe to call even if the channel has already been
-deleted.
+Unlike with retrieving channels, Synnax will not raise an error if it cannot find a
+channel matching the key or name. This means that `delete` is an idempotent operation,
+and is safe to call even if the channel has already been deleted.
 
 Deleting a channel by name will delete **all** channels with that name. 
 
@@ -229,6 +259,7 @@ Deleting a channel by name will delete **all** channels with that name.
 
 ## Next Steps
 
-Now that we know how to create and retrieve channels, we can start reading and
-writing data to them. Check out the [reading data](read-data) and [writing
-data](write-data) guides to learn more.
+Now that we know how to create and retrieve channels, we can start
+[reading](/reference/python-client/read-data) and
+[writing](/reference/python-client/write-data) data to them.
+

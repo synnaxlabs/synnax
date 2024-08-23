@@ -45,7 +45,11 @@ const series = new Series(new Float32Array([1, 2, 3, 4, 5]));
 
 // Construct a series from a JSON object. This is useful when you have a series
 // that has been serialized to JSON.
-const series = new Series([{ red: "cherry" }, { yellow: "banana" }, {orange: "orange" }]);
+const series = new Series([
+  { red: "cherry" }, 
+  { yellow: "banana" }, 
+  {orange: "orange" }
+]);
 ```
 
 The values passed to a series cannot have different data types. The constructor

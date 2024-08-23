@@ -30,7 +30,6 @@ export const linkHandler: Link.Handler = async ({
   } catch (e) {
     addStatus({
       variant: "error",
-      key: `openUrlError-${resource + "/" + resourceKey}`,
       message: (e as Error).message,
     });
   }

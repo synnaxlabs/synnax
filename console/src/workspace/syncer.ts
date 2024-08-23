@@ -44,7 +44,6 @@ export const useSyncLayout = async (): Promise<void> => {
     onError: (e) => {
       if (QueryError.matches(e)) {
         addStatus({
-          key: "workspace.save",
           variant: "error",
           message: "Layout not found in cluster. Clearing.",
         });
@@ -52,7 +51,6 @@ export const useSyncLayout = async (): Promise<void> => {
         return;
       }
       addStatus({
-        key: "workspace.save",
         variant: "error",
         message: "Failed to save workspace",
         description: e.message,

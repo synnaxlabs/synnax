@@ -69,7 +69,7 @@
 }
 
 @container (max-height: 600px) {
-    .pluto-input--natural input {
+    .pluto-input--natural input.pluto-text--h1 {
         font-size: var(--pluto-h2-size);
         line-height: var(--pluto-h2-line-height);
     }
@@ -80,7 +80,7 @@
         flex-direction: column !important;
         gap: 0 !important;
     }
-    .pluto-input--natural input {
+    .pluto-input--natural input.pluto-text--h1 {
         font-size: var(--pluto-h2-size);
         line-height: var(--pluto-h2-line-height);
     }

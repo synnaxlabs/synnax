@@ -13,6 +13,8 @@ package pebblekv
 
 import (
 	"context"
+	"io"
+
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
@@ -56,14 +58,14 @@ func (d db) Commit(ctx context.Context, opts ...interface{}) error { return nil 
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
 // Set implement kv.DB.
-func (d db) Set(ctx context.Context, key, value []byte, opts ...interface{}) error {
+func (d db) Set(_ context.Context, key, value []byte, opts ...interface{}) error {
 	return translateError(d.DB.Set(key, value, parseOpts(opts)))
 }
 
 // Get implement kv.DB.
-func (d db) Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error) {
-	b, err := get(d.DB, key)
-	return b, translateError(err)
+func (d db) Get(_ context.Context, key []byte, _ ...interface{}) ([]byte, io.Closer, error) {
+	b, c, err := d.DB.Get(key)
+	return b, c, translateError(err)
 }
 
 // Delete implement kv.DB.
@@ -81,7 +83,8 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 	if err != nil {
 		return translateError(err)
 	}
-	d.Notify(ctx, txn.NewReader())
+	// We need to notify with a generator so that each subscriber gets a fresh reader.
+	d.NotifyGenerator(ctx, txn.NewReader)
 	return nil
 }
 
@@ -107,13 +110,21 @@ func (txn *tx) Set(_ context.Context, key, value []byte, opts ...interface{}) er
 }
 
 // Get implements kv.Writer.
-func (txn *tx) Get(_ context.Context, key []byte, opts ...interface{}) ([]byte, error) {
-	b, err := get(txn.Batch, key)
-	return b, translateError(err)
+func (txn *tx) Get(
+	_ context.Context,
+	key []byte,
+	_ ...interface{},
+) ([]byte, io.Closer, error) {
+	b, closer, err := txn.Batch.Get(key)
+	return b, closer, translateError(err)
 }
 
 // Delete implements kv.Writer.
-func (txn *tx) Delete(_ context.Context, key []byte, opts ...interface{}) error {
+func (txn *tx) Delete(
+	_ context.Context,
+	key []byte,
+	opts ...interface{},
+) error {
 	return translateError(txn.Batch.Delete(key, parseOpts(opts)))
 }
 
@@ -149,14 +160,6 @@ func (txn *tx) NewReader() kv.TxReader {
 var kindsToVariant = map[pebble.InternalKeyKind]change.Variant{
 	pebble.InternalKeyKindSet:    change.Set,
 	pebble.InternalKeyKindDelete: change.Delete,
-}
-
-func get(reader pebble.Reader, key []byte) ([]byte, error) {
-	v, c, err := reader.Get(key)
-	if err != nil {
-		return v, err
-	}
-	return v, c.Close()
 }
 
 func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {

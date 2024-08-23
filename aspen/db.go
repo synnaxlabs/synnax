@@ -32,7 +32,7 @@ type Cluster interface {
 	// all nodes in the cluster.
 	Key() uuid.UUID
 	// Nodes returns a node.Group of all nodes in the cluster. The returned map
-	// is not safe to modify. To modify, use node.ArrayIndex.CopyState().
+	// is not safe to modify. To modify, use node.Group.CopyState().
 	Nodes() node.Group
 	// Node returns the member Node with the given Key.
 	Node(id node.Key) (node.Node, error)

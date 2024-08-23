@@ -127,15 +127,43 @@ var _ = Describe("Search", func() {
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "test",
 			}, "nope"),
-			Entry("Underscores no match", schema.Resource{
-				ID:   ontology.ID{Type: "test", Key: "1"},
-				Name: "gse_ai_15",
-			}, "ai_26"),
 			Entry("Partial No Match", schema.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "Channel",
 			}, "nn"),
 		)
+		Describe("Disjunction Fallback", func() {
+			It("Should fall back to a disjunction search if the conjunction search finds no results", func() {
+				Expect(idx.Index([]schema.Resource{
+					{
+						ID:   ontology.ID{Type: "test", Key: "1"},
+						Name: "My Blob",
+					},
+				})).To(Succeed())
+				res := MustSucceed(idx.Search(ctx, search.Request{
+					Type: "test",
+					Term: "My Blog",
+				}))
+				Expect(len(res)).To(BeNumerically(">", 0))
+			})
+			It("Should not fall back to a disjunction search if the conjunction search finds results", func() {
+				Expect(idx.Index([]schema.Resource{
+					{
+						ID:   ontology.ID{Type: "test", Key: "1"},
+						Name: "gse_ai_12",
+					},
+					{
+						ID:   ontology.ID{Type: "test", Key: "2"},
+						Name: "gse_doa_1",
+					},
+				})).To(Succeed())
+				res := MustSucceed(idx.Search(ctx, search.Request{
+					Type: "test",
+					Term: "gse_ai_12",
+				}))
+				Expect(len(res)).To(Equal(1))
+			})
+		})
 	})
 	DescribeTable("Custom Tokenizer",
 		func(input string, expected []string) {

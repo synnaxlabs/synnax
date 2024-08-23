@@ -83,7 +83,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 // range. If the time domain overlaps with any other domains in the DB, Write will return
 // an error.
 func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
-	w, err := db.NewWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
+	w, err := db.OpenWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	return w.Close()
 }
 
-// Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.NewWriter
+// Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.OpenWriter
 // and a provided WriterConfig, which defines the starting bound of the domain. If no
 // other domain overlaps with the starting bound, the caller can write telemetry data the
 // Writer using an io.TypedWriter interface.
@@ -138,11 +138,13 @@ type Writer struct {
 	// closed denotes whether the writer is closed. A closed writer returns an error when
 	// attempts to Write or Commit with it are made.
 	closed bool
+	// onClose is called when the writer is closed.
+	onClose func()
 }
 
-// NewWriter opens a new Writer using the given configuration.
+// OpenWriter opens a new Writer using the given configuration.
 // If err is nil, then the writer must be closed.
-func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	if db.closed.Load() {
 		return nil, errDBClosed
 	}
@@ -157,20 +159,24 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}
-	key, size, internal, err := db.files.acquireWriter(ctx)
+	key, size, internal, err := db.fc.acquireWriter(ctx)
 	if err != nil {
 		return nil, err
 	}
+	db.entityCount.Add(1)
 	w := &Writer{
 		WriterConfig:     cfg,
-		Instrumentation:  db.Instrumentation.Child("writer"),
+		Instrumentation:  db.cfg.Instrumentation.Child("writer"),
 		fileKey:          key,
-		fc:               db.files,
+		fc:               db.fc,
 		fileSize:         telem.Size(size),
 		internal:         internal,
 		idx:              db.idx,
 		presetEnd:        !cfg.End.IsZero(),
 		lastIndexPersist: telem.Now(),
+		onClose: func() {
+			db.entityCount.Add(-1)
+		},
 	}
 
 	// If we don't have a preset end, we defer to using the start of the next domain
@@ -302,19 +308,17 @@ func (w *Writer) Close() error {
 	if w.closed {
 		return nil
 	}
-
+	defer w.onClose()
 	w.closed = true
 	if err := w.internal.Close(); err != nil {
 		return err
 	}
-
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		w.idx.mu.RLock()
 		persistPointers := w.idx.indexPersist.prepare(w.idx.persistHead)
 		w.idx.mu.RUnlock()
 		return persistPointers()
 	}
-
 	return nil
 }
 

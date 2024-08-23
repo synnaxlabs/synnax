@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
@@ -20,8 +21,8 @@ const client = newClient();
 
 const newChannel = async (): Promise<channel.Channel> =>
   await client.channels.create({
-    name: "test",
     leaseholder: 1,
+    name: `test-${id.id()}`,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT64,
   });
@@ -53,7 +54,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: 0,
         channels: ch.key,
-        mode: WriterMode.PersistOnly,
+        mode: WriterMode.Persist,
       });
       try {
         await writer.write(ch.key, randomSeries(10, ch.dataType));
@@ -137,27 +138,111 @@ describe("Writer", () => {
         channels: ch.key,
         authorities: 10,
         enableAutoCommit: true,
-      })
+      });
       const w2 = await client.openWriter({
         start: 0,
         channels: ch.key,
         authorities: 20,
         enableAutoCommit: true,
-      })
+      });
 
-      await w1.write(ch.key, randomSeries(10, ch.dataType))
-      let f = await ch.read(TimeRange.MAX)
-      expect(f.length).toEqual(0)
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+      let f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(0);
 
-      await w1.setAuthority({[ch.key]: 100});
-      await w1.write(ch.key, randomSeries(10, ch.dataType))
+      await w1.setAuthority({ [ch.key]: 100 });
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
 
-      f = await ch.read(TimeRange.MAX)
-      expect(f.length).toEqual(10)
+      f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
 
-      await w1.close()
-      await w2.close()
-    })
+      await w1.close();
+      await w2.close();
+    });
+    test("setAuthority with name keys", async () => {
+      const ch = await newChannel();
+      const w1 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 10,
+        enableAutoCommit: true,
+      });
+      const w2 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 20,
+        enableAutoCommit: true,
+      });
+
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+      let f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(0);
+
+      await w1.setAuthority({ [ch.name]: 100 });
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+
+      f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
+
+      await w1.close();
+      await w2.close();
+    });
+    test("setAuthority with name-value pair", async () => {
+      const ch = await newChannel();
+      const w1 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 10,
+        enableAutoCommit: true,
+      });
+      const w2 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 20,
+        enableAutoCommit: true,
+      });
+
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+      let f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(0);
+
+      await w1.setAuthority(ch.name, 100);
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+
+      f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
+
+      await w1.close();
+      await w2.close();
+    });
+    test("setAuthority on all channels", async () => {
+      const ch = await newChannel();
+      const w1 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 10,
+        enableAutoCommit: true,
+      });
+      const w2 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        authorities: 20,
+        enableAutoCommit: true,
+      });
+
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+      let f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(0);
+
+      await w1.setAuthority(ch.name, 255);
+      await w1.write(ch.key, randomSeries(10, ch.dataType));
+
+      f = await ch.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
+
+      await w1.close();
+      await w2.close();
+    });
   });
   describe("Client", () => {
     test("Client - basic write", async () => {

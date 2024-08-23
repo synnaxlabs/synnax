@@ -67,7 +67,7 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
  * interface for more details.
  */
 export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  children = (props) => <Input.Text {...props} />,
+  children = (props) => <Input.Text placeholder="Filter" {...props} />,
   ...props
 }: FilterProps): ReactElement | null => children(useFilter<K, E>(props));
 

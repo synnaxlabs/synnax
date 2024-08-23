@@ -245,7 +245,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	}); err != nil {
 		return HardwareRetrieveTaskResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 type HardwareDeleteTaskRequest struct {
@@ -351,7 +351,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	}); err != nil {
 		return HardwareRetrieveDeviceResponse{}, err
 	}
-	return res, q.Entries(&res.Devices).Exec(ctx, nil)
+	return res, nil
 }
 
 type HardwareDeleteDeviceRequest struct {

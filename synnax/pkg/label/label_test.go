@@ -62,8 +62,24 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
+		It("Should create many labels", func() {
+			ls := []label.Label{
+				{
+					Name:  "Label1",
+					Color: color.Color("#000000"),
+				},
+				{
+					Name:  "Label2",
+					Color: color.Color("#000000"),
+				},
+			}
+			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
+			for _, l := range ls {
+				Expect(l.Key).ToNot(Equal(uuid.Nil))
+			}
+		})
 	})
-	Describe("DeleteChannel", func() {
+	Describe("Delete", func() {
 		It("Should delete a label", func() {
 			l := &label.Label{
 				Name:  "Label",
@@ -73,9 +89,26 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.NotFound))
 		})
+		It("Should delete many labels", func() {
+			ls := []label.Label{
+				{
+					Name:  "Label1",
+					Color: color.Color("#000000"),
+				},
+				{
+					Name:  "Label2",
+					Color: color.Color("#000000"),
+				},
+			}
+			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
+			Expect(w.DeleteMany(ctx, []uuid.UUID{ls[0].Key, ls[1].Key})).To(Succeed())
+			for _, l := range ls {
+				Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.NotFound))
+			}
+		})
 	})
-	Describe("Label", func() {
-		It("Should get a label", func() {
+	Describe("Retrieve", func() {
+		It("Should get the labels for an ontology resource", func() {
 			l := &label.Label{
 				Name:  "Label",
 				Color: color.Color("#000000"),
@@ -109,6 +142,27 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 			Expect(w.RemoveLabel(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
+			Expect(labels).To(HaveLen(0))
+		})
+	})
+	Describe("Clear", func() {
+		It("Should remove all labels on an object", func() {
+			l := &label.Label{
+				Name:  "Label",
+				Color: color.Color("#000000"),
+			}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			labeled := &label.Label{
+				Name:  "Labeled",
+				Color: color.Color("#000000"),
+			}
+			Expect(w.Create(ctx, labeled)).To(Succeed())
+			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
+			Expect(labels).To(HaveLen(1))
+			Expect(labels[0].Key).To(Equal(l.Key))
+			Expect(w.Clear(ctx, label.OntologyID(labeled.Key))).To(Succeed())
 			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(0))
 		})

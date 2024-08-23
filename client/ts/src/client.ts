@@ -44,8 +44,8 @@ export const synnaxPropsZ = z.object({
         required_error: "Port is required",
       }),
     ),
-  username: z.string().optional(),
-  password: z.string().optional(),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   secure: z.boolean().optional().default(false),
   name: z.string().optional(),
@@ -125,13 +125,14 @@ export default class Synnax extends framer.Client {
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
     const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(this.transport.unary, this);
+    this.labels = new label.Client(this.transport.unary, this, this.ontology);
     this.ranges = new ranger.Client(
       this,
       rangeWriter,
       this.transport.unary,
       chRetriever,
       this.labels,
+      this.ontology,
     );
     this.access = new access.Client(this.transport.unary);
     this.user = new user.Client(this.transport.unary);

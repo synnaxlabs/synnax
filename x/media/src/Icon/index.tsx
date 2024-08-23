@@ -27,7 +27,7 @@ import {
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
-import { BiRename } from "react-icons/bi";
+import { BiLinkExternal, BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
@@ -334,6 +334,9 @@ export const Icon: IconType = {
   Object: wrapIcon(MdDataObject, "object"),
   Type: wrapIcon(MdTypeSpecimen, "type"),
   Array: wrapIcon(MdDataArray, "array"),
+  Label: wrapIcon(MdLabel, "label"),
+  Details: wrapIcon(MdOutlineTableRows, "details"),
+  LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
 };
 
 export interface IconType {
@@ -454,4 +457,7 @@ export interface IconType {
   Type: IconFC;
   LinePlot: IconFC;
   Array: IconFC;
+  Label: IconFC;
+  Details: IconFC;
+  LinkExternal: IconFC;
 }

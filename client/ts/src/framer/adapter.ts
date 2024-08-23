@@ -93,6 +93,12 @@ export class WriteFrameAdapter {
     return adapter;
   }
 
+  async adaptObjectKeys<V>(data: Record<KeyOrName, V>): Promise<Record<Key, V>> {
+    const out: Record<Key, V> = {};
+    for (const [k, v] of Object.entries(data)) out[await this.adaptToKey(k)] = v;
+    return out;
+  }
+
   async update(channels: Params): Promise<void> {
     const results = await retrieveRequired(this.retriever, channels);
     this.adapter = new Map<Name, Key>(results.map((c) => [c.name, c.key]));
@@ -103,6 +109,12 @@ export class WriteFrameAdapter {
     const res = await this.retriever.retrieve(ch);
     if (res.length === 0) throw new Error(`Channel ${ch} not found`);
     return res[0];
+  }
+
+  private async adaptToKey(k: KeyOrName): Promise<Key> {
+    if (typeof k === "number") return k;
+    const res = await this.fetchChannel(k);
+    return res.key;
   }
 
   async adapt(

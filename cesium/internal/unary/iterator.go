@@ -40,7 +40,6 @@ type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
 	Channel  core.Channel
-	onClose  func()
 	internal *domain.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
@@ -76,6 +75,7 @@ func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	return ok
 }
 
+// SeekLast moves the iterator to the end of the last domain in its bounds.
 func (i *Iterator) SeekLast(ctx context.Context) bool {
 	if i.closed {
 		i.err = errIteratorClosed
@@ -186,15 +186,19 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			}
 			continue
 		}
-		startApprox, domain, err := i.approximateStart(ctx)
+		startApprox, dmn, err := i.approximateStart(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
+		if !startApprox.Exact() && !startApprox.StartExact {
+			// If we are starting from a cutoff dmn, use the lower offset.
+			startOffset = i.Channel.DataType.Density().Size(startApprox.Lower)
+		}
 		series, err := i.read(
 			ctx,
-			domain,
+			dmn,
 			startOffset,
 			i.Channel.DataType.Density().Size(nRemaining),
 		)
@@ -270,7 +274,6 @@ func (i *Iterator) Close() (err error) {
 	if i.closed {
 		return nil
 	}
-	i.onClose()
 	i.closed = true
 	wrap := core.NewErrorWrapper(i.Channel)
 	return wrap(i.internal.Close())
@@ -320,7 +323,7 @@ func (i *Iterator) read(
 	inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
 	series.Alignment = telem.AlignmentPair(idxDomain)<<32 | telem.AlignmentPair(inDomainAlignment)
-	r, err := i.internal.NewReader(ctx)
+	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
 		return
 	}
@@ -348,12 +351,38 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 	if err != nil {
 		return 0, 0, 0, err
 	}
+	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
+	// Split into cases to determine which offsets to use. See unary/delete.go's
+	// calculateStartOffset function for more detail.
+	if !startApprox.Exact() && !startApprox.StartExact {
+		if startApprox.EndExact {
+			// If the start of the domain is inexact due to cutoff, but the end
+			// approximation is exact, we want to use the lower approximation.
+			startOffset = i.Channel.DataType.Density().Size(startApprox.Lower)
+		} else {
+			off := (startApprox.Lower + startApprox.Upper) / 2
+			startOffset = i.Channel.DataType.Density().Size(off)
+		}
+	}
 	endApprox, err := i.approximateEnd(ctx)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
-	size := i.Channel.DataType.Density().Size(endApprox.Upper) - startOffset
+	endOffset := i.Channel.DataType.Density().Size(endApprox.Upper)
+	// Split into cases to determine which offsets to use. See unary/delete.go's
+	// calculateEndOffset function for more detail.
+	if !endApprox.Exact() && !endApprox.StartExact {
+		if endApprox.EndExact {
+			// If the start of the domain is inexact due to cutoff, but the end
+			// approximation is exact, we want to use the lower approximation.
+			endOffset = i.Channel.DataType.Density().Size(endApprox.Lower)
+		} else {
+			off := (endApprox.Lower + endApprox.Upper) / 2
+			endOffset = i.Channel.DataType.Density().Size(off)
+		}
+	}
+
+	size := endOffset - startOffset
 	return startOffset, domain, size, nil
 }
 
@@ -387,7 +416,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 }
 
 // satisfied returns whether an iterator collected all telemetry in its view.
-// An iterator is said to be satisfied when its frame's start and end timerange is
+// An iterator is said to be satisfied when its frame's start and end time range is
 // congruent to its view.
 func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {

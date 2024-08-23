@@ -136,16 +136,30 @@ type Cluster struct {
 }
 
 // Key implements the Cluster interface.
-func (c *Cluster) Key() uuid.UUID { return c.Store.PeekState().ClusterKey }
+func (c *Cluster) Key() uuid.UUID {
+	s, release := c.Store.PeekState()
+	defer release()
+	return s.ClusterKey
+}
 
 // Host implements the Cluster interface.
-func (c *Cluster) Host() node.Node { return c.Store.GetHost() }
+func (c *Cluster) Host() node.Node {
+	return c.Store.GetHost()
+}
 
 // HostKey implements the Cluster interface.
-func (c *Cluster) HostKey() node.Key { return c.Store.PeekState().HostKey }
+func (c *Cluster) HostKey() node.Key {
+	s, release := c.Store.PeekState()
+	defer release()
+	return s.HostKey
+}
 
 // Nodes implements the Cluster interface.
-func (c *Cluster) Nodes() node.Group { return c.Store.PeekState().Nodes }
+func (c *Cluster) Nodes() node.Group {
+	s, release := c.Store.PeekState()
+	defer release()
+	return s.Nodes
+}
 
 // Node implements the Cluster interface.
 func (c *Cluster) Node(key node.Key) (node.Node, error) {
@@ -219,11 +233,13 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	if cfg.Storage == nil {
 		return state, nil
 	}
-	encoded, err := cfg.Storage.Get(ctx, cfg.StorageKey)
+	encoded, closer, err := cfg.Storage.Get(ctx, cfg.StorageKey)
 	if err != nil {
 		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
 	}
-	return state, cfg.Codec.Decode(ctx, encoded, &state)
+	err = cfg.Codec.Decode(ctx, encoded, &state)
+	err = errors.CombineErrors(err, closer.Close())
+	return state, err
 }
 
 func newConfig(ctx context.Context, configs []Config) (Config, error) {

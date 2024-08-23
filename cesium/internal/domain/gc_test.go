@@ -48,18 +48,18 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(7), telem.TimeRange{Start: 12*telem.SecondTS + 1, End: 16*telem.SecondTS + 1}, telem.Density(1))).To(Succeed())
 
 					By("Garbage collecting and asserting the file got smaller")
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(6)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
 
 					By("Asserting that we can still write to the file")
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(28*telem.SecondTS+1), []byte{20, 21, 22, 23, 24, 25, 26, 27, 28})).To(Succeed())
 
 					By("Asserting that the data is correct", func() {
-						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((10 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
-						r := MustSucceed(i.NewReader(ctx))
+						r := MustSucceed(i.OpenReader(ctx))
 						var buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{10, 11, 12}))
@@ -67,7 +67,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((16*telem.SecondTS + 1).Range(19*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{17, 18, 19}))
@@ -75,7 +75,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((20 * telem.SecondTS).Range(28*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 9)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28}))
@@ -98,18 +98,18 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(4), telem.TimeRange{Start: 12*telem.SecondTS + 1, End: 33*telem.SecondTS + 1}, telem.Density(1))).To(Succeed())
 
 					By("Garbage collecting and asserting the file got smaller")
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(21)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(21)))
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(6)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
 
 					By("Asserting that we can still write to the file")
 					// Opening two writers to force the first one to go to the mepty
 					// 2.domain. This way, the second one can go to 1.domain.
-					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 50 * telem.SecondTS}))
-					w2 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 50 * telem.SecondTS}))
+					w1 := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 50 * telem.SecondTS}))
+					w2 := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 50 * telem.SecondTS}))
 					_, err := w2.Write([]byte{50, 51, 52})
 					Expect(err).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(9)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(9)))
 					Expect(w2.Commit(ctx, 52*telem.SecondTS+1)).To(Succeed())
 					Expect(w2.Close()).To(Succeed())
 					Expect(w1.Close()).To(Succeed())
@@ -118,10 +118,10 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(2), createCalcOffset(1), (11 * telem.SecondTS).Range(35*telem.SecondTS), telem.Density(1))).To(Succeed())
 
 					By("Asserting that the data did not change", func() {
-						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
-						r := MustSucceed(i.NewReader(ctx))
+						r := MustSucceed(i.OpenReader(ctx))
 						var buf = make([]byte, 1)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{10}))
@@ -129,7 +129,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((35 * telem.SecondTS).Range(36*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 2)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{35, 36}))
@@ -137,7 +137,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((50 * telem.SecondTS).Range(52*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{50, 51, 52}))
@@ -161,20 +161,20 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(4), telem.TimeRange{Start: 12*telem.SecondTS + 1, End: 33*telem.SecondTS + 1}, telem.Density(1))).To(Succeed())
 
 					By("Garbage collecting and asserting the file did not get smaller as the threshold is not reached.")
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(21)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(21)))
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(21)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(21)))
 
 					By("Deleting more data to reach the threshold")
 					Expect(db.Delete(ctx, createCalcOffset(1), createCalcOffset(3), telem.TimeRange{Start: 10*telem.SecondTS + 1, End: 12*telem.SecondTS + 1}, telem.Density(1))).To(Succeed())
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(4)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(4)))
 
 					By("Asserting that the data did not change", func() {
-						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((10 * telem.SecondTS).Range(10*telem.SecondTS + 1)))
-						r := MustSucceed(i.NewReader(ctx))
+						r := MustSucceed(i.OpenReader(ctx))
 						var buf = make([]byte, 1)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{10}))
@@ -182,7 +182,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((33*telem.SecondTS + 1).Range(36*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{34, 35, 36}))
@@ -201,7 +201,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					}))
 					Expect(domain.Write(ctx, db, (1 * telem.SecondTS).Range(7*telem.SecondTS+1), []byte{1, 2, 3, 4, 5, 6, 7})).To(Succeed())
 					Expect(db.Delete(ctx, createCalcOffset(0), createCalcOffset(2), (1 * telem.SecondTS).Range(3*telem.SecondTS), telem.Density(1)))
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
 
 					_, err := w.Write([]byte{10, 11, 12, 13, 14})
 					Expect(err).ToNot(HaveOccurred())
@@ -210,20 +210,20 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
 
 					By("Expecting that garbage collection did not occur")
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(12)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(12)))
 
 					By("Closing the writer and expecting garbage collection to occur")
 					Expect(w.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(10)))
 
 					By("Asserting that the data did not change", func() {
-						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((3 * telem.SecondTS).Range(7*telem.SecondTS + 1)))
-						r := MustSucceed(i.NewReader(ctx))
+						r := MustSucceed(i.OpenReader(ctx))
 						var buf = make([]byte, 5)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{3, 4, 5, 6, 7}))
@@ -231,7 +231,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((10 * telem.SecondTS).Range(14*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 5)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{10, 11, 12, 13, 14}))
@@ -257,23 +257,23 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(4), telem.TimeRange{Start: 12*telem.SecondTS + 1, End: 33*telem.SecondTS + 1}, telem.Density(1))).To(Succeed())
 
 					By("Garbage collecting and asserting the file got smaller")
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(4)))
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(7)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(4)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(7)))
 
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(3)))
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(0)))
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(3)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(3)))
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(0)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(3)))
 
 					Expect(domain.Write(ctx, db, (100 * telem.SecondTS).Range(105*telem.SecondTS+1), []byte{100, 101, 102, 103, 104, 105})).To(Succeed())
 					Expect(domain.Write(ctx, db, (110 * telem.SecondTS).Range(115*telem.SecondTS+1), []byte{110, 111, 112, 113, 114, 115})).To(Succeed())
 
 					By("Asserting that the data did not change", func() {
-						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((10 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
-						r := MustSucceed(i.NewReader(ctx))
+						r := MustSucceed(i.OpenReader(ctx))
 						var buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{10, 11, 12}))
@@ -281,7 +281,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((33*telem.SecondTS + 1).Range(36*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{34, 35, 36}))
@@ -289,7 +289,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((100 * telem.SecondTS).Range(105*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 6)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{100, 101, 102, 103, 104, 105}))
@@ -297,7 +297,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((110 * telem.SecondTS).Range(115*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 6)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{110, 111, 112, 113, 114, 115}))
@@ -322,26 +322,26 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(1), telem.TimeRange{Start: 23 * telem.SecondTS, End: 41 * telem.SecondTS}, telem.Density(1))).To(Succeed())
 
 					By("Garbage collecting and asserting the files got smaller")
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(7)))
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(3)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(7)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(3)))
 
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(7)))
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(0)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(7)))
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(0)))
 					// File 3 should not get smaller since it is not full.
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(3)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(3)))
 
 					By("Asserting that we can still write data")
 					Expect(domain.Write(ctx, db, (44 * telem.SecondTS).Range(44*telem.SecondTS+1), []byte{44})).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(4)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(4)))
 
 					By("Asserting that the data did not change", func() {
-						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((20 * telem.SecondTS).Range(23 * telem.SecondTS)))
-						r := MustSucceed(i.NewReader(ctx))
+						r := MustSucceed(i.OpenReader(ctx))
 						var buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{20, 21, 22}))
@@ -349,7 +349,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((41 * telem.SecondTS).Range(43*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 2)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{41, 43}))
@@ -357,7 +357,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((44 * telem.SecondTS).Range(44*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 1)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{44}))
@@ -382,24 +382,24 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(1), telem.TimeRange{Start: 23 * telem.SecondTS, End: 41 * telem.SecondTS}, telem.Density(1))).To(Succeed())
 
 					By("Garbage collecting and asserting the file got smaller")
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(7)))
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(3)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(7)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(3)))
 
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					// file 1 should be collected (3 > 2)
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(7)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(7)))
 					// file 2 should be collected (7 > 2)
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(0)))
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(0)))
 					// file 3 should not be garbage collected (1 < 2)
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(3)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(3)))
 
 					By("Asserting that the data did not change", func() {
-						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((20 * telem.SecondTS).Range(23 * telem.SecondTS)))
-						r := MustSucceed(i.NewReader(ctx))
+						r := MustSucceed(i.OpenReader(ctx))
 						var buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{20, 21, 22}))
@@ -407,7 +407,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((41 * telem.SecondTS).Range(43*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 2)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{41, 43}))
@@ -442,17 +442,17 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					}))
 
 					By("Garbage collecting and asserting the file got smaller")
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(7)))
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(6)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(7)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(6)))
 
 					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					// file 1 should be collected (3 > 2)
-					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(7)))
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(7)))
 					// file 2 should be collected (7 > 2)
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(0)))
+					Expect(MustSucceed(fs.Stat("2.domain")).Size()).To(Equal(int64(0)))
 					// file 3 should not be garbage collected (1 < 2)
-					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(6)))
+					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(6)))
 
 					By("Asserting that new data would still be written")
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(35*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35})).To(Succeed())
@@ -461,11 +461,11 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					// since they are all below the file size limit.
 
 					By("Asserting that the data did not change", func() {
-						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((20 * telem.SecondTS).Range(23 * telem.SecondTS)))
-						r := MustSucceed(i.NewReader(ctx))
+						r := MustSucceed(i.OpenReader(ctx))
 						var buf = make([]byte, 3)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{20, 21, 22}))
@@ -473,7 +473,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((30 * telem.SecondTS).Range(35*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 6)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{30, 31, 32, 33, 34, 35}))
@@ -481,7 +481,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((41 * telem.SecondTS).Range(46*telem.SecondTS + 1)))
-						r = MustSucceed(i.NewReader(ctx))
+						r = MustSucceed(i.OpenReader(ctx))
 						buf = make([]byte, 5)
 						MustSucceed(r.ReadAt(buf, 0))
 						Expect(buf).To(Equal([]byte{41, 43, 44, 45, 46}))
@@ -492,6 +492,41 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					})
 				})
 			})
+
+			Context("Regression", func() {
+				// This regression test is used to verify that when GC is run, there is
+				// no readers on the old file that is still symlinking to the old file,
+				// causing the reading of incorrect data.
+				Specify("Reader should be recycled", func() {
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        7 * telem.ByteSize,
+						GCThreshold:     0,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13})).To(Succeed())             // file 1
+					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(25*telem.SecondTS+1), []byte{20, 21, 22, 23, 24, 25})).To(Succeed())     // file 1
+					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed()) // file 2
+					Expect(domain.Write(ctx, db, (40 * telem.SecondTS).Range(46*telem.SecondTS+1), []byte{40, 41, 43, 44, 45, 46})).To(Succeed())     // file 3
+					i := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					Expect(i.SeekLE(ctx, 43*telem.SecondTS)).To(BeTrue())
+					r := MustSucceed(i.OpenReader(ctx))
+					Expect(r.Close()).To(Succeed())
+
+					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(1), telem.TimeRange{Start: 23 * telem.SecondTS, End: 41 * telem.SecondTS}, telem.Density(1))).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+
+					Expect(i.SeekLE(ctx, 43*telem.SecondTS)).To(BeTrue())
+					r = MustSucceed(i.OpenReader(ctx))
+					b := make([]byte, 2)
+					_, err := r.ReadAt(b, 0)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(b).To(Equal([]byte{41, 43}))
+					Expect(r.Close()).To(Succeed())
+					Expect(i.Close()).To(Succeed())
+				})
+			})
+
 			Context("Close", func() {
 				It("Should not allow GC on a closed DB", func() {
 					db = MustSucceed(domain.Open(domain.Config{

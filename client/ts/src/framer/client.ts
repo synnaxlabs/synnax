@@ -139,7 +139,7 @@ export class Client {
       const w = await this.openWriter({
         start,
         channels: Object.keys(data_),
-        mode: WriterMode.PersistOnly,
+        mode: WriterMode.Persist,
       });
       try {
         await w.write(data_);
@@ -152,7 +152,7 @@ export class Client {
     const w = await this.openWriter({
       start,
       channels: channels as Params,
-      mode: WriterMode.PersistOnly,
+      mode: WriterMode.Persist,
       errOnUnauthorized: true,
       enableAutoCommit: true,
       autoIndexPersistInterval: TimeSpan.MAX,

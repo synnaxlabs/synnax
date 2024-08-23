@@ -24,7 +24,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Range = ranger.Range
+type (
+	Range       = ranger.Range
+	RangeKVPair = ranger.KVPair
+)
 
 type RangeService struct {
 	dbProvider
@@ -42,7 +45,8 @@ func NewRangeService(p Provider) *RangeService {
 
 type (
 	RangeCreateRequest struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
+		Parent ontology.ID `json:"parent" msgpack:"parent"`
+		Ranges []Range     `json:"ranges" msgpack:"ranges"`
 	}
 	RangeCreateResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -58,7 +62,7 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Ranges)
+		err := s.internal.NewWriter(tx).CreateManyWithParent(ctx, &req.Ranges, req.Parent)
 		res = RangeCreateResponse{Ranges: req.Ranges}
 		return err
 	})
@@ -70,6 +74,8 @@ type (
 		Names        []string        `json:"names" msgpack:"names"`
 		Term         string          `json:"term" msgpack:"term"`
 		OverlapsWith telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
+		Limit        int             `json:"limit" msgpack:"limit"`
+		Offset       int             `json:"offset" msgpack:"offset"`
 	}
 	RangeRetrieveResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -96,6 +102,12 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	}
 	if hasSearch {
 		q = q.Search(req.Term)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 	err := q.Exec(ctx, nil)
 	if err != nil {
@@ -157,7 +169,7 @@ type (
 		Keys  []string  `json:"keys" msgpack:"keys"`
 	}
 	RangeKVGetResponse struct {
-		Pairs map[string]string `json:"pairs" msgpack:"pairs"`
+		Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
 	}
 )
 
@@ -171,27 +183,19 @@ func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res Ra
 		Action:  access.Retrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
-		return res, err
+		return RangeKVGetResponse{}, err
 	}
 	if len(req.Keys) == 0 {
-		res.Pairs, err = r.ListMetaData()
+		res.Pairs, err = r.ListKV()
 		return
 	}
-	res.Pairs = make(map[string]string, len(req.Keys))
-	var value []byte
-	for _, key := range req.Keys {
-		value, err = r.Get(ctx, []byte(key))
-		if err != nil {
-			return
-		}
-		res.Pairs[key] = string(value)
-	}
+	res.Pairs, err = r.GetManyKV(ctx, req.Keys)
 	return
 }
 
 type RangeKVSetRequest struct {
-	Range uuid.UUID         `json:"range" msgpack:"range"`
-	Pairs map[string]string `json:"pairs" msgpack:"pairs"`
+	Range uuid.UUID       `json:"range" msgpack:"range"`
+	Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
 }
 
 func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res types.Nil, _ error) {
@@ -210,12 +214,7 @@ func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res ty
 			return err
 		}
 		rng = rng.UseTx(tx)
-		for k, v := range req.Pairs {
-			if err := rng.Set(ctx, []byte(k), []byte(v)); err != nil {
-				return err
-			}
-		}
-		return nil
+		return rng.SetManyKV(ctx, req.Pairs)
 	})
 }
 
@@ -241,7 +240,7 @@ func (s *RangeService) KVDelete(ctx context.Context, req RangeKVDeleteRequest) (
 		}
 		rng = rng.UseTx(tx)
 		for _, key := range req.Keys {
-			if err := rng.Delete(ctx, []byte(key)); err != nil {
+			if err := rng.DeleteKV(ctx, key); err != nil {
 				return err
 			}
 		}
@@ -372,50 +371,4 @@ func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest)
 	}
 	aliases, err := r.ListAliases(ctx)
 	return RangeAliasListResponse{Aliases: aliases}, err
-}
-
-type RangeSetActiveRequest struct {
-	Range uuid.UUID `json:"range" msgpack:"range"`
-}
-
-func (s *RangeService) SetActive(ctx context.Context, req RangeSetActiveRequest) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.SetActiveRange(ctx, req.Range, tx)
-	})
-}
-
-type RangeRetrieveActiveResponse struct {
-	Range ranger.Range `json:"range" msgpack:"range"`
-}
-
-func (s *RangeService) RetrieveActive(ctx context.Context, _ types.Nil) (res RangeRetrieveActiveResponse, _ error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
-		Objects: []ontology.ID{ranger.OntologyID(uuid.Nil)},
-	}); err != nil {
-		return res, err
-	}
-	rng, err := s.internal.RetrieveActiveRange(ctx, nil)
-	res.Range = rng
-	return res, err
-}
-
-func (s *RangeService) ClearActive(ctx context.Context, _ types.Nil) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: []ontology.ID{ranger.OntologyID(uuid.Nil)},
-	}); err != nil {
-		return res, err
-	}
-	s.internal.ClearActiveRange(ctx)
-	return res, nil
 }

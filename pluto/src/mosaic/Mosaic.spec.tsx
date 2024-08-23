@@ -370,6 +370,73 @@ describe("Mosaic", () => {
         });
       });
     });
+
+    describe("Mosaic.findTabNode", () => {
+      it("should find a tab", () => {
+        const tabOne = {
+          tabKey: "tab1",
+          name: "Tab 1",
+        };
+        const tabTwo = {
+          tabKey: "tab2",
+          name: "Tab 2",
+        };
+        const tree: Mosaic.Node = {
+          key: 1,
+          tabs: [tabOne, tabTwo],
+          selected: "tab1",
+        };
+        const node = Mosaic.findTabNode(tree, "tab2");
+        expect(node?.key).toEqual(1);
+      });
+      it("should find a tab in a nested tree", () => {
+        const tabOne = {
+          tabKey: "tab1",
+          name: "Tab 1",
+        };
+        const tabTwo = {
+          tabKey: "tab2",
+          name: "Tab 2",
+        };
+        const tabThree = {
+          tabKey: "tab3",
+          name: "Tab 3",
+        };
+        const tree: Mosaic.Node = {
+          key: 1,
+          direction: "x",
+          first: {
+            key: 2,
+            tabs: [tabOne],
+            selected: "tab1",
+          },
+          last: {
+            key: 3,
+            tabs: [tabTwo, tabThree],
+            selected: "tab2",
+          },
+        };
+        const node = Mosaic.findTabNode(tree, "tab3");
+        expect(node?.key).toEqual(3);
+      });
+      it("should return undefined if the tab is not found", () => {
+        const tabOne = {
+          tabKey: "tab1",
+          name: "Tab 1",
+        };
+        const tabTwo = {
+          tabKey: "tab2",
+          name: "Tab 2",
+        };
+        const tree: Mosaic.Node = {
+          key: 1,
+          tabs: [tabOne, tabTwo],
+          selected: "tab1",
+        };
+        const node = Mosaic.findTabNode(tree, "tab3");
+        expect(node).toBeUndefined();
+      });
+    });
   });
   describe("Mosaic", () => {
     it("should render a mosaic correctly", () => {

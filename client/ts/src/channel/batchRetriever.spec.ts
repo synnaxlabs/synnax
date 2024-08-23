@@ -55,6 +55,7 @@ describe("channelRetriever", () => {
         rate: Rate.hz(1),
         leaseholder: 1,
         index: 0,
+        virtual: false,
       }));
     });
     const retriever = new DebouncedBatchRetriever(base, 10);
@@ -81,6 +82,7 @@ describe("channelRetriever", () => {
         rate: Rate.hz(1),
         leaseholder: 1,
         index: 0,
+        virtual: false,
       }));
     });
     const retriever = new DebouncedBatchRetriever(base, 10);

@@ -10,7 +10,6 @@
 package cesium_test
 
 import (
-	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -76,7 +75,10 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{Key: 9998, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey has index - provided index key is not an indexed channel",
-						errors.Wrap(validate.Error, "[cesium] - channel <9980> is not an index"),
+						validate.FieldError{
+							Field:   "index",
+							Message: "channel <9980> is not an index",
+						},
 						cesium.Channel{Key: 9980, DataType: telem.Float32T, Rate: 1 * telem.Hz},
 						cesium.Channel{Key: 9981, Index: 9980, DataType: telem.Float32T},
 					),
@@ -133,24 +135,23 @@ var _ = Describe("Channel", Ordered, func() {
 			})
 			Describe("Rekey", func() {
 				var (
-					unaryKey         = GenerateChannelKey()
-					unaryKeyNew      = GenerateChannelKey()
-					virtualKey       = GenerateChannelKey()
-					virtualKeyNew    = GenerateChannelKey()
-					indexKey         = GenerateChannelKey()
-					indexKeyNew      = GenerateChannelKey()
-					dataKey          = GenerateChannelKey()
-					data2Key         = GenerateChannelKey()
-					indexErrorKey    = GenerateChannelKey()
-					indexErrorKeyNew = GenerateChannelKey()
-					dataKey1         = GenerateChannelKey()
-					errorKey1        = GenerateChannelKey()
-					errorKey1New     = GenerateChannelKey()
-					errorKey2        = GenerateChannelKey()
-					errorKey2New     = GenerateChannelKey()
-					errorKey3        = GenerateChannelKey()
-					errorKey3New     = GenerateChannelKey()
-					jsonDecoder      = &binary.JSONCodec{}
+					unaryKey      = GenerateChannelKey()
+					unaryKeyNew   = GenerateChannelKey()
+					virtualKey    = GenerateChannelKey()
+					virtualKeyNew = GenerateChannelKey()
+					indexKey      = GenerateChannelKey()
+					indexKeyNew   = GenerateChannelKey()
+					dataKey       = GenerateChannelKey()
+					data2Key      = GenerateChannelKey()
+					indexErrorKey = GenerateChannelKey()
+					dataKey1      = GenerateChannelKey()
+					errorKey1     = GenerateChannelKey()
+					errorKey1New  = GenerateChannelKey()
+					errorKey2     = GenerateChannelKey()
+					errorKey2New  = GenerateChannelKey()
+					errorKey3     = GenerateChannelKey()
+					errorKey3New  = GenerateChannelKey()
+					jsonDecoder   = &binary.JSONCodec{}
 
 					channels = []cesium.Channel{
 						{Key: unaryKey, DataType: telem.Int64T, Rate: 1 * telem.Hz},
@@ -326,13 +327,7 @@ var _ = Describe("Channel", Ordered, func() {
 							Expect(ch.Key).To(Equal(errorKey1New))
 						})
 					})
-					Specify("index channel", func() {
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{dataKey1}, ControlSubject: control.Subject{Key: "rekey writer"}}))
 
-						By("Asserting that rekey is unsuccessful")
-						Expect(db.RekeyChannel(indexErrorKey, indexErrorKeyNew)).To(MatchError(ContainSubstring(fmt.Sprint("cannot close channel because there are 1 unclosed"))))
-						Expect(w.Close()).To(Succeed())
-					})
 					Specify("Virtual", func() {
 						By("Opening writers")
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey2}, ControlSubject: control.Subject{Key: "rekey writer"}}))

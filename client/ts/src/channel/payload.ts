@@ -30,6 +30,7 @@ export const payload = z.object({
   index: z.number(),
   isIndex: z.boolean(),
   internal: z.boolean(),
+  virtual: z.boolean(),
   alias: z.string().optional(),
 });
 

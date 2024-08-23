@@ -9,9 +9,19 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dropdown.pluto--visible {
-    :first-child {
-        z-index: 6;
+.pluto-dropdown {
+    > .pluto--visible {
+        &:first-child {
+            z-index: calc(var(--pluto-dropdown-z-index, 6) + 1);
+        }
+    }
+    &.pluto--visible {
+        & > *:first-child {
+            z-index: calc(var(--pluto-dropdown-z-index, 6) + 1);
+        }
+    }
+    &:not(.pluto--connected) {
+        width: max-content;
     }
 }
 
@@ -28,10 +38,13 @@
     background: var(--pluto-gray-l3-40);
 
     .pluto-dropdown__dialog {
-        top: 25%;
+        top: 30%;
+        transform: translateY(-25%);
+        --pluto-pack-br: 1rem;
         border-radius: 1rem;
         background: var(--pluto-gray-l1);
         backdrop-filter: saturate(300%) blur(5rem);
+        overflow: hidden;
     }
 
     @media (max-height: 800px) {
@@ -44,6 +57,7 @@
 .pluto-dropdown__dialog {
     position: fixed;
     box-shadow: var(--pluto-shadow-menu);
+    border-radius: calc(var(--pluto-border-radius) * 2);
     overflow: hidden;
 
     & > .pluto-pack.pluto--rounded {

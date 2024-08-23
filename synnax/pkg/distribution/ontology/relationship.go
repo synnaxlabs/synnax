@@ -35,12 +35,15 @@ const (
 // Relationship is a struct that represents a relationship between two resources in the
 // ontology. A relationship is defined by a type, a from and a to field. This means that
 // two resources can have multiple relationships of different types between them.
+// Think about the relationship like From->Type->To i.e. Dog->Parent->Puppy.
 type Relationship struct {
-	// From, To are the Keys of the related resources.
-	From, To ID
+	// From is the ID of the resource that the relationship starts from.
+	From ID `json:"from" msgpack:"from"`
+	// To is the ID of the resource that the relationship ends at.
+	To ID `json:"to" msgpack:"to"`
 	// Type is the type of relationship between the two resources. For more information
 	// on relationship types, see the [RelationshipType] documentation.
-	Type RelationshipType
+	Type RelationshipType `json:"type" msgpack:"type"`
 }
 
 var _ gorp.Entry[[]byte] = Relationship{}
