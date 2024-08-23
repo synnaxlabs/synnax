@@ -31,8 +31,10 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
   return (
     <List.ItemFrame
       onClick={() => placer({ ...overviewLayout, name: entry.name, key: entry.key })}
-      direction="y"
+      direction="x"
       size={0.5}
+      justify="spaceBetween"
+      align="center"
       style={{ padding: "1.5rem" }}
       {...props}
     >

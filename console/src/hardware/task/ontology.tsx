@@ -30,6 +30,14 @@ const ZERO_LAYOUT_STATES: Record<string, (create?: boolean) => Layout.State> = {
   [NI.Task.DIGITAL_READ_TYPE]: NI.Task.configureDigitalReadLayout,
 };
 
+export const createTaskLayout = (key: string, type: string): Layout.State => {
+  const baseLayout = ZERO_LAYOUT_STATES[type];
+  return {
+    ...baseLayout(false),
+    key,
+  };
+};
+
 const handleSelect: Ontology.HandleSelect = ({
   selection,
   placeLayout,

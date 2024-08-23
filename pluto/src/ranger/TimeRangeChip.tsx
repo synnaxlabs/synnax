@@ -34,6 +34,7 @@ export const TimeRangeChip = ({
   const endTS = new TimeStamp(timeRange.end);
   const isOpen = endTS.equals(TimeStamp.MAX);
   const endFormat = endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime";
+  const span = startTS.span(endTS);
 
   return (
     <Align.Space
@@ -70,6 +71,11 @@ export const TimeRangeChip = ({
         >
           {endTS}
         </Text.DateTime>
+      )}
+      {!span.isZero && (
+        <Text.Text level={level} shade={shade} weight={450}>
+          ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
+        </Text.Text>
       )}
     </Align.Space>
   );

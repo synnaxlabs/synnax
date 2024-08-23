@@ -128,6 +128,7 @@ export class Range {
     const res = (
       await this.ontologyClient.retrieveChildren(this.ontologyID, {
         excludeFieldData: true,
+        types: ["range"],
       })
     ).map((r) => r.id.key);
     return await this.rangeClient.retrieve(res);

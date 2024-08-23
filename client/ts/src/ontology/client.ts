@@ -27,6 +27,7 @@ import {
   type Resource,
   ResourceChange,
   resourceSchemaZ,
+  resourceTypeZ,
 } from "@/ontology/payload";
 import { Writer } from "@/ontology/writer";
 
@@ -41,13 +42,14 @@ const retrieveReqZ = z.object({
   term: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
+  types: resourceTypeZ.array().optional(),
 });
 
 type RetrieveRequest = z.infer<typeof retrieveReqZ>;
 
 export type RetrieveOptions = Pick<
   RetrieveRequest,
-  "includeSchema" | "excludeFieldData"
+  "includeSchema" | "excludeFieldData" | "types"
 >;
 
 const retrieveResZ = z.object({
