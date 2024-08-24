@@ -74,7 +74,7 @@ const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan;
 // Warning: (ae-missing-release-tag) "analyzeChannelParams" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const analyzeChannelParams: (channels: Params) => ParamAnalysisResult_2<KeyOrName, {
+const analyzeChannelParams: (channels: Params_2) => ParamAnalysisResult_2<KeyOrName, {
     number: "keys";
     string: "names";
 }>;
@@ -126,28 +126,28 @@ const BuiltinOntologyType: ResourceType;
 class CacheRetriever implements Retriever {
     constructor(wrapped: Retriever);
     // (undocumented)
-    delete(channels: Params): void;
+    delete(channels: Params_2): void;
     // (undocumented)
-    page(offset: number, limit: number, options?: PageOptions): Promise<Payload[]>;
+    page(offset: number, limit: number, options?: PageOptions): Promise<Payload_2[]>;
     // (undocumented)
     rename(keys: Key[], names: string[]): void;
     // (undocumented)
-    retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]>;
+    retrieve(channels: Params_2, options?: RetrieveOptions_2): Promise<Payload_2[]>;
     // (undocumented)
-    search(term: string, options?: RetrieveOptions): Promise<Payload[]>;
+    search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
     // (undocumented)
-    set(channels: Payload[]): void;
+    set(channels: Payload_2[]): void;
 }
 
 // Warning: (ae-missing-release-tag) "ChangeTracker" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public
 class ChangeTracker {
-    constructor(streamer: framer.Streamer, client: Client_2);
+    constructor(streamer: framer.Streamer, client: Client);
     // (undocumented)
     close(): Promise<void>;
     // (undocumented)
-    static open(client: framer.Client, retriever: Client_2): Promise<ChangeTracker>;
+    static open(client: framer.Client, retriever: Client): Promise<ChangeTracker>;
     readonly relationships: observe.Observable<RelationshipChange[]>;
     readonly resources: observe.Observable<ResourceChange[]>;
 }
@@ -170,7 +170,7 @@ export class Channel {
     readonly name: string;
     // (undocumented)
     get ontologyID(): ontology.ID;
-    get payload(): Payload;
+    get payload(): Payload_2;
     readonly rate: Rate;
     read(tr: TimeRange): Promise<MultiSeries>;
     readonly virtual: boolean;
@@ -183,19 +183,19 @@ declare namespace channel {
         Client_4 as Client,
         keyZ_3 as keyZ,
         Key,
-        Keys,
-        Name,
-        Names,
+        Keys_2 as Keys,
+        Name_2 as Name,
+        Names_2 as Names,
         KeyOrName,
         KeysOrNames,
-        Params,
+        Params_2 as Params,
         payload,
-        Payload,
+        Payload_2 as Payload,
         newPayload,
         NewPayload,
         ChannelOntologyType,
-        ontologyID,
-        RetrieveOptions,
+        ontologyID_2 as ontologyID,
+        RetrieveOptions_2 as RetrieveOptions,
         PageOptions,
         analyzeChannelParams,
         Retriever,
@@ -249,31 +249,56 @@ class Checker {
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
-// @public (undocumented)
-class Client {
-    constructor(stream: StreamClient, unary: UnaryClient, retriever: Retriever);
+// @public
+class Client implements AsyncTermSearcher<string, string, Resource> {
+    constructor(unary: UnaryClient, framer: framer.Client);
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void>;
     // (undocumented)
-    delete(channels: Params, timeRange: TimeRange_2): Promise<void>;
-    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "IteratorConfig"
-    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Iterator"
-    openIterator(tr: CrudeTimeRange, channels: Params, opts?: IteratorConfig): Promise<Iterator_2>;
-    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Streamer"
-    openStreamer(channels: Params): Promise<Streamer>;
+    groups: group.Client;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    moveChildren(from: CrudeID, to: CrudeID, ...children: CrudeID[]): Promise<void>;
+    // (undocumented)
+    newSearcherWithOptions(options: RetrieveOptions): AsyncTermSearcher<string, string, Resource>;
+    openChangeTracker(): Promise<ChangeTracker>;
+    // (undocumented)
+    openDependentTracker(parent: ID, initial: Resource[], type?: string, direction?: RelationshipDirection): Promise<observe.ObservableAsyncCloseable<Resource[]>>;
+    page(offset: number, limit: number, options?: RetrieveOptions): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
     // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    openStreamer(config: StreamerConfig | Params): Promise<Streamer>;
-    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Writer"
-    openWriter(config: WriterConfig | Params): Promise<Writer>;
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    retrieve(id: CrudeID, options?: RetrieveOptions): Promise<Resource>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    retrieve(ids: CrudeID[], options?: RetrieveOptions): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    retrieveChildren(ids: CrudeID | CrudeID[], options?: RetrieveOptions): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    retrieveParents(ids: CrudeID | CrudeID[], options?: RetrieveOptions): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    search(term: string, options?: RetrieveOptions): Promise<Resource[]>;
     // (undocumented)
-    read(tr: CrudeTimeRange, channel: KeyOrName): Promise<MultiSeries_2>;
-    // (undocumented)
-    read(tr: CrudeTimeRange, channels: Params): Promise<Frame>;
-    // (undocumented)
-    write(start: CrudeTimeStamp_2, channel: KeyOrName, data: CrudeSeries_2): Promise<void>;
-    // (undocumented)
-    write(start: CrudeTimeStamp_2, channels: KeysOrNames, data: CrudeSeries_2[]): Promise<void>;
-    // (undocumented)
-    write(start: CrudeTimeStamp_2, data: Record<KeyOrName, CrudeSeries_2>): Promise<void>;
+    readonly type: string;
 }
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -422,56 +447,31 @@ class Client_17 {
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
-// @public
-class Client_2 implements AsyncTermSearcher<string, string, Resource> {
-    constructor(unary: UnaryClient, framer: framer.Client);
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void>;
+// @public (undocumented)
+class Client_3 {
+    constructor(stream: StreamClient, unary: UnaryClient, retriever: Retriever);
     // (undocumented)
-    groups: group.Client;
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    moveChildren(from: CrudeID, to: CrudeID, ...children: CrudeID[]): Promise<void>;
+    delete(channels: Params_2, timeRange: TimeRange_2): Promise<void>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "IteratorConfig"
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Iterator"
+    openIterator(tr: CrudeTimeRange, channels: Params_2, opts?: IteratorConfig): Promise<Iterator_2>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Streamer"
+    openStreamer(channels: Params_2): Promise<Streamer>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    openStreamer(config: StreamerConfig | Params_2): Promise<Streamer>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Writer"
+    openWriter(config: WriterConfig | Params_2): Promise<Writer>;
     // (undocumented)
-    newSearcherWithOptions(options: RetrieveOptions_2): AsyncTermSearcher<string, string, Resource>;
-    openChangeTracker(): Promise<ChangeTracker>;
+    read(tr: CrudeTimeRange, channel: KeyOrName): Promise<MultiSeries_2>;
     // (undocumented)
-    openDependentTracker(parent: ID, initial: Resource[], type?: string, direction?: RelationshipDirection): Promise<observe.ObservableAsyncCloseable<Resource[]>>;
-    page(offset: number, limit: number, options?: RetrieveOptions_2): Promise<Resource[]>;
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void>;
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
-    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
-    retrieve(id: CrudeID, options?: RetrieveOptions_2): Promise<Resource>;
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
-    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
-    retrieve(ids: CrudeID[], options?: RetrieveOptions_2): Promise<Resource[]>;
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    retrieveChildren(ids: CrudeID | CrudeID[], options?: RetrieveOptions_2): Promise<Resource[]>;
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    retrieveParents(ids: CrudeID | CrudeID[], options?: RetrieveOptions_2): Promise<Resource[]>;
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    search(term: string, options?: RetrieveOptions_2): Promise<Resource[]>;
+    read(tr: CrudeTimeRange, channels: Params_2): Promise<Frame>;
     // (undocumented)
-    readonly type: string;
+    write(start: CrudeTimeStamp_2, channel: KeyOrName, data: CrudeSeries_2): Promise<void>;
+    // (undocumented)
+    write(start: CrudeTimeStamp_2, channels: KeysOrNames, data: CrudeSeries_2[]): Promise<void>;
+    // (undocumented)
+    write(start: CrudeTimeStamp_2, data: Record<KeyOrName, CrudeSeries_2>): Promise<void>;
 }
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -488,11 +488,11 @@ class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
     create(channels: NewPayload[], options?: CreateOptions): Promise<Channel[]>;
     // (undocumented)
     createDebouncedBatchRetriever(deb?: number): Retriever;
-    delete(channels: Params): Promise<void>;
+    delete(channels: Params_2): Promise<void>;
     // (undocumented)
-    newSearcherWithOptions(options: RetrieveOptions): AsyncTermSearcher<string, Key, Channel>;
+    newSearcherWithOptions(options: RetrieveOptions_2): AsyncTermSearcher<string, Key, Channel>;
     // (undocumented)
-    page(offset: number, limit: number, options?: Omit<RetrieveOptions, "limit" | "offset">): Promise<Channel[]>;
+    page(offset: number, limit: number, options?: Omit<RetrieveOptions_2, "limit" | "offset">): Promise<Channel[]>;
     // (undocumented)
     rename(key: Key, name: string): Promise<void>;
     // (undocumented)
@@ -503,10 +503,10 @@ class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
     // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
     // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
     // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
-    retrieve(channel: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
+    retrieve(channel: KeyOrName, options?: RetrieveOptions_2): Promise<Channel>;
     // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
     // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
-    retrieve(channels: Params, options?: RetrieveOptions): Promise<Channel[]>;
+    retrieve(channels: Params_2, options?: RetrieveOptions_2): Promise<Channel[]>;
     // Warning: (ae-forgotten-export) The symbol "group" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -514,7 +514,7 @@ class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
     // (undocumented)
     readonly retriever: Retriever;
     // (undocumented)
-    search(term: string, options?: RetrieveOptions): Promise<Channel[]>;
+    search(term: string, options?: RetrieveOptions_2): Promise<Channel[]>;
     // (undocumented)
     readonly type = "channel";
     // (undocumented)
@@ -604,11 +604,11 @@ const ClusterOntologyType: ResourceType;
 class ClusterRetriever implements Retriever {
     constructor(client: UnaryClient);
     // (undocumented)
-    page(offset: number, limit: number, options?: PageOptions): Promise<Payload[]>;
+    page(offset: number, limit: number, options?: PageOptions): Promise<Payload_2[]>;
     // (undocumented)
-    retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]>;
+    retrieve(channels: Params_2, options?: RetrieveOptions_2): Promise<Payload_2[]>;
     // (undocumented)
-    search(term: string, options?: RetrieveOptions): Promise<Payload[]>;
+    search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
 }
 
 // Warning: (ae-missing-release-tag) "commandZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -696,13 +696,13 @@ const crudeIDZ: z.ZodUnion<[z.ZodEffects<z.ZodString, {
     type: ResourceType;
     key: string;
 }, string>, z.ZodObject<{
-    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"framer">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">, z.ZodLiteral<"allow_all">]>;
     key: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
     key: string;
 }, {
-    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
     key: string;
 }>]>;
 
@@ -727,13 +727,13 @@ export { DataType }
 class DebouncedBatchRetriever implements Retriever {
     constructor(wrapped: Retriever, deb: number);
     // (undocumented)
-    page(offset: number, limit: number, options?: RetrieveOptions): Promise<Payload[]>;
+    page(offset: number, limit: number, options?: RetrieveOptions_2): Promise<Payload_2[]>;
     // (undocumented)
-    retrieve(channels: Params): Promise<Payload[]>;
+    retrieve(channels: Params_2): Promise<Payload_2[]>;
     // (undocumented)
     run(): Promise<void>;
     // (undocumented)
-    search(term: string, options?: RetrieveOptions): Promise<Payload[]>;
+    search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
 }
 
 // Warning: (ae-missing-release-tag) "Decoder" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -762,7 +762,7 @@ class DependentTracker extends observe.Observer<Resource[]> implements observe.O
     // (undocumented)
     close(): Promise<void>;
     // (undocumented)
-    static open(from: ID, client: Client_2, framer: framer.Client, initial: Resource[], type?: string, direction?: RelationshipDirection): Promise<DependentTracker>;
+    static open(from: ID, client: Client, framer: framer.Client, initial: Resource[], type?: string, direction?: RelationshipDirection): Promise<DependentTracker>;
 }
 
 // Warning: (ae-missing-release-tag) "Device" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -783,7 +783,7 @@ declare namespace device {
         newDeviceZ,
         NewDevice,
         DeviceOntologyType_2 as DeviceOntologyType,
-        ontologyID_10 as ontologyID
+        ontologyID_11 as ontologyID
     }
 }
 
@@ -843,7 +843,7 @@ const deviceZ: z.ZodObject<{
 //
 // @public
 export class Frame {
-    constructor(columnsOrData?: Params | CrudeFrame, series?: Series | Series[]);
+    constructor(columnsOrData?: Params_2 | CrudeFrame, series?: Series | Series[]);
     // (undocumented)
     at(index: number, required: true): Record<KeyOrName, TelemValue>;
     // (undocumented)
@@ -855,7 +855,7 @@ export class Frame {
     // (undocumented)
     get colType(): ColumnType;
     // (undocumented)
-    readonly columns: Keys | Names;
+    readonly columns: Keys_2 | Names_2;
     // (undocumented)
     concat(frame: Frame): Frame;
     // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
@@ -871,7 +871,7 @@ export class Frame {
     // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     //
     // (undocumented)
-    get(keys: Keys | Names): Frame;
+    get(keys: Keys_2 | Names_2): Frame;
     // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     //
     // (undocumented)
@@ -885,7 +885,7 @@ export class Frame {
     // (undocumented)
     get isWeaklyAligned(): boolean;
     // (undocumented)
-    get keys(): Keys;
+    get keys(): Keys_2;
     // (undocumented)
     latest(): Record<string, TelemValue | undefined>;
     // (undocumented)
@@ -895,7 +895,7 @@ export class Frame {
     // (undocumented)
     map(fn: (k: KeyOrName, arr: Series, i: number) => [KeyOrName, Series]): Frame;
     // (undocumented)
-    get names(): Names;
+    get names(): Names_2;
     // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     push(key: KeyOrName, ...v: Series[]): void;
@@ -909,11 +909,11 @@ export class Frame {
     // (undocumented)
     toPayload(): FramePayload;
     // (undocumented)
-    get uniqueColumns(): Keys | Names;
+    get uniqueColumns(): Keys_2 | Names_2;
     // (undocumented)
-    get uniqueKeys(): Keys;
+    get uniqueKeys(): Keys_2;
     // (undocumented)
-    get uniqueNames(): Names;
+    get uniqueNames(): Names_2;
 }
 
 // Warning: (ae-missing-release-tag) "FramePayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -923,7 +923,9 @@ type FramePayload = z.infer<typeof frameZ>;
 
 declare namespace framer {
     export {
-        Client,
+        FramerOntologyType,
+        ontologyID,
+        Client_3 as Client,
         CrudeFrame,
         Frame,
         series,
@@ -945,6 +947,11 @@ declare namespace framer {
         Writer
     }
 }
+
+// Warning: (ae-missing-release-tag) "FramerOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const FramerOntologyType: ontology.ResourceType;
 
 // Warning: (ae-missing-release-tag) "frameZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1070,16 +1077,16 @@ class ID {
         type: ResourceType;
         key: string;
     }, string>, z.ZodObject<{
-        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"framer">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">, z.ZodLiteral<"allow_all">]>;
         key: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }>]>, z.ZodType<ID, z.ZodTypeDef, ID>]>, ID, string | ID | {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }>;
 }
@@ -1093,13 +1100,13 @@ type IDPayload = z.infer<typeof idZ>;
 //
 // @public (undocumented)
 const idZ: z.ZodObject<{
-    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"framer">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">, z.ZodLiteral<"allow_all">]>;
     key: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
     key: string;
 }, {
-    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
     key: string;
 }>;
 
@@ -1112,7 +1119,7 @@ class Iterator_2 {
     close(): Promise<void>;
     next(span?: CrudeTimeSpan): Promise<boolean>;
     // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "IteratorConfig"
-    static _open(tr: CrudeTimeRange_2, channels: Params, retriever: Retriever, client: StreamClient, opts?: IteratorConfig): Promise<Iterator_2>;
+    static _open(tr: CrudeTimeRange_2, channels: Params_2, retriever: Retriever, client: StreamClient, opts?: IteratorConfig): Promise<Iterator_2>;
     prev(span?: CrudeTimeSpan): Promise<boolean>;
     seekFirst(): Promise<boolean>;
     seekGE(stamp: CrudeTimeStamp): Promise<boolean>;
@@ -1155,12 +1162,12 @@ type Key_7 = z.infer<typeof keyZ_7>;
 // Warning: (ae-missing-release-tag) "KeyOrName" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type KeyOrName = Key | Name;
+type KeyOrName = Key | Name_2;
 
 // Warning: (ae-missing-release-tag) "Keys" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Keys = number[];
+type Keys_2 = number[];
 
 // Warning: (ae-missing-release-tag) "Keys" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1170,7 +1177,7 @@ type Keys_3 = Key_3[];
 // Warning: (ae-missing-release-tag) "KeysOrNames" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type KeysOrNames = Keys | Names;
+type KeysOrNames = Keys_2 | Names_2;
 
 // Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1233,7 +1240,7 @@ declare namespace label {
         labelZ,
         Label,
         LabelOntologyType,
-        ontologyID_2 as ontologyID,
+        ontologyID_3 as ontologyID,
         Retriever_2 as Retriever,
         newLabelPayloadZ,
         NewLabelPayload,
@@ -1281,7 +1288,7 @@ export { MultiSeries }
 // Warning: (ae-missing-release-tag) "Name" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Name = string;
+type Name_2 = string;
 
 // Warning: (ae-missing-release-tag) "Name" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1291,7 +1298,7 @@ type Name_3 = string;
 // Warning: (ae-missing-release-tag) "Names" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Names = string[];
+type Names_2 = string[];
 
 // Warning: (ae-missing-release-tag) "Names" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1601,9 +1608,9 @@ class ObservableStreamer<V = Frame> extends observe.Observer<Frame, V> implement
 
 declare namespace ontology {
     export {
-        RetrieveOptions_2 as RetrieveOptions,
+        RetrieveOptions,
         parseIDs,
-        Client_2 as Client,
+        Client,
         ChangeTracker,
         DependentTracker,
         ResourceChange,
@@ -1644,27 +1651,32 @@ const ontologyID: (key: Key) => ontology.ID;
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const ontologyID_10: (key: DeviceKey) => ontology.ID;
+const ontologyID_10: (key: RackKey) => ontology.ID;
 
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const ontologyID_2: (key: Key_4) => ontology.ID;
+const ontologyID_11: (key: DeviceKey) => ontology.ID;
 
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const ontologyID_7: (key: Key_7) => ontology.ID;
+const ontologyID_2: (key: Key) => ontology.ID;
 
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const ontologyID_8: (key: TaskKey) => ontology.ID;
+const ontologyID_3: (key: Key_4) => ontology.ID;
 
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const ontologyID_9: (key: RackKey) => ontology.ID;
+const ontologyID_8: (key: Key_7) => ontology.ID;
+
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const ontologyID_9: (key: TaskKey) => ontology.ID;
 
 // Warning: (ae-missing-release-tag) "openObservable" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1674,7 +1686,7 @@ const openObservable: <K, V>(client: framer.Client, setChannel: channel.Key | ch
 // Warning: (ae-missing-release-tag) "PageOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
+type PageOptions = Omit<RetrieveOptions_2, "offset" | "limit">;
 
 // Warning: (ae-missing-release-tag) "ParamAnalysisResult" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1708,7 +1720,7 @@ type ParamAnalysisResult_3 = {
 // Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Params = Key | Name | Keys | Names;
+type Params_2 = Key | Name_2 | Keys_2 | Names_2;
 
 // Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1734,11 +1746,6 @@ const parseIDs: (ids: CrudeID | CrudeID[] | string | string[]) => IDPayload[];
 //
 // @public (undocumented)
 const parseRelationship: (str: string) => Relationship;
-
-// Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
-//
-// @public (undocumented)
-type Payload = z.infer<typeof payload>;
 
 // Warning: (ae-missing-release-tag) "payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1777,6 +1784,11 @@ const payload: z.ZodObject<{
     index: number;
     alias?: string | undefined;
 }>;
+
+// Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type Payload_2 = z.infer<typeof payload>;
 
 // Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1907,7 +1919,7 @@ declare namespace rack {
         newRackZ,
         NewRack,
         RackOntologyType,
-        ontologyID_9 as ontologyID
+        ontologyID_10 as ontologyID
     }
 }
 
@@ -2080,16 +2092,16 @@ const relationshipSchemaZ: z.ZodObject<{
         type: ResourceType;
         key: string;
     }, string>, z.ZodObject<{
-        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"framer">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">, z.ZodLiteral<"allow_all">]>;
         key: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }>]>, z.ZodType<ID, z.ZodTypeDef, ID>]>, ID, string | ID | {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }>;
     type: z.ZodString;
@@ -2097,16 +2109,16 @@ const relationshipSchemaZ: z.ZodObject<{
         type: ResourceType;
         key: string;
     }, string>, z.ZodObject<{
-        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"framer">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">, z.ZodLiteral<"allow_all">]>;
         key: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }>]>, z.ZodType<ID, z.ZodTypeDef, ID>]>, ID, string | ID | {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }>;
 }, "strip", z.ZodTypeAny, {
@@ -2116,11 +2128,11 @@ const relationshipSchemaZ: z.ZodObject<{
 }, {
     type: string;
     from: string | ID | {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     };
     to: string | ID | {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     };
 }>;
@@ -2161,21 +2173,21 @@ const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
         type: ResourceType;
         key: string;
     }, string>, z.ZodObject<{
-        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"framer">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">, z.ZodLiteral<"allow_all">]>;
         key: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }>]>, z.ZodType<ID, z.ZodTypeDef, ID>]>, ID, string | ID | {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     }>;
     name: z.ZodString;
     schema: z.ZodNullable<z.ZodOptional<z.ZodObject<{
-        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"framer">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">, z.ZodLiteral<"allow_all">]>;
         fields: z.ZodRecord<z.ZodString, z.ZodObject<{
             type: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
@@ -2184,12 +2196,12 @@ const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
             type: number;
         }>>;
     }, "strip", z.ZodTypeAny, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         fields: Record<string, {
             type: number;
         }>;
     }, {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         fields: Record<string, {
             type: number;
         }>;
@@ -2200,7 +2212,7 @@ const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
     id: ID;
     data?: Record<string, unknown> | null | undefined;
     schema?: {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         fields: Record<string, {
             type: number;
         }>;
@@ -2208,12 +2220,12 @@ const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
 }, {
     name: string;
     id: string | ID | {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     };
     data?: Record<string, unknown> | null | undefined;
     schema?: {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         fields: Record<string, {
             type: number;
         }>;
@@ -2223,7 +2235,7 @@ const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
     id: ID;
     data?: Record<string, unknown> | null | undefined;
     schema?: {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         fields: Record<string, {
             type: number;
         }>;
@@ -2232,12 +2244,12 @@ const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
 }, {
     name: string;
     id: string | ID | {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         key: string;
     };
     data?: Record<string, unknown> | null | undefined;
     schema?: {
-        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
         fields: Record<string, {
             type: number;
         }>;
@@ -2255,17 +2267,17 @@ type ResourceSet = change.Set<ID, Resource>;
 // @public (undocumented)
 type ResourceType = z.infer<typeof resourceTypeZ>;
 
-// Warning: (ae-forgotten-export) The symbol "Request_2" needs to be exported by the entry point index.d.ts
-// Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
-//
-// @public (undocumented)
-type RetrieveOptions = Omit<Request_2, "keys" | "names" | "search">;
-
 // Warning: (ae-forgotten-export) The symbol "RetrieveRequest" needs to be exported by the entry point index.d.ts
 // Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type RetrieveOptions_2 = Pick<RetrieveRequest, "includeSchema" | "excludeFieldData">;
+type RetrieveOptions = Pick<RetrieveRequest, "includeSchema" | "excludeFieldData">;
+
+// Warning: (ae-forgotten-export) The symbol "Request_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type RetrieveOptions_2 = Omit<Request_2, "keys" | "names" | "search">;
 
 // Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2283,11 +2295,11 @@ type RetrieveOptions_4 = Pick<RetrieveRequest_4, "limit" | "offset" | "makes">;
 // @public (undocumented)
 interface Retriever {
     // (undocumented)
-    page: (offset: number, limit: number, opts?: PageOptions) => Promise<Payload[]>;
+    page: (offset: number, limit: number, opts?: PageOptions) => Promise<Payload_2[]>;
     // (undocumented)
-    retrieve: (channels: Params, opts?: RetrieveOptions) => Promise<Payload[]>;
+    retrieve: (channels: Params_2, opts?: RetrieveOptions_2) => Promise<Payload_2[]>;
     // (undocumented)
-    search: (term: string, opts?: RetrieveOptions) => Promise<Payload[]>;
+    search: (term: string, opts?: RetrieveOptions_2) => Promise<Payload_2[]>;
 }
 
 // Warning: (ae-missing-release-tag) "Retriever" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -2320,7 +2332,7 @@ type RetrieveRequest_3 = z.infer<typeof retrieveReqZ_3>;
 // Warning: (ae-missing-release-tag) "retrieveRequired" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const retrieveRequired: (r: Retriever, params: Params) => Promise<Payload[]>;
+const retrieveRequired: (r: Retriever, params: Params_2) => Promise<Payload_2[]>;
 
 // Warning: (ae-missing-release-tag) "Root" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2367,7 +2379,7 @@ const schemaFieldZ: z.ZodObject<{
 //
 // @public (undocumented)
 const schemaZ: z.ZodObject<{
-    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"framer">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">, z.ZodLiteral<"allow_all">]>;
     fields: z.ZodRecord<z.ZodString, z.ZodObject<{
         type: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
@@ -2376,12 +2388,12 @@ const schemaZ: z.ZodObject<{
         type: number;
     }>>;
 }, "strip", z.ZodTypeAny, {
-    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
     fields: Record<string, {
         type: number;
     }>;
 }, {
-    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    type: "label" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "framer" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy" | "allow_all";
     fields: Record<string, {
         type: number;
     }>;
@@ -2619,7 +2631,7 @@ class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     // (undocumented)
     read(): Promise<Frame>;
     // (undocumented)
-    update(params: Params): Promise<void>;
+    update(params: Params_2): Promise<void>;
 }
 
 // Warning: (ae-missing-release-tag) "StreamerConfig" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -2627,7 +2639,7 @@ class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 // @public (undocumented)
 interface StreamerConfig {
     // (undocumented)
-    channels: Params;
+    channels: Params_2;
     // (undocumented)
     from?: CrudeTimeStamp;
 }
@@ -2790,7 +2802,7 @@ declare namespace task {
         commandZ,
         StateObservable,
         DeviceOntologyType,
-        ontologyID_8 as ontologyID
+        ontologyID_9 as ontologyID
     }
 }
 
@@ -2919,7 +2931,7 @@ declare namespace workspace {
         workspaceRemoteZ,
         Workspace,
         WorkspaceOntologyType,
-        ontologyID_7 as ontologyID
+        ontologyID_8 as ontologyID
     }
 }
 
@@ -2992,7 +3004,7 @@ class Writer {
     // (undocumented)
     write(frame: CrudeFrame | Record<KeyOrName, CrudeSeries>): Promise<boolean>;
     // (undocumented)
-    write(channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame, series?: CrudeSeries | CrudeSeries[]): Promise<boolean>;
+    write(channelsOrData: Params_2 | Record<KeyOrName, CrudeSeries> | CrudeFrame, series?: CrudeSeries | CrudeSeries[]): Promise<boolean>;
 }
 
 // Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -3001,7 +3013,7 @@ class Writer {
 class Writer_2 {
     constructor(client: UnaryClient, cache: CacheRetriever);
     // (undocumented)
-    create(channels: NewPayload[]): Promise<Payload[]>;
+    create(channels: NewPayload[]): Promise<Payload_2[]>;
     // (undocumented)
     delete(props: DeleteProps): Promise<void>;
     // (undocumented)
@@ -3047,7 +3059,7 @@ interface WriterConfig {
     // (undocumented)
     autoIndexPersistInterval?: TimeSpan;
     // (undocumented)
-    channels: Params;
+    channels: Params_2;
     // (undocumented)
     controlSubject?: control_2.Subject;
     // (undocumented)

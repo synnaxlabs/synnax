@@ -12,9 +12,8 @@ package access
 type Action string
 
 const (
-	AllActions Action = "all"
 	Create     Action = "create"
-	Delete     Action = "delete"
 	Retrieve   Action = "retrieve"
-	Rename     Action = "rename"
+	Update     Action = "update"
+	Delete     Action = "delete"
 )

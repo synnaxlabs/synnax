@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, Rate } from "@synnaxlabs/x";
+import { DataType, id, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { Policy } from "@/access/payload";
+import { ALLOW_ALL, Policy } from "@/access/payload";
 import { Channel } from "@/channel/client";
 import { ChannelOntologyType } from "@/channel/payload";
 import Synnax from "@/client";
 import { AuthError } from "@/errors";
+import { FramerOntologyType } from "@/framer/client";
 import { LabelOntologyType } from "@/label/payload";
 import { HOST, newClient, PORT } from "@/setupspecs";
 import { UserOntologyType } from "@/user/payload";
@@ -223,7 +224,6 @@ describe("Policy", () => {
     test.skip("new user", async () => {
       const username = id.id();
       const user2 = await client.user.register(username, "pwd1");
-      expect(user2).toBeDefined();
       const client2 = new Synnax({
         host: HOST,
         port: PORT,
@@ -231,9 +231,7 @@ describe("Policy", () => {
         password: "pwd1",
       });
 
-      await expect(
-        client2.user.register(id.id(), "pwd3")
-      ).rejects.toThrow(AuthError);
+      await expect(client2.user.register(id.id(), "pwd3")).rejects.toThrow(AuthError);
 
       await expect(
         client2.channels.create(
@@ -271,6 +269,102 @@ describe("Policy", () => {
           }),
         ),
       ).rejects.toThrow(AuthError);
+    });
+    test("new user framer", async () => {
+      const username = id.id();
+      const user2 = await client.user.register(username, "pwd1");
+      const client2 = new Synnax({
+        host: HOST,
+        port: PORT,
+        username: username,
+        password: "pwd1",
+      });
+
+      await client.access.create({
+        subjects: [{ type: UserOntologyType, key: user2.key }],
+        objects: [{ type: ChannelOntologyType, key: "" }],
+        actions: ["create"],
+      });
+
+      const chs = await client2.channels.create([
+        new Channel({
+          dataType: DataType.FLOAT64,
+          rate: Rate.hz(1),
+          name: "newchannel1",
+        }),
+        new Channel({
+          dataType: DataType.FLOAT64,
+          rate: Rate.hz(1),
+          name: "newchannel2",
+        }),
+      ]);
+
+      await client.access.create({
+        subjects: [{ type: UserOntologyType, key: user2.key }],
+        objects: [{ type: FramerOntologyType, key: chs[1].key.toString() }],
+        actions: ["retrieve"],
+      });
+
+      await expect(
+        client2.openWriter({
+          start: 0,
+          channels: chs.map((ch: Channel) => ch.key),
+        }),
+      ).rejects.toThrow(AuthError);
+
+      await expect(
+        client2.openIterator(
+          TimeRange.MAX,
+          chs.map((ch: Channel) => ch.key),
+        ),
+      ).rejects.toThrow(AuthError);
+
+      await expect(
+        client2.openStreamer(chs.map((ch: Channel) => ch.key)),
+      ).rejects.toThrow(AuthError);
+
+      const i = await client2.openIterator(TimeRange.MAX, chs[1].key);
+      await i.close();
+      const s = await client2.openStreamer(chs[1].key);
+      await s.close();
+
+      await expect(
+        client2.openWriter({
+          start: 0,
+          channels: chs[1].key,
+        }),
+      ).rejects.toThrow(AuthError);
+    });
+    test("new user allow_all", async () => {
+      const username = id.id();
+      const user2 = await client.user.register(username, "pwd1");
+      const client2 = new Synnax({
+        host: HOST,
+        port: PORT,
+        username: username,
+        password: "pwd1",
+      });
+
+      await client.access.create({
+        subjects: [{ type: UserOntologyType, key: user2.key }],
+        objects: [ALLOW_ALL],
+        actions: [],
+      });
+
+      await client2.channels.create([
+        new Channel({
+          dataType: DataType.FLOAT64,
+          rate: Rate.hz(1),
+          name: "newchannel1",
+        }),
+        new Channel({
+          dataType: DataType.FLOAT64,
+          rate: Rate.hz(1),
+          name: "newchannel2",
+        }),
+      ]);
+
+      await client2.ranges.create({ name: "range1", timeRange: new TimeStamp(1).spanRange(TimeSpan.seconds(3)) });
     });
   });
 });
