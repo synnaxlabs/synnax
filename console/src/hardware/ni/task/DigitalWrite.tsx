@@ -116,7 +116,7 @@ const Wrapped = ({
 
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(dev.properties.digitalOutput.stateIndex);
-
+      
       if (!shouldCreateStateIndex) {
         try {
           await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);

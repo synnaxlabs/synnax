@@ -135,19 +135,17 @@ const Wrapped = ({
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      console.log("Configuring task...");
       if (client == null) return;
       const { config, name } = methods.value();
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
-      console.log("Device retrieved: ", dev);
 
       let modified = false;
-      let shouldCreateStateIndex = primitiveIsZero(dev.properties.write);
+      let shouldCreateStateIndex = primitiveIsZero(dev.properties.write.stateIndex);
       if (!shouldCreateStateIndex) {
         try {
-          await client.channels.retrieve(dev.properties.read.index);
+          await client.channels.retrieve(dev.properties.write.stateIndex);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
@@ -175,13 +173,13 @@ const Wrapped = ({
           statesToCreate.push(channel);
         } else {
           try {
-            await client.channels.retrieve(exPair.command);
+            await client.channels.retrieve([exPair.command]);
           } catch (e){
             if(NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
           try {
-            await client.channels.retrieve(exPair.state);
+            await client.channels.retrieve([exPair.state]);
           } catch (e){
             if(NotFoundError.matches(e)) statesToCreate.push(channel);
             else throw e;
