@@ -2,15 +2,15 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Ranges"
 heading: "Ranges"
-description: "Query data using ranges."
+description: "Create, view, and manage ranges using the Synnax Console"
 ---
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto"
-import { Video } from "@/components/Media"
+import { Video, Image } from "@/components/Media"
 import { Table } from "@/components/Table"
 
-This page walks you through using [ranges](/reference/concepts/read-ranges) to query
-sections of your cluster's data.
+
+<Image id="console/ranges/range" client:only="react" themed={false} />
 
 <Divider.Divider direction="x" />
 

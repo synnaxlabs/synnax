@@ -172,9 +172,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     copy(
       `
       # Retrieve ${name}
-      rng = client.ranges.retrieve("${rangeKey}")
+      rng = client.ranges.retrieve(key="${rangeKey}")
     `,
-      `Python code for ${name}`,
+      `Python code to retrieve ${name}`,
     );
   };
 
@@ -185,7 +185,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       // Retrieve ${name}
       const rng = await client.ranges.retrieve("${rangeKey}")
     `,
-      `TypeScript code for ${name}`,
+      `TypeScript code to retrieve ${name}`,
     );
   };
 
@@ -216,7 +216,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           >
             <Align.Space direction="x">
               <Button.Icon
-                tooltip={`Copy Python code for ${name}`}
+                tooltip={`Copy Python to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
               >
@@ -227,7 +227,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               </Button.Icon>
               <Button.Icon
                 variant="text"
-                tooltip={`Copy TypeScript code for ${name}`}
+                tooltip={`Copy TypeScript to retrieve ${name}`}
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >

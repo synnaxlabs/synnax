@@ -394,7 +394,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
 };
 
 export interface ParentRangeButtonProps {
-  taskKey: string;
+  taskKey?: string;
 }
 
 export const ParentRangeButton = ({
@@ -407,7 +407,7 @@ export const ParentRangeButton = ({
 
   useAsyncEffect(async () => {
     try {
-      if (client == null) return;
+      if (client == null || taskKey == null) return;
       const rng = await client.hardware.tasks.retrieve(taskKey);
       const parent = await rng.snapshottedTo();
       setParent(parent);

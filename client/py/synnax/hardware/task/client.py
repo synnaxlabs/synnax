@@ -21,7 +21,7 @@ from synnax.telem import TimeStamp
 from synnax.util.normalize import normalize, override, check_for_none
 from synnax.hardware.rack import Rack, Client as RackClient
 from synnax.exceptions import ConfigurationError
-from synnax.ontology.payload import ID, Resource
+
 
 
 class _CreateRequest(Payload):

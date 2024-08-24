@@ -69,7 +69,7 @@ Units = Union[
 
 class LinScale(BaseModel):
     type: Literal["linear"] = "linear"
-    slope: confloat(gt=0)
+    slope: float
     y_intercept: float
     pre_scaled_units: Units
     scaled_units: Units
@@ -122,6 +122,9 @@ class MinMaxVal(BaseModel):
 
 
 class AIAccelChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Accelerometer Channel
+    """
     type: Literal["ai_accel"] = "ai_accel"
     terminal_config: TerminalConfig = "Cfg_Default"
     sensitivity: float
