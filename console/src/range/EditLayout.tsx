@@ -152,7 +152,6 @@ interface EditLayoutFormProps extends Layout.RendererProps {
 }
 
 const EditLayoutForm = ({
-  layoutKey,
   initialValues,
   isRemoteEdit,
   onClose,
