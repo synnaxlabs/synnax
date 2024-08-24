@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/* This work is licensed under a Creative Commons CCZero 1.0 Universal License.
- * See http://creativecommons.org/publicdomain/zero/1.0/ for more information. */
-
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
 
@@ -25,7 +22,7 @@ int main() {
 
     // add a variable node to the adresspace
     UA_VariableAttributes attr = UA_VariableAttributes_default;
-    UA_Int32 myInteger = 42;
+    UA_Int32 myInteger = 41;
     UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
     attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer");
     attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer");

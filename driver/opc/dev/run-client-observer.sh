@@ -9,4 +9,4 @@
 # included in the file licenses/APL.txt.
 #
 
-bazel run //driver/opc/dev:client
+bazel run //driver/opc/dev:client_observer
