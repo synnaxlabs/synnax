@@ -29,6 +29,18 @@ handler_TheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
     }
 }
 
+static void
+handler_TheAnswer3Changed(UA_Client *client, UA_UInt32 subId, void *subContext,
+                          UA_UInt32 monId, void *monContext, UA_DataValue *value) {
+    if(value->hasValue && UA_Variant_isScalar(&value->value) &&
+       value->value.type == &UA_TYPES[UA_TYPES_BYTE]) {
+        UA_Byte newValue = *(UA_Byte*)value->value.data;
+        printf("The Answer 3 has changed! New value: %u\n", newValue);
+    } else {
+        printf("The Answer 3 has changed, but the new value is not a Byte.\n");
+    }
+}
+
 static UA_StatusCode
 nodeIter(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId referenceTypeId, void *handle) {
     if(isInverse)
@@ -94,15 +106,27 @@ int main(int argc, char *argv[]) {
     if(response.responseHeader.serviceResult == UA_STATUSCODE_GOOD)
         printf("Create subscription succeeded, id %u\n", subId);
 
+    /* Monitor "the.answer" */
     UA_MonitoredItemCreateRequest monRequest =
-        UA_MonitoredItemCreateRequest_default(UA_NODEID_STRING(1, "the.answer"));
+            UA_MonitoredItemCreateRequest_default(UA_NODEID_STRING(1, "the.answer"));
 
     UA_MonitoredItemCreateResult monResponse =
-    UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
-                                              UA_TIMESTAMPSTORETURN_BOTH,
-                                              monRequest, NULL, handler_TheAnswerChanged, NULL);
+            UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
+                                                      UA_TIMESTAMPSTORETURN_BOTH,
+                                                      monRequest, NULL, handler_TheAnswerChanged, NULL);
     if(monResponse.statusCode == UA_STATUSCODE_GOOD)
         printf("Monitoring 'the.answer', id %u\n", monResponse.monitoredItemId);
+
+    /* Monitor "the.answer3" */
+    UA_MonitoredItemCreateRequest monRequest3 =
+            UA_MonitoredItemCreateRequest_default(UA_NODEID_STRING(1, "the.answer3"));
+
+    UA_MonitoredItemCreateResult monResponse3 =
+            UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
+                                                      UA_TIMESTAMPSTORETURN_BOTH,
+                                                      monRequest3, NULL, handler_TheAnswer3Changed, NULL);
+    if(monResponse3.statusCode == UA_STATUSCODE_GOOD)
+        printf("Monitoring 'the.answer3', id %u\n", monResponse3.monitoredItemId);
 
     /* Run in a loop until Ctrl+C */
     while (running) {

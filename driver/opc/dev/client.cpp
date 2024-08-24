@@ -83,6 +83,31 @@ int main(int argc, char *argv[]) {
     UA_Client_writeValueAttribute(client, UA_NODEID_STRING(1, "the.answer"), myVariant);
     UA_Variant_delete(myVariant);
 
+
+    /* Read attribute for "the.answer3" */
+    UA_Byte value3 = 0;
+    printf("\nReading the value of node (1, \"the.answer3\"):\n");
+    UA_Variant *val3 = UA_Variant_new();
+    retval = UA_Client_readValueAttribute(client, UA_NODEID_STRING(1, "the.answer3"), val3);
+    if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val3) &&
+       val3->type == &UA_TYPES[UA_TYPES_BYTE]) {
+        value3 = *(UA_Byte*)val3->data;
+        printf("the value of the.answer3 is: %u\n", value3);
+    }
+    UA_Variant_delete(val3);
+
+    /* Toggle and write node attribute for "the.answer3" */
+    value3 = value3 == 0 ? 1 : 0;  // Toggle between 0 and 1
+    UA_Variant *myVariant3 = UA_Variant_new();
+    UA_Variant_setScalarCopy(myVariant3, &value3, &UA_TYPES[UA_TYPES_BYTE]);
+    retval = UA_Client_writeValueAttribute(client, UA_NODEID_STRING(1, "the.answer3"), myVariant3);
+    if(retval == UA_STATUSCODE_GOOD) {
+        printf("Successfully wrote %u to the.answer3\n", value3);
+    } else {
+        printf("Failed to write to the.answer3. Status code %s\n", UA_StatusCode_name(retval));
+    }
+    UA_Variant_delete(myVariant3);
+
     UA_Client_disconnect(client);
     UA_Client_delete(client);
     return EXIT_SUCCESS;
