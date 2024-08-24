@@ -28,7 +28,11 @@ std::pair<Streamer, freighter::Error> FrameClient::openStreamer(
     auto req = api::v1::FrameStreamerRequest();
     config.toProto(req);
     auto exc2 = s->send(req);
-    return {Streamer(std::move(s)), exc2};
+    if (exc2)
+        return {Streamer(std::move(s)), exc2};
+    // Receive an empty frame to ensure that the streamer was created.
+    auto [_, exc3] = s->receive();
+    return {Streamer(std::move(s)), exc3};
 }
 
 Streamer::Streamer(std::unique_ptr<StreamerStream> s) : stream(std::move(s)) {
