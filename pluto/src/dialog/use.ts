@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/dropdown/Dropdown.css";
-
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext as reactUseContext,
+  useEffect,
+  useState,
+} from "react";
 
 /** Props for the {@link use} hook. */
 export interface UseProps {
@@ -24,6 +28,16 @@ export interface UseReturn {
   open: () => void;
   toggle: (vis?: boolean | unknown) => void;
 }
+
+interface ContextValue extends Pick<UseReturn, "close"> {}
+
+export const Context = createContext<ContextValue>({
+  close: () => {
+    console.error("Dialog context not provided.");
+  },
+});
+
+export const useContext = (): ContextValue => reactUseContext(Context);
 
 /**
  * Implements basic dropdown behavior, and should be preferred when using

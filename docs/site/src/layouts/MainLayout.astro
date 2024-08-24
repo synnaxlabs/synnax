@@ -66,7 +66,7 @@ const {
         getVersion().then((version) => {
             const versionElement = document.querySelector(".version");
             if (versionElement == null) return;
-            versionElement.innerHTML = version;
+            versionElement.innerHTML = version.split(".").slice(0, -1).join(".") + ".x";
         });
     </script>
 
@@ -97,8 +97,8 @@ const {
             --pluto-h3-size: 4rem;
             --pluto-h3-weight: 450;
             --pluto-h3-line-height: 150%;
-            --pluto-h4-size: 3.5rem;
-            --pluto-h4-weight: 500;
+            --pluto-h4-size: 3.25rem;
+            --pluto-h4-weight: 550;
             --pluto-h4-line-height: 150%;
             --pluto-h5-size: 2.666rem;
             --pluto-h5-weight: 450;
@@ -417,6 +417,8 @@ const {
         code {
             font-size: inherit;
             line-height: inherit;
+            color: var(--pluto-text-color);
+            border-radius: var(--pluto-border-radius);
         }
 
         .pluto-tabs-selector__btn--uneditable {
@@ -435,8 +437,18 @@ const {
             font-size: var(--pluto-p-size);
         }
 
-        code {
-            border-radius: var(--pluto-border-radius);
+        summary {
+            width: max-content;
+
+            &::marker {
+                color: var(--pluto-text-color);
+                font-family: var(--pluto-font-family);
+                font-size: var(--pluto-p-size);
+            }
+
+            &:hover {
+                cursor: pointer;
+            }
         }
 
         table > :not(caption) > * {

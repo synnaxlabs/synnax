@@ -21,6 +21,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
 import { type RenderProp } from "@/util/renderProp";
@@ -78,8 +79,9 @@ const findTarget = (target: HTMLElement): HTMLElement | null => {
 const findSelected = (target_: HTMLElement): HTMLElement[] => {
   const target = findTarget(target_);
   if (target == null) return [];
-  const selected = Array.from(target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ??
-    []) as HTMLElement[];
+  const selected = Array.from(
+    target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ?? [],
+  ) as HTMLElement[];
   if (selected.includes(target)) return selected;
   return [target];
 };
@@ -176,14 +178,15 @@ const ContextMenuCore = (
       {children}
       {menuC != null &&
         createPortal(
-          <div
+          <Align.Space
             className={CSS(CSS.B("menu-context"), CSS.bordered())}
             ref={ref}
             style={{ left: xy.x, top: xy.y }}
             onClick={close}
+            size={1 / 2}
           >
             {menuC}
-          </div>,
+          </Align.Space>,
           document.body,
         )}
     </div>

@@ -56,6 +56,7 @@ func (t *SepTokenizer) Tokenize(input []byte) (tokens analysis.TokenStream) {
 			Start:    start,
 			End:      len(input),
 			Position: start + 1,
+			KeyWord:  true,
 		})
 	}
 	return tokens

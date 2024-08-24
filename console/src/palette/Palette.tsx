@@ -420,6 +420,8 @@ export const createResourceListItem = (
     } = props;
     if (id == null) return null;
     const resourceType = resourceTypes[id.type];
+    const PI = resourceType?.PaletteListItem;
+    if (PI != null) return <PI {...props} />;
     return (
       <List.ItemFrame style={{ padding: "1.5rem" }} highlightHovered {...props}>
         <Text.WithIcon

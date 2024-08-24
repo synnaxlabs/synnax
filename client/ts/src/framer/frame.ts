@@ -39,17 +39,17 @@ const columnType = (columns: Params): ColumnType => {
   return "name";
 };
 
-const validateMatchedColsAndArrays = (columns: Params, arrays: Series[]): void => {
+const validateMatchedColsAndSeries = (columns: Params, series: Series[]): void => {
   const colsArr = toArray(columns);
-  if (colsArr.length === arrays.length) return;
+  if (colsArr.length === series.length) return;
   const colType = columnType(columns);
   if (columnType === null)
     throw new ValidationError(
       "[Frame] - channel keys or names must be provided when constructing a frame.",
     );
   throw new ValidationError(
-    `[Frame] - ${colType as string}s and arrays must be the same length.
-    Got ${colsArr.length} ${colType as string}s and ${arrays.length} arrays.`,
+    `[Frame] - ${colType as string}s and series must be the same length.
+    Got ${colsArr.length} ${colType as string}s and ${series.length} series.`,
   );
 };
 
@@ -65,15 +65,15 @@ export type CrudeFrame =
  *
  * Frames have two important characteristics: alignment and orientation.
  *
- * A frame's alignment defines how correlated the arrays for different channels in the
+ * A frame's alignment defines how correlated the series for different channels in the
  * frame are:
  *
- * - A frame is weakly aligned if it meets the time range occupied by all arrays of a
+ * - A frame is weakly aligned if the time range occupied by all series of a
  * particular channel is the same for all channels in the frame. This means that the
- * arrays for a particular channel can have gaps between them.
+ * series for a particular channel can have gaps between them.
  *
  * - A strongly aligned frame means that all channels share the same rate/index and
- * there are no gaps in time between arrays. Strongly aligned frames are natural
+ * there are no gaps in time between series. Strongly aligned frames are natural
  * to interpret, as the values in a particular 'row' of the frame share the same
  * timestamp. All frames written to Synnax must be strongly aligned.
  *
@@ -85,7 +85,7 @@ export type CrudeFrame =
  *
  * - Horizontal frames have a single channel, and are strongly aligned by default.
  * A horizontal frame typically has a single array (in which case, it's also 'square'),
- * although it can have multiple arrays if all the arrays are continuous in time.
+ * although it can have multiple series if all the series are continuous in time.
  *
  * - Vertical frames are strongly aligned and have on or more channels, but ONLY a single
  * array per channel. Synnax requires that all frames written to the database are
@@ -98,7 +98,7 @@ export class Frame {
   readonly columns: Keys | Names = [];
   readonly series: Series[] = [];
 
-  constructor(columnsOrData: Params | CrudeFrame = [], arrays: Series | Series[] = []) {
+  constructor(columnsOrData: Params | CrudeFrame = [], series: Series | Series[] = []) {
     if (columnsOrData instanceof Frame) {
       this.columns = columnsOrData.columns;
       this.series = columnsOrData.series;
@@ -117,9 +117,9 @@ export class Frame {
     if (isObject) {
       if ("keys" in columnsOrData && "series" in columnsOrData) {
         const data_ = columnsOrData as FramePayload;
-        const arrays = data_.series.map((a) => seriesFromPayload(a));
-        validateMatchedColsAndArrays(data_.keys, arrays);
-        data_.keys.forEach((key, i) => this.push(key, arrays[i]));
+        const series = data_.series.map((a) => seriesFromPayload(a));
+        validateMatchedColsAndSeries(data_.keys, series);
+        data_.keys.forEach((key, i) => this.push(key, series[i]));
       } else
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k);
@@ -129,21 +129,21 @@ export class Frame {
       return;
     }
 
-    // Construction from a set of arrays and columns.
+    // Construction from a set of series and columns.
     if (
       Array.isArray(columnsOrData) ||
       ["string", "number"].includes(typeof columnsOrData)
     ) {
-      const data_ = toArray(arrays);
+      const data_ = toArray(series);
       const cols = toArray(columnsOrData) as Keys | Names;
-      validateMatchedColsAndArrays(cols, data_);
+      validateMatchedColsAndSeries(cols, data_);
       data_.forEach((d, i) => this.push(cols[i], d));
       return;
     }
 
     throw new ValidationError(
       `[Frame] - invalid frame construction parameters. data parameter ust be a frame
-    payload, a list of lazy arrays, a lazy array, a map, or a record keyed by channel
+    payload, a list of lazy series, a lazy array, a map, or a record keyed by channel
     name. keys parameter must be a set of channel keys or channel names.`,
     );
   }
@@ -218,8 +218,8 @@ export class Frame {
   /**
    * @returns true if the frame is horizontal. Horizontal frames have a single channel,
    * and are strongly aligned by default.A horizontal frame typically has a single array
-   * (in which case, it's also 'square'), although it can have multiple arrays if all
-   * the arrays are continuous in time.
+   * (in which case, it's also 'square'), although it can have multiple series if all
+   * the series are continuous in time.
    */
   get isHorizontal(): boolean {
     return this.uniqueColumns.length === 1;
@@ -235,8 +235,8 @@ export class Frame {
 
   /**
    * @returns true if the frame is weakly aligned. A frame is weakly aligned if it meets
-   * the time range occupied by all arrays of a particular channel is the same for all
-   * channels in the frame. This means that the arrays for a particular channel can have
+   * the time range occupied by all series of a particular channel is the same for all
+   * channels in the frame. This means that the series for a particular channel can have
    * gaps between them.
    */
   get isWeaklyAligned(): boolean {
@@ -266,7 +266,7 @@ export class Frame {
   }
 
   /**
-   * @returns lazy arrays matching the given channel key or name.
+   * @returns lazy series matching the given channel key or name.
    * @param key the channel key or name.
    */
   get(key: KeyOrName): MultiSeries;

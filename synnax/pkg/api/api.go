@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
@@ -44,6 +45,7 @@ import (
 // instantiate the API.
 type Config struct {
 	alamos.Instrumentation
+	RBAC          *rbac.Service
 	Channel       channel.Service
 	Ranger        *ranger.Service
 	Framer        *framer.Service
@@ -58,7 +60,7 @@ type Config struct {
 	Label         *label.Service
 	Hardware      *hardware.Service
 	Authenticator auth.Authenticator
-	Access        *rbac.Service
+	Enforcer      access.Enforcer
 	Cluster       dcore.Cluster
 	Insecure      *bool
 }
@@ -80,7 +82,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "workspace", c.Workspace)
 	validate.NotNil(v, "token", c.Token)
 	validate.NotNil(v, "authenticator", c.Authenticator)
-	validate.NotNil(v, "access", c.Access)
+	validate.NotNil(v, "access", c.RBAC)
 	validate.NotNil(v, "cluster", c.Cluster)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "schematic", c.Schematic)
@@ -103,7 +105,7 @@ func (c Config) Override(other Config) Config {
 	c.Workspace = override.Nil(c.Workspace, other.Workspace)
 	c.Token = override.Nil(c.Token, other.Token)
 	c.Authenticator = override.Nil(c.Authenticator, other.Authenticator)
-	c.Access = override.Nil(c.Access, other.Access)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Cluster = override.Nil(c.Cluster, other.Cluster)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -111,6 +113,7 @@ func (c Config) Override(other Config) Config {
 	c.Schematic = override.Nil(c.Schematic, other.Schematic)
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
 	c.Hardware = override.Nil(c.Hardware, other.Hardware)
 	return c
 }
@@ -139,20 +142,17 @@ type Transport struct {
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
 	FrameDelete   freighter.UnaryServer[FrameDeleteRequest, types.Nil]
 	// RANGE
-	RangeCreate         freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
-	RangeRetrieve       freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
-	RangeDelete         freighter.UnaryServer[RangeDeleteRequest, types.Nil]
-	RangeKVGet          freighter.UnaryServer[RangeKVGetRequest, RangeKVGetResponse]
-	RangeKVSet          freighter.UnaryServer[RangeKVSetRequest, types.Nil]
-	RangeKVDelete       freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]
-	RangeAliasSet       freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
-	RangeAliasResolve   freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
-	RangeAliasList      freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
-	RangeRename         freighter.UnaryServer[RangeRenameRequest, types.Nil]
-	RangeAliasDelete    freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
-	RangeSetActive      freighter.UnaryServer[RangeSetActiveRequest, types.Nil]
-	RangeRetrieveActive freighter.UnaryServer[types.Nil, RangeRetrieveActiveResponse]
-	RangeClearActive    freighter.UnaryServer[types.Nil, types.Nil]
+	RangeCreate       freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
+	RangeRetrieve     freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	RangeDelete       freighter.UnaryServer[RangeDeleteRequest, types.Nil]
+	RangeKVGet        freighter.UnaryServer[RangeKVGetRequest, RangeKVGetResponse]
+	RangeKVSet        freighter.UnaryServer[RangeKVSetRequest, types.Nil]
+	RangeKVDelete     freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]
+	RangeAliasSet     freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
+	RangeAliasResolve freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
+	RangeAliasList    freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
+	RangeRename       freighter.UnaryServer[RangeRenameRequest, types.Nil]
+	RangeAliasDelete  freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
 	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
@@ -185,7 +185,7 @@ type Transport struct {
 	LabelCreate   freighter.UnaryServer[LabelCreateRequest, LabelCreateResponse]
 	LabelRetrieve freighter.UnaryServer[LabelRetrieveRequest, LabelRetrieveResponse]
 	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
-	LabelSet      freighter.UnaryServer[LabelSetRequest, types.Nil]
+	LabelAdd      freighter.UnaryServer[LabelAddRequest, types.Nil]
 	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
 	// DEVICE
 	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
@@ -284,9 +284,6 @@ func (a *API) BindTo(t Transport) {
 		t.RangeAliasList,
 		t.RangeRename,
 		t.RangeAliasDelete,
-		t.RangeSetActive,
-		t.RangeRetrieveActive,
-		t.RangeClearActive,
 
 		// WORKSPACE
 		t.WorkspaceDelete,
@@ -314,7 +311,7 @@ func (a *API) BindTo(t Transport) {
 		t.LabelCreate,
 		t.LabelRetrieve,
 		t.LabelDelete,
-		t.LabelSet,
+		t.LabelAdd,
 		t.LabelRemove,
 
 		// HARDWARE
@@ -383,9 +380,6 @@ func (a *API) BindTo(t Transport) {
 	t.RangeAliasResolve.BindHandler(a.Range.AliasResolve)
 	t.RangeAliasList.BindHandler(a.Range.AliasList)
 	t.RangeAliasDelete.BindHandler(a.Range.AliasDelete)
-	t.RangeSetActive.BindHandler(a.Range.SetActive)
-	t.RangeRetrieveActive.BindHandler(a.Range.RetrieveActive)
-	t.RangeClearActive.BindHandler(a.Range.ClearActive)
 
 	// WORKSPACE
 	t.WorkspaceCreate.BindHandler(a.Workspace.Create)
@@ -413,7 +407,7 @@ func (a *API) BindTo(t Transport) {
 	t.LabelCreate.BindHandler(a.Label.Create)
 	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
 	t.LabelDelete.BindHandler(a.Label.Delete)
-	t.LabelSet.BindHandler(a.Label.Set)
+	t.LabelAdd.BindHandler(a.Label.Add)
 	t.LabelRemove.BindHandler(a.Label.Remove)
 
 	// HARDWARE

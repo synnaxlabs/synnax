@@ -325,7 +325,7 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   toStrings(): string[] {
-    if (!this.dataType.equals(DataType.STRING))
+    if (!this.dataType.matches(DataType.STRING, DataType.UUID))
       throw new Error("cannot convert non-string series to strings");
     return new TextDecoder().decode(this.buffer).split("\n").slice(0, -1);
   }

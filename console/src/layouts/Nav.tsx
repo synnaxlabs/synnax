@@ -23,6 +23,7 @@ import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/constants";
 import { LinePlotServices } from "@/lineplot/services";
@@ -54,6 +55,7 @@ const COMMANDS = [
   ...Persist.COMMANDS,
   ...NI.COMMANDS,
   ...Channel.COMMANDS,
+  ...LabelServices.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => (

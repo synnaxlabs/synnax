@@ -25,18 +25,35 @@ import (
 
 const ontologyType ontology.Type = "label"
 
+// Labels is an ontology.Traverser that allows the caller to traverse an ontology.Retrieve
+// query to find all the labels for a particular resource. Pass this traverser to
+// ontology.Retrieve.TraverseTo.
+var (
+	Labels = ontology.Traverser{
+		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
+			return rel.Type == LabeledBy && rel.From == res.ID
+		},
+		Direction: ontology.Forward,
+	}
+)
+
+// OntologyID constructs a unique ontology.ID for the label with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
 
+// OntologyIDs constructs a slice of unique ontology.IDs for the labels with the given
+// keys.
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
 }
 
+// OntologyIDsFromLabels constructs a slice of unique ontology.IDs for the given labels.
 func OntologyIDsFromLabels(labels []Label) []ontology.ID {
 	return lo.Map(labels, func(l Label, _ int) ontology.ID { return OntologyID(l.Key) })
 }
 
+// KeysFromOntologyIds extracts the label keys from the given ontology.IDs.
 func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -70,6 +87,7 @@ type change = changex.Change[uuid.UUID, Label]
 // Schema implements ontology.Service.
 func (s *Service) Schema() *schema.Schema { return _schema }
 
+// RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k := uuid.MustParse(key)
 	var l Label
@@ -85,6 +103,7 @@ func translateChange(c change) schema.Change {
 	}
 }
 
+// OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Label]) {
 		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateChange})
@@ -92,16 +111,8 @@ func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema
 	return gorp.Observe[uuid.UUID, Label](s.DB).OnChange(handleChange)
 }
 
+// OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, Label](s.DB).OpenNexter()
 	return iter.NexterCloserTranslator[Label, schema.Resource]{Wrap: n, Translate: newResource}, err
 }
-
-var (
-	Labels = ontology.Traverser{
-		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
-			return rel.Type == LabeledBy && rel.From == res.ID
-		},
-		Direction: ontology.Forward,
-	}
-)

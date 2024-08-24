@@ -25,6 +25,7 @@ export interface StoreState {
 
 interface AddPayload {
   ranges: Range[];
+  switchActive?: boolean;
 }
 
 interface RemovePayload {
@@ -44,9 +45,9 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
-    add: (state, { payload: { ranges } }: PA<AddPayload>) => {
+    add: (state, { payload: { ranges, switchActive = true } }: PA<AddPayload>) => {
       ranges.forEach((range) => {
-        state.activeRange = range.key;
+        if (switchActive === true) state.activeRange = range.key;
         state.ranges[range.key] = range;
       });
     },

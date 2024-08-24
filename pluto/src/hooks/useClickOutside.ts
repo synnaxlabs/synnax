@@ -14,7 +14,7 @@ import { useSyncedRef } from "@/hooks";
 
 export interface UseClickOutsideProps {
   ref: RefObject<HTMLElement>;
-  exclude?: Array<RefObject<HTMLElement>>;
+  exclude?: Array<RefObject<HTMLElement>> | ((e: MouseEvent) => boolean);
   onClickOutside: () => void;
 }
 
@@ -36,13 +36,19 @@ export const useClickOutside = ({
       const el = ref.current;
       const windowBox = box.construct(window.document.documentElement);
       const pos = xy.construct(e);
+
+      const exclude = excludeRef.current;
+      if (exclude != null) {
+        if (typeof exclude === "function") {
+          if (exclude(e)) return;
+        } else if (exclude.some((r) => r.current?.contains(e.target as Node))) return;
+      }
+
       if (
         el == null ||
         el.contains(e.target as Node) ||
         box.contains(el, pos) ||
-        !box.contains(windowBox, pos) ||
-        (excludeRef.current != null &&
-          excludeRef.current.some((r) => r.current?.contains(e.target as Node)))
+        !box.contains(windowBox, pos)
       )
         return;
       onClickOutside();

@@ -66,11 +66,13 @@ func Open(ctx context.Context, configs ...Config) (c Core, err error) {
 		aspen.WithTransport(clusterTransport),
 		aspen.WithInstrumentation(c.Instrumentation.Child("aspen")),
 	)
+	if err != nil {
+		return c, err
+	}
 	c.Cluster = clusterDB.Cluster
 	// Replace storage's key-value store with a distributed version.
 	c.Storage.KV = clusterDB
-
-	return c, err
+	return c, nil
 }
 
 // Close closes the core of the distribution layer, shutting down cluster operations

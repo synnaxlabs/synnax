@@ -77,7 +77,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.LabelCreate = fnoop.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse]{}
 	a.LabelRetrieve = fnoop.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse]{}
 	a.LabelDelete = fnoop.UnaryServer[api.LabelDeleteRequest, types.Nil]{}
-	a.LabelSet = fnoop.UnaryServer[api.LabelSetRequest, types.Nil]{}
+	a.LabelAdd = fnoop.UnaryServer[api.LabelAddRequest, types.Nil]{}
 	a.LabelRemove = fnoop.UnaryServer[api.LabelRemoveRequest, types.Nil]{}
 
 	// ACCESS

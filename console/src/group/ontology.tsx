@@ -35,7 +35,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     link: () =>
       handleLink({
         name: resources[0].name,
-        resource: resources[0].id.payload,
+        ontologyID: resources[0].id.payload,
       }),
   });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
@@ -112,7 +112,6 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       if (selection.parent == null || prevNodes == null) return;
       setNodes(prevNodes);
       addStatus({
-        key: uuid(),
         variant: "error",
         message: "Failed to ungroup resources",
         description: message,
@@ -212,7 +211,6 @@ export const useCreateEmpty = (): ((
       if (selection.resources.length === 0) return;
       if (!errors.CANCELED.matches(message))
         addStatus({
-          key: uuid(),
           variant: "error",
           message: "Failed to create group",
           description: message,
@@ -284,7 +282,6 @@ export const useCreateFromSelection = (): ((
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(message)) return;
       addStatus({
-        key: uuid(),
         variant: "error",
         message: "Failed to group resources",
         description: message,

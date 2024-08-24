@@ -9,8 +9,9 @@
 
 import { DataType, Synnax, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
-// This example demonstrates the basics of reading and writing data from an index and data
-// channel in Synnax. We'll write a sine wave of data to a channel and then read it back.
+// This example demonstrates the basics of reading and writing data from an index and
+// data channel in Synnax. We'll write a sine wave of data to a channel and then read it
+// back.
 
 // Connect to a locally running, insecure Synnax cluster. If your connection parameters
 // are different, enter them here.
@@ -19,25 +20,31 @@ const client = new Synnax({
     port: 9090,
     username: "synnax",
     password: "seldon",
-    secure: false
+    secure: false,
 });
 
 // Create an index channel that will be used to store our timestamps.
-const timeChannel = await client.channels.create({
-    name: "basic_read_write_time",
-    isIndex: true,
-    dataType: DataType.TIMESTAMP
-});
+const timeChannel = await client.channels.create(
+    {
+        name: "basic_read_write_time",
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+    },
+    { retrieveIfNameExists: true },
+);
 
 // Create a channel that will be used to store our data.
-const dataChannel = await client.channels.create({
-    name: "basic_read_write_data",
-    isIndex: false,
-    dataType: DataType.FLOAT32,
-    // We need to specify the index channel that we want to use to store the timestamps
-    // for this data channel.
-    index: timeChannel.key,
-});
+const dataChannel = await client.channels.create(
+    {
+        name: "basic_read_write_data",
+        isIndex: false,
+        dataType: DataType.FLOAT32,
+        // We need to specify the index channel that we want to use to store the timestamps
+        // for this data channel.
+        index: timeChannel.key,
+    },
+    { retrieveIfNameExists: true },
+);
 
 const N_SAMPLES = 5000;
 
@@ -46,7 +53,10 @@ const N_SAMPLES = 5000;
 const start = TimeStamp.now();
 
 // Generate a new timestamp every millisecond for N_SAMPLES.
-const time = BigInt64Array.from({ length: N_SAMPLES }, (_, i) => start.add(TimeSpan.milliseconds(i)).valueOf());
+const time = BigInt64Array.from({ length: N_SAMPLES }, (_, i) =>
+    start.add(TimeSpan.milliseconds(i)).valueOf(),
+);
+
 // Generate a sine wave for N_SAMPLES.
 const data = Float32Array.from({ length: N_SAMPLES }, (_, i) => Math.sin(i / 100));
 

@@ -188,7 +188,7 @@ var _ = Describe("Delete", func() {
 								it2 := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []cesium.ChannelKey{uChannelKey}}))
 
 								err := db.DeleteChannel(uChannelKey)
-								Expect(err).To(MatchError(ContainSubstring("2 unclosed writers/iterators")))
+								Expect(err).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 
 								sCtx, cancel := signal.Isolated()
 								i1, _ := confluence.Attach(it1, 1)
@@ -428,7 +428,7 @@ var _ = Describe("Delete", func() {
 					It("Should delete all channels before encountering an error", func() {
 						w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []core.ChannelKey{data2, data3}}))
 						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []core.ChannelKey{data2}}))
-						Expect(db.DeleteChannels([]cesium.ChannelKey{rate, data1, data2})).To(MatchError(ContainSubstring("2 unclosed writer")))
+						Expect(db.DeleteChannels([]cesium.ChannelKey{rate, data1, data2})).To(MatchError(ContainSubstring("1 unclosed writer")))
 						Expect(w1.Close()).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(rate))).To(BeFalse())
 						Expect(fs.Exists(channelKeyToPath(data1))).To(BeFalse())
@@ -986,7 +986,7 @@ var _ = Describe("Delete", func() {
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data, index))
 					Expect(f.Get(data)).To(HaveLen(1))
 				})
-				It("Should return an error when trying to delete timerange from virtual channel", func() {
+				It("Should return an error when trying to delete time range from virtual channel", func() {
 					virtualKey := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: virtualKey, Virtual: true, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{virtualKey}, telem.TimeRangeMax)).To(MatchError(ContainSubstring("cannot delete time range from virtual channel")))
@@ -1030,7 +1030,7 @@ var _ = Describe("Delete", func() {
 					err := db.DeleteTimeRange(ctx, []cesium.ChannelKey{index}, (8 * telem.SecondTS).Range(11*telem.SecondTS))
 					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
 				})
-				It("Should not allow deletion of an index channel when there is a data channel with a writer open before the timerange", func() {
+				It("Should not allow deletion of an index channel when there is a data channel with a writer open before the time range", func() {
 					Expect(db.WriteArray(ctx, index, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{data}, Start: 9 * telem.SecondTS}))
 

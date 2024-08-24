@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
@@ -56,6 +57,8 @@ import (
 )
 
 const stopKeyWord = "stop"
+
+var integrations = []string{"opc", "ni"}
 
 func scanForStopKeyword(interruptC chan os.Signal) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -162,7 +165,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		accessSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
+		rbacSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
 		if err != nil {
 			return err
 		}
@@ -211,7 +214,7 @@ func start(cmd *cobra.Command) {
 		}()
 
 		// Provision the root user.
-		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, accessSvc); err != nil {
+		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil {
 			return err
 		}
 
@@ -219,7 +222,8 @@ func start(cmd *cobra.Command) {
 		_api, err := api.New(api.Config{
 			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
-			Access:          accessSvc,
+			Enforcer:        &access.AllowAll{},
+			RBAC:            rbacSvc,
 			Schematic:       schematicSvc,
 			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
@@ -381,7 +385,10 @@ func buildEmbeddedDriverConfig(
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
-		Enabled:         config.Bool(!viper.GetBool(noDriverFlag)),
+		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
+		Integrations: getIntegrations(
+			viper.GetStringSlice(enableIntegrationsFlag),
+			viper.GetStringSlice(disableIntegrationsFlag)),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
 		RackName:        rackName,
@@ -407,12 +414,29 @@ func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Prov
 	})
 }
 
+func getIntegrations(enabled, disabled []string) []string {
+	if len(enabled) > 0 {
+		return enabled
+	}
+	if len(disabled) > 0 {
+		return lo.Filter(integrations, func(integration string, _ int) bool {
+			for _, disabledIntegration := range disabled {
+				if integration == disabledIntegration {
+					return false
+				}
+			}
+			return true
+		})
+	}
+	return integrations // Ensure a return value in case both slices are empty
+}
+
 func maybeProvisionRootUser(
 	ctx context.Context,
 	db *gorp.DB,
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
-	accessSvc *rbac.Service,
+	rbacSvc *rbac.Service,
 ) error {
 	creds := auth.InsecureCredentials{
 		Username: viper.GetString(usernameFlag),
@@ -432,7 +456,7 @@ func maybeProvisionRootUser(
 		if err = userSvc.NewWriter(tx).Create(ctx, &userObj); err != nil {
 			return err
 		}
-		return accessSvc.NewWriter(tx).Create(
+		return rbacSvc.NewWriter(tx).Create(
 			ctx,
 			&rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},

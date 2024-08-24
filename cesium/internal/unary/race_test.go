@@ -39,7 +39,8 @@ var _ = Describe("Unary racing", func() {
 				fs, cleanUp = makeFS()
 				rateFS, indexFS, dataFS := MustSucceed(fs.Sub("rate")), MustSucceed(fs.Sub("index")), MustSucceed(fs.Sub("data"))
 				rateDB = MustSucceed(unary.Open(unary.Config{
-					FS: rateFS,
+					FS:        rateFS,
+					MetaCodec: codec,
 					Channel: core.Channel{
 						Key:      rateKey,
 						DataType: telem.Int16T,
@@ -49,17 +50,19 @@ var _ = Describe("Unary racing", func() {
 					Instrumentation: PanicLogger(),
 				}))
 				indexDB = MustSucceed(unary.Open(unary.Config{
-					FS: indexFS,
+					FS:        indexFS,
+					MetaCodec: codec,
 					Channel: core.Channel{
 						Key:      indexKey,
 						IsIndex:  true,
-						DataType: telem.Int64T,
+						DataType: telem.TimeStampT,
 					},
 					FileSize:        1 * telem.ByteSize,
 					Instrumentation: PanicLogger(),
 				}))
 				dataDB = MustSucceed(unary.Open(unary.Config{
-					FS: dataFS,
+					FS:        dataFS,
+					MetaCodec: codec,
 					Channel: core.Channel{
 						Key:      dataKey,
 						DataType: telem.Int64T,

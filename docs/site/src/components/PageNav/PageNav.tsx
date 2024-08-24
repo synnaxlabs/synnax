@@ -15,7 +15,7 @@ import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Tabs } from "@synnaxlabs/pluto/tabs";
 import { Tree } from "@synnaxlabs/pluto/tree";
 
-import { componentsPages, guidesPages } from "@/pages/nav";
+import { componentsPages, guidesPages } from "@/pages/_nav";
 
 export type PageNavNode = Tree.Node;
 

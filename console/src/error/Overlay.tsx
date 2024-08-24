@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Theming } from "@synnaxlabs/pluto/theming";
-import { getCurrent } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
   ErrorBoundary,
@@ -89,7 +89,7 @@ const FallBackRenderContent = ({
     } catch (e) {
       console.error(e);
     }
-    void getCurrent().show();
+    void getCurrentWindow().show();
   }, []);
   return (
     <Align.Space direction="y" className={CSS.B("error-overlay")}>
@@ -99,13 +99,13 @@ const FallBackRenderContent = ({
             className="console-controls--macos"
             visibleIfOS="MacOS"
             onClose={() => {
-              void getCurrent().close();
+              void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              void getCurrent().minimize();
+              void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              void getCurrent().maximize();
+              void getCurrentWindow().maximize();
             }}
           />
           {os === "Windows" && (
@@ -117,13 +117,13 @@ const FallBackRenderContent = ({
             className="console-controls--windows"
             visibleIfOS="Windows"
             onClose={() => {
-              void getCurrent().close();
+              void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              void getCurrent().minimize();
+              void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              void getCurrent().maximize();
+              void getCurrentWindow().maximize();
             }}
           />
         </Nav.Bar.End>

@@ -1,7 +1,16 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { PayloadAction } from "@reduxjs/toolkit";
 import { Synnax } from "@synnaxlabs/client";
 import { Status, Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { id, migrate } from "@synnaxlabs/x";
+import { migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 
@@ -34,7 +43,6 @@ export const useLoadRemote = <V extends migrate.Migratable>({
     },
     onError: (e) =>
       addStatus({
-        key: id.id(),
         variant: "error",
         message: `Failed to load ${name}`,
         description: e.message,

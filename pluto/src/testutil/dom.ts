@@ -9,13 +9,12 @@
 
 import { type Mock, vi } from "vitest";
 
- 
 export const mockBoundingClientRect = (
   top: number,
   left: number,
   width: number,
   height: number,
-): Mock<any, any> =>
+): Mock<typeof HTMLElement.prototype.getBoundingClientRect> =>
   vi.fn().mockReturnValue({
     top,
     left,

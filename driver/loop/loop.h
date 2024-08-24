@@ -23,14 +23,20 @@ const synnax::TimeSpan MEDIUM_RES_THRESHOLD = synnax::Rate(20).period();
 
 const uint64_t RESOLUTION = (100 * synnax::MICROSECOND).value;
 
+/// @brief fine grain sleep function (using Welford's online algorithm)
+/// @param dur the duration to sleep for in nanoseconds
 inline void preciseSleep(const synnax::TimeSpan &dur) {
     const auto ns = dur.chrono();
     const auto end = hs_clock::now() + ns;
+    // static because variance in sleep duration is measured across each call
+    // to compute a more accurate sleep time for the machine running the code
     const uint64_t nanoseconds = ns.count();
     static uint64_t estimate = RESOLUTION * 10; // overestimate innitially
     static uint64_t mean = RESOLUTION * 10;
     static uint64_t M2 = 0;
     static uint64_t count = 1;
+    // use the welford's online algorithm to sleep for most of the time
+    // updating the estimate as we go
     while (nanoseconds > estimate) {
         auto start = hs_clock::now();
         std::this_thread::sleep_for(std::chrono::nanoseconds(RESOLUTION));
@@ -42,6 +48,7 @@ inline void preciseSleep(const synnax::TimeSpan &dur) {
         estimate = mean + 1 * std::sqrt(M2 / count);
         count++;
     }
+    // busy wait for the last bit to ensure we sleep for the correct duration
     while (end > hs_clock::now());
 }
 

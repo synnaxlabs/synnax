@@ -79,7 +79,9 @@ func (g *operationReceiver) handle(ctx context.Context, req TxRequest) (TxReques
 		return TxRequest{}, ctx.Err()
 	case g.Out.Inlet() <- req:
 	}
-	br := g.store.PeekState().toBatchRequest(ctx)
+	s, release := g.store.PeekState()
+	defer release()
+	br := s.toBatchRequest(ctx)
 	br.Sender = g.Cluster.HostKey()
 	return br, nil
 }

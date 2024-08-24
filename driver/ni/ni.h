@@ -261,7 +261,7 @@ public:
     void write_to_series(synnax::Series &series, double &data, synnax::DataType data_type);
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
-    uint64_t numAIChannels = 0;
+    uint64_t num_ai_channels = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -420,6 +420,8 @@ public:
     void create_devices();
 
     void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
+
+    void log_err(std::string err_msg);
 
 private:
     json get_device_properties(NISysCfgResourceHandle resource);
@@ -605,7 +607,7 @@ static inline bool dlls_available(){
         "nisciu.dll",
         "nistc3ru.dll",
         "nixfmrru.dll",
-        "nixsru.dll",
+        "nixsru.dll"
     };
 
     bool d = true;
@@ -616,4 +618,7 @@ static inline bool dlls_available(){
     return d;
 }
 
-}
+
+const std::string INTEGRATION_NAME = "ni";
+
+} // namespace ni

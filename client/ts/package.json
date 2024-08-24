@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/client",
   "private": false,
-  "version": "0.26.0",
+  "version": "0.27.0",
   "type": "module",
   "description": "The Client Library for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
@@ -21,7 +21,9 @@
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix"
+    "fix": "eslint \"src/**/*.ts*\" --fix",
+    "genApi": "tsc --noEmit && vite build && npx api-extractor run --local",
+    "checkApi": "tsc --noEmit && vite build && npx api-extractor run"
   },
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
@@ -32,13 +34,13 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^20.14.9",
-    "@vitest/coverage-v8": "^1.6.0",
-    "eslint": "^9.6.0",
+    "@types/node": "^22.2.0",
+    "@vitest/coverage-v8": "^2.0.5",
+    "eslint": "^9.9.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.5.3",
-    "vite": "5.3.3",
-    "vitest": "^1.6.0"
+    "typescript": "^5.5.4",
+    "vite": "5.4.0",
+    "vitest": "^2.0.5"
   },
   "peerDependencies": {
     "zod": "^3.23.8"

@@ -16,6 +16,7 @@ import (
 	"go/types"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	ws "github.com/fasthttp/websocket"
@@ -259,6 +260,7 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	internal      bool
 	handler       func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 	writeDeadline time.Duration
+	wg            *sync.WaitGroup
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(
@@ -291,6 +293,8 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 			}
 			return oCtx, fiberws.New(func(c *fiberws.Conn) {
 				if err := func() error {
+					s.wg.Add(1)
+					defer s.wg.Done()
 					stream := newServerStream[RQ, RS](s.serverCtx, coreConfig{
 						writeDeadline: s.writeDeadline,
 						conn:          c.Conn,
