@@ -14,6 +14,8 @@
 package api
 
 import (
+	"go/types"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -38,7 +40,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go/types"
 )
 
 // Config is all required configuration parameters and services necessary to
@@ -427,8 +428,8 @@ func (a *API) BindTo(t Transport) {
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 }
 
-// New instantiates the delta API using the provided Config. This should probably
-// only be called once.
+// New instantiates the server API using the provided Config. This should only be called
+// once.
 func New(configs ...Config) (API, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
