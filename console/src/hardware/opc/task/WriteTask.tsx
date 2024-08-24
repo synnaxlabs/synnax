@@ -167,7 +167,7 @@ const Wrapped = ({
       const commandsToCreate: WriteChannelConfig[] = [];
       const statesToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
-        const key = getChannelByNodeID(dev.properties, channel.nodeId);
+        const key = channel.nodeId;
         const exPair = dev.properties.write.channels[key];
         if (exPair == null) {
           commandsToCreate.push(channel);
@@ -198,10 +198,10 @@ const Wrapped = ({
           })),
         );
         states.forEach((c, i) => {
-          dev.properties.write.channels[getChannelByNodeID(dev.properties, statesToCreate[i].nodeId)] = {
-            command: 0,
-            state: c.key,
-          };
+          const key =  statesToCreate[i].nodeId;
+          if(!(key in dev.properties.write.channels)) { 
+            dev.properties.write.channels[key] = { command: 0, state: c.key } 
+          }else dev.properties.write.channels[key].state = c.key;
         });
       }
 
@@ -221,11 +221,11 @@ const Wrapped = ({
           })),
         );
         commands.forEach((c, i) => {
-          dev.properties.write.channels[getChannelByNodeID(dev.properties, commandsToCreate[i].nodeId)] = {
-            command: c.key,
-            state: 0,
-          };
-        });
+          const key =  statesToCreate[i].nodeId;
+            if(!(key in dev.properties.write.channels)) { 
+              dev.properties.write.channels[key] = { command: c.key, state: 0 } 
+            }else dev.properties.write.channels[key].command = c.key;
+          });
       }
   
       if (modified)
@@ -235,7 +235,7 @@ const Wrapped = ({
         });
       
       config.channels = config.channels.map((c) => {
-        const key = getChannelByNodeID(dev.properties, c.nodeId);
+        const key =  c.nodeId;
         const pair = dev.properties.write.channels[key];
         return {
           ...c,
