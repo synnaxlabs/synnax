@@ -86,7 +86,8 @@ export interface State<A = any | undefined> {
   /**
    * Location defines the placement location of the layout. If the location is 'mosaic',
    * the layout will be placed in the central mosaic. If the location is 'window', the
-   * layout will be placed in an external window.
+   * layout will be placed in an external window. If the location is 'modal', the layout
+   * will be placed in a modal window.
    */
   location: PlacementLocation;
   /**
@@ -95,8 +96,8 @@ export interface State<A = any | undefined> {
    */
   window?: WindowProps;
   /**
-   * Properties used when the layout is placed in a tab. If the location is 'window',
-   * these properties are ignored.
+   * Properties used when the layout is placed in a tab. If the location is 'window' or
+   * 'modal', these properties are ignored.
    */
   tab?: Partial<LayoutTabProps>;
   /**
