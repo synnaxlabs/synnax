@@ -19,6 +19,7 @@ export type RelationshipDelete = change.Delete<Relationship, undefined>;
 
 const resourceTypeZ = z.union([
   z.literal("label"),
+  z.literal("allow_all"),
   z.literal("builtin"),
   z.literal("cluster"),
   z.literal("channel"),
@@ -35,7 +36,6 @@ const resourceTypeZ = z.union([
   z.literal("task"),
   z.literal("policy"),
 ]);
-
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
 export const BuiltinOntologyType = "builtin" as ResourceType;
@@ -43,17 +43,15 @@ export const ClusterOntologyType = "cluster" as ResourceType;
 export const NodeOntologyType = "node" as ResourceType;
 
 export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
-
 export type IDPayload = z.infer<typeof idZ>;
 
-export const stringIDZ = z.string().transform((v) => {
+const stringIDZ = z.string().transform((v) => {
   const [type, key] = v.split(":");
-  return { type: type as ResourceType, key };
+  return { type: type as ResourceType, key: key ?? "" };
 });
 
 export const crudeIDZ = z.union([stringIDZ, idZ]);
-
-export type CrudeID = { type: ResourceType; key: string } | string;
+export type CrudeID = z.input<typeof crudeIDZ>;
 
 export class ID {
   type: ResourceType;
@@ -63,28 +61,30 @@ export class ID {
     if (args instanceof ID) {
       this.type = args.type;
       this.key = args.key;
-    } else if (typeof args === "string") {
+      return;
+    }
+    if (typeof args === "string") {
       const [type, key] = args.split(":");
       this.type = type as ResourceType;
-      this.key = key;
-    } else {
-      this.type = args.type;
-      this.key = args.key;
+      this.key = key ?? "";
+      return;
     }
+    this.type = args.type;
+    this.key = args.key;
   }
 
   toString(): string {
     return `${this.type}:${this.key}`;
   }
 
-  get payload(): z.infer<typeof idZ> {
+  get payload(): IDPayload {
     return {
       type: this.type,
       key: this.key,
     };
   }
 
-  static readonly z = z.union([crudeIDZ, z.instanceof(ID)]).transform((v) => new ID(v));
+  static readonly z = z.union([z.instanceof(ID), crudeIDZ.transform((v) => new ID(v))]);
 }
 
 export const Root = new ID({ type: "builtin", key: "root" });
