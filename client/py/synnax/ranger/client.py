@@ -42,7 +42,7 @@ from synnax.telem import (
     Rate,
     CrudeSeries,
 )
-from synnax.ontology.id import OntologyID
+from synnax.ontology.payload import ID
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -407,7 +407,7 @@ class Range(RangePayload):
             time_range=time_range,
             color=color,
             key=key,
-            parent=OntologyID(type="range", key=str(self.key)),
+            parent=ID(type="range", key=str(self.key)),
         )
 
 
@@ -443,7 +443,7 @@ class RangeClient:
         time_range: TimeRange,
         color: str = "",
         retrieve_if_name_exists: bool = False,
-        parent: OntologyID | None = None,
+        parent: ID | None = None,
         key: RangeKey = RangeKey(int=0),
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
@@ -465,7 +465,7 @@ class RangeClient:
         self,
         ranges: Range,
         retrieve_if_name_exists: bool = False,
-        parent: OntologyID | None = None,
+        parent: ID | None = None,
     ) -> Range:
         """Creates the given range. This range is persisted to the cluster and is
         visible to all clients.
@@ -484,7 +484,7 @@ class RangeClient:
         self,
         ranges: list[Range],
         retrieve_if_name_exists: bool = False,
-        parent: OntologyID | None = None,
+        parent: ID | None = None,
     ) -> list[Range]:
         """Creates the given ranges. These ranges are persisted to the cluster and are
         visible to all clients.
@@ -506,7 +506,7 @@ class RangeClient:
         time_range: TimeRange | None = None,
         color: str = "",
         retrieve_if_name_exists: bool = False,
-        parent: OntologyID | None = None,
+        parent: ID | None = None,
     ) -> Range | list[Range]:
         is_single = True
         if ranges is None:

@@ -76,6 +76,7 @@ markers = [
     "ni: mark test as a ni test",
     "task: mark test as a task test",
     "device: mark test as a device test",
+    "ontology: mark test as an ontology test",
     "cli"
 ]
 

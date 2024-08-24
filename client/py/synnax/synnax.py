@@ -30,6 +30,8 @@ from synnax.signals.signals import Registry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 from synnax.user.client import UserClient
+from synnax.ontology import Client as OntologyClient
+from synnax.ontology.group import Client as GroupClient
 
 
 class Synnax(Client):
@@ -61,6 +63,7 @@ class Synnax(Client):
     control: ControlClient
     signals: Registry
     hardware: HardwareClient
+    ontology: OntologyClient
 
     _transport: Transport
 
@@ -129,6 +132,8 @@ class Synnax(Client):
             deleter=deleter,
             instrumentation=instrumentation,
         )
+        groups = GroupClient(self._transport.unary)
+        self.ontology = OntologyClient(client=self._transport.unary, groups=groups)
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeWriter(self._transport.unary, instrumentation)
@@ -144,7 +149,9 @@ class Synnax(Client):
         self.control = ControlClient(self, ch_retriever)
         racks = RackClient(client=self._transport.unary)
         tasks = TaskClient(
-            client=self._transport.unary, frame_client=self, rack_client=racks
+            client=self._transport.unary,
+            frame_client=self,
+            rack_client=racks
         )
         devices = DeviceClient(client=self._transport.unary)
         self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)

@@ -13,12 +13,12 @@ from typing import overload
 from alamos import Instrumentation, NOOP, trace
 from freighter import Payload, UnaryClient, send_required, Empty
 from synnax.access.payload import Policy
-from synnax.ontology.id import OntologyID
+from synnax.ontology.payload import ID
 from synnax.util.normalize import normalize
 
 
 class _RetrieveRequest(Payload):
-    subject: OntologyID
+    subject: ID
 
 
 class _RetrieveResponse(Payload):
@@ -36,7 +36,7 @@ class _DeleteRequest(Payload):
     keys: list[uuid.UUID]
 
 
-ONTOLOGY_TYPE = OntologyID(type="policy")
+ONTOLOGY_TYPE = ID(type="policy")
 
 _CREATE_ENDPOINT = "/access/policy/create"
 _RETRIEVE_ENDPOINT = "/access/policy/retrieve"
@@ -59,8 +59,8 @@ class PolicyClient:
     def create(
         self,
         *,
-        subjects: list[OntologyID] = None,
-        objects: list[OntologyID] = None,
+        subjects: list[ID] = None,
+        objects: list[ID] = None,
         actions: list[str] = None,
     ) -> Policy:
         ...
@@ -84,8 +84,8 @@ class PolicyClient:
         self,
         policies: Policy | list[Policy] | None = None,
         *,
-        subjects: list[OntologyID] = None,
-        objects: list[OntologyID] = None,
+        subjects: list[ID] = None,
+        objects: list[ID] = None,
         actions: list[str] = None,
     ) -> Policy | list[Policy]:
         is_single = not isinstance(policies, list)
@@ -100,7 +100,7 @@ class PolicyClient:
         return res.policies[0] if is_single else res.policies
 
     @trace("debug")
-    def retrieve(self, subject: OntologyID) -> list[Policy]:
+    def retrieve(self, subject: ID) -> list[Policy]:
         return send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
