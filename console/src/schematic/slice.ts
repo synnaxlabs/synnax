@@ -19,6 +19,7 @@ import * as latest from "@/schematic/migrations";
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
 export type State = latest.State;
+export type StateWithName = State & { name: string };
 export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
