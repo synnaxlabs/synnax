@@ -9,18 +9,18 @@
 
 from __future__ import annotations
 
-import uuid
+from uuid import UUID
 from typing import overload
 
 from alamos import Instrumentation, NOOP, trace
 from freighter import Payload, UnaryClient
 from synnax.access.payload import Policy
-from synnax.exceptions import NotFoundError
 from synnax.ontology.id import OntologyID
 
 
 class _RetrieveRequest(Payload):
-    subject: OntologyID
+    keys: list[UUID] | None
+    subjects: list[OntologyID] | None
 
 
 class _RetrieveResponse(Payload):
@@ -35,11 +35,10 @@ _CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(Payload):
-    keys: list[uuid.UUID]
+    keys: list[UUID]
 
 
-class _DeleteResponse(Payload):
-    ...
+class _DeleteResponse(Payload): ...
 
 
 policy_ontology_type = OntologyID(type="policy")
@@ -67,22 +66,19 @@ class PolicyClient:
         subjects: list[OntologyID] = None,
         objects: list[OntologyID] = None,
         actions: list[str] = None,
-    ) -> Policy:
-        ...
+    ) -> Policy: ...
 
     @overload
     def create(
         self,
         policies: Policy,
-    ) -> Policy:
-        ...
+    ) -> Policy: ...
 
     @overload
     def create(
         self,
         policies: list[Policy],
-    ) -> list[Policy]:
-        ...
+    ) -> list[Policy]: ...
 
     @trace("debug")
     def create(
@@ -114,21 +110,25 @@ class PolicyClient:
         return res.policies[0] if len(res.policies) == 1 else res.policies
 
     @trace("debug")
-    def retrieve(self, subject: OntologyID) -> list[Policy]:
+    def retrieve(
+        self, keys: list[UUID] | None = None, subjects: list[OntologyID] | None = None
+    ) -> list[Policy]:
         res, exc = self.__client.send(
             self.__RETRIEVE_ENDPOINT,
-            _RetrieveRequest(subject=subject),
+            _RetrieveRequest(keys=keys, subjects=subjects),
             _RetrieveResponse,
         )
         if exc is not None:
             raise exc
+        if res is None or res.policies is None:
+            return list()
         return res.policies
 
     @trace("debug")
-    def delete(self, keys: uuid.UUID | list[uuid.UUID]) -> None:
+    def delete(self, keys: UUID | list[UUID]) -> None:
         res, exc = self.__client.send(
             self.__DELETE_ENDPOINT,
-            _DeleteRequest(keys=[keys] if isinstance(keys, uuid.UUID) else keys),
+            _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else keys),
             _DeleteResponse,
         )
         if exc is not None:

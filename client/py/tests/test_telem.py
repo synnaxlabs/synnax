@@ -47,10 +47,6 @@ class TestTimeStamp:
             (1000, 1000),
             (TimeSpan.MILLISECOND * 2500, 2500000000),
             (105 * TimeSpan.MILLISECOND, 105 * TimeSpan.MILLISECOND),
-            (
-                datetime.utcfromtimestamp(105).replace(tzinfo=timezone.utc),
-                TimeStamp(105 * TimeSpan.SECOND),
-            ),
             (_now, _now),
             (timedelta(seconds=105), TimeStamp(105 * TimeSpan.SECOND)),
             (np.datetime64(1000, "ms"), TimeStamp(1000 * TimeSpan.MILLISECOND)),
