@@ -11,12 +11,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type AccessService struct {
@@ -89,27 +90,37 @@ func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 }
 
 type (
+	// AccessRetrievePolicyRequst is a request for retreiving a policy from the cluster.
 	AccessRetrievePolicyRequest struct {
-		Subject ontology.ID `json:"subject" msgpack:"subject"`
+		// Subjects are the ontology IDs of subjects of the policy.
+		Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+		// Keys is an optional parameter for the list of keys in the ontology.
+		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 	}
 	AccessRetrievePolicyResponse struct {
 		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
 	}
 )
 
-func (a *AccessService) RetrievePolicy(
+func (svc *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
-	res.Policies = make([]rbac.Policy, 0)
-
-	if err = a.internal.NewRetriever().
-		WhereSubject(req.Subject).
-		Entries(&res.Policies).
-		Exec(ctx, nil); err != nil {
+	var (
+		hasSubjects = len(req.Subjects) > 0
+		hasKeys     = len(req.Keys) > 0
+	)
+	q := svc.internal.NewRetriever()
+	if hasSubjects {
+		q = q.WhereSubjects(req.Subjects...)
+	}
+	if hasKeys {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
-	if err = a.internal.Enforce(ctx, access.Request{
+	if err = svc.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: rbac.OntologyIDsFromPolicies(res.Policies),

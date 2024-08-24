@@ -15,9 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 
-const (
-	OntologyType ontology.Type = "policy"
-)
+const OntologyType ontology.Type = "policy"
 
 var AllowAll = ontology.ID{Type: "allow_all", Key: ""}
 
