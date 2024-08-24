@@ -129,6 +129,10 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
               index: 0,
               channels: [],
             },
+            write: {
+              stateIndex: 0,
+              channels: [],
+            }
           },
           configured: true,
         });

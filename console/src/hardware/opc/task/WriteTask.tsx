@@ -86,7 +86,7 @@ const schema = z.object({
 });
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
-  props.read.channels[nodeId] ?? props.read.channels[caseconv.snakeToCamel(nodeId)];
+  props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
 const Wrapped = ({
   layoutKey,
@@ -136,12 +136,13 @@ const Wrapped = ({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) return;
-      const { config, name } = methods.value();
+      const { name, config } = methods.value();
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
 
       let modified = false;
+      console.log(dev);
       let shouldCreateStateIndex = primitiveIsZero(dev.properties.write.stateIndex);
       if (!shouldCreateStateIndex) {
         try {
