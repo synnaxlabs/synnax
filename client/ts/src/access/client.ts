@@ -12,66 +12,71 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
-  Key,
+  type Key,
   keyZ,
-  NewPolicyPayload,
-  newPolicyPayloadZ,
-  Policy,
+  type NewPolicy,
+  newPolicyZ,
+  type Policy,
   policyZ,
 } from "@/access/payload";
-import { IDPayload, idZ } from "@/ontology/payload";
+import { Retriever } from "@/access/retriever";
+import { ontology } from "@/ontology";
 
 const CREATE_ENDPOINT = "/access/policy/create";
 const DELETE_ENDPOINT = "/access/policy/delete";
-const RETRIEVE_ENDPOINT = "/access/policy/retrieve";
 
-const createReqZ = z.object({ policies: newPolicyPayloadZ.array() });
+const createReqZ = z.object({ policies: newPolicyZ.array() });
 const createResZ = z.object({ policies: policyZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-const retrieveReqZ = z.object({ subject: idZ });
-const retrieveResZ = z.object({
-  policies: policyZ.array().optional().default([]),
-});
-
 export class Client {
   private readonly client: UnaryClient;
+  private readonly retriever: Retriever;
 
   constructor(client: UnaryClient) {
     this.client = client;
+    this.retriever = new Retriever(client);
   }
 
-  async create(policies: NewPolicyPayload): Promise<Policy>;
+  async create(policies: NewPolicy): Promise<Policy>;
 
-  async create(policies: NewPolicyPayload[]): Promise<Policy[]>;
+  async create(policies: NewPolicy[]): Promise<Policy[]>;
 
-  async create(
-    policies: NewPolicyPayload | NewPolicyPayload[],
-  ): Promise<Policy | Policy[]> {
-    const single = !Array.isArray(policies);
-
+  async create(policies: NewPolicy | NewPolicy[]): Promise<Policy | Policy[]> {
+    const isMany = Array.isArray(policies);
     const { policies: created } = await sendRequired<
       typeof createReqZ,
       typeof createResZ
     >(
       this.client,
       CREATE_ENDPOINT,
-      { policies: toArray(policies) },
+      { policies: toArray(policies).map((policy) => newPolicyZ.parse(policy)) },
       createReqZ,
       createResZ,
     );
 
-    return single ? created[0] : created;
+    return isMany ? created : created[0];
   }
 
-  async retrieve(subject: IDPayload): Promise<Policy[]> {
-    const { policies: retrieved } = await sendRequired<
-      typeof retrieveReqZ,
-      typeof retrieveResZ
-    >(this.client, RETRIEVE_ENDPOINT, { subject: subject }, retrieveReqZ, retrieveResZ);
-    return retrieved;
+  async retrieve(key: Key): Promise<Policy>;
+
+  async retrieve(keys: Key[]): Promise<Policy[]>;
+
+  async retrieve(keys: Key | Key[]): Promise<Policy | Policy[]> {
+    const isMany = Array.isArray(keys);
+    const res = await this.retriever.retrieve(keys);
+    return isMany ? res : res[0];
+  }
+
+  async retrieveFor(id: ontology.CrudeID): Promise<Policy[]>;
+
+  async retrieveFor(ids: ontology.CrudeID[]): Promise<Policy[]>;
+
+  async retrieveFor(ids: ontology.CrudeID | ontology.CrudeID[]): Promise<Policy[]> {
+    const newIds = toArray(ids).map((id) => new ontology.ID(id).payload);
+    return await this.retriever.retrieveFor(newIds);
   }
 
   async delete(keys: Key | Key[]): Promise<void> {

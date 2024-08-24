@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export { access } from "@/access";
 export * from "@/channel";
 export { Channel } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
@@ -32,6 +33,7 @@ export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { ranger } from "@/ranger";
 export { signals } from "@/signals";
+export { user } from "@/user";
 export { workspace } from "@/workspace";
 export type {
   CrudeDataType,
