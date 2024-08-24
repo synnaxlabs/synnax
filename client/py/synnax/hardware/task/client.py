@@ -21,6 +21,7 @@ from synnax.telem import TimeStamp
 from synnax.util.normalize import normalize, override, check_for_none
 from synnax.hardware.rack import Rack, Client as RackClient
 from synnax.exceptions import ConfigurationError
+from synnax.ontology.payload import ID, Resource
 
 
 class _CreateRequest(Payload):
@@ -181,7 +182,7 @@ class Client:
             self.maybe_assign_def_rack(pld, rack)
         req = _CreateRequest(tasks=tasks)
         res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
-        st = self.__sugar(res.tasks)
+        st = self.sugar(res.tasks)
         return st[0] if is_single else st
 
     def maybe_assign_def_rack(self, pld: TaskPayload, rack: int = 0) -> Rack:
@@ -200,7 +201,7 @@ class Client:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
             res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
-            task.set_internal(self.__sugar(res.tasks)[0])
+            task.set_internal(self.sugar(res.tasks)[0])
             while True:
                 frame = streamer.read(timeout)
                 if frame is None:
@@ -265,10 +266,10 @@ class Client:
             ),
             _RetrieveResponse,
         )
-        sug = self.__sugar(res.tasks)
+        sug = self.sugar(res.tasks)
         return sug[0] if is_single else sug
 
-    def __sugar(self, tasks: list[Payload]):
+    def sugar(self, tasks: list[Payload]):
         return [
             Task(
                 **t.dict(),
@@ -276,3 +277,4 @@ class Client:
             )
             for t in tasks
         ]
+

@@ -42,3 +42,25 @@ class TestOntology:
         assert len(parents) == 1
         assert parents[0].name == name
 
+    def test_remove_children(self, client: sy.Synnax):
+        name = str(uuid4())
+        g = client.ontology.groups.create(ROOT, name)
+        assert g.key is not None
+        g2 = client.ontology.groups.create(g.ontology_id, name)
+        assert g2.key is not None
+        client.ontology.remove_children(g.ontology_id, g2.ontology_id)
+        children = client.ontology.retrieve_children(g.ontology_id)
+        assert len(children) == 0
+
+    def test_move_children(self, client: sy.Synnax):
+        name = str(uuid4())
+        g = client.ontology.groups.create(ROOT, name)
+        assert g.key is not None
+        g2 = client.ontology.groups.create(ROOT, name)
+        assert g2.key is not None
+        client.ontology.move_children(g.ontology_id, g2.ontology_id, g.ontology_id)
+        children = client.ontology.retrieve_children(g2.ontology_id)
+        assert len(children) == 1
+        assert children[0].name == name
+
+

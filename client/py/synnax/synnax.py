@@ -138,15 +138,6 @@ class Synnax(Client):
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeWriter(self._transport.unary, instrumentation)
         self.signals = Registry(frame_client=self, channels=ch_retriever)
-        self.ranges = RangeClient(
-            unary_client=self._transport.unary,
-            frame_client=self,
-            channel_retriever=ch_retriever,
-            writer=range_creator,
-            retriever=range_retriever,
-            signals=self.signals,
-        )
-        self.control = ControlClient(self, ch_retriever)
         racks = RackClient(client=self._transport.unary)
         tasks = TaskClient(
             client=self._transport.unary,
@@ -154,6 +145,18 @@ class Synnax(Client):
             rack_client=racks
         )
         devices = DeviceClient(client=self._transport.unary)
+        self.ranges = RangeClient(
+            unary_client=self._transport.unary,
+            frame_client=self,
+            channel_retriever=ch_retriever,
+            writer=range_creator,
+            retriever=range_retriever,
+            signals=self.signals,
+            ontology=self.ontology,
+            tasks=tasks,
+        )
+        self.control = ControlClient(self, ch_retriever)
+
         self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)
         self.access = PolicyClient(self._transport.unary, instrumentation)
         self.user = UserClient(self._transport.unary)

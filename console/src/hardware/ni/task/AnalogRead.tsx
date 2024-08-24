@@ -44,6 +44,7 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  ParentRangeButton,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -226,7 +227,11 @@ const Wrapped = ({
       <Align.Space grow>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name">
+            <Form.Field<string>
+              path="name"
+              showLabel={false}
+              padHelpText={!task?.snapshot}
+            >
               {(p) => (
                 <Input.Text
                   variant={task?.snapshot ? "preview" : "natural"}
@@ -254,6 +259,7 @@ const Wrapped = ({
               </Button.Icon>
             </Align.Space>
           </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">

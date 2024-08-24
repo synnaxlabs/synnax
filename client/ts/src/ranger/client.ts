@@ -245,7 +245,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     options?: CreateOptions,
   ): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
-    const res = this.sugar(await this.writer.create(toArray(ranges), options));
+    const res = this.sugarMany(await this.writer.create(toArray(ranges), options));
     return single ? res[0] : res;
   }
 
@@ -258,11 +258,11 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 
   async search(term: string): Promise<Range[]> {
-    return this.sugar(await this.execRetrieve({ term }));
+    return this.sugarMany(await this.execRetrieve({ term }));
   }
 
   async page(offset: number, limit: number): Promise<Range[]> {
-    return this.sugar(await this.execRetrieve({ offset, limit }));
+    return this.sugarMany(await this.execRetrieve({ offset, limit }));
   }
 
   async retrieve(range: CrudeTimeRange): Promise<Range[]>;
@@ -297,7 +297,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       retrieveReqZ,
       retrieveResZ,
     );
-    return this.sugar(ranges);
+    return this.sugarMany(ranges);
   }
 
   async retrieveParent(range: Key): Promise<Range | null> {
@@ -311,22 +311,24 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return await this.retrieve(first.id.key);
   }
 
-  sugar(payloads: Payload[]): Range[] {
-    return payloads.map((payload) => {
-      return new Range(
-        payload.name,
-        payload.timeRange,
-        payload.key,
-        payload.color,
-        this.frameClient,
-        new KV(payload.key, this.unaryClient, this.frameClient),
-        new Aliaser(payload.key, this.frameClient, this.unaryClient),
-        this.channels,
-        this.labelClient,
-        this.ontologyClient,
-        this,
-      );
-    });
+  sugarOne(payload: Payload): Range {
+    return new Range(
+      payload.name,
+      payload.timeRange,
+      payload.key,
+      payload.color,
+      this.frameClient,
+      new KV(payload.key, this.unaryClient, this.frameClient),
+      new Aliaser(payload.key, this.frameClient, this.unaryClient),
+      this.channels,
+      this.labelClient,
+      this.ontologyClient,
+      this,
+    );
+  }
+
+  sugarMany(payloads: Payload[]): Range[] {
+    return payloads.map((payload) => this.sugarOne(payload));
   }
 
   async openTracker(): Promise<signals.Observable<string, Range>> {
@@ -337,19 +339,22 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       (variant, data) => {
         if (variant === "delete")
           return data.toStrings().map((k) => ({ variant, key: k, value: undefined }));
-        const sugared = this.sugar(data.parseJSON(payloadZ));
+        const sugared = this.sugarMany(data.parseJSON(payloadZ));
         return sugared.map((r) => ({ variant, key: r.key, value: r }));
       },
     );
   }
 
   resourcesToRanges(resources: Resource[]): Range[] {
-    return this.sugar(
-      resources.map((r) => ({
-        key: r.id.key,
-        name: r.data?.name as string,
-        timeRange: new TimeRange(r.data?.timeRange as CrudeTimeRange),
-      })),
-    );
+    return resources.map((r) => this.resourceToRange(r));
+  }
+
+  resourceToRange(resource: Resource): Range {
+    return this.sugarOne({
+      key: resource.id.key,
+      name: resource.data?.name as string,
+      timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
+      color: resource.data?.color as string,
+    });
   }
 }

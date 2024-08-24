@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { task, UnexpectedError } from "@synnaxlabs/client";
+import { ranger, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -23,6 +23,7 @@ import {
   Synnax,
   Text,
   Triggers,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { caseconv, deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
@@ -33,6 +34,7 @@ import { z } from "zod";
 import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { overviewLayout } from "@/range/external";
 
 export interface ControlsProps {
   onStartStop: () => void;
@@ -389,4 +391,56 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
   };
   Wrapper.displayName = `TaskWrapper(${Wrapped.displayName ?? Wrapped.name})`;
   return Wrapper;
+};
+
+export interface ParentRangeButtonProps {
+  taskKey: string;
+}
+
+export const ParentRangeButton = ({
+  taskKey,
+}: ParentRangeButtonProps): ReactElement | null => {
+  const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+  const [parent, setParent] = useState<ranger.Range | null>();
+  const placer = Layout.usePlacer();
+
+  useAsyncEffect(async () => {
+    try {
+      if (client == null) return;
+      const rng = await client.hardware.tasks.retrieve(taskKey);
+      const parent = await rng.snapshottedTo();
+      setParent(parent);
+      // const tracker = await rng.openParentRangeTracker();
+      // if (tracker == null) return;
+      // tracker.onChange((ranges) => setParent(ranges));
+      // return async () => await tracker.close();
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        message: `Failed to retrieve child ranges`,
+        description: (e as Error).message,
+      });
+      return undefined;
+    }
+  }, [taskKey, client?.key]);
+  if (parent == null) return null;
+  return (
+    <Align.Space direction="x" size="small" align="center">
+      <Text.Text level="p">Snapshotted to</Text.Text>
+      <Button.Button
+        variant="text"
+        shade={7}
+        weight={400}
+        startIcon={<Icon.Range />}
+        iconSpacing="small"
+        style={{ padding: "1rem" }}
+        onClick={() =>
+          placer({ ...overviewLayout, key: parent.key, name: parent.name })
+        }
+      >
+        {parent.name}
+      </Button.Button>
+    </Align.Space>
+  );
 };

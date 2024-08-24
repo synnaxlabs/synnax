@@ -36,8 +36,7 @@ from synnax.telem import (
     Series,
     TimeRange,
 )
-from synnax.util.normalize import normalize, check_for_none, override
-
+from synnax.util.normalize import normalize
 
 CHANNEL_ONTOLOGY_TYPE = ID(type="channel")
 
@@ -266,6 +265,8 @@ class ChannelClient:
         """
 
         if channels is None:
+            if is_index and data_type == DataType.UNKNOWN:
+                data_type = DataType.TIMESTAMP
             _channels = [
                 ChannelPayload(
                     name=name,

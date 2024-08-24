@@ -27,7 +27,7 @@ class RangePayload(Payload):
     color: str = "#000000"
 
 
-RangeKey = UUID
+RangeKey = UUID | str
 """The type for the key of a Range. A UUID."""
 RangeName = str
 """The type for the name of a Range. A string."""
@@ -38,22 +38,3 @@ RangeNames = tuple[str] | list[str]
 RangeParams = RangeKeys | RangeNames | RangeKey | RangeName
 """Parameters that can be used to query a range"""
 
-
-@dataclass
-class NormalizeRangeParams:
-    single: bool
-    variant: Literal["keys", "names"]
-    params: RangeNames | RangeKeys
-
-
-def normalize_range_params(
-    params: RangeParams,
-) -> NormalizeRangeParams:
-    normalized = normalize(params)
-    if len(normalized) == 0:
-        raise QueryError("No keys or names provided to range retrieval")
-    return NormalizeRangeParams(
-        single=isinstance(params, (str, UUID)),
-        variant="keys" if isinstance(normalized[0], UUID) else "names",
-        params=normalized,
-    )

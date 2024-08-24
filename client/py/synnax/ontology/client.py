@@ -28,12 +28,12 @@ class RetrieveReq(Payload):
 
 
 class AddChildrenReq(Payload):
-    parent: ID
+    id: ID
     children: list[ID]
 
 
 class RemoveChildrenReq(Payload):
-    parent: ID
+    id: ID
     children: list[ID]
 
 
@@ -141,11 +141,11 @@ class Client:
         send_required(
             self._client,
             _MOVE_CHILDREN_ENDPOINT,
-            MoveChildrenReq(
-                from_=ID(from_),
-                to=ID(to),
-                children=[ID(i) for i in children]
-            ),
+            MoveChildrenReq.parse_obj({
+                "from": ID(from_),
+                "to": ID(to),
+                "children": [ID(i) for i in children]
+            }),
             Empty
         )
 
@@ -157,7 +157,7 @@ class Client:
         send_required(
             self._client,
             _REMOVE_CHILDREN_ENDPOINT,
-            RemoveChildrenReq(parent=ID(id), children=[ID(i) for i in children]),
+            RemoveChildrenReq(id=ID(id), children=[ID(i) for i in children]),
             Empty
         )
 

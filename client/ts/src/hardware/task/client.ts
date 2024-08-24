@@ -30,12 +30,15 @@ import {
   taskZ,
 } from "@/hardware/task/payload";
 import { ontology } from "@/ontology";
+import { ranger } from "@/ranger";
 import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const TASK_STATE_CHANNEL = "sy_task_state";
 const TASK_CMD_CHANNEL = "sy_task_cmd";
+
+const TASK_NOT_CREATED = new Error("Task not created");
 
 export class Task<
   C extends UnknownRecord = UnknownRecord,
@@ -49,17 +52,21 @@ export class Task<
   readonly config: C;
   readonly snapshot: boolean;
   state?: State<D>;
-  private readonly frameClient: framer.Client;
+  private readonly frameClient: framer.Client | null;
+  private readonly ontologyClient: ontology.Client | null;
+  private readonly rangeClient: ranger.Client | null;
 
   constructor(
     key: TaskKey,
     name: string,
     type: T,
     config: C,
-    frameClient: framer.Client,
     internal: boolean = false,
     snapshot: boolean = false,
     state?: State<D> | null,
+    frameClient: framer.Client | null = null,
+    ontologyClient: ontology.Client | null = null,
+    rangeClient: ranger.Client | null = null,
   ) {
     this.key = key;
     this.name = name;
@@ -69,6 +76,8 @@ export class Task<
     this.snapshot = snapshot;
     if (state !== null) this.state = state;
     this.frameClient = frameClient;
+    this.ontologyClient = ontologyClient;
+    this.rangeClient = rangeClient;
   }
 
   get payload(): Payload<C, D> {
@@ -87,6 +96,7 @@ export class Task<
   }
 
   async executeCommand(type: string, args?: UnknownRecord): Promise<string> {
+    if (this.frameClient == null) throw TASK_NOT_CREATED;
     const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
     const key = id.id();
     await writer.write(TASK_CMD_CHANNEL, [{ task: this.key, type, key, args }]);
@@ -99,6 +109,7 @@ export class Task<
     args: UnknownRecord,
     timeout: CrudeTimeSpan,
   ): Promise<State<D>> {
+    if (this.frameClient == null) throw TASK_NOT_CREATED;
     const streamer = await this.frameClient.openStreamer(TASK_STATE_CHANNEL);
     const cmdKey = await this.executeCommand(type, args);
     let res: State<D>;
@@ -123,6 +134,7 @@ export class Task<
   async openStateObserver<D extends UnknownRecord = UnknownRecord>(): Promise<
     StateObservable<D>
   > {
+    if (this.frameClient == null) throw TASK_NOT_CREATED;
     return new framer.ObservableStreamer<State<D>>(
       await this.frameClient.openStreamer(TASK_STATE_CHANNEL),
       (frame) => {
@@ -135,6 +147,14 @@ export class Task<
         return [state, true];
       },
     );
+  }
+
+  async snapshottedTo(): Promise<ranger.Range | null> {
+    if (this.ontologyClient == null || this.rangeClient == null) throw TASK_NOT_CREATED;
+    const parents = await this.ontologyClient.retrieveParents(this.ontologyID);
+    const parent = parents.find((p) => p.id.type === "range");
+    if (parent == null) return null;
+    return this.rangeClient.resourceToRange(parent);
   }
 }
 
@@ -178,10 +198,19 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   readonly type: string = "task";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
+  private readonly ontologyClient: ontology.Client;
+  private readonly rangeClient: ranger.Client;
 
-  constructor(client: UnaryClient, frameClient: framer.Client) {
+  constructor(
+    client: UnaryClient,
+    frameClient: framer.Client,
+    ontologyClient: ontology.Client,
+    rangeClient: ranger.Client,
+  ) {
     this.client = client;
     this.frameClient = frameClient;
+    this.ontologyClient = ontologyClient;
+    this.rangeClient = rangeClient;
   }
 
   async create<
@@ -307,7 +336,18 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   private sugar(payloads: Payload[]): Task[] {
     return payloads.map(
       ({ key, name, type, config, state, internal, snapshot }) =>
-        new Task(key, name, type, config, this.frameClient, internal, snapshot, state),
+        new Task(
+          key,
+          name,
+          type,
+          config,
+          internal,
+          snapshot,
+          state,
+          this.frameClient,
+          this.ontologyClient,
+          this.rangeClient,
+        ),
     );
   }
 
