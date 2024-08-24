@@ -43,5 +43,10 @@ export const conceptsNav: PageNavNode = {
       href: "/reference/concepts/streams",
       name: "Streams",
     },
+    {
+      key: "/reference/concepts/ranges",
+      href: "/reference/concepts/ranges",
+      name: "Ranges",
+    },
   ],
 };

@@ -55,7 +55,7 @@ type Args = Partial<z.infer<typeof formSchema>>;
 
 export const EDIT_LAYOUT_TYPE = "editRange";
 
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+const CREATE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 interface CreateEditLayoutProps extends Partial<Layout.State> {
   initial?: Partial<Args>;
@@ -192,8 +192,6 @@ const EditLayoutForm = ({
     onError: (e) => addStatus({ message: e.message, variant: "error" }),
   });
 
-  const showSaveToSynnax = isCreate || !isRemoteEdit;
-
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
     (data: ranger.Range[]) => data.filter((r) => r.key !== initialValues.key),
@@ -285,32 +283,22 @@ const EditLayoutForm = ({
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
+          <Triggers.Text shade={7} level="small" trigger={CREATE_TRIGGER} />
           <Text.Text shade={7} level="small">
-            To Save
+            To Create
           </Text.Text>
         </Nav.Bar.Start>
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.Button
-            variant={showSaveToSynnax ? "outlined" : "filled"}
-            onClick={() => mutate(false)}
-            disabled={isPending}
-            triggers={showSaveToSynnax ? undefined : [SAVE_TRIGGER]}
+            onClick={() => mutate(true)}
+            disabled={client == null || isPending}
+            tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
+            tooltipLocation="bottom"
+            loading={isPending}
+            triggers={[CREATE_TRIGGER]}
           >
-            Save {!isRemoteEdit && "Locally"}
+            Create
           </Button.Button>
-          {showSaveToSynnax && (
-            <Button.Button
-              onClick={() => mutate(true)}
-              disabled={client == null || isPending}
-              tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
-              tooltipLocation="bottom"
-              loading={isPending}
-              triggers={[SAVE_TRIGGER]}
-            >
-              Save to Synnax
-            </Button.Button>
-          )}
         </Nav.Bar.End>
       </Nav.Bar>
     </Align.Space>
