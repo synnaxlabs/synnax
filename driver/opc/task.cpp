@@ -87,6 +87,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
 
     auto config_parser = config::Parser(task.config);
     auto cfg = WriterConfig(config_parser);
+    LOG(INFO) << "[opc.writer] Writer Config: " << config_parser.get_json().dump(4);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.writer] failed to parse configuration for " << task.name;
         ctx->setState({
