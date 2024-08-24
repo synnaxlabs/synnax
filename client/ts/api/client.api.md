@@ -1795,6 +1795,7 @@ declare namespace ontology {
         NodeOntologyType,
         idZ,
         IDPayload,
+        stringIDZ,
         crudeIDZ,
         CrudeID,
         ID,
@@ -2918,6 +2919,14 @@ interface StreamerConfig {
     // (undocumented)
     from?: CrudeTimeStamp;
 }
+
+// Warning: (ae-missing-release-tag) "stringIDZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const stringIDZ: z.ZodEffects<z.ZodString, {
+    type: ResourceType;
+    key: string;
+}, string>;
 
 // Warning: (ae-missing-release-tag) "Subject" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //

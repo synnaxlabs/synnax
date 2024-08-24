@@ -45,7 +45,7 @@ export const NodeOntologyType = "node" as ResourceType;
 export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
 export type IDPayload = z.infer<typeof idZ>;
 
-const stringIDZ = z.string().transform((v) => {
+export const stringIDZ = z.string().transform((v) => {
   const [type, key] = v.split(":");
   return { type: type as ResourceType, key: key ?? "" };
 });
