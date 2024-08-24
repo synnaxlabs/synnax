@@ -18,6 +18,7 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
+import { Access } from "@/access";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Confirm } from "@/confirm";
@@ -40,6 +41,7 @@ import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
+  ...Access.LAYOUTS,
   ...Layouts.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Workspace.LAYOUTS,

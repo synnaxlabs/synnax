@@ -8,8 +8,49 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-import { type Ontology } from "@/ontology";
+import { Access } from "@/access";
+import { Menu } from "@/components/menu";
+import { Ontology } from "@/ontology";
+
+const useAccessControls =
+  (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  ({ placeLayout, selection: { resources } }) => {
+    placeLayout(
+      Access.accessLayout({
+        initial: {
+          name: resources[0].name,
+          subject: resources[0].id,
+        },
+      }),
+    );
+  };
+
+const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
+  const {
+    selection: { resources },
+  } = props;
+  const access = useAccessControls();
+  const handleSelect = {
+    access: () => access(props),
+  };
+  const singleResource = resources.length === 1;
+  return (
+    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+      {singleResource && (
+        <>
+          <PMenu.Item itemKey="access" startIcon={<Icon.Access />}>
+            Open Access Control Page
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
+      )}
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
+  );
+};
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "user",
@@ -19,4 +60,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   haulItems: () => [],
   canDrop: () => false,
   onSelect: () => {},
+  TreeContextMenu,
 };
