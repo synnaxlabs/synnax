@@ -18,7 +18,8 @@ const { tabindex, ...props } = Astro.props;
 <style is:global>
     .astro-code-wrapper {
         position: relative;
-        margin: 3rem 1rem;
+
+        margin: 5rem 1rem;
         button {
             opacity: 0;
             position: absolute;
@@ -37,7 +38,10 @@ const { tabindex, ...props } = Astro.props;
             opacity: 1;
         }
         .astro-code {
-            padding: 3rem;
+            padding: 5rem 4rem;
+            &[data-language="bash"] {
+                padding: 3rem;
+            }
             position: relative;
             border: var(--pluto-border);
             border-radius: 1rem;

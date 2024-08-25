@@ -263,8 +263,8 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 const DARK_SCALE = [
   "#020202",
   "#111111",
-  "#191919",
-  "#2a2a2a",
+  "#171717",
+  "#1b1b1b",
   "#313131",
   "#515151",
   "#7f7f7f",

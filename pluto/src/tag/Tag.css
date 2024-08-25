@@ -10,12 +10,12 @@
  */
 
 .pluto-tag {
-    padding: 0rem 1.25rem;
+    padding: 0rem 1.5rem;
     border-radius: var(--pluto-border-radius);
     border: var(--pluto-border);
     width: fit-content;
-    height: 3.75rem;
-    background: var(--pluto-gray-l0);
+    height: 4.5rem;
+    background: var(--pluto-gray-l1);
     transition: padding-right 0.3s ease;
     max-width: 200px;
     overflow: hidden;

@@ -10,10 +10,11 @@
 import "@synnaxlabs/pluto/dist/style.css";
 import "./main.css";
 
-import { Align, Canvas, Pluto, Tag } from "@synnaxlabs/pluto";
-import { Channel, TimeSpan } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/media";
+import { Align, Pluto, Ranger, Text, TimeSpan, TimeStamp } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
+import { ChildRanges } from "./ChildRanges";
 import WorkerURL from "./worker?worker&url";
 
 const Main = () => (
@@ -27,29 +28,7 @@ const Main = () => (
       secure: true,
     }}
   >
-    <Align.Center
-      direction="x"
-      style={{
-        width: "100vw",
-        background:
-          "linear-gradient(45deg, var(--pluto-primary-z), var(--pluto-error-z))",
-      }}
-    >
-      <Align.Space
-        direction="x"
-        style={{
-          background: "var(--pluto-gray-l1)",
-          padding: "2rem",
-          border: "var(--pluto-border-l4)",
-          borderRadius: "1rem",
-        }}
-      >
-        <Tag.Tag color="var(--pluto-secondary-z)">Success</Tag.Tag>
-        <Tag.Tag color="#e70ceb">Completed</Tag.Tag>
-        <Tag.Tag color="var(--pluto-primary-z)">Qualification</Tag.Tag>
-        <Tag.Tag color="#eb950c">V1</Tag.Tag>
-      </Align.Space>
-    </Align.Center>
+    <ChildRanges />
   </Pluto.Provider>
 );
 

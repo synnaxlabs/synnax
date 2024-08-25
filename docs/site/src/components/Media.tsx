@@ -79,7 +79,12 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
   return <Core.Video ref={ref} href={href} loop muted {...props} />;
 };
 
-export const Image = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
+export const Image = ({
+  id,
+  themed = true,
+  className,
+  ...props
+}: VideoProps): ReactElement => {
   const theme = useLiveTheme();
   let url = `${CDN_ROOT}/${id}`;
   if (themed) url += `-${theme}`;
@@ -88,5 +93,5 @@ export const Image = ({ id, themed = true, ...props }: VideoProps): ReactElement
   useEffect(() => {
     if (ref.current) ref.current.src = url;
   }, []);
-  return <img src={url} className="image" {...props} />;
+  return <img src={url} {...props} />;
 };
