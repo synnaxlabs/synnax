@@ -22,6 +22,7 @@ opc::WriterConfig::WriterConfig(
         const auto ch = WriterChannelConfig(channel_parser);
         if(ch.enabled) channels.push_back(ch);
     });
+    // TODO: also create the channel key to channel config map
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

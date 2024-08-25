@@ -60,7 +60,7 @@ void opc::Sink::initialize_write_request(const synnax::Frame &frame){
 
     for(const auto key : *(frame.channels)){
         // get channel config using key
-        auto ch = this->channel_map[key];
+        auto ch = this->cmd_channel_map[key];
         this->initialize_write_value(
             frame, 
             frame_index, 
