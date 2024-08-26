@@ -399,8 +399,7 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
 ni::StateSource::StateSource(
     float state_rate,
     synnax::ChannelKey &state_index_key,
-    std::vector<synnax::ChannelKey> &
-    state_channel_keys
+    std::vector<synnax::ChannelKey> &state_channel_keys
 ) {
     this->state_rate.value = state_rate;
     // start the periodic thread

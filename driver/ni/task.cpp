@@ -222,16 +222,18 @@ ni::WriterTask::WriterTask(const std::shared_ptr<task::Context> &ctx,
                            const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
-    cmd_write_pipe(
-        pipeline::Control(  ctx->client, 
-                            cmd_streamer_config,
-                            std::move(sink),
-                            breaker_config)),
-    state_write_pipe(
-        pipeline::Acquisition(  ctx->client, 
-                                state_writer_config, 
-                                state_source,
-                                breaker_config)),
+    cmd_write_pipe(pipeline::Control(
+                    ctx->client,
+                    cmd_streamer_config,
+                    std::move(sink),
+                    breaker_config
+    )),
+    state_write_pipe(pipeline::Acquisition(
+                    ctx->client,
+                    state_writer_config,
+                    state_source,
+                    breaker_config
+    )),
     sink(ni_sink) {
 }
 
@@ -256,8 +258,8 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     LOG(INFO) << "[ni.writer] configuring task " << task.name;
     auto daq_writer = std::make_shared<ni::DigitalWriteSink>(task_handle, ctx, task);
 
-    std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys();
-    std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys();
+    std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys(); // TODO: rename & move down
+    std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys(); // TODO: rename & move down
 
     auto state_writer_config = synnax::WriterConfig{
         .channels = state_keys,

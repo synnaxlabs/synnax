@@ -300,7 +300,7 @@ public:
                          synnax::ChannelKey &state_index_key,
                          std::vector<synnax::ChannelKey> &state_channel_keys);
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker);
+    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
     synnax::Frame get_state();
 
