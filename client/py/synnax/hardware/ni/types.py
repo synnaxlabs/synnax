@@ -124,6 +124,9 @@ class MinMaxVal(BaseModel):
 class AIAccelChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Accelerometer Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchan.html>
     """
     type: Literal["ai_accel"] = "ai_accel"
     terminal_config: TerminalConfig = "Cfg_Default"
@@ -136,6 +139,12 @@ class AIAccelChan(BaseAIChan, MinMaxVal):
 
 
 class AIAccel4WireDCVoltageChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Accelerometer 4-Wire DC Voltage Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccel4wiredcvoltagechan.html
+    """
     type: Literal["ai_accel_4_wire_dc_voltage"] = "ai_accel_4_wire_dc_voltage"
     terminal_config: TerminalConfig = "Cfg_Default"
     sensitivity: float
@@ -148,12 +157,24 @@ class AIAccel4WireDCVoltageChan(BaseAIChan, MinMaxVal):
 
 
 class AIAccelChargeChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Accelerometer Charge Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchargechan.html>
+    """
     type: Literal["ai_accel_charge"] = "ai_accel_charge"
     units: Literal["g", "MetersPerSecondSquared", "InchesPerSecondSquared"]
     custom_scale: Scale = NoScale()
 
 
 class AIBridgeChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Bridge Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaibridgechan.html>
+    """
     type: Literal["ai_bridge"] = "ai_bridge"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
@@ -165,6 +186,12 @@ class AIBridgeChan(BaseAIChan, MinMaxVal):
 
 
 class AIChargeChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Charge Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaichargechan.html>
+    """
     type: Literal["ai_charge"] = "ai_charge"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["C", "uC"]
@@ -172,6 +199,12 @@ class AIChargeChan(BaseAIChan, MinMaxVal):
 
 
 class AICurrentChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Current Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentchan.html>
+    """
     type: Literal["ai_current"] = "ai_current"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Amps"] = "Amps"
@@ -181,6 +214,12 @@ class AICurrentChan(BaseAIChan, MinMaxVal):
 
 
 class AICurrentRMSChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Current RMS Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentrmschan.html>
+    """
     type: Literal["ai_current_rms"] = "ai_current_rms"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Amps"] = "Amps"
@@ -190,6 +229,12 @@ class AICurrentRMSChan(BaseAIChan, MinMaxVal):
 
 
 class AIForceBridgePolynomialChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Force Bridge Polynomial Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgepolynomialchan.html>
+    """
     type: Literal["ai_force_bridge_polynomial"] = "ai_force_bridge_polynomial"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Newtons", "Pounds", "KilogramForce"]
@@ -205,6 +250,12 @@ class AIForceBridgePolynomialChan(BaseAIChan, MinMaxVal):
 
 
 class AIForceBridgeTableChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Force Bridge Table Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetablechan.html>
+    """
     type: Literal["ai_force_bridge_table"] = "ai_force_bridge_table"
     units: Literal["Newtons", "Pounds", "KilogramForce"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
@@ -219,6 +270,12 @@ class AIForceBridgeTableChan(BaseAIChan, MinMaxVal):
 
 
 class AIForceBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Force Bridge Two Point Linear Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetwopointlinchan.html>
+    """
     type: Literal["ai_force_bridge_two_point_lin"] = "ai_force_bridge_two_point_lin"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Newtons", "Pounds", "KilogramForce"]
@@ -236,6 +293,12 @@ class AIForceBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
 
 
 class AIForceIEPEChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Force IEPE Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforceiepechan.html>
+    """
     type: Literal["ai_force_iepe"] = "ai_force_iepe"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Newtons", "Pounds", "KilogramForce"]
@@ -247,6 +310,12 @@ class AIForceIEPEChan(BaseAIChan, MinMaxVal):
 
 
 class AIFreqVoltageChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Frequency Voltage Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaifreqvoltagechan.html>
+    """
     type: Literal["ai_freq_voltage"] = "ai_freq_voltage"
     units: Literal["Hz"] = "Hz"
     threshold_level: float
@@ -255,6 +324,12 @@ class AIFreqVoltageChan(BaseAIChan, MinMaxVal):
 
 
 class AIMicrophoneChan(BaseAIChan):
+    """
+    Analog Input Microphone Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaimicrophonechan.html>
+    """
     type: Literal["ai_microphone"] = "ai_microphone"
     terminal_config: TerminalConfig = "Cfg_Default"
     mic_sensitivity: float
@@ -266,6 +341,12 @@ class AIMicrophoneChan(BaseAIChan):
 
 
 class AIPressureBridgePolynomialChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Pressure Bridge Polynomial Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgepolynomialchan.html>
+    """
     type: Literal["ai_pressure_bridge_polynomial"] = "ai_pressure_bridge_polynomial"
     units: Literal["PoundsPerSquareInch", "Pascals", "Bar"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
@@ -280,6 +361,12 @@ class AIPressureBridgePolynomialChan(BaseAIChan, MinMaxVal):
 
 
 class AIPressureBridgeTableChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Pressure Bridge Table Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetablechan.html>
+    """
     type: Literal["ai_pressure_bridge_table"] = "ai_pressure_bridge_table"
     units: Literal["PoundsPerSquareInch", "Pascals", "Bar"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
@@ -294,6 +381,12 @@ class AIPressureBridgeTableChan(BaseAIChan, MinMaxVal):
 
 
 class AIPressureBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Pressure Bridge Two Point Linear Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetwopointlinchan.html>
+    """
     type: Literal[
         "ai_pressure_bridge_two_point_lin"
     ] = "ai_pressure_bridge_two_point_lin"
@@ -313,6 +406,12 @@ class AIPressureBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
 
 
 class AIResistanceChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Resistance Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairesistancechan.html>
+    """
     type: Literal["ai_resistance"] = "ai_resistance"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Ohms"] = "Ohms"
@@ -323,6 +422,12 @@ class AIResistanceChan(BaseAIChan, MinMaxVal):
 
 
 class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Rosette Strain Gage Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairosettestraingagechan.html>
+    """
     type: Literal["ai_rosette_strain_gage"] = "ai_rosette_strain_gage"
     terminal_config: TerminalConfig = "Cfg_Default"
     rosette_type: Literal["RectangularRosette", "DeltaRosette", "TeeRosette"]
@@ -370,6 +475,12 @@ class AIRTDChan(BaseAIChan, MinMaxVal):
 
 
 class AIStrainGageChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Strain Gauge Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html>
+    """
     type: Literal["ai_strain_gauge"] = "ai_strain_gauge"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["strain"] = "strain"
@@ -393,11 +504,23 @@ class AIStrainGageChan(BaseAIChan, MinMaxVal):
 
 
 class AITempBuiltInChan(BaseAIChan):
+    """
+    Analog Input Temperature Built-In Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitempbuiltinchan.html>
+    """
     type: Literal["ai_temp_builtin"] = "ai_temp_builtin"
     units: Literal["DegC", "DegF", "Kelvins", "DegR"]
 
 
 class AIThermocoupleChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Thermocouple Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithermocouplechan.html>
+    """
     type: Literal["ai_thermocouple"] = "ai_thermocouple"
     units: Literal["DegC", "DegF", "Kelvins", "DegR"]
     thermocouple_type: Literal["J", "K", "N", "R", "S", "T", "B", "E"]
@@ -407,6 +530,12 @@ class AIThermocoupleChan(BaseAIChan, MinMaxVal):
 
 
 class AIThermistorChanIex(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Thermistor IEX Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithermistoriexchan.html>
+    """
     type: Literal["ai_thermistor_iex"] = "ai_thermistor_iex"
     units: Literal["DegC", "DegF", "Kelvins", "DegR"]
     resistance_config: Literal["2Wire", "3Wire", "4Wire"]
@@ -418,6 +547,12 @@ class AIThermistorChanIex(BaseAIChan, MinMaxVal):
 
 
 class AIThermistorChanVex(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Thermistor VEX Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithermistorvexchan.html>
+    """
     type: Literal["ai_thermistor_vex"] = "ai_thermistor_vex"
     units: Literal["DegC", "DegF", "Kelvins", "DegR"]
     resistance_config: Literal["2Wire", "3Wire", "4Wire"]
@@ -430,6 +565,12 @@ class AIThermistorChanVex(BaseAIChan, MinMaxVal):
 
 
 class AITorqueBridgePolynomialChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Torque Bridge Polynomial Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgepolynomialchan.html>
+    """
     type: Literal["ai_torque_bridge_polynomial"] = "ai_torque_bridge_polynomial"
     units: Literal["NewtonMeters", "InchOunces", "FootPounds"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
@@ -444,6 +585,12 @@ class AITorqueBridgePolynomialChan(BaseAIChan, MinMaxVal):
 
 
 class AITorqueBridgeTableChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Torque Bridge Table Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetablechan.html>
+    """
     type: Literal["ai_torque_bridge_table"] = "ai_torque_bridge_table"
     units: Literal["NewtonMeters", "InchOunces", "FootPounds"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
@@ -458,6 +605,12 @@ class AITorqueBridgeTableChan(BaseAIChan, MinMaxVal):
 
 
 class AITorqueBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Torque Bridge Two Point Linear Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetwopointlinchan
+    """
     type: Literal["ai_torque_bridge_two_point_lin"] = "ai_torque_bridge_two_point_lin"
     units: Literal["NewtonMeters", "InchOunces", "FootPounds"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
@@ -474,6 +627,12 @@ class AITorqueBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
 
 
 class AIVelocityIEPEChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Velocity IEPE Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivelocityiepechan.html>
+    """
     type: Literal["ai_velocity_iepe"] = "ai_velocity_iepe"
     units: Literal["MetersPerSecond", "InchesPerSecond"]
     terminal_config: TerminalConfig = "Cfg_Default"
@@ -489,9 +648,9 @@ class AIVelocityIEPEChan(BaseAIChan, MinMaxVal):
 class AIVoltageChan(BaseAIChan, MinMaxVal):
     """Analog Input Voltage Channel
 
-    https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechan.html
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechan.html>
     """
-
     type: Literal["ai_voltage"] = "ai_voltage"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Volts"] = "Volts"
@@ -499,6 +658,12 @@ class AIVoltageChan(BaseAIChan, MinMaxVal):
 
 
 class AIVoltageRMSChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Voltage RMS Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagermschan.html>
+    """
     type: Literal["ai_voltage_rms"] = "ai_voltage_rms"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["V", "mV"]
@@ -506,6 +671,12 @@ class AIVoltageRMSChan(BaseAIChan, MinMaxVal):
 
 
 class AIVoltageChanWithExcit(BaseAIChan, MinMaxVal):
+    """
+    Analog Input Voltage Channel with Excitation
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechanwithexcit.html>
+    """
     type: Literal["ai_voltage_with_excit"] = "ai_voltage_with_excit"
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["V", "mV"]
@@ -539,6 +710,12 @@ AIChan = Union[
 
 
 class DOChan(BaseChan):
+    """
+    Digital Output Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/documentation/en/ni-daqmx/latest/daqmxcfunc/daqmxcreatedochan.html>
+    """
     type: Literal["digital_output"] = "digital_output"
     cmd_channel: int
     state_channel: int
@@ -547,6 +724,12 @@ class DOChan(BaseChan):
 
 
 class DIChan(BaseModel):
+    """
+    Digital Input Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedichan.html>
+    """
     channel: int
     type: Literal["digital_input"] = "digital_input"
     port: int
