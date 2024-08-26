@@ -80,7 +80,6 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
-      console.log(methods.validate(), methods.value());
       if (!methods.validate() || client == null) return;
       const d = methods.value();
       d.dataType = d.dataType.toString();
