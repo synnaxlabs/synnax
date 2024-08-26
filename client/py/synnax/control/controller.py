@@ -28,6 +28,7 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, CrudeAuthority
+from synnax.timing import sleep
 
 
 class Processor(Protocol):
@@ -206,6 +207,9 @@ class Controller:
         if processor.exc:
             raise processor.exc
         return ok
+
+    def sleep(self, dur: float | int | TimeSpan):
+        sleep(dur)
 
     def wait_until_defined(
         self,

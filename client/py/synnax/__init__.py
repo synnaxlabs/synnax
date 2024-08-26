@@ -63,3 +63,4 @@ from synnax.telem import (
 from synnax.hardware.task import Task
 from synnax.hardware.rack import Rack
 from synnax.hardware.device import Device
+from synnax.timing import sleep

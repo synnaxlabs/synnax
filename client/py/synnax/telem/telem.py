@@ -381,7 +381,7 @@ class TimeSpan(int):
         return TimeSpan(super().__sub__(TimeSpan(rhs)))
 
     def __mul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
-        return TimeSpan(super().__mul__(TimeSpan(rhs)))
+        return TimeSpan(self.nanoseconds * rhs)
 
     def __truediv__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__truediv__(TimeSpan(rhs)))

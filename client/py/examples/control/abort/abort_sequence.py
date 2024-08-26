@@ -29,13 +29,13 @@ with client.control.acquire(
     write_authorities=[100],
     write=[PRESS_VALVE, VENT_VALVE],
     read=[PRESSURE],
-) as controller:
+) as ctrl:
     # Wait until we hit an abort condition.
-    controller.wait_until(lambda c: c[PRESSURE] > 30)
+    ctrl.wait_until(lambda c: c[PRESSURE] > 30)
     # Change the control authority to the highest level - 1. This is higher than
     # the 200 value in the nominal sequence, so the abort sequence will take control.
-    controller.set_authority({PRESS_VALVE: 254, VENT_VALVE: 254})
+    ctrl.set_authority({PRESS_VALVE: 254, VENT_VALVE: 254})
     # Vent the system
-    controller.set({PRESS_VALVE: False, VENT_VALVE: True})
+    ctrl.set({PRESS_VALVE: False, VENT_VALVE: True})
     # Hold control until the user presses Ctrl+C
-    time.sleep(1e6)
+    ctrl.sleep(1e6)

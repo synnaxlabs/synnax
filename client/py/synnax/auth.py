@@ -17,10 +17,10 @@ from freighter import (
     Next,
     Payload,
     UnaryClient,
-    send_required,
 )
 
 from synnax.user.payload import UserPayload
+from synnax.util.send_required import send_required
 
 
 class InsecureCredentials(Payload):
