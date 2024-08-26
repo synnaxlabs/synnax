@@ -132,6 +132,8 @@ namespace opc {
         synnax::ChannelKey state_index_key;
         ///@brief thread listening for updates on the OPC UA server
         std::unique_ptr<std::thread> subscriber_thread;
+        ///@brief subscription id for the OPC UA server
+        UA_UInt32 subscription_id;
     }; // class StateSource
 
     ///////////////////////////////////////////////////////////////////////////////////

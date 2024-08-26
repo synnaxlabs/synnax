@@ -111,9 +111,16 @@ int main(int argc, char *argv[]) {
             UA_MonitoredItemCreateRequest_default(UA_NODEID_STRING(1, "the.answer"));
 
     UA_MonitoredItemCreateResult monResponse =
-            UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
-                                                      UA_TIMESTAMPSTORETURN_BOTH,
-                                                      monRequest, NULL, handler_TheAnswerChanged, NULL);
+            UA_Client_MonitoredItems_createDataChange(
+                    client,
+                    response.subscriptionId,
+                    UA_TIMESTAMPSTORETURN_BOTH,
+                    monRequest,
+                    NULL,
+                    handler_TheAnswerChanged,
+                    NULL
+                );
+
     if(monResponse.statusCode == UA_STATUSCODE_GOOD)
         printf("Monitoring 'the.answer', id %u\n", monResponse.monitoredItemId);
 
@@ -122,7 +129,7 @@ int main(int argc, char *argv[]) {
             UA_MonitoredItemCreateRequest_default(UA_NODEID_STRING(1, "the.answer3"));
 
     UA_MonitoredItemCreateResult monResponse3 =
-            UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
+            UA_Client_MonitoredItems_createD ataChange(client, response.subscriptionId,
                                                       UA_TIMESTAMPSTORETURN_BOTH,
                                                       monRequest3, NULL, handler_TheAnswer3Changed, NULL);
     if(monResponse3.statusCode == UA_STATUSCODE_GOOD)
