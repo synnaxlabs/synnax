@@ -53,12 +53,13 @@ class TestTaskClient:
                     key = f["sy_task_set"][0]
                     w.write(
                         "sy_task_state",
-                        [{
-
-                            "task": int(key),
-                            "variant": "success",
-                            "details": {"message": "Task configured."}
-                        }]
+                        [
+                            {
+                                "task": int(key),
+                                "variant": "success",
+                                "details": {"message": "Task configured."},
+                            }
+                        ],
                     )
 
         tsk = sy.Task()
@@ -78,11 +79,13 @@ class TestTaskClient:
                     key = f["sy_task_set"][0]
                     w.write(
                         "sy_task_state",
-                        [{
-                            "task": int(key),
-                            "variant": "error",
-                            "details": {"message": "Invalid Configuration."}
-                        }]
+                        [
+                            {
+                                "task": int(key),
+                                "variant": "error",
+                                "details": {"message": "Invalid Configuration."},
+                            }
+                        ],
                     )
 
         tsk = sy.Task()

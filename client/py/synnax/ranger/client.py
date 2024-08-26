@@ -92,7 +92,6 @@ class _InternalScopedChannel(ChannelPayload):
         ontology: OntologyClient,
         payload: ChannelPayload,
         aliaser: Aliaser | None = None,
-
     ):
         super().__init__(**payload.dict())
         self.__range = rng

@@ -54,7 +54,6 @@ class TestDevice:
         assert devices[0].name.startswith("My Device 1")
         assert devices[1].name.startswith("My Device 2")
 
-
     def test_retrieve_by_names(self, client: sy.Synnax, new_devices: BasicDevices):
         d1, d2 = new_devices
         client.hardware.devices.create(devices=[d1, d2])

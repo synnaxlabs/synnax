@@ -23,7 +23,6 @@ from synnax.hardware.rack import Rack, Client as RackClient
 from synnax.exceptions import ConfigurationError
 
 
-
 class _CreateRequest(Payload):
     tasks: list[TaskPayload]
 
@@ -205,8 +204,10 @@ class Client:
             while True:
                 frame = streamer.read(timeout)
                 if frame is None:
-                    raise TimeoutError("task - timeout waiting for driver to "
-                                       "acknowledge configuration")
+                    raise TimeoutError(
+                        "task - timeout waiting for driver to "
+                        "acknowledge configuration"
+                    )
                 elif (
                     _TASK_STATE_CHANNEL not in frame
                     or len(frame[_TASK_STATE_CHANNEL]) == 0
@@ -262,7 +263,7 @@ class Client:
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),
-                types=override(type, types)
+                types=override(type, types),
             ),
             _RetrieveResponse,
         )
@@ -277,4 +278,3 @@ class Client:
             )
             for t in tasks
         ]
-

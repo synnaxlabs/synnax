@@ -62,5 +62,3 @@ class TestOntology:
         children = client.ontology.retrieve_children(g2.ontology_id)
         assert len(children) == 1
         assert children[0].name == name
-
-

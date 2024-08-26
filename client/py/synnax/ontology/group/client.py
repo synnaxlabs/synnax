@@ -48,15 +48,12 @@ class Client:
             self._client,
             _CREATE_ENDPOINT,
             CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
-            CreatRes
+            CreatRes,
         ).group
 
     def rename(self, key: CrudeID, name: str) -> Empty:
         return send_required(
-            self._client,
-            _RENAME_ENDPOINT,
-            RenameReq(key=ID(key), name=name),
-            Empty
+            self._client, _RENAME_ENDPOINT, RenameReq(key=ID(key), name=name), Empty
         )
 
     def delete(self, keys: list[CrudeID]) -> Empty:
@@ -64,5 +61,5 @@ class Client:
             self._client,
             _DELETE_ENDPOINT,
             DeleteReq(key=[ID(key) for key in keys]),
-            Empty
+            Empty,
         )

@@ -49,10 +49,7 @@ tsk = ni.DigitalWriteTask(
     data_saving=True,
     channels=[
         ni.DOChan(
-            cmd_channel=do_1_cmd.key,
-            state_channel=do_1_state.key,
-            port=0,
-            line=0
+            cmd_channel=do_1_cmd.key, state_channel=do_1_state.key, port=0, line=0
         ),
     ],
 )
@@ -65,7 +62,7 @@ with tsk.start():
         name="Control Sequence",
         read=["6289_do_1_state"],
         write=["6289_do_1_cmd"],
-        write_authorities=50
+        write_authorities=50,
     ) as auto:
         for i in range(5000):
             time.sleep(1)

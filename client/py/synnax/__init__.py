@@ -24,7 +24,7 @@ from synnax.exceptions import (
     ControlError,
     UnauthorizedError,
     FieldError,
-ConfigurationError,
+    ConfigurationError,
 )
 from synnax.framer import (
     BufferedWriter,

@@ -103,7 +103,7 @@ class Client:
             children=children,
             parents=parents,
             include_schema=include_schema,
-            exclude_field_data=exclude_field_data
+            exclude_field_data=exclude_field_data,
         )
         res = send_required(self._client, _RETRIEVE_ENDPOINT, req, RetrieveRes)
         if is_single:
@@ -118,7 +118,7 @@ class Client:
             self._client,
             _RETRIEVE_ENDPOINT,
             RetrieveReq(ids=[ID(i) for i in normalize(id)], children=True),
-            RetrieveRes
+            RetrieveRes,
         ).resources
 
     def retrieve_parents(
@@ -129,46 +129,31 @@ class Client:
             self._client,
             _RETRIEVE_ENDPOINT,
             RetrieveReq(ids=[ID(i) for i in normalize(id)], parents=True),
-            RetrieveRes
+            RetrieveRes,
         ).resources
 
-    def move_children(
-        self,
-        from_: CrudeID,
-        to: CrudeID,
-        *children: CrudeID
-    ) -> None:
+    def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
         send_required(
             self._client,
             _MOVE_CHILDREN_ENDPOINT,
-            MoveChildrenReq.parse_obj({
-                "from": ID(from_),
-                "to": ID(to),
-                "children": [ID(i) for i in children]
-            }),
-            Empty
+            MoveChildrenReq.parse_obj(
+                {"from": ID(from_), "to": ID(to), "children": [ID(i) for i in children]}
+            ),
+            Empty,
         )
 
-    def remove_children(
-        self,
-        id: CrudeID,
-        *children: CrudeID
-    ) -> None:
+    def remove_children(self, id: CrudeID, *children: CrudeID) -> None:
         send_required(
             self._client,
             _REMOVE_CHILDREN_ENDPOINT,
             RemoveChildrenReq(id=ID(id), children=[ID(i) for i in children]),
-            Empty
+            Empty,
         )
 
-    def add_children(
-        self,
-        id: CrudeID,
-        *children: CrudeID
-    ) -> None:
+    def add_children(self, id: CrudeID, *children: CrudeID) -> None:
         send_required(
             self._client,
             _ADD_CHILDREN_ENDPOINT,
             AddChildrenReq(parent=ID(id), children=[ID(i) for i in children]),
-            Empty
+            Empty,
         )

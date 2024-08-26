@@ -116,8 +116,11 @@ class Controller:
             channels = retrieve_required(self._retriever, list(ch.keys()))
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
-            updated_idx = {channels[i].index: now for i in range(len(channels)) if
-                           channels[i].virtual != True}
+            updated_idx = {
+                channels[i].index: now
+                for i in range(len(channels))
+                if channels[i].virtual != True
+            }
             self._writer.write({**updated, **updated_idx})
             return
         ch = retrieve_required(self._retriever, ch)[0]

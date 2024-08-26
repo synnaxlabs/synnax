@@ -59,7 +59,7 @@ tsk = ni.AnalogReadTask(
                 y_intercept=50,
                 pre_scaled_units="Volts",
                 scaled_units="Volts",
-            )
+            ),
         ),
         ni.AIVoltageChan(
             channel=ai_1.key,
@@ -71,7 +71,7 @@ tsk = ni.AnalogReadTask(
                 scaled_max=200,
                 pre_scaled_units="Volts",
                 scaled_units="Degrees",
-            )
+            ),
         ),
     ],
 )
