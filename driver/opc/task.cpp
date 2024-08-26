@@ -166,7 +166,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         return nullptr;
     }
 
-    // TODO: instantiate sink
     auto sink = std::make_shared<opc::Sink>(
                                     cfg,
                                     ua_client,
@@ -174,7 +173,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
                                     task
                                 );
 
-    // TODO: construct streamer
     auto cmd_streamer_config = synnax::StreamerConfig{
         .channels = cfg.channelKeys(),
         .start = synnax::TimeStamp::now(),
