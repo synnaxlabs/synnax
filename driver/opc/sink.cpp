@@ -181,18 +181,39 @@ size_t write_to_series(
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 opc::StateSource::StateSource(
-    synnax::Rate state_rate,
     const std::shared_ptr<UA_Client> &ua_client,
     const std::shared_ptr<task::Context> &ctx,
-    const WriterConfig &cfg
-) : state_rate(state_rate),
-    timer(state_rate),
+    const WriterConfig &cfg,
+    opc::DeviceProperties device_props
+) : timer(state_rate),
     ua_client(ua_client),
     ctx(ctx),
     cfg(cfg),
-    state_index_key(cfg.state_index_key){
+    state_index_key(cfg.state_index_key),
+    device_props(device_props){
+
+    this->state_rate = cfg.state_rate;
+    this->timer = loop::Timer(this->state_rate);
     // TODO: might move state_index_key initialization
     //  to inside the constructor body
+
+    // create subscription
+    UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
+    UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(
+        this->ua_client.get(),
+        request,
+        NULL, // subscriptionContext
+        NULL, // statusChangeCallback
+        NULL // deleteCallback
+    );
+
+    this->subscription_id = response.subscriptionId;
+    if(response.responseHeader.serviceResult != UA_STATUSCODE_GOOD){
+        // TODO: also log error and make sure this gets propogated up to the task level so you can't actually start
+        // the task if the subscription fails
+        LOG(ERROR) << "[opc.reader] failed to create subscription";
+        return;
+    }
 
     // read each value from the opc ua server to get initial states
     // and write them to the map
@@ -233,7 +254,6 @@ std::pair<synnax::Frame, freighter::Error> opc::StateSource::read(
  }
 
  synnax::Frame opc::StateSource::get_state() {
-   // TODO: parse through map and write the states
    // frame size = # monitored states + 1 state index channel
    auto state_frame = synnax::Frame(this->state_map.size() + 1);
    state_frame.add(
@@ -269,6 +289,16 @@ UA_StatusCode opc::StateSource::add_monitored_item(const UA_NodeId& node_id, con
 
     if(mon_response.statusCode != UA_STATUSCODE_GOOD) return mon_response.statusCode;
     return UA_STATUSCODE_GOOD;
+}
+
+void opc::StateSource::run(){
+    while(true){ // TODO: replace with breaker
+
+       UA_StatusCode status = UA_Client_connect(client, )
+
+
+        UA_Client_run_iterate(this->ua_client.get(), 1000);
+    }
 }
 
  static void data_change_handler(

@@ -62,7 +62,7 @@ namespace opc {
         std::vector<WriterChannelConfig> channels;
         /// @brief frequency state of a controlled channel is published
         synnax::Rate state_rate = synnax::Rate(1); // default to 1 Hz
-
+        /// @brief index key for all state channels in this task
         synnax::ChannelKey state_index_key;
 
         WriterConfig() = default;
@@ -91,20 +91,23 @@ namespace opc {
     class StateSource final : public pipeline::Source {
     public:
         explicit StateSource(
-            synnax::Rate state_rate,
             const std::shared_ptr<UA_Client> &ua_client,
             const std::shared_ptr<task::Context> &ctx,
-            const WriterConfig &cfg
+            const WriterConfig &cfg,
+            opc::DeviceProperties device_props
         );
-
         std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
+        ///@brief return a frame which represents all states monitored by the task
         synnax::Frame get_state();
 
         void update_state(const synnax::ChannelKey &channel_key, const UA_Variant &value);
 
         ///@brief registers a subscription to a node on the OPC UA server
         UA_StatusCode add_monitored_item(const UA_NodeId& node_id, const synnax::ChannelKey& channel_key);
+
+        //@brief starts the subscriber thread
+        void run();
 
         ///@brief static function to pass in to client subscriber when data changes
         static void data_change_handler(
@@ -138,6 +141,7 @@ namespace opc {
         std::unique_ptr<std::thread> subscriber_thread;
         ///@brief subscription id for the OPC UA server
         UA_UInt32 subscription_id;
+        opc::DeviceProperties device_props;
     }; // class StateSource
 
     ///////////////////////////////////////////////////////////////////////////////////
