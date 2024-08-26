@@ -419,7 +419,7 @@ public:
 
     void create_devices();
 
-    void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
+    void set_scan_thread(std::shared_ptr<std::thread> scan_thread); // TODO: rename
 
     void log_err(std::string err_msg);
 

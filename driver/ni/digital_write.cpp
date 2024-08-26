@@ -421,9 +421,15 @@ std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
 }
 
 synnax::Frame ni::StateSource::get_state() {
+    // frame size = # monitored states + 1 state index channel
     auto state_frame = synnax::Frame(this->state_map.size() + 1);
-    state_frame.add(this->state_index_key,
-                          synnax::Series(synnax::TimeStamp::now().value, synnax::TIMESTAMP));
+    state_frame.add(
+            this->state_index_key,
+            synnax::Series(
+                  synnax::TimeStamp::now().value,
+                  synnax::TIMESTAMP
+                  )
+              );
     for (auto &[key,  value] : this->state_map)
         state_frame.add(key, synnax::Series(value));
     return state_frame;
