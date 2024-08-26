@@ -42,7 +42,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       {singleResource && (
         <>
           <PMenu.Item itemKey="access" startIcon={<Icon.Access />}>
-            Open Access Control Page
+            Set Permissions
           </PMenu.Item>
           <PMenu.Divider />
         </>

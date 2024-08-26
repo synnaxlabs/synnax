@@ -35,6 +35,7 @@ import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
+import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
@@ -55,6 +56,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Confirm.LAYOUTS,
   ...Label.LAYOUTS,
+  ...User.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

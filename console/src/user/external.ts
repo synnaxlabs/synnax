@@ -7,4 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as User from "@/user/external";
+import { Layout } from "@/layout";
+import { REGISTER_LAYOUT_TYPE, RegisterModal } from "@/user/RegisterModal";
+
+export * from "@/user/RegisterModal";
+
+export const LAYOUTS: Record<string, Layout.Renderer> = {
+  [REGISTER_LAYOUT_TYPE]: RegisterModal,
+};
