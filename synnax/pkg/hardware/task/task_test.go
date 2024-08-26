@@ -137,6 +137,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Name).To(Equal("Test Task"))
 			t, err := w.Copy(ctx, m.Key, "New Task", true)
 			Expect(err).ToNot(HaveOccurred())
+			t.Config = "New Config"
 			Expect(w.Create(ctx, &t)).To(HaveOccurredAs(validate.Error))
 		})
 

@@ -330,7 +330,9 @@ class Client_13 {
 //
 // @public (undocumented)
 class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_5> {
-    constructor(client: UnaryClient, frameClient: framer.Client);
+    constructor(client: UnaryClient, frameClient: framer.Client, ontologyClient: ontology.Client, rangeClient: ranger.Client);
+    // (undocumented)
+    copy(key: string, name: string, snapshot: boolean): Promise<Task>;
     // (undocumented)
     create<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string>(task: NewTask<C, T>): Promise<Task<C, D, T>>;
     // (undocumented)
@@ -437,8 +439,10 @@ class Client_2 implements AsyncTermSearcher<string, string, Resource> {
     // (undocumented)
     newSearcherWithOptions(options: RetrieveOptions_2): AsyncTermSearcher<string, string, Resource>;
     openChangeTracker(): Promise<ChangeTracker>;
+    // Warning: (ae-forgotten-export) The symbol "DependentTrackerProps" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
-    openDependentTracker(parent: ID, initial: Resource[], type?: string, direction?: RelationshipDirection): Promise<observe.ObservableAsyncCloseable<Resource[]>>;
+    openDependentTracker(props: DependentTrackerProps): Promise<observe.ObservableAsyncCloseable<Resource[]>>;
     page(offset: number, limit: number, options?: RetrieveOptions_2): Promise<Resource[]>;
     // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
     // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
@@ -578,6 +582,8 @@ class Client_6 implements AsyncTermSearcher<string, Key_3, Range_2> {
     // (undocumented)
     resourcesToRanges(resources: Resource[]): Range_2[];
     // (undocumented)
+    resourceToRange(resource: Resource): Range_2;
+    // (undocumented)
     retrieve(range: CrudeTimeRange): Promise<Range_2[]>;
     // (undocumented)
     retrieve(range: Key_3 | Name_3): Promise<Range_2>;
@@ -588,7 +594,9 @@ class Client_6 implements AsyncTermSearcher<string, Key_3, Range_2> {
     // (undocumented)
     search(term: string): Promise<Range_2[]>;
     // (undocumented)
-    sugar(payloads: Payload_3[]): Range_2[];
+    sugarMany(payloads: Payload_3[]): Range_2[];
+    // (undocumented)
+    sugarOne(payload: Payload_3): Range_2;
     // (undocumented)
     readonly type: string;
 }
@@ -762,7 +770,7 @@ class DependentTracker extends observe.Observer<Resource[]> implements observe.O
     // (undocumented)
     close(): Promise<void>;
     // (undocumented)
-    static open(from: ID, client: Client_2, framer: framer.Client, initial: Resource[], type?: string, direction?: RelationshipDirection): Promise<DependentTracker>;
+    static open(props: DependentTrackerProps, framer: framer.Client, client: Client_2): Promise<DependentTracker>;
 }
 
 // Warning: (ae-missing-release-tag) "Device" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1536,6 +1544,7 @@ const newTaskZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
         details: string | unknown[] | Record<string, unknown> | null;
         key?: string | undefined;
     }>>>;
+    snapshot: z.ZodOptional<z.ZodBoolean>;
 }, "key">, {
     key: z.ZodOptional<z.ZodEffects<z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>, string, string | number | bigint>>;
     config: z.ZodEffects<z.ZodUnknown, string, unknown>;
@@ -1551,6 +1560,7 @@ const newTaskZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
         key?: string | undefined;
         details?: any;
     } | null | undefined;
+    snapshot?: boolean | undefined;
 }, {
     type: string;
     name: string;
@@ -1563,6 +1573,7 @@ const newTaskZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
         details: string | unknown[] | Record<string, unknown> | null;
         key?: string | undefined;
     } | null | undefined;
+    snapshot?: boolean | undefined;
 }>;
 
 // Warning: (ae-missing-release-tag) "NodeOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1612,6 +1623,7 @@ declare namespace ontology {
         RelationshipChange,
         RelationshipSet,
         RelationshipDelete,
+        resourceTypeZ,
         ResourceType,
         BuiltinOntologyType,
         ClusterOntologyType,
@@ -2249,11 +2261,15 @@ const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
 // @public (undocumented)
 type ResourceSet = change.Set<ID, Resource>;
 
-// Warning: (ae-forgotten-export) The symbol "resourceTypeZ" needs to be exported by the entry point index.d.ts
 // Warning: (ae-missing-release-tag) "ResourceType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 type ResourceType = z.infer<typeof resourceTypeZ>;
+
+// Warning: (ae-missing-release-tag) "resourceTypeZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const resourceTypeZ: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
 
 // Warning: (ae-forgotten-export) The symbol "Request_2" needs to be exported by the entry point index.d.ts
 // Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -2265,7 +2281,7 @@ type RetrieveOptions = Omit<Request_2, "keys" | "names" | "search">;
 // Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type RetrieveOptions_2 = Pick<RetrieveRequest, "includeSchema" | "excludeFieldData">;
+type RetrieveOptions_2 = Pick<RetrieveRequest, "includeSchema" | "excludeFieldData" | "types">;
 
 // Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2750,7 +2766,7 @@ export const synnaxPropsZ: z.ZodObject<{
 //
 // @public (undocumented)
 class Task<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string> {
-    constructor(key: TaskKey, name: string, type: T, config: C, frameClient: framer.Client, internal?: boolean, state?: State_2<D> | null);
+    constructor(key: TaskKey, name: string, type: T, config: C, internal?: boolean, snapshot?: boolean, state?: State_2<D> | null, frameClient?: framer.Client | null, ontologyClient?: ontology.Client | null, rangeClient?: ranger.Client | null);
     // (undocumented)
     readonly config: C;
     // (undocumented)
@@ -2764,9 +2780,15 @@ class Task<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRe
     // (undocumented)
     readonly name: string;
     // (undocumented)
+    get ontologyID(): ontology.ID;
+    // (undocumented)
     openStateObserver<D extends UnknownRecord_2 = UnknownRecord_2>(): Promise<StateObservable<D>>;
     // (undocumented)
     get payload(): Payload_5<C, D>;
+    // (undocumented)
+    readonly snapshot: boolean;
+    // (undocumented)
+    snapshottedTo(): Promise<ranger.Range | null>;
     // (undocumented)
     state?: State_2<D>;
     // (undocumented)
@@ -2829,6 +2851,7 @@ const taskZ: z.ZodObject<{
         details: string | unknown[] | Record<string, unknown> | null;
         key?: string | undefined;
     }>>>;
+    snapshot: z.ZodOptional<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     type: string;
     name: string;
@@ -2841,6 +2864,7 @@ const taskZ: z.ZodObject<{
         key?: string | undefined;
         details?: any;
     } | null | undefined;
+    snapshot?: boolean | undefined;
 }, {
     type: string;
     name: string;
@@ -2853,6 +2877,7 @@ const taskZ: z.ZodObject<{
         details: string | unknown[] | Record<string, unknown> | null;
         key?: string | undefined;
     } | null | undefined;
+    snapshot?: boolean | undefined;
 }>;
 
 export { TelemValue }
