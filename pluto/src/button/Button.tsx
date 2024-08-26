@@ -24,7 +24,13 @@ import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
 
 /** The variant of button */
-export type Variant = "filled" | "outlined" | "text" | "suggestion" | "preview";
+export type Variant =
+  | "filled"
+  | "outlined"
+  | "text"
+  | "suggestion"
+  | "preview"
+  | "shadow";
 
 export interface ButtonExtensionProps {
   variant?: Variant;
@@ -91,6 +97,9 @@ export const Button = Tooltip.wrap(
   }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+    // We implement the shadow variant to maintain compatibility with the input
+    // component API.
+    if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
       if (disabled || variant === "preview") return;

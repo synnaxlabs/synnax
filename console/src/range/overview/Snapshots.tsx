@@ -14,7 +14,7 @@ import { FC, ReactElement, useState } from "react";
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/external";
-import { State as SchematicState } from "@/schematic/Schematic";
+import { type State as SchematicState } from "@/schematic/slice";
 
 interface SnapshotService {
   icon: ReactElement;
