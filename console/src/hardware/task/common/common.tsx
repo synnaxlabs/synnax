@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { ranger, task, UnexpectedError } from "@synnaxlabs/client";
+import { ontology, ranger, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -402,19 +402,25 @@ export const ParentRangeButton = ({
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
-  const [parent, setParent] = useState<ranger.Range | null>();
+  const [parent, setParent] = useState<ontology.Resource | null>();
   const placer = Layout.usePlacer();
 
   useAsyncEffect(async () => {
     try {
       if (client == null || taskKey == null) return;
-      const rng = await client.hardware.tasks.retrieve(taskKey);
-      const parent = await rng.snapshottedTo();
-      setParent(parent);
-      // const tracker = await rng.openParentRangeTracker();
-      // if (tracker == null) return;
-      // tracker.onChange((ranges) => setParent(ranges));
-      // return async () => await tracker.close();
+      const tsk = await client.hardware.tasks.retrieve(taskKey);
+      const parent = await tsk.snapshottedTo();
+      if (parent != null) setParent(parent);
+      const tracker = await client.ontology.openDependentTracker({
+        target: new ontology.ID({ key: taskKey, type: "task" }),
+        dependents: parent == null ? [] : [parent],
+        relationshipDirection: "to",
+      });
+      tracker.onChange((parents) => {
+        if (parents.length === 0) return setParent(null);
+        setParent(parents[0]);
+      });
+      return async () => await tracker.close();
     } catch (e) {
       addStatus({
         variant: "error",

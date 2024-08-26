@@ -27,7 +27,7 @@ via the NI-MAX software.
 client = sy.Synnax()
 
 # Retrieve the USB-6289 device from Synnax.
-dev = client.hardware.devices.retrieve(model="USB-6289")
+# dev = client.hardware.devices.retrieve(model="USB-6289")
 
 # Create an index channel that will be used to store the timestamps
 # for the analog read data.
@@ -63,7 +63,7 @@ tsk = ni.AnalogReadTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Analog Read",
     # The key of the device to execute the task on.
-    device=dev.key,
+    device="",
     # The rate at which the task will sample data from the device.
     sample_rate=sy.Rate.HZ * 100,
     # The rate at which data will be streamed from the device into Synnax.
