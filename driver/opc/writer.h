@@ -36,7 +36,9 @@ namespace opc {
         ChannelKey cmd_channel;
         ChannelKey state_channel;
         bool enabled;
-        // TODO: might have to store the data type it is on the OPC server
+        /// @brief the channel fetched from the Synnax server. This does not need to
+        /// be provided via the JSON configuration.
+        Channel ch;
 
         WriterChannelConfig() = default;
 
@@ -129,6 +131,8 @@ namespace opc {
         std::condition_variable waiting_reader;
         ///@brief maps channel to the last read value from  corresponding OPC UA Node
         std::map<synnax::ChannelKey, UA_Variant> state_map;
+        ///@brief map of channel keys to the corresponding channel on synnax server
+        std::map<synnax::ChannelKey, synnax::Channel> state_channels;
         synnax::ChannelKey state_index_key;
         ///@brief thread listening for updates on the OPC UA server
         std::unique_ptr<std::thread> subscriber_thread;
@@ -241,7 +245,7 @@ namespace opc {
         pipeline::Control cmd_pipe;
         pipeline::Acquisition state_pipe;
         // Channel Information
-        std::vector<synnax::ChannelKey> state_channel_keys;
+        std::vector<synnax::ChannelKey> state_channel_eys;
         std::vector<synnax::ChannelKey> cmd_channels_keys;
         synnax::ChannelKey state_index_key;
         // OPC UA

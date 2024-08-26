@@ -28,99 +28,8 @@
 #include "include/open62541/client_subscriptions.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    StateSource                                //
+//                               helper functions                                //
 ///////////////////////////////////////////////////////////////////////////////////
-opc::StateSource::StateSource(
-    synnax::Rate state_rate,
-    const std::shared_ptr<UA_Client> &ua_client,
-    const std::shared_ptr<task::Context> &ctx,
-    const WriterConfig &cfg
-) : state_rate(state_rate),
-    timer(state_rate),
-    ua_client(ua_client),
-    ctx(ctx),
-    cfg(cfg),
-    state_index_key(cfg.state_index_key){
-    // TODO: might move state_index_key initialization
-    //  to inside the constructor body
-
-    // read each value from the opc ua server to get initial states
-    // and write them to the map
-
-    // create thread to subscribe to the state channel
-}
-
-std::pair<synnax::Frame, freighter::Error> opc::StateSource::read(
-        breaker::Breaker &breaker){
-    this->timer.wait(breaker);
-    std::unique_lock<std::mutex> lock(this->state_mutex);
-    // sleep for state period
-    waiting_reader.wait_for(lock, this->state_rate.period().chrono());
-    return std::make_pair(this->get_state(), freighter::NIL);
-}
-
- void opc::StateSource::update_state( const synnax::ChannelKey &channel_key, const UA_Variant &value){
-    std::unique_lock<std::mutex> lock(this->state_mutex);
-    this->state_map[channel_key] = value;
-    waiting_reader.notify_all();
- }
-
- synnax::Frame opc::StateSource::get_state() {
-   // TODO: parse through map and write the states
-     // frame size = # monitored states + 1 state index channel
-   auto state_frame = synnax::Frame(this->state_map.size() + 1);
-   state_frame.add(
-           this->state_index_key,
-           synnax::Series(
-                   synnax::TimeStamp::now().value,
-                   synnax::TIMESTAMP
-                   )
-               );
-   for (auto &[key,value] : this->state_map){
-
-
-   }
-}
-
-
-UA_StatusCode opc::StateSource::add_monitored_item(const UA_NodeId& node_id, const synnax::ChannelKey& channel_key){
-    UA_MonitoredItemCreateRequest mon_request = UA_MonitoredItemCreateRequest_default(node_id);
-
-    auto context = std::make_unique<MonitoredItemContext>();
-    context->source = this;
-    context->channelKey = channel_key;
-
-    UA_MonitoredItemCreateResult mon_response = UA_Client_MonitoredItems_createDataChange(
-        this->ua_client.get(),
-        this->subscription_id,
-        UA_TIMESTAMPSTORETURN_BOTH,
-        mon_request,
-        context.get(),
-        data_change_handler,
-        NULL
-    );
-
-    if(mon_response.statusCode != UA_STATUSCODE_GOOD) return mon_response.statusCode;
-
-    return UA_STATUSCODE_GOOD;
-}
-
- static void data_change_handler(
-    UA_Client *client,
-    UA_UInt32 subId,
-    void *subContext,
-    UA_UInt32 monId,
-    void *monContext,
-    UA_DataValue *value){
-
-    if(monContext && value){
-        auto context = static_cast<opc::StateSource::MonitoredItemContext*>(monContext);
-        auto source = context->source;
-        auto key = context->channelKey;
-        source->update_state(key, value->value);
-    }
-}
-
 // TODO: is a subset fo the same function in reader.cpp code DEDUP
 size_t write_to_series(
         const UA_Variant *val,
@@ -268,6 +177,115 @@ size_t write_to_series(
     LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName;
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    StateSource                                //
+///////////////////////////////////////////////////////////////////////////////////
+opc::StateSource::StateSource(
+    synnax::Rate state_rate,
+    const std::shared_ptr<UA_Client> &ua_client,
+    const std::shared_ptr<task::Context> &ctx,
+    const WriterConfig &cfg
+) : state_rate(state_rate),
+    timer(state_rate),
+    ua_client(ua_client),
+    ctx(ctx),
+    cfg(cfg),
+    state_index_key(cfg.state_index_key){
+    // TODO: might move state_index_key initialization
+    //  to inside the constructor body
+
+    // read each value from the opc ua server to get initial states
+    // and write them to the map
+    for(const auto ch : cfg.channels){
+        // first get an initial state
+        UA_Variant val;
+        UA_Variant_init(&val);
+        UA_StatusCode retval = UA_Client_readValueAttribute(
+            this->ua_client.get(),
+            ch.node,
+            &val
+        );
+        if(retval != UA_STATUSCODE_GOOD){
+            LOG(ERROR) << "[opc.reader] failed to read initial state for channel: " << ch.state_channel;
+            UA_Variant_clear(&val);
+            continue;
+        }
+        UA_Variant state;
+        UA_Variant_copy(&val, &state);
+        this->update_state(ch.state_channel, val);
+        this->add_monitored_item(ch.node, ch.state_channel);
+    }
+}
+
+std::pair<synnax::Frame, freighter::Error> opc::StateSource::read(
+        breaker::Breaker &breaker){
+    this->timer.wait(breaker);
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    // sleep for state period
+    waiting_reader.wait_for(lock, this->state_rate.period().chrono());
+    return std::make_pair(this->get_state(), freighter::NIL);
+}
+
+ void opc::StateSource::update_state( const synnax::ChannelKey &channel_key, const UA_Variant &value){
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    UA_Variant_copy(&value,&this->state_map[channel_key]); // TODO: come back to this
+    waiting_reader.notify_all();
+ }
+
+ synnax::Frame opc::StateSource::get_state() {
+   // TODO: parse through map and write the states
+   // frame size = # monitored states + 1 state index channel
+   auto state_frame = synnax::Frame(this->state_map.size() + 1);
+   state_frame.add(
+           this->state_index_key,
+           synnax::Series(
+                   synnax::TimeStamp::now().value,
+                   synnax::TIMESTAMP
+                   )
+               );
+   for (auto &[key,value] : this->state_map){
+       state_frame.add(key, Series(this->state_channels[key].data_type,1)); // Only read once
+       write_to_series(&value, 0, state_frame.series);
+   }
+   return state_frame;
+}
+
+UA_StatusCode opc::StateSource::add_monitored_item(const UA_NodeId& node_id, const synnax::ChannelKey& channel_key){
+    UA_MonitoredItemCreateRequest mon_request = UA_MonitoredItemCreateRequest_default(node_id);
+
+    auto context = std::make_unique<MonitoredItemContext>();
+    context->source = this;
+    context->channelKey = channel_key;
+
+    UA_MonitoredItemCreateResult mon_response = UA_Client_MonitoredItems_createDataChange(
+        this->ua_client.get(),
+        this->subscription_id,
+        UA_TIMESTAMPSTORETURN_BOTH,
+        mon_request,
+        context.get(),
+        &opc::StateSource::data_change_handler,
+        NULL
+    );
+
+    if(mon_response.statusCode != UA_STATUSCODE_GOOD) return mon_response.statusCode;
+    return UA_STATUSCODE_GOOD;
+}
+
+ static void data_change_handler(
+    UA_Client *client,
+    UA_UInt32 subId,
+    void *subContext,
+    UA_UInt32 monId,
+    void *monContext,
+    UA_DataValue *value){
+
+    if(monContext && value){
+        auto context = static_cast<opc::StateSource::MonitoredItemContext*>(monContext);
+        auto source = context->source;
+        auto key = context->channelKey;
+        source->update_state(key, value->value);
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Sink                                     //
@@ -278,7 +296,6 @@ opc::Sink::Sink(
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task
 ){}
-
 
 /*
     typedef struct {

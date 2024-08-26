@@ -455,8 +455,7 @@ public:
             series_size = cfg.array_size * read_calls_per_cycle;
         }
 
-        // TODO: what is en_count?
-        std::size_t en_count = 0;
+        std::size_t en_count = 0; // enabled channels
         for (const auto &ch: cfg.channels)
             if (ch.enabled) {
                 fr.add(ch.channel, Series(ch.ch.data_type, series_size));
