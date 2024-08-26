@@ -53,11 +53,6 @@ export const scannedNodeZ = z.object({
 
 export type ScannedNode = z.infer<typeof scannedNodeZ>;
 
-const commandStatePairZ = z.object({
-  command: z.number(),
-  state: z.number(),
-});
-
 export const propertiesZ = z.object({
   // identifier: z.string().min(2).max(12),
   connection: connectionConfigZ,
@@ -66,8 +61,7 @@ export const propertiesZ = z.object({
     channels: z.record(z.string(), z.number()),
   }),
   write : z.object({
-    stateIndex: z.number(),
-    channels: z.record(z.string(), commandStatePairZ),
+    channels: z.record(z.string(), z.number()),
   }),
 });
 

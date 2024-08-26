@@ -140,70 +140,23 @@ const Wrapped = ({
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
-
-      let modified = false;
       console.log(dev);
-      let shouldCreateStateIndex = primitiveIsZero(dev.properties.write.stateIndex);
-      if (!shouldCreateStateIndex) {
-        try {
-          await client.channels.retrieve(dev.properties.write.stateIndex);
-        } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
-          else throw e;
-        }
-      }
-
-      if (shouldCreateStateIndex) {
-        modified = true;
-        const stateIndex = await client.channels.create({
-          name: `${dev.name}_state_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.write.stateIndex = stateIndex.key;
-        dev.properties.write.channels = {};
-      }
-
+      
       const commandsToCreate: WriteChannelConfig[] = [];
-      const statesToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
         const key = channel.nodeId;
-        const exPair = dev.properties.write.channels[key];
-        if (exPair == null) {
+        const cmd_key = dev.properties.write.channels[key];
+        if (cmd_key == null) {
           commandsToCreate.push(channel);
-          statesToCreate.push(channel);
         } else {
           try {
-            await client.channels.retrieve([exPair.command]);
+            await client.channels.retrieve([cmd_key]);
           } catch (e){
             if(NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
-          try {
-            await client.channels.retrieve([exPair.state]);
-          } catch (e){
-            if(NotFoundError.matches(e)) statesToCreate.push(channel);
-            else throw e;
-          }
         }
       } 
-
-      if (statesToCreate.length > 0) {
-        modified = true;
-        const states = await client.channels.create(
-          statesToCreate.map((c) => ({
-            name: `${c.name}_state`,
-            dataType: c.dataType,
-            index: dev.properties.write.stateIndex,
-          })),
-        );
-        states.forEach((c, i) => {
-          const key =  statesToCreate[i].nodeId;
-          if(!(key in dev.properties.write.channels)) { 
-            dev.properties.write.channels[key] = { command: 0, state: c.key } 
-          }else dev.properties.write.channels[key].state = c.key;
-        });
-      }
 
       if(commandsToCreate.length > 0) {
         const commandIndexes = await client.channels.create(
@@ -221,28 +174,10 @@ const Wrapped = ({
           })),
         );
         commands.forEach((c, i) => {
-          const key =  statesToCreate[i].nodeId;
-            if(!(key in dev.properties.write.channels)) { 
-              dev.properties.write.channels[key] = { command: c.key, state: 0 } 
-            }else dev.properties.write.channels[key].command = c.key;
+          const key =  commandsToCreate[i].nodeId;
+            dev.properties.write.channels[key] = c.key;
           });
       }
-  
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-      
-      config.channels = config.channels.map((c) => {
-        const key =  c.nodeId;
-        const pair = dev.properties.write.channels[key];
-        return {
-          ...c,
-          cmdChannel: pair.command,
-          stateChannel: pair.state,
-        };
-      });
       methods.set("config", config);
 
       await createTask({

@@ -47,7 +47,7 @@ namespace opc {
         ) : node_id(parser.required<std::string>("node_id")),
             node(parseNodeId("node_id", parser)),
             cmd_channel(parser.required<ChannelKey>("cmd_channel")),
-            state_channel(parser.required<ChannelKey>("state_channel")
+            state_channel(parser.required<ChannelKey>("state_channel")),
             enabled(parser.optional<bool>("enabled", true)) {
         }
     }; // struct WriterChannelConfig
@@ -74,75 +74,7 @@ namespace opc {
             for (const auto &channel : channels) keys.push_back(channel.cmd_channel);
             return keys;
         }
-
-        [[nodiscard]] std::vector<ChannelKey> state_keys() const {
-            std::vector<ChannelKey> keys;
-            for (const auto &channel : channels) keys.push_back(channel.state_channel);
-            return keys;
-        }
     }; // struct WriterConfig
-
-    ///////////////////////////////////////////////////////////////////////////////////
-    //                                   State Source                                //
-    ///////////////////////////////////////////////////////////////////////////////////
-    /// @brief StateSource is an OPC subscriber which listens for updates to the states of
-    /// control channels and writes them to synnax as a source passed into an acquisition
-    /// pipeline of a task.
-    class StateSource final : public pipeline::Source {
-    public:
-        explicit StateSource(
-            const std::shared_ptr<UA_Client> &ua_client,
-            const std::shared_ptr<task::Context> &ctx,
-            const WriterConfig &cfg,
-            opc::DeviceProperties device_props
-        );
-        std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
-
-        ///@brief return a frame which represents all states monitored by the task
-        synnax::Frame get_state();
-
-        void update_state(const synnax::ChannelKey &channel_key, const UA_Variant &value);
-
-        ///@brief registers a subscription to a node on the OPC UA server
-        UA_StatusCode add_monitored_item(const UA_NodeId& node_id, const synnax::ChannelKey& channel_key);
-
-        //@brief starts the subscriber thread
-        void run();
-
-        ///@brief static function to pass in to client subscriber when data changes
-        static void data_change_handler(
-            UA_Client *client,
-            UA_UInt32 subId,
-            void *subContext,
-            UA_UInt32 monId,
-            void *monContext,
-            UA_DataValue *value
-        );
-
-        struct MonitoredItemContext{
-            opc::StateSource *source;
-            synnax::ChannelKey channelKey;
-        };
-
-    private:
-        synnax::Rate state_rate;
-        loop::Timer timer;
-        std::shared_ptr<UA_Client> ua_client;
-        std::shared_ptr<task::Context> ctx;
-        WriterConfig cfg; // TODO: shared pointer?
-        std::mutex state_mutex;
-        std::condition_variable waiting_reader;
-        ///@brief maps channel to the last read value from  corresponding OPC UA Node
-        std::map<synnax::ChannelKey, UA_Variant> state_map;
-        ///@brief map of channel keys to the corresponding channel on synnax server
-        std::map<synnax::ChannelKey, synnax::Channel> state_channels;
-        synnax::ChannelKey state_index_key;
-        ///@brief thread listening for updates on the OPC UA server
-        std::unique_ptr<std::thread> subscriber_thread;
-        ///@brief subscription id for the OPC UA server
-        UA_UInt32 subscription_id;
-        opc::DeviceProperties device_props;
-    }; // class StateSource
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    OPC Sink                                   //
@@ -208,9 +140,7 @@ namespace opc {
                 WriterConfig cfg,
                 const breaker::Config &breaker_cfg,
                 std::shared_ptr<pipeline::Sink> sink,
-                std::shared_ptr<pipeline::Source> state_source,
                 synnax::StreamerConfig streamer_config,
-                synnax::WriterConfig writer_config,
                 std::shared_ptr<UA_Client> ua_client,
                 opc::DeviceProperties device_props
         ): ctx(ctx),
@@ -221,12 +151,6 @@ namespace opc {
                    ctx->client,
                    std::move(streamer_config),
                    std::move(sink),
-                   breaker_cfg
-           )),
-           state_pipe(pipeline::Acquisition(
-                   ctx->client,
-                   std::move(writer_config),
-                   std::move(state_source),
                    breaker_cfg
            )),
            ua_client(std::move(ua_client)),
@@ -247,11 +171,8 @@ namespace opc {
         synnax::Task task;
         breaker::Config breaker_cfg;
         pipeline::Control cmd_pipe;
-        pipeline::Acquisition state_pipe;
         // Channel Information
-        std::vector<synnax::ChannelKey> state_channel_eys;
         std::vector<synnax::ChannelKey> cmd_channels_keys;
-        synnax::ChannelKey state_index_key;
         // OPC UA
         std::shared_ptr<UA_Client> ua_client;
         opc::DeviceProperties device_props;

@@ -130,7 +130,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
               channels: [],
             },
             write: {
-              stateIndex: 0,
+              index: 0,
               channels: [],
             }
           },

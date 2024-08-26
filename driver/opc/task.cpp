@@ -38,7 +38,6 @@ void opc::WriterTask::start(){
     // TODO: make sure connection is maintained (either by what is done in read task
     // "or calling client_run_iterate" or by some other means)
     this->cmd_pipe.start();
-    this->state_pipe.start();
     ctx->setState({
         .task = task.key,
         .variant = "success",
@@ -59,7 +58,6 @@ void opc::WriterTask::stop() {
           }
     });
     this->cmd_pipe.stop();
-    this->state_pipe.stop();
 }
 
 
@@ -130,16 +128,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         .channels = cfg.cmd_keys(),
         .start = synnax::TimeStamp::now(),
     };
-
-    auto state_writer_config = synnax::WriterConfig{
-        .channels = cfg.state_keys(),
-        .start = synnax::TimeStamp::now(),
-        .mode = data_saving
-                    ? synnax::WriterMode::PersistStream
-                    : synnax::WriterMode::StreamOnly,
-        .enable_auto_commit = true,
-    };
-
 
     ctx->setState({
         .task = task.key,
