@@ -31,6 +31,9 @@ func Wrapf(err error, format string, args ...interface{}) error {
 	return errors.Wrapf(err, format, args...)
 }
 
+// CombineErrors returns err, or, if err is nil, otherErr. if err is non-nil, otherErr
+// is attached as secondary error. See the documentation of `WithSecondaryError()` for
+// details
 func CombineErrors(err error, otherErr error) error {
 	return errors.CombineErrors(err, otherErr)
 }

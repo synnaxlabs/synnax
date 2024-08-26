@@ -57,10 +57,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	if err = w.BaseWriter.Set(ctx, prefixedKey, data, entry.SetOptions()...); err != nil {
-		return err
-	}
-	return nil
+	return w.BaseWriter.Set(ctx, prefixedKey, data, entry.SetOptions()...)
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
