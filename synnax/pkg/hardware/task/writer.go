@@ -39,17 +39,22 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 	t.State = nil
 	// We don't create ontology resources for internal tasks.
 	if err = gorp.NewCreate[Key, Task]().
-		GuardExisting(func(e Task) error {
-			if !e.Snapshot || e.Config == t.Config {
-				return nil
+		MergeExisting(func(creating Task, existing Task) (Task, error) {
+			if !existing.Snapshot {
+				return creating, nil
 			}
-			return errors.Wrapf(validate.Error, "snapshot task %v cannot be overwritten", e)
+			creating.Config = existing.Config
+			return creating, nil
 		}).
 		Entry(t).
 		Exec(ctx, w.tx); err != nil || t.Internal {
 		return
 	}
 	otgID := OntologyID(t.Key)
+	exists, err := w.otg.HasResource(ctx, otgID)
+	if err != nil || exists {
+		return err
+	}
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}

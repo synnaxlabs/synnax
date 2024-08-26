@@ -128,6 +128,8 @@ type Writer interface {
 	// DefineResource defines a new resource with the given ID. If the resource already
 	// exists, DefineResource does nothing.
 	DefineResource(ctx context.Context, id ID) error
+	// HasResource returns true if the resource with the given ID exists.
+	HasResource(ctx context.Context, id ID) (bool, error)
 	// DefineManyResources defines multiple resources with the given IDs. If any of the
 	// resources already exist, DefineManyResources does nothing.
 	DefineManyResources(ctx context.Context, ids []ID) error

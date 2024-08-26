@@ -60,6 +60,10 @@ func (d dagWriter) DeleteResource(ctx context.Context, key ID) error {
 	return gorp.NewDelete[ID, Resource]().WhereKeys(key).Exec(ctx, d.tx)
 }
 
+func (d dagWriter) HasResource(ctx context.Context, key ID) (bool, error) {
+	return gorp.NewRetrieve[ID, Resource]().WhereKeys(key).Exists(ctx, d.tx)
+}
+
 func (d dagWriter) DeleteManyResources(ctx context.Context, ids []ID) error {
 	for _, id := range ids {
 		if err := d.deleteIncomingRelationships(ctx, id); err != nil {

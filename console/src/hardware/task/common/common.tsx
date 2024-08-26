@@ -442,7 +442,7 @@ export const ParentRangeButton = ({
         iconSpacing="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          placer({ ...overviewLayout, key: parent.key, name: parent.name })
+          placer({ ...overviewLayout, key: parent.id.key, name: parent.name })
         }
       >
         {parent.name}
