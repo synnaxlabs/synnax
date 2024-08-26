@@ -15,6 +15,7 @@
 #include "driver/config/config.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/control.h"
+#include "driver/loop/loop.h"
 
 #include "include/open62541/types.h"
 #include "include/open62541/types_generated.h"
@@ -32,10 +33,8 @@ namespace opc {
         std::string node_id;
         UA_NodeId node;
         /// @brief the corresponding channel key to write the variable for the node from.
-        ChannelKey channel;
-        /// @brief the channel fetched from the Synnax server. This does not need to
-        /// be provided via the JSON configuration.
-        Channel ch;
+        ChannelKey cmd_channel;
+        ChannelKey state_channel;
         bool enabled;
         // TODO: might have to store the data type it is on the OPC server
 
@@ -45,7 +44,8 @@ namespace opc {
             config::Parser &parser
         ) : node_id(parser.required<std::string>("node_id")),
             node(parseNodeId("node_id", parser)),
-            channel(parser.required<ChannelKey>("channel")),
+            cmd_channel(parser.required<ChannelKey>("cmd_channel")),
+            state_channel(parser.required<ChannelKey>("state_channel")
             enabled(parser.optional<bool>("enabled", true)) {
         }
     }; // struct WriterChannelConfig
@@ -61,14 +61,21 @@ namespace opc {
         /// @brief frequency state of a controlled channel is published
         synnax::Rate state_rate = synnax::Rate(1); // default to 1 Hz
 
+        synnax::ChannelKey state_index_key;
 
         WriterConfig() = default;
 
         explicit WriterConfig(config::Parser &parser);
 
-        [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
+        [[nodiscard]] std::vector<ChannelKey> cmd_keys() const {
             std::vector<ChannelKey> keys;
-            for (const auto &channel : channels) keys.push_back(channel.channel);
+            for (const auto &channel : channels) keys.push_back(channel.cmd_channel);
+            return keys;
+        }
+
+        [[nodiscard]] std::vector<ChannelKey> state_keys() const {
+            std::vector<ChannelKey> keys;
+            for (const auto &channel : channels) keys.push_back(channel.state_channel);
             return keys;
         }
     }; // struct WriterConfig
@@ -81,15 +88,57 @@ namespace opc {
     /// pipeline of a task.
     class StateSource final : public pipeline::Source {
     public:
+        explicit StateSource(
+            synnax::Rate state_rate,
+            const std::shared_ptr<UA_Client> &ua_client,
+            const std::shared_ptr<task::Context> &ctx,
+            const WriterConfig &cfg
+        );
 
-    }
+        std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+
+        synnax::Frame get_state();
+
+        void update_state(const synnax::ChannelKey &channel_key, const UA_Variant &value);
+
+        ///@brief registers a subscription to a node on the OPC UA server
+        UA_StatusCode add_monitored_item(const UA_NodeId& node_id, const synnax::ChannelKey& channel_key);
+
+        ///@brief static function to pass in to client subscriber when data changes
+        static void data_change_handler(
+            UA_Client *client,
+            UA_UInt32 subId,
+            void *subContext,
+            UA_UInt32 monId,
+            void *monContext,
+            UA_DataValue *value
+        );
+
+        struct MonitoredItemContext{
+            opc::StateSource *source;
+            synnax::ChannelKey channelKey;
+        };
+
+    private:
+        synnax::Rate state_rate;
+        loop::Timer timer;
+        std::shared_ptr<UA_Client> ua_client;
+        std::shared_ptr<task::Context> ctx;
+        WriterConfig cfg; // TODO: shared pointer?
+        std::mutex state_mutex;
+        std::condition_variable waiting_reader;
+        ///@brief maps channel to the last read value from  corresponding OPC UA Node
+        std::map<synnax::ChannelKey, UA_Variant> state_map;
+        synnax::ChannelKey state_index_key;
+        ///@brief thread listening for updates on the OPC UA server
+        std::unique_ptr<std::thread> subscriber_thread;
+    }; // class StateSource
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    OPC Sink                                   //
     ///////////////////////////////////////////////////////////////////////////////////
-    /// @brief Sink is an OPC writer with an embedded OPC UA client that receives data from
-    /// synnax in frames, and writes them to the appropriate nodes in the connected OPC UA
-    // Server.
+    /// @brief an OPC writer with embedded OPC UA client that receives data from synnax
+    /// in frames, and writes them to the appropriate nodes on the connected OPC UA Server.
     class Sink final : public pipeline::Sink {
         public:
             // Synnax Resources
@@ -149,17 +198,25 @@ namespace opc {
                 WriterConfig cfg,
                 const breaker::Config &breaker_cfg,
                 std::shared_ptr<pipeline::Sink> sink,
+                std::shared_ptr<pipeline::Source> state_source,
                 synnax::StreamerConfig streamer_config,
+                synnax::WriterConfig writer_config,
                 std::shared_ptr<UA_Client> ua_client,
                 opc::DeviceProperties device_props
         ): ctx(ctx),
            task(std::move(task)),
            cfg(std::move(cfg)),
            breaker_cfg(breaker_cfg),
-           pipe(pipeline::Control(
+           cmd_pipe(pipeline::Control(
                    ctx->client,
                    std::move(streamer_config),
                    std::move(sink),
+                   breaker_cfg
+           )),
+           state_pipe(pipeline::Acquisition(
+                   ctx->client,
+                   std::move(writer_config),
+                   std::move(state_source),
                    breaker_cfg
            )),
            ua_client(std::move(ua_client)),
@@ -173,14 +230,14 @@ namespace opc {
         void exec(task::Command &cmd) override;
         void stop() override;
         void start();
-
     private:
         opc::WriterConfig cfg;
         // Task Resources
         std::shared_ptr<task::Context> ctx;
         synnax::Task task;
         breaker::Config breaker_cfg;
-        pipeline::Control pipe;
+        pipeline::Control cmd_pipe;
+        pipeline::Acquisition state_pipe;
         // Channel Information
         std::vector<synnax::ChannelKey> state_channel_keys;
         std::vector<synnax::ChannelKey> cmd_channels_keys;
@@ -188,6 +245,5 @@ namespace opc {
         // OPC UA
         std::shared_ptr<UA_Client> ua_client;
         opc::DeviceProperties device_props;
-
     }; // class WriterTask
 } // namespace opc

@@ -27,6 +27,70 @@
 #include "include/open62541/common.h"
 
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    StateSource                                //
+///////////////////////////////////////////////////////////////////////////////////
+opc::StateSource::StateSource(
+    synnax::Rate state_rate,
+    const std::shared_ptr<UA_Client> &ua_client,
+    const std::shared_ptr<task::Context> &ctx,
+    const WriterConfig &cfg
+) : state_rate(state_rate),
+    timer(state_rate),
+    ua_client(ua_client),
+    ctx(ctx),
+    cfg(cfg),
+    state_index_key(cfg.state_index_key){
+    // TODO: might move state_index_key initialization
+    //  to inside the constructor body
+
+    // read each value from the opc ua server to get initial states
+    // and write them to the map
+
+    // create thread to subscribe to the state channel
+}
+
+std::pair<synnax::Frame, freighter::Error> opc::StateSource::read(
+        breaker::Breaker &breaker){
+    this->timer.wait(breaker);
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    // sleep for state period
+    waiting_reader.wait_for(lock, this->state_rate.period().chrono());
+    return std::make_pair(this->get_state(), freighter::NIL);
+}
+
+ void opc::StateSource::update_state( const synnax::ChannelKey &channel_key, const UA_Variant &value){
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    this->state_map[channel_key] = value;
+    waiting_reader.notify_all();
+ }
+
+ synnax::Frame opc::StateSource::get_state() {
+   // TODO: parse through map and write the states
+}
+
+ static void data_change_handler(
+    UA_Client *client,
+    UA_UInt32 subId,
+    void *subContext,
+    UA_UInt32 monId,
+    void *monContext,
+    UA_DataValue *value){
+
+    if(monContext && value){
+        auto context = static_cast<opc::StateSource::MonitoredItemContext*>(monContext);
+        auto source = context->source;
+        auto key = context->channelKey;
+        source->update_state(key, value->value);
+    }
+}
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Sink                                     //
+///////////////////////////////////////////////////////////////////////////////////
 opc::Sink::Sink(
     WriterConfig cfg,
     const std::shared_ptr<UA_Client> &ua_client,
@@ -50,7 +114,6 @@ opc::Sink::Sink(
     } UA_WriteValue;
  */
 void opc::Sink::initialize_write_request(const synnax::Frame &frame){
-
     // the number of frames we are writing corresponds to the number of values in the frame
     uint32_t frame_index = 0;
 
@@ -67,10 +130,8 @@ void opc::Sink::initialize_write_request(const synnax::Frame &frame){
             ch, 
             &nodes_to_write[frame_index]
         );
-
         frame_index++;
     }
-
     req.nodesToWrite = nodes_to_write.data();
 };
 
@@ -89,8 +150,8 @@ void opc::Sink::initialize_write_value(
     this->cast_and_set_type(frame, index, ch, write_value);
 }
 
-// Sets the appropriate type for the write value and casts the series data as necessary to one of the supported types
-// on Synnax
+///@brief Sets the appropriate type for the write value and casts the series data as necessary to one of the supported types
+/// on Synnax
 void opc::Sink::cast_and_set_type(const synnax::Frame &frame, const uint32_t &series_index,
                                   const opc::WriterChannelConfig &ch, UA_WriteValue *write_value) {
     auto &type = frame.series->at(series_index).data_type;

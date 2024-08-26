@@ -29,45 +29,16 @@ opc::WriterConfig::WriterConfig(
 //                                     Writer Task                               //
 ///////////////////////////////////////////////////////////////////////////////////
 void opc::WriterTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") {
-        this->start();
-    } else if (cmd.type == "stop") return stop();
-    else
-        LOG(ERROR) << "unknown command type: " << cmd.type;
-}
-
-void opc::WriterTask::stop() {
-    ctx->setState({
-        .task = task.key,
-        .variant = "success",
-        .details = json{
-            {"running", false},
-            {"message", "Task stopped successfully"}
-        }
-    });
-    pipe.stop(); 
+    if (cmd.type == "start") this->start();
+    else if (cmd.type == "stop") return stop();
+    else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 void opc::WriterTask::start(){
-    // first try to check for timeout
-    UA_StatusCode status = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
-    if (status != UA_STATUSCODE_GOOD) {
-        // attempt again to reestablish if timed out
-        UA_StatusCode status_retry = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
-        if(status_retry != UA_STATUSCODE_GOOD){
-            ctx->setState({
-                .task = task.key,
-                .variant = "error",
-                .details = json{
-                    {"message", "Failed to connect to OPC UA server: " + std::string(
-                        UA_StatusCode_name(status))}
-                }
-            });
-            LOG(ERROR) << "[opc.writer] connection failed: " << UA_StatusCode_name(status);
-        }
-    }
-    VLOG(1) << "[opc.writer] Connection Established";
-    pipe.start();
+    // TODO: make sure connection is maintained (either by what is done in read task
+    // "or calling client_run_iterate" or by some other means)
+    this->cmd_pipe.start();
+    this->state_pipe.start();
     ctx->setState({
         .task = task.key,
         .variant = "success",
@@ -78,17 +49,29 @@ void opc::WriterTask::start(){
     });
 }
 
+void opc::WriterTask::stop() {
+    ctx->setState({
+          .task = task.key,
+          .variant = "success",
+          .details = json{
+                  {"running", false},
+                  {"message", "Task stopped successfully"}
+          }
+    });
+    this->cmd_pipe.stop();
+    this->state_pipe.stop();
+}
 
 
 std::unique_ptr<task::Task> opc::WriterTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    VLOG(2) << "[opc.writer] configuring task " << task.name;
-
     auto config_parser = config::Parser(task.config);
-    auto cfg = WriterConfig(config_parser);
     LOG(INFO) << "[opc.writer] Writer Config: " << config_parser.get_json().dump(4);
+
+    auto data_saving = parser.optional<bool>("data_saving", false);
+    auto cfg = WriterConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.writer] failed to parse configuration for " << task.name;
         ctx->setState({
@@ -112,6 +95,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         });
         return nullptr;
     }
+
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
 
@@ -124,44 +108,12 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     auto breaker = breaker::Breaker(breaker_config);
 
     // Connect to the OPC UA server.
-    auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.writer] ");
+    auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.writer.cmd] ");
     if (conn_err) {
         ctx->setState({
             .task = task.key,
             .variant = "error",
             .details = json{{"message", conn_err.message()}}
-        });
-        return nullptr;
-    }
-
-    // Read each node in configuration to ensure successful access.
-    // TODO: do I still need this for writes? probably
-    for (auto i = 0; i < cfg.channels.size(); i++) {
-        auto ch = cfg.channels[i];
-        UA_Variant *value = UA_Variant_new();
-        const UA_StatusCode status = UA_Client_readValueAttribute(
-            ua_client.get(),
-            ch.node,
-            value
-        );
-        if (status != UA_STATUSCODE_GOOD) {
-            if (status == UA_STATUSCODE_BADNODEIDUNKNOWN) {
-                config_parser.field_err("channels." + std::to_string(i),
-                                        "opc node not found");
-            } else {
-                config_parser.field_err("channels." + std::to_string(i),
-                                        "failed to read value" + std::string(
-                                            UA_StatusCode_name(status)));
-            }
-            LOG(ERROR) << "failed to read value for channel " << ch.node_id;
-        }
-        UA_Variant_delete(value);
-    }
-    if (!config_parser.ok()) {
-        ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = config_parser.error_json(),
         });
         return nullptr;
     }
@@ -174,9 +126,19 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
                                 );
 
     auto cmd_streamer_config = synnax::StreamerConfig{
-        .channels = cfg.channelKeys(),
+        .channels = cfg.cmd_keys(),
         .start = synnax::TimeStamp::now(),
     };
+
+    auto state_writer_config = synnax::WriterConfig{
+        .channels = cfg.state_keys(),
+        .start = synnax::TimeStamp::now(),
+        .mode = data_saving
+                    ? synnax::WriterMode::PersistStream
+                    : synnax::WriterMode::StreamOnly,
+        .enable_auto_commit = true,
+    };
+
 
     ctx->setState({
         .task = task.key,
