@@ -134,10 +134,9 @@ export const useModal = (): CreateConfirmModal => {
         const l = Layout.select(store.getState(), layout.key);
         if (l == null) resolve(false);
         const args = selectArgs<ConfirmLayoutArgs>(store.getState(), layout.key);
-        // This is a case where the dialog was closed by another mechanism, such as
-        // application restart or a different dialog being opened. In this case, resolve
-        // the promise as false.
-        if (args == null || args.result == null) return resolve(false);
+        // This means the action was unrelated to the confirmation or the modal
+        // was closed unexpectedly.
+        if (args == null || args.result == null) return;
         resolve(args.result);
         unsubscribe?.();
       });
