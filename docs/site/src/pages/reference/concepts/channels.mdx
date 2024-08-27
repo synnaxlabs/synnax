@@ -3,7 +3,12 @@ layout: "@/layouts/MainLayout.astro"
 title: "Channels"
 description: "Learn how channels represent data in Synnax."
 ---
-import { Divider } from "@synnaxlabs/pluto"
+import {Image} from "astro:assets";
+import { Divider, Text } from "@synnaxlabs/pluto"
+import Diagram from "@/components/Diagram.astro"
+import { Icon } from "@synnaxlabs/media";
+import g9 from "@/pages/reference/concepts/Frame 8.svg"
+import Note from "@/components/Note.astro"
 
 This page walks you through what channels are, their important properties, and
 how to use them when structuring your cluster.
@@ -14,37 +19,35 @@ visit the respective pages for the [Python](../python-client/channels) and
 
 <Divider.Divider direction="x" />
 
-## What is a Channel?
+## Introduction
 
 A channel is a logical collection of samples emitted by or representing the
-values of a single source. Practically, a channel holds sensor data such as
-speedometer, pressure transducer, or memory usage readings. It can also hold
-post-processed results such as the noise-filtered signal of another channel. The
-only restrictions are that samples in a channel must be time-ordered and share
-the same data type.
+values of a single source. This source is typically a sensor, although channels can 
+also hold actuator commands, post-processed results, or any other time-ordered data. 
 
-<Divider.Divider direction="x" />
+Channels are used for both **data storage** and **real-time communication**. A sensor 
+recording samples 25 times per second (or 25Hz) would write data to a channel in order 
+to store it permanently within Synnax, while at the same time streaming the data
+for live consumption.
 
-## A Brief Primer on Domains
+The following diagram shows a sensor writing samples to a channel, which are then
+stored and forwarded to a visualization tool and analysis script.
 
-Channel data is stored in regions of continuously written samples called
-domains. A domain is marked by a time range, where the starting point is the
-timestamp of the first sample in the domain, and the ending point is the
-timestamp of the last sample.
+<Diagram>
+<Image src={g9} alt="Channel Diagram" />
+</Diagram>
 
-Domains are used to identify and separate periods of continuous recording, and
-typically correlate to different tests or experiments run over the course of
-several hours, weeks, or years. It’s common for channels to have thousands or
-even millions of domains.
-
-Domains are covered in detail [here](write), although this introduction
-should be enough for the subsequent sections.
-
-{/* TODO: Remove this information on domains. */}
+Channels are comparable to **tags** in a time-series database like [InfluxDB](https://www.influxdata.com/)
+or SCADA system like [Ignition](https://inductiveautomation.com/). It's common for a single Synnax
+database to have hundreds or thousands of channels, each of which represents a different
+data source.
 
 <Divider.Divider direction="x" />
 
 ## Channel Types
+
+There are three different classifications of channel in Synnax: **index, indexed, and 
+virtual channels.**
 
 Synnax is a time-series database. Every respective channel must have a time
 channel that it is indexed to. These index channels allow for data lookup at a
