@@ -125,6 +125,15 @@ namespace opc {
                 UA_WriteValue *write_value
             );
 
+            void set_variant(
+                    UA_Variant *val,
+                    const synnax::Frame &frame,
+                    const uint32_t &series_index,
+                    const synnax::DataType &type
+                );
+
+
+
     }; // class Sink
 
     ///////////////////////////////////////////////////////////////////////////////////
