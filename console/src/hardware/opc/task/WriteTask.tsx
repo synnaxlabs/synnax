@@ -135,40 +135,27 @@ const Wrapped = ({
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (client == null) return;
+      if (!(await methods.validateAsync) || client == null) return;
       const { config, name } = methods.value();
+
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
-      console.log(config);
+
+      console.log("DEVICE:", dev);
       let modified = false;
       
       // dev.properties.write.channels = dev.properties.write.channels ?? {};
       const commandsToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
         const key = getChannelByNodeID(dev.properties, channel.nodeId);
-        // console.log("key", key);
-        // console.log("channel", dev.properties.write.channels[channel.nodeId]);
-        // console.log("channels", dev.properties.write.channels);
-        // if(primitiveIsZero(key)){
-        //    commandsToCreate.push(channel);
-        //    console.log("zero", channel);
-        // }
-        // else{
-          // try {
-          //   await client.channels.retrieve(key);
-          //   // const cmdCh = await client.channels.retrieve(key);
-          //   // if(cmdCh.name !== channel.name) await client.channels.rename(Number(key), channel.name);
-          //   console.log("found", channel);
-          // } catch (e){
-          //   console.log("not found", channel);
-          //   if(NotFoundError.matches(e)) commandsToCreate.push(channel);
-          //   else throw e;
-          // }
-        // }
+        if(primitiveIsZero(key)){
+           console.log("primitive is 0", channel);
+           commandsToCreate.push(channel);
+        }
+        else{
           try {
-            await client.channels.retrieve(`${channel.name}_cmd`); // TODO: I know this wont work but im gonna deal with it for now
-            // const cmdCh = await client.channels.retrieve(channel.name);
+            await client.channels.retrieve(key);
             // if(cmdCh.name !== channel.name) await client.channels.rename(Number(key), channel.name);
             console.log("found", channel);
           } catch (e){
@@ -176,11 +163,25 @@ const Wrapped = ({
             if(NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
+        }
+        // try {
+        //     console.log("key", key);
+        //     await client.channels.retrieve(`${channel.name}_cmd`); // TODO: have a better way to do this
+        //     // if(cmdCh.name !== channel.name) await client.channels.rename(Number(key), channel.name);
+        //     console.log("found", channel);
+        //   } catch (e){
+        //     console.log("not found", channel);
+        //     //print error
+        //     console.log(e);
+        //     if(NotFoundError.matches(e)) commandsToCreate.push(channel);
+        //     else throw e;
+        //   }
       } 
 
       if(commandsToCreate.length > 0) {
         console.log("size", commandsToCreate.length);
         modified = true;
+        if (dev.properties.write.channels == null || Array.isArray(dev.properties.write.channels)) dev.properties.write.channels = {};
         const commandIndexes = await client.channels.create(
           commandsToCreate.map((c) => ({
             name: `${c.name}_cmd_time`,
@@ -196,7 +197,8 @@ const Wrapped = ({
           })),
         );
         commands.forEach((c, i) => {
-          const key =  getChannelByNodeID(dev.properties, commandsToCreate[i].nodeId);
+          console.log("c", c);
+          const key =  commandsToCreate[i].nodeId;
             dev.properties.write.channels[key] = c.key;
           });
       }
@@ -206,11 +208,14 @@ const Wrapped = ({
         channel: getChannelByNodeID(dev.properties, c.nodeId),
       }));
 
-      if (modified)
+      if (modified) {
+        console.log(dev.properties)
+
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
+      }
 
       await createTask({
         key: task?.key,
@@ -227,7 +232,6 @@ const Wrapped = ({
       });
     },
   });
-
 
   const start = useMutation({
     mutationKey: [client?.key, "start"],

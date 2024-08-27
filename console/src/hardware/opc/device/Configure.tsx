@@ -127,11 +127,11 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
             connection: methods.get<Properties>("connection").value,
             read: {
               index: 0,
-              channels: [],
+              channels: {},
             },
             write: {
               index: 0,
-              channels: [],
+              channels: {},
             }
           },
           configured: true,

@@ -91,13 +91,11 @@ namespace opc {
             // OPC UA Resources
             WriterConfig cfg;
             std::shared_ptr<UA_Client> ua_client;
-            std::shared_ptr<UA_Client> ua_client2;
             UA_WriteRequest req; // defined in types_generated.h
 
             Sink(
                 WriterConfig cfg,
                 const std::shared_ptr<UA_Client> &ua_client,
-                const std::shared_ptr<UA_Client> &ua_client2,
                 const std::shared_ptr<task::Context> &ctx,
                 synnax::Task task
             );
@@ -117,13 +115,6 @@ namespace opc {
             void stoppedWithErr(const freighter::Error &err) override;
    
             [[nodiscard]] freighter::Error communicate_response_error(const UA_StatusCode &status);
-
-            void cast_and_set_type(
-                const synnax::Frame &frame,
-                const uint32_t &series_index,
-                const WriterChannelConfig &ch,
-                UA_WriteValue *write_value
-            );
 
             void set_variant(
                     UA_Variant *val,

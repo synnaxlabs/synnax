@@ -107,7 +107,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
 
     // Connect to the OPC UA server.
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.writer.cmd] ");
-    auto [ua_client2, conn_err2] = opc::connect(properties.connection, "[opc.writer.data] ");
     if (conn_err) {
         ctx->setState({
             .variant = "error",
@@ -119,7 +118,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     auto sink = std::make_shared<opc::Sink>(
                                     cfg,
                                     ua_client,
-                                    ua_client2,
                                     ctx,
                                     task
                                 );
