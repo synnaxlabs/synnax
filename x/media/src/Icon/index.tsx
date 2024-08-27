@@ -34,7 +34,6 @@ import {
   FaBezierCurve,
   FaDocker,
   FaLinux,
-  FaLock,
   FaStream,
   FaWindows,
 } from "react-icons/fa";
@@ -87,6 +86,7 @@ import {
   MdQuestionMark,
   MdSaveAlt,
   MdSensors,
+  MdShield,
   MdSquareFoot,
   MdTypeSpecimen,
   MdWorkspacesFilled,
@@ -338,7 +338,7 @@ export const Icon: IconType = {
   Label: wrapIcon(MdLabel, "label"),
   Details: wrapIcon(MdOutlineTableRows, "details"),
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
-  Access: wrapIcon(FaLock, "access"),
+  Access: wrapIcon(MdShield, "access"),
 };
 
 export interface IconType {

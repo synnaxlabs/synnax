@@ -41,11 +41,11 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
           className={CSS.BE(CLS, "input")}
           type="checkbox"
           ref={ref}
-          checked={value}
           onChange={(e) => onChange(e.target.checked)}
           value=""
           disabled={disabled}
           {...props}
+          checked={value}
         />
         <span className="pluto-input-switch__slider" />
       </label>
