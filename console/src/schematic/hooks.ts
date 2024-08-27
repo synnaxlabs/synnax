@@ -10,17 +10,24 @@
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { type DialogFilter, open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { useDispatch, useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
 import { Layout } from "@/layout";
+import { fileHandler } from "@/schematic/file";
 import { select } from "@/schematic/selectors";
-import { fileHandler } from "@/schematic/services/file";
 import { type State, type StateWithName } from "@/schematic/slice";
 import { RootState } from "@/store";
 import { Workspace } from "@/workspace";
+
+const filters: DialogFilter[] = [
+  {
+    name: "JSON",
+    extensions: ["json"],
+  },
+];
 
 export const useExport = (name: string = "schematic"): ((key: string) => void) => {
   const client = Synnax.use();
@@ -45,8 +52,9 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
       if (name == null)
         throw new UnexpectedError("Schematic with key is missing in store state");
       const savePath = await save({
+        title: `Export ${name}`,
         defaultPath: `${name}.json`,
-        filters: [{ name: "JSON", extensions: ["json"] }],
+        filters,
       });
       if (savePath == null) return;
       const schematicData: StateWithName = { ...state, name };
@@ -55,13 +63,12 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
         new TextEncoder().encode(JSON.stringify(schematicData)),
       );
     },
-    onError: (err) => {
+    onError: (err) =>
       addStatus({
         variant: "error",
         message: `Failed to export ${name}`,
         description: err.message,
-      });
-    },
+      }),
   }).mutate;
 };
 
@@ -80,38 +87,44 @@ export const useImport = (workspaceKey?: string): (() => void) => {
 
   return useMutation<void, Error>({
     mutationFn: async () => {
-      const fileResponse = await open({
+      const fileResponses = await open({
+        title: "Import schematic",
+        filters,
+        multiple: true,
         directory: false,
-        multiple: false,
-        title: `Import schematic`,
-        extenstions: ["json"],
       });
-      if (fileResponse == null) return;
-      const rawData = await readFile(fileResponse.path);
-      const fileName = fileResponse.path.split("/").pop();
-      if (fileName == null) throw new UnexpectedError("File name is null");
-      name = fileName;
-      const file = JSON.parse(new TextDecoder().decode(rawData));
-      if (
-        !(await fileHandler({
-          file,
-          placer,
-          name: fileName,
-          store,
-          confirm,
-          client,
-          workspaceKey,
-          dispatch,
-        }))
-      )
-        throw new Error(`${fileName} is not a valid schematic`);
+      if (fileResponses == null) return;
+      for (const fileResponse of fileResponses) {
+        if (fileResponse == null) return;
+        const rawData = await readFile(fileResponse.path);
+        const fileName = fileResponse.path.split("/").pop();
+        if (fileName == null) throw new UnexpectedError("File name is null");
+        name = fileName;
+        const file = JSON.parse(new TextDecoder().decode(rawData));
+        if (
+          !(await fileHandler({
+            file,
+            placer,
+            name: fileName,
+            store,
+            confirm,
+            client,
+            workspaceKey,
+            dispatch,
+          }))
+        )
+          addStatus({
+            variant: "error",
+            message: `Failed to import ${fileName}`,
+            description: `${fileName} is an invalid schematic`,
+          });
+      }
     },
-    onError: (err) => {
+    onError: (err) =>
       addStatus({
         variant: "error",
         message: `Failed to import ${name}`,
         description: err.message,
-      });
-    },
+      }),
   }).mutate;
 };

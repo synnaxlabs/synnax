@@ -39,7 +39,7 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { SchematicServices } from "@/schematic/services";
+import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
@@ -243,4 +243,4 @@ export const Window = memo(({ layoutKey }: Layout.RendererProps): ReactElement =
 });
 Window.displayName = "MosaicWindow";
 
-export const FILE_HANDLERS = [SchematicServices.fileHandler];
+export const FILE_HANDLERS = [Schematic.fileHandler];
