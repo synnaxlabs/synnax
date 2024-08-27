@@ -134,7 +134,10 @@ export const useModal = (): CreateConfirmModal => {
         const l = Layout.select(store.getState(), layout.key);
         if (l == null) resolve(false);
         const args = selectArgs<ConfirmLayoutArgs>(store.getState(), layout.key);
-        if (args.result == null) return;
+        // This is a case where the dialog was closed by another mechanism, such as
+        // application restart or a different dialog being opened. In this case, resolve
+        // the promise as false.
+        if (args == null || args.result == null) return resolve(false);
         resolve(args.result);
         unsubscribe?.();
       });
