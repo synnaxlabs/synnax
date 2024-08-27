@@ -33,9 +33,20 @@
 opc::Sink::Sink(
     WriterConfig cfg,
     const std::shared_ptr<UA_Client> &ua_client,
+    const std::shared_ptr<UA_Client> &ua_client2,
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task
-){}
+) : cfg(std::move(cfg)),
+    ua_client(ua_client),
+    ua_client2(ua_client2),
+    ctx(ctx),
+    task(std::move(task))
+{
+    // iterate through cfg channels
+    for(auto &ch : this->cfg.channels){
+        this->cmd_channel_map[ch.cmd_channel] = ch;
+    }
+};
 
 /*
     typedef struct {
@@ -184,7 +195,7 @@ freighter::Error opc::Sink::communicate_response_error(const UA_StatusCode &stat
 /// @brief sends out write request to the OPC server.
 freighter::Error opc::Sink::write(synnax::Frame frame){
     this->initialize_write_request(frame);
-    UA_WriteResponse res = UA_Client_Service_write(this->ua_client.get(), this->req);
+    UA_WriteResponse res = UA_Client_Service_write(this->ua_client2.get(), this->req);
     auto status = res.responseHeader.serviceResult;
 
     if(status != UA_STATUSCODE_GOOD){

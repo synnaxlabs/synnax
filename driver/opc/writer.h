@@ -46,8 +46,7 @@ namespace opc {
             config::Parser &parser
         ) : node_id(parser.required<std::string>("node_id")),
             node(parseNodeId("node_id", parser)),
-            cmd_channel(parser.required<ChannelKey>("cmd_channel")),
-            state_channel(parser.required<ChannelKey>("state_channel")),
+            cmd_channel(parser.required<ChannelKey>("channel")),
             enabled(parser.optional<bool>("enabled", true)) {
         }
     }; // struct WriterChannelConfig
@@ -87,17 +86,18 @@ namespace opc {
             std::shared_ptr<task::Context> ctx;
             synnax::Task task;
             std::map<ChannelKey, WriterChannelConfig> cmd_channel_map; // TODO: Change to cmd channel map
-            synnax::Frame fr; // TODO: does this need to be a member variable?
             task::State curr_state;
 
             // OPC UA Resources
             WriterConfig cfg;
             std::shared_ptr<UA_Client> ua_client;
+            std::shared_ptr<UA_Client> ua_client2;
             UA_WriteRequest req; // defined in types_generated.h
 
             Sink(
                 WriterConfig cfg,
                 const std::shared_ptr<UA_Client> &ua_client,
+                const std::shared_ptr<UA_Client> &ua_client2,
                 const std::shared_ptr<task::Context> &ctx,
                 synnax::Task task
             );

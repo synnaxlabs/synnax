@@ -136,29 +136,51 @@ const Wrapped = ({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) return;
-      const { name, config } = methods.value();
+      const { config, name } = methods.value();
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
-      console.log(dev);
+      console.log(config);
+      let modified = false;
       
+      // dev.properties.write.channels = dev.properties.write.channels ?? {};
       const commandsToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
-        const key = channel.nodeId;
-        const cmd_key = dev.properties.write.channels[key];
-        if (cmd_key == null) {
-          commandsToCreate.push(channel);
-        } else {
+        const key = getChannelByNodeID(dev.properties, channel.nodeId);
+        // console.log("key", key);
+        // console.log("channel", dev.properties.write.channels[channel.nodeId]);
+        // console.log("channels", dev.properties.write.channels);
+        // if(primitiveIsZero(key)){
+        //    commandsToCreate.push(channel);
+        //    console.log("zero", channel);
+        // }
+        // else{
+          // try {
+          //   await client.channels.retrieve(key);
+          //   // const cmdCh = await client.channels.retrieve(key);
+          //   // if(cmdCh.name !== channel.name) await client.channels.rename(Number(key), channel.name);
+          //   console.log("found", channel);
+          // } catch (e){
+          //   console.log("not found", channel);
+          //   if(NotFoundError.matches(e)) commandsToCreate.push(channel);
+          //   else throw e;
+          // }
+        // }
           try {
-            await client.channels.retrieve([cmd_key]);
+            await client.channels.retrieve(`${channel.name}_cmd`); // TODO: I know this wont work but im gonna deal with it for now
+            // const cmdCh = await client.channels.retrieve(channel.name);
+            // if(cmdCh.name !== channel.name) await client.channels.rename(Number(key), channel.name);
+            console.log("found", channel);
           } catch (e){
+            console.log("not found", channel);
             if(NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
-        }
       } 
 
       if(commandsToCreate.length > 0) {
+        console.log("size", commandsToCreate.length);
+        modified = true;
         const commandIndexes = await client.channels.create(
           commandsToCreate.map((c) => ({
             name: `${c.name}_cmd_time`,
@@ -174,11 +196,21 @@ const Wrapped = ({
           })),
         );
         commands.forEach((c, i) => {
-          const key =  commandsToCreate[i].nodeId;
+          const key =  getChannelByNodeID(dev.properties, commandsToCreate[i].nodeId);
             dev.properties.write.channels[key] = c.key;
           });
       }
-      methods.set("config", config);
+
+      config.channels = config.channels.map((c) => ({
+        ...c,
+        channel: getChannelByNodeID(dev.properties, c.nodeId),
+      }));
+
+      if (modified)
+        await client.hardware.devices.create({
+          ...dev,
+          properties: dev.properties,
+        });
 
       await createTask({
         key: task?.key,

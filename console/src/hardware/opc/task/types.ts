@@ -206,7 +206,6 @@ export const writeChanZ = z.object({
   key: z.string(),
   name: z.string(),
   cmdChannel: z.number(),
-  stateChannel: z.number(),
   nodeName: z.string(),
   nodeId: z.string(),
   enabled: z.boolean(),
@@ -221,6 +220,8 @@ export const writeConfigZ = z
   })
   // Error if channel ahs been duplicated
   .superRefine((cfg, ctx) => {
+
+    console.log(cfg.channels);
     const channels = new Map<number, number>();
     cfg.channels.forEach(({ cmdChannel }) =>
       channels.set(cmdChannel, (channels.get(cmdChannel) ?? 0) + 1),

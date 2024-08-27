@@ -269,27 +269,27 @@ void fetchEndpointDiagnosticInfo(
     }
 }
 
-freighter::Error set_authentication(
-        opc::ConnectionConfig &cfg,
-        UA_ClientConfig *config
-){
-    UA_StatusCode status;
-    if (!cfg.username.empty() || !cfg.password.empty()) {
-        status = UA_ClientConfig_setAuthenticationUsername(
-                config,
-                cfg.username.c_str(),
-                cfg.password.c_str()
-        );
-        if (status != UA_STATUSCODE_GOOD) {
-            LOG(ERROR) << "[opc.scanner] Failed to set authentication: " << UA_StatusCode_name(status);
-            return freighter::Error(freighter::TYPE_UNREACHABLE,
-                                     "Failed to set authentication: " + std::string(
-                                             UA_StatusCode_name(status)));
-
-        }
-    }
-    return freighter::NIL;
-}
+//freighter::Error set_authentication(
+//        opc::ConnectionConfig &cfg,
+//        UA_ClientConfig *config
+//){
+//    UA_StatusCode status;
+//    if (!cfg.username.empty() || !cfg.password.empty()) {
+//        status = UA_ClientConfig_setAuthenticationUsername(
+//                config,
+//                cfg.username.c_str(),
+//                cfg.password.c_str()
+//        );
+//        if (status != UA_STATUSCODE_GOOD) {
+//            LOG(ERROR) << "[opc.scanner] Failed to set authentication: " << UA_StatusCode_name(status);
+//            return freighter::Error(freighter::TYPE_UNREACHABLE,
+//                                     "Failed to set authentication: " + std::string(
+//                                             UA_StatusCode_name(status)));
+//
+//        }
+//    }
+//    return freighter::NIL;
+//}
 
 ///@ connect returns a new UA_Client object which is connected to the specified endpoint
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
@@ -310,8 +310,26 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
 
     configureEncryption(cfg, client);
     UA_StatusCode status;
-    freighter::Error err = set_authentication(cfg, config);
-    if(!err) return {std::move(client), err};
+//    freighter::Error err = set_authentication(cfg, config);
+//    if(!err) return {std::move(client), err};
+    if (!cfg.username.empty() || !cfg.password.empty()) {
+        status = UA_ClientConfig_setAuthenticationUsername(
+                config,
+                cfg.username.c_str(),
+                cfg.password.c_str()
+        );
+        if (status != UA_STATUSCODE_GOOD) {
+            LOG(ERROR) << "[opc.scanner] Failed to set authentication: " <<
+                       UA_StatusCode_name(status);
+            return {
+                    std::move(client),
+                    freighter::Error(freighter::TYPE_UNREACHABLE,
+                                     "Failed to set authentication: " + std::string(
+                                             UA_StatusCode_name(status)))
+            };
+        }
+    }
+
 
     // fetchEndpointDiagnosticInfo(client, cfg.endpoint);
     status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
