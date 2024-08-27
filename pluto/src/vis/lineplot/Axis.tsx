@@ -126,7 +126,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           const dims = Text.dimensions(label, font);
           let labelSize =
             dims[direction.dimension(direction.construct(labelDirection))];
-          if (labelSize > 0) labelSize += 12;
+          if (labelSize > 0) labelSize += 9;
           setState((state) => ({ ...state, labelSize }));
         } else {
           const dims = Text.dimensions(label, font);
