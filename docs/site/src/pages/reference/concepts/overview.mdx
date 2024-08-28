@@ -3,8 +3,9 @@ layout: "@/layouts/MainLayout.astro"
 title: "Concepts"
 description: "Learn about the core concepts of Synnax."
 ---
-import {Image} from "astro:assets";
+import { Image } from "astro:assets";
 import { Divider } from "@synnaxlabs/pluto";
+import Note from "@/components/Note.astro";
 import Diagram from "@/components/Diagram.astro";
 import sample from "@/pages/reference/concepts/sample.svg";
 import channel from "@/pages/reference/concepts/channel.svg";
@@ -79,10 +80,14 @@ workflows that would otherwise require multiple systems to implement.
 <Image src={channel} alt="Channels Diagram" />
 </Diagram>
 
+<Note variant="info">
+Channels are comparable to tags in a time-series database like [InfluxDB](https://www.influxdata.com/)
+or SCADA system like [Ignition](https://inductiveautomation.com/). 
+</Note>
 
 ### Ranges
 
-A [range](/reference/concepts/reads#what-is-a-range) (short for _time range_) is a
+A [range](/reference/concepts/ranges) (short for _time range_) is a
 user-defined time interval that labels interesting events in your data. While channels
 are used to group samples by source, ranges are used to group related samples by time
 period.
@@ -113,9 +118,10 @@ work with channel data as a collection of one or more series.
 ### Frames
 
 A frame is a collection of related series. These series form a table-like structure
-comparable to a pandas `DataFrame` in Python or a `data.frame` in R. Each column holds
-one or more series. Frames are the fundamental unit of data transfer within Synnax, and
-are very useful for effectively working with data from multiple channels at once.
+comparable to a pandas `DataFrame` in Python or a `data.frame` in R. Each column is
+identified by a channel, holding one or more series for that channel. Frames are the 
+fundamental unit of data transfer within Synnax, and are very useful for effectively 
+working with data from multiple channels at once.
 
 <Diagram>
 <Image src={frame} alt="Frames Diagram" />

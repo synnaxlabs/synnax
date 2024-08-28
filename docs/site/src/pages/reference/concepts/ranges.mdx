@@ -8,9 +8,9 @@ description: "Ranges are the primary means for organizing data in Synnax."
 import { Divider } from "@synnaxlabs/pluto";
 import { Image } from "@/components/Media";
 
-A Range (short for _time range_) is a named time interval that labels interesting
-events in your cluster's data. While simple in nature, ranges are a remarkably
-powerful tool for organizing and sharing data across your team.
+A range (short for _time range_) is a named time interval that labels interesting
+events in your cluster's data. Ranges are the primary means for organizing and accessing
+the data stored within Synnax, and can be used to correlate meta-data with channel telemetry.
 
 To create a range, you only need to specify a name, a starting timestamp, and an ending 
 timestamp. While a range can be used to query the data within a channel, it is not 
@@ -20,7 +20,7 @@ necessary to specify the channels that belong within a range.
 
 ## Metadata
 
-Ranges can store arbitrary pieces of meta-data that describes important information about
+Ranges can store arbitrary pieces of meta-data that describe important information about
 the events that occurred within that range. Common examples include part numbers, links
 to procedures, and configuration information. 
 
