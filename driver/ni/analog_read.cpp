@@ -276,7 +276,7 @@ int ni::AnalogReadSource::validate_channels() {
                 .variant = "error",
                 .details = {
                     {"running", false},
-                    {"message", "Channel " + channel.name + " must be type float32 or float64. Got " + channel_info.data_type.value} 
+                    {"message", "Channel " + channel.name + " must be type float32 or float64. Got " + channel_info.data_type.value}, 
                     {"path", channel.name}
                 }
             });
