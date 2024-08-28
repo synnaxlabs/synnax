@@ -7,10 +7,14 @@ description: "Install and use the Synnax Console."
 import { Align, Divider } from "@synnaxlabs/pluto";
 import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
 import { Image } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+
+<Image client:only="react" id="console/get-started/preview" themed={false} />
 
 The Synnax Console is a desktop application for visualizing data, controlling hardware,
 and managing a Synnax cluster. This page will get you started with installing the
 console, and point you to the right resources for learning how to use it.
+
 
 <Divider.Divider direction="x" />
 

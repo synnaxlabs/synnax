@@ -1,59 +1,68 @@
 ---
 import { Icon } from "@synnaxlabs/media";
+const { preview, ...props } = Astro.props;
 ---
 
-<div class="diagram">
-    <div class="internal">
-        <slot />
-    </div>
+<div class=`diagram ${preview ? 'preview' : ''}` {...props}>
+    <div class="internal"></div>
+    <slot />
 </div>
 
 <style>
     .diagram {
+        position: relative;
         display: flex;
-        margin: 5rem 0;
         flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        margin: 5rem 0;
         width: 100%;
         border-radius: 2rem;
         border: 1px solid var(--pluto-dark-gray-l14);
-        box-shadow: 0 0 1rem 0 var(--pluto-gray-l5);
-        @media (prefers-color-scheme: dark) {
-            border: 1px solid var(--pluto-dark-gray-l4);
-            box-shadow: none;
-        }
-        background-color: var(--pluto-dark-gray-l0);
+        box-shadow: 0 0 1rem 0.5rem var(--pluto-dark-gray-l14);
         background-image: radial-gradient(
-            var(--pluto-dark-gray-l5-40) 0.5px,
+            var(--pluto-dark-gray-l5) 0.5px,
             var(--pluto-dark-gray-l0) 0.5px
         );
         background-size: 2rem 2rem;
+        overflow: hidden;
+        padding: 5rem;
 
-        .internal {
-            padding: 5rem;
+        @media (prefers-color-scheme: dark) {
+            border: 1px solid var(--pluto-dark-gray-l4);
+            box-shadow: none;
+            background-image: radial-gradient(
+                var(--pluto-gray-l5-70) 0.5px,
+                transparent 0.5px
+            );
         }
 
-        & .label {
-            display: flex;
-            width: fit-content;
-            align-items: center;
-            gap: 1rem;
-            min-height: 40px;
-            background: var(--pluto-dark-gray-l1);
-            border-bottom: 1px solid var(--pluto-dark-gray-l4);
-            border-right: 1px solid var(--pluto-dark-gray-l4);
-            border-top-left-radius: 2rem;
-            border-bottom-right-radius: 2rem;
-            padding: 0.25rem 2rem;
-            * {
-                color: var(--pluto-dark-gray-l8);
-                font-weight: 250;
-                height: 2rem;
-                width: 2rem;
+        &.preview {
+            justify-content: unset;
+            align-items: unset;
+            background-image: radial-gradient(
+                var(--pluto-gray-l5-70) 0.5px,
+                transparent 0.5px
+            );
+            img {
+                width: 100%;
+                border-radius: 1rem;
+                z-index: 10;
             }
-        }
-
-        & img {
-            width: 100%;
+            & .internal {
+                position: absolute;
+                z-index: 0;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: 100%;
+                background: linear-gradient(
+                    45deg,
+                    var(--pluto-primary-z-50),
+                    #ff007b66
+                );
+            }
+            padding: 10rem 20rem;
         }
     }
 </style>

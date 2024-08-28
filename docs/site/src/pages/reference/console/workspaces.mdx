@@ -2,22 +2,34 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Workspaces"
 heading: "Workspaces"
-description: "Organize and share visualizations using workspaces."
+description: "Organize and share console layouts with workspaces."
 ---
+import { Image } from "astro:assets";
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
 
-Workspaces in Synnax are collections of visualizations that can be used to load certain
-views. For instance, you could be monitoring an entire plane on the Synnax cluster, but
-have one workspace specifically for the fuel system and another workspace for
-aerodynamic sensors.
+import Diagram from "@/components/Diagram.astro";
+import workspace from "@/pages/reference/console/workspaces.png";
+
+<Diagram style="height: 400px" preview>
+    <Image 
+        src={workspace} 
+        alt="Workspaces Diagram" 
+        style="height: 500px; width: fit-content; transform: translate(0%, 0%); border-radius: 1.5rem;"
+    />
+</Diagram>
+
+Workspaces allow you to save a particular console layout for later access and to share
+with others. This can be useful for organizing your console layouts for different tasks
+, component configurations, or to collaboratively develop a project.
 
 <Divider.Divider direction="x" />
 
 ## Creating a New Workspace
-To create a new workspace, you can go to the top-left and click on the workspace
-<Icon.Workspace/> icon. This allows you to add a new workspace.
+
+To create a new workspace, use the workspace selector in the top-left corner of the 
+console.
 
 <Video client:only="react" id="console/workspaces/create" />
 

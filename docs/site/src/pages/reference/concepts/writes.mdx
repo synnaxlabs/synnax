@@ -7,6 +7,9 @@ description: "Learn the process for writing data to a Synnax cluster."
 
 import { Divider } from "@synnaxlabs/pluto";
 import Table from "@/components/Table.astro";
+import writer from "@/pages/reference/concepts/writer.svg";
+import { Image } from "astro:assets";
+import Diagram from "@/components/Diagram.astro";
 
 This page documents the high-level process of writing data to a cluster, including
 transactions, streaming/persistence modes, and dynamic control handoff. This page is a
@@ -18,9 +21,32 @@ Client](/reference/typescript-client/write-data) pages.
 
 ## Introduction
 
-Writers are used to write telemetry samples to a Synnax cluster. A writer is opened on a
-set of channels, and typically writes to these channels in a continuous stream over long
-periods of time.
+Writing data to Synnax revolves around sending batches of telemetry samples to a group
+of [channels](/reference/concepts/channels). When ingesting historical data, it's common
+to write large amounts of data in chunks. For real-time data, we can write samples in
+a streaming fashion, where each sample is written and processed by Synnax as it gets
+recorded.
+
+
+Writers are the primary interface for writing data to a Synnax cluster. A writer
+can be thought of as a pipe that continuously feeds data into one or more channels. 
+Once written, the data is available for [real-time streaming](/reference/concepts/streams)
+or for [historical access](/reference/concepts/queries).
+
+### How writers are used in Synnax
+
+There can be many writers open on a single Synnax cluster at once. Each writer can serve
+a different purpose. For example, one writer might be responsible for sending incoming
+sensor values from a device. Another writer can send control commands to a device with
+actuators connected to it.
+
+<Diagram>
+  <Image src={writer} alt="Writer Diagram" />
+</Diagram>
+
+Internally, [schematics](/reference/console/schematics) within the Synnax [console](/reference/console/get-started)
+use writers to send commands to actuators when a user clicks on a valve or other control element.
+
 
 <Divider.Divider direction="x" />
 

@@ -2,13 +2,17 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Ranges"
 heading: "Ranges"
-description: "Create, view, and manage ranges using the Synnax Console"
+description: "Create, view, and manage ranges using the Console"
 ---
 import { Icon } from "@synnaxlabs/media";
 import { Text, Divider, Triggers } from "@synnaxlabs/pluto"
 import { Video, Image } from "@/components/Media"
 import { Table } from "@/components/Table"
 import Diagram from "@/components/Diagram.astro"
+
+<Diagram preview>
+    <Image client:only="react" id="console/ranges/range-3" themed={false} />
+</Diagram>
 
 Ranges are the primary means for organizing and accessing the data stored in a Synnax
 cluster. They identify and name a specific time interval, and can be used to correlate 
