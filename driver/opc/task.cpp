@@ -35,8 +35,18 @@ void opc::WriterTask::exec(task::Command &cmd) {
 }
 
 void opc::WriterTask::start(){
-    // TODO: make sure connection is maintained (either by what is done in read task
-    // "or calling client_run_iterate" or by some other means)
+    freighter::Error conn_err = test_connection(this->ua_client, device_props.connection.endpoint);
+    if(conn_err){
+        ctx->setState({
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", conn_err.message()}
+            }
+        });
+        LOG(ERROR) << "[opc.writer] failed to connect to OPC UA server: " << conn_err.message();
+        return;
+    }
     this->cmd_pipe.start();
     ctx->setState({
         .task = task.key,
@@ -119,7 +129,8 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
                                     cfg,
                                     ua_client,
                                     ctx,
-                                    task
+                                    task,
+                                    properties
                                 );
 
 

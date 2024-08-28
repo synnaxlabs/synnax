@@ -92,12 +92,14 @@ namespace opc {
             WriterConfig cfg;
             std::shared_ptr<UA_Client> ua_client;
             UA_WriteRequest req; // defined in types_generated.h
+            opc::DeviceProperties device_props;
 
             Sink(
                 WriterConfig cfg,
                 const std::shared_ptr<UA_Client> &ua_client,
                 const std::shared_ptr<task::Context> &ctx,
-                synnax::Task task
+                synnax::Task task,
+                opc::DeviceProperties device_props
             );
 
             freighter::Error write(synnax::Frame frame) override;
@@ -166,13 +168,16 @@ namespace opc {
         void start();
     private:
         opc::WriterConfig cfg;
+
         // Task Resources
         std::shared_ptr<task::Context> ctx;
         synnax::Task task;
         breaker::Config breaker_cfg;
         pipeline::Control cmd_pipe;
+
         // Channel Information
         std::vector<synnax::ChannelKey> cmd_channels_keys;
+
         // OPC UA
         std::shared_ptr<UA_Client> ua_client;
         opc::DeviceProperties device_props;

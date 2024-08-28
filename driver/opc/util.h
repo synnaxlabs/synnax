@@ -32,6 +32,18 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
     std::string log_prefix
 );
 
+static inline freighter::Error test_connection(std::shared_ptr<UA_Client> client, std::string endpoint){
+    UA_StatusCode status = UA_Client_connect(client.get(), endpoint.c_str());
+    if (status != UA_STATUSCODE_GOOD) {
+        // attempt again to reestablish if timed out
+        UA_StatusCode status_retry = UA_Client_connect(client.get(), endpoint.c_str());
+        if(status_retry != UA_STATUSCODE_GOOD){
+            return freighter::Error("Failed to connect to OPC UA server: " + std::string(UA_StatusCode_name(status)));
+        }
+    }
+    return freighter::NIL;
+}
+
 ///@brief Define constants for the conversion
 static const int64_t UNIX_EPOCH_START_1601 = 11644473600LL; // Seconds from 1601 to 1970
 static const int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;

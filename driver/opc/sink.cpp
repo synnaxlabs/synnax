@@ -27,19 +27,18 @@
 #include "include/open62541/common.h"
 #include "include/open62541/client_subscriptions.h"
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Sink                                     //
-///////////////////////////////////////////////////////////////////////////////////
 opc::Sink::Sink(
     WriterConfig cfg,
     const std::shared_ptr<UA_Client> &ua_client,
     const std::shared_ptr<task::Context> &ctx,
-    synnax::Task task
+    synnax::Task task,
+    opc::DeviceProperties device_props
 ) : cfg(std::move(cfg)),
     ua_client(ua_client),
     ctx(ctx),
-    task(std::move(task))
-{
+    task(std::move(task)),
+    device_props(std::move(device_props)) {
+
     // iterate through cfg channels
     for(auto &ch : this->cfg.channels){
         this->cmd_channel_map[ch.cmd_channel] = ch;
@@ -127,8 +126,20 @@ freighter::Error opc::Sink::communicate_response_error(const UA_StatusCode &stat
     return err;
 };
 
-/// @brief sends out write request to the OPC server.
+/// @brief sends out write request to the OPC serveru.
 freighter::Error opc::Sink::write(synnax::Frame frame){
+    freighter::Error conn_err = test_connection(this->ua_client, device_props.connection.endpoint);
+    if(conn_err){
+        ctx->setState({
+                              .task = task.key,
+                              .variant = "error",
+                              .details = json{
+                                      {"message", conn_err.message()}
+                              }
+                      });
+        LOG(ERROR) << "[opc.reader] connection failed: " << conn_err.message();
+        return conn_err;
+    }
     auto client = this->ua_client.get();
     auto frame_index = 0;
     for(const auto key : *(frame.channels)){
