@@ -225,7 +225,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
         synnax::Series series = synnax::Series(synnax::FLOAT32, s);
         if(this->reader_config.channels[ch].data_type == synnax::FLOAT32) series = synnax::Series(synnax::FLOAT32, s);
         else if(this->reader_config.channels[ch].data_type == synnax::FLOAT64) series = synnax::Series(synnax::FLOAT64, s);
-        // copy data from start to end into series
         for(int i = 0; i < d.samples_read_per_channel; i++) 
             this->write_to_series(series, d.analog_data[data_index*d.samples_read_per_channel + i], this->reader_config.channels[ch].data_type);
         
