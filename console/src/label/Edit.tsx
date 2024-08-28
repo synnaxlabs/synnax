@@ -20,7 +20,6 @@ import {
   Input,
   List,
   Text,
-  Theming,
 } from "@synnaxlabs/pluto";
 import { change } from "@synnaxlabs/x";
 import { ReactElement } from "react";
@@ -126,7 +125,9 @@ export const Edit: Layout.Renderer = (): ReactElement => {
   });
 
   const arr = Form.useFieldArray<label.Label>({ path: "labels", ctx: methods });
-  const theme = Theming.use();
+  const theme = Layout.useSelectTheme();
+  const colors = theme?.colors.visualization.palettes.default ?? [];
+  const color = colors[arr.value.length % colors.length].hex;
 
   return (
     <Align.Space direction="y" style={{ padding: "2rem" }} grow>
@@ -156,7 +157,7 @@ export const Edit: Layout.Renderer = (): ReactElement => {
                 arr.push({
                   key: uuid(),
                   name: "New Label",
-                  color: theme.colors.primary.z,
+                  color,
                 })
               }
               startIcon={<Icon.Add />}
