@@ -14,7 +14,7 @@
     border-radius: var(--pluto-border-radius);
     border: var(--pluto-border);
     width: fit-content;
-    height: 4.5rem;
+    height: 3.75rem;
     background: var(--pluto-gray-l1);
     transition: padding-right 0.3s ease;
     max-width: 200px;

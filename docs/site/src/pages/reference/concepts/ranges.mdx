@@ -6,7 +6,6 @@ description: "Ranges are the primary means for organizing data in Synnax."
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Image } from "@/components/Media";
 
 A range (short for _time range_) is a named time interval that labels interesting
 events in your cluster's data. Ranges are the primary means for organizing and accessing
@@ -50,8 +49,6 @@ within a range, you can search for the channel by both its original name and its
 
 ## Child Ranges
 
-<Image id="concepts/ranges/child-range" client:only="react" themed={false} />
-
 Child ranges can be used to further segment a range into small, specific intervals.
 If you have a range that tracks a series of tests for a single component, you can create
 a range for all tests (typically called a campaign), and then create child ranges that
@@ -75,8 +72,6 @@ You can also create snapshots of other resources, such as [schematics](/referenc
 <Divider.Divider direction="x" />
 
 ## Labels
-
-<Image id="concepts/ranges/labels-example" client:only="react" themed={false} />
 
 Labels are a simple way to categorize ranges into groups. They can be used to differentiate
 the ranges belonging to a specific process (assembly line or test stand), identify the

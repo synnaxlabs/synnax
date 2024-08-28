@@ -285,7 +285,7 @@ const EditLayoutForm = ({
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
           <Triggers.Text shade={7} level="small" trigger={CREATE_TRIGGER} />
           <Text.Text shade={7} level="small">
-            To Create
+            To {isCreate ? "Create" : "Save"}
           </Text.Text>
         </Nav.Bar.Start>
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
@@ -297,7 +297,7 @@ const EditLayoutForm = ({
             loading={isPending}
             triggers={[CREATE_TRIGGER]}
           >
-            Create
+            {isCreate ? "Create" : "Save"}
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
