@@ -305,9 +305,9 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     config->logging->context = &log_prefix;
 
     // Set Timeouts
-    config->secureChannelLifeTime = 600000000; // Approximately a week
-    config->requestedSessionTimeout = 1200000000; // 2 weeks (default had it double the secure channel lifetime)
-    config->timeout = 600000000; // 10 seconds
+    config->secureChannelLifeTime = 7200000; // (ms) 2 hours
+    config->requestedSessionTimeout = 14400000; // (ms) 4 hours (default had it double the secure channel lifetime)
+    config->timeout = 7200000; // (ms) 2 hours
     configureEncryption(cfg, client);
     UA_StatusCode status;
 //    freighter::Error err = set_authentication(cfg, config);

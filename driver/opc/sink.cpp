@@ -43,6 +43,9 @@ opc::Sink::Sink(
     for(auto &ch : this->cfg.channels){
         this->cmd_channel_map[ch.cmd_channel] = ch;
     }
+    //start thread
+    this->running = true;
+    this->keep_alive_thread = std::thread(&opc::Sink::maintain_connection, this);
 };
 
 void opc::Sink::set_variant(UA_Variant *val, const synnax::Frame &frame, const uint32_t &series_index, const synnax::DataType &type) {
@@ -84,6 +87,7 @@ void opc::Sink::set_variant(UA_Variant *val, const synnax::Frame &frame, const u
 };
 
 void opc::Sink::stoppedWithErr(const freighter::Error &err){
+    LOG(ERROR) << "[opc.sink] Stopped with error: " << err.message();
     curr_state.variant = "error";
     curr_state.details = json{
             {"message", err.message()},
@@ -143,7 +147,6 @@ freighter::Error opc::Sink::write(synnax::Frame frame){
     auto client = this->ua_client.get();
     auto frame_index = 0;
     for(const auto key : *(frame.channels)){
-
         //check key is in map
         if(this->cmd_channel_map.find(key) == this->cmd_channel_map.end()){
             LOG(ERROR) << "[opc.sink] Channel key not found in map";
@@ -154,16 +157,36 @@ freighter::Error opc::Sink::write(synnax::Frame frame){
         UA_Variant *val = UA_Variant_new();
         auto data_Type = frame.series->at(frame_index).data_type;
         this->set_variant(val, frame, frame_index, data_Type);
-        UA_StatusCode retval = UA_Client_writeValueAttribute(client, ch.node, val);
+        UA_StatusCode retval;
+        {
+            std::lock_guard<std::mutex> lock(this->client_mutex);
+             retval = UA_Client_writeValueAttribute(client, ch.node, val);
+        }
         if(retval != UA_STATUSCODE_GOOD){
             auto err = this->communicate_response_error(retval);
             UA_Variant_delete(val);
             LOG(ERROR) << "[opc.sink] Failed to write to node: " << key;
             return err;
         }
-
         UA_Variant_delete(val);
         frame_index++;
     }
     return freighter::NIL;
 };
+
+void opc::Sink::maintain_connection() {
+   while(this->running){
+       //sleep for 5 minutes
+       std::this_thread::sleep_for(std::chrono::seconds(1)); // TODO: make this less frequent and use a breaker to sleep
+       UA_Variant value;
+       UA_Variant_init(&value);
+       //acquire lock
+       {
+           std::lock_guard<std::mutex> lock(this->client_mutex);
+           UA_StatusCode retval = UA_Client_readValueAttribute(this->ua_client.get(),
+                                                               UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_STATE),
+                                                               &value);
+       }
+       UA_Variant_clear(&value);
+   }
+}

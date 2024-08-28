@@ -33,6 +33,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
 );
 
 static inline freighter::Error test_connection(std::shared_ptr<UA_Client> client, std::string endpoint){
+    // tru running run iterate
     UA_StatusCode status = UA_Client_connect(client.get(), endpoint.c_str());
     if (status != UA_STATUSCODE_GOOD) {
         // attempt again to reestablish if timed out

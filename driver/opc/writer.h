@@ -94,6 +94,11 @@ namespace opc {
             UA_WriteRequest req; // defined in types_generated.h
             opc::DeviceProperties device_props;
 
+            // keep alive resources (thread and mutex)
+            std::thread keep_alive_thread;
+            std::mutex client_mutex;
+            std::atomic<bool> running = true;
+
             Sink(
                 WriterConfig cfg,
                 const std::shared_ptr<UA_Client> &ua_client,
@@ -102,8 +107,14 @@ namespace opc {
                 opc::DeviceProperties device_props
             );
 
+            ~Sink() override {
+                this->running = false;
+                this->keep_alive_thread.join();
+            }
+
             freighter::Error write(synnax::Frame frame) override;
-       
+            void maintain_connection();
+
         private:
             void initialize_write_request(const synnax::Frame &frame);
 

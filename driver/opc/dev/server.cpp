@@ -9,6 +9,8 @@
 
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
+// include thing for cout
+#include <iostream>
 
 /* Build Instructions (Linux)
  * - g++ server.cpp -lopen62541 -o server */
@@ -17,7 +19,14 @@ using namespace std;
 
 int main() {
     UA_Server *server = UA_Server_new();
-    UA_ServerConfig_setDefault(UA_Server_getConfig(server));
+    auto server_config =UA_Server_getConfig(server);
+    //print original timeout
+    cout << "Original timeout: " << server_config->maxSessionTimeout << endl;
+    //set timeout to an hour
+    server_config->maxSessionTimeout = 3600000;
+
+    cout << "New timeout: " << server_config->maxSessionTimeout << endl;
+    UA_ServerConfig_setDefault(server_config);
 
 
     // add a variable node to the adresspace
