@@ -46,57 +46,70 @@ data source.
 
 ## Channel Types
 
-There are three different classifications of channel in Synnax: **index, indexed, and 
-virtual channels.**
+There are three different types of channels in Synnax. **Index** channels exclusively
+store timestamps, and are used to retrieve the samples in data channels. **Data**
+channels store actual telemetry values, such as sensor readings. **Virtual** channels
+are only used for data streaming, and do not persist their samples to the database.
 
-Synnax is a time-series database. Every respective channel must have a time
-channel that it is indexed to. These index channels allow for data lookup at a
-particular time. There are two main types of channels:
+### Index Channels
 
-1. Indexed Channels - Stores data arriving at a variable rate. The samples in
-   these channels are ‘indexed’ by a specified index channel.
-2. Index Channels - Stores the timestamps for samples in one or more indexed
-   channels. The samples in these channels must be time-ordered, nanosecond
-   integers. Timestamps in index channels are used to look up the samples in the
-   channels ‘indexed’ by them.
+An **index** channel (or just "index") is a special type of channel optimized for fast
+lookups on timestamps. Index channels always have a data type of `timestamp`, meaning
+that they must contain ordered `int64` nanosecond UTC timestamps.
 
-An index channel (or just “index”) is a special type of channel optimized for
-fast lookups on timestamps. The values in an indexed channel must be
-time-ordered, `int64` nanosecond UTC timestamps. Synnax provides utilities for
-converting between timestamp formats and timezones.
+These channels are comparable to the index in a book. To find a particular piece of 
+information, you first look through the index, which then points you to the relevant 
+page. In Synnax, index channels are used in a similar fashion. To find the samples in 
+a data channel for a particular time range, Synnax will first look through the index 
+channel to find the relevant timestamps, and then retrieve the samples from the data 
+channel.
 
-Indexed channels are ‘indexed’ by the values in an index channel, which means
-that each sample in the indexed channel has a correlated timestamp in its index.
-Multiple indexed channels can have the same channel as their index. By
-efficiently finding the location of the timestamp, Synnax can also quickly
-retrieve the associated samples.
+### Data Channels
 
-Index channels play a similar role to primary keys in relational databases. The
-primary key (in Synnax’s case, a timestamp) can be used to fetch related values
-in one or more columns quickly.
+Data channels are the primary method for storing telemetry samples in Synnax. Data 
+channels can store sensor readings, actuator commands, calculated values, or any
+other time-ordered points. 
 
-{/* Have Emiliano rewrite this above section.*/}
+Every sample in a data channel must have the same, fixed size data type. This means
+that data channels cannot store variable length values, such as strings or JSON objects.
+
+Every data channel must have an associated index channel, which is used to look up
+samples at a particular time. It's common to have multiple data channels associated
+with a single index channel.
+
+### Virtual Channels
+
+Virtual channels are only used for real-time data streaming. Their values are not 
+persisted to disk. Virtual channels do not have an associated index channel, and have
+the benefit of being able to support variable length data types. 
+
+It's common to send strings, logs, JSON values, or other complex data types over virtual 
+channels.
 
 <Divider.Divider direction="x" />
 
 ## Channel Fields
 
+All channel types have a common set of fields. There may be slight variations in the 
+naming conventions between the various Synnax client libraries, but the core concepts
+remain the same.
+
 ### Key
 
-A channel’s key is auto-assigned by the cluster and is guaranteed to be unique.
+A channel's key is a single, 32-bit number that is automatically assigned by Synnax
+when the channel is created. This key uniquely identifies the channel within the database,
+and cannot be edited.
 
 ### Name
 
-A human-readable name for the channel. Synnax does not prevent duplicate names,
-but we highly recommend that you keep them unique.
+A human-readable name for the channel. This is the most common way to search for and 
+reference a channel. Synnax does not prevent duplicate names, although it is highly
+recommended that you keep them unique.
 
-{/* Is the above still true? */}
+### Data Type 
 
-### Data Type
-
-The data type of the samples stored in the channel. A channel’s data type must
-have a fixed **density** i.e. the number of bytes per sample is constant. Synnax
-has a number of built in data types:
+All channel's must have a consistent data type. Index channels must always have a 
+data type of `timestamp`, while data channels can have any of the following types:
 
 | Data Type   | Description                   | Density |
 | ----------- | ----------------------------- | ------- |
@@ -113,18 +126,27 @@ has a number of built in data types:
 | `float32`   | 32-bit floating point         | 4 bytes |
 | `float64`   | 64-bit floating point         | 8 bytes |
 
-We’re also planning on adding support for custom data types such as fixed-size
-JSON objects and arrays. If this is something that interests you, let us know.
+In addition to these basic types, virtual channels also support the following variable
+length data types:
+
+| Data Type | Description |
+| --------- | ----------- |
+| `string`  | UTF-8 string |
+| `json`    | JSON object  |
 
 ### Is Index
 
-If this value is true, the channel is considered an index channel. Index
-channels must have a data type of `timestamp`, meaning that they must contain
-ordered `int64` nanosecond UTC timestamps.
+A boolean field indicating whether the channel should be treated as an index channel.
+This field defaults to `false`, and should only be set to `true` for index channels.
+
+### Virtual 
+
+A boolean field indicating whether the channel is virtual. Virtual channels cannot 
+be indexes. This field defaults to `false`, and should only be set to `true` for
+virtual channels.
 
 ### Index
 
-If the channel is not an index channel, this should be set to the key of the
-index channel. If this parameter is provided, the channel is considered an
-indexed channel. This field will be ignored for index channels, as they cannot
-be indexed.
+This field is only used for data channels, and specifies the key of the index channel
+associated with the data channel. This field will be ignored for index and virtual
+channels.

@@ -3,8 +3,14 @@ layout: "@/layouts/MainLayout.astro"
 title: "Concepts"
 description: "Learn about the core concepts of Synnax."
 ---
-
+import {Image} from "astro:assets";
 import { Divider } from "@synnaxlabs/pluto";
+import Diagram from "@/components/Diagram.astro";
+import sample from "@/pages/reference/concepts/sample.svg";
+import channel from "@/pages/reference/concepts/channel.svg";
+import range from "@/pages/reference/concepts/range.svg";
+import series from "@/pages/reference/concepts/series.svg";
+import frame from "@/pages/reference/concepts/frame.svg";
 
 Synnax is a streaming time-series database designed to acquire, store, and transmit
 real-time data from hardware systems. It scales horizontally, and can be deployed on
@@ -39,61 +45,81 @@ cluster’s data without being aware of where it is actually stored.
 
 ## Data Components
 
-Now that we’ve covered the basic distributed systems terminology, we’re ready to step
-into the data components in a cluster.
-
-To illustrate how these components work together, we’ll use the example of a cyclist who
-takes several two-hour rides over the course of a month. During each ride, they use a
-speedometer to record their instantaneous speed once per second.
+The data components of a cluster are the building blocks for storing, retrieving, and
+streaming hardware telemetry data. There are five data components. We'll step
+through each one.
 
 ### Samples
 
-A sample is a strongly typed value recorded at a specific point in time. The readings
-from our cyclicts’s speedometer are reported as `float32` values in kilometers per hour.
+A sample is a single value recorded at a specific point in time. When dealing with 
+hardware, samples are most commonly numeric sensor readings, such as temperature or
+pressure. Samples can also be actuator commands, status codes, or any other strongly
+typed value. 
+
+<Diagram>
+<Image src={sample} alt="Samples Diagram" />
+</Diagram>
 
 ### Channels
 
 A [channel](/reference/concepts/channels) is a logical collection of samples emitted by
-or representing the values of a single source (typically a sensor or actuator). We can
-store the speedometer readings across all the cyclists’s rides in a single channel
-titled “speed-gps”. We can also create channels that store post-processed results or
-simulated values. For example, we can record target speeds for each ride in a
-“speed-target” channel, and then write the difference between our target and actual
-readings in a “speed-diff” channel. As long as the samples are time-ordered, do not have
-duplicates (i.e. no two samples have the same timestamp), and have a consistent data
-type, they can be contained in a channel.
+or representing the values of a single source. This source is typically a sensor, although
+channels can also hold values like actuator commands, status codes, log messages, or 
+enumerations.
 
-Channels can also be used to stream samples in real-time. This is useful for live
-plotting, control sequences, and post-processing applications.
+In Synnax, samples written to a channel are both stored permanently and streamed in 
+real-time. Live transmission allows for consumers (called [streamers](/reference/concepts/streams)) 
+to receive and process real-time data. Common use cases for data streaming include 
+visualization, anomaly detection, and automated control.
+
+Combined data storage and streaming is a key feature of Synnax, enabling many powerful
+workflows that would otherwise require multiple systems to implement.
+
+<Diagram>
+<Image src={channel} alt="Channels Diagram" />
+</Diagram>
+
 
 ### Ranges
 
-A [range](/reference/concepts/reads#what-is-a-range) (short for "time range") is a
-user-defined region of a channel's data. Ranges are purely for categorization and do not
-affect the structure of a channel's data. Ranges can also overlap with or contain other
-ranges. Ranges are typically used to indicate important events or categorize long
-periods of time.
+A [range](/reference/concepts/reads#what-is-a-range) (short for _time range_) is a
+user-defined time interval that labels interesting events in your data. While channels
+are used to group samples by source, ranges are used to group related samples by time
+period.
 
-After each ride, we can identify periods of interest, such as hills or descents, and
-define ranges to mark them as relevant for analysis. If our cyclist is training for a
-century race, we can also wrap all of their rides in a ‘century training’ range to keep
-them nicely categorized.
+In addition to being the primary method for querying data from a cluster, Ranges are also
+a powerful tool for attaching crucial meta-data to telemetry values.
+
+In a test operations context, ranges can be used to label specific test runs, attaching
+information like calibration data, test parameters, and procedures. In manufacturing
+and monitoring, ranges can be used to label anomalies, identify maintenance periods, or
+annotate automated control actions.
+
+<Diagram>
+<Image src={range} alt="Ranges Diagram" />
+</Diagram>
 
 ### Series
 
-While ranges virtually separate areas of related data, series are used to hold the
-actual samples. They can be compared to arrays or lists in most programming languages.
-Series are strongly typed and hold their values in time-order. When writing data to the
-cluster, a user must provide a [frame](#frames) containing an series of samples for each
-channel they wish to write to. When reading data, a caller typically receives frames
-containing series of samples for each channel across the requested period of time.
+While channels and ranges group related data, series do the heavy lifting in terms
+of storing and transmitting actual samples. A series is comparable to a list or array
+in other programming languages. When reading or writing data to Synnax, you'll frequently
+work with channel data as a collection of one or more series.
+
+<Diagram>
+<Image src={series} alt="Series Diagram" />
+</Diagram>
 
 ### Frames
 
 A frame is a collection of related series. These series form a table-like structure
 comparable to a pandas `DataFrame` in Python or a `data.frame` in R. Each column holds
-one or more series. Frames are the fundamental unit of data transfer within a cluster,
-and are used for reads, writes, and streaming.
+one or more series. Frames are the fundamental unit of data transfer within Synnax, and
+are very useful for effectively working with data from multiple channels at once.
+
+<Diagram>
+<Image src={frame} alt="Frames Diagram" />
+</Diagram>
 
 <Divider.Divider direction="x" />
 
