@@ -126,8 +126,6 @@ export const Edit: Layout.Renderer = (): ReactElement => {
 
   const arr = Form.useFieldArray<label.Label>({ path: "labels", ctx: methods });
   const theme = Layout.useSelectTheme();
-  const colors = theme?.colors.visualization.palettes.default ?? [];
-  const color = colors[arr.value.length % colors.length].hex;
 
   return (
     <Align.Space direction="y" style={{ padding: "2rem" }} grow>
@@ -153,13 +151,15 @@ export const Edit: Layout.Renderer = (): ReactElement => {
               )}
             </List.Filter>
             <Button.Button
-              onClick={() =>
+              onClick={() => {
+                const newColors = theme?.colors.visualization.palettes.default ?? [];
+                const color = newColors[arr.value.length % newColors.length].hex;
                 arr.push({
                   key: uuid(),
                   name: "New Label",
                   color,
-                })
-              }
+                });
+              }}
               startIcon={<Icon.Add />}
               style={{ width: "fit-content" }}
               iconSpacing="small"
