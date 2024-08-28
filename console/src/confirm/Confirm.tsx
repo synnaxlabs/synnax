@@ -134,8 +134,13 @@ export const useModal = (): CreateConfirmModal => {
         const l = Layout.select(store.getState(), layout.key);
         if (l == null) resolve(false);
         const args = selectArgs<ConfirmLayoutArgs>(store.getState(), layout.key);
-        if (args.result == null) return;
-        resolve(args.result);
+        // This means the action was unrelated to the confirmation.
+        if (args != null && args.result == null) return;
+        // This means that the layout was removed by a separate mechanism than
+        // the user hitting 'Confirm' or 'Cancel'. We treat this as a cancellation.
+        if (args == null) resolve(false);
+        // Resolve with the standard result.
+        else resolve(args.result as boolean);
         unsubscribe?.();
       });
     });
