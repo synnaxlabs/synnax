@@ -12,8 +12,10 @@ directly to a channel, fetch a range and set its data, or leverage writers for
 writing large volumes of data.
 
 Writes in Synnax are more complicated than reads, and, as such, we recommend
-checking out our [concepts](../concepts/write) page to learn more about
-the best practices for writing data to Synnax.
+checking out our [concepts](/reference/concepts/write) page to learn more about
+the best practices for writing data to Synnax. 
+
+At the very least, you should be familiar with the [rules of writes](/reference/concepts/writes#rules-of-writes).
 
 <Divider.Divider direction="x" />
 
@@ -393,4 +395,3 @@ with client.open_writer(
             "my_precise_tc": i,
         })
 ```
-

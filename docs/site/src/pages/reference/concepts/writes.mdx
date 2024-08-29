@@ -10,6 +10,10 @@ import Table from "@/components/Table.astro";
 import writer from "@/pages/reference/concepts/writer.svg";
 import { Image } from "astro:assets";
 import Diagram from "@/components/Diagram.astro";
+import Rule from "@/components/Rule.astro";
+import Code from "@/components/code/Code.astro";
+import Note from "@/components/Note.astro";
+export const components = { pre: Code };
 
 This page documents the high-level process of writing data to a cluster, including
 transactions, streaming/persistence modes, and dynamic control handoff. This page is a
@@ -21,17 +25,16 @@ Client](/reference/typescript-client/write-data) pages.
 
 ## Introduction
 
-Writing data to Synnax revolves around sending batches of telemetry samples to a group
-of [channels](/reference/concepts/channels). When ingesting historical data, it's common
-to write large amounts of data in chunks. For real-time data, we can write samples in
-a streaming fashion, where each sample is written and processed by Synnax as it gets
-recorded.
+Writing data to Synnax involves sending batches of telemetry samples to a cluster. These
+batches are called [frames](/reference/concepts/frames-and-series). The primary interface
+for writing these frames is, unsurprisingly, a **writer**. Writers are analogous to pipes
+that continuously feed a cluster with frames of data for one or more channels.
 
-
-Writers are the primary interface for writing data to a Synnax cluster. A writer
-can be thought of as a pipe that continuously feeds data into one or more channels. 
-Once written, the data is available for [real-time streaming](/reference/concepts/streams)
-or for [historical access](/reference/concepts/queries).
+When ingesting historical data, it's common to quickly write many large frames of 
+previously recorded values. These frames can contain tens of thousands to millions of 
+samples. In real-time acquisition scenarios, frames are typically much smaller, 
+containing one to a few dozen samples per channels. These small frames  are repeatedly
+written over long periods of time.
 
 ### How writers are used in Synnax
 
@@ -49,6 +52,7 @@ use writers to send commands to actuators when a user clicks on a valve or other
 
 
 <Divider.Divider direction="x" />
+
 
 ## Transactions
 
@@ -189,9 +193,11 @@ control of the channel to the next highest
 
 <Divider.Divider direction="x" />
 
-## Persistence/Streaming Modes
+## Writer Modes
 
 Synnax supports three modes for writing data: persist, stream, and stream-and-persist.
+
+### Persist
 
 When a writer is opened in **persist** mode, the data it writes will not be sent to
 streamers listening on the channel being written to. These writers can _not_ be used for
@@ -199,14 +205,227 @@ real-time consumption or monitoring. Persist mode is commonly used when writing
 historical data to a cluster that doesn't represent the current state of the hardware
 system.
 
+### Stream
+
 When opened in **stream** mode, the writer will not commit any written data to the
 cluster, and calls to `commit` will have no effect. This is useful when operating in
 scenarios where data is only needed for real-time consumption, but does not need to be
 accessed historically.
 
-Finally, when opened in **stream-and-persist** mode, the writer will both persist the
+### Stream + Persist
+
+When opened in **stream-and-persist** mode, the writer will both persist the
 samples and stream them to any streamers listening on the channel. This is the default
 mode for a writer.
+
+## Rules of Writes
+
+### Rule 1
+
+<Rule title="Rule 1">
+Index channels must be written to before or when writing to a data channel.
+</Rule>
+
+#### Example 1 - Writing to an Index and Data Channel at the Same Time
+
+We've created two channels: `time` and `temperature`. The `temperature` channel is
+indexed by the `time` channel. Here's pseudocode for the fields of each channel:
+
+```json
+time = {
+  "key": 65536,
+  "data_type": "timestamp",
+  "is_index": true,
+}
+
+temperature = {
+  "key": 65537,
+  "data_type": "float32",
+  "is_index": false,
+  "index": 65536,
+}
+```
+
+When we write to both the `time` and `temperature` channels, we must provide timestamps
+for the time channel in the same frame as the temperature channel. This frame is
+<b style="color: var(--pluto-secondary-z);">valid</b>.
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19],
+}
+```
+
+If we try to write to the `temperature` channel without providing timestamps for the
+`time` channel, we violate Rule 1. This frame is <b style="color: var(--pluto-error-z);">invalid</b>.
+
+```json
+{
+  // The time channel is missing.
+  "temperature": [19.17, 19.18, 19.19],
+}
+```
+
+#### Example 2 - Writing to a Data Channel After an Index Channel
+
+Imagine we create the same channels as in the first example, but this time we only open
+a writer on the `time` channel. We write the following frame:
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+}
+```
+
+This frame is <b style="color: var(--pluto-secondary-z);">valid</b> because we're only
+writing to the `time` channel. Now, we open a writer on the `temperature` channel, marking
+its `start` timestamp as `1677433720770863800`. This frame would be <b style="color: var(--pluto-secondary-z);">valid</b> 
+because we've already written timestamps to the `time` channel.
+
+```json
+{
+  // Timestamps already exist for each of the following readings.
+  "temperature": [19.17, 19.18, 19.19],
+}
+```
+
+<Note variant="info">
+This example is useful for understanding scenarios where you're interested in 
+calculating values from one or more data channels, and writing the results to a new
+data channel indexed by the same timestamps.
+</Note>
+
+#### Example 3 - Writing to a Data Channel Before an Index Channel
+
+If we repeat example 2, but this time we write to the `temperature` channel before the
+`time` channel, we violate Rule 1. This frame is <b style="color: var(--pluto-error-z);">invalid</b>
+because no timestamps exist to associate with the temperature samples.
+
+```json
+{
+  // Synnax has no way of relating these samples to a timestamp!
+  "temperature": [19.17, 19.18, 19.19],
+}
+```
+
+### Rule 2
+
+<Rule title="Rule 2">
+Data channels for an index must have the same number of samples.
+</Rule>
+
+#### Example 1
+
+We've created three channels: `time`, `temperature`, and `pressure`. Both `pressure` and
+`temperature` are indexed by the `time` channel. Here's pseudocode for the fields
+of each channel:
+
+```json
+time = {
+  "key": 65536,
+  "data_type": "timestamp",
+  "is_index": true,
+}
+
+temperature = {
+  "key": 65537,
+  "data_type": "float32",
+  "is_index": false,
+  "index": 65536,
+}
+
+pressure = {
+  "key": 65538,
+  "data_type": "float32",
+  "is_index": false,
+  "index": 65536,
+}
+```
+
+When we open a writer on all three channels, we must write frames that contain the 
+same number of samples for each channel. For example, this frame is 
+<b style="color: var(--pluto-secondary-z);">valid</b>.
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19],
+  "pressure": [16.22, 17.22],
+}
+```
+
+Omitting a sample from the `pressure` channel would violate Rule 2. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>.
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19],
+  // This series is missing a sample.
+  "pressure": [16.22, 17.22],
+}
+```
+
+Entirely omitting a channel from the frame would also violate Rule 2. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>.
+
+```json
+{
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "temperature": [19.17, 19.18, 19.19],
+  // The pressure channel is missing.
+}
+``` 
+
+### Rule 3
+
+<Rule title="Rule 3">
+Rules 1 and 2 do not apply to virtual channels.
+</Rule>
+
+As [virtual channels](/reference/concepts/channels#virtual-channels)
+do not store data, they have far more flexibility in how they can be
+written to. They do not require timestamps, and as a result do not need to be 
+associated with an index. Write to them whenever and however you like!
+
+<Divider.Divider direction="x" />
+
+## Rule Implications
+
+While these rules are subtle, they have a few important implications.
+
+### Implication 1
+
+<Rule title="Implication 1">  
+All channels that share the same index must be sampled at the same rate.
+</Rule>
+
+If you have a temperature and pressure sensor that are recorded by different 
+devices. The first device records temperature at 10Hz, while the second records pressure 
+at 25Hz. Pressure and temperature samples will not always share the same timestamp, and 
+by consequence cannot share the same index.
+
+### Implication 2
+
+<Rule>
+Command channels almost always require separate indexes.
+</Rule>
+
+Channels that are used to send commands to actuators are typically used quite differently
+to channels that record from sensors. It's common for a single device to sample from many
+different sensors at the same rate, meaning that these sensor channels can share an index.
+
+This is rarely the case for command channels. Command channels are typically written to
+independently of other command channels (i.e. open one valve, wait a few seconds, then
+open another valve). Commands (also considered samples) emitted by these channels almost
+never share the same timestamp, and cannot share the same index.
+
+It's almost always necessary to use a separate index for each command channel, or use a
+virtual channel that does not require an index.
+
+<Divider.Divider direction="x" />
+
 
 <Divider.Divider direction="x" />
 
