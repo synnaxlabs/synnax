@@ -33,7 +33,9 @@ jobs:
   build-and-test:
     needs: setup
     runs-on: ubuntu-latest
-    # if: needs.setup.outputs.changed == 'true'
+    if: needs.setup.outputs.changed == 'true'
+    env:
+      GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -54,19 +56,23 @@ jobs:
         run: |
           git checkout main
           earthly --push +docker -tag=main-${GITHUB_SHA} -driver=false
-          docker push ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
         working-directory: ./synnax
+
+      - name: Push Main Server to Github Container Registry
+        run: docker push ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
 
       - name: Build Current Branch Server
         run: |
-          if [ ${{ github.event_name }} == 'pull_request' ]; then
+          if [ "${{ github.event_name }}" == 'pull_request' ]; then
             git checkout ${{ github.event.pull_request.head.sha }}
           else
             git checkout ${{ github.ref }}
           fi
           earthly --push +docker -tag=${GITHUB_SHA} -driver=false
-          docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
         working-directory: ./synnax
+
+      - name: Push Current Branch Server to Github Container Registry
+        run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
       - name: Set up Python
         uses: actions/setup-python@v4
