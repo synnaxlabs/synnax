@@ -1,4 +1,4 @@
-name: "Test - Migration"
+name: "Test - Client"
 on:
   pull_request:
     branches: [rc, main]
@@ -16,31 +16,31 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
             changed:
-              - "client/**"
-              - "freighter/**"
-              - "synnax/**"
-              - "cesium/**"
-              - "aspen/**"
-              - "x/**"
-              - ".github/workflows/test.client.yaml"
+                - "client/**"
+                - "freighter/py/**"
+                - "synnax/**"
+                - "cesium/**"
+                - "aspen/**"
+                - "x/**"
+                - "freighter/**"
+                - ".github/workflows/test.client.yaml"
 
-  build-and-test:
+  build-main-server:
     needs: setup
     runs-on: ubuntu-latest
     # if: needs.setup.outputs.changed == 'true'
     env:
       GITHUB_SHA: ${{ github.sha }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - name: Checkout Main Branch
+        run: git checkout main
 
       - name: Login to Github Container Registry
         uses: docker/login-action@v2
@@ -52,91 +52,80 @@ jobs:
       - name: Download Latest Earthly
         uses: earthly/actions-setup@v1
 
-      - name: Build Main Server
-        run: |
-          git checkout main
-          earthly --push +docker -tag=main-${GITHUB_SHA} -driver=false
+      - name: Build Main Server Image
+        run: earthly --push +docker -tag=main-${GITHUB_SHA} -driver=false
         working-directory: ./synnax
 
-      - name: Push Main Server to Github Container Registry
+      - name: Push Main Server Image to Github Container Registry
         run: docker push ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
 
-      - name: Build Current Branch Server
-        run: |
-          if [ "${{ github.event_name }}" == 'pull_request' ]; then
-            git checkout ${{ github.event.pull_request.head.sha }}
-          else
-            git checkout ${{ github.ref }}
-          fi
-          earthly --push +docker -tag=${GITHUB_SHA} -driver=false
+  test-with-main-server:
+    needs: build-main-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Start Main Server
+        run: docker run -d --name synnax-main -p 9090:9090 -v /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
+
+      - name: Run Python Client Tests
+        run: cd ./client/py && pytest
+
+      - name: Run TypeScript Client Tests
+        run: pnpm cov:client
+
+      - name: Run C++ Client Tests
+        run: bazel test --test_output=all //client/...
+
+      - name: Stop Main Server
+        run: docker stop synnax-main && docker rm synnax-main
+
+  build-current-server:
+    needs: setup
+    runs-on: ubuntu-latest
+    # if: needs.setup.outputs.changed == 'true'
+    env:
+      GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout Current Branch
+        run: git checkout ${{ github.ref }}
+
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Latest Earthly
+        uses: earthly/actions-setup@v1
+
+      - name: Build Current Server Image
+        run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
         working-directory: ./synnax
 
-      - name: Push Current Branch Server to Github Container Registry
+      - name: Push Current Server Image to Github Container Registry
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
+  test-with-current-server:
+    needs: build-current-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      - name: Install Poetry
-        run: |
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install
-        working-directory: ./client/py
+      - name: Start Current Server
+        run: docker run -d --name synnax-current -p 9090:9090 -v /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+      - name: Run Python Client Tests
+        run: cd ./client/py && pytest
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
+      - name: Run TypeScript Client Tests
+        run: pnpm cov:client
 
-      - name: Install TypeScript Dependencies
-        run: pnpm i
+      - name: Run C++ Client Tests
+        run: bazel test --test_output=all //client/...
 
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-
-      - name: Test with Main Server
-        env:
-          SYNNAX_IMAGE: ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
-        run: |
-          docker run -d --name synnax-main -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} "$SYNNAX_IMAGE"
-          
-          # Run Python tests
-          cd ./client/py && pytest
-          
-          # Run TypeScript tests
-          pnpm cov:client
-          
-          # Run C++ tests
-          bazel test --test_output=all //client/...
-          
-          docker stop synnax-main
-
-      - name: Test with Current Branch Server
-        env:
-          SYNNAX_IMAGE: ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
-        run: |
-          docker run -d --name synnax-current -p 9090:9090  -e SYNNAX_LISTEN=0.0.0.0:9090  -e SYNNAX_VERBOSE=true  -e SYNNAX_INSECURE=true  -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} "$SYNNAX_IMAGE"
-          
-          # Run Python tests
-          cd ./client/py && pytest
-          
-          # Run TypeScript tests
-          pnpm cov:client
-          
-          # Run C++ tests
-          bazel test --test_output=all //client/...
-          
-          docker stop synnax-current
+      - name: Stop Current Server
+        run: docker stop synnax-current && docker rm synnax-current
