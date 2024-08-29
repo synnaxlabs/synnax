@@ -7,7 +7,7 @@ from synnax.telem import TimeSpan
 RESOLUTION = 100 * 1e-6  # Resolution in seconds (100 microseconds)
 
 
-def sleep(dur: TimeSpan | float | int):
+def _precise_sleep(dur: TimeSpan | float | int):
     """Sleep implements a higher precision alternative to time.sleep. It uses welford's
     algorithm to estimate the ideal time to sleep for the given duration. This function
     uses considerably more CPU than time.sleep, so it should only be used when high
@@ -35,3 +35,8 @@ def sleep(dur: TimeSpan | float | int):
     # Busy wait for the last bit to ensure we sleep for the correct duration
     while time.perf_counter() < end_time:
         pass
+
+def sleep(dur: TimeSpan | float | int, precise: bool = False):
+    if precise:
+        return _precise_sleep(dur)
+    return time.sleep(TimeSpan.parse_seconds(dur).seconds)

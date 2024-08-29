@@ -620,12 +620,13 @@ freighter::Error ni::Source::stop_ni(){
     return freighter::NIL;
 }
 
-freighter::Error ni::Source::start() {
+freighter::Error ni::Source::start(const std::string &cmd_key) {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
     this->start_ni(); 
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
     ctx->setState({
+        .key = cmd_key,
         .task = task.key,
         .variant = "success",
         .details = {
@@ -636,13 +637,14 @@ freighter::Error ni::Source::start() {
     return freighter::NIL;
 }
 
-freighter::Error ni::Source::stop() {
+freighter::Error ni::Source::stop(const std::string &cmd_key) {
     if (!this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.stop();
     if (this->sample_thread.joinable()) this->sample_thread.join();
     this->stop_ni();
     data_queue.reset();
     ctx->setState({
+        .key = cmd_key,
         .task = task.key,
         .variant = "success",
         .details = {
@@ -715,7 +717,8 @@ void ni::Source::stoppedWithErr(const freighter::Error &err) {
             {"message", j}
         }
     });
-    this->stop();
+    // Unprompted stop so we pass in an empty command key.
+    this->stop("");
     this->clear_task();
 }
 

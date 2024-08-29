@@ -176,12 +176,13 @@ freighter::Error ni::DigitalWriteSink::stop_ni(){
     return freighter::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::start() {
+freighter::Error ni::DigitalWriteSink::start(const std::string &cmd_key) {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
     freighter::Error err = this->start_ni();
     if(err) return err;
     ctx->setState({
+        .key = cmd_key,
         .task = this->task.key,
         .variant = "success",
         .details = {
@@ -193,12 +194,13 @@ freighter::Error ni::DigitalWriteSink::start() {
 }
 
 
-freighter::Error ni::DigitalWriteSink::stop() {
+freighter::Error ni::DigitalWriteSink::stop(const std::string &cmd_key) {
     if (!this->breaker.running()) return freighter::NIL;
     this->breaker.stop();
     freighter::Error err = this->stop_ni();
     if(err) return err;
     ctx->setState({
+        .key = cmd_key,
         .task = this->task.key,
         .variant = "success",
         .details = {
@@ -314,7 +316,8 @@ void ni::DigitalWriteSink::log_error(std::string err_msg) {
 }
 
 void ni::DigitalWriteSink::stoppedWithErr(const freighter::Error &err) {
-    this->stop();
+    // Unprompted stop so we pass in an empty command key
+    this->stop("");
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
     this->ctx->setState({

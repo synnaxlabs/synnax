@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 from freighter import Payload
 
 
@@ -16,3 +17,21 @@ class TaskPayload(Payload):
     type: str = ""
     config: str = ""
     snapshot: bool = False
+
+
+class TaskState(Payload):
+    task: int = 0
+    variant: str = ""
+    key: str = ""
+    details: dict
+
+    def __init__(
+        self,
+        task: int = 0,
+        variant: str = "",
+        key: str = "",
+        details: dict | str = ""
+    ):
+        if isinstance(details, str):
+            details = json.loads(details)
+        super().__init__(task=task, variant=variant, key=key, details=details)

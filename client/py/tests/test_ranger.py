@@ -56,7 +56,6 @@ class TestRangeClient:
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
 
-    @pytest.mark.focus
     def test_retrieve_by_name(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should retrieve a range by name"""
         rng = client.ranges.retrieve(name=two_ranges[0].name)

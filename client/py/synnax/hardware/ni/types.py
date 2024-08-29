@@ -969,8 +969,8 @@ class AnalogReadTask(MetaTask):
     def set_internal(self, task: Task):
         self._internal = task
 
-    def start(self):
-        self._internal.execute_command("start")
+    def start(self, timeout: float = 0):
+        self._internal.execute_command_sync("start")
 
-    def stop(self):
-        self._internal.execute_command("stop")
+    def stop(self, timeout: float = 0):
+        self._internal.execute_command_sync("stop")

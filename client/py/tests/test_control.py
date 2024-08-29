@@ -130,6 +130,7 @@ class TestController:
             assert auto.set_authority(100)
             assert auto.set_authority(press_en_cmd.key, 50)
 
+    @pytest.mark.focus
     def test_controller_authority_transfer(self, client: sy.Synnax):
         """Test that the controller can transfer authority to another controller"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
@@ -167,9 +168,13 @@ class TestController:
                 write_authorities=[255],
             ) as auto:
                 seq_two_ev.set()
-                time.sleep(0.1)
+                # We use a sleep here instead of an auto.wait to ensure python has
+                # bandwidth to switch threads
+                auto.sleep(0.1)
                 auto.set_authority({press_en_cmd.key: 50})
-                time.sleep(0.2)
+                # We use a sleep here instead of an auto.wait to ensure python has
+                # bandwidth to switch threads
+                auto.sleep(0.2)
 
         def daq(daq_ev: threading.Event):
             with client.control.acquire(

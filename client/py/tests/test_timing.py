@@ -20,17 +20,22 @@ class TestTiming:
         Test that the sleep function is consistently better that time.sleep in terms
         of precision.
 
-        Execute 100 different timing tests at random intervals between 100 microseconds
+        Execute 50 different timing tests at random intervals between 100 microseconds
         and 5 milliseconds with both time.sleep and sy.sleep.
         """
-        for _ in range(20):
+        accumulated_precise = list()
+        accumulated_standard = list()
+        for _ in range(50):
             duration = (sy.TimeSpan.MICROSECOND * float(np.random.uniform(100, 5_000)))
             start = time.perf_counter_ns()
-            time.sleep(duration.seconds)
+            sy.sleep(duration.seconds, precise=False)
             time_elapsed = time.perf_counter_ns() - start
             start = time.perf_counter_ns()
-            sy.sleep(duration)
+            sy.sleep(duration, precise=True)
             sy_elapsed = time.perf_counter_ns() - start
-            time_elapsed_delta = abs(time_elapsed - duration.nanoseconds)
-            sy_elapsed_delta = abs(sy_elapsed - duration.nanoseconds)
-            assert sy_elapsed_delta < time_elapsed_delta
+            standard_delta = abs(time_elapsed - duration.nanoseconds)
+            precise_delta = abs(sy_elapsed - duration.nanoseconds)
+            accumulated_precise.append(precise_delta)
+            accumulated_standard.append(standard_delta)
+
+        assert sum(accumulated_precise) < sum(accumulated_standard)

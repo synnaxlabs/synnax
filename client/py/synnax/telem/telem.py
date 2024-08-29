@@ -265,6 +265,17 @@ class TimeSpan(int):
             v += f"{nanos.nanoseconds}{TimeSpan.NANOSECOND_UNITS}"
         return v.strip()
 
+    @staticmethod
+    def parse_seconds(timeout: CrudeTimeSpan) -> TimeSpan:
+        """An alternative constructor for TimeSpan that parses raw numeric values as
+        seconds instead of nanoseconds.
+        """
+        if isinstance(timeout, TimeSpan):
+            return timeout
+        if isinstance(timeout, (float, int)):
+            return TimeSpan.SECOND * timeout
+        return TimeSpan(timeout)
+
     @property
     def days(self) -> float:
         """:returns: The decimal number of days in the TimeSpan, including fractional
