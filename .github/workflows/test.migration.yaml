@@ -1,4 +1,4 @@
-name: "Test - Client"
+name: "Test - Migration"
 on:
   pull_request:
     branches: [rc, main]
@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: main  
-          
+
       - name: Login to Github Container Registry
         uses: docker/login-action@v2
         with:
@@ -72,13 +72,54 @@ jobs:
       - name: Start Main Server
         run: docker run -d --name synnax-main -p 9090:9090 -v /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
 
-      - name: Run Python Client Tests
-        run: cd ./client/py && pytest
+      - name: Set up Python
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-      - name: Run TypeScript Client Tests
+      - name: Install Poetry
+        if: steps.filter.outputs.changed == 'true'
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install
+        working-directory: ./client/py
+
+      - name: Python Test
+        run: pytest --cov=freighter --cov-report xml:coverage.xml
+        if: steps.filter.outputs.changed == 'true'
+        working-directory: ./client/py
+   
+      - name: Setup pnpm
+        if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm i
+
+      - name: TS Test
+        if: steps.filter.outputs.changed == 'true'
         run: pnpm cov:client
 
-      - name: Run C++ Client Tests
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: cpp Test
         run: bazel test --test_output=all //client/...
 
       - name: Stop Main Server
