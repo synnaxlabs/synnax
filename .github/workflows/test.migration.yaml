@@ -33,34 +33,6 @@ jobs:
               - "freighter/**"
               - ".github/workflows/test.client.yaml"
 
-  build-main-server:
-    needs: setup
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_SHA: ${{ github.sha }}
-    steps:
-      - name: Checkout Main Branch
-        uses: actions/checkout@v3
-        with:
-          ref: main  
-
-      - name: Login to Github Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download Latest Earthly
-        uses: earthly/actions-setup@v1
-
-      - name: Build Main Server Image
-        run: earthly --push +docker -tag=main-${GITHUB_SHA} -driver=false
-        working-directory: ./synnax
-
-      - name: Push Main Server Image to Github Container Registry
-        run: docker push ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
-
   test-on-both-servers:
     needs: build-main-server
     runs-on: ubuntu-latest
@@ -70,7 +42,7 @@ jobs:
 
       # Test with Main Server
       - name: Start Main Server
-        run: docker run -d --name synnax-main -p 9090:9090 -v /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
+        run: docker run -d --name synnax-main -p 9090:9090 -v /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:latest
 
       - name: Set up Python
         uses: actions/setup-python@v4
