@@ -41,8 +41,10 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Main Branch
-        run: git checkout main
-
+        uses: actions/checkout@v3
+        with:
+          ref: main  
+          
       - name: Login to Github Container Registry
         uses: docker/login-action@v2
         with:
@@ -89,7 +91,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Current Branch
-        run: git checkout ${{ github.ref }}
+        uses: actions/checkout@v3
 
       - name: Login to Github Container Registry
         uses: docker/login-action@v2
