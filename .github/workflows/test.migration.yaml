@@ -33,7 +33,7 @@ jobs:
   build-and-test:
     needs: setup
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.changed == 'true'
+    # if: needs.setup.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
