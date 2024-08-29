@@ -43,8 +43,17 @@ opc::Sink::Sink(
     for(auto &ch : this->cfg.channels){
         this->cmd_channel_map[ch.cmd_channel] = ch;
     }
+
+    this->breaker = breaker::Breaker(breaker::Config{
+        .name = task.name,
+        .base_interval = 1*SECOND,
+        .max_retries = 10,
+        .scale = 1.2
+    });
+
+
     //start thread
-    this->running = true;
+    this->breaker.start();
     this->keep_alive_thread = std::thread(&opc::Sink::maintain_connection, this);
 };
 
@@ -175,12 +184,10 @@ freighter::Error opc::Sink::write(synnax::Frame frame){
 };
 
 void opc::Sink::maintain_connection() {
-   while(this->running){
-       //sleep for 5 minutes
-       std::this_thread::sleep_for(std::chrono::seconds(1)); // TODO: make this less frequent and use a breaker to sleep
+   while(this->breaker.running()){
+       this->breaker.waitFor(this->ping_rate.period().chrono());
        UA_Variant value;
        UA_Variant_init(&value);
-       //acquire lock
        {
            std::lock_guard<std::mutex> lock(this->client_mutex);
            UA_StatusCode retval = UA_Client_readValueAttribute(this->ua_client.get(),

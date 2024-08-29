@@ -97,7 +97,9 @@ namespace opc {
             // keep alive resources (thread and mutex)
             std::thread keep_alive_thread;
             std::mutex client_mutex;
-            std::atomic<bool> running = true;
+            breaker::Breaker breaker;
+            ///@brief the rate at which sink will ping the OPC UA server to maintain the connection
+            synnax::Rate ping_rate = synnax::Rate(0.1); // default to every 10s
 
             Sink(
                 WriterConfig cfg,
@@ -108,7 +110,7 @@ namespace opc {
             );
 
             ~Sink() override {
-                this->running = false;
+                this->breaker.stop();
                 this->keep_alive_thread.join();
             }
 
