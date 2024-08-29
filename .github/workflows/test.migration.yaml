@@ -86,7 +86,6 @@ jobs:
 
       - name: Python Test
         run: pytest --cov=freighter --cov-report xml:coverage.xml
-        if: steps.filter.outputs.changed == 'true'
         working-directory: ./client/py
    
       - name: Setup pnpm
@@ -95,18 +94,15 @@ jobs:
           version: 9
 
       - name: Setup Node
-        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
         run: pnpm i
 
       - name: TS Test
-        if: steps.filter.outputs.changed == 'true'
         run: pnpm cov:client
 
       - name: Setup Bazel
