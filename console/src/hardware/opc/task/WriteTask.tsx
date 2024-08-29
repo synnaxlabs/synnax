@@ -292,7 +292,7 @@ const Wrapped = ({
               </Header.Header>
               <Browser device={device} />
             </Align.Space>
-            <ChannelList path="config.channels" device={device} />
+            <WriterChannelList path="config.channels" device={device} />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -307,12 +307,12 @@ const Wrapped = ({
   );
 };
 
-export interface ChannelListProps {
+export interface WriterChannelLisProps {
   path: string;
   device?: device.Device<Device.Properties>;
 }
 
-export const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
+export const WriterChannelList = ({ path, device }: WriterChannelLisProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<WriteChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 
@@ -419,7 +419,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
           >
             <List.Core<string, WriteChannelConfig> grow>
               {({ key, ...props }) => (
-                <ChannelListItem
+                <WriterChannelListItem
                   key={key}
                   {...props}
                   path={path}
@@ -447,7 +447,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
   );
 };
 
-export const ChannelListItem = ({
+export const WriterChannelListItem = ({
   path,
   remove,
   ...props
