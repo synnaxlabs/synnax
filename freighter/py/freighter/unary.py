@@ -38,6 +38,8 @@ class UnaryClient(Transport, Protocol):
 
 
 def send_required(client: UnaryClient, target: str, req: RQ, res_t: Type[RS]) -> RS:
+    """Utility wrapper that throws an exception if the request returns an error.
+    """
     res, exc = client.send(target, req, res_t)
     if exc is not None:
         raise exc
