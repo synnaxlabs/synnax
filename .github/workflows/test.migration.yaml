@@ -73,13 +73,11 @@ jobs:
         run: docker run -d --name synnax-main -p 9090:9090 -v /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
 
       - name: Set up Python
-        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
       - name: Install Poetry
-        if: steps.filter.outputs.changed == 'true'
         run: |
           pip install poetry
           poetry config virtualenvs.create false
@@ -92,7 +90,6 @@ jobs:
         working-directory: ./client/py
    
       - name: Setup pnpm
-        if: steps.filter.outputs.changed == 'true'
         uses: pnpm/action-setup@v3
         with:
           version: 9
