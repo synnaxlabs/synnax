@@ -13,19 +13,20 @@ permissions:
   contents: write
   packages: write
 jobs:
-  setup: ubuntu-latest
-  outputs:
-    changed: ${{ steps.filter.outputs.changed }}
-  steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
-    
-    - name: Diff Changes
-      uses: dorny/paths-filter@v3
-      id: filter
-      with:
-        filters: |
-          changed:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changed:
               - "migration/**"
               - "freighter/py/**"
               - "synnax/**"
@@ -59,11 +60,10 @@ jobs:
         run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
   
   test-python:
-    need: [setup, build-server]
+    needs: [setup, build-server]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.changed == 'true'
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v3
 
@@ -73,33 +73,33 @@ jobs:
         with:
           filters: |
             changed:
-                - "client/py/**"
-                - "frieghter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.client.yaml"
+              - "client/py/**"
+              - "freighter/py/**"
+              - "synnax/**"
+              - "cesium/**"
+              - "aspen/**"
+              - "x/**"
+              - "freighter/**"
+              - ".github/workflows/test.client.yaml"
 
       - name: Set up Python
-          if: steps.filter.outputs.changed == 'true'
-          uses: actions/setup-python@v4
-          with:
-            python-version: "3.11"
-        
-      - name: Install Poetry
-          if: steps.filter.outputs.changed == 'true'
-          run: |
-            pip install poetry
-            poetry config virtualenvs.create fa;se
-            poetry install
-          working-directory: ./client/py
-      
-      - name: Test
-        run: pytest 
         if: steps.filter.outputs.changed == 'true'
-        working-directoury: ./client/py
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      
+      - name: Install Poetry
+        if: steps.filter.outputs.changed == 'true'
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install
+        working-directory: ./client/py
+    
+      - name: Test
+        if: steps.filter.outputs.changed == 'true'
+        run: pytest 
+        working-directory: ./client/py
     
     services:
       synnax:
@@ -110,7 +110,6 @@ jobs:
           SYNNAX_INSECURE: true 
           SYNNAX_MEM: true
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        
         credentials:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
