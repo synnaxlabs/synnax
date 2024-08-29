@@ -111,7 +111,7 @@ jobs:
         env:
           SYNNAX_IMAGE: ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
         run: |
-          docker run -d --name synnax-main -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} $SYNNAX_IMAGE
+          docker run -d --name synnax-main -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} "$SYNNAX_IMAGE"
           
           # Run Python tests
           cd ./client/py && pytest
@@ -128,7 +128,7 @@ jobs:
         env:
           SYNNAX_IMAGE: ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
         run: |
-          docker run -d --name synnax-current -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true   -e SYNNAX_INSECURE=true  -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} $SYNNAX_IMAGE
+          docker run -d --name synnax-current -p 9090:9090  -e SYNNAX_LISTEN=0.0.0.0:9090  -e SYNNAX_VERBOSE=true  -e SYNNAX_INSECURE=true  -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} "$SYNNAX_IMAGE"
           
           # Run Python tests
           cd ./client/py && pytest
