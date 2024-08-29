@@ -331,10 +331,9 @@ export const WriterChannelList = ({ path, device }: WriterChannelLisProps): Reac
           key: nodeId,
           name,
           nodeName: name,
-          channel: 0,
+          cmdChannel: 0,
           enabled: true,
           nodeId,
-          useAsIndex: false,
           dataType: (i.data?.dataType as string) ?? "float32",
         };
       });
