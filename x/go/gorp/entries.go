@@ -31,7 +31,7 @@ type Entry[K Key] interface {
 	SetOptions() []interface{}
 }
 
-func EntryKeys[K Key, E Entry[K]](entries []E) []K {
+func entryKeys[K Key, E Entry[K]](entries []E) []K {
 	keys := make([]K, len(entries))
 	for i, entry := range entries {
 		keys[i] = entry.GorpKey()
@@ -106,7 +106,7 @@ func (e *Entries[K, E]) All() []E {
 
 // Keys returns the keys of all entries currently bound to the query.
 func (e *Entries[K, E]) Keys() []K {
-	return EntryKeys[K, E](e.All())
+	return entryKeys[K, E](e.All())
 }
 
 func (e *Entries[K, E]) Any() bool {

@@ -64,7 +64,7 @@ var _ = Describe("delete", Ordered, func() {
 			}).Exec(ctx, tx)).To(Succeed())
 		})
 	})
-	Describe("MergeExisting", func() {
+	Describe("Guard", func() {
 		It("Should prevent deletion if any of the guard functions fail", func() {
 			Expect(gorp.NewCreate[int, entry]().
 				Entry(&entry{ID: 1, Data: "Synnax"}).

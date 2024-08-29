@@ -216,7 +216,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           >
             <Align.Space direction="x">
               <Button.Icon
-                tooltip={`Copy Python to retrieve ${name}`}
+                tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
               >
@@ -227,7 +227,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               </Button.Icon>
               <Button.Icon
                 variant="text"
-                tooltip={`Copy TypeScript to retrieve ${name}`}
+                tooltip={`Copy TypeScript code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
