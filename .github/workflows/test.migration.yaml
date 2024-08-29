@@ -33,7 +33,7 @@ jobs:
   build-and-test:
     needs: setup
     runs-on: ubuntu-latest
-    # if: needs.setup.outputs.changed == 'true'
+    if: needs.setup.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -59,7 +59,11 @@ jobs:
 
       - name: Build Current Branch Server
         run: |
-          git checkout ${{ github.ref }}
+          if [ ${{ github.event_name }} == 'pull_request' ]; then
+            git checkout ${{ github.event.pull_request.head.sha }}
+          else
+            git checkout ${{ github.ref }}
+          fi
           earthly --push +docker -tag=${GITHUB_SHA} -driver=false
           docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
         working-directory: ./synnax
