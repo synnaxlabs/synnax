@@ -156,7 +156,11 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       dispatch(add({ ranges: [newRange], switchActive: false }));
     },
   });
-  const name = Form.useFieldValue<string>("name", false, formCtx);
+  const name = Form.useFieldValue<string, string, typeof formSchema>(
+    "name",
+    false,
+    formCtx,
+  );
   const handleLink = Link.useCopyToClipboard();
   const handleCopyLink = () => {
     handleLink({ name, ontologyID: { key: rangeKey, type: "range" } });

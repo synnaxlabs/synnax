@@ -42,7 +42,6 @@ previously released packages:
 - [ ] [pluto](https://npmjs.com/package/@synnaxlabs/pluto)
 - [ ] [console](https://github.com/synnaxlabs/synnax/releases)
 
-
 ## CI Tests
 
 - [ ] I have verified that all CI tests pass.
@@ -145,6 +144,7 @@ I can successfully:
 I can successfully:
 
 - [ ] Create a new channel from the search bar.
+- [ ] Create several channels with the 'Create More' flag set to true.
 - [ ] Rename a channel in the resources view.
 - [ ] Delete a channel in the resources view.
 - [ ] Delete multiple channels in the resources view.
@@ -231,8 +231,9 @@ I can successfully:
 
 #### Configuration
 
-I successfully: 
-- [ ] Updated the license on TC before continuing QA 
+I successfully:
+
+- [ ] Updated the license on TC before continuing QA
 
 I can successfully:
 

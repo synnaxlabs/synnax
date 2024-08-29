@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
+	"go.uber.org/zap"
 )
 
 // Key is a unique key for an entry of a particular type.
@@ -74,6 +75,8 @@ func (e *Entries[K, E]) Add(entry E) {
 	e.changes++
 }
 
+// Replace replaces the entries in the query with the provided entries. If Entries
+// holds a single entry, the first entry in the slice will be used.
 func (e *Entries[K, E]) Replace(entries []E) {
 	if e.isMultiple {
 		*e.entries = entries
@@ -86,8 +89,14 @@ func (e *Entries[K, E]) Replace(entries []E) {
 	}
 }
 
+// Set sets the entry at the provided index to the provided value. If the query expects
+// a single entry, the index must be 0.
 func (e *Entries[K, E]) Set(i int, entry E) {
 	if e.isMultiple {
+		if len(*e.entries) <= i {
+			zap.S().DPanic("[gorp.Entries.Set] - index out of range")
+			return
+		}
 		(*e.entries)[i] = entry
 		e.changes++
 	} else if i == 0 {
@@ -96,10 +105,50 @@ func (e *Entries[K, E]) Set(i int, entry E) {
 	}
 }
 
+// MapInPlace iterates over all entries in the provided query and applies the given
+// function to each entry. If the function returns true, the entry will be replaced
+// with the new entry. If the function returns false, the entry will be removed from
+// the query. If the function returns an error, the iteration will stop and the error
+// will be returned.
+func (e *Entries[K, E]) MapInPlace(f func(E) (E, bool, error)) error {
+	if e.isMultiple {
+		nEntries := make([]E, 0, len(*e.entries))
+		for _, entry := range *e.entries {
+			n, ok, err := f(entry)
+			if err != nil {
+				return err
+			}
+			if ok {
+				nEntries = append(nEntries, n)
+			}
+		}
+		*e.entries = nEntries
+		e.changes += len(nEntries)
+		return nil
+	}
+	n, ok, err := f(*e.entry)
+	if err != nil {
+		return err
+	}
+	if ok {
+		*e.entry = n
+	} else {
+		e.entry = nil
+	}
+	e.changes++
+	return nil
+}
+
 // All returns a slice of all entries currently bound to the query.
 func (e *Entries[K, E]) All() []E {
 	if e.isMultiple {
+		if e.entries == nil {
+			return nil
+		}
 		return *e.entries
+	}
+	if e.entry == nil {
+		return nil
 	}
 	return []E{*e.entry}
 }
@@ -115,6 +164,8 @@ func (e *Entries[K, E]) Any() bool {
 	}
 	return e.entry != nil
 }
+
+func (e *Entries[K, E]) IsMultiple() bool { return e.isMultiple }
 
 // SetEntry sets the entry that the query will fill results into or write results to.
 //

@@ -174,8 +174,12 @@ func (o *Ontology) Search(ctx context.Context, req search.Request) ([]Resource, 
 	if err != nil {
 		return nil, err
 	}
-	var resources []Resource
-	return resources, o.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, o.DB)
+	resources := make([]Resource, 0, len(ids))
+	err = o.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, o.DB)
+	if errors.Is(err, query.NotFound) {
+		err = nil
+	}
+	return resources, err
 }
 
 func (o *Ontology) SearchIDs(ctx context.Context, req search.Request) ([]ID, error) {
