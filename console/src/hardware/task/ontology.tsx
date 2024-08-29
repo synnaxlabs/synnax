@@ -23,6 +23,7 @@ import { useConfirmDelete } from "@/ontology/hooks";
 
 const ZERO_LAYOUT_STATES: Record<string, (create?: boolean) => Layout.State> = {
   [OPC.Task.READ_TYPE]: OPC.Task.configureReadLayout,
+  [OPC.Task.WRITE_TYPE]: OPC.Task.configureWriteLayout,
   [NI.Task.ANALOG_READ_TYPE]: NI.Task.configureAnalogReadLayout,
   [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.configureDigitalWriteLayout,
   [NI.Task.DIGITAL_READ_TYPE]: NI.Task.configureDigitalReadLayout,

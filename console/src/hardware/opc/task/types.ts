@@ -209,6 +209,7 @@ export const writeChanZ = z.object({
   nodeName: z.string(),
   nodeId: z.string(),
   enabled: z.boolean(),
+  useAsIndex: z.boolean(),
   dataType: z.string(),
 });
 
