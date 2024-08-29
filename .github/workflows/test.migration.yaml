@@ -33,7 +33,7 @@ jobs:
   build-and-test:
     needs: setup
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.changed == 'true'
+    # if: needs.setup.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -142,19 +142,3 @@ jobs:
           bazel test --test_output=all //client/...
           
           docker stop synnax-current
-
-      - name: Upload Python Coverage
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./client/py
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: clientpy
-
-      - name: Upload TypeScript Coverage
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./client/ts
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: clientts
