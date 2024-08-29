@@ -142,44 +142,25 @@ const Wrapped = ({
         config.device,
       );
 
-      console.log("DEVICE:", dev);
       let modified = false;
       
-      // dev.properties.write.channels = dev.properties.write.channels ?? {};
       const commandsToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
         const key = getChannelByNodeID(dev.properties, channel.nodeId);
         if(primitiveIsZero(key)){
-           console.log("primitive is 0", channel);
            commandsToCreate.push(channel);
         }
         else{
           try {
             await client.channels.retrieve(key);
-            // if(cmdCh.name !== channel.name) await client.channels.rename(Number(key), channel.name);
-            console.log("found", channel);
           } catch (e){
-            console.log("not found", channel);
             if(NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
         }
-        // try {
-        //     console.log("key", key);
-        //     await client.channels.retrieve(`${channel.name}_cmd`); // TODO: have a better way to do this
-        //     // if(cmdCh.name !== channel.name) await client.channels.rename(Number(key), channel.name);
-        //     console.log("found", channel);
-        //   } catch (e){
-        //     console.log("not found", channel);
-        //     //print error
-        //     console.log(e);
-        //     if(NotFoundError.matches(e)) commandsToCreate.push(channel);
-        //     else throw e;
-        //   }
       } 
 
       if(commandsToCreate.length > 0) {
-        console.log("size", commandsToCreate.length);
         modified = true;
         if (dev.properties.write.channels == null || Array.isArray(dev.properties.write.channels)) dev.properties.write.channels = {};
         const commandIndexes = await client.channels.create(
@@ -197,7 +178,6 @@ const Wrapped = ({
           })),
         );
         commands.forEach((c, i) => {
-          console.log("c", c);
           const key =  commandsToCreate[i].nodeId;
             dev.properties.write.channels[key] = c.key;
           });
@@ -209,8 +189,6 @@ const Wrapped = ({
       }));
 
       if (modified) {
-        console.log(dev.properties)
-
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
