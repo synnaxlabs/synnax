@@ -36,7 +36,6 @@ jobs:
   build-main-server:
     needs: setup
     runs-on: ubuntu-latest
-    # if: needs.setup.outputs.changed == 'true'
     env:
       GITHUB_SHA: ${{ github.sha }}
     steps:
@@ -62,13 +61,14 @@ jobs:
       - name: Push Main Server Image to Github Container Registry
         run: docker push ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
 
-  test-with-main-server:
+  test-on-both-servers:
     needs: build-main-server
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      # Test with Main Server
       - name: Start Main Server
         run: docker run -d --name synnax-main -p 9090:9090 -v /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:main-${GITHUB_SHA}
 
@@ -84,7 +84,7 @@ jobs:
           poetry install
         working-directory: ./client/py
 
-      - name: Python Test
+      - name: Python Test with Main Server
         run: pytest --cov=freighter --cov-report xml:coverage.xml
         working-directory: ./client/py
    
@@ -102,7 +102,7 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-      - name: TS Test
+      - name: TS Test with Main Server
         run: pnpm cov:client
 
       # - name: Setup Bazel
@@ -112,18 +112,13 @@ jobs:
       #     disk-cache: ${{ github.workflow }}
       #     repository-cache: true
 
-      # - name: cpp Test
+      # - name: cpp Test with Main Server
       #   run: bazel test --test_output=all //client/...
 
       - name: Stop Main Server
         run: docker stop synnax-main && docker rm synnax-main
 
-  build-current-server:
-    needs: test-with-main-server
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_SHA: ${{ github.sha }}
-    steps:
+      # Build and Test with Current Server
       - name: Checkout Current Branch
         uses: actions/checkout@v3
 
@@ -144,57 +139,17 @@ jobs:
       - name: Push Current Server Image to Github Container Registry
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
-  test-with-current-server:
-    needs: build-current-server
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
       - name: Start Current Server
         run: docker run -d --name synnax-current -p 9090:9090 -v /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=true -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install Poetry
-        run: |
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install
-        working-directory: ./client/py
-
-      - name: Python Test
+      - name: Python Test with Current Server
         run: pytest --cov=freighter --cov-report xml:coverage.xml
         working-directory: ./client/py
-   
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm i
-
-      - name: TS Test
+      - name: TS Test with Current Server
         run: pnpm cov:client
 
-      # - name: Setup Bazel
-      #   uses: bazel-contrib/setup-bazel@0.8.1
-      #   with:
-      #     bazelisk-cache: true
-      #     disk-cache: ${{ github.workflow }}
-      #     repository-cache: true
-
-      # - name: cpp Test
+      # - name: cpp Test with Current Server
       #   run: bazel test --test_output=all //client/...
 
       - name: Stop Current Server
