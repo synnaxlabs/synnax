@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   packages: write
+
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -23,14 +24,14 @@ jobs:
         with:
           filters: |
             changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.client.yaml"
+              - "client/**"
+              - "freighter/py/**"
+              - "synnax/**"
+              - "cesium/**"
+              - "aspen/**"
+              - "x/**"
+              - "freighter/**"
+              - ".github/workflows/test.client.yaml"
 
   build-main-server:
     needs: setup
@@ -82,9 +83,8 @@ jobs:
         run: docker stop synnax-main && docker rm synnax-main
 
   build-current-server:
-    needs: setup
+    needs: test-with-main-server
     runs-on: ubuntu-latest
-    # if: needs.setup.outputs.changed == 'true'
     env:
       GITHUB_SHA: ${{ github.sha }}
     steps:
