@@ -34,7 +34,6 @@ jobs:
               - ".github/workflows/test.client.yaml"
 
   test-on-both-servers:
-    needs: build-main-server
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
