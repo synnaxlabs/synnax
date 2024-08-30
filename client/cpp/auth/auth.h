@@ -23,8 +23,8 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 /// @brief type alias for the auth login transport.
 typedef freighter::UnaryClient<
-    api::v1::LoginRequest,
-    api::v1::LoginResponse
+        api::v1::LoginRequest,
+        api::v1::LoginResponse
 > AuthLoginClient;
 
 
@@ -52,10 +52,10 @@ private:
 
 public:
     AuthMiddleware(
-        std::unique_ptr<AuthLoginClient> login_client,
-        std::string username,
-        std::string password,
-        std::uint32_t max_retries
+            std::unique_ptr<AuthLoginClient> login_client,
+            std::string username,
+            std::string password,
+            std::uint32_t max_retries
     ) : login_client(std::move(login_client)),
         username(std::move(username)),
         password(std::move(password)),
@@ -64,8 +64,8 @@ public:
 
     /// Implements freighter::AuthMiddleware::operator().
     std::pair<freighter::Context, freighter::Error> operator()(
-        freighter::Context context,
-        freighter::Next *next
+            freighter::Context context,
+            freighter::Next *next
     ) override {
         if (!authenticated) {
             api::v1::LoginRequest req;

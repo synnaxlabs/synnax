@@ -30,8 +30,8 @@ class SynnaxWriter final : public pipeline::Writer {
     std::unique_ptr<synnax::Writer> internal;
 
 public:
-    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal): internal(
-        std::move(internal)) {
+    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal) : internal(
+            std::move(internal)) {
     }
 
     bool write(synnax::Frame &fr) override { return this->internal->write(fr); }
@@ -44,53 +44,53 @@ class SynnaxWriterFactory final : public WriterFactory {
 
 public:
     explicit SynnaxWriterFactory(
-        std::shared_ptr<synnax::Synnax> client
-    ): client(std::move(client)) {
+            std::shared_ptr<synnax::Synnax> client
+    ) : client(std::move(client)) {
     }
 
     std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
-        const WriterConfig &config
+            const WriterConfig &config
     ) override {
         auto [sw, err] = client->telem.openWriter(config);
         if (err) return {nullptr, err};
         return {
-            std::make_unique<SynnaxWriter>(
-                std::make_unique<synnax::Writer>(std::move(sw))),
-            freighter::NIL
+                std::make_unique<SynnaxWriter>(
+                        std::make_unique<synnax::Writer>(std::move(sw))),
+                freighter::NIL
         };
     }
 };
 
 Acquisition::Acquisition(
-    std::shared_ptr<synnax::Synnax> client,
-    WriterConfig writer_config,
-    std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config
-): thread(nullptr),
-   factory(std::make_shared<SynnaxWriterFactory>(std::move(client))),
-   writer_config(std::move(writer_config)),
-   breaker(breaker_config),
-   source(std::move(source)) {
+        std::shared_ptr<synnax::Synnax> client,
+        WriterConfig writer_config,
+        std::shared_ptr<Source> source,
+        const breaker::Config &breaker_config
+) : thread(nullptr),
+    factory(std::make_shared<SynnaxWriterFactory>(std::move(client))),
+    writer_config(std::move(writer_config)),
+    breaker(breaker_config),
+    source(std::move(source)) {
 }
 
 Acquisition::Acquisition(
-    std::shared_ptr<WriterFactory> factory,
-    WriterConfig writer_config,
-    std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config
-): thread(nullptr),
-   factory(std::move(factory)),
-   writer_config(std::move(writer_config)),
-   breaker(breaker_config),
-   source(std::move(source)) {
+        std::shared_ptr<WriterFactory> factory,
+        WriterConfig writer_config,
+        std::shared_ptr<Source> source,
+        const breaker::Config &breaker_config
+) : thread(nullptr),
+    factory(std::move(factory)),
+    writer_config(std::move(writer_config)),
+    breaker(breaker_config),
+    source(std::move(source)) {
 }
 
 void Acquisition::ensureThreadJoined() const {
     if (
-        this->thread == nullptr ||
-        !this->thread->joinable() ||
-        std::this_thread::get_id() == this->thread->get_id()
-    )
+            this->thread == nullptr ||
+            !this->thread->joinable() ||
+            std::this_thread::get_id() == this->thread->get_id()
+            )
         return;
     this->thread->join();
 }
@@ -160,9 +160,9 @@ void Acquisition::runInternal() {
             // With a temporary error, we just continue the loop. With any other error
             // we break and shut things down.
             if (
-                source_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
-                this->breaker.wait(source_err.message())
-            )
+                    source_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
+                    this->breaker.wait(source_err.message())
+                    )
                 continue;
             break;
         }
@@ -193,9 +193,9 @@ void Acquisition::runInternal() {
     }
     if (writer_opened) writer_err = writer->close();
     if (
-        writer_err.matches(freighter::UNREACHABLE) &&
-        this->breaker.wait(writer_err.message())
-    )
+            writer_err.matches(freighter::UNREACHABLE) &&
+            this->breaker.wait(writer_err.message())
+            )
         return this->runInternal();
     if (writer_err) this->source->stoppedWithErr(writer_err);
     LOG(INFO) << "[acquisition] acquisition thread stopped";

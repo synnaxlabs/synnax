@@ -22,8 +22,8 @@ class SynnaxStreamer final : public pipeline::Streamer {
 
 public:
     explicit SynnaxStreamer(
-        std::unique_ptr<synnax::Streamer> internal
-    ): internal(std::move(internal)) {
+            std::unique_ptr<synnax::Streamer> internal
+    ) : internal(std::move(internal)) {
     }
 
     std::pair<synnax::Frame, freighter::Error> read() override {
@@ -34,7 +34,7 @@ public:
         return this->internal->close();
     }
 
-    void closeSend() override{
+    void closeSend() override {
         this->internal->closeSend();
     }
 };
@@ -44,53 +44,53 @@ class SynnaxStreamerFactory final : public StreamerFactory {
 
 public:
     explicit SynnaxStreamerFactory(
-        std::shared_ptr<synnax::Synnax> client
-    ): client(std::move(client)) {
+            std::shared_ptr<synnax::Synnax> client
+    ) : client(std::move(client)) {
     }
 
     std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
-        synnax::StreamerConfig config) override {
+            synnax::StreamerConfig config) override {
         auto [ss, err] = client->telem.openStreamer(config);
         if (err) return {nullptr, err};
         return {
-            std::make_unique<SynnaxStreamer>(
-                std::make_unique<synnax::Streamer>(std::move(ss))),
-            freighter::NIL
+                std::make_unique<SynnaxStreamer>(
+                        std::make_unique<synnax::Streamer>(std::move(ss))),
+                freighter::NIL
         };
     }
 };
 
 Control::Control(
-    std::shared_ptr<synnax::Synnax> client,
-    synnax::StreamerConfig streamer_config,
-    std::shared_ptr<pipeline::Sink> sink,
-    const breaker::Config &breaker_config
-): thread(nullptr),
-   factory(std::make_shared<SynnaxStreamerFactory>(std::move(client))),
-   config(std::move(streamer_config)),
-   sink(std::move(sink)),
-   breaker(breaker::Breaker(breaker_config)) {
+        std::shared_ptr<synnax::Synnax> client,
+        synnax::StreamerConfig streamer_config,
+        std::shared_ptr<pipeline::Sink> sink,
+        const breaker::Config &breaker_config
+) : thread(nullptr),
+    factory(std::make_shared<SynnaxStreamerFactory>(std::move(client))),
+    config(std::move(streamer_config)),
+    sink(std::move(sink)),
+    breaker(breaker::Breaker(breaker_config)) {
 }
 
 Control::Control(
-    std::shared_ptr<StreamerFactory> streamer_factory,
-    synnax::StreamerConfig streamer_config,
-    std::shared_ptr<Sink> sink,
-    const breaker::Config &breaker_config
-): thread(nullptr),
-   factory(std::move(streamer_factory)),
-   config(std::move(streamer_config)),
-   sink(std::move(sink)),
-   breaker(breaker::Breaker(breaker_config)) {
+        std::shared_ptr<StreamerFactory> streamer_factory,
+        synnax::StreamerConfig streamer_config,
+        std::shared_ptr<Sink> sink,
+        const breaker::Config &breaker_config
+) : thread(nullptr),
+    factory(std::move(streamer_factory)),
+    config(std::move(streamer_config)),
+    sink(std::move(sink)),
+    breaker(breaker::Breaker(breaker_config)) {
 }
 
 
 void Control::ensureThreadJoined() const {
     if (
-        this->thread == nullptr ||
-        !this->thread->joinable() ||
-        std::this_thread::get_id() == this->thread->get_id()
-    )
+            this->thread == nullptr ||
+            !this->thread->joinable() ||
+            std::this_thread::get_id() == this->thread->get_id()
+            )
         return;
     this->thread->join();
 }
@@ -108,7 +108,7 @@ void Control::stop() {
     const auto was_running = this->breaker.running();
     // Stop the breaker and join the thread regardless of whether it was running.
     // This ensures that the thread gets joined even in the case of an internal error.
-    if(this->streamer) this->streamer->closeSend();
+    if (this->streamer) this->streamer->closeSend();
     this->breaker.stop();
     this->ensureThreadJoined();
     if (was_running) LOG(INFO) << "[control] stopped";
@@ -130,9 +130,9 @@ void Control::runInternal() {
     this->streamer = std::move(s);
     if (open_err) {
         if (
-            open_err.matches(freighter::UNREACHABLE)
-            && breaker.wait(open_err.message())
-        )
+                open_err.matches(freighter::UNREACHABLE)
+                && breaker.wait(open_err.message())
+                )
             return runInternal();
         return this->sink->stoppedWithErr(open_err);
     }
@@ -143,9 +143,9 @@ void Control::runInternal() {
         const auto sink_err = this->sink->write(std::move(cmd_frame));
         if (sink_err) {
             if (
-                sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR)
-                && breaker.wait(sink_err.message())
-            )
+                    sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR)
+                    && breaker.wait(sink_err.message())
+                    )
                 continue;
             break;
         }
@@ -153,9 +153,9 @@ void Control::runInternal() {
     }
     const auto close_err = this->streamer->close();
     if (
-        close_err.matches(freighter::UNREACHABLE)
-        && breaker.wait()
-    )
+            close_err.matches(freighter::UNREACHABLE)
+            && breaker.wait()
+            )
         return runInternal();
     if (close_err) this->sink->stoppedWithErr(close_err);
 }

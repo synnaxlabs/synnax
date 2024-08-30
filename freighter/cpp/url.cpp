@@ -19,7 +19,7 @@ std::string joinPaths(const std::string &a, const std::string &b) {
     return a + adjusted;
 }
 
-URL::URL(): ip(""), port(0), path("") {}
+URL::URL() : ip(""), port(0), path("") {}
 
 URL::URL(
         const std::string &ip,

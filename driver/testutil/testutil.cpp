@@ -28,13 +28,12 @@ std::mt19937 random_generator(std::string suite_name) {
 }
 
 
-
 json add_DI_channel_JSON(
-    json &config,
-    std::string name,
-    int key,
-    int port,
-    int line
+        json &config,
+        std::string name,
+        int key,
+        int port,
+        int line
 ) {
     // first construct the json object for the channel
     json channel;
@@ -54,14 +53,14 @@ json add_DI_channel_JSON(
 }
 
 json add_AI_channel_JSON(
-    json &config,
-    std::string name,
-    int key,
-    int port,
-    std::float_t min_val,
-    std::float_t max_val,
-    std::string terminal_config,
-    json scale_config
+        json &config,
+        std::string name,
+        int key,
+        int port,
+        std::float_t min_val,
+        std::float_t max_val,
+        std::string terminal_config,
+        json scale_config
 ) {
     // first construct the json object for the channel
     json channel;
@@ -77,7 +76,7 @@ json add_AI_channel_JSON(
     channel["key"] = "key";
     channel["custom_scale"] = scale_config;
     channel["enabled"] = true;
-    
+
     // now add json to the channels vector
     // check if the channels array exists
     if (config.find("channels") == config.end()) {
@@ -89,12 +88,12 @@ json add_AI_channel_JSON(
 
 
 json add_DO_channel_JSON(
-    json &config,
-    std::string name,
-    int drive_cmd_key,
-    int state_key,
-    int port,
-    int line
+        json &config,
+        std::string name,
+        int drive_cmd_key,
+        int state_key,
+        int port,
+        int line
 ) {
     // first construct the json object for the channel
     json channel;

@@ -24,8 +24,8 @@
 using namespace opc;
 
 std::unique_ptr<task::Task> Scanner::configure(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
 ) {
     return std::make_unique<Scanner>(ctx, task);
 }
@@ -55,25 +55,34 @@ void iterateChildren(ScanContext *ctx, UA_NodeId node_id) {
 
 std::string nodeClassToString(UA_NodeClass nodeClass) {
     switch (nodeClass) {
-        case UA_NODECLASS_OBJECT: return "Object";
-        case UA_NODECLASS_VARIABLE: return "Variable";
-        case UA_NODECLASS_METHOD: return "Method";
-        case UA_NODECLASS_OBJECTTYPE: return "ObjectType";
-        case UA_NODECLASS_VARIABLETYPE: return "VariableType";
-        case UA_NODECLASS_DATATYPE: return "DataType";
-        case UA_NODECLASS_REFERENCETYPE: return "ReferenceType";
-        case UA_NODECLASS_VIEW: return "View";
-        default: return "Unknown";
+        case UA_NODECLASS_OBJECT:
+            return "Object";
+        case UA_NODECLASS_VARIABLE:
+            return "Variable";
+        case UA_NODECLASS_METHOD:
+            return "Method";
+        case UA_NODECLASS_OBJECTTYPE:
+            return "ObjectType";
+        case UA_NODECLASS_VARIABLETYPE:
+            return "VariableType";
+        case UA_NODECLASS_DATATYPE:
+            return "DataType";
+        case UA_NODECLASS_REFERENCETYPE:
+            return "ReferenceType";
+        case UA_NODECLASS_VIEW:
+            return "View";
+        default:
+            return "Unknown";
     }
 }
 
 
 // Callback function to handle each child node
 static UA_StatusCode nodeIter(
-    UA_NodeId child_id,
-    UA_Boolean is_inverse,
-    UA_NodeId reference_type_id,
-    void *handle
+        UA_NodeId child_id,
+        UA_Boolean is_inverse,
+        UA_NodeId reference_type_id,
+        void *handle
 ) {
     if (is_inverse) return UA_STATUSCODE_GOOD;
     auto *ctx = static_cast<ScanContext *>(handle);
@@ -102,14 +111,14 @@ static UA_StatusCode nodeIter(
         if (!response.results[0].hasValue) return response.results[0].status;
         if (!response.results[1].hasValue) return response.results[1].status;
         UA_NodeClass nodeClass = *static_cast<UA_NodeClass *>(
-            response.results[0].value.data
+                response.results[0].value.data
         );
         UA_QualifiedName browseName = *static_cast<UA_QualifiedName *>(
-            response.results[1].value.data
+                response.results[1].value.data
         );
         auto name = std::string(
-            reinterpret_cast<char *>(browseName.name.data),
-            browseName.name.length
+                reinterpret_cast<char *>(browseName.name.data),
+                browseName.name.length
         );
         auto data_type = synnax::DATA_TYPE_UNKNOWN;
         bool is_array = false;
@@ -123,13 +132,13 @@ static UA_StatusCode nodeIter(
             UA_Variant_clear(&value);
         } else if (nodeClass == UA_NODECLASS_VARIABLE) {
             LOG(ERROR) << "[opc.scannner] No value for " << name;
-        }        
+        }
         ctx->channels->emplace_back(
-            data_type,
-            name,
-            nodeIdToString(child_id),
-            nodeClassToString(nodeClass),
-            is_array
+                data_type,
+                name,
+                nodeIdToString(child_id),
+                nodeClassToString(nodeClass),
+                is_array
         );
     }
 
@@ -142,31 +151,31 @@ void Scanner::scan(const task::Command &cmd) const {
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .details = parser.error_json()
-        });
+                                     .task = task.key,
+                                     .key = cmd.key,
+                                     .details = parser.error_json()
+                             });
 
     auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .variant = "error",
-            .details = {{"message", err.message()}}
-        });
+                                     .task = task.key,
+                                     .key = cmd.key,
+                                     .variant = "error",
+                                     .details = {{"message", err.message()}}
+                             });
 
     const auto scan_ctx = new ScanContext{
-        ua_client,
-        std::make_shared<std::vector<DeviceNodeProperties> >(),
+            ua_client,
+            std::make_shared<std::vector<DeviceNodeProperties> >(),
     };
     iterateChildren(scan_ctx, args.node);
     ctx->setState({
-        .task = task.key,
-        .key = cmd.key,
-        .variant = "success",
-        .details = DeviceProperties(args.connection, *scan_ctx->channels).toJSON(),
-    });
+                          .task = task.key,
+                          .key = cmd.key,
+                          .variant = "success",
+                          .details = DeviceProperties(args.connection, *scan_ctx->channels).toJSON(),
+                  });
     delete scan_ctx;
 }
 
@@ -175,22 +184,22 @@ void Scanner::testConnection(const task::Command &cmd) const {
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .details = parser.error_json()
-        });
+                                     .task = task.key,
+                                     .key = cmd.key,
+                                     .details = parser.error_json()
+                             });
     const auto err = connect(args.connection, "[opc.scanner] ").second;
     if (err)
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .variant = "error",
-            .details = {{"message", err.data}}
-        });
+                                     .task = task.key,
+                                     .key = cmd.key,
+                                     .variant = "error",
+                                     .details = {{"message", err.data}}
+                             });
     return ctx->setState({
-        .task = task.key,
-        .key = cmd.key,
-        .variant = "success",
-        .details = {{"message", "Connection successful"}},
-    });
+                                 .task = task.key,
+                                 .key = cmd.key,
+                                 .variant = "success",
+                                 .details = {{"message", "Connection successful"}},
+                         });
 }

@@ -28,19 +28,20 @@ void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
                     ni::ChannelConfig config;
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
                     std::string port = "port" + std::to_string(
-                                           channel_builder.required<std::uint64_t>(
-                                               "port"));
+                            channel_builder.required<std::uint64_t>(
+                                    "port"));
                     std::string line = "line" + std::to_string(
-                                           channel_builder.required<std::uint64_t>(
-                                               "line"));
+                            channel_builder.required<std::uint64_t>(
+                                    "line"));
 
                     config.channel_key = channel_builder.required<uint32_t>("channel");
                     config.name = (this->reader_config.device_name + "/" + port + "/" +
                                    line);
                     this->reader_config.channels.push_back(config);
                 });
-    if (!parser.ok()) LOG(ERROR) << "Failed to parse channels for task " << this->
-                      reader_config.task_name;
+    if (!parser.ok())
+        LOG(ERROR) << "Failed to parse channels for task " << this->
+                reader_config.task_name;
 }
 
 int ni::DigitalReadSource::create_channels() {
@@ -49,8 +50,8 @@ int ni::DigitalReadSource::create_channels() {
     for (auto &channel: channels) {
         if (channel.channel_type != "index") {
             err = this->check_ni_error(
-                ni::NiDAQmxInterface::CreateDIChan(task_handle, channel.name.c_str(),
-                                                   "", DAQmx_Val_ChanPerLine));
+                    ni::NiDAQmxInterface::CreateDIChan(task_handle, channel.name.c_str(),
+                                                       "", DAQmx_Val_ChanPerLine));
             VLOG(1) << "Channel name: " << channel.name;
         }
         this->num_channels++;
@@ -70,19 +71,19 @@ int ni::DigitalReadSource::configure_timing() {
         this->num_samples_per_channel = 1;
     } else {
         if (this->check_ni_error(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-            this->reader_config.timing_source.c_str(),
-            this->reader_config.sample_rate.value,
-            DAQmx_Val_Rising,
-            DAQmx_Val_ContSamps,
-            this->reader_config.sample_rate.value))) {
+                                                                        this->reader_config.timing_source.c_str(),
+                                                                        this->reader_config.sample_rate.value,
+                                                                        DAQmx_Val_Rising,
+                                                                        DAQmx_Val_ContSamps,
+                                                                        this->reader_config.sample_rate.value))) {
             LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
-                    this->reader_config.task_name;
+                       this->reader_config.task_name;
             this->ok_state = false;
             return -1;
         }
         this->num_samples_per_channel = std::floor(
-            this->reader_config.sample_rate.value / this->reader_config.stream_rate.
-            value);
+                this->reader_config.sample_rate.value / this->reader_config.stream_rate.
+                        value);
     }
     this->buffer_size = this->num_channels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
@@ -101,19 +102,19 @@ void ni::DigitalReadSource::acquire_data() {
         // sleep per sample rate
         this->sample_timer.wait();
         if (this->check_ni_error(
-            ni::NiDAQmxInterface::ReadDigitalLines(
-                this->task_handle, 
-                this->num_samples_per_channel, 
-                -1, 
-                DAQmx_Val_GroupByChannel, 
-                data_packet.digital_data.data(),
-                data_packet.digital_data.size(), 
-                &data_packet.samples_read_per_channel, 
-                &numBytesPerSamp, 
-                NULL))) {
+                ni::NiDAQmxInterface::ReadDigitalLines(
+                        this->task_handle,
+                        this->num_samples_per_channel,
+                        -1,
+                        DAQmx_Val_GroupByChannel,
+                        data_packet.digital_data.data(),
+                        data_packet.digital_data.size(),
+                        &data_packet.samples_read_per_channel,
+                        &numBytesPerSamp,
+                        NULL))) {
             this->log_error(
-                "failed while reading digital data for task " + this->reader_config.
-                task_name);
+                    "failed while reading digital data for task " + this->reader_config.
+                            task_name);
         }
         data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
@@ -121,7 +122,7 @@ void ni::DigitalReadSource::acquire_data() {
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
-    breaker::Breaker &breaker) {
+        breaker::Breaker &breaker) {
     auto f = synnax::Frame(num_channels);
 
     // sleep per stream rate
@@ -129,12 +130,12 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     auto [d, err] = data_queue.dequeue();
     if (!err)
         return std::make_pair(std::move(f), freighter::Error(
-                                  driver::TEMPORARY_HARDWARE_ERROR,
-                                  "Failed to read data from queue"));
+                driver::TEMPORARY_HARDWARE_ERROR,
+                "Failed to read data from queue"));
     // interpolate  timestamps between the initial and final timestamp to ensure
     // non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
-    
+
     uint64_t data_index = 0;
 
     for (int i = 0; i < num_channels; i++) {
@@ -148,7 +149,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
         }
         auto series = synnax::Series(synnax::UINT8, d.samples_read_per_channel);
 
-        for (int j = 0; j < d.samples_read_per_channel; j++) 
+        for (int j = 0; j < d.samples_read_per_channel; j++)
             series.write((uint8_t) d.digital_data[data_index + j]);
 
         f.add(this->reader_config.channels[i].channel_key, std::move(series));
@@ -167,16 +168,16 @@ int ni::DigitalReadSource::validate_channels() {
             continue;
         }
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
-            channel.channel_key);
-        if(channel_info.data_type != synnax::UINT8) {
+                channel.channel_key);
+        if (channel_info.data_type != synnax::UINT8) {
             this->log_error("Channel " + channel.name + " is not of type UINT8");
             this->ctx->setState({
-                .task = task.key,
-                .variant = "error",
-                .details = {
-                    {"running", "false"},
-                    {"message", "Channel " + channel.name + " is not of type UINT8"}
-                }});
+                                        .task = task.key,
+                                        .variant = "error",
+                                        .details = {
+                                                {"running", "false"},
+                                                {"message", "Channel " + channel.name + " is not of type UINT8"}
+                                        }});
             return -1;
         }
     }

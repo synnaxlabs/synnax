@@ -16,8 +16,8 @@
 using namespace synnax;
 
 Frame::Frame(
-    std::unique_ptr<std::vector<ChannelKey> > channels,
-    std::unique_ptr<std::vector<synnax::Series> > series
+        std::unique_ptr<std::vector<ChannelKey> > channels,
+        std::unique_ptr<std::vector<synnax::Series> > series
 ) : channels(std::move(channels)), series(std::move(series)) {
 }
 

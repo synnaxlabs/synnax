@@ -18,11 +18,11 @@
 class Transport {
 public:
     Transport(
-        uint16_t port,
-        const std::string &ip,
-        const std::string &ca_cert_file,
-        const std::string &client_cert_file,
-        const std::string &client_key_file
+            uint16_t port,
+            const std::string &ip,
+            const std::string &ca_cert_file,
+            const std::string &client_cert_file,
+            const std::string &client_key_file
     );
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;

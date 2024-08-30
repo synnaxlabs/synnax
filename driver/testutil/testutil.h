@@ -46,8 +46,8 @@ json add_index_channel_JSON(json &config,
                             int key);
 
 json add_state_index_channel_JSON(json &config,
-                               std::string name,
-                               int key);
+                                  std::string name,
+                                  int key);
 
 /// @brief adds a  digital input channel to a json object passed by ref
 /// returns just the JSON of the channel constructed

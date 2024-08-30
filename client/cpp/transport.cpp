@@ -25,11 +25,11 @@
 using namespace api;
 
 Transport::Transport(
-    uint16_t port,
-    const std::string &ip,
-    const std::string &ca_cert_file,
-    const std::string &client_cert_file,
-    const std::string &client_key_file
+        uint16_t port,
+        const std::string &ip,
+        const std::string &ca_cert_file,
+        const std::string &client_cert_file,
+        const std::string &client_key_file
 ) {
     auto base_target = freighter::URL(ip, port, "").toString();
     std::shared_ptr<fgrpc::Pool> pool = nullptr;
@@ -44,118 +44,118 @@ Transport::Transport(
 
 
     auth_login = std::make_unique<fgrpc::UnaryClient<
-        v1::LoginRequest,
-        v1::LoginResponse,
-        v1::AuthLoginService
+            v1::LoginRequest,
+            v1::LoginResponse,
+            v1::AuthLoginService
     > >(pool, base_target);
 
 
     frame_stream = std::make_unique<fgrpc::StreamClient<
-        v1::FrameStreamerRequest,
-        v1::FrameStreamerResponse,
-        v1::FrameStreamerService
+            v1::FrameStreamerRequest,
+            v1::FrameStreamerResponse,
+            v1::FrameStreamerService
     > >(pool, base_target);
 
     frame_write = std::make_unique<fgrpc::StreamClient<
-        v1::FrameWriterRequest,
-        v1::FrameWriterResponse,
-        v1::FrameWriterService
+            v1::FrameWriterRequest,
+            v1::FrameWriterResponse,
+            v1::FrameWriterService
     > >(pool, base_target);
 
     chan_create = std::make_unique<fgrpc::UnaryClient<
-        v1::ChannelCreateRequest,
-        v1::ChannelCreateResponse,
-        v1::ChannelCreateService
+            v1::ChannelCreateRequest,
+            v1::ChannelCreateResponse,
+            v1::ChannelCreateService
     > >(pool, base_target);
 
     chan_retrieve = std::make_unique<fgrpc::UnaryClient<
-        v1::ChannelRetrieveRequest,
-        v1::ChannelRetrieveResponse,
-        v1::ChannelRetrieveService
+            v1::ChannelRetrieveRequest,
+            v1::ChannelRetrieveResponse,
+            v1::ChannelRetrieveService
     > >(pool, base_target);
 
     range_retrieve = std::make_unique<fgrpc::UnaryClient<
-        v1::RangeRetrieveRequest,
-        v1::RangeRetrieveResponse,
-        v1::RangeRetrieveService
+            v1::RangeRetrieveRequest,
+            v1::RangeRetrieveResponse,
+            v1::RangeRetrieveService
     > >(pool, base_target);
 
     range_create = std::make_unique<fgrpc::UnaryClient<
-        v1::RangeCreateRequest,
-        v1::RangeCreateResponse,
-        v1::RangeCreateService
+            v1::RangeCreateRequest,
+            v1::RangeCreateResponse,
+            v1::RangeCreateService
     > >(pool, base_target);
 
     range_kv_delete = std::make_shared<fgrpc::UnaryClient<
-        v1::RangeKVDeleteRequest,
-        google::protobuf::Empty,
-        v1::RangeKVDeleteService
+            v1::RangeKVDeleteRequest,
+            google::protobuf::Empty,
+            v1::RangeKVDeleteService
     > >(pool, base_target);
 
     range_kv_get = std::make_shared<fgrpc::UnaryClient<
-        v1::RangeKVGetRequest,
-        v1::RangeKVGetResponse,
-        v1::RangeKVGetService
+            v1::RangeKVGetRequest,
+            v1::RangeKVGetResponse,
+            v1::RangeKVGetService
     > >(pool, base_target);
 
     range_kv_set = std::make_shared<fgrpc::UnaryClient<
-        v1::RangeKVSetRequest,
-        google::protobuf::Empty,
-        v1::RangeKVSetService
+            v1::RangeKVSetRequest,
+            google::protobuf::Empty,
+            v1::RangeKVSetService
     > >(pool, base_target);
 
     rack_create_client = std::make_unique<fgrpc::UnaryClient<
-        v1::HardwareCreateRackRequest,
-        v1::HardwareCreateRackResponse,
-        v1::HardwareCreateRackService
+            v1::HardwareCreateRackRequest,
+            v1::HardwareCreateRackResponse,
+            v1::HardwareCreateRackService
     > >(pool, base_target);
 
     rack_retrieve = std::make_unique<fgrpc::UnaryClient<
-        v1::HardwareRetrieveRackRequest,
-        v1::HardwareRetrieveRackResponse,
-        v1::HardwareRetrieveRackService
+            v1::HardwareRetrieveRackRequest,
+            v1::HardwareRetrieveRackResponse,
+            v1::HardwareRetrieveRackService
     > >(pool, base_target);
 
     rack_delete = std::make_unique<fgrpc::UnaryClient<
-        v1::HardwareDeleteRackRequest,
-        google::protobuf::Empty,
-        v1::HardwareDeleteRackService
+            v1::HardwareDeleteRackRequest,
+            google::protobuf::Empty,
+            v1::HardwareDeleteRackService
     > >(pool, base_target);
 
     module_create = std::make_shared<fgrpc::UnaryClient<
-        v1::HardwareCreateTaskRequest,
-        v1::HardwareCreateTaskResponse,
-        v1::HardwareCreateTaskService
+            v1::HardwareCreateTaskRequest,
+            v1::HardwareCreateTaskResponse,
+            v1::HardwareCreateTaskService
     > >(pool, base_target);
 
     module_retrieve = std::make_shared<fgrpc::UnaryClient<
-        v1::HardwareRetrieveTaskRequest,
-        v1::HardwareRetrieveTaskResponse,
-        v1::HardwareRetrieveTaskService
+            v1::HardwareRetrieveTaskRequest,
+            v1::HardwareRetrieveTaskResponse,
+            v1::HardwareRetrieveTaskService
     > >(pool, base_target);
 
     module_delete = std::make_shared<fgrpc::UnaryClient<
-        v1::HardwareDeleteTaskRequest,
-        google::protobuf::Empty,
-        v1::HardwareDeleteTaskService
+            v1::HardwareDeleteTaskRequest,
+            google::protobuf::Empty,
+            v1::HardwareDeleteTaskService
     > >(pool, base_target);
 
     device_create = std::make_unique<fgrpc::UnaryClient<
-        v1::HardwareCreateDeviceRequest,
-        v1::HardwareCreateDeviceResponse,
-        v1::HardwareCreateDeviceService
+            v1::HardwareCreateDeviceRequest,
+            v1::HardwareCreateDeviceResponse,
+            v1::HardwareCreateDeviceService
     > >(pool, base_target);
 
     device_retrieve = std::make_unique<fgrpc::UnaryClient<
-        v1::HardwareRetrieveDeviceRequest,
-        v1::HardwareRetrieveDeviceResponse,
-        v1::HardwareRetrieveDeviceService
+            v1::HardwareRetrieveDeviceRequest,
+            v1::HardwareRetrieveDeviceResponse,
+            v1::HardwareRetrieveDeviceService
     > >(pool, base_target);
 
     device_delete = std::make_unique<fgrpc::UnaryClient<
-        v1::HardwareDeleteDeviceRequest,
-        google::protobuf::Empty,
-        v1::HardwareDeleteDeviceService
+            v1::HardwareDeleteDeviceRequest,
+            google::protobuf::Empty,
+            v1::HardwareDeleteDeviceService
     > >(pool, base_target);
 }
 
