@@ -19,8 +19,10 @@ import { State, WindowProps } from "@/layout/slice";
 import { DefaultContextMenu } from "@/layout/Window";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
-  width: window?.size?.width,
-  height: window?.size?.height,
+  width: "100%",
+  height: "100%",
+  maxWidth: window?.size?.width,
+  maxHeight: window?.size?.height,
   minWidth: window?.minSize?.width,
   minHeight: window?.minSize?.height,
 });
