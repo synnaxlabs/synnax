@@ -78,10 +78,7 @@ struct Frame {
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
-    Frame(
-        const ChannelKey &chan,
-        synnax::Series ser
-    );
+    Frame(const ChannelKey &chan, synnax::Series ser);
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
@@ -95,8 +92,10 @@ struct Frame {
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void add(const ChannelKey &chan,
-             synnax::Series ser) const; //TODO: Why do we a non pass by ref version of this?
+    void add(
+        const ChannelKey &chan,
+        synnax::Series ser
+    ) const; //TODO: Why do we a non pass by ref version of this?
 
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 

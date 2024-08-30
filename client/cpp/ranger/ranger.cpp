@@ -16,9 +16,9 @@
 
 using namespace synnax;
 
-Range::Range(const std::string &name, synnax::TimeRange time_range) : name(name),
-                                                                      time_range(
-                                                                          time_range) {
+Range::Range(const std::string &name, synnax::TimeRange time_range)
+    : name(name),
+      time_range(time_range) {
 }
 
 Range::Range(
