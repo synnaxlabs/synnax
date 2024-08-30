@@ -15,6 +15,18 @@ guide on reading data using a client library, take a look at the respective page
 
 <Divider.Divider direction="x" />
 
+## What is a Range?
+
+A range (short for "time range") is simply an interesting region of a channel's data.
+
+To read from a cluster, you must provide two pieces of information:
+
+1. A range marked by a start and end timestamp.
+2. A list of channels you would like to read from.
+
+Using these parameters, the cluster will resolve the relevant domains for each channel
+and return the requested data.
+
 ### Range Inclusivity
 
 It's important to note that ranges are start **inclusive** and end **exclusive**. For

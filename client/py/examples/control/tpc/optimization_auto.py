@@ -214,7 +214,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
 def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:
     print("Performing analysis on the test results. Starting with a 5 second sleep")
-    auto.sleep(5)
+    time.sleep(5)
     fuel_pt = rng[FUEL_TANK_PT].to_numpy()
     peaks, _ = find_peaks(fuel_pt, height=params.tpc_upper_bound)
     avg_diff = np.mean(fuel_pt[peaks] - params.tpc_upper_bound)

@@ -23,7 +23,7 @@ via the NI-MAX software.
 """
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/python-client/get-started for more information.
+# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
 # Retrieve the USB-6289 device from Synnax.
@@ -118,7 +118,7 @@ frame = sy.Frame()
 
 # Start the task under a context manager, which ensures the task gets stopped
 # when the block exits. If you want to stop the task manually, you can call
-# tsk.start();
+# tsk.start()
 # ...your code
 # tsk.stop()
 # We recommend wrapped your code in a try/finally block to ensure the task is
