@@ -132,6 +132,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleLink = Link.useCopyToClipboard();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
+  const group = Group.useCreateFromSelection();
   const onSelect = {
     delete: () => del(props),
     edit: () =>
@@ -151,6 +152,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         ontologyID: resources[0].id.payload,
       }),
     rangeSnapshot: () => snap(props),
+    group: () => group(props),
   };
   const singleResource = resources.length === 1;
   return (
