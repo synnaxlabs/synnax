@@ -2,7 +2,7 @@ from pydantic import BaseModel, conint, confloat, constr, validator, Field
 from typing import List, Literal, Union, Optional, Dict
 from uuid import uuid4
 from synnax.hardware.task import TaskPayload, Task, MetaTask
-from synnax.telem import CrudeRate
+from synnax.telem import CrudeRate, TimeSpan
 from contextlib import contextmanager
 import json
 
@@ -861,15 +861,15 @@ class DigitalWriteTask(MetaTask):
         self._internal = task
 
     @contextmanager
-    def start(self):
-        self._internal.execute_command("start")
+    def start(self, timeout: float | TimeSpan = 0):
+        self._internal.execute_command("start", timeout)
         try:
             yield
         finally:
             self.stop()
 
-    def stop(self):
-        self._internal.execute_command("stop")
+    def stop(self, timeout: float | TimeSpan = 0):
+        self._internal.execute_command("stop", timeout)
 
 
 class DigitalReadTask(MetaTask):
@@ -917,11 +917,16 @@ class DigitalReadTask(MetaTask):
     def set_internal(self, task: Task):
         self._internal = task
 
-    def start(self):
-        self._internal.execute_command("start")
+    @contextmanager
+    def start(self, timeout: float | TimeSpan = 0):
+        self._internal.execute_command_sync("start", timeout)
+        try:
+            yield
+        finally:
+            self.stop()
 
-    def stop(self):
-        self._internal.execute_command("stop")
+    def stop(self, timeout: float | TimeSpan = 0):
+        self._internal.execute_command_sync("stop", timeout)
 
 
 class AnalogReadTask(MetaTask):
@@ -969,8 +974,13 @@ class AnalogReadTask(MetaTask):
     def set_internal(self, task: Task):
         self._internal = task
 
-    def start(self, timeout: float = 0):
-        self._internal.execute_command_sync("start")
+    @contextmanager
+    def start(self, timeout: float | TimeSpan = 0):
+        self._internal.execute_command_sync("start", timeout)
+        try:
+            yield
+        finally:
+            self.stop()
 
-    def stop(self, timeout: float = 0):
-        self._internal.execute_command_sync("stop")
+    def stop(self, timeout: float | TimeSpan = 0):
+        self._internal.execute_command_sync("stop", timeout)

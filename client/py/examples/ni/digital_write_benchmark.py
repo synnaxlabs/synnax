@@ -79,6 +79,8 @@ tsk = ni.DigitalWriteTask(
 # is correct.
 client.hardware.tasks.configure(tsk)
 
+durations = list()
+
 # Start the task.
 with tsk.start():
     with client.control.acquire(
@@ -87,10 +89,41 @@ with tsk.start():
         write=["do_1_cmd"],
         write_authorities=50,
     ) as ctrl:
-        ctrl["do_1_cmd"] = 1
-        ctrl.wait_until(lambda c: c["do_1_state"] == 1, timeout=1)
-        ctrl.sleep(0.1)
-        ctrl["do_1_cmd"] = 0
-        ctrl.wait_until(lambda c: c["do_1_state"] == 0, timeout=1)
+        for i in range(2500):
+            ctrl["do_1_cmd"] = 1
+            start = sy.TimeStamp.now()
+            ctrl.wait_until(lambda c: c["do_1_state"] == 1)
+            durations.append(sy.TimeSpan.since(start))
+            ctrl["do_1_cmd"] = 0
+            ctrl.wait_until(lambda c: c["do_1_state"] == 0)
 
 client.hardware.tasks.delete(tsk.key)
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+amortized = np.array([dur.milliseconds for dur in durations]) / 2
+# remove the outliers
+amortized = amortized[amortized < 2]
+
+# Get the P99 latency
+p99 = np.percentile(amortized, 99)
+print(f"P99 latency: {p99} ms")
+p95 = np.percentile(amortized, 95)
+print(f"P95 latency: {p95} ms")
+p50 = np.percentile(amortized, 50)
+print(f"P50 latency: {p50} ms")
+
+# make the line skinnier and the plot wider
+plt.plot(amortized, linewidth=0.5)
+# plot the average for every 50 requests in red
+plt.plot(np.convolve(amortized, np.ones(50)/50, mode='valid'), color='red')
+
+
+plt.xlabel("Request #")
+plt.ylabel("Latency (ms)")
+plt.savefig("latency.png")
+
+jitter = np.std(amortized)
+
+print(f"Jitter: {jitter} ms")

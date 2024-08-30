@@ -176,11 +176,13 @@ void ni::ReaderTask::exec(task::Command &cmd) {
         this->start(cmd.key);
     } else if (cmd.type == "stop") {
         LOG(INFO) << "[ni.task] stopped reader task " << this->task.name;
-        this->stop();
+        this->stop(cmd.key);
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
 }
+
+void ni::ReaderTask::stop() { this->stop(""); }
 
 void ni::ReaderTask::stop(const std::string &cmd_key) {
     if (!this->running.exchange(false)) {

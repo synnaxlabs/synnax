@@ -85,10 +85,12 @@ frame = sy.Frame()
 # stopped in case of an exception.
 with tsk.start():
     # Open a streamer on the analog input channels.
-    with client.open_streamer(["6289_di_0", "6289_di_1"]) as streamer:
+    with client.open_streamer(["di_0", "di_1"]) as streamer:
         while total_reads > 0:
             frame.append(streamer.read())
             total_reads -= 1
+
+client.hardware.tasks.delete(tsk.key)
 
 # Save the data to a CSV file.
 frame.to_df().to_csv("digital_read_result.csv")

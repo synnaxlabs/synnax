@@ -144,6 +144,7 @@ class Task:
                     continue
                 try:
                     state = TaskState.parse_obj(frame[_TASK_STATE_CHANNEL][0])
+                    print(state)
                     if state.key == key:
                         return state
                 except ValidationError as e:
