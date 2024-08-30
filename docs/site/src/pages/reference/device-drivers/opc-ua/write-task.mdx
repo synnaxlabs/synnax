@@ -75,7 +75,7 @@ a running task.
 
 ### From the Resources Toolbar
 
-To create a digital write task from the resources toolbar, open the Synnax Console and 
+To create a write task from the resources toolbar, open the Synnax Console and 
 click on the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device 
 you'd like to create the task for, right-click on it, and select "Create a Write Task".
 
@@ -89,16 +89,16 @@ click on the Quick Search & Command Palette at the top. You can also open this p
 `Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type
-"OPC". You'll see an option called "Create a New Digital write Task". Select this
-option to open the read task configuration dialog.
+"OPC UA". You'll see an option called "Create a New Write Task". Select this
+option to open the write task configuration dialog.
 
  {/* TODO: ADD VIDEO */}
 <Video client:only="react" id="device-drivers/ni/digital-write-task/palette-create-digital-write-task" />
 
 ### From The Layout Selector
 
-To create a digital write task from the layout selector, click on the "+" button in the 
-top right corner and select "NI Digital write Task".
+To create a  write task from the layout selector, click on the "+" button in the 
+top right corner and select "OPC write Task".
 
  {/* TODO: ADD VIDEO */}
 <Video client:only="react" id="device-drivers/ni/digital-write-task/layout-create-digital-write-task" />
@@ -107,6 +107,59 @@ top right corner and select "NI Digital write Task".
 
 
 
+## Configure the Task
+
+### Task Configuration Parameters
+
+<Table>
+    <thead>
+        <tr>
+            <th>Field</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Name</td>
+            <td>A name for your read task.</td>
+        </tr>
+        <tr>
+            <td>OPC UA Server</td>
+            <td>Which OPC UA server the task will read from.</td>
+        </tr>
+        <tr>
+            <td>Data Saving</td>
+            <td>Data saving defines whether acquired data will be permanently stored in
+            Synnax. When enabled, Synnax will both stream and store data. When disabled,
+            Synnax will only stream data for real-time visualization. Historical data
+            will not be available for review.</td>
+        </tr>
+    </tbody>
+</Table>
+
+<Divider.Divider direction="x" />
+
+## Adding Channels to a Task
+
+To add a channel to a task, simple find the desired channel in the browser and drag it
+over to the channels window. From here, you can change the name of the channel. If you
+would like to stop a channel from being read, you can click the disable/enable button to
+the right of the channel.
+
+To configure the task, just click the "Configure" button. This will save the task
+configuration, and you will be able to pause and resume the tasks whenever you want.
+
+<Video client:only="react" id="device-drivers/opc-ua/read-task/channels" />
+
+<Divider.Divider direction="x" />
+
+## Stopping and Starting Tasks
+
+To stop and start a task, you can open up the task toolbar on the right-hand side and
+click play and pause. You can also click the play/pause icon in the bottom of the task
+configuration window.
+
+<Video client:only="react" id="device-drivers/opc-ua/read-task/start-stop" />
 
 
 <Divider.Divider direction="x" />
@@ -174,61 +227,6 @@ from the resources toolbar.
         </tr>
     </tbody>
 </Table>
-
-### Sample Rate vs. Stream Rate
-
-There are two parameters to control the timing of the task: the sample rate and the
-stream rate. The sample rate defines how often Synnax will poll the OPC UA server for
-new data, while the stream rate defines how often the task will stream data into Synnax.
-
-For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax
-will poll the OPC UA server every 100 ms, collect 10 samples, and then forward these
-samples to the server. 
-
-For very low rate tasks (&lt;50 Hz), we recommend setting the stream rate to the same
-value as the sample rate. For higher rate tasks, lowering the stream rate can
-significantly improve performance. It's best to keep the stream rate below 50 Hz unless
-you need to quickly process incoming data in real-time.
-
-### Default Sampling vs. Array Sampling
-
-The default sampling mode reads a single sample from the server for each channel in the
-task at the specified sampling rate. This is the simplest mode to configure, and is
-ideal for most applications that don't require high data rates. We recommend setting the
-sampling rate to the same sampling rate as the OPC UA server.
-
-Array sampling is a more advanced method of reading data from an OPC UA server, and is
-typically only necessary for very high rate tasks (&gt;500 Hz). Instead of reading
-single samples from the server, Synnax will read many samples in bulk. Array sampling
-requires a little bit of tuning to set up.
-
-<Note variant="info">
-When experimenting with array based sampling, we recommend running a separate [Synnax
-database](/reference/cluster/quick-start) with a memory-backed data store. This will
-allow you to quickly test different configurations without writing a large amount of
-experimental data to your production database.
-</Note>
-
-Running a task with array sampling enabled can result in both **oversampling** and
-**undersampling**. Oversampling occurs when the OPC UA server doesn't completely replace
-all values in the array before Synnax reads it. Undersampling can occur when the OPC UA
-server is rewriting the array faster than Synnax can read it. 
-
-We recommend setting the sampling rate to the same sampling rate as the OPC UA server
-and setting the array size to be an integer factor of the sampling rate. For very high
-data rates, undersampling and oversampling by a few samples in the array can occur under
-normal operating conditions. This typically is not a problem.
-
-### Reading Timestamps from the OPC UA Server
-
-If the time channels for your corresponding data channels are not in the task, Synnax
-will automatically generate timestamps when reading data from the server. This is fine
-when you are not concerned with the exact timing of the data.
-
-If you would like to pull exact timestamps from the OPC UA server, simply add the time
-channel to the task.
-
-<Divider.Divider direction="x" />
 
 ## Adding Channels to a Task
 
