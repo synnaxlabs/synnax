@@ -53,7 +53,7 @@ public:
         breaker_shutdown(std::make_unique<std::condition_variable>()) {
     }
 
-    Breaker(): Breaker(Config{
+    Breaker() : Breaker(Config{
         "default",
         TimeSpan(1 * SECOND),
         10,
@@ -71,13 +71,13 @@ public:
         std::cout << "copy constructor called" << std::endl;
     }
 
-    Breaker(Breaker &&other) noexcept : config(other.config),
-                                        interval(other.interval),
-                                        retries(other.retries),
-                                        is_running(other.is_running),
-                                        breaker_shutdown(
-                                            std::make_unique<
-                                                std::condition_variable>()) {
+    Breaker(Breaker &&other) noexcept: config(other.config),
+                                       interval(other.interval),
+                                       retries(other.retries),
+                                       is_running(other.is_running),
+                                       breaker_shutdown(
+                                           std::make_unique<
+                                               std::condition_variable>()) {
         std::cout << "move constructor called" << std::endl;
     }
 
@@ -118,15 +118,17 @@ public:
         retries++;
         if (retries > config.max_retries) {
             LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of "
-                    << config.max_retries << ". Exiting." << "Error: " << message <<
-                    ".";
+                       << config.max_retries << ". Exiting." << "Error: " << message <<
+                       ".";
             reset();
             return false;
         }
         LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
-                max_retries
-                << " times. " << "Retrying in " << interval / SECOND << " seconds. " <<
-                "Error: " << message << "."; {
+            max_retries
+                   << " times. " << "Retrying in " << interval / SECOND << " seconds. "
+                   <<
+                   "Error: " << message << ".";
+        {
             std::unique_lock lock(shutdown_mutex);
             breaker_shutdown->wait_for(lock, interval.chrono());
             if (!running()) {
