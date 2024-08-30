@@ -115,8 +115,10 @@ const Wrapped = ({
       const dev = await client.hardware.devices.retrieve<Properties>(config.device);
 
       let modified = false;
-      let shouldCreateStateIndex = primitiveIsZero(dev.properties.digitalOutput.stateIndex);
-      
+      let shouldCreateStateIndex = primitiveIsZero(
+        dev.properties.digitalOutput.stateIndex
+      );
+
       if (!shouldCreateStateIndex) {
         try {
           await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
@@ -270,7 +272,7 @@ const Wrapped = ({
               selected={selectedChannels}
               onSelect={useCallback(
                 (v, i) => {
-                  setSelectedChannels(v)
+                  setSelectedChannels(v);
                   setSelectedChannelIndex(i);
                 },
                 [setSelectedChannels, setSelectedChannelIndex],
