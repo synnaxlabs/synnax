@@ -106,39 +106,7 @@ void opc::Sink::stoppedWithErr(const freighter::Error &err) {
     ctx->setState(curr_state);
 };
 
-// TODO: identical to impl in reader.cpp -> move to util.cpp
-freighter::Error opc::Sink::communicate_response_error(const UA_StatusCode &status) {
-    freighter::Error err;
-    if (
-            status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
-            status == UA_STATUSCODE_BADSECURECHANNELCLOSED
-            ) {
-        err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
-        err.data = "connection rejected";
-        curr_state.variant = "warning";
-        curr_state.details = json{
-                {
-                        "message",
-                                   "Temporarily unable to reach OPC UA server. Will keep trying."
-                },
-                {       "running", true}
-        };
-    } else {
-        err.type = driver::CRITICAL_HARDWARE_ERROR.type;
-        err.data = "failed to execute read: " + std::string(
-                UA_StatusCode_name(status));
-        curr_state.variant = "error";
-        curr_state.details = json{
-                {
-                        "message", "Failed to read from OPC UA server: " + std::string(
-                        UA_StatusCode_name(status))
-                },
-                {       "running", false}
-        };
-    }
-    ctx->setState(curr_state);
-    return err;
-};
+
 
 /// @brief sends out write request to the OPC serveru.
 freighter::Error opc::Sink::write(synnax::Frame frame) {
@@ -173,7 +141,7 @@ freighter::Error opc::Sink::write(synnax::Frame frame) {
             retval = UA_Client_writeValueAttribute(client, ch.node, val);
         }
         if (retval != UA_STATUSCODE_GOOD) {
-            auto err = this->communicate_response_error(retval);
+            auto err = opc::communicate_response_error(retval, this->ctx, this->curr_state);
             UA_Variant_delete(val);
             LOG(ERROR) << "[opc.sink] Failed to write to node: " << key;
             return err;

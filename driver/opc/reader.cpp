@@ -146,39 +146,6 @@ public:
         ctx->setState(curr_state);
     }
 
-    freighter::Error communicate_res_error(const UA_StatusCode &status) {
-        freighter::Error err;
-        if (
-            status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
-            status == UA_STATUSCODE_BADSECURECHANNELCLOSED
-        ) {
-            err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
-            err.data = "connection rejected";
-            curr_state.variant = "warning";
-            curr_state.details = json{
-                {
-                    "message",
-                    "Temporarily unable to reach OPC UA server. Will keep trying."
-                },
-                {"running", true}
-            };
-        } else {
-            err.type = driver::CRITICAL_HARDWARE_ERROR.type;
-            err.data = "failed to execute read: " + std::string(
-                           UA_StatusCode_name(status));
-            curr_state.variant = "error";
-            curr_state.details = json{
-                {
-                    "message", "Failed to read from OPC UA server: " + std::string(
-                                   UA_StatusCode_name(status))
-                },
-                {"running", false}
-            };
-        }
-        ctx->setState(curr_state);
-        return err;
-    }
-
     [[nodiscard]] freighter::Error communicate_value_error(
         const std::string &channel,
         const UA_StatusCode &status
@@ -469,7 +436,7 @@ public:
             auto status = res.responseHeader.serviceResult;
 
             if (status != UA_STATUSCODE_GOOD) {
-                auto err = communicate_res_error(status);
+                auto err = opc::communicate_response_error(status, this->ctx, this->curr_state);
                 UA_ReadResponse_clear(&res);
                 return std::make_pair(std::move(fr), err);
             }
