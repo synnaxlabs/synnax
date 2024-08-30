@@ -34,6 +34,12 @@ export const compareSemVer: compare.CompareF<string> = (a, b) => {
   return aPatch - bPatch;
 };
 
+export const majorMinorEqual = (a: SemVer, b: SemVer): boolean => {
+  const [aMajor, aMinor] = a.split(".").map(Number);
+  const [bMajor, bMinor] = b.split(".").map(Number);
+  return aMajor === bMajor && aMinor === bMinor;
+};
+
 /**
  * @returns true if the first semantic version is newer than the second.
  * @param a The first semantic version.

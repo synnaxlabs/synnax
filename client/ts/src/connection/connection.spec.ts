@@ -9,6 +9,7 @@
 
 import { URL } from "@synnaxlabs/x/url";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { auth } from "@/auth";
 import { Checker } from "@/connection/checker";
@@ -23,8 +24,9 @@ describe("connectivity", () => {
       password: "seldon",
     });
     transport.use(client.middleware());
-    const connectivity = new Checker(transport.unary);
-    await connectivity.check();
-    expect(connectivity.state.status).toEqual("connected");
+    const connectivity = new Checker(transport.unary, undefined, __VERSION__);
+    const state = await connectivity.check();
+    expect(state.status).toEqual("connected");
+    expect(z.string().uuid().safeParse(state.clusterKey).success).toBe(true);
   });
 });

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
+import { migrate } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
@@ -20,12 +21,16 @@ export const state = z.object({
   error: z.instanceof(Error).optional(),
   message: z.string().optional(),
   clusterKey: z.string(),
+  clientVersion: z.string(),
+  clientServerCompatible: z.boolean(),
+  nodeVersion: z.string().optional(),
 });
 
 export type State = z.infer<typeof state>;
 
 const responseZ = z.object({
   clusterKey: z.string(),
+  nodeVersion: z.string().optional(),
 });
 
 const DEFAULT: State = {
@@ -33,6 +38,8 @@ const DEFAULT: State = {
   status: "disconnected",
   error: undefined,
   message: "Disconnected",
+  clientServerCompatible: false,
+  clientVersion: __VERSION__,
 };
 
 /** Polls a synnax cluster for connectivity information. */
@@ -44,8 +51,10 @@ export class Checker {
   private readonly client: UnaryClient;
   private readonly name?: string;
   private interval?: NodeJS.Timeout;
+  private readonly clientVersion: string;
   private readonly onChangeHandlers: Array<(state: State) => void> = [];
   static readonly connectionStateZ = state;
+  private versionWarned = false;
 
   /**
    * @param client - The transport client to use for connectivity checks.
@@ -55,11 +64,13 @@ export class Checker {
   constructor(
     client: UnaryClient,
     pollFreq: TimeSpan = TimeSpan.seconds(30),
+    clientVersion: string,
     name?: string,
   ) {
     this._state = { ...DEFAULT };
     this.client = client;
     this.pollFrequency = pollFreq;
+    this.clientVersion = clientVersion;
     this.name = name;
     void this.check();
     this.startChecking();
@@ -77,11 +88,48 @@ export class Checker {
   async check(): Promise<State> {
     const prevStatus = this._state.status;
     try {
-      const [res, err] = await this.client.send(Checker.ENDPOINT, {}, z.object({}), responseZ);
+      const [res, err] = await this.client.send(
+        Checker.ENDPOINT,
+        {},
+        z.object({}),
+        responseZ,
+      );
       if (err != null) throw err;
+      if (res.nodeVersion == null) {
+        this._state.clientServerCompatible = false;
+        if (!this.versionWarned)
+          console.warn(`
+          Synnax cluster node version is too old for client version ${this.clientVersion}.
+          This may cause compatibility issues. We recommend updating the cluster. For
+          more information, see https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-cluster-version
+        `);
+        this.versionWarned = true;
+      } else if (!migrate.majorMinorEqual(this.clientVersion, res.nodeVersion)) {
+        this._state.clientServerCompatible = false;
+        if (migrate.semVerNewer(this.clientVersion, res.nodeVersion)) {
+          if (!this.versionWarned)
+            console.warn(
+              `Synnax cluster node version ${res.nodeVersion} is too old for client version ${this.clientVersion}.
+            This may cause compatibility issues. We recommend updating the cluster. For more information, see
+            https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-cluster-version
+            `,
+            );
+        } else {
+          if (!this.versionWarned)
+            console.warn(
+              `Synnax cluster node version ${res.nodeVersion} too new for than client version ${this.clientVersion}.
+            This may cause compatibility issues. We recommend updating the client. For more information, see
+            https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-client-version
+            `,
+            );
+        }
+        this.versionWarned = true;
+      } else this._state.clientServerCompatible = true;
       this._state.status = "connected";
       this._state.message = `Connected to ${this.name ?? "cluster"}`;
       this._state.clusterKey = res.clusterKey;
+      this._state.nodeVersion = res.nodeVersion;
+      this._state.clientVersion = this.clientVersion;
     } catch (err) {
       this._state.status = "failed";
       this._state.error = err as Error;

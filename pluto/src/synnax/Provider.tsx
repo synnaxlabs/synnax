@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type connection,
-  Synnax,
-  type SynnaxProps,
-  TimeSpan,
-} from "@synnaxlabs/client";
-import { caseconv } from "@synnaxlabs/x";
+import { connection, Synnax, type SynnaxProps, TimeSpan } from "@synnaxlabs/client";
+import { caseconv, migrate } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -88,19 +83,49 @@ export const Provider = Aether.wrap<ProviderProps>(
           clusterKey: "",
           status: "connecting",
           message: "Connecting...",
+          clientServerCompatible: false,
+          clientVersion: c.clientVersion,
         },
       });
 
       const connectivity = await c.connectivity.check();
 
-      setState({
-        synnax: c,
-        state: connectivity,
-      });
+      setState({ synnax: c, state: connectivity });
       add({
         variant: CONNECTION_STATE_VARIANT[connectivity.status],
         message: connectivity.message ?? connectivity.status.toUpperCase(),
       });
+
+      if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
+        const oldServer =
+          connectivity.nodeVersion == null ||
+          migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
+
+        let description: string;
+        if (!oldServer)
+          description = `
+        Cluster version ${connectivity.nodeVersion} is newer than client version ${connectivity.clientVersion}.
+        Compatibility issues may arise. 
+        `;
+        else if (connectivity.nodeVersion != null)
+          description = `Cluster version ${connectivity.nodeVersion} is older than client version ${connectivity.clientVersion}.
+        Compatibility issues may arise. 
+        `;
+        else
+          description = `Cluster version is older than client version ${connectivity.clientVersion}. Compatibility issues may arise. `;
+
+        add({
+          variant: "warning",
+          message: "Incompatible cluster version",
+          description,
+          data: {
+            type: "serverVersionMismatch",
+            oldServer,
+            nodeVersion: connectivity.nodeVersion,
+            clientVersion: connectivity.clientVersion,
+          },
+        });
+      }
 
       c.connectivity.onChange(handleChange);
 
