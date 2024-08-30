@@ -19,7 +19,7 @@ class CreateReq(Payload):
     name: str
 
 
-class CreateReq(Payload):
+class CreateRes(Payload):
     group: Group
 
 
@@ -48,7 +48,7 @@ class Client:
             self._client,
             _CREATE_ENDPOINT,
             CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
-            CreateReq,
+            CreateRes,
         ).group
 
     def rename(self, key: CrudeID, name: str) -> Empty:

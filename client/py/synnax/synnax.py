@@ -52,7 +52,7 @@ class Synnax(Client):
             port=9090,
             username="synnax",
             password="seldon",
-            secure=True,
+            secure=True
         )
     """
 
