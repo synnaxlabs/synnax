@@ -138,8 +138,6 @@ static UA_StatusCode nodeIter(
 }
 
 void Scanner::scan(const task::Command &cmd) const {
-    //print args
-    LOG(INFO) << "[opc.scanner] Scan command arguements: " << cmd.args.dump(4);
     config::Parser parser(cmd.args);
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
@@ -173,7 +171,6 @@ void Scanner::scan(const task::Command &cmd) const {
 }
 
 void Scanner::testConnection(const task::Command &cmd) const {
-    LOG(INFO) << "[opc.scanner] Testing connection arguments: " << cmd.args.dump(4);
     config::Parser parser(cmd.args);
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())

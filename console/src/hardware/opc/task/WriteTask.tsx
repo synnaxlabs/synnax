@@ -149,8 +149,7 @@ const Wrapped = ({
         const key = getChannelByNodeID(dev.properties, channel.nodeId);
         if (primitiveIsZero(key)) {
           commandsToCreate.push(channel);
-        }
-        else {
+        } else {
           try {
             await client.channels.retrieve(key);
           } catch (e) {
@@ -162,7 +161,11 @@ const Wrapped = ({
 
       if (commandsToCreate.length > 0) {
         modified = true;
-        if (dev.properties.write.channels == null || Array.isArray(dev.properties.write.channels)) dev.properties.write.channels = {};
+        if (
+          dev.properties.write.channels == null ||
+          Array.isArray(dev.properties.write.channels)
+        )
+          dev.properties.write.channels = {};
         const commandIndexes = await client.channels.create(
           commandsToCreate.map((c) => ({
             name: `${c.name}_cmd_time`,
@@ -218,7 +221,6 @@ const Wrapped = ({
       await task.executeCommand(taskState?.details?.running == true ? "stop" : "start");
     },
   });
-
 
   const placer = Layout.usePlacer();
 
@@ -312,7 +314,10 @@ export interface WriterChannelLisProps {
   device?: device.Device<Device.Properties>;
 }
 
-export const WriterChannelList = ({ path, device }: WriterChannelLisProps): ReactElement => {
+export const WriterChannelList = ({
+  path,
+  device,
+}: WriterChannelLisProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<WriteChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 

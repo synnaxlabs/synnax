@@ -16,13 +16,12 @@
 //                                     WriterConfig                              //
 ///////////////////////////////////////////////////////////////////////////////////
 opc::WriterConfig::WriterConfig(
-    config::Parser &parser
-): device(parser.required<std::string>("device")){
+        config::Parser &parser
+) : device(parser.required<std::string>("device")) {
     parser.iter("channels", [&](config::Parser &channel_parser) {
         const auto ch = WriterChannelConfig(channel_parser);
-        if(ch.enabled) channels.push_back(ch);
+        if (ch.enabled) channels.push_back(ch);
     });
-    // TODO: also create the channel key to channel config map
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -31,49 +30,50 @@ opc::WriterConfig::WriterConfig(
 void opc::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start();
     else if (cmd.type == "stop") return stop();
-    else LOG(ERROR) << "unknown command type: " << cmd.type;
+    else
+        LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
-void opc::WriterTask::start(){
+void opc::WriterTask::start() {
     freighter::Error conn_err = test_connection(this->ua_client, device_props.connection.endpoint);
-    if(conn_err){
+    if (conn_err) {
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{
-                {"message", conn_err.message()}
-            }
-        });
+                              .task = task.key,
+                              .variant = "error",
+                              .details = json{
+                                      {"message", conn_err.message()}
+                              }
+                      });
         LOG(ERROR) << "[opc.writer] failed to connect to OPC UA server: " << conn_err.message();
         return;
     }
     this->cmd_pipe.start();
     ctx->setState({
-        .task = task.key,
-        .variant = "success",
-        .details = json{
-            {"running", true},
-            {"message", "Task started successfully"}
-        }
-    });
+                          .task = task.key,
+                          .variant = "success",
+                          .details = json{
+                                  {"running", true},
+                                  {"message", "Task started successfully"}
+                          }
+                  });
 }
 
 void opc::WriterTask::stop() {
     ctx->setState({
-          .task = task.key,
-          .variant = "success",
-          .details = json{
-                  {"running", false},
-                  {"message", "Task stopped successfully"}
-          }
-    });
+                          .task = task.key,
+                          .variant = "success",
+                          .details = json{
+                                  {"running", false},
+                                  {"message", "Task stopped successfully"}
+                          }
+                  });
     this->cmd_pipe.stop();
 }
 
 
 std::unique_ptr<task::Task> opc::WriterTask::configure(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
 ) {
     auto config_parser = config::Parser(task.config);
     LOG(INFO) << "[opc.writer] Writer Config: " << config_parser.get_json().dump(4);
@@ -83,24 +83,24 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.writer] failed to parse configuration for " << task.name;
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = config_parser.error_json(),
-        });
+                              .task = task.key,
+                              .variant = "error",
+                              .details = config_parser.error_json(),
+                      });
         return nullptr;
     }
 
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.writer] failed to retrieve device " << cfg.device <<
-                " error: " << dev_err.message();
+                   " error: " << dev_err.message();
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{
-                {"message", dev_err.message()}
-            }
-        });
+                              .task = task.key,
+                              .variant = "error",
+                              .details = json{
+                                      {"message", dev_err.message()}
+                              }
+                      });
         return nullptr;
     }
 
@@ -108,54 +108,53 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     auto properties = DeviceProperties(properties_parser);
 
     auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
+            .name = task.name,
+            .base_interval = 1 * SECOND,
+            .max_retries = 20,
+            .scale = 1.2,
     };
     auto breaker = breaker::Breaker(breaker_config);
 
-    // Connect to the OPC UA server.
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.writer.cmd] ");
     if (conn_err) {
         ctx->setState({
-            .variant = "error",
-            .details = json{{"message", conn_err.message()}}
-        });
+                              .variant = "error",
+                              .details = json{{"message", conn_err.message()}}
+                      });
         return nullptr;
     }
 
     auto sink = std::make_shared<opc::Sink>(
-                                    cfg,
-                                    ua_client,
-                                    ctx,
-                                    task,
-                                    properties
-                                );
+            cfg,
+            ua_client,
+            ctx,
+            task,
+            properties
+    );
 
 
     auto cmd_streamer_config = synnax::StreamerConfig{
-        .channels = cfg.cmd_keys(),
-        .start = synnax::TimeStamp::now(),
+            .channels = cfg.cmd_keys(),
+            .start = synnax::TimeStamp::now(),
     };
 
     ctx->setState({
-        .task = task.key,
-        .variant = "success",
-        .details = json{
-            {"running", false},
-            {"message", "Task configured successfully"}
-        }
-    });
+                          .task = task.key,
+                          .variant = "success",
+                          .details = json{
+                                  {"running", false},
+                                  {"message", "Task configured successfully"}
+                          }
+                  });
 
     return std::make_unique<opc::WriterTask>(
-                                ctx, 
-                                task, 
-                                cfg, 
-                                breaker_config, 
-                                std::move(sink),
-                                cmd_streamer_config,
-                                ua_client,
-                                properties
-                            );
+            ctx,
+            task,
+            cfg,
+            breaker_config,
+            std::move(sink),
+            cmd_streamer_config,
+            ua_client,
+            properties
+    );
 }

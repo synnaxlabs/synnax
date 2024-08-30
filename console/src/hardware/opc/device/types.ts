@@ -54,13 +54,12 @@ export const scannedNodeZ = z.object({
 export type ScannedNode = z.infer<typeof scannedNodeZ>;
 
 export const propertiesZ = z.object({
-  // identifier: z.string().min(2).max(12),
   connection: connectionConfigZ,
   read: z.object({
     index: z.number(),
     channels: z.record(z.string(), z.number()),
   }),
-  write : z.object({
+  write: z.object({
     channels: z.record(z.string(), z.number()),
   }),
 });

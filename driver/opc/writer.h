@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #pragma once
+
 #include <map>
 
 #include "opc.h"
@@ -28,7 +29,7 @@ namespace opc {
     ///////////////////////////////////////////////////////////////////////////////////
     //                             writer channel config                             //
     ///////////////////////////////////////////////////////////////////////////////////
-    struct WriterChannelConfig{
+    struct WriterChannelConfig {
         /// @brief the node id.
         std::string node_id;
         UA_NodeId node;
@@ -43,7 +44,7 @@ namespace opc {
         WriterChannelConfig() = default;
 
         explicit WriterChannelConfig(
-            config::Parser &parser
+                config::Parser &parser
         ) : node_id(parser.required<std::string>("node_id")),
             node(parseNodeId("node_id", parser)),
             cmd_channel(parser.required<ChannelKey>("channel")),
@@ -70,7 +71,7 @@ namespace opc {
 
         [[nodiscard]] std::vector<ChannelKey> cmd_keys() const {
             std::vector<ChannelKey> keys;
-            for (const auto &channel : channels) keys.push_back(channel.cmd_channel);
+            for (const auto &channel: channels) keys.push_back(channel.cmd_channel);
             return keys;
         }
     }; // struct WriterConfig
@@ -81,63 +82,63 @@ namespace opc {
     /// @brief an OPC writer with embedded OPC UA client that receives data from synnax
     /// in frames, and writes them to the appropriate nodes on the connected OPC UA Server.
     class Sink final : public pipeline::Sink {
-        public:
-            // Synnax Resources
-            std::shared_ptr<task::Context> ctx;
-            synnax::Task task;
-            std::map<ChannelKey, WriterChannelConfig> cmd_channel_map; // TODO: Change to cmd channel map
-            task::State curr_state;
+    public:
+        // Synnax Resources
+        std::shared_ptr<task::Context> ctx;
+        synnax::Task task;
+        std::map<ChannelKey, WriterChannelConfig> cmd_channel_map; // TODO: Change to cmd channel map
+        task::State curr_state;
 
-            // OPC UA Resources
-            WriterConfig cfg;
-            std::shared_ptr<UA_Client> ua_client;
-            UA_WriteRequest req; // defined in types_generated.h
-            opc::DeviceProperties device_props;
+        // OPC UA Resources
+        WriterConfig cfg;
+        std::shared_ptr<UA_Client> ua_client;
+        UA_WriteRequest req; // defined in types_generated.h
+        opc::DeviceProperties device_props;
 
-            // keep alive resources (thread and mutex)
-            std::thread keep_alive_thread;
-            std::mutex client_mutex;
-            breaker::Breaker breaker;
-            ///@brief the rate at which sink will ping the OPC UA server to maintain the connection
-            synnax::Rate ping_rate = synnax::Rate(0.1); // default to every 10s
+        // keep alive resources (thread and mutex)
+        std::thread keep_alive_thread;
+        std::mutex client_mutex;
+        breaker::Breaker breaker;
+        ///@brief the rate at which sink will ping the OPC UA server to maintain the connection
+        synnax::Rate ping_rate = synnax::Rate(0.1); // default to every 10s
 
-            Sink(
+        Sink(
                 WriterConfig cfg,
                 const std::shared_ptr<UA_Client> &ua_client,
                 const std::shared_ptr<task::Context> &ctx,
                 synnax::Task task,
                 opc::DeviceProperties device_props
-            );
+        );
 
-            ~Sink() override {
-                this->breaker.stop();
-                this->keep_alive_thread.join();
-            }
+        ~Sink() override {
+            this->breaker.stop();
+            this->keep_alive_thread.join();
+        }
 
-            freighter::Error write(synnax::Frame frame) override;
-            void maintain_connection();
+        freighter::Error write(synnax::Frame frame) override;
 
-        private:
-            void initialize_write_request(const synnax::Frame &frame);
+        void maintain_connection();
 
-            void initialize_write_value(
+    private:
+        void initialize_write_request(const synnax::Frame &frame);
+
+        void initialize_write_value(
                 const synnax::Frame &frame,
                 uint32_t &index,
                 WriterChannelConfig &ch,
                 UA_WriteValue *write_value
-            );
+        );
 
-            void stoppedWithErr(const freighter::Error &err) override;
-   
-            [[nodiscard]] freighter::Error communicate_response_error(const UA_StatusCode &status);
+        void stoppedWithErr(const freighter::Error &err) override;
 
-            void set_variant(
-                    UA_Variant *val,
-                    const synnax::Frame &frame,
-                    const uint32_t &series_index,
-                    const synnax::DataType &type
-                );
+        [[nodiscard]] freighter::Error communicate_response_error(const UA_StatusCode &status);
 
+        void set_variant(
+                UA_Variant *val,
+                const synnax::Frame &frame,
+                const uint32_t &series_index,
+                const synnax::DataType &type
+        );
 
 
     }; // class Sink
@@ -158,27 +159,31 @@ namespace opc {
                 synnax::StreamerConfig streamer_config,
                 std::shared_ptr<UA_Client> ua_client,
                 opc::DeviceProperties device_props
-        ): ctx(ctx),
-           task(std::move(task)),
-           cfg(std::move(cfg)),
-           breaker_cfg(breaker_cfg),
-           cmd_pipe(pipeline::Control(
-                   ctx->client,
-                   std::move(streamer_config),
-                   std::move(sink),
-                   breaker_cfg
-           )),
-           ua_client(std::move(ua_client)),
-           device_props(std::move(device_props)) {
+        ) : ctx(ctx),
+            task(std::move(task)),
+            cfg(std::move(cfg)),
+            breaker_cfg(breaker_cfg),
+            cmd_pipe(pipeline::Control(
+                    ctx->client,
+                    std::move(streamer_config),
+                    std::move(sink),
+                    breaker_cfg
+            )),
+            ua_client(std::move(ua_client)),
+            device_props(std::move(device_props)) {
         }
 
         static std::unique_ptr<task::Task> configure(
                 const std::shared_ptr<task::Context> &ctx,
                 const synnax::Task &task
         );
+
         void exec(task::Command &cmd) override;
+
         void stop() override;
+
         void start();
+
     private:
         opc::WriterConfig cfg;
 
