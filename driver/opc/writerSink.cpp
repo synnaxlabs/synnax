@@ -27,7 +27,7 @@
 #include "include/open62541/common.h"
 #include "include/open62541/client_subscriptions.h"
 
-opc::Sink::Sink(
+opc::WriterSink::WriterSink(
         WriterConfig cfg,
         const std::shared_ptr<UA_Client> &ua_client,
         const std::shared_ptr<task::Context> &ctx,
@@ -51,49 +51,49 @@ opc::Sink::Sink(
     });
 
     this->breaker.start();
-    this->keep_alive_thread = std::thread(&opc::Sink::maintain_connection, this);
+    this->keep_alive_thread = std::thread(&opc::WriterSink::maintain_connection, this);
 };
 
-void opc::Sink::set_variant(UA_Variant *val, const synnax::Frame &frame, const uint32_t &series_index,
+void opc::WriterSink::set_variant(UA_Variant *val, const synnax::Frame &frame, const uint32_t &series_index,
                             const synnax::DataType &type) {
     UA_StatusCode status = UA_STATUSCODE_GOOD;
     if (type == synnax::FLOAT64) {
-        double *data = &(frame.series->at(series_index).values<double>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_DOUBLE]);
+        double data = frame.series->at(series_index).values<double>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_DOUBLE]);
     } else if (type == synnax::FLOAT32) {
-        float *data = &(frame.series->at(series_index).values<float>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_FLOAT]);
+        float data = frame.series->at(series_index).values<float>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_FLOAT]);
     } else if (type == synnax::INT32) {
-        void *data = &(frame.series->at(series_index).values<int32_t>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_INT32]);
+        int32_t data = frame.series->at(series_index).values<int32_t>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_INT32]);
     } else if (type == synnax::INT16) {
-        void *data = &(frame.series->at(series_index).values<int16_t>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_INT16]);
+        int16_t data = frame.series->at(series_index).values<int16_t>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_INT16]);
     } else if (type == synnax::INT8) {
-        void *data = &(frame.series->at(series_index).values<int8_t>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_SBYTE]);
+        int8_t data = frame.series->at(series_index).values<int8_t>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_SBYTE]);
     } else if (type == synnax::UINT64) {
-        void *data = &(frame.series->at(series_index).values<uint64_t>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_UINT64]);
+        uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_UINT64]);
     } else if (type == synnax::UINT32) {
-        void *data = &(frame.series->at(series_index).values<uint32_t>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_UINT32]);
+        uint32_t data = frame.series->at(series_index).values<uint32_t>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_UINT32]);
     } else if (type == synnax::UINT16) {
-        void *data = &(frame.series->at(series_index).values<uint16_t>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_UINT16]);
+        uint16_t data = frame.series->at(series_index).values<uint16_t>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_UINT16]);
     } else if (type == synnax::UINT8) {
         uint8_t data = frame.series->at(series_index).values<uint8_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_BYTE]);
     } else if (type == synnax::TIMESTAMP) {
-        void *data = &(frame.series->at(series_index).values<int64_t>())[0];
-        UA_Variant_setScalar(val, data, &UA_TYPES[UA_TYPES_DATETIME]);
+        uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
+        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_DATETIME]);
     }
     if (status != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "[opc.sink] Failed to set variant";
     }
 };
 
-void opc::Sink::stoppedWithErr(const freighter::Error &err) {
+void opc::WriterSink::stoppedWithErr(const freighter::Error &err) {
     LOG(ERROR) << "[opc.sink] Stopped with error: " << err.message();
     curr_state.variant = "error";
     curr_state.details = json{
@@ -106,7 +106,7 @@ void opc::Sink::stoppedWithErr(const freighter::Error &err) {
 
 
 /// @brief sends out write request to the OPC serveru.
-freighter::Error opc::Sink::write(synnax::Frame frame) {
+freighter::Error opc::WriterSink::write(synnax::Frame frame) {
     freighter::Error conn_err = test_connection(this->ua_client, device_props.connection.endpoint);
     if (conn_err) {
         ctx->setState({
@@ -148,7 +148,7 @@ freighter::Error opc::Sink::write(synnax::Frame frame) {
     return freighter::NIL;
 };
 
-void opc::Sink::maintain_connection() {
+void opc::WriterSink::maintain_connection() {
     while (this->breaker.running()) {
         this->breaker.waitFor(this->ping_rate.period().chrono());
         UA_Variant value;

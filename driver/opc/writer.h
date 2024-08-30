@@ -81,7 +81,7 @@ namespace opc {
     ///////////////////////////////////////////////////////////////////////////////////
     /// @brief an OPC writer with embedded OPC UA client that receives data from synnax
     /// in frames, and writes them to the appropriate nodes on the connected OPC UA Server.
-    class Sink final : public pipeline::Sink {
+    class WriterSink final : public pipeline::Sink {
     public:
         // Synnax Resources
         std::shared_ptr<task::Context> ctx;
@@ -102,7 +102,7 @@ namespace opc {
         ///@brief the rate at which sink will ping the OPC UA server to maintain the connection
         synnax::Rate ping_rate = synnax::Rate(0.1); // default to every 10s
 
-        Sink(
+        WriterSink(
                 WriterConfig cfg,
                 const std::shared_ptr<UA_Client> &ua_client,
                 const std::shared_ptr<task::Context> &ctx,
@@ -110,7 +110,7 @@ namespace opc {
                 opc::DeviceProperties device_props
         );
 
-        ~Sink() override {
+        ~WriterSink() override {
             this->breaker.stop();
             this->keep_alive_thread.join();
         }

@@ -121,7 +121,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         return nullptr;
     }
 
-    auto sink = std::make_shared<opc::Sink>(
+    auto sink = std::make_shared<opc::WriterSink>(
             cfg,
             ua_client,
             ctx,

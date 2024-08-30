@@ -6,7 +6,7 @@ cc_library(
         "scanner.cpp",
         "util.cpp",
         "task.cpp",
-        "sink.cpp",
+        "writerSink.cpp",
     ],
     hdrs = [
         "opc.h",
