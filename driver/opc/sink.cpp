@@ -39,7 +39,6 @@ opc::Sink::Sink(
     task(std::move(task)),
     device_props(std::move(device_props)) {
 
-    // iterate through cfg channels
     for (auto &ch: this->cfg.channels) {
         this->cmd_channel_map[ch.cmd_channel] = ch;
     }
@@ -51,8 +50,6 @@ opc::Sink::Sink(
             .scale = 1.2
     });
 
-
-    //start thread
     this->breaker.start();
     this->keep_alive_thread = std::thread(&opc::Sink::maintain_connection, this);
 };
@@ -125,7 +122,6 @@ freighter::Error opc::Sink::write(synnax::Frame frame) {
     auto client = this->ua_client.get();
     auto frame_index = 0;
     for (const auto key: *(frame.channels)) {
-        //check key is in map
         if (this->cmd_channel_map.find(key) == this->cmd_channel_map.end()) {
             LOG(ERROR) << "[opc.sink] Channel key not found in map";
             continue;

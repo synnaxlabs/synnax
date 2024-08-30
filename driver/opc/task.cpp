@@ -76,9 +76,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         const synnax::Task &task
 ) {
     auto config_parser = config::Parser(task.config);
-    LOG(INFO) << "[opc.writer] Writer Config: " << config_parser.get_json().dump(4);
-
-    auto data_saving = config_parser.optional<bool>("data_saving", false);
     auto cfg = WriterConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.writer] failed to parse configuration for " << task.name;
