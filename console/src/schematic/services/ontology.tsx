@@ -16,6 +16,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
 import { Menu } from "@/components/menu";
+import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -173,7 +174,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.RenameItem />
-      <PMenu.Divider />
       <Menu.DeleteItem />
       <PMenu.Divider />
       {resources.every((r) => r.data?.snapshot === false) && (
