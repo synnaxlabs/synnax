@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Divider, Status, Tabs } from "@synnaxlabs/pluto";
+import { Align, Button, Status, Tabs } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -104,24 +104,18 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       }}
     >
       <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Schematic />}>{name}</ToolbarTitle>
-        <Align.Space
-          direction="x"
-          align="center"
-          size="small"
-          style={{ margin: "0", padding: "0" }}
-        >
+        <Align.Space direction="x" align="center" size="small">
+          <ToolbarTitle icon={<Icon.Schematic />}>{name}</ToolbarTitle>
           <Button.Icon
             tooltip={`Export ${name}`}
             sharp
-            style={{ height: "100%" }}
+            size="medium"
             onClick={() => exprt(schematic.key)}
           >
             <Icon.Export />
           </Button.Icon>
-          <Divider.Divider direction="y" />
-          <Tabs.Selector style={{ borderBottom: "none" }} />
         </Align.Space>
+        <Tabs.Selector style={{ borderBottom: "none" }} />
       </ToolbarHeader>
       <Tabs.Content />
     </Tabs.Provider>
