@@ -37,7 +37,7 @@ import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
-import{
+import {
   Write,
   WRITE_TYPE,
   type WriteChannelConfig,
@@ -143,24 +143,24 @@ const Wrapped = ({
       );
 
       let modified = false;
-      
+
       const commandsToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
         const key = getChannelByNodeID(dev.properties, channel.nodeId);
-        if(primitiveIsZero(key)){
-           commandsToCreate.push(channel);
+        if (primitiveIsZero(key)) {
+          commandsToCreate.push(channel);
         }
-        else{
+        else {
           try {
             await client.channels.retrieve(key);
-          } catch (e){
-            if(NotFoundError.matches(e)) commandsToCreate.push(channel);
+          } catch (e) {
+            if (NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
         }
-      } 
+      }
 
-      if(commandsToCreate.length > 0) {
+      if (commandsToCreate.length > 0) {
         modified = true;
         if (dev.properties.write.channels == null || Array.isArray(dev.properties.write.channels)) dev.properties.write.channels = {};
         const commandIndexes = await client.channels.create(
@@ -171,16 +171,16 @@ const Wrapped = ({
           })),
         );
         const commands = await client.channels.create(
-          commandsToCreate.map((c,i) => ({
+          commandsToCreate.map((c, i) => ({
             name: `${c.name}_cmd`,
             dataType: c.dataType,
             index: commandIndexes[i].key,
           })),
         );
         commands.forEach((c, i) => {
-          const key =  commandsToCreate[i].nodeId;
-            dev.properties.write.channels[key] = c.key;
-          });
+          const key = commandsToCreate[i].nodeId;
+          dev.properties.write.channels[key] = c.key;
+        });
       }
 
       config.channels = config.channels.map((c) => ({
@@ -203,10 +203,10 @@ const Wrapped = ({
       });
     },
     onError: (e) => {
-      addStatus({ 
-        variant: "error", 
-        message:"Failed to configure task", 
-        description: e.message, 
+      addStatus({
+        variant: "error",
+        message: "Failed to configure task",
+        description: e.message,
       });
     },
   });
