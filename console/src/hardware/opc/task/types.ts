@@ -131,8 +131,6 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   },
 };
 
-// Nodes
-
 export interface NodeId {
   namespaceIndex: number;
   identifierType: NodeIdType;
@@ -219,10 +217,8 @@ export const writeConfigZ = z
     channels: z.array(writeChanZ),
     dataSaving: z.boolean().optional().default(true),
   })
-  // Error if channel ahs been duplicated
+  // Error if channel has been duplicated
   .superRefine((cfg, ctx) => {
-
-    console.log(cfg.channels);
     const channels = new Map<number, number>();
     cfg.channels.forEach(({ cmdChannel }) =>
       channels.set(cmdChannel, (channels.get(cmdChannel) ?? 0) + 1),
