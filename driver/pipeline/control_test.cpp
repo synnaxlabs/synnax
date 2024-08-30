@@ -25,7 +25,7 @@ public:
 
     explicit MockStreamer(
         MockStreamerConfig config
-    ): config(std::move(config)) {
+    ) : config(std::move(config)) {
     }
 
     std::pair<synnax::Frame, freighter::Error> read() override {
@@ -53,7 +53,7 @@ public:
     MockStreamerFactory(
         std::vector<freighter::Error> open_errors,
         std::shared_ptr<std::vector<MockStreamerConfig> > configs
-    ): open_errors(std::move(open_errors)), configs(std::move(configs)) {
+    ) : open_errors(std::move(open_errors)), configs(std::move(configs)) {
     }
 
     std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
@@ -66,8 +66,8 @@ public:
             idx = this->configs->size() - 1;
         // try to grab the first error. if not, freighter nil
         auto err = this->streamer_opens > this->open_errors.size()
-                       ? freighter::NIL
-                       : this->open_errors.at(this->streamer_opens - 1);
+                   ? freighter::NIL
+                   : this->open_errors.at(this->streamer_opens - 1);
         if (err) return {nullptr, err};
         return {
             std::make_unique<MockStreamer>((*this->configs)[idx]),
@@ -82,8 +82,8 @@ public:
     std::shared_ptr<std::vector<freighter::Error> > write_errors;
     freighter::Error stop_err;
 
-    MockSink(): writes(std::make_shared<std::vector<synnax::Frame> >()),
-                write_errors(std::make_shared<std::vector<freighter::Error> >()) {
+    MockSink() : writes(std::make_shared<std::vector<synnax::Frame> >()),
+                 write_errors(std::make_shared<std::vector<freighter::Error> >()) {
     }
 
     freighter::Error write(synnax::Frame frame) override {

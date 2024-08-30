@@ -25,26 +25,26 @@ using namespace synnax;
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
     typedef freighter::Stream<
-            api::v1::FrameStreamerRequest,
-            api::v1::FrameStreamerResponse
+        api::v1::FrameStreamerRequest,
+        api::v1::FrameStreamerResponse
     > StreamerStream;
 
 /// @brief type alias for frame writer network transport.
     typedef freighter::StreamClient<
-            api::v1::FrameStreamerRequest,
-            api::v1::FrameStreamerResponse
+        api::v1::FrameStreamerRequest,
+        api::v1::FrameStreamerResponse
     > StreamerClient;
 
 /// @brief type alias for writer network transports stream.
     typedef freighter::Stream<
-            api::v1::FrameWriterRequest,
-            api::v1::FrameWriterResponse
+        api::v1::FrameWriterRequest,
+        api::v1::FrameWriterResponse
     > WriterStream;
 
 /// @brief type alias for writer network transport.
     typedef freighter::StreamClient<
-            api::v1::FrameWriterRequest,
-            api::v1::FrameWriterResponse
+        api::v1::FrameWriterRequest,
+        api::v1::FrameWriterResponse
     > WriterClient;
 
 
@@ -63,8 +63,8 @@ namespace synnax {
         /// @param series the vector of series mapped index-wise to the channels vector. This
         /// must be the same size as the channels vector. The frame takes ownership of the vector.
         Frame(
-                std::unique_ptr<std::vector<ChannelKey> > channels,
-                std::unique_ptr<std::vector<synnax::Series> > series
+            std::unique_ptr<std::vector<ChannelKey> > channels,
+            std::unique_ptr<std::vector<synnax::Series> > series
         );
 
         /// @brief allocates a frame that can hold the given number of series.
@@ -79,8 +79,8 @@ namespace synnax {
         /// @param chan the channel key corresponding to the given series.
         /// @param ser the series to add to the frame.
         Frame(
-                const ChannelKey &chan,
-                synnax::Series ser
+            const ChannelKey &chan,
+            synnax::Series ser
         );
 
         /// @brief binds the frame to the given protobuf representation.
@@ -95,7 +95,8 @@ namespace synnax {
         /// @brief adds a channel and series to the frame.
         /// @param chan the channel key to add.
         /// @param ser the series to add for the channel key.
-        void add(const ChannelKey &chan, synnax::Series ser) const; //TODO: Why do we a non pass by ref version of this?
+        void add(const ChannelKey &chan,
+                 synnax::Series ser) const; //TODO: Why do we a non pass by ref version of this?
 
         friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
@@ -158,7 +159,8 @@ namespace synnax {
         /// @param channels - the channels to stream.
         /// @note setChannels is not safe to call concurrently with itself or with close(),
         /// but it is safe to call concurrently with read().
-        [[nodiscard]] freighter::Error setChannels(std::vector<ChannelKey> channels) const;
+        [[nodiscard]] freighter::Error
+        setChannels(std::vector<ChannelKey> channels) const;
 
         /// @brief closes the streamer and releases any resources associated with it. If any
         /// errors occurred during the stream, they will be returned. A streamer MUST be
@@ -324,8 +326,8 @@ namespace synnax {
     class FrameClient {
     public:
         FrameClient(
-                std::unique_ptr<StreamerClient> streamer_client,
-                std::unique_ptr<WriterClient> writer_client
+            std::unique_ptr<StreamerClient> streamer_client,
+            std::unique_ptr<WriterClient> writer_client
         ) : streamer_client(std::move(streamer_client)),
             writer_client(std::move(writer_client)) {
         }

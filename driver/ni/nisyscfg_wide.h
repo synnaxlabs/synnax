@@ -122,7 +122,8 @@ NISYSCFGCFUNC NISysCfgGetResourceIndexedPropertyW(
 );
 
 typedef void (NISYSCFGCONV NISysCfgResourcePropertyUserCallback)
-        (NISysCfgIndexedProperty propertyID, NISysCfgPropertyType propertyType, void *value);
+        (NISysCfgIndexedProperty propertyID, NISysCfgPropertyType propertyType,
+         void *value);
 
 NISYSCFGCFUNC NISysCfgGetResourcePropertiesW(
         NISysCfgResourceHandle resourceHandle,

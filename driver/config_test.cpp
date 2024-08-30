@@ -29,30 +29,30 @@ TEST(TestDriverConfig, parseEmptyConfig) {
 TEST(TestDriverConfig, testValidConfig) {
     json config = {
         {
-            "connection", {
-                {"host", "demo.synnaxlabs.com"},
-                {"port", 80},
-                {"username", "admin"},
-                {"password", "admin"},
-                {"ca_cert_file", "ca.pem"},
-                {"client_cert_file", "client.pem"},
-                {"client_key_file", "client.key"}
-            }
+            "connection",   {
+                                {"host",          "demo.synnaxlabs.com"},
+                                {"port",        80},
+                                {"username", "admin"},
+                                {"password", "admin"},
+                                {"ca_cert_file", "ca.pem"},
+                                {"client_cert_file", "client.pem"},
+                                {"client_key_file", "client.key"}
+                            }
         },
         {
-            "retry", {
-                {"base_interval", 2},
-                {"max_retries", 100},
-                {"scale", 1.5}
-            }
+            "retry",        {
+                                {"base_interval", 2},
+                                {"max_retries", 100},
+                                {"scale",    1.5}
+                            }
         },
         {
-            "rack", {
-                {"key", 1},
-                {"name", "rack_1"}
-            }
+            "rack",         {
+                                {"key",           1},
+                                {"name",        "rack_1"}
+                            }
         },
-        {"integrations", {"opc"}}
+        {   "integrations", {   "opc"}}
     };
     auto [cfg, err] = driver::parse_config(config);
     ASSERT_FALSE(err) << err;

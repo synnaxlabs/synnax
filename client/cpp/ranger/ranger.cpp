@@ -17,11 +17,12 @@
 using namespace synnax;
 
 Range::Range(const std::string &name, synnax::TimeRange time_range) : name(name),
-                                                                      time_range(time_range) {
+                                                                      time_range(
+                                                                          time_range) {
 }
 
 Range::Range(
-        const api::v1::Range &rng
+    const api::v1::Range &rng
 ) : key(rng.key()),
     name(rng.name()),
     time_range(synnax::TimeRange(rng.time_range().start(), rng.time_range().end())) {
@@ -39,15 +40,15 @@ const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
 
 std::pair<Range, freighter::Error> RangeClient::retrieveByKey(
-        const std::string &key) const {
+    const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
         return {
-                Range(),
-                freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + key)
+            Range(),
+            freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + key)
         };
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
@@ -55,21 +56,21 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByKey(
 }
 
 std::pair<Range, freighter::Error> RangeClient::retrieveByName(
-        const std::string &name) const {
+    const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
         return {
-                Range(),
-                freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + name)
+            Range(),
+            freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + name)
         };
     if (res.ranges_size() > 1)
         return {
-                Range(),
-                freighter::Error(synnax::MULTIPLE_RESULTS,
-                                 "multiple ranges found matching " + name)
+            Range(),
+            freighter::Error(synnax::MULTIPLE_RESULTS,
+                             "multiple ranges found matching " + name)
         };
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
@@ -77,7 +78,7 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByName(
 }
 
 std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(
-        api::v1::RangeRetrieveRequest &req) const {
+    api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
@@ -88,14 +89,14 @@ std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(
 }
 
 std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveByName(
-        std::vector<std::string> names) const {
+    std::vector<std::string> names) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &name: names) req.add_names(name);
     return retrieveMany(req);
 }
 
 std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveByKey(
-        std::vector<std::string> keys) const {
+    std::vector<std::string> keys) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &key: keys) req.add_keys(key);
     return retrieveMany(req);
@@ -128,7 +129,7 @@ freighter::Error RangeClient::create(Range &range) const {
 }
 
 std::pair<Range, freighter::Error> RangeClient::create(
-        std::string name, synnax::TimeRange time_range) const {
+    std::string name, synnax::TimeRange time_range) const {
     auto rng = Range(name, time_range);
     auto err = create(rng);
     return {rng, err};

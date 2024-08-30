@@ -29,8 +29,11 @@ namespace opc {
         UA_NodeId node{};
 
         explicit ScannerScanCommandArgs(config::Parser parser) : connection(
-                ConnectionConfig(parser.child("connection"))),
-                                                                 node_id(parser.optional<std::string>("node_id", "")) {
+            ConnectionConfig(parser.child("connection"))),
+                                                                 node_id(
+                                                                     parser.optional<std::string>(
+                                                                         "node_id",
+                                                                         "")) {
             if (node_id.empty()) node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
             else node = parseNodeId("node_id", parser);
         }
@@ -42,13 +45,13 @@ namespace opc {
     class Scanner final : public task::Task {
     public:
         explicit Scanner(
-                std::shared_ptr<task::Context> ctx,
-                synnax::Task task) : ctx(std::move(ctx)), task(std::move(task)) {
+            std::shared_ptr<task::Context> ctx,
+            synnax::Task task) : ctx(std::move(ctx)), task(std::move(task)) {
         }
 
         static std::unique_ptr<task::Task> configure(
-                const std::shared_ptr<task::Context> &ctx,
-                const synnax::Task &task
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task
         );
 
         std::string name() override { return task.name; }

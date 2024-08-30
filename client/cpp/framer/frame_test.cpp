@@ -37,6 +37,7 @@ TEST(FramerTests, ostream) {
     f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
     std::stringstream ss;
     ss << f;
-    ASSERT_EQ(ss.str(), "Frame{\n 65537: Series(type: float32, size: 3, cap: 3, data: [1 2 3 ]), \n}");
+    ASSERT_EQ(ss.str(),
+              "Frame{\n 65537: Series(type: float32, size: 3, cap: 3, data: [1 2 3 ]), \n}");
 }
 

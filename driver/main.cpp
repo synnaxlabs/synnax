@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     auto cfg_json = config::read(config_path);
     if (cfg_json.empty())
         LOG(INFO) << "[driver] no configuration found at " << config_path <<
-                ". We'll just use the default configuration";
+                  ". We'll just use the default configuration";
     else {
         LOG(INFO) << "[driver] loaded configuration from " << config_path;
     }
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
 
     VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
-             cfg.client_config.port;
+            cfg.client_config.port;
 
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
@@ -80,8 +80,8 @@ int main(int argc, char *argv[]) {
     breaker.stop();
     if (rack_err) {
         LOG(FATAL) <<
-                "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
-                << rack_err;
+                   "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
+                   << rack_err;
         return 1;
     }
 
@@ -92,13 +92,13 @@ int main(int argc, char *argv[]) {
         // std::move(meminfo_factory),
         std::move(heartbeat_factory)
     };
-    
-    auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), opc::INTEGRATION_NAME);
-    if( opc_enabled != cfg.integrations.end() ) {
+
+    auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(),
+                                 opc::INTEGRATION_NAME);
+    if (opc_enabled != cfg.integrations.end()) {
         auto opc_factory = std::make_unique<opc::Factory>();
         factories.push_back(std::move(opc_factory));
-    } 
-    else
+    } else
         LOG(INFO) << "[driver] OPC integration is not enabled";
 
 #ifdef USE_NI
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
     if( ni_enabled != cfg.integrations.end() && ni::dlls_available()) {
         std::unique_ptr<ni::Factory>  ni_factory = std::make_unique<ni::Factory>();
         factories.push_back(std::move(ni_factory));
-    } else 
+    } else
         LOG(INFO) << "[driver] NI integration is not enabled or the required DLLs are not available";
 #endif
 

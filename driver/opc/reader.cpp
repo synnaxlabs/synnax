@@ -30,7 +30,7 @@ using namespace opc;
 
 
 ReaderConfig::ReaderConfig(
-        config::Parser &parser
+    config::Parser &parser
 ) : device(parser.required<std::string>("device")),
     sample_rate(parser.required<std::float_t>("sample_rate")),
     stream_rate(parser.required<std::float_t>("stream_rate")),
@@ -44,10 +44,10 @@ ReaderConfig::ReaderConfig(
 }
 
 std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
-        freighter::Error> retrieveAdditionalChannelInfo(
-        const std::shared_ptr<task::Context> &ctx,
-        ReaderConfig &cfg,
-        breaker::Breaker &breaker
+    freighter::Error> retrieveAdditionalChannelInfo(
+    const std::shared_ptr<task::Context> &ctx,
+    ReaderConfig &cfg,
+    breaker::Breaker &breaker
 ) {
     auto channelKeys = cfg.channelKeys();
     if (channelKeys.empty()) return {{channelKeys, {}}, freighter::NIL};
@@ -88,11 +88,11 @@ public:
     task::State curr_state;
 
     ReaderSource(
-            ReaderConfig cfg,
-            const std::shared_ptr<UA_Client> &client,
-            std::set<ChannelKey> indexes,
-            std::shared_ptr<task::Context> ctx,
-            synnax::Task task
+        ReaderConfig cfg,
+        const std::shared_ptr<UA_Client> &client,
+        std::set<ChannelKey> indexes,
+        std::shared_ptr<task::Context> ctx,
+        synnax::Task task
     ) : cfg(std::move(cfg)),
         client(client),
         indexes(std::move(indexes)),
@@ -105,8 +105,8 @@ public:
         curr_state.task = task.key;
         curr_state.variant = "success";
         curr_state.details = json{
-                {"message", "Task configured successfully"},
-                {"running", true}
+            {"message", "Task configured successfully"},
+            {"running", true}
         };
         this->ctx->setState(curr_state);
     }
@@ -132,8 +132,8 @@ public:
     void stoppedWithErr(const freighter::Error &err) override {
         curr_state.variant = "error";
         curr_state.details = json{
-                {"message", err.message()},
-                {"running", false}
+            {"message", err.message()},
+            {"running", false}
         };
         ctx->setState(curr_state);
     }
@@ -141,30 +141,30 @@ public:
     freighter::Error communicate_res_error(const UA_StatusCode &status) {
         freighter::Error err;
         if (
-                status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
-                status == UA_STATUSCODE_BADSECURECHANNELCLOSED
-                ) {
+            status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
+            status == UA_STATUSCODE_BADSECURECHANNELCLOSED
+            ) {
             err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
             err.data = "connection rejected";
             curr_state.variant = "warning";
             curr_state.details = json{
-                    {
-                            "message",
-                                       "Temporarily unable to reach OPC UA server. Will keep trying."
-                    },
-                    {       "running", true}
+                {
+                    "message",
+                               "Temporarily unable to reach OPC UA server. Will keep trying."
+                },
+                {   "running", true}
             };
         } else {
             err.type = driver::CRITICAL_HARDWARE_ERROR.type;
             err.data = "failed to execute read: " + std::string(
-                    UA_StatusCode_name(status));
+                UA_StatusCode_name(status));
             curr_state.variant = "error";
             curr_state.details = json{
-                    {
-                            "message", "Failed to read from OPC UA server: " + std::string(
-                            UA_StatusCode_name(status))
-                    },
-                    {       "running", false}
+                {
+                    "message", "Failed to read from OPC UA server: " + std::string(
+                    UA_StatusCode_name(status))
+                },
+                {   "running", false}
             };
         }
         ctx->setState(curr_state);
@@ -172,43 +172,45 @@ public:
     }
 
     [[nodiscard]] freighter::Error communicate_value_error(
-            const std::string &channel,
-            const UA_StatusCode &status
+        const std::string &channel,
+        const UA_StatusCode &status
     ) const {
         const std::string status_name = UA_StatusCode_name(status);
         const std::string message =
-                "Failed to read value from channel " + channel + ": " +
-                status_name;
+            "Failed to read value from channel " + channel + ": " +
+            status_name;
         LOG(ERROR) << "[opc.reader]" << message;
         ctx->setState({
-                              .task = task.key,
-                              .variant = "error",
-                              .details = json{
-                                      {"message", message},
-                                      {"running", false}
-                              }
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{
+                              {"message", message},
+                              {"running", false}
+                          }
                       });
         return {
-                driver::CRITICAL_HARDWARE_ERROR.type,
-                message
+            driver::CRITICAL_HARDWARE_ERROR.type,
+            message
         };
     }
 
     size_t cap_array_length(
-            const size_t i,
-            const size_t length
+        const size_t i,
+        const size_t length
     ) {
         if (i + length > cfg.array_size) {
             if (curr_state.variant != "warning") {
                 curr_state.variant = "warning";
                 curr_state.details = json{
-                        {
-                                "message",
-                                           "Received array of length " + std::to_string(length) +
-                                           " from OPC UA server, which is larger than the configured size of "
-                                           + std::to_string(cfg.array_size) + ". Truncating array."
-                        },
-                        {       "running", true}
+                    {
+                        "message",
+                                   "Received array of length " +
+                                   std::to_string(length) +
+                                   " from OPC UA server, which is larger than the configured size of "
+                                   + std::to_string(cfg.array_size) +
+                                   ". Truncating array."
+                    },
+                    {   "running", true}
                 };
                 ctx->setState(curr_state);
             }
@@ -218,9 +220,9 @@ public:
     }
 
     size_t write_to_series(
-            const UA_Variant *val,
-            const size_t i,
-            synnax::Series &s
+        const UA_Variant *val,
+        const size_t i,
+        synnax::Series &s
     ) {
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_FLOAT])) {
             const auto *data = static_cast<UA_Float *>(val->data);
@@ -285,71 +287,71 @@ public:
             if (s.data_type == synnax::FLOAT32) return s.write(value);
             if (s.data_type == synnax::FLOAT64)
                 return s.write(
-                        static_cast<double>(value));
+                    static_cast<double>(value));
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int32_t>(value));
+                    static_cast<int32_t>(value));
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
             const auto value = *static_cast<UA_Double *>(val->data);
             if (s.data_type == synnax::FLOAT32)
                 return s.write(
-                        static_cast<float>(value));
+                    static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64) return s.write(value);
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int32_t>(value));
+                    static_cast<int32_t>(value));
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_INT16]) {
             const auto value = *static_cast<UA_Int16 *>(val->data);
             if (s.data_type == synnax::INT16) return s.write(value);
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int16_t>(value));
+                    static_cast<int16_t>(value));
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
             if (s.data_type == synnax::UINT16)
                 return s.write(
-                        static_cast<uint16_t>(value));
+                    static_cast<uint16_t>(value));
             if (s.data_type == synnax::UINT32)
                 return s.write(
-                        static_cast<uint32_t>(value));
+                    static_cast<uint32_t>(value));
             if (s.data_type == synnax::UINT64)
                 return s.write(
-                        static_cast<uint64_t>(value));
+                    static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
             const auto value = *static_cast<UA_Int32 *>(val->data);
             if (s.data_type == synnax::INT32) return s.write(value);
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
             if (s.data_type == synnax::UINT32)
                 return s.write(
-                        static_cast<uint32_t>(value));
+                    static_cast<uint32_t>(value));
             if (s.data_type == synnax::UINT64)
                 return s.write(
-                        static_cast<uint64_t>(value));
+                    static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
             const auto value = *static_cast<UA_Int64 *>(val->data);
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int32_t>(value));
+                    static_cast<int32_t>(value));
             if (s.data_type == synnax::INT64) return s.write(value);
             if (s.data_type == synnax::UINT32)
                 return s.write(
-                        static_cast<uint32_t>(value));
+                    static_cast<uint32_t>(value));
             if (s.data_type == synnax::UINT64)
                 return s.write(
-                        static_cast<uint64_t>(value));
+                    static_cast<uint64_t>(value));
             if (s.data_type == synnax::TIMESTAMP)
                 return s.write(static_cast<uint64_t>(value));
         }
@@ -357,29 +359,29 @@ public:
             const auto value = *static_cast<UA_UInt32 *>(val->data);
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int32_t>(value));
+                    static_cast<int32_t>(value));
             // Potential data loss
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
             if (s.data_type == synnax::UINT32) return s.write(value);
             if (s.data_type == synnax::UINT64)
                 return s.write(
-                        static_cast<uint64_t>(value));
+                    static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
             const auto value = *static_cast<UA_UInt64 *>(val->data);
             if (s.data_type == synnax::UINT64) return s.write(value);
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int32_t>(value));
+                    static_cast<int32_t>(value));
             // Potential data loss
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
             if (s.data_type == synnax::UINT32)
                 return s.write(
-                        static_cast<uint32_t>(value));
+                    static_cast<uint32_t>(value));
             // Potential data loss
             if (s.data_type == synnax::TIMESTAMP)
                 s.write(static_cast<uint64_t>(value));
@@ -389,105 +391,106 @@ public:
             if (s.data_type == synnax::UINT8) return s.write(value);
             if (s.data_type == synnax::UINT16)
                 return s.write(
-                        static_cast<uint16_t>(value));
+                    static_cast<uint16_t>(value));
             if (s.data_type == synnax::UINT32)
                 return s.write(
-                        static_cast<uint32_t>(value));
+                    static_cast<uint32_t>(value));
             if (s.data_type == synnax::UINT64)
                 return s.write(
-                        static_cast<uint64_t>(value));
+                    static_cast<uint64_t>(value));
             if (s.data_type == synnax::INT8) return s.write(static_cast<int8_t>(value));
             if (s.data_type == synnax::INT16)
                 return s.write(
-                        static_cast<int16_t>(value));
+                    static_cast<int16_t>(value));
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int32_t>(value));
+                    static_cast<int32_t>(value));
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
             if (s.data_type == synnax::FLOAT32)
                 return s.write(
-                        static_cast<float>(value));
+                    static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64)
                 return s.write(
-                        static_cast<double>(value));
+                    static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
             const auto value = *static_cast<UA_SByte *>(val->data);
             if (s.data_type == synnax::INT8) return s.write(value);
             if (s.data_type == synnax::INT16)
                 return s.write(
-                        static_cast<int16_t>(value));
+                    static_cast<int16_t>(value));
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int32_t>(value));
+                    static_cast<int32_t>(value));
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
             if (s.data_type == synnax::FLOAT32)
                 return s.write(
-                        static_cast<float>(value));
+                    static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64)
                 return s.write(
-                        static_cast<double>(value));
+                    static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
             const auto value = *static_cast<UA_Boolean *>(val->data);
             if (s.data_type == synnax::UINT8)
                 return s.write(
-                        static_cast<uint8_t>(value));
+                    static_cast<uint8_t>(value));
             if (s.data_type == synnax::UINT16)
                 return s.write(
-                        static_cast<uint16_t>(value));
+                    static_cast<uint16_t>(value));
             if (s.data_type == synnax::UINT32)
                 return s.write(
-                        static_cast<uint32_t>(value));
+                    static_cast<uint32_t>(value));
             if (s.data_type == synnax::UINT64)
                 return s.write(
-                        static_cast<uint64_t>(value));
+                    static_cast<uint64_t>(value));
             if (s.data_type == synnax::INT8) return s.write(static_cast<int8_t>(value));
             if (s.data_type == synnax::INT16)
                 return s.write(
-                        static_cast<int16_t>(value));
+                    static_cast<int16_t>(value));
             if (s.data_type == synnax::INT32)
                 return s.write(
-                        static_cast<int32_t>(value));
+                    static_cast<int32_t>(value));
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        static_cast<int64_t>(value));
+                    static_cast<int64_t>(value));
             if (s.data_type == synnax::FLOAT32)
                 return s.write(
-                        static_cast<float>(value));
+                    static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64)
                 return s.write(
-                        static_cast<double>(value));
+                    static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
             const auto value = *static_cast<UA_DateTime *>(val->data);
             if (s.data_type == synnax::INT64)
                 return s.write(
-                        ua_datetime_to_unix_nano(value));
+                    ua_datetime_to_unix_nano(value));
             if (s.data_type == synnax::TIMESTAMP)
                 return s.write(
-                        ua_datetime_to_unix_nano(value));
+                    ua_datetime_to_unix_nano(value));
             if (s.data_type == synnax::UINT64)
                 return s.write(
-                        static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
+                    static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
             if (s.data_type == synnax::FLOAT32)
                 return s.write(
-                        static_cast<float>(value));
+                    static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64)
                 return s.write(
-                        static_cast<double>(value));
+                    static_cast<double>(value));
         }
-        LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName << " for task " << task.name;
+        LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName
+                   << " for task " << task.name;
     }
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
         auto read_calls_per_cycle = static_cast<std::size_t>(
-                cfg.sample_rate.value / cfg.stream_rate.value
+            cfg.sample_rate.value / cfg.stream_rate.value
         );
         auto series_size = read_calls_per_cycle;
         if (cfg.array_size > 1) {
@@ -525,18 +528,20 @@ public:
                     return std::make_pair(std::move(fr), err);
                 }
                 const auto next_arr_size = write_to_series(
-                        value, i * cfg.array_size, fr.series->at(j));
+                    value, i * cfg.array_size, fr.series->at(j));
                 if (j != 0 && curr_arr_size != next_arr_size) {
                     curr_state.variant = "warning";
                     curr_state.details = json{
-                            {
-                                    "message",
-                                               "Received array of length " + std::to_string(next_arr_size)
-                                               +
-                                               " from OPC UA server, which is different from the previous array length of "
-                                               + std::to_string(curr_arr_size) + ". Skipping write."
-                            },
-                            {       "running", true}
+                        {
+                            "message",
+                                       "Received array of length " +
+                                       std::to_string(next_arr_size)
+                                       +
+                                       " from OPC UA server, which is different from the previous array length of "
+                                       + std::to_string(curr_arr_size) +
+                                       ". Skipping write."
+                        },
+                        {   "running", true}
                     };
                     UA_ReadResponse_clear(&res);
                     return std::make_pair(std::move(fr),
@@ -569,11 +574,11 @@ public:
                 if (exceed_time_count == 5) {
                     curr_state.variant = "warning";
                     curr_state.details = json{
-                            {
-                                    "message",
-                                               "Sample rate exceeds OPC UA server throughput. samples may be delayed"
-                            },
-                            {       "running", true}
+                        {
+                            "message",
+                                       "Sample rate exceeds OPC UA server throughput. samples may be delayed"
+                        },
+                        {   "running", true}
                     };
                     ctx->setState(curr_state);
                 }
@@ -582,8 +587,8 @@ public:
         if (exceed_time_count < 5 && curr_state.variant != "success") {
             curr_state.variant = "success";
             curr_state.details = json{
-                    {"message", "Operating normally"},
-                    {"running", true}
+                {"message", "Operating normally"},
+                {"running", true}
             };
             ctx->setState(curr_state);
         }
@@ -593,8 +598,8 @@ public:
 
 
 std::unique_ptr<task::Task> Reader::configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
 ) {
     VLOG(2) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
@@ -602,9 +607,9 @@ std::unique_ptr<task::Task> Reader::configure(
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
         ctx->setState({
-                              .task = task.key,
-                              .variant = "error",
-                              .details = config_parser.error_json(),
+                          .task = task.key,
+                          .variant = "error",
+                          .details = config_parser.error_json(),
                       });
         return nullptr;
     }
@@ -614,30 +619,30 @@ std::unique_ptr<task::Task> Reader::configure(
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
                    " error: " << dev_err.message();
         ctx->setState({
-                              .task = task.key,
-                              .variant = "error",
-                              .details = json{
-                                      {"message", dev_err.message()}
-                              }
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{
+                              {"message", dev_err.message()}
+                          }
                       });
         return nullptr;
     }
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
     auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2,
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
     };
     auto breaker = breaker::Breaker(breaker_config);
     // Fetch additional index channels we also need as part of the configuration.
     auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
     if (err) {
         ctx->setState({
-                              .task = task.key,
-                              .variant = "error",
-                              .details = json{{"message", err.message()}}
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{{"message", err.message()}}
                       });
         return nullptr;
     }
@@ -647,9 +652,9 @@ std::unique_ptr<task::Task> Reader::configure(
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
         ctx->setState({
-                              .task = task.key,
-                              .variant = "error",
-                              .details = json{{"message", conn_err.message()}}
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{{"message", conn_err.message()}}
                       });
         return nullptr;
     }
@@ -658,9 +663,9 @@ std::unique_ptr<task::Task> Reader::configure(
         auto ch = cfg.channels[i];
         UA_Variant *value = UA_Variant_new();
         const UA_StatusCode status = UA_Client_readValueAttribute(
-                ua_client.get(),
-                ch.node,
-                value
+            ua_client.get(),
+            ch.node,
+            value
         );
         if (status != UA_STATUSCODE_GOOD) {
             if (status == UA_STATUSCODE_BADNODEIDUNKNOWN) {
@@ -669,7 +674,7 @@ std::unique_ptr<task::Task> Reader::configure(
             } else {
                 config_parser.field_err("channels." + std::to_string(i),
                                         "failed to read value" + std::string(
-                                                UA_StatusCode_name(status)));
+                                            UA_StatusCode_name(status)));
             }
             LOG(ERROR) << "failed to read value for channel " << ch.node_id;
         }
@@ -678,51 +683,51 @@ std::unique_ptr<task::Task> Reader::configure(
 
     if (!config_parser.ok()) {
         ctx->setState({
-                              .task = task.key,
-                              .variant = "error",
-                              .details = config_parser.error_json(),
+                          .task = task.key,
+                          .variant = "error",
+                          .details = config_parser.error_json(),
                       });
         return nullptr;
     }
 
     auto source = std::make_shared<ReaderSource>(
-            cfg,
-            ua_client,
-            indexes,
-            ctx,
-            task
+        cfg,
+        ua_client,
+        indexes,
+        ctx,
+        task
     );
 
     auto writer_cfg = synnax::WriterConfig{
-            .channels = channelKeys,
-            .start = TimeStamp::now(),
-            .subject = synnax::ControlSubject{
-                    .name = task.name,
-                    .key = std::to_string(task.key)
-            },
-            .mode = cfg.data_saving
-                    ? synnax::WriterMode::PersistStream
-                    : synnax::WriterMode::StreamOnly,
-            .enable_auto_commit = true
+        .channels = channelKeys,
+        .start = TimeStamp::now(),
+        .subject = synnax::ControlSubject{
+            .name = task.name,
+            .key = std::to_string(task.key)
+        },
+        .mode = cfg.data_saving
+                ? synnax::WriterMode::PersistStream
+                : synnax::WriterMode::StreamOnly,
+        .enable_auto_commit = true
     };
 
     ctx->setState({
-                          .task = task.key,
-                          .variant = "success",
-                          .details = json{
-                                  {"running", false},
-                                  {"message", "Task configured successfully"}
-                          }
+                      .task = task.key,
+                      .variant = "success",
+                      .details = json{
+                          {"running", false},
+                          {"message", "Task configured successfully"}
+                      }
                   });
     return std::make_unique<Reader>(
-            ctx,
-            task,
-            cfg,
-            breaker_config,
-            std::move(source),
-            writer_cfg,
-            ua_client,
-            properties
+        ctx,
+        task,
+        cfg,
+        breaker_config,
+        std::move(source),
+        writer_cfg,
+        ua_client,
+        properties
     );
 }
 
@@ -736,42 +741,46 @@ void Reader::exec(task::Command &cmd) {
 
 void Reader::stop() {
     ctx->setState({
-                          .task = task.key,
-                          .variant = "success",
-                          .details = json{
-                                  {"running", false},
-                                  {"message", "Task stopped successfully"}
-                          }
+                      .task = task.key,
+                      .variant = "success",
+                      .details = json{
+                          {"running", false},
+                          {"message", "Task stopped successfully"}
+                      }
                   });
     pipe.stop();
 }
 
 void Reader::start() {
     // first try to check for timeout
-    UA_StatusCode status = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
+    UA_StatusCode status = UA_Client_connect(this->ua_client.get(),
+                                             device_props.connection.endpoint.c_str());
     if (status != UA_STATUSCODE_GOOD) {
         // attempt again to reestablish if timed out
-        UA_StatusCode status_retry = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
+        UA_StatusCode status_retry = UA_Client_connect(this->ua_client.get(),
+                                                       device_props.connection.endpoint.c_str());
         if (status_retry != UA_STATUSCODE_GOOD) {
             ctx->setState({
-                                  .task = task.key,
-                                  .variant = "error",
-                                  .details = json{
-                                          {"message", "Failed to connect to OPC UA server: " + std::string(
-                                                  UA_StatusCode_name(status))}
-                                  }
+                              .task = task.key,
+                              .variant = "error",
+                              .details = json{
+                                  {"message",
+                                   "Failed to connect to OPC UA server: " + std::string(
+                                       UA_StatusCode_name(status))}
+                              }
                           });
-            LOG(ERROR) << "[opc.reader] connection failed: " << UA_StatusCode_name(status);
+            LOG(ERROR) << "[opc.reader] connection failed: "
+                       << UA_StatusCode_name(status);
         }
     }
     VLOG(1) << "[opc.reader] Connection Established";
     pipe.start();
     ctx->setState({
-                          .task = task.key,
-                          .variant = "success",
-                          .details = json{
-                                  {"running", true},
-                                  {"message", "Task started successfully"}
-                          }
+                      .task = task.key,
+                      .variant = "success",
+                      .details = json{
+                          {"running", true},
+                          {"message", "Task started successfully"}
+                      }
                   });
 }

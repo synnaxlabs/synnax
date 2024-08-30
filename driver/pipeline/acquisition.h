@@ -76,7 +76,7 @@ namespace pipeline {
         /// retry the operation until the configured number of maximum retries is exceeded. Any
         /// other error will be considered permanent and the pipeline will exit.
         virtual std::pair<std::unique_ptr<Writer>, freighter::Error> openWriter(
-                const WriterConfig &config
+            const WriterConfig &config
         ) = 0;
 
         virtual ~WriterFactory() = default;
@@ -104,10 +104,10 @@ namespace pipeline {
         /// acquisition thread lifecycle and retry requests on connection loss or temporary
         /// hardware erors.
         Acquisition(
-                std::shared_ptr<synnax::Synnax> client,
-                WriterConfig writer_config,
-                std::shared_ptr<Source> source,
-                const breaker::Config &breaker_config
+            std::shared_ptr<synnax::Synnax> client,
+            WriterConfig writer_config,
+            std::shared_ptr<Source> source,
+            const breaker::Config &breaker_config
         );
 
         /// @brief construct an acquisition pipeline that opens writers using a writer factory.
@@ -121,10 +121,10 @@ namespace pipeline {
         /// @param breaker_config the configuration for the breaker used to manage the
         /// acquisition thread lifecycle and retry requests on connection loss or temporary
         Acquisition(
-                std::shared_ptr<WriterFactory> factory,
-                WriterConfig writer_config,
-                std::shared_ptr<Source> source,
-                const breaker::Config &breaker_config
+            std::shared_ptr<WriterFactory> factory,
+            WriterConfig writer_config,
+            std::shared_ptr<Source> source,
+            const breaker::Config &breaker_config
         );
 
         /// @brief starts the acquisition pipeline if it has not already been started. start

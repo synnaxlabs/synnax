@@ -22,56 +22,56 @@ using namespace synnax;
 namespace synnax {
 /// @brief type alias for the transport used to create a rack.
     typedef freighter::UnaryClient<
-            api::v1::HardwareCreateRackRequest,
-            api::v1::HardwareCreateRackResponse
+        api::v1::HardwareCreateRackRequest,
+        api::v1::HardwareCreateRackResponse
     > HardwareCreateRackClient;
 
 /// @brief type alias for the transport used to retrieve a rack.
     typedef freighter::UnaryClient<
-            api::v1::HardwareRetrieveRackRequest,
-            api::v1::HardwareRetrieveRackResponse
+        api::v1::HardwareRetrieveRackRequest,
+        api::v1::HardwareRetrieveRackResponse
     > HardwareRetrieveRackClient;
 
 /// @brief type alias for the transport used to delete a rack.
     typedef freighter::UnaryClient<
-            api::v1::HardwareDeleteRackRequest,
-            google::protobuf::Empty
+        api::v1::HardwareDeleteRackRequest,
+        google::protobuf::Empty
     > HardwareDeleteRackClient;
 
 /// @brief type alias for the transport used to create a task.
     typedef freighter::UnaryClient<
-            api::v1::HardwareCreateTaskRequest,
-            api::v1::HardwareCreateTaskResponse
+        api::v1::HardwareCreateTaskRequest,
+        api::v1::HardwareCreateTaskResponse
     > HardwareCreateTaskClient;
 
 /// @brief type alias for the transport used to retrieve a task.
     typedef freighter::UnaryClient<
-            api::v1::HardwareRetrieveTaskRequest,
-            api::v1::HardwareRetrieveTaskResponse
+        api::v1::HardwareRetrieveTaskRequest,
+        api::v1::HardwareRetrieveTaskResponse
     > HardwareRetrieveTaskClient;
 
 /// @brief type alias for the transport used to delete a task.
     typedef freighter::UnaryClient<
-            api::v1::HardwareDeleteTaskRequest,
-            google::protobuf::Empty
+        api::v1::HardwareDeleteTaskRequest,
+        google::protobuf::Empty
     > HardwareDeleteTaskClient;
 
 /// @brief type alias for the transport used to create a device.
     typedef freighter::UnaryClient<
-            api::v1::HardwareCreateDeviceRequest,
-            api::v1::HardwareCreateDeviceResponse
+        api::v1::HardwareCreateDeviceRequest,
+        api::v1::HardwareCreateDeviceResponse
     > HardwareCreateDeviceClient;
 
 /// @brief type alias for the transport used to retrieve a device.
     typedef freighter::UnaryClient<
-            api::v1::HardwareRetrieveDeviceRequest,
-            api::v1::HardwareRetrieveDeviceResponse
+        api::v1::HardwareRetrieveDeviceRequest,
+        api::v1::HardwareRetrieveDeviceResponse
     > HardwareRetrieveDeviceClient;
 
 /// @brief type alias for the transport used to delete a device.
     typedef freighter::UnaryClient<
-            api::v1::HardwareDeleteDeviceRequest,
-            google::protobuf::Empty
+        api::v1::HardwareDeleteDeviceRequest,
+        google::protobuf::Empty
     > HardwareDeleteDeviceClient;
 
 
@@ -97,7 +97,8 @@ namespace synnax {
         std::string config;
         bool internal;
 
-        Task(std::string name, std::string type, std::string config, bool internal = false);
+        Task(std::string name, std::string type, std::string config,
+             bool internal = false);
 
         Task(TaskKey key, std::string name, std::string type, std::string config,
              bool internal = false);
@@ -120,10 +121,10 @@ namespace synnax {
     class TaskClient {
     public:
         TaskClient(
-                RackKey rack,
-                std::shared_ptr<HardwareCreateTaskClient> task_create_client,
-                std::shared_ptr<HardwareRetrieveTaskClient> task_retrieve_client,
-                std::shared_ptr<HardwareDeleteTaskClient> task_delete_client
+            RackKey rack,
+            std::shared_ptr<HardwareCreateTaskClient> task_create_client,
+            std::shared_ptr<HardwareRetrieveTaskClient> task_retrieve_client,
+            std::shared_ptr<HardwareDeleteTaskClient> task_delete_client
         ) : rack(rack),
             task_create_client(std::move(task_create_client)),
             task_retrieve_client(std::move(task_retrieve_client)),
@@ -144,12 +145,12 @@ namespace synnax {
 
         [[nodiscard]]
         std::pair<std::vector<Task>, freighter::Error> retrieve(
-                const std::vector<std::string> &names
+            const std::vector<std::string> &names
         ) const;
 
         [[nodiscard]]
         std::pair<std::vector<Task>, freighter::Error> retrieveByType(
-                const std::vector<std::string> &types
+            const std::vector<std::string> &types
         ) const;
 
         [[nodiscard]]
@@ -204,15 +205,16 @@ namespace synnax {
         std::string properties;
 
         Device(
-                std::string key,
-                std::string name,
-                RackKey rack,
-                std::string location,
-                std::string identifier,
-                std::string make,
-                std::string model,
-                std::string properties
-        ) : key(key), name(name), rack(rack), location(location), identifier(identifier),
+            std::string key,
+            std::string name,
+            RackKey rack,
+            std::string location,
+            std::string identifier,
+            std::string make,
+            std::string model,
+            std::string properties
+        ) : key(key), name(name), rack(rack), location(location),
+            identifier(identifier),
             make(make), model(model), properties(properties) {
         }
 
@@ -230,15 +232,15 @@ namespace synnax {
     class HardwareClient {
     public:
         HardwareClient(
-                std::unique_ptr<HardwareCreateRackClient> rack_create_client,
-                std::unique_ptr<HardwareRetrieveRackClient> rack_retrieve_client,
-                std::unique_ptr<HardwareDeleteRackClient> rack_delete_client,
-                std::shared_ptr<HardwareCreateTaskClient> task_create_client,
-                std::shared_ptr<HardwareRetrieveTaskClient> task_retrieve_client,
-                std::shared_ptr<HardwareDeleteTaskClient> task_delete_client,
-                std::unique_ptr<HardwareCreateDeviceClient> device_create_client,
-                std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve_client,
-                std::unique_ptr<HardwareDeleteDeviceClient> device_delete_client
+            std::unique_ptr<HardwareCreateRackClient> rack_create_client,
+            std::unique_ptr<HardwareRetrieveRackClient> rack_retrieve_client,
+            std::unique_ptr<HardwareDeleteRackClient> rack_delete_client,
+            std::shared_ptr<HardwareCreateTaskClient> task_create_client,
+            std::shared_ptr<HardwareRetrieveTaskClient> task_retrieve_client,
+            std::shared_ptr<HardwareDeleteTaskClient> task_delete_client,
+            std::unique_ptr<HardwareCreateDeviceClient> device_create_client,
+            std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve_client,
+            std::unique_ptr<HardwareDeleteDeviceClient> device_delete_client
         ) : rack_create_client(std::move(rack_create_client)),
             rack_retrieve_client(std::move(rack_retrieve_client)),
             rack_delete_client(std::move(rack_delete_client)),
@@ -264,7 +266,8 @@ namespace synnax {
         std::pair<Rack, freighter::Error> retrieveRack(const std::string &name) const;
 
         [[nodiscard]]
-        std::pair<Device, freighter::Error> retrieveDevice(const std::string &key) const;
+        std::pair<Device, freighter::Error>
+        retrieveDevice(const std::string &key) const;
 
         [[nodiscard]]
         freighter::Error createDevice(Device &device) const;

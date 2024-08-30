@@ -22,7 +22,8 @@ constexpr char NEWLINE_TERMINATOR_CHAR = '\n';
 
 namespace synnax {
     template<typename T>
-    static inline void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
+    static inline void
+    output_partial_vector(std::ostream &os, const std::vector<T> &v) {
         if (v.size() <= 6) {
             for (const auto &i: v) os << i << " ";
             return;
@@ -32,14 +33,17 @@ namespace synnax {
         for (size_t i = v.size() - 3; i < v.size(); ++i) os << v[i] << " ";
     }
 
-    static inline void output_partial_vector_byte(std::ostream &os, const std::vector<uint8_t> &v) {
+    static inline void
+    output_partial_vector_byte(std::ostream &os, const std::vector<uint8_t> &v) {
         if (v.size() <= 6) {
-            for (size_t i = 0; i < v.size(); ++i) os << static_cast<uint32_t>(v[i]) << " ";
+            for (size_t i = 0; i < v.size(); ++i)
+                os << static_cast<uint32_t>(v[i]) << " ";
             return;
         }
         for (size_t i = 0; i < 3; ++i) os << static_cast<uint64_t>(v[i]) << " ";
         os << "... ";
-        for (size_t i = v.size() - 3; i < v.size(); ++i) os << static_cast<uint64_t>(v[i]) << " ";
+        for (size_t i = v.size() - 3; i < v.size(); ++i)
+            os << static_cast<uint64_t>(v[i]) << " ";
     }
 
 
@@ -52,15 +56,15 @@ namespace synnax {
         /// @param data_type the type of data being stored.
         /// @param cap the number of samples that can be stored in the series.
         Series(
-                const DataType &data_type,
-                const size_t cap
+            const DataType &data_type,
+            const size_t cap
         ) : size(0),
             cap(cap),
             data_type(data_type),
             data(std::make_unique<std::byte[]>(cap * data_type.density())) {
             if (data_type.is_variable())
                 throw std::runtime_error(
-                        "cannot pre-allocate a series with a variable data type");
+                    "cannot pre-allocate a series with a variable data type");
         }
 
         /// @brief constructs a series from the given vector of numeric data and an optional
@@ -72,16 +76,17 @@ namespace synnax {
         /// contents of the series are compatible with the data type.
         template<typename NumericType>
         explicit Series(
-                const std::vector<NumericType> &d,
-                DataType dt = DATA_TYPE_UNKNOWN
+            const std::vector<NumericType> &d,
+            DataType dt = DATA_TYPE_UNKNOWN
         ) : size(d.size()),
             cap(d.size()),
             data_type(std::move(dt)) {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
-            if (data_type == DATA_TYPE_UNKNOWN) data_type = DataType::infer<NumericType>();
+            if (data_type == DATA_TYPE_UNKNOWN)
+                data_type = DataType::infer<NumericType>();
             data = std::make_unique<std::byte[]>(byteSize());
             memcpy(data.get(), d.data(), byteSize());
         }
@@ -90,7 +95,7 @@ namespace synnax {
         /// given timestamp.
         /// @param v the timestamp to be used.
         explicit Series(
-                const TimeStamp v
+            const TimeStamp v
         ) : size(1),
             cap(1),
             data_type(synnax::TIMESTAMP) {
@@ -105,16 +110,17 @@ namespace synnax {
         /// compatible with the data type.
         template<typename NumericType>
         explicit Series(
-                NumericType v,
-                DataType dt = DATA_TYPE_UNKNOWN
+            NumericType v,
+            DataType dt = DATA_TYPE_UNKNOWN
         ): size(1),
            cap(1),
            data_type(std::move(dt)) {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
-            if (data_type == DATA_TYPE_UNKNOWN) data_type = DataType::infer<NumericType>();
+            if (data_type == DATA_TYPE_UNKNOWN)
+                data_type = DataType::infer<NumericType>();
             data = std::make_unique<std::byte[]>(this->byteSize());
             memcpy(data.get(), &v, this->byteSize());
         }
@@ -128,14 +134,14 @@ namespace synnax {
         template<typename NumericType>
         void set(const int index, const NumericType value) {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
             const auto adjusted = this->validateBounds(index);
             memcpy(
-                    data.get() + adjusted * data_type.density(),
-                    &value,
-                    data_type.density()
+                data.get() + adjusted * data_type.density(),
+                &value,
+                data_type.density()
             );
         }
 
@@ -149,14 +155,14 @@ namespace synnax {
         template<typename NumericType>
         void set_array(const NumericType *d, const int index, const size_t size_) {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
             const auto adjusted = this->validateBounds(index, size_);
             memcpy(
-                    data.get() + adjusted * data_type.density(),
-                    d,
-                    size_ * data_type.density()
+                data.get() + adjusted * data_type.density(),
+                d,
+                size_ * data_type.density()
             );
         }
 
@@ -168,14 +174,14 @@ namespace synnax {
         template<typename NumericType>
         void set(const std::vector<NumericType> &d, const int index) {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
             const auto adjusted = this->validateBounds(index, d.size());
             memcpy(
-                    data.get() + adjusted * data_type.density(),
-                    d.data(),
-                    d.size() * data_type.density()
+                data.get() + adjusted * data_type.density(),
+                d.data(),
+                d.size() * data_type.density()
             );
         }
 
@@ -186,8 +192,8 @@ namespace synnax {
         template<typename NumericType>
         size_t write(const std::vector<NumericType> &d) {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
             const size_t count = std::min(d.size(), cap - size);
             if (count == 0) return 0;
@@ -203,8 +209,8 @@ namespace synnax {
         template<typename NumericType>
         size_t write(const NumericType d) {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
             if (size >= cap) return 0;
             memcpy(data.get() + size * data_type.density(), &d, data_type.density());
@@ -220,8 +226,8 @@ namespace synnax {
         template<typename NumericType>
         size_t write(const NumericType *d, const size_t size_) {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
             const size_t count = std::min(size_, cap - size);
             memcpy(data.get(), d, count * data_type.density());
@@ -234,8 +240,8 @@ namespace synnax {
         /// @param d the vector of strings to be used as the data.
         /// @param data_type_ the type of data being used.
         explicit Series(
-                const std::vector<std::string> &d,
-                DataType data_type_ = STRING
+            const std::vector<std::string> &d,
+            DataType data_type_ = STRING
         ) : data_type(std::move(data_type_)) {
             if (!data_type.is_variable())
                 throw std::runtime_error("expected data type to be STRING or JSON");
@@ -259,8 +265,8 @@ namespace synnax {
         ///  @param data_type_ the type of data being used. Defaults to STRING, but can
         ///  also be set to JSON.
         explicit Series(
-                const std::string &data,
-                DataType data_type_ = STRING
+            const std::string &data,
+            DataType data_type_ = STRING
         ) : size(1), cap(1), data_type(std::move(data_type_)) {
             if (data_type != STRING && data_type != JSON)
                 throw std::runtime_error("invalid data type c");
@@ -311,8 +317,8 @@ namespace synnax {
         template<typename NumericType>
         [[nodiscard]] std::vector<NumericType> values() const {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
             std::vector<NumericType> v(size);
             memcpy(v.data(), data.get(), byteSize());
@@ -326,8 +332,8 @@ namespace synnax {
         template<typename NumericType>
         NumericType operator[](const int index) const {
             static_assert(
-                    std::is_arithmetic_v<NumericType>,
-                    "NumericType must be a numeric type"
+                std::is_arithmetic_v<NumericType>,
+                "NumericType must be a numeric type"
             );
             return at<NumericType>(index);
         }
@@ -370,12 +376,14 @@ namespace synnax {
         template<typename NumericType>
         [[nodiscard]] NumericType at(const size_t index) const {
             NumericType value;
-            memcpy(&value, data.get() + index * data_type.density(), data_type.density());
+            memcpy(&value, data.get() + index * data_type.density(),
+                   data_type.density());
             return value;
         }
 
         friend std::ostream &operator<<(std::ostream &os, const Series &s) {
-            os << "Series(type: " << s.data_type.name() << ", size: " << s.size << ", cap: "
+            os << "Series(type: " << s.data_type.name() << ", size: " << s.size
+               << ", cap: "
                << s.cap << ", data: [";
             if (s.data_type == synnax::STRING || s.data_type == synnax::JSON)
                 output_partial_vector(os, s.strings());
@@ -434,15 +442,16 @@ namespace synnax {
         size_t cached_byte_size = 0;
 
         [[nodiscard]] int validateBounds(
-                const int index,
-                const size_t write_size = 0
+            const int index,
+            const size_t write_size = 0
         ) const {
             auto adjusted = index;
             if (index < 0) adjusted = static_cast<int>(size) + index;
             if (adjusted + write_size >= size || adjusted < 0)
                 throw std::runtime_error(
-                        "index" + std::to_string(index) + " out of bounds for series of size" +
-                        std::to_string(size)
+                    "index" + std::to_string(index) +
+                    " out of bounds for series of size" +
+                    std::to_string(size)
                 );
             return adjusted;
         }

@@ -15,10 +15,10 @@
 #include "task.h"
 
 task::Manager::Manager(
-        const Rack &rack,
-        const std::shared_ptr<Synnax> &client,
-        std::unique_ptr<task::Factory> factory,
-        const breaker::Config &breaker
+    const Rack &rack,
+    const std::shared_ptr<Synnax> &client,
+    std::unique_ptr<task::Factory> factory,
+    const breaker::Config &breaker
 ) : rack_key(rack.key),
     internal(rack),
     ctx(std::make_shared<task::SynnaxContext>(client)),
@@ -112,10 +112,10 @@ freighter::Error task::Manager::stop() {
 
 freighter::Error task::Manager::runGuarded() {
     const std::vector stream_channels = {
-            task_set_channel.key, task_delete_channel.key, task_cmd_channel.key
+        task_set_channel.key, task_delete_channel.key, task_cmd_channel.key
     };
     auto [s, open_err] = ctx->client->telem.openStreamer(StreamerConfig{
-            .channels = stream_channels
+        .channels = stream_channels
     });
     if (open_err) return open_err;
     streamer = std::make_unique<Streamer>(std::move(s));
@@ -168,15 +168,15 @@ void task::Manager::processTaskCmd(const Series &series) {
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().
-                    dump();
+                dump();
             continue;
         }
         LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.
-                task;
+            task;
         auto it = tasks.find(cmd.task);
         if (it == tasks.end()) {
             LOG(WARNING) << "[driver] could not find task to execute command: " << cmd.
-                    task;
+                task;
             continue;
         }
         it->second->exec(cmd);

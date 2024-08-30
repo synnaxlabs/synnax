@@ -29,8 +29,8 @@ namespace synnax {
             int num = 1;
             if (*(char *) &num == 1) return;
             std::cout
-                    << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
-                    << std::endl;
+                << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
+                << std::endl;
         }
     }
 
@@ -69,53 +69,54 @@ namespace synnax {
         FrameClient telem = FrameClient(nullptr, nullptr);
         /// @brief Client for managing devices and their configuration.
         HardwareClient hardware = HardwareClient(
-                nullptr,
-                nullptr,
-                nullptr,
-                nullptr,
-                nullptr,
-                nullptr,
-                nullptr,
-                nullptr,
-                nullptr
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr
         );
 
         /// @brief constructs the Synnax client from the provided configuration.
         explicit Synnax(const Config &cfg) {
             auto t = Transport(
-                    cfg.port,
-                    cfg.host,
-                    cfg.ca_cert_file,
-                    cfg.client_cert_file,
-                    cfg.client_key_file
+                cfg.port,
+                cfg.host,
+                cfg.ca_cert_file,
+                cfg.client_cert_file,
+                cfg.client_key_file
             );
             priv::check_little_endian();
             const auto auth_mw = std::make_shared<AuthMiddleware>(
-                    std::move(t.auth_login),
-                    cfg.username,
-                    cfg.password,
-                    5
+                std::move(t.auth_login),
+                cfg.username,
+                cfg.password,
+                5
             );
             t.use(auth_mw);
-            channels = ChannelClient(std::move(t.chan_retrieve), std::move(t.chan_create));
+            channels = ChannelClient(std::move(t.chan_retrieve),
+                                     std::move(t.chan_create));
             ranges = RangeClient(
-                    std::move(t.range_retrieve),
-                    std::move(t.range_create),
-                    t.range_kv_get,
-                    t.range_kv_set,
-                    t.range_kv_delete
+                std::move(t.range_retrieve),
+                std::move(t.range_create),
+                t.range_kv_get,
+                t.range_kv_set,
+                t.range_kv_delete
             );
             telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
             hardware = HardwareClient(
-                    std::move(t.rack_create_client),
-                    std::move(t.rack_retrieve),
-                    std::move(t.rack_delete),
-                    t.module_create,
-                    t.module_retrieve,
-                    t.module_delete,
-                    std::move(t.device_create),
-                    std::move(t.device_retrieve),
-                    std::move(t.device_delete)
+                std::move(t.rack_create_client),
+                std::move(t.rack_retrieve),
+                std::move(t.rack_delete),
+                t.module_create,
+                t.module_retrieve,
+                t.module_delete,
+                std::move(t.device_create),
+                std::move(t.device_retrieve),
+                std::move(t.device_delete)
             );
         }
     };

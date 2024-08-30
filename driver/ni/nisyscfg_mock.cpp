@@ -15,56 +15,56 @@
 
 
 NISYSCFGCFUNC ni::NiSysCfgInterface::InitializeSession(
-        const char *targetName,
-        const char *username,
-        const char *password,
-        NISysCfgLocale language,
-        NISysCfgBool forcePropertyRefresh,
-        unsigned int connectTimeoutMsec,
-        NISysCfgEnumExpertHandle *expertEnumHandle,
-        NISysCfgSessionHandle *sessionHandle
+    const char *targetName,
+    const char *username,
+    const char *password,
+    NISysCfgLocale language,
+    NISysCfgBool forcePropertyRefresh,
+    unsigned int connectTimeoutMsec,
+    NISysCfgEnumExpertHandle *expertEnumHandle,
+    NISysCfgSessionHandle *sessionHandle
 ) { return NISysCfg_OK; }
 
 NISYSCFGCFUNC ni::NiSysCfgInterface::CreateFilter(
-        NISysCfgSessionHandle sessionHandle,
-        NISysCfgFilterHandle *filterHandle
+    NISysCfgSessionHandle sessionHandle,
+    NISysCfgFilterHandle *filterHandle
 ) { return NISysCfg_OK; }
 
 NISYSCFGCDECL ni::NiSysCfgInterface::SetFilterProperty(
-        NISysCfgFilterHandle filterHandle,
-        NISysCfgFilterProperty propertyID,
-        ...
+    NISysCfgFilterHandle filterHandle,
+    NISysCfgFilterProperty propertyID,
+    ...
 ) { return NISysCfg_OK; }
 
 NISYSCFGCFUNC ni::NiSysCfgInterface::CloseHandle(
-        void *syscfgHandle
+    void *syscfgHandle
 ) { return NISysCfg_OK; }
 
 
 NISYSCFGCFUNC ni::NiSysCfgInterface::FindHardware(
-        NISysCfgSessionHandle sessionHandle,
-        NISysCfgFilterMode filterMode,
-        NISysCfgFilterHandle filterHandle,
-        const char *expertNames,
-        NISysCfgEnumResourceHandle *resourceEnumHandle
+    NISysCfgSessionHandle sessionHandle,
+    NISysCfgFilterMode filterMode,
+    NISysCfgFilterHandle filterHandle,
+    const char *expertNames,
+    NISysCfgEnumResourceHandle *resourceEnumHandle
 ) { return NISysCfg_OK; }
 
 NISYSCFGCFUNC ni::NiSysCfgInterface::NextResource(
-        NISysCfgSessionHandle sessionHandle,
-        NISysCfgEnumResourceHandle resourceEnumHandle,
-        NISysCfgResourceHandle *resourceHandle
+    NISysCfgSessionHandle sessionHandle,
+    NISysCfgEnumResourceHandle resourceEnumHandle,
+    NISysCfgResourceHandle *resourceHandle
 ) { return NISysCfg_OK; }
 
 NISYSCFGCFUNC ni::NiSysCfgInterface::GetResourceProperty(
-        NISysCfgResourceHandle resourceHandle,
-        NISysCfgResourceProperty propertyID,
-        void *value
+    NISysCfgResourceHandle resourceHandle,
+    NISysCfgResourceProperty propertyID,
+    void *value
 ) { return NISysCfg_OK; }
 
 
 NISYSCFGCFUNC ni::NiSysCfgInterface::GetResourceIndexedProperty(
-        NISysCfgResourceHandle resourceHandle,
-        NISysCfgIndexedProperty propertyID,
-        unsigned int index,
-        void *value
+    NISysCfgResourceHandle resourceHandle,
+    NISysCfgIndexedProperty propertyID,
+    unsigned int index,
+    void *value
 ) { return NISysCfg_OK; }

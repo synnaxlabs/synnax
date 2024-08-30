@@ -28,33 +28,33 @@ using namespace synnax;
 namespace synnax {
 /// @brief type alias for the transport used to retrieve ranges.
     typedef freighter::UnaryClient<
-            api::v1::RangeRetrieveRequest,
-            api::v1::RangeRetrieveResponse
+        api::v1::RangeRetrieveRequest,
+        api::v1::RangeRetrieveResponse
     > RangeRetrieveClient;
 
 /// @brief type alias for the transport used to create ranges.
     typedef freighter::UnaryClient<
-            api::v1::RangeCreateRequest,
-            api::v1::RangeCreateResponse
+        api::v1::RangeCreateRequest,
+        api::v1::RangeCreateResponse
     > RangeCreateClient;
 
 
 /// @brief type alias for the transport used to get range-scoped key-values.
     typedef freighter::UnaryClient<
-            api::v1::RangeKVGetRequest,
-            api::v1::RangeKVGetResponse
+        api::v1::RangeKVGetRequest,
+        api::v1::RangeKVGetResponse
     > RangeKVGetClient;
 
 /// @brief type alias for the transport used to set range-scoped key-values.
     typedef freighter::UnaryClient<
-            api::v1::RangeKVSetRequest,
-            google::protobuf::Empty
+        api::v1::RangeKVSetRequest,
+        google::protobuf::Empty
     > RangeKVSetClient;
 
 /// @brief type alias for the transport used to delete range-scoped key-values.
     typedef freighter::UnaryClient<
-            api::v1::RangeKVDeleteRequest,
-            google::protobuf::Empty
+        api::v1::RangeKVDeleteRequest,
+        google::protobuf::Empty
     > RangeKVDeleteClient;
 
 /// @brief a range-scoped key-value store for storing meta-data and configuration
@@ -68,10 +68,10 @@ namespace synnax {
 
     public:
         RangeKV(
-                std::string range_key,
-                std::shared_ptr<RangeKVGetClient> kv_get_client,
-                std::shared_ptr<RangeKVSetClient> kv_set_client,
-                std::shared_ptr<RangeKVDeleteClient> kv_delete_client
+            std::string range_key,
+            std::shared_ptr<RangeKVGetClient> kv_get_client,
+            std::shared_ptr<RangeKVSetClient> kv_set_client,
+            std::shared_ptr<RangeKVDeleteClient> kv_delete_client
         ) : range_key(range_key), kv_get_client(kv_get_client),
             kv_set_client(kv_set_client), kv_delete_client(kv_delete_client) {
         }
@@ -83,7 +83,7 @@ namespace synnax {
         /// value could not be retrieved. Use err.message() to get the error message
         /// or err.type to get the error type.
         [[nodiscard]] std::pair<std::string, freighter::Error> get(
-                const std::string &key) const;
+            const std::string &key) const;
 
         /// @brief sets the value of the given key.
         /// @param key - the key to set the value of.
@@ -139,11 +139,11 @@ namespace synnax {
     class RangeClient {
     public:
         RangeClient(
-                std::unique_ptr<RangeRetrieveClient> retrieve_client,
-                std::unique_ptr<RangeCreateClient> create_client,
-                std::shared_ptr<RangeKVGetClient> kv_get_client,
-                std::shared_ptr<RangeKVSetClient> kv_set_client,
-                std::shared_ptr<RangeKVDeleteClient> kv_delete_client
+            std::unique_ptr<RangeRetrieveClient> retrieve_client,
+            std::unique_ptr<RangeCreateClient> create_client,
+            std::shared_ptr<RangeKVGetClient> kv_get_client,
+            std::shared_ptr<RangeKVSetClient> kv_set_client,
+            std::shared_ptr<RangeKVDeleteClient> kv_delete_client
         ) : retrieve_client(std::move(retrieve_client)),
             create_client(std::move(create_client)),
             kv_get_client(kv_get_client),
@@ -203,7 +203,7 @@ namespace synnax {
         /// if the range could not be created. Use err.message() to get the error
         /// message or err.type to get the error type.
         [[nodiscard]] std::pair<Range, freighter::Error> create(
-                std::string name, synnax::TimeRange time_range) const;
+            std::string name, synnax::TimeRange time_range) const;
 
     private:
         /// @brief range retrieval transport.
@@ -219,6 +219,6 @@ namespace synnax {
 
         /// @brief retrieves multiple ranges.
         std::pair<std::vector<Range>, freighter::Error> retrieveMany(
-                api::v1::RangeRetrieveRequest &req) const;
+            api::v1::RangeRetrieveRequest &req) const;
     };
 }

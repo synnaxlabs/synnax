@@ -17,16 +17,16 @@
 using json = nlohmann::json;
 
 namespace config {
-struct Config {
-    synnax::RackKey rack_key;
-    std::string rack_name;
-    synnax::Config client_config;
-    breaker::Config breaker_config;
-    std::vector<std::string> integrations;
-    bool debug;
-};
+    struct Config {
+        synnax::RackKey rack_key;
+        std::string rack_name;
+        synnax::Config client_config;
+        breaker::Config breaker_config;
+        std::vector<std::string> integrations;
+        bool debug;
+    };
 
-std::pair<Config, freighter::Error> parse(const json &content);
+    std::pair<Config, freighter::Error> parse(const json &content);
 
-json read(const std::string &path);
+    json read(const std::string &path);
 }

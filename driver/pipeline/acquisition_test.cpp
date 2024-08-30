@@ -22,9 +22,9 @@ public:
         std::shared_ptr<std::vector<synnax::Frame> > writes,
         freighter::Error close_err = freighter::NIL,
         int return_false_ok_on = -1
-    ): writes(std::move(writes)),
-       close_err(close_err),
-       return_false_ok_on(return_false_ok_on) {
+    ) : writes(std::move(writes)),
+        close_err(close_err),
+        return_false_ok_on(return_false_ok_on) {
     }
 
     bool write(synnax::Frame &fr) override {
@@ -52,12 +52,12 @@ public:
         std::vector<freighter::Error> open_errors = {},
         std::vector<freighter::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}
-    ): writes(
-           std::move(writes)), open_errors(std::move(open_errors)),
-       close_errors(std::move(close_errors)),
-       return_false_ok_on(std::move(return_false_ok_on)),
-       config(),
-       writer_opens(0) {
+    ) : writes(
+        std::move(writes)), open_errors(std::move(open_errors)),
+        close_errors(std::move(close_errors)),
+        return_false_ok_on(std::move(return_false_ok_on)),
+        config(),
+        writer_opens(0) {
     }
 
     std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
@@ -65,20 +65,20 @@ public:
         this->writer_opens++;
         this->config = config;
         auto err = this->open_errors.empty()
-                       ? freighter::NIL
-                       : this->open_errors.front();
+                   ? freighter::NIL
+                   : this->open_errors.front();
         if (!this->open_errors.empty())
             this->open_errors.erase(
                 this->open_errors.begin());
         auto close_err = this->close_errors.empty()
-                             ? freighter::NIL
-                             : this->close_errors.front();
+                         ? freighter::NIL
+                         : this->close_errors.front();
         if (!this->close_errors.empty())
             this->close_errors.erase(
                 this->close_errors.begin());
         auto return_false_ok_on = this->return_false_ok_on.empty()
-                                      ? -1
-                                      : this->return_false_ok_on.front();
+                                  ? -1
+                                  : this->return_false_ok_on.front();
         if (!this->return_false_ok_on.empty())
             this->return_false_ok_on.erase(
                 this->return_false_ok_on.begin());
@@ -92,7 +92,7 @@ class MockSource : public pipeline::Source {
 public:
     synnax::TimeStamp start_ts;
 
-    explicit MockSource(synnax::TimeStamp start_ts): start_ts(start_ts) {
+    explicit MockSource(synnax::TimeStamp start_ts) : start_ts(start_ts) {
     }
 
     std::pair<Frame, freighter::Error> read() override {

@@ -28,7 +28,7 @@ enum WriterCommand : uint32_t {
 
 
 std::pair<Writer, freighter::Error> FrameClient::openWriter(
-        const WriterConfig &config) const {
+    const WriterConfig &config) const {
     auto [s, err] = writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;

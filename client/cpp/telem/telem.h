@@ -42,7 +42,7 @@ namespace synnax {
             if (!DENSITIES.count(data_type)) {
                 if (!NAMES.count(data_type))
                     throw std::runtime_error(
-                            "Tried to create unknown datatype " + data_type);
+                        "Tried to create unknown datatype " + data_type);
                 data_type = NAMES[data_type];
             }
             value = data_type;
@@ -76,53 +76,53 @@ namespace synnax {
         /// @brief Maps the data type to the 'density' of
         /// the object.
         inline static std::unordered_map<std::string, uint32_t> DENSITIES = {
-                {"",          0},
-                {"float64",   8},
-                {"float32",   4},
-                {"int8",      1},
-                {"int16",     2},
-                {"int32",     4},
-                {"int64",     8},
-                {"uint8",     1},
-                {"uint16",    2},
-                {"uint32",    4},
-                {"uint64",    8},
-                {"uint128",   16},
-                {"timestamp", 8},
-                {"uuid",      16},
-                {"string",    0},
-                {"json",      0},
+            {"",          0},
+            {"float64",   8},
+            {"float32",   4},
+            {"int8",      1},
+            {"int16",     2},
+            {"int32",     4},
+            {"int64",     8},
+            {"uint8",     1},
+            {"uint16",    2},
+            {"uint32",    4},
+            {"uint64",    8},
+            {"uint128",   16},
+            {"timestamp", 8},
+            {"uuid",      16},
+            {"string",    0},
+            {"json",      0},
         };
 
         /// @brief stores a map of C++ type indexes to their correspondign synnax data
         /// type identifiers.
         inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
-                {std::type_index(typeid(int)),                "int32"},
-                {std::type_index(typeid(double)),             "float64"},
-                {std::type_index(typeid(float)),              "float32"},
-                {std::type_index(typeid(long long)),          "int64"},
-                {std::type_index(typeid(short)),              "int16"},
-                {std::type_index(typeid(char)),               "int8"},
-                {std::type_index(typeid(unsigned int)),       "int32"},
-                {std::type_index(typeid(unsigned long long)), "uint64"},
-                {std::type_index(typeid(unsigned short)),     "uint16"},
-                {std::type_index(typeid(unsigned char)),      "uint8"},
-                {std::type_index(typeid(std::string)),        "string"},
+            {std::type_index(typeid(int)),                "int32"},
+            {std::type_index(typeid(double)),             "float64"},
+            {std::type_index(typeid(float)),              "float32"},
+            {std::type_index(typeid(long long)),          "int64"},
+            {std::type_index(typeid(short)),              "int16"},
+            {std::type_index(typeid(char)),               "int8"},
+            {std::type_index(typeid(unsigned int)),       "int32"},
+            {std::type_index(typeid(unsigned long long)), "uint64"},
+            {std::type_index(typeid(unsigned short)),     "uint16"},
+            {std::type_index(typeid(unsigned char)),      "uint8"},
+            {std::type_index(typeid(std::string)),        "string"},
         };
 
         /// @brief Maps the data type id to name
         inline static std::unordered_map<std::string, std::string> NAMES = {
-                {typeid(int).name(),                "int32"},
-                {typeid(double).name(),             "float64"},
-                {typeid(float).name(),              "float32"},
-                {typeid(long long).name(),          "int64"},
-                {typeid(short).name(),              "int16"},
-                {typeid(char).name(),               "int8"},
-                {typeid(unsigned int).name(),       "uint32"},
-                {typeid(unsigned long long).name(), "uint64"},
-                {typeid(unsigned short).name(),     "uint16"},
-                {typeid(unsigned char).name(),      "uint8"},
-                {typeid(std::string).name(),        "string"},
+            {typeid(int).name(),                "int32"},
+            {typeid(double).name(),             "float64"},
+            {typeid(float).name(),              "float32"},
+            {typeid(long long).name(),          "int64"},
+            {typeid(short).name(),              "int16"},
+            {typeid(char).name(),               "int8"},
+            {typeid(unsigned int).name(),       "uint32"},
+            {typeid(unsigned long long).name(), "uint64"},
+            {typeid(unsigned short).name(),     "uint16"},
+            {typeid(unsigned char).name(),      "uint8"},
+            {typeid(std::string).name(),        "string"},
         };
     };
 
@@ -176,8 +176,8 @@ namespace synnax {
         }
 
         explicit TimeSpan(
-                const std::chrono::duration<std::int64_t, std::nano> &duration) : value(
-                duration.count()) {
+            const std::chrono::duration<std::int64_t, std::nano> &duration) : value(
+            duration.count()) {
         }
 
         ///////////////////////////////////// COMPARISON /////////////////////////////////////
@@ -253,13 +253,19 @@ namespace synnax {
             return TimeSpan(value * other);
         }
 
-        TimeSpan operator*(const double &other) const { return TimeSpan(value * other); }
+        TimeSpan operator*(const double &other) const {
+            return TimeSpan(value * other);
+        }
 
         TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
 
-        TimeSpan operator*(const unsigned long &other) const { return TimeSpan(value * other); }
+        TimeSpan operator*(const unsigned long &other) const {
+            return TimeSpan(value * other);
+        }
 
-        TimeSpan operator*(const long long &other) const { return TimeSpan(value * other); }
+        TimeSpan operator*(const long long &other) const {
+            return TimeSpan(value * other);
+        }
 
 
         ////////////////////////////////// DIVISION /////////////////////////////////
@@ -379,7 +385,7 @@ namespace synnax {
             // note that on some machines, high res clock refs system_clock and on others it references
             // steady_clock. This could create a problem so we should probably use system_clock.
             return TimeStamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()
+                std::chrono::system_clock::now().time_since_epoch()
             ).count());
         }
 
@@ -404,7 +410,8 @@ namespace synnax {
             return TimeStamp(value + other.value);
         }
 
-        friend TimeStamp operator+(const unsigned long long &lhs, const TimeStamp &rhs) {
+        friend TimeStamp
+        operator+(const unsigned long long &lhs, const TimeStamp &rhs) {
             return TimeStamp(lhs + rhs.value);
         }
 

@@ -73,7 +73,7 @@ namespace pipeline {
         /// until the configured number of maximum retries is exceeded. Any other error
         /// is considered permanent and the pipeline will exit.
         virtual std::pair<std::unique_ptr<Streamer>, freighter::Error> openStreamer(
-                synnax::StreamerConfig config
+            synnax::StreamerConfig config
         ) = 0;
 
         virtual ~StreamerFactory() = default;
@@ -96,10 +96,10 @@ namespace pipeline {
         /// control thread lifecycle and retry requests on connection loss or temporary
         /// hardware errors.
         Control(
-                std::shared_ptr<synnax::Synnax> client,
-                synnax::StreamerConfig streamer_config,
-                std::shared_ptr<Sink> sink,
-                const breaker::Config &breaker_config
+            std::shared_ptr<synnax::Synnax> client,
+            synnax::StreamerConfig streamer_config,
+            std::shared_ptr<Sink> sink,
+            const breaker::Config &breaker_config
         );
 
         //// @brief constructs a new control pipeline that opens streamers using the given
@@ -111,10 +111,10 @@ namespace pipeline {
         /// control thread lifecycle and retry requests on connection loss or temporary
         /// hardware errors.
         Control(
-                std::shared_ptr<StreamerFactory> streamer_factory,
-                synnax::StreamerConfig streamer_config,
-                std::shared_ptr<Sink> sink,
-                const breaker::Config &breaker_config
+            std::shared_ptr<StreamerFactory> streamer_factory,
+            synnax::StreamerConfig streamer_config,
+            std::shared_ptr<Sink> sink,
+            const breaker::Config &breaker_config
         );
 
         /// @brief starts the control pipeline if it has not already been started. start is

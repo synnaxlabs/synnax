@@ -173,12 +173,14 @@ namespace ni {
         ScaleConfig(config::Parser &parser, std::string &name)
                 : name(name),
                   type(parser.required<std::string>("type")),
-                  prescaled_units(parser.optional<std::string>("pre_scaled_units", "Volts")),
+                  prescaled_units(
+                          parser.optional<std::string>("pre_scaled_units", "Volts")),
                   scaled_units(parser.optional<std::string>("scaled_units", "Volts")),
                   parser(parser) {
             if (!parser.ok()) {
-                LOG(ERROR) << "[ni.analog] failed to parse custom scale configuration for "
-                           << name;
+                LOG(ERROR)
+                        << "[ni.analog] failed to parse custom scale configuration for "
+                        << name;
                 return;
             }
             if (type == "linear") scale.linear = LinearScale(parser);

@@ -77,7 +77,8 @@ namespace opc {
             // Potential data loss
             if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
             if (dt == synnax::UINT32) return synnax::Series(value);
-            if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+            if (dt == synnax::UINT64)
+                return synnax::Series(static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
             const auto value = *static_cast<UA_UInt64 *>(val->data);
@@ -85,7 +86,8 @@ namespace opc {
             if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
             // Potential data loss
             if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
-            if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
+            if (dt == synnax::UINT32)
+                return synnax::Series(static_cast<uint32_t>(value));
             // Potential data loss
             if (dt == synnax::TIMESTAMP)
                 return
@@ -94,15 +96,19 @@ namespace opc {
         if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
             const auto value = *static_cast<UA_Byte *>(val->data);
             if (dt == synnax::UINT8) return synnax::Series(value);
-            if (dt == synnax::UINT16) return synnax::Series(static_cast<uint16_t>(value));
-            if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
-            if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+            if (dt == synnax::UINT16)
+                return synnax::Series(static_cast<uint16_t>(value));
+            if (dt == synnax::UINT32)
+                return synnax::Series(static_cast<uint32_t>(value));
+            if (dt == synnax::UINT64)
+                return synnax::Series(static_cast<uint64_t>(value));
             if (dt == synnax::INT8) return synnax::Series(static_cast<int8_t>(value));
             if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
             if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
             if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
             if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+            if (dt == synnax::FLOAT64)
+                return synnax::Series(static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
             const auto value = *static_cast<UA_SByte *>(val->data);
@@ -111,24 +117,30 @@ namespace opc {
             if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
             if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
             if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+            if (dt == synnax::FLOAT64)
+                return synnax::Series(static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
             const auto value = *static_cast<UA_Boolean *>(val->data);
             if (dt == synnax::UINT8) return synnax::Series(static_cast<uint8_t>(value));
-            if (dt == synnax::UINT16) return synnax::Series(static_cast<uint16_t>(value));
-            if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
-            if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+            if (dt == synnax::UINT16)
+                return synnax::Series(static_cast<uint16_t>(value));
+            if (dt == synnax::UINT32)
+                return synnax::Series(static_cast<uint32_t>(value));
+            if (dt == synnax::UINT64)
+                return synnax::Series(static_cast<uint64_t>(value));
             if (dt == synnax::INT8) return synnax::Series(static_cast<int8_t>(value));
             if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
             if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
             if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
             if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+            if (dt == synnax::FLOAT64)
+                return synnax::Series(static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
             const auto value = *static_cast<UA_DateTime *>(val->data);
-            if (dt == synnax::INT64) return synnax::Series(ua_datetime_to_unix_nano(value));
+            if (dt == synnax::INT64)
+                return synnax::Series(ua_datetime_to_unix_nano(value));
             if (dt == synnax::TIMESTAMP)
                 return synnax::Series(
                         ua_datetime_to_unix_nano(value));
@@ -136,7 +148,8 @@ namespace opc {
                 return synnax::Series(
                         static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
             if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+            if (dt == synnax::FLOAT64)
+                return synnax::Series(static_cast<double>(value));
         }
         return Series(1);
     }

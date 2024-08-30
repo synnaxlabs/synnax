@@ -78,7 +78,8 @@ TEST(LoopTest, testWaitBreaker) {
     brker.stop();
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = synnax::TimeSpan(end - start);
-    EXPECT_NEAR(elapsed.value, (synnax::MILLISECOND * 10).value, (synnax::MILLISECOND * 10).value);
+    EXPECT_NEAR(elapsed.value, (synnax::MILLISECOND * 10).value,
+                (synnax::MILLISECOND * 10).value);
     t.join();
 }
 

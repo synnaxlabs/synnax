@@ -50,7 +50,8 @@ int ni::DigitalReadSource::create_channels() {
     for (auto &channel: channels) {
         if (channel.channel_type != "index") {
             err = this->check_ni_error(
-                    ni::NiDAQmxInterface::CreateDIChan(task_handle, channel.name.c_str(),
+                    ni::NiDAQmxInterface::CreateDIChan(task_handle,
+                                                       channel.name.c_str(),
                                                        "", DAQmx_Val_ChanPerLine));
             VLOG(1) << "Channel name: " << channel.name;
         }
@@ -70,12 +71,13 @@ int ni::DigitalReadSource::configure_timing() {
         // if timing is not enabled, implement timing in software, reading one sample at a time
         this->num_samples_per_channel = 1;
     } else {
-        if (this->check_ni_error(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-                                                                        this->reader_config.timing_source.c_str(),
-                                                                        this->reader_config.sample_rate.value,
-                                                                        DAQmx_Val_Rising,
-                                                                        DAQmx_Val_ContSamps,
-                                                                        this->reader_config.sample_rate.value))) {
+        if (this->check_ni_error(
+                ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                                       this->reader_config.timing_source.c_str(),
+                                                       this->reader_config.sample_rate.value,
+                                                       DAQmx_Val_Rising,
+                                                       DAQmx_Val_ContSamps,
+                                                       this->reader_config.sample_rate.value))) {
             LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
                        this->reader_config.task_name;
             this->ok_state = false;
@@ -176,7 +178,8 @@ int ni::DigitalReadSource::validate_channels() {
                                         .variant = "error",
                                         .details = {
                                                 {"running", "false"},
-                                                {"message", "Channel " + channel.name + " is not of type UINT8"}
+                                                {"message", "Channel " + channel.name +
+                                                            " is not of type UINT8"}
                                         }});
             return -1;
         }

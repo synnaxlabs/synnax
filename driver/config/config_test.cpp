@@ -22,7 +22,7 @@ TEST(testConfig, testParserHappyPath) {
 
     const json j = {
         {"name", "test"},
-        {"dog", 1.0}
+        {"dog",  1.0}
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -57,7 +57,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
     MyConfig v;
     json j = {
         {"name", "test"},
-        {"dog", "1.0"}
+        {"dog",  "1.0"}
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -82,9 +82,9 @@ TEST(testConfig, testParserFieldChildHappyPath) {
     json j = {
         {
             "child", {
-                {"name", "test"},
-                {"dog", 1.0}
-            }
+            {"name", "test"},
+            {"dog", 1.0}
+        }
         }
     };
     MyConfig v;
@@ -133,9 +133,9 @@ TEST(testConfig, testParserChildFieldInvalidType) {
     json j = {
         {
             "child", {
-                {"name", "test"},
-                {"dog", "1.0"}
-            }
+            {"name", "test"},
+            {"dog", "1.0"}
+        }
         }
     };
     MyConfig v;
@@ -163,15 +163,15 @@ TEST(testConfig, testIterHappyPath) {
     const json j = {
         {
             "children", {
-                {
-                    {"name", "test1"},
-                    {"dog", 1.0}
-                },
-                {
-                    {"name", "test2"},
-                    {"dog", 2.0}
-                }
+            {
+                {"name", "test1"},
+                {"dog", 1.0}
+            },
+            {
+                {"name", "test2"},
+                {"dog", 2.0}
             }
+        }
         }
     };
 
@@ -228,9 +228,9 @@ TEST(testConfig, testIterFieldIsNotArray) {
     const json j = {
         {
             "children", {
-                {"name", "test1"},
-                {"dog", 1.0}
-            }
+            {"name", "test1"},
+            {"dog", 1.0}
+        }
         }
     };
     MyConfig v;
@@ -261,15 +261,15 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     const json j = {
         {
             "children", {
-                {
-                    {"name", "test1"},
-                    {"dog", "1.0"}
-                },
-                {
-                    {"name", "test2"},
-                    {"dog", 2.0}
-                }
+            {
+                {"name", "test1"},
+                {"dog", "1.0"}
+            },
+            {
+                {"name", "test2"},
+                {"dog", 2.0}
             }
+        }
         }
     };
 
@@ -306,7 +306,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
     ASSERT_NEAR(v.dog, 1.232, 0.0001);
 }
 
-TEST(testConfig, testArray){
+TEST(testConfig, testArray) {
     json j = {
         {"array", {1, 2, 3, 4, 5}}
     };
@@ -321,7 +321,7 @@ TEST(testConfig, testArray){
     ASSERT_EQ(values[4], 5);
 }
 
-TEST(testConfig, testArrayDoesNotExist){
+TEST(testConfig, testArrayDoesNotExist) {
     json j = {};
     config::Parser parser(j);
     auto values = parser.required_vector<int>("array");
@@ -332,7 +332,7 @@ TEST(testConfig, testArrayDoesNotExist){
     EXPECT_EQ(err["message"], "This field is required");
 }
 
-TEST(testConfig, testArrayIsNotArray){
+TEST(testConfig, testArrayIsNotArray) {
     json j = {
         {"array", 1}
     };
@@ -345,7 +345,7 @@ TEST(testConfig, testArrayIsNotArray){
     EXPECT_EQ(err["message"], "Expected an array");
 }
 
-TEST(testConfig, testOptionalArray){
+TEST(testConfig, testOptionalArray) {
     json j = {
         {"array", {1, 2, 3, 4, 5}}
     };

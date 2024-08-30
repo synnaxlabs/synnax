@@ -90,7 +90,9 @@ ni::Factory::configureInitialTasks(
         }
         tasks.emplace_back(
                 std::pair<synnax::Task, std::unique_ptr<task::Task> >({
-                                                                              sy_task, std::move(task)
+                                                                              sy_task,
+                                                                              std::move(
+                                                                                      task)
                                                                       }));
     }
     return tasks;
