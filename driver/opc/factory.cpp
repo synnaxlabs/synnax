@@ -20,7 +20,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
     if (task.type == "opc_scan")
         return {std::make_unique<Scanner>(ctx, task), true};
     if (task.type == "opc_read")
-        return {Reader::configure(ctx, task), true};
+        return {ReaderTask::configure(ctx, task), true};
     if (task.type == "opc_write")
         return {WriterTask::configure(ctx, task), true};
     return {nullptr, false};

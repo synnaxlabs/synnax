@@ -2,7 +2,8 @@ cc_library(
     name = "opc",
     srcs = [
         "factory.cpp",
-        "reader.cpp",
+        "reader_task.cpp",
+        "reader_source.cpp",
         "scanner.cpp",
         "util.cpp",
         "writer_task.cpp",
