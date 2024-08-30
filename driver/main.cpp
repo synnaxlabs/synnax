@@ -17,7 +17,7 @@
 
 #include "driver/config.h"
 #include "task/task.h"
-#include "driver/opc/opc.h"
+#include "driver/opc/opc_pub.h"
 #include "driver/meminfo/meminfo.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "glog/logging.h"
-#include "driver/opc/opc.h"
+#include "driver/opc/opc_pub.h"
 #include "driver/opc/scanner.h"
 #include "driver/opc/reader.h"
 #include "driver/opc/writer.h"

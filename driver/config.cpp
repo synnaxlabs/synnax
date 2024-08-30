@@ -11,7 +11,7 @@
 #include <fstream>
 
 #include "driver/config.h"
-#include "driver/opc/opc.h"
+#include "driver/opc/opc_pub.h"
 #include "driver/ni/ni.h"
 
 #include "nlohmann/json.hpp"

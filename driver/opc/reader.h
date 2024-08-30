@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "opc.h"
+#include "opc_pub.h"
 #include "util.h"
 #include "driver/config/config.h"
 #include "driver/task/task.h"
