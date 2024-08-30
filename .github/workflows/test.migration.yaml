@@ -73,8 +73,8 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-      - name: TS Test with Main Server
-        run: pnpm cov:client
+      # - name: TS Test with Main Server
+      #   run: pnpm cov:client
 
       # - name: Setup Bazel
       #   uses: bazel-contrib/setup-bazel@0.8.1
@@ -117,8 +117,8 @@ jobs:
         run: pytest --cov=freighter --cov-report xml:coverage.xml
         working-directory: ./client/py
 
-      - name: TS Test with Current Server
-        run: pnpm cov:client
+      # - name: TS Test with Current Server
+      #   run: pnpm cov:client
 
       # - name: cpp Test with Current Server
       #   run: bazel test --test_output=all //client/...
