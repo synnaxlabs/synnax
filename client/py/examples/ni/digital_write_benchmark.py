@@ -6,7 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-import time
 
 import synnax as sy
 from synnax.hardware import ni
@@ -15,7 +14,7 @@ from synnax.hardware import ni
 # See https://docs.synnaxlabs.com/python-client/get-started for more information.
 client = sy.Synnax()
 
-# Retrieve the USB-6000 device from Synnax.
+# Retrieve the USB-6289 device from Synnax.
 dev = client.hardware.devices.retrieve(model="USB-6289")
 
 # Create a channel that will be used to send commands to the device. We're using
