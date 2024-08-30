@@ -58,7 +58,7 @@ jobs:
       - name: Python Test with Main Server
         run: pytest --cov=freighter --cov-report xml:coverage.xml
         working-directory: ./client/py
-   
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
@@ -73,18 +73,18 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-      # - name: TS Test with Main Server
-      #   run: pnpm cov:client
+      - name: TS Test with Main Server
+        run: pnpm cov:client
 
-      # - name: Setup Bazel
-      #   uses: bazel-contrib/setup-bazel@0.8.1
-      #   with:
-      #     bazelisk-cache: true
-      #     disk-cache: ${{ github.workflow }}
-      #     repository-cache: true
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
 
-      # - name: cpp Test with Main Server
-      #   run: bazel test --test_output=all //client/...
+      - name: cpp Test with Main Server
+        run: bazel test --test_output=all //client/...
 
       - name: Stop Main Server
         run: docker stop synnax-main && docker rm synnax-main
@@ -117,11 +117,11 @@ jobs:
         run: pytest --cov=freighter --cov-report xml:coverage.xml
         working-directory: ./client/py
 
-      # - name: TS Test with Current Server
-      #   run: pnpm cov:client
+      - name: TS Test with Current Server
+        run: pnpm cov:client
 
-      # - name: cpp Test with Current Server
-      #   run: bazel test --test_output=all //client/...
+      - name: cpp Test with Current Server
+        run: bazel test --test_output=all //client/...
 
       - name: Stop Current Server
         run: docker stop synnax-current && docker rm synnax-current
