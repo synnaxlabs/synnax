@@ -20,7 +20,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Properties } from "@/hardware/ni/device/types";
-import { SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import {
   Chan,
   DIGITAL_WRITE_TYPE,
@@ -242,6 +242,14 @@ const Wrapped = ({
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
         <Form.Form {...methods}>
+          <Align.Space direction="x" justify="spaceBetween">
+            <CopyButtons
+              importClass="DigitalWriteTask"
+              taskKey={task?.key}
+              getName={() => methods.get<string>("name").value}
+              getConfig={() => methods.get<DigitalWriteConfig>("config").value}
+            />
+          </Align.Space>
           <Form.Field<string> path="name">
             {(p) => <Input.Text variant="natural" level="h1" {...p} />}
           </Form.Field>

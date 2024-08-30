@@ -2788,7 +2788,7 @@ class Task<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRe
     // (undocumented)
     readonly snapshot: boolean;
     // (undocumented)
-    snapshottedTo(): Promise<ranger.Range | null>;
+    snapshottedTo(): Promise<ontology.Resource | null>;
     // (undocumented)
     state?: State_2<D>;
     // (undocumented)

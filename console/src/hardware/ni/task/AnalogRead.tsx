@@ -22,7 +22,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -201,27 +201,6 @@ const Wrapped = ({
     },
   });
 
-  const copy = useCopyToClipboard();
-  const handleCopyPythonCode = () => {
-    const name = methods.get("name").value;
-    copy(
-      `
-      from synnax.hardware.ni import AnalogReadTask
-      # Retrieve ${name}
-      task = AnalogReadTask(client.hardware.tasks.retrieve(key=${task?.key}))
-      `,
-      `Python code for ${name}`,
-    );
-  };
-
-  const handleCopyAsJSON = () => {
-    const name = methods.get("name").value;
-    copy(
-      binary.JSON_CODEC.encodeString(methods.value().config),
-      `configuration JSON for ${name}`,
-    );
-  };
-
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
@@ -240,24 +219,12 @@ const Wrapped = ({
                 />
               )}
             </Form.Field>
-            <Align.Space direction="x" size="small">
-              <Button.Icon
-                tooltip={`Copy Python code for ${methods.get("name").value}`}
-                tooltipLocation="left"
-                variant="text"
-                onClick={handleCopyPythonCode}
-              >
-                <Icon.Python style={{ color: "var(--pluto-gray-l7)" }} />
-              </Button.Icon>
-              <Button.Icon
-                tooltip={`Copy configuration JSON for ${methods.get("name").value}`}
-                tooltipLocation="left"
-                variant="text"
-                onClick={handleCopyAsJSON}
-              >
-                <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
-              </Button.Icon>
-            </Align.Space>
+            <CopyButtons
+              importClass="AnalogReadTask"
+              taskKey={task?.key}
+              getName={() => methods.get<string>("name").value}
+              getConfig={() => methods.get("config").value}
+            />
           </Align.Space>
           <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>

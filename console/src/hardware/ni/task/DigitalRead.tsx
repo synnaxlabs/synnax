@@ -29,7 +29,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons, SelectDevice, useCopyUtils } from "@/hardware/ni/task/common";
 import {
   Chan,
   DIChan,
@@ -54,6 +54,7 @@ import {
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 
 interface ConfigureDigitalReadArgs {
@@ -210,9 +211,17 @@ const Wrapped = ({
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
         <Form.Form {...methods}>
-          <Form.Field<string> path="name">
-            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-          </Form.Field>
+          <Align.Space direction="x" justify="spaceBetween">
+            <Form.Field<string> path="name">
+              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+            </Form.Field>
+            <CopyButtons
+              importClass="DigitalReadTask"
+              taskKey={task?.key}
+              getName={() => methods.get<string>("name").value}
+              getConfig={() => methods.get("config").value}
+            />
+          </Align.Space>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
