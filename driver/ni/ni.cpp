@@ -626,8 +626,8 @@ freighter::Error ni::Source::start(const std::string &cmd_key) {
     this->start_ni(); 
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
     ctx->setState({
-        .key = cmd_key,
         .task = task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = {
             {"running", true},
@@ -644,8 +644,8 @@ freighter::Error ni::Source::stop(const std::string &cmd_key) {
     this->stop_ni();
     data_queue.reset();
     ctx->setState({
-        .key = cmd_key,
         .task = task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = {
             {"running", false},

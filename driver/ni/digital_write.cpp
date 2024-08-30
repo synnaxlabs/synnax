@@ -182,8 +182,8 @@ freighter::Error ni::DigitalWriteSink::start(const std::string &cmd_key) {
     freighter::Error err = this->start_ni();
     if(err) return err;
     ctx->setState({
-        .key = cmd_key,
         .task = this->task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = {
             {"running", true},
@@ -200,8 +200,8 @@ freighter::Error ni::DigitalWriteSink::stop(const std::string &cmd_key) {
     freighter::Error err = this->stop_ni();
     if(err) return err;
     ctx->setState({
-        .key = cmd_key,
         .task = this->task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = {
             {"running", false},
