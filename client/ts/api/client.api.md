@@ -156,7 +156,7 @@ class ChangeTracker {
 //
 // @public
 export class Channel {
-    constructor({ dataType, rate, name, leaseholder, key, isIndex, index, internal, frameClient, alias, }: NewPayload & {
+    constructor({ dataType, rate, name, leaseholder, key, isIndex, index, internal, virtual, frameClient, alias, }: NewPayload & {
         frameClient?: framer.Client;
         density?: CrudeDensity;
     });
@@ -173,6 +173,7 @@ export class Channel {
     get payload(): Payload;
     readonly rate: Rate;
     read(tr: TimeRange): Promise<MultiSeries>;
+    readonly virtual: boolean;
     write(start: CrudeTimeStamp, data: TypedArray): Promise<void>;
 }
 
@@ -1379,6 +1380,7 @@ const newPayload: z.ZodObject<z.objectUtil.extendShape<{
     index: z.ZodNumber;
     isIndex: z.ZodBoolean;
     internal: z.ZodBoolean;
+    virtual: z.ZodBoolean;
     alias: z.ZodOptional<z.ZodString>;
 }, {
     key: z.ZodOptional<z.ZodNumber>;
@@ -1750,9 +1752,11 @@ const payload: z.ZodObject<{
     index: z.ZodNumber;
     isIndex: z.ZodBoolean;
     internal: z.ZodBoolean;
+    virtual: z.ZodBoolean;
     alias: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     leaseholder: number;
+    virtual: boolean;
     isIndex: boolean;
     internal: boolean;
     name: string;
@@ -1763,6 +1767,7 @@ const payload: z.ZodObject<{
     alias?: string | undefined;
 }, {
     leaseholder: number;
+    virtual: boolean;
     isIndex: boolean;
     internal: boolean;
     name: string;

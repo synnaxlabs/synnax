@@ -67,6 +67,16 @@ class TestChannelClient:
         assert channel.data_type == sy.DataType.FLOAT64
         assert channel.rate == 1 * sy.Rate.HZ
 
+    def test_create_virtual(self, client: sy.Synnax):
+        """Should create a virtual channel"""
+        channel = client.channels.create(
+            name="test",
+            data_type=sy.DataType.JSON,
+            virtual=True
+        )
+        res = client.channels.retrieve(channel.key)
+        assert res.virtual is True
+
     def test_create_invalid_nptype(self, client: sy.Synnax):
         """Should throw a Validation Error when passing invalid numpy data type"""
         with pytest.raises(TypeError):
@@ -203,6 +213,8 @@ class TestChannelClient:
         assert len(results) == 0
 
     def test_delete_and_recreate_with_same_name(self, client: sy.Synnax):
+        """Should be able to delete, recreate, and then query a channel with the same
+        name"""
         name = str(uuid.uuid4())
         ch = client.channels.create(
             sy.Channel(

@@ -42,7 +42,6 @@ previously released packages:
 - [ ] [pluto](https://npmjs.com/package/@synnaxlabs/pluto)
 - [ ] [console](https://github.com/synnaxlabs/synnax/releases)
 
-
 ## CI Tests
 
 - [ ] I have verified that all CI tests pass.
@@ -71,7 +70,7 @@ documentation has been left stale.
 
 ### Examples
 
-I have verified that code examples for each of the following services run correctly:
+I have verified that code examples for each of the following services run correctly **after releasing new versions of the corresponding packages**:
 
 - [ ] client/py
 - [ ] client/ts
@@ -145,6 +144,7 @@ I can successfully:
 I can successfully:
 
 - [ ] Create a new channel from the search bar.
+- [ ] Create several channels with the 'Create More' flag set to true.
 - [ ] Rename a channel in the resources view.
 - [ ] Delete a channel in the resources view.
 - [ ] Delete multiple channels in the resources view.
@@ -227,19 +227,35 @@ I can successfully:
 - [ ] Open the documentation from the command search bar.
 - [ ] Open the documentation from the question mark icon.
 
+### Devices
+
+I can successfully:
+
+- [ ] Group devices in the resources view.
+- [ ] Rename a device in the resources view.
+- [ ] Delete a device in the resources view.
+
+### Tasks
+
+I can successfully:
+
+- [ ] Group tasks in the resources view.
+- [ ] Rename a task in the resources view.
+- [ ] Delete a task in the resources view.
+
 ### OPC UA
 
 #### Configuration
 
-I successfully: 
-- [ ] Updated the license on TC before continuing QA 
+I successfully:
+
+- [ ] Updated the license on TC before continuing QA
 
 I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
 - [ ] Connect to an OPC UA server running unencrypted.
 - [ ] Connect to an OPC UA server running encrypted.
-- [ ] Create additional sampling groups and move channels to them.
 - [ ] Create additional channels and move them to existing sampling groups.
 - [ ] Move and rename channels.
 - [ ] Save the device configuration.

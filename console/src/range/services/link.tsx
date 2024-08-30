@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
+import { overviewLayout } from "@/range/external";
 import { add, setActive } from "@/range/slice";
 import { fromClientRange } from "@/range/Toolbar";
 
@@ -27,12 +27,7 @@ export const linkHandler: Link.Handler = async ({
     const range = await client.ranges.retrieve(resourceKey);
     dispatch(setActive(range.key));
     dispatch(add({ ranges: fromClientRange(range) }));
-    placer(
-      LinePlot.create({
-        name: `Plot for ${range.name}`,
-        ranges: { x1: [range.key], x2: [] },
-      }),
-    );
+    placer({ ...overviewLayout, key: resourceKey });
     dispatch(Layout.setNavDrawerVisible({ windowKey, key: "range" }));
   } catch (e) {
     addStatus({

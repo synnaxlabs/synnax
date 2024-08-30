@@ -29,8 +29,13 @@ const CLS = "input-switch";
  * @default "medium"
  */
 export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
-  ({ className, value, onChange, size = "medium", ...props }: SwitchProps, ref) => (
-    <div className={CSS(CSS.BE(CLS, "container"), CSS.size(size))}>
+  (
+    { className, value, disabled, onChange, size = "medium", ...props }: SwitchProps,
+    ref,
+  ) => (
+    <div
+      className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.size(size))}
+    >
       <label className={CSS(CSS.BE(CLS, "track"), className)}>
         <input
           className={CSS.BE(CLS, "input")}
@@ -39,6 +44,7 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
           checked={value}
           onChange={(e) => onChange(e.target.checked)}
           value=""
+          disabled={disabled}
           {...props}
         />
         <span className="pluto-input-switch__slider" />
