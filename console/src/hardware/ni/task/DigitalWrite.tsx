@@ -116,7 +116,7 @@ const Wrapped = ({
 
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(
-        dev.properties.digitalOutput.stateIndex
+        dev.properties.digitalOutput.stateIndex,
       );
 
       if (!shouldCreateStateIndex) {
