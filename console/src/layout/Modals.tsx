@@ -102,7 +102,7 @@ export const BottomNavBar = ({ className, ...props }: ModalBarProps) => (
   <Nav.Bar
     location="bottom"
     size="8rem"
-    className={CSS(CSS.B("modal-bar"), className)}
+    className={CSS(CSS.B("bottom-nav-bar"), className)}
     {...props}
   />
 );
