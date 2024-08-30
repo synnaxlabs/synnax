@@ -68,6 +68,12 @@ Units = Union[
 
 
 class LinScale(BaseModel):
+    """Custom linear scaling for analog input channels.
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatelinscale.html>
+    """
+
     type: Literal["linear"] = "linear"
     slope: float
     y_intercept: float
@@ -76,6 +82,12 @@ class LinScale(BaseModel):
 
 
 class MapScale(BaseModel):
+    """Custom map scale for analog input channels.
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatemapscale.html>
+    """
+
     type: Literal["map"] = "map"
     pre_scaled_min: float
     pre_scaled_max: float
@@ -85,18 +97,42 @@ class MapScale(BaseModel):
 
 
 class TableScale(BaseModel):
+    """Custom table scale for analog input channels.
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatetablescale.html>
+    """
+
     type: Literal["table"] = "table"
     pre_scaled_vals: List[float]
     scaled_vals: List[float]
     pre_scaled_units: Units
 
 
+class PolynomialScale(BaseModel):
+    """Custom polynomial scale for analog input channels.
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatepoly3scale.html>
+    """
+
+    type: Literal["polynomial"] = "polynomial"
+    forward_coeffs: List[float]
+    reverse_coeffs: List[float]
+    pre_scaled_units: Units
+    scaled_units: Units
+
+
 class NoScale(BaseModel):
+    """Applies no scaling to the analog input channel. This is a default value that
+    should rarely be used.
+    """
+
     type: Literal["none"] = "none"
 
 
 Scale = Union[LinScale, MapScale, TableScale, NoScale]
-ScaleType = Literal["linear", "map", "table", "none"]
+ScaleType = Literal["linear", "map", "table", "polynomial", "none"]
 TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
 ExcitationSource = Literal["Internal", "External", "None"]
 

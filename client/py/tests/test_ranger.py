@@ -101,7 +101,6 @@ class TestRangeClient:
             with pytest.raises(sy.exceptions.QueryError):
                 client.ranges.retrieve(key=rng.key)
 
-
     @pytest.mark.ranger
     class TestRangeChannelResolution:
         @pytest.fixture(scope="class")

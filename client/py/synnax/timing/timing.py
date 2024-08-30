@@ -36,6 +36,7 @@ def _precise_sleep(dur: TimeSpan | float | int):
     while time.perf_counter() < end_time:
         pass
 
+
 def sleep(dur: TimeSpan | float | int, precise: bool = False):
     if precise:
         return _precise_sleep(dur)

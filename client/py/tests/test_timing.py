@@ -26,7 +26,7 @@ class TestTiming:
         accumulated_precise = list()
         accumulated_standard = list()
         for _ in range(50):
-            duration = (sy.TimeSpan.MICROSECOND * float(np.random.uniform(100, 5_000)))
+            duration = sy.TimeSpan.MICROSECOND * float(np.random.uniform(100, 5_000))
             start = time.perf_counter_ns()
             sy.sleep(duration.seconds, precise=False)
             time_elapsed = time.perf_counter_ns() - start

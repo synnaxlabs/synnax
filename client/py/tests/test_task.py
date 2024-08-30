@@ -52,12 +52,14 @@ class TestTaskClient:
                     cmd = f["sy_task_cmd"][0]
                     w.write(
                         "sy_task_state",
-                        [{
-                            "key": cmd["key"],
-                            "task": cmd["task"],
-                            "variant": "success",
-                            "details": {"message": "Command executed."},
-                        }]
+                        [
+                            {
+                                "key": cmd["key"],
+                                "task": cmd["task"],
+                                "variant": "success",
+                                "details": {"message": "Command executed."},
+                            }
+                        ],
                     )
 
         ev = threading.Event()

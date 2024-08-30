@@ -41,7 +41,7 @@ do_1_state = client.channels.create(
     # Pass in the index key here to associate the channel with the index channel.
     index=do_state_time.key,
     data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True, 
+    retrieve_if_name_exists=True,
 )
 
 # Instantiate the task. A task is a background process that can be used to acquire data
@@ -69,7 +69,7 @@ tsk = ni.DigitalWriteTask(
             state_channel=do_1_state.key,
             # The port and line on the device that the digital output is connected to.
             port=0,
-            line=0
+            line=0,
         ),
     ],
 )
@@ -116,7 +116,7 @@ print(f"P50 latency: {p50} ms")
 # make the line skinnier and the plot wider
 plt.plot(amortized, linewidth=0.5)
 # plot the average for every 50 requests in red
-plt.plot(np.convolve(amortized, np.ones(50)/50, mode='valid'), color='red')
+plt.plot(np.convolve(amortized, np.ones(50) / 50, mode="valid"), color="red")
 
 
 plt.xlabel("Request #")

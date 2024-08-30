@@ -26,11 +26,7 @@ class TaskState(Payload):
     details: dict
 
     def __init__(
-        self,
-        task: int = 0,
-        variant: str = "",
-        key: str = "",
-        details: dict | str = ""
+        self, task: int = 0, variant: str = "", key: str = "", details: dict | str = ""
     ):
         if isinstance(details, str):
             details = json.loads(details)

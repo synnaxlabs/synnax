@@ -230,10 +230,7 @@ class Controller:
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
         res = retrieve_required(self._retriever, channels)
-        return self.wait_until(
-            lambda c: all(v.key in c.state for v in res),
-            timeout
-        )
+        return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
 
     def release(self):
         """Release control and shuts down the controller. No further control operations

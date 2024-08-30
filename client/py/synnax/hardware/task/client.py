@@ -138,7 +138,9 @@ class Task:
                 print(TimeSpan.parse_seconds(timeout).seconds)
                 frame = s.read(TimeSpan.parse_seconds(timeout).seconds)
                 if frame is None:
-                    raise TimeoutError(f"timed out waiting for driver to acknowledge {type_} command")
+                    raise TimeoutError(
+                        f"timed out waiting for driver to acknowledge {type_} command"
+                    )
                 elif _TASK_STATE_CHANNEL not in frame:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
@@ -148,9 +150,11 @@ class Task:
                     if state.key == key:
                         return state
                 except ValidationError as e:
-                    raise UnexpectedError(f"""
+                    raise UnexpectedError(
+                        f"""
                     Received invalid task state from driver.
-                    """) from e
+                    """
+                    ) from e
 
 
 class MetaTask(Protocol):

@@ -42,7 +42,7 @@ do_1_state = client.channels.create(
     # Pass in the index key here to associate the channel with the index channel.
     index=do_state_time.key,
     data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True, 
+    retrieve_if_name_exists=True,
 )
 
 # Instantiate the task. A task is a background process that can be used to acquire data
@@ -70,7 +70,7 @@ tsk = ni.DigitalWriteTask(
             state_channel=do_1_state.key,
             # The port and line on the device that the digital output is connected to.
             port=0,
-            line=0
+            line=0,
         ),
     ],
 )
