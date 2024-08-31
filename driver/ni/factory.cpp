@@ -69,7 +69,6 @@ ni::Factory::configureInitialTasks(
     }
 
     if (!hasScanner) {
-        std::cout << "Creating niScanner task" << std::endl;
         auto sy_task = synnax::Task(
                 rack.key,
                 "ni scanner",

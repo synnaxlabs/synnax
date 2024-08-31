@@ -83,16 +83,16 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
         write=[TPC_CMD, MPV_CMD, SUPPLY_CMD, VENT_CMD, PRESS_ISO_CMD],
         read=[TPC_CMD_ACK, PRESS_TANK_PT, FUEL_TANK_PT, START_SIM_CMD],
         write_authorities=[250],
-    ) as auto:
+    ) as ctrl:
         if wait_for_confirm:
-            auto.wait_until(start_sim_cmd)
+            ctrl.wait_until(start_sim_cmd)
         try:
             parent_rng = client.ranges.create(
                 name="TPC Test",
                 time_range=sy.TimeRange(sy.TimeStamp.now(), sy.TimeStamp.now()),
             )
             print("Starting TPC Test. Setting initial system state.")
-            auto.set(
+            ctrl.set(
                 {
                     TPC_CMD: 0,
                     MPV_CMD: 0,
@@ -101,29 +101,29 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 }
             )
 
-            time.sleep(2)
+            ctrl.sleep(2)
 
             print(f"Pressing SCUBA and L-Stand to 50 PSI")
 
             # Pressurize l-stand and scuba to 50 PSI
             # Open TPC Valve
-            auto[TPC_CMD] = True
-            auto[PRESS_ISO_CMD] = True
+            ctrl[TPC_CMD] = True
+            ctrl[PRESS_ISO_CMD] = True
 
             dual_press_start = sy.TimeStamp.now()
 
             curr_target = params.press_1_step
             while True:
                 print(f"Pressing L-Stand to {curr_target} PSI")
-                auto[SUPPLY_CMD] = True
-                auto.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
-                auto[SUPPLY_CMD] = False
+                ctrl[SUPPLY_CMD] = True
+                ctrl.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
+                ctrl[SUPPLY_CMD] = False
                 curr_target += params.press_1_step
                 curr_target = min(curr_target, params.l_stand_press_target)
-                if auto[FUEL_TANK_PT] > params.l_stand_press_target:
+                if ctrl[FUEL_TANK_PT] > params.l_stand_press_target:
                     break
                 print("Taking a nap")
-                time.sleep(params.press_step_delay)
+                ctrl.sleep(params.press_step_delay)
 
             dual_press_end = sy.TimeStamp.now()
             parent_rng.create_sub_range(
@@ -135,26 +135,26 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             press_tank_start = sy.TimeStamp.now()
 
             print("Pressurized. Waiting for five seconds")
-            time.sleep(params.press_step_delay)
+            ctrl.sleep(params.press_step_delay)
             # ISO off TESCOM and press scuba with ISO
-            auto[TPC_CMD] = False
-            auto[PRESS_ISO_CMD] = False
-            auto[SUPPLY_CMD] = False
+            ctrl[TPC_CMD] = False
+            ctrl[PRESS_ISO_CMD] = False
+            ctrl[SUPPLY_CMD] = False
 
             curr_target = params.l_stand_press_target + params.press_2_step
             while True:
-                auto[SUPPLY_CMD] = True
-                auto.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
-                auto[SUPPLY_CMD] = False
+                ctrl[SUPPLY_CMD] = True
+                ctrl.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
+                ctrl[SUPPLY_CMD] = False
                 curr_target += params.press_2_step
                 curr_target = min(curr_target, params.scuba_press_target)
-                if auto[PRESS_TANK_PT] > params.scuba_press_target:
+                if ctrl[PRESS_TANK_PT] > params.scuba_press_target:
                     break
                 print("Taking a nap")
-                time.sleep(params.press_step_delay)
+                ctrl.sleep(params.press_step_delay)
 
             print("Pressurized. Waiting for five seconds")
-            time.sleep(2)
+            ctrl.sleep(2)
 
             press_tank_end = sy.TimeStamp.now()
             parent_rng.create_sub_range(
@@ -166,9 +166,9 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             start = sy.TimeStamp.now()
 
             print("Opening MPV")
-            auto[PRESS_ISO_CMD] = True
-            auto[MPV_CMD] = True
-            auto.wait_until(lambda c: run_tpc(c))
+            ctrl[PRESS_ISO_CMD] = True
+            ctrl[MPV_CMD] = True
+            ctrl.wait_until(lambda c: run_tpc(c))
             print("Test complete. Safeing System")
 
             rng = parent_rng.create_sub_range(
@@ -188,7 +188,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 }
             )
 
-            auto.set(
+            ctrl.set(
                 {
                     TPC_CMD: 1,
                     SUPPLY_CMD: 0,
@@ -202,7 +202,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
         except KeyboardInterrupt:
             print("Test interrupted. Safeing System")
-            auto.set(
+            ctrl.set(
                 {
                     TPC_CMD: 1,
                     SUPPLY_CMD: 0,
@@ -241,7 +241,7 @@ if __name__ == "__main__":
         tpc_upper_bound=50,
         tpc_lower_bound=45,
     )
-    res = execute_auto(initial_params, wait_for_confirm=False)
+    res = execute_auto(initial_params, wait_for_confirm=True)
     next_params = perform_analysis(initial_params, res)
     res = execute_auto(next_params)
     next_params.tpc_upper_bound = initial_params.tpc_upper_bound

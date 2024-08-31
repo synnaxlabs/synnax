@@ -13,7 +13,9 @@ client = sy.Synnax(
 
 def main():
     channels = client.channels.retrieve([".*"])
-    client.channels.delete([channel.key for channel in channels if not channel.internal])
+    client.channels.delete(
+        [channel.key for channel in channels if not channel.internal]
+    )
 
 
 if __name__ == "__main__":

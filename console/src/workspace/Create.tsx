@@ -94,14 +94,14 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
           </Form.Field>
         </Form.Form>
       </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+      <Layout.BottomNavBar>
+        <Nav.Bar.Start size="small">
           <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
-            To Save
+            To Create
           </Text.Text>
         </Nav.Bar.Start>
-        <Nav.Bar.End style={{ padding: "1rem", paddingRight: "1.5rem" }}>
+        <Nav.Bar.End>
           <Button.Button
             type="submit"
             form="create-workspace"
@@ -111,10 +111,10 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             onClick={() => mutate()}
             triggers={[SAVE_TRIGGER]}
           >
-            Save
+            Create
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Layout.BottomNavBar>
     </Align.Space>
   );
 };

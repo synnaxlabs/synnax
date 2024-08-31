@@ -23,12 +23,17 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { componentRenderProp, RenderProp } from "@/util/renderProp";
 
+interface FieldChild<I extends Input.Value, O extends Input.Value>
+  extends Input.Control<I, O> {
+  variant?: Input.Variant;
+}
+
 export type FieldProps<
   I extends Input.Value = string | number,
   O extends Input.Value = I,
 > = (UseFieldProps<I, O> | UseNullableFieldProps<I, O>) &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
-    children?: RenderProp<Input.Control<I, O>>;
+    children?: RenderProp<FieldChild<I, O>>;
     padHelpText?: boolean;
     visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
     hideIfNull?: boolean;
@@ -45,7 +50,7 @@ export const Field = <
   O extends Input.Value = I,
 >({
   path,
-  children = defaultInput as unknown as RenderProp<Input.Control<I, O>>,
+  children = defaultInput as unknown as RenderProp<FieldChild<I, O>>,
   label,
   padHelpText = true,
   visible = true,
@@ -68,6 +73,8 @@ export const Field = <
   if (!visible) return null;
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
+  const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
+  if (field.variant != null) childrenProps.variant = field.variant;
   return (
     <Input.Item
       padHelpText={padHelpText}
@@ -82,7 +89,7 @@ export const Field = <
       )}
       {...props}
     >
-      {children({ onChange: fieldOnChange, value })}
+      {children(childrenProps)}
     </Input.Item>
   );
 };

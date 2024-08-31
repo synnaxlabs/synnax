@@ -53,7 +53,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
           padHelpText={false}
           showLabel={false}
         >
-          {({ onChange, ...p }) => (
+          {({ onChange, variant: _, ...p }) => (
             <Color.Swatch onChange={(color) => onChange(color.hex)} {...p} />
           )}
         </Form.Field>
