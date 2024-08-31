@@ -89,14 +89,14 @@ export const Confirm: Layout.Renderer = ({ layoutKey, onClose }) => {
           {description}
         </Text.Text>
       </Align.Space>
-      <Nav.Bar location="bottom" size="7rem">
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+      <Layout.BottomNavBar>
+        <Nav.Bar.Start size="small">
           <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
             To {confirmLabel.toLowerCase()}
           </Text.Text>
         </Nav.Bar.Start>
-        <Nav.Bar.End direction="x" align="center" style={{ paddingRight: "2rem" }}>
+        <Nav.Bar.End direction="x" align="center">
           <Button.Button
             variant="outlined"
             status={cancelVariant}
@@ -112,7 +112,7 @@ export const Confirm: Layout.Renderer = ({ layoutKey, onClose }) => {
             {confirmLabel}
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Layout.BottomNavBar>
     </Align.Space>
   );
 };

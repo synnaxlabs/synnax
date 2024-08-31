@@ -6,6 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 from __future__ import annotations
 
 from typing import overload
@@ -25,7 +26,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
 from synnax.exceptions import NotFoundError, MultipleFoundError, ValidationError
 from synnax.framer.client import Client as FrameClient
-from synnax.ontology.id import OntologyID
+from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
     CrudeRate,
@@ -35,11 +36,9 @@ from synnax.telem import (
     Series,
     TimeRange,
 )
-
 from synnax.util.normalize import normalize
 
-
-channel_ontology_type = OntologyID(type="channel")
+CHANNEL_ONTOLOGY_TYPE = ID(type="channel")
 
 
 class Channel(ChannelPayload):
@@ -266,6 +265,8 @@ class ChannelClient:
         """
 
         if channels is None:
+            if is_index and data_type == DataType.UNKNOWN:
+                data_type = DataType.TIMESTAMP
             _channels = [
                 ChannelPayload(
                     name=name,

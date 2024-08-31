@@ -31,7 +31,7 @@ import { useSelectMany } from "@/cluster/selectors";
 import { isLocalCluster, LOCAL_CLUSTER_KEY, set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
@@ -89,7 +89,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       const state = await testConnection(data);
       setLoading(null);
       if (state.status !== "connected") return setConnState(state);
-      if (isLocalCluster(data)) state.clusterKey = LOCAL_CLUSTER_KEY;
+      // if (isLocalCluster(data)) state.clusterKey = LOCAL_CLUSTER_KEY;
       dispatch(
         set({
           key: state.clusterKey,
@@ -149,8 +149,8 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           </Align.Space>
         </Align.Space>
       </Form.Form>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start className={CSS.BE("footer", "start")} size="small">
+      <Layout.BottomNavBar>
+        <Nav.Bar.Start size="small">
           {connState != null ? (
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
@@ -166,7 +166,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             </>
           )}
         </Nav.Bar.Start>
-        <Nav.Bar.End className={CSS.BE("footer", "end")}>
+        <Nav.Bar.End>
           <Button.Button
             loading={loading === "test"}
             disabled={loading !== null}
@@ -184,7 +184,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             Done
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Layout.BottomNavBar>
     </Align.Space>
   );
 };

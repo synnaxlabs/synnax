@@ -110,11 +110,11 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
       name: l.name,
       data: l,
     }));
-    const base = await this.ontology.openDependentTracker(
-      new ontology.ID(id),
-      initial,
-      "labeled_by",
-    );
+    const base = await this.ontology.openDependentTracker({
+      target: new ontology.ID(id),
+      dependents: initial,
+      relationshipType: "labeled_by",
+    });
     base.onChange((resources: ontology.Resource[]) =>
       wrapper.notify(
         resources.map((r) => ({

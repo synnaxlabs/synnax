@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { task, UnexpectedError } from "@synnaxlabs/client";
+import { ontology, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -23,6 +23,7 @@ import {
   Synnax,
   Text,
   Triggers,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { caseconv, deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
@@ -33,12 +34,14 @@ import { z } from "zod";
 import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { overviewLayout } from "@/range/external";
 
 export interface ControlsProps {
   onStartStop: () => void;
   startingOrStopping: boolean;
   onConfigure: () => void;
   configuring: boolean;
+  snapshot?: boolean;
   state?: task.State<{ running?: boolean; message?: string }>;
 }
 
@@ -46,15 +49,21 @@ const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export interface ChannelListEmptyContentProps {
   onAdd: () => void;
+  snapshot?: boolean;
 }
 
-export const ChannelListEmptyContent = ({ onAdd }: ChannelListEmptyContentProps) => (
+export const ChannelListEmptyContent = ({
+  onAdd,
+  snapshot = false,
+}: ChannelListEmptyContentProps) => (
   <Align.Space direction="y" style={{ height: "100%" }}>
     <Align.Center direction="y">
       <Text.Text level="p">No channels in task.</Text.Text>
-      <Text.Link level="p" onClick={onAdd}>
-        Add a channel
-      </Text.Link>
+      {!snapshot && (
+        <Text.Link level="p" onClick={onAdd}>
+          Add a channel
+        </Text.Link>
+      )}
     </Align.Center>
   </Align.Space>
 );
@@ -64,8 +73,9 @@ interface ChannelListContextMenuProps<T> {
   value: T[];
   onSelect: (keys: string[], index: number) => void;
   remove: (indices: number[]) => void;
-  onDuplicate?: (indices: number[]) => void;
   path: string;
+  onDuplicate?: (indices: number[]) => void;
+  snapshot?: boolean;
 }
 
 export const ChannelListContextMenu = <
@@ -78,6 +88,7 @@ export const ChannelListContextMenu = <
   remove,
   onDuplicate,
   path,
+  snapshot,
 }: ChannelListContextMenuProps<T>) => {
   const methods = Form.useContext();
   const indices = keys.map((k) => value.findIndex((v) => v.key === k));
@@ -108,26 +119,30 @@ export const ChannelListContextMenu = <
       }}
       level="small"
     >
-      <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-        Remove
-      </Menu.Item>
-      {onDuplicate != null && (
-        <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
-          Duplicate
-        </Menu.Item>
+      {!snapshot && (
+        <>
+          <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+            Remove
+          </Menu.Item>
+          {onDuplicate != null && (
+            <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+              Duplicate
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {allowDisable && (
+            <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+              Disable
+            </Menu.Item>
+          )}
+          {allowEnable && (
+            <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+              Enable
+            </Menu.Item>
+          )}
+          {(allowEnable || allowDisable) && <Menu.Divider />}
+        </>
       )}
-      <Menu.Divider />
-      {allowDisable && (
-        <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
-          Disable
-        </Menu.Item>
-      )}
-      {allowEnable && (
-        <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
-          Enable
-        </Menu.Item>
-      )}
-      {(allowEnable || allowDisable) && <Menu.Divider />}
       <CMenu.HardReloadItem />
     </Menu.Menu>
   );
@@ -180,47 +195,60 @@ export const Controls = ({
   startingOrStopping,
   onConfigure,
   configuring,
-}: ControlsProps) => (
-  <Align.Space direction="x" className={CSS.B("task-controls")} justify="spaceBetween">
-    <Align.Space
-      className={CSS.B("task-state")}
-      direction="x"
-      style={{
-        borderRadius: "1rem",
-        border: "var(--pluto-border)",
-        padding: "2rem",
-        width: "100%",
-      }}
-    >
-      {state?.details?.message != null && (
-        <Status.Text variant={state?.variant as Status.Variant}>
-          {state?.details?.message}
-        </Status.Text>
-      )}
-    </Align.Space>
+  snapshot = false,
+}: ControlsProps) => {
+  let content: ReactElement | null = null;
+  if (state?.details?.message != null)
+    content = (
+      <Status.Text variant={state?.variant as Status.Variant}>
+        {state?.details?.message}
+      </Status.Text>
+    );
+  if (snapshot)
+    content = (
+      <Status.Text.Centered variant="disabled" hideIcon>
+        This task is a snapshot and cannot be modified or started.
+      </Status.Text.Centered>
+    );
+  return (
     <Align.Space
       direction="x"
-      style={{
-        borderRadius: "1rem",
-        border: "var(--pluto-border)",
-        padding: "2rem",
-      }}
-      justify="end"
+      className={CSS.B("task-controls")}
+      justify="spaceBetween"
     >
-      <Align.Space direction="y">
+      <Align.Space
+        className={CSS.B("task-state")}
+        direction="x"
+        style={{
+          borderRadius: "1rem",
+          border: "var(--pluto-border)",
+          padding: "2rem",
+          width: "100%",
+        }}
+      >
+        {content}
+      </Align.Space>
+      <Align.Space
+        direction="x"
+        bordered
+        rounded
+        style={{
+          padding: "2rem",
+          borderRadius: "1rem",
+        }}
+        justify="end"
+      >
         <Button.Icon
           loading={startingOrStopping}
-          disabled={startingOrStopping || state == null}
+          disabled={startingOrStopping || state == null || snapshot}
           onClick={onStartStop}
           variant="outlined"
         >
           {state?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
         </Button.Icon>
-      </Align.Space>
-      <Align.Space direction="y">
         <Button.Button
           loading={configuring}
-          disabled={configuring}
+          disabled={configuring || snapshot}
           onClick={onConfigure}
           triggers={[CONFIGURE_TRIGGER]}
           tooltip={
@@ -236,38 +264,47 @@ export const Controls = ({
         </Button.Button>
       </Align.Space>
     </Align.Space>
-  </Align.Space>
-);
+  );
+};
 
-export const ChannelListHeader = ({ onAdd }: ChannelListEmptyContentProps) => (
+export interface ChannelListHeaderProps extends ChannelListEmptyContentProps {}
+
+export const ChannelListHeader = ({ onAdd, snapshot }: ChannelListHeaderProps) => (
   <Header.Header level="h4">
     <Header.Title weight={500}>Channels</Header.Title>
-    <Header.Actions>
-      {[
-        {
-          key: "add",
-          onClick: onAdd,
-          children: <Icon.Add />,
-          size: "large",
-        },
-      ]}
-    </Header.Actions>
+    {!snapshot && (
+      <Header.Actions>
+        {[
+          {
+            key: "add",
+            onClick: onAdd,
+            children: <Icon.Add />,
+            size: "large",
+          },
+        ]}
+      </Header.Actions>
+    )}
   </Header.Header>
 );
 
 export interface EnableDisableButtonProps {
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
+  snapshot?: boolean;
 }
 
 export const EnableDisableButton = ({
   value,
   onChange: onClick,
+  disabled,
+  snapshot = false,
 }: EnableDisableButtonProps) => (
   <Button.Toggle
-    checkedVariant="outlined"
-    uncheckedVariant="outlined"
+    checkedVariant={snapshot ? "preview" : "outlined"}
+    uncheckedVariant={snapshot ? "preview" : "outlined"}
     className={CSS.B("enable-disable-button")}
+    disabled={disabled}
     value={value}
     size="small"
     onClick={(e) => e.stopPropagation()}
@@ -315,13 +352,18 @@ export interface WrappedTaskLayoutProps<T extends task.Task, P extends task.Payl
   initialValues: P;
 }
 
+export interface TaskLayoutArgs<P extends task.Payload> {
+  create: boolean;
+  initialValues?: deep.Partial<P>;
+}
+
 export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
   Wrapped: FC<WrappedTaskLayoutProps<T, P>>,
   zeroPayload: P,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const client = Synnax.use();
-    const args = Layout.useSelectArgs<{ create: boolean }>(layoutKey);
+    const args = Layout.useSelectArgs<TaskLayoutArgs<P>>(layoutKey);
     const altKey = Layout.useSelectAltKey(layoutKey);
     const id = useId();
     // The query can't take into account state changes, so we need to use a unique
@@ -329,8 +371,12 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
     const fetchTask = useQuery<WrappedTaskLayoutProps<T, P>>({
       queryKey: [layoutKey, client?.key, altKey, id],
       queryFn: async () => {
-        if (client == null || args.create)
-          return { initialValues: deep.copy(zeroPayload), layoutKey };
+        if (client == null || args.create) {
+          let initialValues = deep.copy(zeroPayload);
+          if (args.initialValues != null)
+            initialValues = deep.override(initialValues, args.initialValues);
+          return { initialValues, layoutKey };
+        }
         // try to parse the key as a big int. If the parse fails, set the lat key as a key
         let key: string = layoutKey;
         try {
@@ -361,4 +407,62 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
   };
   Wrapper.displayName = `TaskWrapper(${Wrapped.displayName ?? Wrapped.name})`;
   return Wrapper;
+};
+
+export interface ParentRangeButtonProps {
+  taskKey?: string;
+}
+
+export const ParentRangeButton = ({
+  taskKey,
+}: ParentRangeButtonProps): ReactElement | null => {
+  const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+  const [parent, setParent] = useState<ontology.Resource | null>();
+  const placer = Layout.usePlacer();
+
+  useAsyncEffect(async () => {
+    try {
+      if (client == null || taskKey == null) return;
+      const tsk = await client.hardware.tasks.retrieve(taskKey);
+      const parent = await tsk.snapshottedTo();
+      if (parent != null) setParent(parent);
+      const tracker = await client.ontology.openDependentTracker({
+        target: new ontology.ID({ key: taskKey, type: "task" }),
+        dependents: parent == null ? [] : [parent],
+        relationshipDirection: "to",
+      });
+      tracker.onChange((parents) => {
+        if (parents.length === 0) return setParent(null);
+        setParent(parents[0]);
+      });
+      return async () => await tracker.close();
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        message: `Failed to retrieve child ranges`,
+        description: (e as Error).message,
+      });
+      return undefined;
+    }
+  }, [taskKey, client?.key]);
+  if (parent == null) return null;
+  return (
+    <Align.Space direction="x" size="small" align="center">
+      <Text.Text level="p">Snapshotted to</Text.Text>
+      <Button.Button
+        variant="text"
+        shade={7}
+        weight={400}
+        startIcon={<Icon.Range />}
+        iconSpacing="small"
+        style={{ padding: "1rem" }}
+        onClick={() =>
+          placer({ ...overviewLayout, key: parent.id.key, name: parent.name })
+        }
+      >
+        {parent.name}
+      </Button.Button>
+    </Align.Space>
+  );
 };

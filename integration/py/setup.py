@@ -35,7 +35,9 @@ def create_channels(tc: SetUpConfig):
 
     num_data_channels_per_index = tc.num_data // tc.num_index
     for ind in range(tc.num_index):
-        for k in range(num_data_channels_per_index,):
+        for k in range(
+            num_data_channels_per_index,
+        ):
             ch = client.channels.create(
                 name=f"int{ind}-{k}",
                 index=channels[ind],

@@ -66,6 +66,7 @@ type Task struct {
 	Config   string `json:"config" msgpack:"config"`
 	State    *State `json:"state" msgpack:"state"`
 	Internal bool   `json:"internal" msgpack:"internal"`
+	Snapshot bool   `json:"snapshot" msgpack:"snapshot"`
 }
 
 func (t Task) String() string {
