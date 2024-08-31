@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { ontology, ranger, task, UnexpectedError } from "@synnaxlabs/client";
+import { ontology, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -196,39 +196,48 @@ export const Controls = ({
   onConfigure,
   configuring,
   snapshot = false,
-}: ControlsProps) => (
-  <Align.Space direction="x" className={CSS.B("task-controls")} justify="spaceBetween">
-    <Align.Space
-      className={CSS.B("task-state")}
-      direction="x"
-      style={{
-        borderRadius: "1rem",
-        border: "var(--pluto-border)",
-        padding: "2rem",
-        width: "100%",
-      }}
-    >
-      {snapshot && (
-        <Status.Text.Centered variant="disabled" hideIcon>
-          This task is a snapshot and cannot be modified or started.
-        </Status.Text.Centered>
-      )}
-      {state?.details?.message != null && (
-        <Status.Text variant={state?.variant as Status.Variant}>
-          {state?.details?.message}
-        </Status.Text>
-      )}
-    </Align.Space>
+}: ControlsProps) => {
+  let content: ReactElement | null = null;
+  if (state?.details?.message != null)
+    content = (
+      <Status.Text variant={state?.variant as Status.Variant}>
+        {state?.details?.message}
+      </Status.Text>
+    );
+  if (snapshot)
+    content = (
+      <Status.Text.Centered variant="disabled" hideIcon>
+        This task is a snapshot and cannot be modified or started.
+      </Status.Text.Centered>
+    );
+  return (
     <Align.Space
       direction="x"
-      style={{
-        borderRadius: "1rem",
-        border: "var(--pluto-border)",
-        padding: "2rem",
-      }}
-      justify="end"
+      className={CSS.B("task-controls")}
+      justify="spaceBetween"
     >
-      <Align.Space direction="y">
+      <Align.Space
+        className={CSS.B("task-state")}
+        direction="x"
+        style={{
+          borderRadius: "1rem",
+          border: "var(--pluto-border)",
+          padding: "2rem",
+          width: "100%",
+        }}
+      >
+        {content}
+      </Align.Space>
+      <Align.Space
+        direction="x"
+        bordered
+        rounded
+        style={{
+          padding: "2rem",
+          borderRadius: "1rem",
+        }}
+        justify="end"
+      >
         <Button.Icon
           loading={startingOrStopping}
           disabled={startingOrStopping || state == null || snapshot}
@@ -237,8 +246,6 @@ export const Controls = ({
         >
           {state?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
         </Button.Icon>
-      </Align.Space>
-      <Align.Space direction="y">
         <Button.Button
           loading={configuring}
           disabled={configuring || snapshot}
@@ -257,8 +264,8 @@ export const Controls = ({
         </Button.Button>
       </Align.Space>
     </Align.Space>
-  </Align.Space>
-);
+  );
+};
 
 export interface ChannelListHeaderProps extends ChannelListEmptyContentProps {}
 
@@ -345,13 +352,18 @@ export interface WrappedTaskLayoutProps<T extends task.Task, P extends task.Payl
   initialValues: P;
 }
 
+export interface TaskLayoutArgs<P extends task.Payload> {
+  create: boolean;
+  initialValues?: deep.Partial<P>;
+}
+
 export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
   Wrapped: FC<WrappedTaskLayoutProps<T, P>>,
   zeroPayload: P,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const client = Synnax.use();
-    const args = Layout.useSelectArgs<{ create: boolean }>(layoutKey);
+    const args = Layout.useSelectArgs<TaskLayoutArgs<P>>(layoutKey);
     const altKey = Layout.useSelectAltKey(layoutKey);
     const id = useId();
     // The query can't take into account state changes, so we need to use a unique
@@ -359,8 +371,12 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
     const fetchTask = useQuery<WrappedTaskLayoutProps<T, P>>({
       queryKey: [layoutKey, client?.key, altKey, id],
       queryFn: async () => {
-        if (client == null || args.create)
-          return { initialValues: deep.copy(zeroPayload), layoutKey };
+        if (client == null || args.create) {
+          let initialValues = deep.copy(zeroPayload);
+          if (args.initialValues != null)
+            initialValues = deep.override(initialValues, args.initialValues);
+          return { initialValues, layoutKey };
+        }
         // try to parse the key as a big int. If the parse fails, set the lat key as a key
         let key: string = layoutKey;
         try {

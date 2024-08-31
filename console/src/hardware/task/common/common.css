@@ -39,7 +39,7 @@
             .console-channels {
                 border-right: var(--pluto-border);
                 overflow: hidden;
-                max-width: 250px;
+                max-width: 300px;
                 height: 100%;
                 flex-shrink: 1;
                 flex-grow: 1;

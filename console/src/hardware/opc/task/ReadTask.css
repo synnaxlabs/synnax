@@ -17,9 +17,6 @@
     }
     .console-channels {
         height: 100%;
-        .pluto-menu-context__container {
-            max-height: calc(100% - 200px);
-        }
         &.console-dragging {
             border-color: var(--pluto-primary-z);
         }

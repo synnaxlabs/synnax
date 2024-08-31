@@ -40,6 +40,7 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -47,26 +48,25 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
-interface ConfigureDigitalWriteArgs {
-  create: boolean;
-}
-
 export const configureDigitalWriteLayout = (
-  create: boolean = false,
-): Layout.State<ConfigureDigitalWriteArgs> => ({
+  args: TaskLayoutArgs<DigitalWritePayload> = { create: true },
+): Layout.State<TaskLayoutArgs<DigitalWritePayload>> => ({
   name: "Configure NI Digital Write Task",
   key: id.id(),
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",
-  args: { create },
+  args,
 });
 
 export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({ ...configureDigitalWriteLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...configureDigitalWriteLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const Wrapped = ({
@@ -241,8 +241,11 @@ const Wrapped = ({
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
-        <Form.Form {...methods}>
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
+            <Form.Field<string> path="name">
+              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+            </Form.Field>
             <CopyButtons
               importClass="DigitalWriteTask"
               taskKey={task?.key}
@@ -250,9 +253,6 @@ const Wrapped = ({
               getConfig={() => methods.get<DigitalWriteConfig>("config").value}
             />
           </Align.Space>
-          <Form.Field<string> path="name">
-            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-          </Form.Field>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -277,6 +277,7 @@ const Wrapped = ({
             <ChannelList
               path="config.channels"
               selected={selectedChannels}
+              snapshot={task?.snapshot}
               onSelect={useCallback(
                 (v, i) => {
                   setSelectedChannels(v);
@@ -300,6 +301,7 @@ const Wrapped = ({
         <Controls
           state={taskState}
           startingOrStopping={start.isPending}
+          snapshot={task?.snapshot}
           configuring={configure.isPending}
           onStartStop={start.mutate}
           onConfigure={configure.mutate}
@@ -328,9 +330,15 @@ interface ChannelListProps {
   path: string;
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
+  snapshot?: boolean;
 }
 
-const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
+const ChannelList = ({
+  path,
+  snapshot,
+  selected,
+  onSelect,
+}: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<DOChan>({ path });
   const handleAdd = (): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
@@ -381,7 +389,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => <ChannelListItem {...props} path={path} />}
+              {(props) => (
+                <ChannelListItem {...props} path={path} snapshot={snapshot} />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>
@@ -392,9 +402,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 
 const ChannelListItem = ({
   path,
+  snapshot = false,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
+  snapshot?: boolean;
 }): ReactElement => {
   const { entry } = props;
   const hasLine = "line" in entry;
@@ -481,6 +493,7 @@ const ChannelListItem = ({
       <EnableDisableButton
         value={childValues.enabled}
         onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+        snapshot={snapshot}
       />
     </List.ItemFrame>
   );

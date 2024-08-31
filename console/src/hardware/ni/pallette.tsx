@@ -23,7 +23,12 @@ export const createAnalogReadTaskCommand: Command = {
       <Icon.Logo.NI />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) => placeLayout(() => configureAnalogReadLayout(true)),
+  onSelect: ({ placeLayout }) =>
+    placeLayout(() =>
+      configureAnalogReadLayout({
+        create: true,
+      }),
+    ),
 };
 
 export const createDigitalWriteTaskCommand: Command = {
@@ -34,7 +39,8 @@ export const createDigitalWriteTaskCommand: Command = {
       <Icon.Logo.NI />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) => placeLayout(configureDigitalWriteLayout(true)),
+  onSelect: ({ placeLayout }) =>
+    placeLayout(configureDigitalWriteLayout({ create: true })),
 };
 
 export const createDigitalReadTaskCommand: Command = {
@@ -45,7 +51,8 @@ export const createDigitalReadTaskCommand: Command = {
       <Icon.Logo.NI />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) => placeLayout(configureDigitalReadLayout(true)),
+  onSelect: ({ placeLayout }) =>
+    placeLayout(configureDigitalReadLayout({ create: true })),
 };
 
 export const COMMANDS = [

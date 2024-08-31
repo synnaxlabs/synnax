@@ -45,6 +45,7 @@ import {
   Controls,
   EnableDisableButton,
   ParentRangeButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -55,20 +56,25 @@ import { Layout } from "@/layout";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 
-export const configureAnalogReadLayout = (create: boolean = false): Layout.State => ({
+export const configureAnalogReadLayout = (
+  args: TaskLayoutArgs<AnalogReadPayload> = { create: false },
+): Layout.State<TaskLayoutArgs<AnalogReadPayload>> => ({
   name: "Configure NI Analog Read Task",
   key: id.id(),
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
   location: "mosaic",
-  args: { create },
+  args,
 });
 
 export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({ ...configureAnalogReadLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...configureAnalogReadLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const Wrapped = ({
