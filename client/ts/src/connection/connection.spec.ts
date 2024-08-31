@@ -29,4 +29,30 @@ describe("connectivity", () => {
     expect(state.status).toEqual("connected");
     expect(z.string().uuid().safeParse(state.clusterKey).success).toBe(true);
   });
+  describe("version compatibility", () => {
+    it("should pull the server and client versions", async () => {
+      const transport = new Transport(new URL({ host: HOST, port: PORT }));
+      const client = new auth.Client(transport.unary, {
+        username: "synnax",
+        password: "seldon",
+      });
+      transport.use(client.middleware());
+      const connectivity = new Checker(transport.unary, undefined, __VERSION__);
+      const state = await connectivity.check();
+      expect(state.clientServerCompatible).toBe(true);
+      expect(state.clientVersion).toBe(__VERSION__);
+    });
+    it("should adjust state if the server is too old", async () => {
+      const transport = new Transport(new URL({ host: HOST, port: PORT }));
+      const client = new auth.Client(transport.unary, {
+        username: "synnax",
+        password: "seldon",
+      });
+      transport.use(client.middleware());
+      const connectivity = new Checker(transport.unary, undefined, "50000.0.0");
+      const state = await connectivity.check();
+      expect(state.clientServerCompatible).toBe(false);
+      expect(state.clientVersion).toBe("50000.0.0");
+    });
+  });
 });
