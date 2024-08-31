@@ -28,14 +28,16 @@
 
 using namespace opc;
 
-
+///////////////////////////////////////////////////////////////////////////////////
+//                                     ReaderConfig                              //
+///////////////////////////////////////////////////////////////////////////////////
 ReaderConfig::ReaderConfig(
     config::Parser &parser
-): device(parser.required<std::string>("device")),
-   sample_rate(parser.required<std::float_t>("sample_rate")),
-   stream_rate(parser.required<std::float_t>("stream_rate")),
-   array_size(parser.optional<std::size_t>("array_size", 1)),
-   data_saving(parser.optional<bool>("data_saving", true)) {
+) : device(parser.required<std::string>("device")),
+    sample_rate(parser.required<std::float_t>("sample_rate")),
+    stream_rate(parser.required<std::float_t>("stream_rate")),
+    array_size(parser.optional<std::size_t>("array_size", 1)),
+    data_saving(parser.optional<bool>("data_saving", true)) {
     if (stream_rate.value <= 0) stream_rate = Rate(1);
     parser.iter("channels", [&](config::Parser &channel_builder) {
         const auto ch = ReaderChannelConfig(channel_builder);
@@ -43,34 +45,41 @@ ReaderConfig::ReaderConfig(
     });
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                     Helper Functions                          //
+///////////////////////////////////////////////////////////////////////////////////
+///@brief retrieves index channel information for given set of channels
 std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     freighter::Error> retrieveAdditionalChannelInfo(
     const std::shared_ptr<task::Context> &ctx,
     ReaderConfig &cfg,
     breaker::Breaker &breaker
 ) {
-    auto channelKeys = cfg.channelKeys();
-    if (channelKeys.empty()) return {{channelKeys, {}}, freighter::NIL};
+    auto channel_keys = cfg.channel_keys();
+    if (channel_keys.empty()) return {{channel_keys, {}}, freighter::NIL};
     auto indexes = std::set<ChannelKey>();
-    auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channelKeys());
+    auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channel_keys());
     if (c_err) {
         if (c_err.matches(freighter::UNREACHABLE) && breaker.wait(c_err.message()))
             return retrieveAdditionalChannelInfo(ctx, cfg, breaker);
-        return {{channelKeys, indexes}, c_err};
+        return {{channel_keys, indexes}, c_err};
     }
     for (auto i = 0; i < channels.size(); i++) {
         const auto ch = channels[i];
-        if (std::count(channelKeys.begin(), channelKeys.end(), ch.index) == 0) {
+        if (std::count(channel_keys.begin(), channel_keys.end(), ch.index) == 0) {
             if (ch.index != 0) {
-                channelKeys.push_back(ch.index);
+                channel_keys.push_back(ch.index);
                 indexes.insert(ch.index);
             }
         }
         cfg.channels[i].ch = ch;
     }
-    return {{channelKeys, indexes}, freighter::Error()};
+    return {{channel_keys, indexes}, freighter::Error()};
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Source                              //
+///////////////////////////////////////////////////////////////////////////////////
 class ReaderSource final : public pipeline::Source {
 public:
     ReaderConfig cfg;
@@ -114,7 +123,8 @@ public:
     void initializeReadRequest() {
         UA_ReadRequest_init(&req);
         // Allocate and prepare readValueIds for enabled channels
-        readValueIds.reserve(cfg.channels.size());
+        readValueIds.reserve(
+            cfg.channels.size()); // TODO: is this reserving every time?
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             UA_ReadValueId rvid;
@@ -129,7 +139,7 @@ public:
         req.nodesToReadSize = readValueIds.size();
     }
 
-    void stoppedWithErr(const freighter::Error &err) override {
+    void stopped_with_err(const freighter::Error &err) override {
         curr_state.variant = "error";
         curr_state.details = json{
             {"message", err.message()},
@@ -138,56 +148,23 @@ public:
         ctx->setState(curr_state);
     }
 
-    freighter::Error communicate_res_error(const UA_StatusCode &status) {
-        freighter::Error err;
-        if (
-            status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
-            status == UA_STATUSCODE_BADSECURECHANNELCLOSED
-        ) {
-            err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
-            err.data = "connection rejected";
-            curr_state.variant = "warning";
-            curr_state.details = json{
-                {
-                    "message",
-                    "Temporarily unable to reach OPC UA server. Will keep trying."
-                },
-                {"running", true}
-            };
-        } else {
-            err.type = driver::CRITICAL_HARDWARE_ERROR.type;
-            err.data = "failed to execute read: " + std::string(
-                           UA_StatusCode_name(status));
-            curr_state.variant = "error";
-            curr_state.details = json{
-                {
-                    "message", "Failed to read from OPC UA server: " + std::string(
-                                   UA_StatusCode_name(status))
-                },
-                {"running", false}
-            };
-        }
-        ctx->setState(curr_state);
-        return err;
-    }
-
     [[nodiscard]] freighter::Error communicate_value_error(
         const std::string &channel,
         const UA_StatusCode &status
     ) const {
         const std::string status_name = UA_StatusCode_name(status);
         const std::string message =
-                "Failed to read value from channel " + channel + ": " +
-                status_name;
+            "Failed to read value from channel " + channel + ": " +
+            status_name;
         LOG(ERROR) << "[opc.reader]" << message;
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{
-                {"message", message},
-                {"running", false}
-            }
-        });
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{
+                              {"message", message},
+                              {"running", false}
+                          }
+                      });
         return {
             driver::CRITICAL_HARDWARE_ERROR.type,
             message
@@ -204,11 +181,13 @@ public:
                 curr_state.details = json{
                     {
                         "message",
-                        "Received array of length " + std::to_string(length) +
-                        " from OPC UA server, which is larger than the configured size of "
-                        + std::to_string(cfg.array_size) + ". Truncating array."
+                                   "Received array of length " +
+                                   std::to_string(length) +
+                                   " from OPC UA server, which is larger than the configured size of "
+                                   + std::to_string(cfg.array_size) +
+                                   ". Truncating array."
                     },
-                    {"running", true}
+                    {   "running", true}
                 };
                 ctx->setState(curr_state);
             }
@@ -283,80 +262,103 @@ public:
         if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
             const auto value = *static_cast<UA_Float *>(val->data);
             if (s.data_type == synnax::FLOAT32) return s.write(value);
-            if (s.data_type == synnax::FLOAT64) return s.write(
-                static_cast<double>(value));
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT64)
+                return s.write(
+                    static_cast<double>(value));
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
             const auto value = *static_cast<UA_Double *>(val->data);
-            if (s.data_type == synnax::FLOAT32) return s.write(
-                static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT32)
+                return s.write(
+                    static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64) return s.write(value);
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_INT16]) {
             const auto value = *static_cast<UA_Int16 *>(val->data);
-            if(s.data_type == synnax::INT16) return s.write(value);
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int16_t>(value));
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
-            if (s.data_type == synnax::UINT16) return s.write(
-                static_cast<uint16_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write(
-                static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write(
-                static_cast<uint64_t>(value));
+            if (s.data_type == synnax::INT16) return s.write(value);
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int16_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
+            if (s.data_type == synnax::UINT16)
+                return s.write(
+                    static_cast<uint16_t>(value));
+            if (s.data_type == synnax::UINT32)
+                return s.write(
+                    static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64)
+                return s.write(
+                    static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
             const auto value = *static_cast<UA_Int32 *>(val->data);
             if (s.data_type == synnax::INT32) return s.write(value);
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write(
-                static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write(
-                static_cast<uint64_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
+            if (s.data_type == synnax::UINT32)
+                return s.write(
+                    static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64)
+                return s.write(
+                    static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
             const auto value = *static_cast<UA_Int64 *>(val->data);
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int32_t>(value));
             if (s.data_type == synnax::INT64) return s.write(value);
-            if (s.data_type == synnax::UINT32) return s.write(
-                static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write(
-                static_cast<uint64_t>(value));
+            if (s.data_type == synnax::UINT32)
+                return s.write(
+                    static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64)
+                return s.write(
+                    static_cast<uint64_t>(value));
             if (s.data_type == synnax::TIMESTAMP)
                 return s.write(static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
             const auto value = *static_cast<UA_UInt32 *>(val->data);
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int32_t>(value));
             // Potential data loss
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
             if (s.data_type == synnax::UINT32) return s.write(value);
-            if (s.data_type == synnax::UINT64) return s.write(
-                static_cast<uint64_t>(value));
+            if (s.data_type == synnax::UINT64)
+                return s.write(
+                    static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
             const auto value = *static_cast<UA_UInt64 *>(val->data);
             if (s.data_type == synnax::UINT64) return s.write(value);
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int32_t>(value));
             // Potential data loss
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write(
-                static_cast<uint32_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
+            if (s.data_type == synnax::UINT32)
+                return s.write(
+                    static_cast<uint32_t>(value));
             // Potential data loss
             if (s.data_type == synnax::TIMESTAMP)
                 s.write(static_cast<uint64_t>(value));
@@ -364,88 +366,119 @@ public:
         if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
             const auto value = *static_cast<UA_Byte *>(val->data);
             if (s.data_type == synnax::UINT8) return s.write(value);
-            if (s.data_type == synnax::UINT16) return s.write(
-                static_cast<uint16_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write(
-                static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write(
-                static_cast<uint64_t>(value));
+            if (s.data_type == synnax::UINT16)
+                return s.write(
+                    static_cast<uint16_t>(value));
+            if (s.data_type == synnax::UINT32)
+                return s.write(
+                    static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64)
+                return s.write(
+                    static_cast<uint64_t>(value));
             if (s.data_type == synnax::INT8) return s.write(static_cast<int8_t>(value));
-            if (s.data_type == synnax::INT16) return s.write(
-                static_cast<int16_t>(value));
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
-            if (s.data_type == synnax::FLOAT32) return s.write(
-                static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write(
-                static_cast<double>(value));
+            if (s.data_type == synnax::INT16)
+                return s.write(
+                    static_cast<int16_t>(value));
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT32)
+                return s.write(
+                    static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64)
+                return s.write(
+                    static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
             const auto value = *static_cast<UA_SByte *>(val->data);
             if (s.data_type == synnax::INT8) return s.write(value);
-            if (s.data_type == synnax::INT16) return s.write(
-                static_cast<int16_t>(value));
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
-            if (s.data_type == synnax::FLOAT32) return s.write(
-                static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write(
-                static_cast<double>(value));
+            if (s.data_type == synnax::INT16)
+                return s.write(
+                    static_cast<int16_t>(value));
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT32)
+                return s.write(
+                    static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64)
+                return s.write(
+                    static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
             const auto value = *static_cast<UA_Boolean *>(val->data);
-            if (s.data_type == synnax::UINT8) return s.write(
-                static_cast<uint8_t>(value));
-            if (s.data_type == synnax::UINT16) return s.write(
-                static_cast<uint16_t>(value));
-            if (s.data_type == synnax::UINT32) return s.write(
-                static_cast<uint32_t>(value));
-            if (s.data_type == synnax::UINT64) return s.write(
-                static_cast<uint64_t>(value));
+            if (s.data_type == synnax::UINT8)
+                return s.write(
+                    static_cast<uint8_t>(value));
+            if (s.data_type == synnax::UINT16)
+                return s.write(
+                    static_cast<uint16_t>(value));
+            if (s.data_type == synnax::UINT32)
+                return s.write(
+                    static_cast<uint32_t>(value));
+            if (s.data_type == synnax::UINT64)
+                return s.write(
+                    static_cast<uint64_t>(value));
             if (s.data_type == synnax::INT8) return s.write(static_cast<int8_t>(value));
-            if (s.data_type == synnax::INT16) return s.write(
-                static_cast<int16_t>(value));
-            if (s.data_type == synnax::INT32) return s.write(
-                static_cast<int32_t>(value));
-            if (s.data_type == synnax::INT64) return s.write(
-                static_cast<int64_t>(value));
-            if (s.data_type == synnax::FLOAT32) return s.write(
-                static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write(
-                static_cast<double>(value));
+            if (s.data_type == synnax::INT16)
+                return s.write(
+                    static_cast<int16_t>(value));
+            if (s.data_type == synnax::INT32)
+                return s.write(
+                    static_cast<int32_t>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    static_cast<int64_t>(value));
+            if (s.data_type == synnax::FLOAT32)
+                return s.write(
+                    static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64)
+                return s.write(
+                    static_cast<double>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
             const auto value = *static_cast<UA_DateTime *>(val->data);
-            if (s.data_type == synnax::INT64) return s.write(
-                ua_datetime_to_unix_nano(value));
-            if (s.data_type == synnax::TIMESTAMP) return s.write(
-                ua_datetime_to_unix_nano(value));
-            if (s.data_type == synnax::UINT64) return s.write(
-                static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
-            if (s.data_type == synnax::FLOAT32) return s.write(
-                static_cast<float>(value));
-            if (s.data_type == synnax::FLOAT64) return s.write(
-                static_cast<double>(value));
+            if (s.data_type == synnax::INT64)
+                return s.write(
+                    ua_datetime_to_unix_nano(value));
+            if (s.data_type == synnax::TIMESTAMP)
+                return s.write(
+                    ua_datetime_to_unix_nano(value));
+            if (s.data_type == synnax::UINT64)
+                return s.write(
+                    static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
+            if (s.data_type == synnax::FLOAT32)
+                return s.write(
+                    static_cast<float>(value));
+            if (s.data_type == synnax::FLOAT64)
+                return s.write(
+                    static_cast<double>(value));
         }
-        LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName << " for task " << task.name;
+        LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName
+                   << " for task " << task.name;
     }
 
+    // TODO: this function is 100 lines - feel like it can be broken down into a more digestible format
+    // or at least have comments to explain what is happening
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
-        auto read_calls_per_cycle = static_cast<std::size_t>(
-            cfg.sample_rate.value / cfg.stream_rate.value
-        );
+
+        // TODO: what is read_calls_per_cycle? explain whats happening here
+        auto read_calls_per_cycle = static_cast<std::size_t>(cfg.sample_rate.value /
+                                                             cfg.stream_rate.value);
         auto series_size = read_calls_per_cycle;
         if (cfg.array_size > 1) {
             read_calls_per_cycle = 1;
             series_size = cfg.array_size * read_calls_per_cycle;
         }
 
-        std::size_t en_count = 0;
+        std::size_t en_count = 0; // enabled channels
         for (const auto &ch: cfg.channels)
             if (ch.enabled) {
                 fr.add(ch.channel, Series(ch.ch.data_type, series_size));
@@ -459,7 +492,8 @@ public:
             auto status = res.responseHeader.serviceResult;
 
             if (status != UA_STATUSCODE_GOOD) {
-                auto err = communicate_res_error(status);
+                auto err = opc::communicate_response_error(status, this->ctx,
+                                                           this->curr_state);
                 UA_ReadResponse_clear(&res);
                 return std::make_pair(std::move(fr), err);
             }
@@ -481,12 +515,14 @@ public:
                     curr_state.details = json{
                         {
                             "message",
-                            "Received array of length " + std::to_string(next_arr_size)
-                            +
-                            " from OPC UA server, which is different from the previous array length of "
-                            + std::to_string(curr_arr_size) + ". Skipping write."
+                                       "Received array of length " +
+                                       std::to_string(next_arr_size)
+                                       +
+                                       " from OPC UA server, which is different from the previous array length of "
+                                       + std::to_string(curr_arr_size) +
+                                       ". Skipping write."
                         },
-                        {"running", true}
+                        {   "running", true}
                     };
                     UA_ReadResponse_clear(&res);
                     return std::make_pair(std::move(fr),
@@ -521,9 +557,9 @@ public:
                     curr_state.details = json{
                         {
                             "message",
-                            "Sample rate exceeds OPC UA server throughput. samples may be delayed"
+                                       "Sample rate exceeds OPC UA server throughput. samples may be delayed"
                         },
-                        {"running", true}
+                        {   "running", true}
                     };
                     ctx->setState(curr_state);
                 }
@@ -541,7 +577,9 @@ public:
     }
 };
 
-
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Task                                //
+///////////////////////////////////////////////////////////////////////////////////
 std::unique_ptr<task::Task> Reader::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
@@ -549,27 +587,28 @@ std::unique_ptr<task::Task> Reader::configure(
     VLOG(2) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
+//    LOG(INFO) << "Reader Config: " << config_parser.get_json().dump(4);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = config_parser.error_json(),
-        });
+                          .task = task.key,
+                          .variant = "error",
+                          .details = config_parser.error_json(),
+                      });
         return nullptr;
     }
     VLOG(2) << "[opc.reader] successfully parsed configuration for " << task.name;
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
-                " error: " << dev_err.message();
+                   " error: " << dev_err.message();
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{
-                {"message", dev_err.message()}
-            }
-        });
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{
+                              {"message", dev_err.message()}
+                          }
+                      });
         return nullptr;
     }
     auto properties_parser = config::Parser(device.properties);
@@ -585,22 +624,22 @@ std::unique_ptr<task::Task> Reader::configure(
     auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
     if (err) {
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{{"message", err.message()}}
-        });
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{{"message", err.message()}}
+                      });
         return nullptr;
     }
-    auto [channelKeys, indexes] = res;
+    auto [channel_keys, indexes] = res;
 
     // Connect to the OPC UA server.
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{{"message", conn_err.message()}}
-        });
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{{"message", conn_err.message()}}
+                      });
         return nullptr;
     }
 
@@ -628,10 +667,10 @@ std::unique_ptr<task::Task> Reader::configure(
 
     if (!config_parser.ok()) {
         ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = config_parser.error_json(),
-        });
+                          .task = task.key,
+                          .variant = "error",
+                          .details = config_parser.error_json(),
+                      });
         return nullptr;
     }
 
@@ -644,36 +683,36 @@ std::unique_ptr<task::Task> Reader::configure(
     );
 
     auto writer_cfg = synnax::WriterConfig{
-        .channels = channelKeys,
+        .channels = channel_keys,
         .start = TimeStamp::now(),
         .subject = synnax::ControlSubject{
             .name = task.name,
             .key = std::to_string(task.key)
         },
         .mode = cfg.data_saving
-                    ? synnax::WriterMode::PersistStream
-                    : synnax::WriterMode::StreamOnly,
+                ? synnax::WriterMode::PersistStream
+                : synnax::WriterMode::StreamOnly,
         .enable_auto_commit = true
     };
 
     ctx->setState({
-        .task = task.key,
-        .variant = "success",
-        .details = json{
-            {"running", false},
-            {"message", "Task configured successfully"}
-        }
-    });
-    return std::make_unique<Reader>( 
-                                ctx, 
-                                task, 
-                                cfg, 
-                                breaker_config, 
-                                std::move(source),
-                                writer_cfg, 
-                                ua_client,
-                                properties
-                            );
+                      .task = task.key,
+                      .variant = "success",
+                      .details = json{
+                          {"running", false},
+                          {"message", "Task configured successfully"}
+                      }
+                  });
+    return std::make_unique<Reader>(
+        ctx,
+        task,
+        cfg,
+        breaker_config,
+        std::move(source),
+        writer_cfg,
+        ua_client,
+        properties
+    );
 }
 
 void Reader::exec(task::Command &cmd) {
@@ -686,42 +725,39 @@ void Reader::exec(task::Command &cmd) {
 
 void Reader::stop() {
     ctx->setState({
-        .task = task.key,
-        .variant = "success",
-        .details = json{
-            {"running", false},
-            {"message", "Task stopped successfully"}
-        }
-    });
-    pipe.stop(); 
+                      .task = task.key,
+                      .variant = "success",
+                      .details = json{
+                          {"running", false},
+                          {"message", "Task stopped successfully"}
+                      }
+                  });
+    pipe.stop();
 }
 
-void Reader::start(){
-    // first try to check for timeout
-    UA_StatusCode status = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
-    if (status != UA_STATUSCODE_GOOD) {
-        // attempt again to reestablish if timed out
-        UA_StatusCode status_retry = UA_Client_connect(this->ua_client.get(), device_props.connection.endpoint.c_str());
-        if(status_retry != UA_STATUSCODE_GOOD){
-            ctx->setState({
-                .task = task.key,
-                .variant = "error",
-                .details = json{
-                    {"message", "Failed to connect to OPC UA server: " + std::string(
-                        UA_StatusCode_name(status))}
-                }
-            });
-            LOG(ERROR) << "[opc.reader] connection failed: " << UA_StatusCode_name(status);
-        }
+void Reader::start() {
+    freighter::Error conn_err = refresh_connection(
+        this->ua_client,
+        device_props.connection.endpoint
+    );
+    if (conn_err) {
+        ctx->setState({
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{
+                              {"message", conn_err.message()}
+                          }
+                      });
+        LOG(ERROR) << "[opc.reader] connection failed: " << conn_err.message();
+        return;
     }
-    VLOG(1) << "[opc.reader] Connection Established";
     pipe.start();
     ctx->setState({
-        .task = task.key,
-        .variant = "success",
-        .details = json{
-            {"running", true},
-            {"message", "Task started successfully"}
-        }
-    });
+                      .task = task.key,
+                      .variant = "success",
+                      .details = json{
+                          {"running", true},
+                          {"message", "Task started successfully"}
+                      }
+                  });
 }

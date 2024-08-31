@@ -23,6 +23,8 @@
 using json = nlohmann::json;
 
 namespace opc {
+
+///@brief The parameters for connecting to and iterating through nodes in the OPC UA server.A
 struct ScannerScanCommandArgs {
     ConnectionConfig connection;
     std::string node_id;
@@ -30,16 +32,20 @@ struct ScannerScanCommandArgs {
 
     explicit ScannerScanCommandArgs(config::Parser parser) : connection(
         ConnectionConfig(parser.child("connection"))),
-        node_id(parser.optional<std::string>("node_id", ""))
-    {
+                                                             node_id(
+                                                                 parser.optional<std::string>(
+                                                                     "node_id", "")) {
         if (node_id.empty()) node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-        else node = parseNodeId("node_id", parser);
+        else node = parse_node_id("node_id", parser);
     }
 };
 
 const std::string SCAN_CMD_TYPE = "scan";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Scanner Task                               //
+///////////////////////////////////////////////////////////////////////////////////
 class Scanner final : public task::Task {
 public:
     explicit Scanner(
@@ -54,14 +60,18 @@ public:
 
     std::string name() override { return task.name; }
 
+    ///@brief Executes the command on the task. Possible commands are SCAN_CMD_TYPE and TEST_CONNECTION_CMD_TYPE
     void exec(task::Command &cmd) override;
 
     void stop() override {
     }
+
 private:
     std::shared_ptr<task::Context> ctx;
     const synnax::Task task;
+
     void scan(const task::Command &cmd) const;
-    void testConnection(const task::Command &cmd) const;
+
+    void test_connection(const task::Command &cmd) const;
 };
 }

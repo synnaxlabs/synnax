@@ -249,7 +249,7 @@ I can successfully:
 
 I successfully:
 
-- [ ] Updated the license on TC before continuing QA
+- [ ] Updated the license on TwinCat/Beckhoff before continuing QA
 
 I can successfully:
 
@@ -283,6 +283,16 @@ I can successfully:
       removed from the device while it is running.
 - [ ] Enable and disable data saving at will.
 - [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
+
+#### Write Task
+
+I can successfully:
+
+- [ ] Perform control and see changes reflected on the connected OPC UA server.
+- [ ] Stop, start and reconfigure task at will.
+- [ ] Enable and disable data saving at will.
+- [ ] Leave a write tasking played but idle for an hour and perform control without losing connection.
+- [ ] Perform a write on an encrypted server.
 
 ### National Instruments
 
