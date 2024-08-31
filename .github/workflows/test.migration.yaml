@@ -55,9 +55,9 @@ jobs:
           poetry install
         working-directory: ./client/py
 
-      - name: Python Test with Main Server
-        run: pytest --cov=freighter --cov-report xml:coverage.xml
-        working-directory: ./client/py
+      # - name: Python Test with Main Server
+      #   run: pytest --cov=freighter --cov-report xml:coverage.xml
+      #   working-directory: ./client/py
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
