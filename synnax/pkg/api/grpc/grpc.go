@@ -25,6 +25,9 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = append(transports, newRanger(&a))
 	transports = append(transports, newHardware(&a))
 
+	// Hardware
+	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
+
 	// Channel
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
 	a.ChannelRetrieveGroup = fnoop.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse]{}

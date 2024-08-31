@@ -17,8 +17,8 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { useClickOutside } from "@/hooks";
 import { Triggers } from "@/triggers";
-import { getRootElement } from "@/util/rootElement";
 import { findParent } from "@/util/findParent";
+import { getRootElement } from "@/util/rootElement";
 
 export interface ModalProps
   extends Pick<Dialog.UseReturn, "visible" | "close">,
