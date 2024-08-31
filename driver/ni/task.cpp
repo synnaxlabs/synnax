@@ -79,10 +79,8 @@ bool ni::ScannerTask::ok() {
 }
 
 ni::ScannerTask::~ScannerTask() {
-    if (this->thread->joinable() && (
-            this->thread->get_id() != std::this_thread::get_id())) {
+    if (this->thread->joinable() && this->thread->get_id() != std::this_thread::get_id()) 
         this->thread->detach();
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
