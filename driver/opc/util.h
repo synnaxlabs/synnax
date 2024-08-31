@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "opc_pub.h"
+#include "opc.h"
 #include "driver/errors/errors.h"
 #include "client/cpp/synnax.h"
 #include "include/open62541/types.h"

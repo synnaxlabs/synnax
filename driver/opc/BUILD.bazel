@@ -9,7 +9,7 @@ cc_library(
         "writer_sink.cpp",
     ],
     hdrs = [
-        "opc_pub.h",
+        "opc.h",
         "reader.h",
         "scanner.h",
         "util.h",

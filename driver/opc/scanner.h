@@ -12,7 +12,7 @@
 #include <string>
 #include <memory>
 #include <utility>
-#include "opc_pub.h"
+#include "opc.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"

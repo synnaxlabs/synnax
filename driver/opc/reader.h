@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "opc_pub.h"
+#include "opc.h"
 #include "util.h"
 #include "driver/config/config.h"
 #include "driver/task/task.h"
@@ -104,7 +104,7 @@ public:
 
     void stop() override;
 
-    void start(); 
+    void start();
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;

@@ -10,7 +10,7 @@
 #include <map>
 
 #include "client/cpp/synnax.h"
-#include "driver/opc/opc_pub.h"
+#include "driver/opc/opc.h"
 #include "driver/opc/util.h"
 
 #include "include/open62541/plugin/log_stdout.h"
