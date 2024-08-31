@@ -28,11 +28,11 @@
 #include "include/open62541/client_subscriptions.h"
 
 opc::WriterSink::WriterSink(
-        WriterConfig cfg,
-        const std::shared_ptr<UA_Client> &ua_client,
-        const std::shared_ptr<task::Context> &ctx,
-        synnax::Task task,
-        opc::DeviceProperties device_props
+    WriterConfig cfg,
+    const std::shared_ptr<UA_Client> &ua_client,
+    const std::shared_ptr<task::Context> &ctx,
+    synnax::Task task,
+    opc::DeviceProperties device_props
 ) : cfg(std::move(cfg)),
     ua_client(ua_client),
     ctx(ctx),
@@ -44,18 +44,20 @@ opc::WriterSink::WriterSink(
     }
 
     this->breaker = breaker::Breaker(breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 10,
-            .scale = 1.2
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 10,
+        .scale = 1.2
     });
 
     this->breaker.start();
     this->keep_alive_thread = std::thread(&opc::WriterSink::maintain_connection, this);
 };
 
-void opc::WriterSink::set_variant(UA_Variant *val, const synnax::Frame &frame, const uint32_t &series_index,
-                            const synnax::DataType &type) {
+void opc::WriterSink::set_variant(
+    UA_Variant *val, const synnax::Frame &frame,
+    const uint32_t &series_index,
+    const synnax::DataType &type) {
     UA_StatusCode status = UA_STATUSCODE_GOOD;
     if (type == synnax::FLOAT64) {
         double data = frame.series->at(series_index).values<double>()[0];
@@ -97,24 +99,24 @@ void opc::WriterSink::stoppedWithErr(const freighter::Error &err) {
     LOG(ERROR) << "[opc.sink] Stopped with error: " << err.message();
     curr_state.variant = "error";
     curr_state.details = json{
-            {"message", err.message()},
-            {"running", false}
+        {"message", err.message()},
+        {"running", false}
     };
     ctx->setState(curr_state);
 };
 
 
-
 /// @brief sends out write request to the OPC serveru.
 freighter::Error opc::WriterSink::write(synnax::Frame frame) {
-    freighter::Error conn_err = test_connection(this->ua_client, device_props.connection.endpoint);
+    freighter::Error conn_err = test_connection(this->ua_client,
+                                                device_props.connection.endpoint);
     if (conn_err) {
         ctx->setState({
-                              .task = task.key,
-                              .variant = "error",
-                              .details = json{
-                                      {"message", conn_err.message()}
-                              }
+                          .task = task.key,
+                          .variant = "error",
+                          .details = json{
+                              {"message", conn_err.message()}
+                          }
                       });
         LOG(ERROR) << "[opc.reader] connection failed: " << conn_err.message();
         return conn_err;
@@ -137,7 +139,8 @@ freighter::Error opc::WriterSink::write(synnax::Frame frame) {
             retval = UA_Client_writeValueAttribute(client, ch.node, val);
         }
         if (retval != UA_STATUSCODE_GOOD) {
-            auto err = opc::communicate_response_error(retval, this->ctx, this->curr_state);
+            auto err = opc::communicate_response_error(retval, this->ctx,
+                                                       this->curr_state);
             UA_Variant_delete(val);
             LOG(ERROR) << "[opc.sink] Failed to write to node: " << key;
             return err;

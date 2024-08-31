@@ -86,14 +86,21 @@ struct DeviceNodeProperties {
         std::string node_id,
         std::string node_class,
         bool is_array
-    ) : data_type(data_type), name(name), node_id(node_id), node_class(node_class), is_array(is_array) {
+    ) : data_type(data_type), name(name), node_id(node_id), node_class(node_class),
+        is_array(is_array) {
     }
 
     explicit DeviceNodeProperties(config::Parser parser) : data_type(
         synnax::DataType(parser.required<std::string>("data_type"))),
-                                                           name(parser.required<std::string>("name")),
-                                                           node_id(parser.required<std::string>("node_id")),
-                                                           is_array(parser.optional<bool>("is_array", false)) {
+                                                           name(
+                                                               parser.required<std::string>(
+                                                                   "name")),
+                                                           node_id(
+                                                               parser.required<std::string>(
+                                                                   "node_id")),
+                                                           is_array(
+                                                               parser.optional<bool>(
+                                                                   "is_array", false)) {
     }
 
     json toJSON() const {
@@ -135,237 +142,241 @@ struct DeviceProperties {
         return j;
     }
 };
-    using ClientDeleter = void (*)(UA_Client *);
+
+using ClientDeleter = void (*)(UA_Client *);
 
 
-    std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
-            opc::ConnectionConfig &cfg,
-            std::string log_prefix
-    );
+std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
+    opc::ConnectionConfig &cfg,
+    std::string log_prefix
+);
 
-    static inline freighter::Error test_connection(std::shared_ptr<UA_Client> client, std::string endpoint) {
-        // tru running run iterate
-        UA_StatusCode status = UA_Client_connect(client.get(), endpoint.c_str());
-        if (status != UA_STATUSCODE_GOOD) {
-            // attempt again to reestablish if timed out
-            UA_StatusCode status_retry = UA_Client_connect(client.get(), endpoint.c_str());
-            if (status_retry != UA_STATUSCODE_GOOD) {
-                return freighter::Error(
-                        "Failed to connect to OPC UA server: " + std::string(UA_StatusCode_name(status)));
-            }
+static inline freighter::Error
+test_connection(std::shared_ptr<UA_Client> client, std::string endpoint) {
+    // tru running run iterate
+    UA_StatusCode status = UA_Client_connect(client.get(), endpoint.c_str());
+    if (status != UA_STATUSCODE_GOOD) {
+        // attempt again to reestablish if timed out
+        UA_StatusCode status_retry = UA_Client_connect(client.get(), endpoint.c_str());
+        if (status_retry != UA_STATUSCODE_GOOD) {
+            return freighter::Error(
+                "Failed to connect to OPC UA server: " +
+                std::string(UA_StatusCode_name(status)));
         }
-        return freighter::NIL;
     }
+    return freighter::NIL;
+}
 
 ///@brief Define constants for the conversion
-    static const int64_t UNIX_EPOCH_START_1601 = 11644473600LL; // Seconds from 1601 to 1970
-    static const int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
+static const int64_t UNIX_EPOCH_START_1601 = 11644473600LL; // Seconds from 1601 to 1970
+static const int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
 // 100-nanosecond intervals per second
 
 ///@brief Function to convert UA_DateTime to Unix timestamp in nanoseconds
-    inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
-        int64_t unixEpochStartIn100NanoIntervals =
-                UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
-        return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
-    }
+inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
+    int64_t unixEpochStartIn100NanoIntervals =
+        UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
+    return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
+}
 
 ///@brief this function converts a UA_Variant to a synnax::Series
-    inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
-        if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
-            const auto value = *static_cast<UA_Float *>(val->data);
-            if (dt == synnax::FLOAT32) return Series(value);
-            if (dt == synnax::FLOAT64) return Series(static_cast<double>(value));
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
-            const auto value = *static_cast<UA_Double *>(val->data);
-            // TODO - warn on potential precision drop here
-            if (dt == synnax::FLOAT32) return Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return Series(value);
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
-            const auto value = *static_cast<UA_Int32 *>(val->data);
-            if (dt == synnax::INT32) return Series(value);
-            if (dt == synnax::INT64) return Series(static_cast<int64_t>(value));
-            if (dt == synnax::UINT32) return Series(static_cast<uint32_t>(value));
-            if (dt == synnax::UINT64) return Series(static_cast<uint64_t>(value));
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
-            const auto value = *static_cast<UA_Int64 *>(val->data);
-            if (dt == synnax::INT32) return Series(static_cast<int32_t>(value));
-            if (dt == synnax::INT64) return Series(value);
-            if (dt == synnax::UINT32) return Series(static_cast<uint32_t>(value));
-            if (dt == synnax::UINT64) return Series(static_cast<uint64_t>(value));
-            if (dt == synnax::TIMESTAMP) return Series(static_cast<uint64_t>(value));
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
-            const auto value = *static_cast<UA_UInt32 *>(val->data);
-            if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
-            // Potential data loss
-            if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
-            if (dt == synnax::UINT32) return synnax::Series(value);
-            if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
-            const auto value = *static_cast<UA_UInt64 *>(val->data);
-            if (dt == synnax::UINT64) return synnax::Series(value);
-            if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
-            // Potential data loss
-            if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
-            if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
-            // Potential data loss
-            if (dt == synnax::TIMESTAMP)
-                return
-                        synnax::Series(static_cast<uint64_t>(value));
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
-            const auto value = *static_cast<UA_Byte *>(val->data);
-            if (dt == synnax::UINT8) return synnax::Series(value);
-            if (dt == synnax::UINT16) return synnax::Series(static_cast<uint16_t>(value));
-            if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
-            if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
-            if (dt == synnax::INT8) return synnax::Series(static_cast<int8_t>(value));
-            if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
-            if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
-            if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
-            if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
-            const auto value = *static_cast<UA_SByte *>(val->data);
-            if (dt == synnax::INT8) return synnax::Series(value);
-            if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
-            if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
-            if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
-            if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
-            const auto value = *static_cast<UA_Boolean *>(val->data);
-            if (dt == synnax::UINT8) return synnax::Series(static_cast<uint8_t>(value));
-            if (dt == synnax::UINT16) return synnax::Series(static_cast<uint16_t>(value));
-            if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
-            if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
-            if (dt == synnax::INT8) return synnax::Series(static_cast<int8_t>(value));
-            if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
-            if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
-            if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
-            if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
-        }
-        if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
-            const auto value = *static_cast<UA_DateTime *>(val->data);
-            if (dt == synnax::INT64) return synnax::Series(ua_datetime_to_unix_nano(value));
-            if (dt == synnax::TIMESTAMP)
-                return synnax::Series(
-                        ua_datetime_to_unix_nano(value));
-            if (dt == synnax::UINT64)
-                return synnax::Series(
-                        static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
-            if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-            if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
-        }
-        return Series(1);
+inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
+    if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
+        const auto value = *static_cast<UA_Float *>(val->data);
+        if (dt == synnax::FLOAT32) return Series(value);
+        if (dt == synnax::FLOAT64) return Series(static_cast<double>(value));
     }
+    if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
+        const auto value = *static_cast<UA_Double *>(val->data);
+        // TODO - warn on potential precision drop here
+        if (dt == synnax::FLOAT32) return Series(static_cast<float>(value));
+        if (dt == synnax::FLOAT64) return Series(value);
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
+        const auto value = *static_cast<UA_Int32 *>(val->data);
+        if (dt == synnax::INT32) return Series(value);
+        if (dt == synnax::INT64) return Series(static_cast<int64_t>(value));
+        if (dt == synnax::UINT32) return Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT64) return Series(static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
+        const auto value = *static_cast<UA_Int64 *>(val->data);
+        if (dt == synnax::INT32) return Series(static_cast<int32_t>(value));
+        if (dt == synnax::INT64) return Series(value);
+        if (dt == synnax::UINT32) return Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT64) return Series(static_cast<uint64_t>(value));
+        if (dt == synnax::TIMESTAMP) return Series(static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
+        const auto value = *static_cast<UA_UInt32 *>(val->data);
+        if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
+        // Potential data loss
+        if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
+        if (dt == synnax::UINT32) return synnax::Series(value);
+        if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
+        const auto value = *static_cast<UA_UInt64 *>(val->data);
+        if (dt == synnax::UINT64) return synnax::Series(value);
+        if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
+        // Potential data loss
+        if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
+        if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
+        // Potential data loss
+        if (dt == synnax::TIMESTAMP)
+            return
+                synnax::Series(static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
+        const auto value = *static_cast<UA_Byte *>(val->data);
+        if (dt == synnax::UINT8) return synnax::Series(value);
+        if (dt == synnax::UINT16) return synnax::Series(static_cast<uint16_t>(value));
+        if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+        if (dt == synnax::INT8) return synnax::Series(static_cast<int8_t>(value));
+        if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
+        if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
+        if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
+        if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
+        if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
+        const auto value = *static_cast<UA_SByte *>(val->data);
+        if (dt == synnax::INT8) return synnax::Series(value);
+        if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
+        if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
+        if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
+        if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
+        if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
+        const auto value = *static_cast<UA_Boolean *>(val->data);
+        if (dt == synnax::UINT8) return synnax::Series(static_cast<uint8_t>(value));
+        if (dt == synnax::UINT16) return synnax::Series(static_cast<uint16_t>(value));
+        if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+        if (dt == synnax::INT8) return synnax::Series(static_cast<int8_t>(value));
+        if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
+        if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
+        if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
+        if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
+        if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
+        const auto value = *static_cast<UA_DateTime *>(val->data);
+        if (dt == synnax::INT64) return synnax::Series(ua_datetime_to_unix_nano(value));
+        if (dt == synnax::TIMESTAMP)
+            return synnax::Series(
+                ua_datetime_to_unix_nano(value));
+        if (dt == synnax::UINT64)
+            return synnax::Series(
+                static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
+        if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
+        if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+    }
+    return Series(1);
+}
 
 ///@brief this function returns the appropriate synnax data type that corresponds to
 /// the OPCUA data type
-    inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val) {
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT]))
-            return {
-                    synnax::FLOAT32, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DOUBLE]))
-            return {
-                    synnax::FLOAT64, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT16]))
-            return {
-                    synnax::INT16, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT32]))
-            return {
-                    synnax::INT32, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT64]))
-            return {
-                    synnax::INT64, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT16]))
-            return {
-                    synnax::UINT16, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT32]))
-            return {
-                    synnax::UINT32, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT64]))
-            return {
-                    synnax::UINT64, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_STRING]))
-            return {
-                    synnax::STRING, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DATETIME]))
-            return {
-                    synnax::TIMESTAMP, true
-            };
-        if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_GUID]))
-            return {
-                    synnax::UINT128, true
-            };
-        if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return {synnax::FLOAT32, false};
-        if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return {synnax::FLOAT64, false};
-        if (val.type == &UA_TYPES[UA_TYPES_SBYTE]) return {synnax::INT8, false};
-        if (val.type == &UA_TYPES[UA_TYPES_INT16]) return {synnax::INT16, false};
-        if (val.type == &UA_TYPES[UA_TYPES_INT32]) return {synnax::INT32, false};
-        if (val.type == &UA_TYPES[UA_TYPES_INT64]) return {synnax::INT64, false};
-        if (val.type == &UA_TYPES[UA_TYPES_BYTE]) return {synnax::UINT8, false};
-        if (val.type == &UA_TYPES[UA_TYPES_UINT16]) return {synnax::UINT16, false};
-        if (val.type == &UA_TYPES[UA_TYPES_UINT32]) return {synnax::UINT32, false};
-        if (val.type == &UA_TYPES[UA_TYPES_UINT64]) return {synnax::UINT64, false};
-        if (val.type == &UA_TYPES[UA_TYPES_STRING]) return {synnax::STRING, false};
-        if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return {synnax::TIMESTAMP, false};
-        if (val.type == &UA_TYPES[UA_TYPES_GUID]) return {synnax::UINT128, false};
-        LOG(ERROR) << "Unknown data type: " << val.type->typeName;
-        return {synnax::DATA_TYPE_UNKNOWN, false};
+inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val) {
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT]))
+        return {
+            synnax::FLOAT32, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DOUBLE]))
+        return {
+            synnax::FLOAT64, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT16]))
+        return {
+            synnax::INT16, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT32]))
+        return {
+            synnax::INT32, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT64]))
+        return {
+            synnax::INT64, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT16]))
+        return {
+            synnax::UINT16, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT32]))
+        return {
+            synnax::UINT32, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT64]))
+        return {
+            synnax::UINT64, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_STRING]))
+        return {
+            synnax::STRING, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DATETIME]))
+        return {
+            synnax::TIMESTAMP, true
+        };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_GUID]))
+        return {
+            synnax::UINT128, true
+        };
+    if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return {synnax::FLOAT32, false};
+    if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return {synnax::FLOAT64, false};
+    if (val.type == &UA_TYPES[UA_TYPES_SBYTE]) return {synnax::INT8, false};
+    if (val.type == &UA_TYPES[UA_TYPES_INT16]) return {synnax::INT16, false};
+    if (val.type == &UA_TYPES[UA_TYPES_INT32]) return {synnax::INT32, false};
+    if (val.type == &UA_TYPES[UA_TYPES_INT64]) return {synnax::INT64, false};
+    if (val.type == &UA_TYPES[UA_TYPES_BYTE]) return {synnax::UINT8, false};
+    if (val.type == &UA_TYPES[UA_TYPES_UINT16]) return {synnax::UINT16, false};
+    if (val.type == &UA_TYPES[UA_TYPES_UINT32]) return {synnax::UINT32, false};
+    if (val.type == &UA_TYPES[UA_TYPES_UINT64]) return {synnax::UINT64, false};
+    if (val.type == &UA_TYPES[UA_TYPES_STRING]) return {synnax::STRING, false};
+    if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return {synnax::TIMESTAMP, false};
+    if (val.type == &UA_TYPES[UA_TYPES_GUID]) return {synnax::UINT128, false};
+    LOG(ERROR) << "Unknown data type: " << val.type->typeName;
+    return {synnax::DATA_TYPE_UNKNOWN, false};
+}
+
+inline freighter::Error
+communicate_response_error(
+    const UA_StatusCode &status,
+    std::shared_ptr<task::Context> ctx,
+    task::State &curr_state) {
+    freighter::Error err;
+    if (
+        status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
+        status == UA_STATUSCODE_BADSECURECHANNELCLOSED
+        ) {
+        err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
+        err.data = "connection rejected";
+        curr_state.variant = "warning";
+        curr_state.details = json{
+            {
+                "message",
+                           "Temporarily unable to reach OPC UA server. Will keep trying."
+            },
+            {   "running", true}
+        };
+    } else {
+        err.type = driver::CRITICAL_HARDWARE_ERROR.type;
+        err.data = "failed to execute read: " + std::string(
+            UA_StatusCode_name(status));
+        curr_state.variant = "error";
+        curr_state.details = json{
+            {
+                "message", "Failed to read from OPC UA server: " + std::string(
+                UA_StatusCode_name(status))
+            },
+            {   "running", false}
+        };
     }
-    inline freighter::Error
-    communicate_response_error(
-            const UA_StatusCode &status,
-            std::shared_ptr<task::Context> ctx,
-            task::State &curr_state) {
-        freighter::Error err;
-        if (
-                status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
-                status == UA_STATUSCODE_BADSECURECHANNELCLOSED
-                ) {
-            err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
-            err.data = "connection rejected";
-            curr_state.variant = "warning";
-            curr_state.details = json{
-                    {
-                            "message",
-                                       "Temporarily unable to reach OPC UA server. Will keep trying."
-                    },
-                    {       "running", true}
-            };
-        } else {
-            err.type = driver::CRITICAL_HARDWARE_ERROR.type;
-            err.data = "failed to execute read: " + std::string(
-                    UA_StatusCode_name(status));
-            curr_state.variant = "error";
-            curr_state.details = json{
-                    {
-                            "message", "Failed to read from OPC UA server: " + std::string(
-                            UA_StatusCode_name(status))
-                    },
-                    {       "running", false}
-            };
-        }
-        ctx->setState(curr_state);
-        return err;
-    }
+    ctx->setState(curr_state);
+    return err;
+}
 }
 
 ///@brief Helper function to convert string GUID to UA_Guid
@@ -391,13 +402,13 @@ inline std::string guidToString(const UA_Guid &guid) {
            << std::setw(4) << guid.data2 << "-"
            << std::setw(4) << guid.data3 << "-"
            << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2) << (
-                   guid.data4[1] & 0xFF) << "-"
+               guid.data4[1] & 0xFF) << "-"
            << std::setw(2) << (guid.data4[2] & 0xFF) << std::setw(2) << (
-                   guid.data4[3] & 0xFF)
+               guid.data4[3] & 0xFF)
            << std::setw(2) << (guid.data4[4] & 0xFF) << std::setw(2) << (
-                   guid.data4[5] & 0xFF)
+               guid.data4[5] & 0xFF)
            << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2) << (
-                   guid.data4[7] & 0xFF);
+               guid.data4[7] & 0xFF);
     return stream.str();
 }
 
@@ -486,8 +497,8 @@ inline UA_ByteString stringToUAByteString(const std::string &str) {
     memcpy(data, strData, len);
 
     UA_ByteString b = {
-            .length = len,
-            .data = data
+        .length = len,
+        .data = data
     };
 
     return b;

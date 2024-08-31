@@ -79,18 +79,18 @@ public:
         synnax::WriterConfig writer_config,
         std::shared_ptr<UA_Client> ua_client,
         opc::DeviceProperties device_props
-    ): ctx(ctx),
-       task(std::move(task)),
-       cfg(std::move(cfg)),
-       breaker(breaker::Breaker(breaker_config)),
-       pipe(pipeline::Acquisition(
-           ctx->client,
-           std::move(writer_config),
-           std::move(source),
-           breaker_config
-       )),
-       ua_client(ua_client),
-       device_props(device_props) {
+    ) : ctx(ctx),
+        task(std::move(task)),
+        cfg(std::move(cfg)),
+        breaker(breaker::Breaker(breaker_config)),
+        pipe(pipeline::Acquisition(
+            ctx->client,
+            std::move(writer_config),
+            std::move(source),
+            breaker_config
+        )),
+        ua_client(ua_client),
+        device_props(device_props) {
     }
 
     std::string name() override { return task.name; }
@@ -105,6 +105,7 @@ public:
     void stop() override;
 
     void start();
+
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;

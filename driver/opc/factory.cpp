@@ -14,8 +14,8 @@
 #include "driver/opc/writer.h"
 
 std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
 ) {
     if (task.type == "opc_scan")
         return {std::make_unique<Scanner>(ctx, task), true};
@@ -28,18 +28,18 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
 opc::Factory::configureInitialTasks(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Rack &rack
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
     auto [existing, err] = rack.tasks.retrieveByType("opc_scan");
     if (err.matches(synnax::NOT_FOUND)) {
         auto sy_task = synnax::Task(
-                rack.key,
-                "opc Scanner",
-                "opc_scan",
-                "",
-                true
+            rack.key,
+            "opc Scanner",
+            "opc_scan",
+            "",
+            true
         );
         const auto c_err = rack.tasks.create(sy_task);
         if (c_err) {
