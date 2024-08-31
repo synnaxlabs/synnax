@@ -38,7 +38,6 @@ opc::WriterSink::WriterSink(
     ctx(ctx),
     task(std::move(task)),
     device_props(std::move(device_props)) {
-
     for (auto &ch: this->cfg.channels) {
         this->cmd_channel_map[ch.cmd_channel] = ch;
     }
@@ -106,18 +105,18 @@ void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
 };
 
 
-/// @brief sends out write request to the OPC serveru.
+/// @brief sends out write request to the OPC server.
 freighter::Error opc::WriterSink::write(synnax::Frame frame) {
     freighter::Error conn_err = test_connection(this->ua_client,
                                                 device_props.connection.endpoint);
     if (conn_err) {
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{
-                              {"message", conn_err.message()}
-                          }
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", conn_err.message()}
+            }
+        });
         LOG(ERROR) << "[opc.reader] connection failed: " << conn_err.message();
         return conn_err;
     }
@@ -133,8 +132,7 @@ freighter::Error opc::WriterSink::write(synnax::Frame frame) {
         UA_Variant *val = UA_Variant_new();
         auto data_Type = frame.series->at(frame_index).data_type;
         this->set_variant(val, frame, frame_index, data_Type);
-        UA_StatusCode retval;
-        {
+        UA_StatusCode retval; {
             std::lock_guard<std::mutex> lock(this->client_mutex);
             retval = UA_Client_writeValueAttribute(client, ch.node, val);
         }
@@ -155,13 +153,15 @@ void opc::WriterSink::maintain_connection() {
     while (this->breaker.running()) {
         this->breaker.waitFor(this->ping_rate.period().chrono());
         UA_Variant value;
-        UA_Variant_init(&value);
-        {
+        UA_Variant_init(&value); {
             std::lock_guard<std::mutex> lock(this->client_mutex);
-            UA_StatusCode retval = UA_Client_readValueAttribute(this->ua_client.get(),
-                                                                UA_NODEID_NUMERIC(0,
-                                                                                  UA_NS0ID_SERVER_SERVERSTATUS_STATE),
-                                                                &value);
+            UA_StatusCode retval = UA_Client_readValueAttribute(
+                this->ua_client.get(),
+                UA_NODEID_NUMERIC(
+                    0,
+                    UA_NS0ID_SERVER_SERVERSTATUS_STATE
+                ),
+                &value);
         }
         UA_Variant_clear(&value);
     }

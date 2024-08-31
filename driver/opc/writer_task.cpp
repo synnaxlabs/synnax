@@ -31,7 +31,7 @@ void opc::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start();
     else if (cmd.type == "stop") return stop();
     else
-        LOG(ERROR) << "unknown command type: " << cmd.type;
+        LOG(ERROR) << "[opc.writer] unknown command type: " << cmd.type;
 }
 
 void opc::WriterTask::start() {
