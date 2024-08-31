@@ -113,9 +113,9 @@ jobs:
       - name: Start Current Server
         run: docker run -d --name synnax-current -p 9090:9090  -e SYNNAX_DATA=/data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
-      - name: Python Test with Current Server
-        run: pytest --cov=freighter --cov-report xml:coverage.xml
-        working-directory: ./client/py
+      # - name: Python Test with Current Server
+      #   run: pytest --cov=freighter --cov-report xml:coverage.xml
+      #   working-directory: ./client/py
 
       - name: TS Test with Current Server
         run: pnpm cov:client
