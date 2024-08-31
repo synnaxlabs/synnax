@@ -249,7 +249,7 @@ I can successfully:
 
 I successfully:
 
-- [ ] Updated the license on TC before continuing QA
+- [ ] Updated the license on TwinCat/Beckhoff before continuing QA
 
 I can successfully:
 
@@ -292,6 +292,7 @@ I can successfully:
 - [ ] Stop, start and reconfigure task at will.
 - [ ] Enable and disable data saving at will.
 - [ ] Leave a write tasking played but idle for an hour and perform control without losing connection.
+- [ ] Perform a write on an encrypted server.
 
 ### National Instruments
 
