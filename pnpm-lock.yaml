@@ -30,14 +30,14 @@ importers:
   .:
     devDependencies:
       '@microsoft/api-extractor':
-        specifier: ^7.47.5
-        version: 7.47.5(@types/node@22.2.0)
+        specifier: ^7.47.7
+        version: 7.47.7(@types/node@22.5.1)
       prettier:
         specifier: 3.3.3
         version: 3.3.3
       turbo:
-        specifier: ^2.1.0
-        version: 2.1.0
+        specifier: ^2.1.1
+        version: 2.1.1
 
   alamos/ts:
     dependencies:
@@ -71,7 +71,7 @@ importers:
         version: link:../../configs/vite
       '@vitest/coverage-v8':
         specifier: ^2.0.5
-        version: 2.0.5(vitest@2.0.5(@types/node@22.2.0)(jsdom@24.1.1))
+        version: 2.0.5(vitest@2.0.5(@types/node@22.5.1)(jsdom@24.1.1))
       eslint-config-synnaxlabs:
         specifier: workspace:*
         version: link:../../configs/eslint
@@ -80,10 +80,10 @@ importers:
         version: 5.5.4
       vite:
         specifier: 5.3.0
-        version: 5.3.0(@types/node@22.2.0)
+        version: 5.3.0(@types/node@22.5.1)
       vitest:
         specifier: ^2.0.5
-        version: 2.0.5(@types/node@22.2.0)(jsdom@24.1.1)
+        version: 2.0.5(@types/node@22.5.1)(jsdom@24.1.1)
 
   client/ts:
     dependencies:
@@ -184,13 +184,13 @@ importers:
         version: 5.5.4
       vite:
         specifier: 5.3.0
-        version: 5.3.0(@types/node@22.2.0)
+        version: 5.3.0(@types/node@22.5.1)
       vite-plugin-dts:
         specifier: 4.0.2
-        version: 4.0.2(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)(vite@5.3.0(@types/node@22.2.0))
+        version: 4.0.2(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)(vite@5.3.0(@types/node@22.5.1))
       vite-tsconfig-paths:
         specifier: 5.0.1
-        version: 5.0.1(typescript@5.5.4)(vite@5.3.0(@types/node@22.2.0))
+        version: 5.0.1(typescript@5.5.4)(vite@5.3.0(@types/node@22.5.1))
 
   console:
     dependencies:
@@ -284,7 +284,7 @@ importers:
         version: 10.0.0
       '@vitejs/plugin-react':
         specifier: ^4.3.1
-        version: 4.3.1(vite@5.3.0(@types/node@22.2.0))
+        version: 4.3.1(vite@5.3.0(@types/node@22.5.1))
       eslint-config-synnaxlabs:
         specifier: workspace:*
         version: link:../configs/eslint
@@ -296,25 +296,25 @@ importers:
         version: 5.5.4
       vite:
         specifier: 5.3.0
-        version: 5.3.0(@types/node@22.2.0)
+        version: 5.3.0(@types/node@22.5.1)
       vite-tsconfig-paths:
         specifier: 5.0.1
-        version: 5.0.1(typescript@5.5.4)(vite@5.3.0(@types/node@22.2.0))
+        version: 5.0.1(typescript@5.5.4)(vite@5.3.0(@types/node@22.5.1))
       vitest:
         specifier: ^2.0.5
-        version: 2.0.5(@types/node@22.2.0)(jsdom@24.1.1)
+        version: 2.0.5(@types/node@22.5.1)(jsdom@24.1.1)
 
   docs/site:
     dependencies:
       '@astrojs/mdx':
         specifier: ^3.1.4
-        version: 3.1.4(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
+        version: 3.1.4(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
       '@astrojs/react':
         specifier: ^3.6.2
-        version: 3.6.2(@types/react-dom@18.2.25)(@types/react@18.2.79)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(vite@5.3.0(@types/node@22.2.0))
+        version: 3.6.2(@types/react-dom@18.2.25)(@types/react@18.2.79)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(vite@5.3.0(@types/node@22.5.1))
       '@astrojs/vercel':
         specifier: ^7.8.0
-        version: 7.8.0(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))(react@18.2.0)
+        version: 7.8.0(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))(react@18.2.0)
       '@synnaxlabs/client':
         specifier: workspace:*
         version: link:../../client/ts
@@ -332,10 +332,10 @@ importers:
         version: 2019.7.3
       astro:
         specifier: ^4.14.5
-        version: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
+        version: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
       astro-embed:
         specifier: ^0.7.1
-        version: 0.7.1(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
+        version: 0.7.1(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
       astro-seo:
         specifier: ^0.8.3
         version: 0.8.3(prettier@3.3.3)(typescript@5.5.4)
@@ -406,7 +406,7 @@ importers:
         version: 18.3.3
       '@vitest/coverage-v8':
         specifier: ^2.0.5
-        version: 2.0.5(vitest@2.0.5(@types/node@22.2.0)(jsdom@24.1.1))
+        version: 2.0.5(vitest@2.0.5(@types/node@22.5.1)(jsdom@24.1.1))
       electron:
         specifier: ^31.1.0
         version: 31.1.0
@@ -430,10 +430,10 @@ importers:
         version: 5.5.4
       vite:
         specifier: 5.3.0
-        version: 5.3.0(@types/node@22.2.0)
+        version: 5.3.0(@types/node@22.5.1)
       vitest:
         specifier: ^2.0.5
-        version: 2.0.5(@types/node@22.2.0)(jsdom@24.1.1)
+        version: 2.0.5(@types/node@22.5.1)(jsdom@24.1.1)
 
   drift/examples/tauri:
     dependencies:
@@ -464,16 +464,16 @@ importers:
         version: 18.2.25
       '@vitejs/plugin-react':
         specifier: ^4.3.1
-        version: 4.3.1(vite@5.3.0(@types/node@22.2.0))
+        version: 4.3.1(vite@5.3.0(@types/node@22.5.1))
       typescript:
         specifier: ^5.5.4
         version: 5.5.4
       vite:
         specifier: 5.3.0
-        version: 5.3.0(@types/node@22.2.0)
+        version: 5.3.0(@types/node@22.5.1)
       vite-tsconfig-paths:
         specifier: 5.0.1
-        version: 5.0.1(typescript@5.5.4)(vite@5.3.0(@types/node@22.2.0))
+        version: 5.0.1(typescript@5.5.4)(vite@5.3.0(@types/node@22.5.1))
 
   freighter/ts:
     dependencies:
@@ -650,10 +650,10 @@ importers:
         version: 0.0.11
       '@vitejs/plugin-react':
         specifier: ^4.3.1
-        version: 4.3.1(vite@5.3.0(@types/node@22.2.0))
+        version: 4.3.1(vite@5.3.0(@types/node@22.5.1))
       '@vitest/coverage-v8':
         specifier: ^2.0.5
-        version: 2.0.5(vitest@2.0.5(@types/node@22.2.0)(jsdom@24.1.1))
+        version: 2.0.5(vitest@2.0.5(@types/node@22.5.1)(jsdom@24.1.1))
       eslint-config-synnaxlabs:
         specifier: workspace:*
         version: link:../configs/eslint
@@ -671,10 +671,10 @@ importers:
         version: 5.5.4
       vite:
         specifier: 5.3.0
-        version: 5.3.0(@types/node@22.2.0)
+        version: 5.3.0(@types/node@22.5.1)
       vitest:
         specifier: ^2.0.5
-        version: 2.0.5(@types/node@22.2.0)(jsdom@24.1.1)
+        version: 2.0.5(@types/node@22.5.1)(jsdom@24.1.1)
 
   x/media:
     dependencies:
@@ -1050,6 +1050,10 @@ packages:
 
   '@babel/runtime@7.25.0':
     resolution: {integrity: sha512-7dRy4DwXwtzBrPbZflqxnvfxLF8kdZXPkhymtDeFoFqE6ldzjQFgYTtYIFARcLEYDrqfBfYcZt1WqFxRoyC9Rw==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@7.25.6':
+    resolution: {integrity: sha512-VBj9MYyDb9tuLq7yzqjgzt6Q+IBQLrGZfdjOekyEirZPHxXWoTSGUTMrpsfi58Up73d13NfYLv8HT9vmznjzhQ==}
     engines: {node: '>=6.9.0'}
 
   '@babel/template@7.24.7':
@@ -1530,12 +1534,15 @@ packages:
   '@microsoft/api-extractor-model@7.29.4':
     resolution: {integrity: sha512-LHOMxmT8/tU1IiiiHOdHFF83Qsi+V8d0kLfscG4EvQE9cafiR8blOYr8SfkQKWB1wgEilQgXJX3MIA4vetDLZw==}
 
+  '@microsoft/api-extractor-model@7.29.6':
+    resolution: {integrity: sha512-gC0KGtrZvxzf/Rt9oMYD2dHvtN/1KPEYsrQPyMKhLHnlVuO/f4AFN3E4toqZzD2pt4LhkKoYmL2H9tX3yCOyRw==}
+
   '@microsoft/api-extractor@7.47.4':
     resolution: {integrity: sha512-HKm+P4VNzWwvq1Ey+Jfhhj/3MjsD+ka2hbt8L5AcRM95lu1MFOYnz3XlU7Gr79Q/ZhOb7W/imAKeYrOI0bFydg==}
     hasBin: true
 
-  '@microsoft/api-extractor@7.47.5':
-    resolution: {integrity: sha512-edKt4dFO2t25xmI2FX2rsP5liIgwKW1yuQImA0JM+5YGHCoo51GEQ7j+On17SvVpRJnuqLE/QVgtjIQ1Hpg98w==}
+  '@microsoft/api-extractor@7.47.7':
+    resolution: {integrity: sha512-fNiD3G55ZJGhPOBPMKD/enozj8yxJSYyVJWxRWdcUtw842rvthDHJgUWq9gXQTensFlMHv2wGuCjjivPv53j0A==}
     hasBin: true
 
   '@microsoft/tsdoc-config@0.17.0':
@@ -2381,6 +2388,14 @@ packages:
       '@types/node':
         optional: true
 
+  '@rushstack/node-core-library@5.7.0':
+    resolution: {integrity: sha512-Ff9Cz/YlWu9ce4dmqNBZpA45AEya04XaBFIjV7xTVeEf+y/kTjEasmozqFELXlNG4ROdevss75JrrZ5WgufDkQ==}
+    peerDependencies:
+      '@types/node': '*'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+
   '@rushstack/rig-package@0.5.3':
     resolution: {integrity: sha512-olzSSjYrvCNxUFZowevC3uz8gvKr3WTpHQ7BkpjtRpA3wK+T0ybep/SRUMfr195gBzJm5gaXw0ZMgjIyHqJUow==}
 
@@ -2392,11 +2407,19 @@ packages:
       '@types/node':
         optional: true
 
+  '@rushstack/terminal@0.14.0':
+    resolution: {integrity: sha512-juTKMAMpTIJKudeFkG5slD8Z/LHwNwGZLtU441l/u82XdTBfsP+LbGKJLCNwP5se+DMCT55GB8x9p6+C4UL7jw==}
+    peerDependencies:
+      '@types/node': '*'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+
   '@rushstack/ts-command-line@4.22.3':
     resolution: {integrity: sha512-edMpWB3QhFFZ4KtSzS8WNjBgR4PXPPOVrOHMbb7kNpmQ1UFS9HdVtjCXg1H5fG+xYAbeE+TMPcVPUyX2p84STA==}
 
-  '@rushstack/ts-command-line@4.22.4':
-    resolution: {integrity: sha512-QoyhbWfyF9Ixg5DWdPzxO3h2RmJ7i5WH9b7qLzD5h5WFya/ZqicjdPrVwQiGtrFvAbBj8jhcC9DhbzU9xAk78g==}
+  '@rushstack/ts-command-line@4.22.6':
+    resolution: {integrity: sha512-QSRqHT/IfoC5nk9zn6+fgyqOPXHME0BfchII9EUPR19pocsNp/xSbeBCbD3PIR2Lg+Q5qk7OFqk1VhWPMdKHJg==}
 
   '@shikijs/core@1.12.1':
     resolution: {integrity: sha512-biCz/mnkMktImI6hMfMX3H9kOeqsInxWEyCHbSlL8C/2TR1FqfmGxTLRNwYCKsyCyxWLbB8rEqXRVZuyxuLFmA==}
@@ -2857,6 +2880,9 @@ packages:
 
   '@types/node@22.2.0':
     resolution: {integrity: sha512-bm6EG6/pCpkxDf/0gDNDdtDILMOHgaQBVOJGdwsqClnxA3xL6jtMv76rLBc006RVMWbmaf0xbmom4Z/5o2nRkQ==}
+
+  '@types/node@22.5.1':
+    resolution: {integrity: sha512-KkHsxej0j9IW1KKOOAA/XBA0z08UFSrRQHErzEfA3Vgq57eXIMYboIlHJuYIfd+lwCQjtKqUu3UnmKbtUc9yRw==}
 
   '@types/offscreencanvas@2019.7.3':
     resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
@@ -4421,8 +4447,8 @@ packages:
     resolution: {integrity: sha512-a5dFJih5ZLYlRtDc0dZWP7RiKr6xIKzmn/oAYCDvdLThadVgyJwlaoQPmRtMSpz+rk0OGAgIu+TcM9HUF0fk1A==}
     engines: {node: '>= 0.4'}
 
-  is-core-module@2.15.0:
-    resolution: {integrity: sha512-Dd+Lb2/zvk9SKy1TGCt1wFJFo/MWBPMX5x7KcvLajWTGuomczdQX61PvY5yK6SVACwpoexWo81IfFyoKY2QnTA==}
+  is-core-module@2.15.1:
+    resolution: {integrity: sha512-z0vtXSwucUJtANQWldhbtbt7BnL0vxiFjIdDLAatwhDYty2bad6s+rijD6Ri4YuYJubLzIJLUidCh09e1djEVQ==}
     engines: {node: '>= 0.4'}
 
   is-data-view@1.0.1:
@@ -6004,38 +6030,38 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  turbo-darwin-64@2.1.0:
-    resolution: {integrity: sha512-gHwpDk2gyB7qZ57gUUwDIS/IkglqEjjVtPZCTxmCRg28Tiwjui0azsLVKrnHP9UZHllozwbi28x8HXLXLEFF1w==}
+  turbo-darwin-64@2.1.1:
+    resolution: {integrity: sha512-aYNuJpZlCoi0Htd79fl/2DywpewGKijdXeOfg9KzNuPVKzSMYlAXuAlNGh0MKjiOcyqxQGL7Mq9LFhwA0VpDpQ==}
     cpu: [x64]
     os: [darwin]
 
-  turbo-darwin-arm64@2.1.0:
-    resolution: {integrity: sha512-GLaqGetNC6eS4eqXgsheLOHic/OcnGCGDi5boVf+TFZTXYH6YE15L4ugZha4xHXCr1KouCLILHh+f8EHEmWylg==}
+  turbo-darwin-arm64@2.1.1:
+    resolution: {integrity: sha512-tifJKD8yHY48rHXPMcM8o1jI/Jk2KCaXiNjTKvvy9Zsim61BZksNVLelIbrRoCGwAN6PUBZO2lGU5iL/TQJ5Pw==}
     cpu: [arm64]
     os: [darwin]
 
-  turbo-linux-64@2.1.0:
-    resolution: {integrity: sha512-VzBOsj7JyGoZtiNZZ6brjnY7UehRnClluw7pwznuLPzClkqOOPMd2jOcgkWxnP/xW4NBmOoFANXXrtvKBD4f2w==}
+  turbo-linux-64@2.1.1:
+    resolution: {integrity: sha512-Js6d/bSQe9DuV9c7ITXYpsU/ADzFHABdz1UIHa7Oqjj9VOEbFeA9WpAn0c+mdJrVD+IXJFbbDZUjN7VYssmtcg==}
     cpu: [x64]
     os: [linux]
 
-  turbo-linux-arm64@2.1.0:
-    resolution: {integrity: sha512-St7svJnOO5g4F6R7Z32e10I/0M3e6qpNjEYybXwPNul9NSfnUXeky4WoKaALwqNhyJ7nYemoFpZ1d+i8hFQTHg==}
+  turbo-linux-arm64@2.1.1:
+    resolution: {integrity: sha512-LidzTCq0yvQ+N8w8Qub9FmhQ/mmEIeoqFi7DSupekEV2EjvE9jw/zYc9Pk67X+g7dHVfgOnvVzmrjChdxpFePw==}
     cpu: [arm64]
     os: [linux]
 
-  turbo-windows-64@2.1.0:
-    resolution: {integrity: sha512-iSobNud2MrJ1SZ1upVPlErT8xexsr0MQtKapdfq6z0M0rBnrDGEq5bUCSScWyGu+O4+glB4br9xkTAkGFqaxqQ==}
+  turbo-windows-64@2.1.1:
+    resolution: {integrity: sha512-GKc9ZywKwy4xLDhwXd6H07yzl0TB52HjXMrFLyHGhCVnf/w0oq4sLJv2sjbvuarPjsyx4xnCBJ3m3oyL2XmFtA==}
     cpu: [x64]
     os: [win32]
 
-  turbo-windows-arm64@2.1.0:
-    resolution: {integrity: sha512-d61jN4rjE5PnUfF66GKrKoj8S8Ql4FGXzFFzZz4kjsHpZZzCTtqlzPZBmd1byzGYhDPTorTqG3G1USohbdyohA==}
+  turbo-windows-arm64@2.1.1:
+    resolution: {integrity: sha512-oFKkMj11KKUv3xSK9/fhAEQTxLUp1Ol1EOktwc32+SFtEU0uls7kosAz0b+qe8k3pJGEMFdDPdqoEjyJidbxtQ==}
     cpu: [arm64]
     os: [win32]
 
-  turbo@2.1.0:
-    resolution: {integrity: sha512-A969/LO/sPHKlapIarY2VVzqQ5JnnW2/1kksZlnMEpsRD6gwOELvVL+ozfMiO7av9RILt3UeN02L17efr6HUCA==}
+  turbo@2.1.1:
+    resolution: {integrity: sha512-u9gUDkmR9dFS8b5kAYqIETK4OnzsS4l2ragJ0+soSMHh6VEeNHjTfSjk1tKxCqLyziCrPogadxP680J+v6yGHw==}
     hasBin: true
 
   type-check@0.4.0:
@@ -6108,6 +6134,9 @@ packages:
 
   undici-types@6.13.0:
     resolution: {integrity: sha512-xtFJHudx8S2DSoujjMd1WeWvn7KKWFRESZTMeL1RptAYERu29D6jphMjjY+vn96jvN3kVPDNxU/E13VTaXj6jg==}
+
+  undici-types@6.19.8:
+    resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
 
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
@@ -6635,15 +6664,15 @@ snapshots:
       '@jridgewell/gen-mapping': 0.3.5
       '@jridgewell/trace-mapping': 0.3.25
 
-  '@astro-community/astro-embed-integration@0.7.1(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))':
+  '@astro-community/astro-embed-integration@0.7.1(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))':
     dependencies:
       '@astro-community/astro-embed-link-preview': 0.2.0
-      '@astro-community/astro-embed-twitter': 0.5.4(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
-      '@astro-community/astro-embed-vimeo': 0.3.7(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
-      '@astro-community/astro-embed-youtube': 0.5.2(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
+      '@astro-community/astro-embed-twitter': 0.5.4(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
+      '@astro-community/astro-embed-vimeo': 0.3.7(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
+      '@astro-community/astro-embed-youtube': 0.5.2(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
       '@types/unist': 2.0.10
-      astro: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
-      astro-auto-import: 0.4.2(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
+      astro: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
+      astro-auto-import: 0.4.2(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
       unist-util-select: 4.0.3
 
   '@astro-community/astro-embed-link-preview@0.1.0':
@@ -6654,23 +6683,23 @@ snapshots:
     dependencies:
       '@astro-community/astro-embed-utils': 0.1.2
 
-  '@astro-community/astro-embed-twitter@0.5.4(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))':
+  '@astro-community/astro-embed-twitter@0.5.4(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))':
     dependencies:
       '@astro-community/astro-embed-utils': 0.1.2
-      astro: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
+      astro: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
 
   '@astro-community/astro-embed-utils@0.1.2':
     dependencies:
       linkedom: 0.14.26
 
-  '@astro-community/astro-embed-vimeo@0.3.7(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))':
+  '@astro-community/astro-embed-vimeo@0.3.7(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))':
     dependencies:
       '@astro-community/astro-embed-utils': 0.1.2
-      astro: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
+      astro: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
 
-  '@astro-community/astro-embed-youtube@0.5.2(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))':
+  '@astro-community/astro-embed-youtube@0.5.2(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))':
     dependencies:
-      astro: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
+      astro: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
       lite-youtube-embed: 0.3.2
 
   '@astrojs/check@0.5.10(prettier@3.3.3)(typescript@5.5.4)':
@@ -6737,12 +6766,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/mdx@3.1.4(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))':
+  '@astrojs/mdx@3.1.4(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))':
     dependencies:
       '@astrojs/markdown-remark': 5.2.0
       '@mdx-js/mdx': 3.0.1
       acorn: 8.12.1
-      astro: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
+      astro: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
       es-module-lexer: 1.5.4
       estree-util-visit: 2.0.0
       gray-matter: 4.0.3
@@ -6761,11 +6790,11 @@ snapshots:
     dependencies:
       prismjs: 1.29.0
 
-  '@astrojs/react@3.6.2(@types/react-dom@18.2.25)(@types/react@18.2.79)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(vite@5.3.0(@types/node@22.2.0))':
+  '@astrojs/react@3.6.2(@types/react-dom@18.2.25)(@types/react@18.2.79)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(vite@5.3.0(@types/node@22.5.1))':
     dependencies:
       '@types/react': 18.2.79
       '@types/react-dom': 18.2.25
-      '@vitejs/plugin-react': 4.3.1(vite@5.3.0(@types/node@22.2.0))
+      '@vitejs/plugin-react': 4.3.1(vite@5.3.0(@types/node@22.5.1))
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       ultrahtml: 1.5.3
@@ -6785,13 +6814,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/vercel@7.8.0(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))(react@18.2.0)':
+  '@astrojs/vercel@7.8.0(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))(react@18.2.0)':
     dependencies:
       '@astrojs/internal-helpers': 0.4.1
       '@vercel/analytics': 1.3.1(react@18.2.0)
       '@vercel/edge': 1.1.2
       '@vercel/nft': 0.27.3
-      astro: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
+      astro: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
       esbuild: 0.21.5
       fast-glob: 3.3.2
       web-vitals: 3.5.2
@@ -7006,6 +7035,10 @@ snapshots:
       regenerator-runtime: 0.14.1
 
   '@babel/runtime@7.25.0':
+    dependencies:
+      regenerator-runtime: 0.14.1
+
+  '@babel/runtime@7.25.6':
     dependencies:
       regenerator-runtime: 0.14.1
 
@@ -7453,23 +7486,31 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@microsoft/api-extractor-model@7.29.4(@types/node@22.2.0)':
+  '@microsoft/api-extractor-model@7.29.4(@types/node@22.5.1)':
     dependencies:
       '@microsoft/tsdoc': 0.15.0
       '@microsoft/tsdoc-config': 0.17.0
-      '@rushstack/node-core-library': 5.5.1(@types/node@22.2.0)
+      '@rushstack/node-core-library': 5.5.1(@types/node@22.5.1)
     transitivePeerDependencies:
       - '@types/node'
 
-  '@microsoft/api-extractor@7.47.4(@types/node@22.2.0)':
+  '@microsoft/api-extractor-model@7.29.6(@types/node@22.5.1)':
     dependencies:
-      '@microsoft/api-extractor-model': 7.29.4(@types/node@22.2.0)
       '@microsoft/tsdoc': 0.15.0
       '@microsoft/tsdoc-config': 0.17.0
-      '@rushstack/node-core-library': 5.5.1(@types/node@22.2.0)
+      '@rushstack/node-core-library': 5.7.0(@types/node@22.5.1)
+    transitivePeerDependencies:
+      - '@types/node'
+
+  '@microsoft/api-extractor@7.47.4(@types/node@22.5.1)':
+    dependencies:
+      '@microsoft/api-extractor-model': 7.29.4(@types/node@22.5.1)
+      '@microsoft/tsdoc': 0.15.0
+      '@microsoft/tsdoc-config': 0.17.0
+      '@rushstack/node-core-library': 5.5.1(@types/node@22.5.1)
       '@rushstack/rig-package': 0.5.3
-      '@rushstack/terminal': 0.13.3(@types/node@22.2.0)
-      '@rushstack/ts-command-line': 4.22.3(@types/node@22.2.0)
+      '@rushstack/terminal': 0.13.3(@types/node@22.5.1)
+      '@rushstack/ts-command-line': 4.22.3(@types/node@22.5.1)
       lodash: 4.17.21
       minimatch: 3.0.8
       resolve: 1.22.8
@@ -7479,15 +7520,15 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  '@microsoft/api-extractor@7.47.5(@types/node@22.2.0)':
+  '@microsoft/api-extractor@7.47.7(@types/node@22.5.1)':
     dependencies:
-      '@microsoft/api-extractor-model': 7.29.4(@types/node@22.2.0)
+      '@microsoft/api-extractor-model': 7.29.6(@types/node@22.5.1)
       '@microsoft/tsdoc': 0.15.0
       '@microsoft/tsdoc-config': 0.17.0
-      '@rushstack/node-core-library': 5.5.1(@types/node@22.2.0)
+      '@rushstack/node-core-library': 5.7.0(@types/node@22.5.1)
       '@rushstack/rig-package': 0.5.3
-      '@rushstack/terminal': 0.13.3(@types/node@22.2.0)
-      '@rushstack/ts-command-line': 4.22.4(@types/node@22.2.0)
+      '@rushstack/terminal': 0.14.0(@types/node@22.5.1)
+      '@rushstack/ts-command-line': 4.22.6(@types/node@22.5.1)
       lodash: 4.17.21
       minimatch: 3.0.8
       resolve: 1.22.8
@@ -7804,7 +7845,7 @@ snapshots:
       '@opentelemetry/api': 1.7.0
       '@opentelemetry/instrumentation': 0.46.0(@opentelemetry/api@1.7.0)
       '@opentelemetry/semantic-conventions': 1.25.1
-      semver: 7.6.2
+      semver: 7.6.3
     transitivePeerDependencies:
       - supports-color
 
@@ -7885,7 +7926,7 @@ snapshots:
       '@opentelemetry/core': 1.19.0(@opentelemetry/api@1.7.0)
       '@opentelemetry/instrumentation': 0.46.0(@opentelemetry/api@1.7.0)
       '@opentelemetry/semantic-conventions': 1.19.0
-      semver: 7.6.2
+      semver: 7.6.3
     transitivePeerDependencies:
       - supports-color
 
@@ -8070,7 +8111,7 @@ snapshots:
       '@types/shimmer': 1.0.5
       import-in-the-middle: 1.7.1
       require-in-the-middle: 7.3.0
-      semver: 7.6.2
+      semver: 7.6.3
       shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
@@ -8351,7 +8392,7 @@ snapshots:
       '@opentelemetry/propagator-b3': 1.19.0(@opentelemetry/api@1.7.0)
       '@opentelemetry/propagator-jaeger': 1.19.0(@opentelemetry/api@1.7.0)
       '@opentelemetry/sdk-trace-base': 1.19.0(@opentelemetry/api@1.7.0)
-      semver: 7.6.2
+      semver: 7.6.3
 
   '@opentelemetry/sdk-trace-node@1.21.0(@opentelemetry/api@1.7.0)':
     dependencies:
@@ -8361,7 +8402,7 @@ snapshots:
       '@opentelemetry/propagator-b3': 1.21.0(@opentelemetry/api@1.7.0)
       '@opentelemetry/propagator-jaeger': 1.21.0(@opentelemetry/api@1.7.0)
       '@opentelemetry/sdk-trace-base': 1.21.0(@opentelemetry/api@1.7.0)
-      semver: 7.6.2
+      semver: 7.6.3
 
   '@opentelemetry/sdk-trace-web@1.21.0(@opentelemetry/api@1.7.0)':
     dependencies:
@@ -8587,7 +8628,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.20.0':
     optional: true
 
-  '@rushstack/node-core-library@5.5.1(@types/node@22.2.0)':
+  '@rushstack/node-core-library@5.5.1(@types/node@22.5.1)':
     dependencies:
       ajv: 8.13.0
       ajv-draft-04: 1.0.0(ajv@8.13.0)
@@ -8598,32 +8639,52 @@ snapshots:
       resolve: 1.22.8
       semver: 7.5.4
     optionalDependencies:
-      '@types/node': 22.2.0
+      '@types/node': 22.5.1
+
+  '@rushstack/node-core-library@5.7.0(@types/node@22.5.1)':
+    dependencies:
+      ajv: 8.13.0
+      ajv-draft-04: 1.0.0(ajv@8.13.0)
+      ajv-formats: 3.0.1(ajv@8.13.0)
+      fs-extra: 7.0.1
+      import-lazy: 4.0.0
+      jju: 1.4.0
+      resolve: 1.22.8
+      semver: 7.5.4
+    optionalDependencies:
+      '@types/node': 22.5.1
 
   '@rushstack/rig-package@0.5.3':
     dependencies:
       resolve: 1.22.8
       strip-json-comments: 3.1.1
 
-  '@rushstack/terminal@0.13.3(@types/node@22.2.0)':
+  '@rushstack/terminal@0.13.3(@types/node@22.5.1)':
     dependencies:
-      '@rushstack/node-core-library': 5.5.1(@types/node@22.2.0)
+      '@rushstack/node-core-library': 5.5.1(@types/node@22.5.1)
       supports-color: 8.1.1
     optionalDependencies:
-      '@types/node': 22.2.0
+      '@types/node': 22.5.1
 
-  '@rushstack/ts-command-line@4.22.3(@types/node@22.2.0)':
+  '@rushstack/terminal@0.14.0(@types/node@22.5.1)':
     dependencies:
-      '@rushstack/terminal': 0.13.3(@types/node@22.2.0)
+      '@rushstack/node-core-library': 5.7.0(@types/node@22.5.1)
+      supports-color: 8.1.1
+    optionalDependencies:
+      '@types/node': 22.5.1
+
+  '@rushstack/ts-command-line@4.22.3(@types/node@22.5.1)':
+    dependencies:
+      '@rushstack/terminal': 0.13.3(@types/node@22.5.1)
       '@types/argparse': 1.0.38
       argparse: 1.0.10
       string-argv: 0.3.2
     transitivePeerDependencies:
       - '@types/node'
 
-  '@rushstack/ts-command-line@4.22.4(@types/node@22.2.0)':
+  '@rushstack/ts-command-line@4.22.6(@types/node@22.5.1)':
     dependencies:
-      '@rushstack/terminal': 0.13.3(@types/node@22.2.0)
+      '@rushstack/terminal': 0.14.0(@types/node@22.5.1)
       '@types/argparse': 1.0.38
       argparse: 1.0.10
       string-argv: 0.3.2
@@ -8784,7 +8845,7 @@ snapshots:
   '@testing-library/dom@10.4.0':
     dependencies:
       '@babel/code-frame': 7.24.7
-      '@babel/runtime': 7.25.0
+      '@babel/runtime': 7.25.6
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
       chalk: 4.1.2
@@ -9052,7 +9113,7 @@ snapshots:
 
   '@types/ioredis@4.28.10':
     dependencies:
-      '@types/node': 20.14.15
+      '@types/node': 22.5.1
 
   '@types/keygrip@1.0.6': {}
 
@@ -9118,6 +9179,10 @@ snapshots:
   '@types/node@22.2.0':
     dependencies:
       undici-types: 6.13.0
+
+  '@types/node@22.5.1':
+    dependencies:
+      undici-types: 6.19.8
 
   '@types/offscreencanvas@2019.7.3': {}
 
@@ -9365,14 +9430,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitejs/plugin-react@4.3.1(vite@5.3.0(@types/node@22.2.0))':
+  '@vitejs/plugin-react@4.3.1(vite@5.3.0(@types/node@22.5.1))':
     dependencies:
       '@babel/core': 7.24.7
       '@babel/plugin-transform-react-jsx-self': 7.24.7(@babel/core@7.24.7)
       '@babel/plugin-transform-react-jsx-source': 7.24.7(@babel/core@7.24.7)
       '@types/babel__core': 7.20.5
       react-refresh: 0.14.2
-      vite: 5.3.0(@types/node@22.2.0)
+      vite: 5.3.0(@types/node@22.5.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -9409,6 +9474,24 @@ snapshots:
       test-exclude: 7.0.1
       tinyrainbow: 1.2.0
       vitest: 2.0.5(@types/node@22.2.0)(jsdom@24.1.1)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vitest/coverage-v8@2.0.5(vitest@2.0.5(@types/node@22.5.1)(jsdom@24.1.1))':
+    dependencies:
+      '@ampproject/remapping': 2.3.0
+      '@bcoe/v8-coverage': 0.2.3
+      debug: 4.3.6
+      istanbul-lib-coverage: 3.2.2
+      istanbul-lib-report: 3.0.1
+      istanbul-lib-source-maps: 5.0.6
+      istanbul-reports: 3.1.7
+      magic-string: 0.30.11
+      magicast: 0.3.4
+      std-env: 3.7.0
+      test-exclude: 7.0.1
+      tinyrainbow: 1.2.0
+      vitest: 2.0.5(@types/node@22.5.1)(jsdom@24.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -9761,20 +9844,20 @@ snapshots:
 
   astring@1.8.6: {}
 
-  astro-auto-import@0.4.2(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)):
+  astro-auto-import@0.4.2(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)):
     dependencies:
       '@types/node': 18.19.44
       acorn: 8.12.0
-      astro: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
+      astro: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
 
-  astro-embed@0.7.1(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)):
+  astro-embed@0.7.1(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)):
     dependencies:
-      '@astro-community/astro-embed-integration': 0.7.1(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
+      '@astro-community/astro-embed-integration': 0.7.1(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
       '@astro-community/astro-embed-link-preview': 0.1.0
-      '@astro-community/astro-embed-twitter': 0.5.4(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
-      '@astro-community/astro-embed-vimeo': 0.3.7(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
-      '@astro-community/astro-embed-youtube': 0.5.2(astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4))
-      astro: 4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)
+      '@astro-community/astro-embed-twitter': 0.5.4(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
+      '@astro-community/astro-embed-vimeo': 0.3.7(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
+      '@astro-community/astro-embed-youtube': 0.5.2(astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4))
+      astro: 4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)
 
   astro-seo@0.8.3(prettier@3.3.3)(typescript@5.5.4):
     dependencies:
@@ -9784,7 +9867,7 @@ snapshots:
       - prettier-plugin-astro
       - typescript
 
-  astro@4.14.5(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4):
+  astro@4.14.5(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4):
     dependencies:
       '@astrojs/compiler': 2.10.3
       '@astrojs/internal-helpers': 0.4.1
@@ -9845,8 +9928,8 @@ snapshots:
       tsconfck: 3.1.1(typescript@5.5.4)
       unist-util-visit: 5.0.0
       vfile: 6.0.2
-      vite: 5.3.0(@types/node@22.2.0)
-      vitefu: 0.2.5(vite@5.3.0(@types/node@22.2.0))
+      vite: 5.3.0(@types/node@22.5.1)
+      vitefu: 0.2.5(vite@5.3.0(@types/node@22.5.1))
       which-pm: 3.0.0
       xxhash-wasm: 1.0.2
       yargs-parser: 21.1.1
@@ -10858,7 +10941,7 @@ snapshots:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.6.2
+      semver: 7.6.3
       serialize-error: 7.0.1
     optional: true
 
@@ -11218,7 +11301,7 @@ snapshots:
     dependencies:
       hasown: 2.0.2
 
-  is-core-module@2.15.0:
+  is-core-module@2.15.1:
     dependencies:
       hasown: 2.0.2
 
@@ -11564,7 +11647,7 @@ snapshots:
 
   make-dir@4.0.0:
     dependencies:
-      semver: 7.6.2
+      semver: 7.6.3
 
   markdown-extensions@2.0.0: {}
 
@@ -12693,7 +12776,7 @@ snapshots:
 
   resolve@1.22.8:
     dependencies:
-      is-core-module: 2.15.0
+      is-core-module: 2.15.1
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
@@ -13200,32 +13283,32 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  turbo-darwin-64@2.1.0:
+  turbo-darwin-64@2.1.1:
     optional: true
 
-  turbo-darwin-arm64@2.1.0:
+  turbo-darwin-arm64@2.1.1:
     optional: true
 
-  turbo-linux-64@2.1.0:
+  turbo-linux-64@2.1.1:
     optional: true
 
-  turbo-linux-arm64@2.1.0:
+  turbo-linux-arm64@2.1.1:
     optional: true
 
-  turbo-windows-64@2.1.0:
+  turbo-windows-64@2.1.1:
     optional: true
 
-  turbo-windows-arm64@2.1.0:
+  turbo-windows-arm64@2.1.1:
     optional: true
 
-  turbo@2.1.0:
+  turbo@2.1.1:
     optionalDependencies:
-      turbo-darwin-64: 2.1.0
-      turbo-darwin-arm64: 2.1.0
-      turbo-linux-64: 2.1.0
-      turbo-linux-arm64: 2.1.0
-      turbo-windows-64: 2.1.0
-      turbo-windows-arm64: 2.1.0
+      turbo-darwin-64: 2.1.1
+      turbo-darwin-arm64: 2.1.1
+      turbo-linux-64: 2.1.1
+      turbo-linux-arm64: 2.1.1
+      turbo-windows-64: 2.1.1
+      turbo-windows-arm64: 2.1.1
 
   type-check@0.4.0:
     dependencies:
@@ -13274,7 +13357,7 @@ snapshots:
 
   typescript-auto-import-cache@0.3.3:
     dependencies:
-      semver: 7.6.2
+      semver: 7.6.3
 
   typescript-eslint@7.11.0(eslint@9.9.0)(typescript@5.5.4):
     dependencies:
@@ -13305,6 +13388,8 @@ snapshots:
   undici-types@5.26.5: {}
 
   undici-types@6.13.0: {}
+
+  undici-types@6.19.8: {}
 
   unified@11.0.5:
     dependencies:
@@ -13460,9 +13545,26 @@ snapshots:
       - supports-color
       - terser
 
-  vite-plugin-dts@4.0.2(@types/node@22.2.0)(rollup@4.20.0)(typescript@5.5.4)(vite@5.3.0(@types/node@22.2.0)):
+  vite-node@2.0.5(@types/node@22.5.1):
     dependencies:
-      '@microsoft/api-extractor': 7.47.4(@types/node@22.2.0)
+      cac: 6.7.14
+      debug: 4.3.6
+      pathe: 1.1.2
+      tinyrainbow: 1.2.0
+      vite: 5.3.0(@types/node@22.5.1)
+    transitivePeerDependencies:
+      - '@types/node'
+      - less
+      - lightningcss
+      - sass
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+
+  vite-plugin-dts@4.0.2(@types/node@22.5.1)(rollup@4.20.0)(typescript@5.5.4)(vite@5.3.0(@types/node@22.5.1)):
+    dependencies:
+      '@microsoft/api-extractor': 7.47.4(@types/node@22.5.1)
       '@rollup/pluginutils': 5.1.0(rollup@4.20.0)
       '@volar/typescript': 2.3.4
       '@vue/language-core': 2.0.29(typescript@5.5.4)
@@ -13474,19 +13576,19 @@ snapshots:
       typescript: 5.5.4
       vue-tsc: 2.0.29(typescript@5.5.4)
     optionalDependencies:
-      vite: 5.3.0(@types/node@22.2.0)
+      vite: 5.3.0(@types/node@22.5.1)
     transitivePeerDependencies:
       - '@types/node'
       - rollup
       - supports-color
 
-  vite-tsconfig-paths@5.0.1(typescript@5.5.4)(vite@5.3.0(@types/node@22.2.0)):
+  vite-tsconfig-paths@5.0.1(typescript@5.5.4)(vite@5.3.0(@types/node@22.5.1)):
     dependencies:
       debug: 4.3.6
       globrex: 0.1.2
       tsconfck: 3.1.1(typescript@5.5.4)
     optionalDependencies:
-      vite: 5.3.0(@types/node@22.2.0)
+      vite: 5.3.0(@types/node@22.5.1)
     transitivePeerDependencies:
       - supports-color
       - typescript
@@ -13509,9 +13611,18 @@ snapshots:
       '@types/node': 22.2.0
       fsevents: 2.3.3
 
-  vitefu@0.2.5(vite@5.3.0(@types/node@22.2.0)):
+  vite@5.3.0(@types/node@22.5.1):
+    dependencies:
+      esbuild: 0.21.5
+      postcss: 8.4.41
+      rollup: 4.20.0
     optionalDependencies:
-      vite: 5.3.0(@types/node@22.2.0)
+      '@types/node': 22.5.1
+      fsevents: 2.3.3
+
+  vitefu@0.2.5(vite@5.3.0(@types/node@22.5.1)):
+    optionalDependencies:
+      vite: 5.3.0(@types/node@22.5.1)
 
   vitest@2.0.5(@types/node@20.14.9)(jsdom@24.1.1):
     dependencies:
@@ -13579,6 +13690,39 @@ snapshots:
       - supports-color
       - terser
 
+  vitest@2.0.5(@types/node@22.5.1)(jsdom@24.1.1):
+    dependencies:
+      '@ampproject/remapping': 2.3.0
+      '@vitest/expect': 2.0.5
+      '@vitest/pretty-format': 2.0.5
+      '@vitest/runner': 2.0.5
+      '@vitest/snapshot': 2.0.5
+      '@vitest/spy': 2.0.5
+      '@vitest/utils': 2.0.5
+      chai: 5.1.1
+      debug: 4.3.6
+      execa: 8.0.1
+      magic-string: 0.30.11
+      pathe: 1.1.2
+      std-env: 3.7.0
+      tinybench: 2.9.0
+      tinypool: 1.0.0
+      tinyrainbow: 1.2.0
+      vite: 5.3.0(@types/node@22.5.1)
+      vite-node: 2.0.5(@types/node@22.5.1)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 22.5.1
+      jsdom: 24.1.1
+    transitivePeerDependencies:
+      - less
+      - lightningcss
+      - sass
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+
   volar-service-css@0.0.45(@volar/language-service@2.2.5):
     dependencies:
       vscode-css-languageservice: 6.3.0
@@ -13617,7 +13761,7 @@ snapshots:
   volar-service-typescript@0.0.45(@volar/language-service@2.2.5):
     dependencies:
       path-browserify: 1.0.1
-      semver: 7.6.2
+      semver: 7.6.3
       typescript-auto-import-cache: 0.3.3
       vscode-languageserver-textdocument: 1.0.11
       vscode-nls: 5.2.0
