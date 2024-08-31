@@ -9,14 +9,20 @@
 
 from __future__ import annotations
 
-import typing
-from typing import Protocol, TypeAlias, TypeVar
+from typing import Protocol, TypeAlias, TypeVar, Callable, Awaitable
 
 from pydantic import BaseModel
 
 from freighter.context import Context
 
 Payload: TypeAlias = BaseModel
+
+
+class Empty(Payload):
+    """Empty represents an empty payload."""
+
+    pass
+
 
 RS = TypeVar("RS", bound=Payload, contravariant=True)
 """Represents a general response payload.
@@ -53,31 +59,27 @@ class AsyncTransport(Protocol):
         ...
 
 
-Next = typing.Callable[[Context], tuple[Context, Exception | None]]
+Next = Callable[[Context], tuple[Context, Exception | None]]
 """Executes the next middleware in the chain"""
 
-AsyncNext = typing.Callable[
-    [Context], typing.Awaitable[tuple[Context, Exception | None]]
-]
+AsyncNext = Callable[[Context], Awaitable[tuple[Context, Exception | None]]]
 """Executes the next middleware in the chain"""
 
-Middleware = typing.Callable[[Context, Next], tuple[Context, Exception | None]]
+Middleware = Callable[[Context, Next], tuple[Context, Exception | None]]
 """"Middleware is a general middleware function that can be used to parse/attach
 metadata to a request or alter its behvaior."""
 
-AsyncMiddleware = typing.Callable[
-    [Context, AsyncNext], typing.Awaitable[tuple[Context, Exception | None]]
+AsyncMiddleware = Callable[
+    [Context, AsyncNext], Awaitable[tuple[Context, Exception | None]]
 ]
 """Middleware is a general middleware function that can be used to parse/attach
 metadata to a request or alter its behvaior."""
 
-Finalizer = typing.Callable[[Context], tuple[Context, Exception | None]]
+Finalizer = Callable[[Context], tuple[Context, Exception | None]]
 """Finalizer is a middleware that is executed as the last step in a chain.
 It is used to finalize the request and return the response."""
 
-AsyncFinalizer = typing.Callable[
-    [Context], typing.Awaitable[tuple[Context, Exception | None]]
-]
+AsyncFinalizer = Callable[[Context], Awaitable[tuple[Context, Exception | None]]]
 """Finalizer is a middleware that is executed as the last step in a chain.
 It is used to finalize the request and return the response."""
 

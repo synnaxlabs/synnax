@@ -7,46 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.hardware.payload import Device, Rack, Task
-from synnax.hardware.retrieve import Retriever
-from synnax.hardware.writer import Writer
+from synnax.hardware import device
+from synnax.hardware import rack
+from synnax.hardware import task
 
 
 class Client:
-    __writer: Writer
-    __retriever: Retriever
+    devices: device.Client
+    tasks: task.Client
+    racks: rack.Client
 
-    def __init__(self, writer: Writer, retriever: Retriever) -> None:
-        self.__writer = writer
-        self.__retriever = retriever
-
-    def create_rack(self, racks: list[Rack]) -> list[Rack]:
-        return self.__writer.create_rack(racks)
-
-    def delete_rack(self, keys: list[int]):
-        self.__writer.delete_rack(keys)
-
-    def create_task(self, tasks: list[Task]) -> list[Task]:
-        return self.__writer.create_task(tasks)
-
-    def delete_task(self, keys: list[int]):
-        self.__writer.delete_task(keys)
-
-    def create_device(self, devices: list[Device]) -> list[Device]:
-        return self.__writer.create_device(devices)
-
-    def delete_device(self, keys: list[str]):
-        self.__writer.delete_device(keys)
-
-    def retrieve_rack(
-        self, keys: list[int] | None = None, names: list[str] | None = None
-    ) -> list[Rack]:
-        return self.__retriever.retrieve_rack(keys=keys, names=names)
-
-    def retrieve_task(
-        self, rack: int | None = None, keys: list[int] | None = None
-    ) -> list[Task]:
-        return self.__retriever.retrieve_task(rack, keys)
-
-    def retrieve_device(self, keys: list[str] | None = None) -> list[Device]:
-        return self.__retriever.retrieve_device(keys)
+    def __init__(
+        self,
+        devices: device.Client,
+        racks: rack.Client,
+        tasks: task.Client,
+    ) -> None:
+        self.tasks = tasks
+        self.racks = racks
+        self.devices = devices

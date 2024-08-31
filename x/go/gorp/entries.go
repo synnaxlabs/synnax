@@ -32,6 +32,14 @@ type Entry[K Key] interface {
 	SetOptions() []interface{}
 }
 
+func entryKeys[K Key, E Entry[K]](entries []E) []K {
+	keys := make([]K, len(entries))
+	for i, entry := range entries {
+		keys[i] = entry.GorpKey()
+	}
+	return keys
+}
+
 type nopEntry []struct{}
 
 var _ Entry[string] = nopEntry{}
@@ -143,6 +151,11 @@ func (e *Entries[K, E]) All() []E {
 		return nil
 	}
 	return []E{*e.entry}
+}
+
+// Keys returns the keys of all entries currently bound to the query.
+func (e *Entries[K, E]) Keys() []K {
+	return entryKeys[K, E](e.All())
 }
 
 func (e *Entries[K, E]) Any() bool {

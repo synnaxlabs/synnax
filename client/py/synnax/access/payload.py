@@ -11,13 +11,13 @@
 from __future__ import annotations
 from uuid import UUID
 from freighter import Payload
-from synnax.ontology.id import OntologyID
+from synnax.ontology.payload import ID
 
 
 class Policy(Payload):
-    key: UUID = UUID(int=0)
-    subjects: list[OntologyID] = None
-    objects: list[OntologyID] = None
+    key: UUID | None = None
+    subjects: list[ID] = None
+    objects: list[ID] = None
     actions: list[str] = None
 
     def __str__(self):

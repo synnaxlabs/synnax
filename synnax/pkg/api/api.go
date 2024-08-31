@@ -194,6 +194,7 @@ type Transport struct {
 	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
 	HardwareCreateTask     freighter.UnaryServer[HardwareCreateTaskRequest, HardwareCreateTaskResponse]
 	HardwareRetrieveTask   freighter.UnaryServer[HardwareRetrieveTaskRequest, HardwareRetrieveTaskResponse]
+	HardwareCopyTask       freighter.UnaryServer[HardwareCopyTaskRequest, HardwareCopyTaskResponse]
 	HardwareDeleteTask     freighter.UnaryServer[HardwareDeleteTaskRequest, types.Nil]
 	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
 	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
@@ -323,6 +324,7 @@ func (a *API) BindTo(t Transport) {
 		t.HardwareCreateTask,
 		t.HardwareRetrieveTask,
 		t.HardwareDeleteTask,
+		t.HardwareCopyTask,
 		t.HardwareCreateDevice,
 		t.HardwareRetrieveDevice,
 		t.HardwareDeleteDevice,
@@ -421,6 +423,7 @@ func (a *API) BindTo(t Transport) {
 	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
 	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
 	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)
+	t.HardwareCopyTask.BindHandler(a.Hardware.CopyTask)
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)

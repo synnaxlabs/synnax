@@ -17,7 +17,7 @@ export type RelationshipChange = change.Change<Relationship, undefined>;
 export type RelationshipSet = change.Set<Relationship, undefined>;
 export type RelationshipDelete = change.Delete<Relationship, undefined>;
 
-const resourceTypeZ = z.union([
+export const resourceTypeZ = z.union([
   z.literal("label"),
   z.literal("allow_all"),
   z.literal("builtin"),

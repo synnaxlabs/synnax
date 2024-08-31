@@ -18,6 +18,7 @@ import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
+import { Snapshots } from "@/range/overview/Snapshots";
 
 export const OVERVIEW_TYPE = "overview";
 
@@ -32,9 +33,14 @@ export const overviewLayout: Layout.State = {
 export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => (
   <Align.Space
     direction="y"
-    style={{ padding: "5rem", maxWidth: "1200px", margin: "0 auto" }}
+    style={{
+      padding: "5rem",
+      maxWidth: 1050,
+      margin: "0 auto",
+      overflowY: "auto",
+    }}
     className={CSS.BE("range", "overview")}
-    size="large"
+    size="medium"
   >
     <Details rangeKey={layoutKey} />
     <Labels rangeKey={layoutKey} />
@@ -42,5 +48,7 @@ export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => (
     <MetaData rangeKey={layoutKey} />
     <Divider.Divider direction="x" />
     <ChildRanges rangeKey={layoutKey} />
+    <Divider.Divider direction="x" />
+    <Snapshots rangeKey={layoutKey} />
   </Align.Space>
 );
