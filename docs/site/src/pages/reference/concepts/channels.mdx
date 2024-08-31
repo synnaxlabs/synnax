@@ -3,11 +3,10 @@ layout: "@/layouts/MainLayout.astro"
 title: "Channels"
 description: "Learn how channels represent data in Synnax."
 ---
-import {Image} from "astro:assets";
+import { Image } from "@/components/Media";
 import { Divider, Text } from "@synnaxlabs/pluto"
 import Diagram from "@/components/Diagram.astro"
 import { Icon } from "@synnaxlabs/media";
-import g9 from "@/pages/reference/concepts/Frame 8.svg"
 import Note from "@/components/Note.astro"
 
 This page walks you through what channels are, their important properties, and
@@ -34,7 +33,12 @@ The following diagram shows a sensor writing samples to a channel, which are the
 stored and forwarded to a visualization tool and analysis script.
 
 <Diagram>
-<Image src={g9} alt="Channel Diagram" />
+<Image 
+    client:only="react"
+    id="concepts/channels/channels"
+    extension="svg"
+    themed={false}
+/>
 </Diagram>
 
 Channels are comparable to **tags** in a time-series database like [InfluxDB](https://www.influxdata.com/)

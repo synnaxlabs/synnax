@@ -3,15 +3,10 @@ layout: "@/layouts/MainLayout.astro"
 title: "Concepts"
 description: "Learn about the core concepts of Synnax."
 ---
-import { Image } from "astro:assets";
+import { Image } from "@/components/Media";
 import { Divider } from "@synnaxlabs/pluto";
-import Note from "@/components/Note.astro";
 import Diagram from "@/components/Diagram.astro";
-import sample from "@/pages/reference/concepts/sample.svg";
-import channel from "@/pages/reference/concepts/channel.svg";
-import range from "@/pages/reference/concepts/range.svg";
-import series from "@/pages/reference/concepts/series.svg";
-import frame from "@/pages/reference/concepts/frame.svg";
+import Note from "@/components/Note.astro";
 
 Synnax is a streaming time-series database designed to acquire, store, and transmit
 real-time data from hardware systems. It scales horizontally, and can be deployed on
@@ -58,7 +53,12 @@ pressure. Samples can also be actuator commands, status codes, or any other stro
 typed value. 
 
 <Diagram>
-<Image src={sample} alt="Samples Diagram" />
+<Image 
+    client:only="react" 
+    id="concepts/overview/sample" 
+    extension="svg" 
+    themed={false} 
+/>
 </Diagram>
 
 ### Channels
@@ -77,7 +77,12 @@ Combined data storage and streaming is a key feature of Synnax, enabling many po
 workflows that would otherwise require multiple systems to implement.
 
 <Diagram>
-<Image src={channel} alt="Channels Diagram" />
+<Image 
+    client:only="react"
+    id="concepts/overview/channel" 
+    extension="svg" 
+    themed={false}
+/>
 </Diagram>
 
 <Note variant="info">
@@ -101,7 +106,12 @@ and monitoring, ranges can be used to label anomalies, identify maintenance peri
 annotate automated control actions.
 
 <Diagram>
-<Image src={range} alt="Ranges Diagram" />
+<Image 
+    client:only="react"
+    id="concepts/overview/range" 
+    extension="svg" 
+    themed={false}
+/>
 </Diagram>
 
 ### Series
@@ -112,7 +122,12 @@ in other programming languages. When reading or writing data to Synnax, you'll f
 work with channel data as a collection of one or more series.
 
 <Diagram>
-<Image src={series} alt="Series Diagram" />
+<Image 
+    client:only="react"
+    id="concepts/overview/series" 
+    extension="svg" 
+    themed={false}
+/>
 </Diagram>
 
 ### Frames
@@ -124,7 +139,12 @@ fundamental unit of data transfer within Synnax, and are very useful for effecti
 working with data from multiple channels at once.
 
 <Diagram>
-<Image src={frame} alt="Frames Diagram" />
+<Image 
+    client:only="react"
+    id="concepts/overview/frame" 
+    extension="svg" 
+    themed={false}
+/>
 </Diagram>
 
 <Divider.Divider direction="x" />

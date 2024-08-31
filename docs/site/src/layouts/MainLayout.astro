@@ -66,7 +66,7 @@ const {
         getVersion().then((version) => {
             const versionElement = document.querySelector(".version");
             if (versionElement == null) return;
-            versionElement.innerHTML = version.split(".").slice(0, -1).join(".") + ".x";
+            versionElement.innerHTML = "v" + version.split(".").slice(0, -1).join(".");
         });
     </script>
 
