@@ -104,11 +104,9 @@ describe("Ontology", () => {
     });
     it("should correctly propagate resource changes to the ontology", async () => {
       const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.ResourceChange[]>((resolve) => {
-        change.resources.onChange((changes) => {
-          resolve(changes);
-        });
-      });
+      const p = new Promise<ontology.ResourceChange[]>((resolve) =>
+        change.resources.onChange((changes) => resolve(changes)),
+      );
       await client.ontology.groups.create(ontology.Root, randomName());
       const c = await p;
       expect(c.length).toBeGreaterThan(0);

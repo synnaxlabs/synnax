@@ -235,7 +235,6 @@ export type UseReturn<S extends z.ZodTypeAny> = [
  */
 export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> => {
   const { type, schema, initialState } = props;
-
   const [internalState, setInternalState] = useState<z.output<S>>(() =>
     prettyParse(schema, initialState),
   );

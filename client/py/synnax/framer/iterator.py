@@ -198,8 +198,10 @@ class Iterator:
         r, exc = self.__stream.receive()
         if exc is None:
             raise UnexpectedError(
-                """Unexpected missing close acknowledgement from server.
-                Please report this issue to the Synnax team."""
+                f"""Unexpected missing close acknowledgement from server.
+                Please report this issue to the Synnax team.
+                Response: {r}
+                """
             )
         elif not isinstance(exc, EOF):
             raise exc

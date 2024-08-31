@@ -170,9 +170,9 @@ public:
 
     virtual void parse_config(config::Parser &parser);
 
-    virtual freighter::Error start();
+    virtual freighter::Error start(const std::string &cmd_key);
 
-    virtual freighter::Error stop();
+    virtual freighter::Error stop(const std::string &cmd_key);
 
     virtual freighter::Error start_ni();
 
@@ -354,9 +354,9 @@ public:
 
     freighter::Error write(synnax::Frame frame) override;
 
-    freighter::Error stop();
+    freighter::Error stop(const std::string &cmd_key);
 
-    freighter::Error start();
+    freighter::Error start(const std::string &cmd_key);
 
     freighter::Error start_ni();
 
@@ -498,7 +498,9 @@ public:
 
     void stop() override;
 
-    void start();
+    void stop(const std::string &cmd_key);
+
+    void start(const std::string &cmd_key);
 
     bool ok();
 
@@ -537,7 +539,9 @@ public:
 
     void stop() override;
 
-    void start();
+    void stop(const std::string &cmd_key);
+
+    void start(const std::string &cmd_key);
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,

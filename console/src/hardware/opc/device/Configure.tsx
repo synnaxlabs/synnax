@@ -41,7 +41,7 @@ import {
   TestConnCommandResponse,
   TestConnCommandState,
 } from "@/hardware/opc/device/types";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
@@ -213,8 +213,8 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           )}
         </Form.Form>
       </Align.Space>
-      <Nav.Bar location="bottom" style={{ paddingRight: "2rem" }}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+      <Layout.BottomNavBar>
+        <Nav.Bar.Start size="small">
           {connState == null ? (
             <>
               <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
@@ -240,7 +240,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           </Button.Button>
           <Button.Button onClick={() => confirm.mutate()}>Save</Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Layout.BottomNavBar>
     </Align.Space>
   );
 };

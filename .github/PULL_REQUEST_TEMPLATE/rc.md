@@ -227,6 +227,22 @@ I can successfully:
 - [ ] Open the documentation from the command search bar.
 - [ ] Open the documentation from the question mark icon.
 
+### Devices
+
+I can successfully:
+
+- [ ] Group devices in the resources view.
+- [ ] Rename a device in the resources view.
+- [ ] Delete a device in the resources view.
+
+### Tasks
+
+I can successfully:
+
+- [ ] Group tasks in the resources view.
+- [ ] Rename a task in the resources view.
+- [ ] Delete a task in the resources view.
+
 ### OPC UA
 
 #### Configuration

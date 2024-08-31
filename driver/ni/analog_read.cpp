@@ -227,13 +227,11 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
             f.add(this->reader_config.channels[ch].channel_key, std::move(t));
             continue;
         }
-        auto series = synnax::Series(synnax::FLOAT32, s);
-        // copy data from start to end into series
-        for (int i = 0; i < d.samples_read_per_channel; i++)
-            this->write_to_series(series, d.analog_data[
-                                          data_index * d.samples_read_per_channel + i],
-                                  this->reader_config.channels[ch].data_type);
-
+        synnax::Series series = synnax::Series(synnax::FLOAT32, s);
+        if(this->reader_config.channels[ch].data_type == synnax::FLOAT32) series = synnax::Series(synnax::FLOAT32, s);
+        else if(this->reader_config.channels[ch].data_type == synnax::FLOAT64) series = synnax::Series(synnax::FLOAT64, s);
+        for(int i = 0; i < d.samples_read_per_channel; i++) 
+            this->write_to_series(series, d.analog_data[data_index*d.samples_read_per_channel + i], this->reader_config.channels[ch].data_type);
         f.add(this->reader_config.channels[ch].channel_key, std::move(series));
         data_index++;
     }
@@ -276,11 +274,18 @@ int ni::AnalogReadSource::validate_channels() {
         }
         // if not index, make sure channel type is valid
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
-                channel.channel_key);
-        if (channel_info.data_type != synnax::FLOAT32 &&
-            channel_info.data_type != synnax::FLOAT64) {
-            this->log_error(
-                    "Channel " + channel.name + " is not of type float32 or float64");
+            channel.channel_key);
+        if(channel_info.data_type != synnax::FLOAT32 && channel_info.data_type != synnax::FLOAT64) {
+            this->log_error("Channel " + channel.name + " is not of type float32 or float64");
+            this->ctx->setState({
+                .task = task.key,
+                .variant = "error",
+                .details = {
+                    {"running", false},
+                    {"message", "Channel " + channel.name + " must be type float32 or float64. Got " + channel_info.data_type.value}, 
+                    {"path", channel.name}
+                }
+            });
             return -1;
         }
         channel.data_type = channel_info.data_type;

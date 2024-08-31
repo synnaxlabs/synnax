@@ -35,6 +35,18 @@ class URL:
         self.port = port
         self.path = format_path(path)
 
+    @staticmethod
+    def parse(url: str) -> URL:
+        """Parses a URL string into a URL object."""
+        split = url.split("://")
+        protocol = split[0]
+        split = split[1].split(":")
+        host = split[0]
+        split = split[1].split("/")
+        port = int(split[0])
+        path = "/".join(split[1:])
+        return URL(host, port, path, protocol)
+
     def replace(
         self,
         host: str = None,
