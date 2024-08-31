@@ -74,18 +74,24 @@ class Streamer:
         except TimeoutError:
             return None
 
-    def close(self):
+    def close(self, timeout: float | None = None):
         exc = self.__stream.close_send()
         if exc is not None:
             raise exc
-        _, exc = self.__stream.receive()
-        if exc is None:
-            raise UnexpectedError(
-                """Unexpected missing close acknowledgement from server.
-                Please report this issue to the Synnax team."""
-            )
-        elif not isinstance(exc, EOF):
-            raise exc
+        while True:
+            r, exc = self.__stream.receive(timeout)
+            if r is not None:
+                continue
+            if exc is None:
+                raise UnexpectedError(
+                    f"""Unexpected missing close acknowledgement from server.
+                    Please report this issue to the Synnax team.
+                    Response: {r}
+                    """
+                )
+            elif not isinstance(exc, EOF):
+                raise exc
+            break
 
     def __iter__(self):
         return self

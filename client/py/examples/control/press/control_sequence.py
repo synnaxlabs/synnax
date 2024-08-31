@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-import time
 
 # We've logged in via the CLI, so there's no need to provide credentials here. See
 # https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
@@ -32,12 +31,12 @@ with client.control.acquire(
     # We need to set the channels we'll be writing to and reading from.
     write=[PRESS_VALVE, VENT_VALVE],
     read=[PRESSURE],
-) as controller:
+) as ctrl:
     # Mark the start of the sequence
     start = sy.TimeStamp.now()
 
     # Close the vent valve
-    controller[VENT_VALVE] = False
+    ctrl[VENT_VALVE] = False
 
     # Set the initial target pressure
     curr_target = 20
@@ -45,8 +44,8 @@ with client.control.acquire(
     # Pressurize the system five times in 20 psi increments
     for i in range(5):
         # Open the pressurization valve
-        controller[PRESS_VALVE] = True
-        if controller.wait_until(
+        ctrl[PRESS_VALVE] = True
+        if ctrl.wait_until(
             # Wait until the pressure is greater than the current target
             lambda c: c[PRESSURE] > curr_target,
             # If the pressure doesn't reach the target in 20 seconds, break the loop and
@@ -54,22 +53,22 @@ with client.control.acquire(
             timeout=20 * sy.TimeSpan.SECOND,
         ):
             # Close the pressurization valve
-            controller[PRESS_VALVE] = False
+            ctrl[PRESS_VALVE] = False
             # Wait for 2 seconds
-            time.sleep(2)
+            ctrl.sleep(2)
             # Increment the target
             curr_target += 20
         else:
             break
 
     # Vent the system
-    controller[VENT_VALVE] = True
+    ctrl[VENT_VALVE] = True
 
     # Wait until the pressure is less than 5 psi
-    controller.wait_until(lambda c: c[PRESSURE] < 5)
+    ctrl.wait_until(lambda c: c[PRESSURE] < 5)
 
     # Close the vent valve
-    controller[VENT_VALVE] = False
+    ctrl[VENT_VALVE] = False
 
     # Mark the end of the sequence
     end = sy.TimeStamp.now()

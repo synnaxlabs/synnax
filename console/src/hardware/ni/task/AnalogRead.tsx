@@ -9,12 +9,12 @@
 
 import { NotFoundError, QueryError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { binary, deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
@@ -22,7 +22,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -44,11 +44,13 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  ParentRangeButton,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
@@ -161,7 +163,7 @@ const Wrapped = ({
         const channels = await client.channels.create(
           toCreate.map((c) => ({
             name: `${dev.properties.identifier}_ai_${c.port}`,
-            dataType: "float32", // TODO: also support float64 
+            dataType: "float32", // TODO: also support float64
             index: dev.properties.analogInput.index,
           })),
         );
@@ -202,10 +204,29 @@ const Wrapped = ({
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
-        <Form.Form {...methods}>
-          <Form.Field<string> path="name">
-            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-          </Form.Field>
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
+          <Align.Space direction="x" justify="spaceBetween">
+            <Form.Field<string>
+              path="name"
+              showLabel={false}
+              padHelpText={!task?.snapshot}
+            >
+              {(p) => (
+                <Input.Text
+                  variant={task?.snapshot ? "preview" : "natural"}
+                  level="h1"
+                  {...p}
+                />
+              )}
+            </Form.Field>
+            <CopyButtons
+              importClass="AnalogReadTask"
+              taskKey={task?.key}
+              getName={() => methods.get<string>("name").value}
+              getConfig={() => methods.get("config").value}
+            />
+          </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -227,6 +248,7 @@ const Wrapped = ({
             empty
           >
             <ChannelList
+              snapshot={task?.snapshot}
               path="config.channels"
               selected={selectedChannels}
               onSelect={useCallback(
@@ -237,18 +259,7 @@ const Wrapped = ({
                 [setSelectedChannels, setSelectedChannelIndex],
               )}
             />
-            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h4">
-                <Header.Title weight={500} wrap={false}>
-                  Details
-                </Header.Title>
-              </Header.Header>
-              <Align.Space className={CSS.B("details")}>
-                {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
-                )}
-              </Align.Space>
-            </Align.Space>
+            <ChannelDetails selectedChannelIndex={selectedChannelIndex} />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -257,7 +268,54 @@ const Wrapped = ({
           configuring={configure.isPending}
           onStartStop={startOrStop.mutate}
           onConfigure={configure.mutate}
+          snapshot={task?.snapshot}
         />
+      </Align.Space>
+    </Align.Space>
+  );
+};
+
+interface ChannelDetailsProps {
+  selectedChannelIndex?: number | null;
+}
+
+const ChannelDetails = ({
+  selectedChannelIndex,
+}: ChannelDetailsProps): ReactElement => {
+  const ctx = Form.useContext();
+
+  const copy = useCopyToClipboard();
+  const handleCopyChannelDetails = () => {
+    if (selectedChannelIndex == null) return;
+    copy(
+      binary.JSON_CODEC.encodeString(
+        ctx.get(`config.channels.${selectedChannelIndex}`).value,
+      ),
+      "Channel details",
+    );
+  };
+
+  return (
+    <Align.Space className={CSS.B("channel-form")} direction="y" grow>
+      <Header.Header level="h4">
+        <Header.Title weight={500} wrap={false}>
+          Details
+        </Header.Title>
+        <Header.Actions>
+          <Button.Icon
+            tooltip="Copy channel details as JSON"
+            tooltipLocation="left"
+            variant="text"
+            onClick={handleCopyChannelDetails}
+          >
+            <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
+          </Button.Icon>
+        </Header.Actions>
+      </Header.Header>
+      <Align.Space className={CSS.B("details")}>
+        {selectedChannelIndex != null && (
+          <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+        )}
       </Align.Space>
     </Align.Space>
   );
@@ -288,6 +346,7 @@ interface ChannelListProps {
   path: string;
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
+  snapshot?: boolean;
 }
 
 const availablePortFinder = (channels: Chan[]): (() => number) => {
@@ -300,7 +359,12 @@ const availablePortFinder = (channels: Chan[]): (() => number) => {
   };
 };
 
-const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
+const ChannelList = ({
+  path,
+  snapshot,
+  selected,
+  onSelect,
+}: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<Chan>({ path });
   const handleAdd = (): void => {
     const key = id.id();
@@ -314,7 +378,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
           <ChannelListContextMenu
@@ -323,6 +387,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             value={value}
             remove={remove}
             onSelect={onSelect}
+            snapshot={snapshot}
             onDuplicate={(indices) => {
               const pf = availablePortFinder(value);
               push(
@@ -340,7 +405,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       >
         <List.List<string, Chan>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+          }
         >
           <List.Selector<string, Chan>
             value={selected}
@@ -352,7 +419,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => <ChannelListItem {...props} path={path} />}
+              {(props) => (
+                <ChannelListItem {...props} path={path} snapshot={snapshot} />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>
@@ -363,9 +432,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 
 const ChannelListItem = ({
   path: basePath,
+  snapshot = false,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
+  snapshot?: boolean;
 }): ReactElement => {
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
@@ -398,6 +469,7 @@ const ChannelListItem = ({
       <EnableDisableButton
         value={childValues.enabled}
         onChange={(v) => ctx.set(`${path}.enabled`, v)}
+        snapshot={snapshot}
       />
     </List.ItemFrame>
   );

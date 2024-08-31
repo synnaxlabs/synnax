@@ -148,7 +148,8 @@
     }
 }
 
-.pluto-input--natural {
+.pluto-input--natural,
+.pluto-input--preview {
     background: none !important;
     border-radius: 0 !important;
     & > * {

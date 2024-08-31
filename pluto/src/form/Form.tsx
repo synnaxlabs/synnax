@@ -47,6 +47,7 @@ export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I
   onChange: (value: O) => void;
   setStatus: (status: status.CrudeSpec) => void;
   status: status.CrudeSpec;
+  variant?: Input.Variant;
 }
 
 interface UseField {
@@ -101,7 +102,9 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     return null;
   }
 
-  return { onChange: handleChange, setStatus: handleSetStatus, ...state };
+  let variant: Input.Variant | undefined;
+  if (ctx.mode === "preview") variant = "preview";
+  return { onChange: handleChange, setStatus: handleSetStatus, variant, ...state };
 }) as UseField;
 
 export interface UseFieldValue {
@@ -364,7 +367,10 @@ interface BindProps<V = unknown> {
 
 type BindFunc = <V = unknown>(props: BindProps<V>) => Destructor;
 
+type Mode = "normal" | "preview";
+
 export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
+  mode: Mode;
   bind: BindFunc;
   set: SetFunc;
   reset: (values: z.output<Z>) => void;
@@ -379,6 +385,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
 }
 
 export const Context = createContext<ContextValue>({
+  mode: "normal",
   bind: () => () => {},
   set: () => {},
   reset: () => {},
@@ -431,6 +438,7 @@ export interface OnChangeProps<Z extends z.ZodTypeAny> {
 
 export interface UseProps<Z extends z.ZodTypeAny> {
   values: z.output<Z>;
+  mode?: Mode;
   sync?: boolean;
   onChange?: (props: OnChangeProps<Z>) => void;
   schema?: Z;
@@ -449,6 +457,7 @@ export const use = <Z extends z.ZodTypeAny>({
   values,
   sync = false,
   schema,
+  mode = "normal",
   onChange,
 }: UseProps<Z>): UseReturn<Z> => {
   const ref = useRef<UseRef<Z>>({
@@ -705,6 +714,7 @@ export const use = <Z extends z.ZodTypeAny>({
       bind,
       set,
       get,
+      mode,
       validate,
       validateAsync,
       value: () => ref.current.state,
@@ -725,6 +735,7 @@ export const use = <Z extends z.ZodTypeAny>({
       setStatus,
       clearStatuses,
       reset,
+      mode
     ],
   );
 };

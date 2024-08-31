@@ -134,6 +134,17 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
   }).mutate;
 
+const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const placeLayout = Layout.usePlacer();
+  return ({ selection: { resources } }) => {
+    placeLayout({
+      ...overviewLayout,
+      name: resources[0].name,
+      key: resources[0].id.key,
+    });
+  };
+};
+
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({
     type: "Range",
@@ -217,6 +228,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleAddChildRange = () => {
     placeLayout(createEditLayout({ initial: { parent: resources[0].id.key } }));
   };
+  const viewDetails = useViewDetails();
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(nodes[0].key),
@@ -225,6 +237,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     addToNewPlot: () => addToNewPlot(props),
     edit: () => handleEdit(props),
     group: () => groupFromSelection(props),
+    viewDetails: () => viewDetails(props),
     link: () =>
       handleLink({
         name: resources[0].name,
@@ -235,10 +248,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isSingle = resources.length === 1;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      <Group.GroupMenuItem selection={selection} />
       {isSingle && (
         <>
           {resources[0].id.key !== activeRange?.key && setAsActiveMenuItem}
+          <PMenu.Item itemKey="viewDetails" startIcon={<Icon.Details />}>
+            View Details
+          </PMenu.Item>
+          <PMenu.Divider />
           <Menu.RenameItem />
           <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
@@ -247,6 +263,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <PMenu.Divider />
+      <Group.GroupMenuItem selection={selection} />
       {layout?.type === "lineplot" && addToActivePlotMenuItem}
       {addToNewPlotMenuItem}
       <PMenu.Divider />

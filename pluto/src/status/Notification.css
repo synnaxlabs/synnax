@@ -19,8 +19,19 @@
     border: var(--pluto-border-l4);
     border-radius: 1rem;
     z-index: 10;
+    .pluto-notification__silence {
+        opacity: 0;
+    }
+    &:hover {
+        .pluto-notification__silence {
+            opacity: 1;
+        }
+    }
     .pluto-notification__content {
-        padding: 1rem;
+        padding-top: 0;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-bottom: 1rem;
     }
     .pluto-notification__message {
         font-weight: 450;
