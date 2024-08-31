@@ -37,4 +37,3 @@ RangeNames = tuple[str] | list[str]
 """The type for the names of a Range. A tuple or list of strings."""
 RangeParams = RangeKeys | RangeNames | RangeKey | RangeName
 """Parameters that can be used to query a range"""
-

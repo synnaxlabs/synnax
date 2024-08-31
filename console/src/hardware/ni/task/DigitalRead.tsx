@@ -29,7 +29,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import {
   Chan,
   DIChan,
@@ -49,6 +49,7 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -56,26 +57,25 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
-interface ConfigureDigitalReadArgs {
-  create: boolean;
-}
-
 export const configureDigitalReadLayout = (
-  create: boolean = false,
-): Layout.State<ConfigureDigitalReadArgs> => ({
+  args: TaskLayoutArgs<DigitalReadPayload> = { create: false },
+): Layout.State<TaskLayoutArgs<DigitalReadPayload>> => ({
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
   key: id.id(),
   windowKey: DIGITAL_READ_TYPE,
   location: "mosaic",
-  args: { create },
+  args,
 });
 
 export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({ ...configureDigitalReadLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...configureDigitalReadLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const Wrapped = ({
@@ -209,10 +209,18 @@ const Wrapped = ({
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
-        <Form.Form {...methods}>
-          <Form.Field<string> path="name">
-            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-          </Form.Field>
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
+          <Align.Space direction="x" justify="spaceBetween">
+            <Form.Field<string> path="name">
+              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+            </Form.Field>
+            <CopyButtons
+              importClass="DigitalReadTask"
+              taskKey={task?.key}
+              getName={() => methods.get<string>("name").value}
+              getConfig={() => methods.get("config").value}
+            />
+          </Align.Space>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -231,6 +239,7 @@ const Wrapped = ({
           >
             <ChannelList
               path="config.channels"
+              snapshot={task?.snapshot}
               selected={selectedChannels}
               onSelect={useCallback(
                 (v, i) => {
@@ -254,6 +263,7 @@ const Wrapped = ({
         </Form.Form>
         <Controls
           state={taskState}
+          snapshot={task?.snapshot}
           startingOrStopping={start.isPending}
           configuring={configure.isPending}
           onConfigure={configure.mutate}
@@ -283,9 +293,15 @@ interface ChannelListProps {
   path: string;
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
+  snapshot?: boolean;
 }
 
-const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
+const ChannelList = ({
+  path,
+  selected,
+  onSelect,
+  snapshot,
+}: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<DIChan>({ path });
   const handleAdd = (): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
@@ -333,7 +349,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => <ChannelListItem {...props} path={path} />}
+              {(props) => (
+                <ChannelListItem {...props} snapshot={snapshot} path={path} />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>
@@ -344,9 +362,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 
 const ChannelListItem = ({
   path,
+  snapshot = false,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
+  snapshot?: boolean;
 }): ReactElement => {
   const { entry } = props;
   const hasLine = "line" in entry;
@@ -406,6 +426,7 @@ const ChannelListItem = ({
       <EnableDisableButton
         value={childValues.enabled}
         onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
+        snapshot={snapshot}
       />
     </List.ItemFrame>
   );

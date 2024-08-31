@@ -30,6 +30,16 @@ class ConfigurationError(Exception):
 
     pass
 
+class ConfigurationError(Exception):
+    """
+    Raised when a configuration error occurs.
+    """
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "configuration"
+
+    pass
+
+
 class ValidationError(Exception):
     """
     Raised when a validation error occurs.

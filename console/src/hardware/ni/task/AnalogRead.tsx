@@ -22,7 +22,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -45,6 +45,7 @@ import {
   Controls,
   EnableDisableButton,
   ParentRangeButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -55,20 +56,25 @@ import { Layout } from "@/layout";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 
-export const configureAnalogReadLayout = (create: boolean = false): Layout.State => ({
+export const configureAnalogReadLayout = (
+  args: TaskLayoutArgs<AnalogReadPayload> = { create: false },
+): Layout.State<TaskLayoutArgs<AnalogReadPayload>> => ({
   name: "Configure NI Analog Read Task",
   key: id.id(),
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
   location: "mosaic",
-  args: { create },
+  args,
 });
 
 export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({ ...configureAnalogReadLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...configureAnalogReadLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const Wrapped = ({
@@ -240,24 +246,12 @@ const Wrapped = ({
                 />
               )}
             </Form.Field>
-            <Align.Space direction="x" size="small">
-              <Button.Icon
-                tooltip={`Copy Python code for ${methods.get("name").value}`}
-                tooltipLocation="left"
-                variant="text"
-                onClick={handleCopyPythonCode}
-              >
-                <Icon.Python style={{ color: "var(--pluto-gray-l7)" }} />
-              </Button.Icon>
-              <Button.Icon
-                tooltip={`Copy configuration JSON for ${methods.get("name").value}`}
-                tooltipLocation="left"
-                variant="text"
-                onClick={handleCopyAsJSON}
-              >
-                <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
-              </Button.Icon>
-            </Align.Space>
+            <CopyButtons
+              importClass="AnalogReadTask"
+              taskKey={task?.key}
+              getName={() => methods.get<string>("name").value}
+              getConfig={() => methods.get("config").value}
+            />
           </Align.Space>
           <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>

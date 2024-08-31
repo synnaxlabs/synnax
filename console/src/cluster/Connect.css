@@ -22,10 +22,4 @@
     .console-input__password {
         width: 100%;
     }
-    .console-footer__start {
-        padding: 0 2rem;
-    }
-    .console-footer__end {
-        padding: 1rem;
-    }
 }

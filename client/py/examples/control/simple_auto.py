@@ -1,3 +1,13 @@
+#  Copyright 2024 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+
 import synnax as sy
 
 client = sy.Synnax()
@@ -6,9 +16,9 @@ with client.control.acquire(
     name="Scheduled Commands",
     read=["pressure_1", "temperature_1", "valve_1_state", "valve_2_state"],
     write=["valve_1_cmd", "valve_2_cmd", "valve_3_cmd", "valve_4_cmd"],
-) as auto:
+) as ctrl:
     # Set initial valve states
-    auto.set(
+    ctrl.set(
         {
             "valve_1_cmd": False,
             "valve_2_cmd": True,
@@ -16,11 +26,11 @@ with client.control.acquire(
     )
 
     # Wait until pressure_1 is less than 100 psi
-    auto.wait_until(lambda auto: auto["pressure_1"] < 100)
-    auto.sleep(1)
+    ctrl.wait_until(lambda auto: auto["pressure_1"] < 100)
+    ctrl.sleep(1)
 
     # Schedule valve commands on the driver side exactly 30 milliseconds apart.
-    auto.schedule(
+    ctrl.schedule(
         sy.ScheduledCommand(at=0, values={"valve_3_cmd": True}),
         sy.ScheduledCommand(
             at=sy.TimeSpan.MILLISECOND * 30, values={"valve_2_cmd": True}
@@ -28,4 +38,4 @@ with client.control.acquire(
     )
 
     # Wait until the second valve has been opened before proceeding
-    auto.wait_until(lambda auto: auto["valve_2_ack"] == True)
+    ctrl.wait_until(lambda auto: auto["valve_2_ack"] == True)

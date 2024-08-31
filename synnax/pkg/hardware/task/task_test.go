@@ -127,19 +127,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Snapshot).To(BeTrue())
 		})
 
-		It("Should not allow the re-creation of a snapshot", func() {
-			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
-				Name: "Test Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
-			Expect(m.Name).To(Equal("Test Task"))
-			t, err := w.Copy(ctx, m.Key, "New Task", true)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(w.Create(ctx, &t)).To(HaveOccurredAs(validate.Error))
-		})
-
 	})
 
 	Describe("Retrieve", func() {

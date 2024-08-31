@@ -95,6 +95,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const first = resources[0];
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
+  const group = Group.useCreateFromSelection();
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => del(props),
@@ -104,6 +105,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         ontologyID: resources[0].id.payload,
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
+    group: () => group(props),
   };
   const make = resources[0].data?.make;
   let customMenuItems: ReactElement | null = null;

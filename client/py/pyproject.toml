@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.27.0"
+version = "0.28.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -77,6 +77,7 @@ markers = [
     "task: mark test as a task test",
     "device: mark test as a device test",
     "ontology: mark test as an ontology test",
+    "timing: mark test as a timing test",
     "cli"
 ]
 

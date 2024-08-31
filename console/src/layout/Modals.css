@@ -1,0 +1,10 @@
+.console-bottom-nav-bar {
+    .pluto-navbar__content {
+        &.pluto--start {
+            padding-left: 1.75rem;
+        }
+        &.pluto--end {
+            padding-right: 1.75rem;
+        }
+    }
+}

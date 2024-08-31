@@ -174,7 +174,15 @@ class Frame:
         """Converts the frame to a pandas DataFrame. Each column in the DataFrame
         corresponds to a channel in the frame.
         """
-        return DataFrame({k: self.get(k) for k in set(self.channels)})
+        base = dict()
+        for k in set(self.channels):
+            # Try to convert the value to a numpy array. If it fails (such as in the
+            # case of strings or JSON objects), convert it to a primitive list instead.
+            try:
+                base[k] = self.get(k).__array__()
+            except TypeError:
+                base[k] = list(self.get(k))
+        return DataFrame(base)
 
     def __contains__(self, key: ChannelKey | ChannelName) -> bool:
         return key in self.channels

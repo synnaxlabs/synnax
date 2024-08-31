@@ -46,7 +46,7 @@ def check_for_none(*args: T | None) -> bool:
 
 def override(
     *args: T | tuple[T] | list[T] | None,
-) -> list[T] or None:
+) -> list[T] | None:
     for arg in args:
         if arg is not None:
             return normalize(arg)

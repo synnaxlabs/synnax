@@ -23,7 +23,10 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 
-const ZERO_LAYOUT_STATES: Record<string, (create?: boolean) => Layout.State> = {
+const ZERO_LAYOUT_STATES: Record<
+  string,
+  ({ create }: { create: boolean }) => Layout.State
+> = {
   [OPC.Task.READ_TYPE]: OPC.Task.configureReadLayout,
   [NI.Task.ANALOG_READ_TYPE]: NI.Task.configureAnalogReadLayout,
   [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.configureDigitalWriteLayout,
@@ -33,7 +36,7 @@ const ZERO_LAYOUT_STATES: Record<string, (create?: boolean) => Layout.State> = {
 export const createTaskLayout = (key: string, type: string): Layout.State => {
   const baseLayout = ZERO_LAYOUT_STATES[type];
   return {
-    ...baseLayout(false),
+    ...baseLayout({ create: false }),
     key,
   };
 };
@@ -49,10 +52,9 @@ const handleSelect: Ontology.HandleSelect = ({
   void (async () => {
     try {
       const t = await client.hardware.tasks.retrieve(task.key);
-      console.log(t.type);
       const baseLayout = ZERO_LAYOUT_STATES[t.type];
       placeLayout({
-        ...baseLayout(false),
+        ...baseLayout({ create: false }),
         key: selection[0].id.key,
       });
     } catch (e) {
@@ -132,6 +134,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleLink = Link.useCopyToClipboard();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
+  const group = Group.useCreateFromSelection();
   const onSelect = {
     delete: () => del(props),
     edit: () =>
@@ -151,6 +154,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         ontologyID: resources[0].id.payload,
       }),
     rangeSnapshot: () => snap(props),
+    group: () => group(props),
   };
   const singleResource = resources.length === 1;
   return (
@@ -191,7 +195,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
 }) => {
   const task = await client.hardware.tasks.retrieve(id.key);
   placeLayout({
-    ...ZERO_LAYOUT_STATES[task.type](false),
+    ...ZERO_LAYOUT_STATES[task.type]({ create: false }),
     key: id.key,
     tab: {
       mosaicKey: nodeKey,

@@ -11,13 +11,16 @@ from __future__ import annotations
 
 import warnings
 from typing import overload, Protocol
+from pydantic import ValidationError
 
 from alamos import NOOP, Instrumentation
 from freighter import UnaryClient, Payload, send_required, Empty
 from uuid import uuid4
-from synnax.hardware.task.payload import TaskPayload
+
+from synnax import UnexpectedError
+from synnax.hardware.task.payload import TaskPayload, TaskState
 from synnax.framer import Client as FrameClient
-from synnax.telem import TimeStamp
+from synnax.telem import TimeStamp, TimeSpan
 from synnax.util.normalize import normalize, override, check_for_none
 from synnax.hardware.rack import Rack, Client as RackClient
 from synnax.exceptions import ConfigurationError
@@ -100,6 +103,13 @@ class Task:
         self._frame_client = task._frame_client
 
     def execute_command(self, type_: str, args: dict | None = None) -> str:
+        """Executes a command on the task and returns the unique key assigned to the
+        command.
+
+        :param type_: The type of command to execute.
+        :param args: The arguments to pass to the command.
+        :return: The unique key assigned to the command.
+        """
         w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
         key = str(uuid4())
         w.write(
@@ -108,6 +118,44 @@ class Task:
         )
         w.close()
         return str(key)
+
+    def execute_command_sync(
+        self,
+        type_: str,
+        args: dict | None = None,
+        timeout: float | TimeSpan = 5,
+    ) -> str:
+        """Executes a command on the task and waits for the driver to acknowledge the
+        command with a state.
+
+        :param type_: The type of command to execute.
+        :param args: The arguments to pass to the command.
+        :param timeout: The maximum time to wait for the driver to acknowledge the
+        command before a timeout occurs.
+        """
+        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
+            key = self.execute_command(type_, args)
+            while True:
+                print(TimeSpan.parse_seconds(timeout).seconds)
+                frame = s.read(TimeSpan.parse_seconds(timeout).seconds)
+                if frame is None:
+                    raise TimeoutError(
+                        f"timed out waiting for driver to acknowledge {type_} command"
+                    )
+                elif _TASK_STATE_CHANNEL not in frame:
+                    warnings.warn("task - unexpected missing state in frame")
+                    continue
+                try:
+                    state = TaskState.parse_obj(frame[_TASK_STATE_CHANNEL][0])
+                    print(state)
+                    if state.key == key:
+                        return state
+                except ValidationError as e:
+                    raise UnexpectedError(
+                        f"""
+                    Received invalid task state from driver.
+                    """
+                    ) from e
 
 
 class MetaTask(Protocol):
@@ -205,8 +253,10 @@ class Client:
             while True:
                 frame = streamer.read(timeout)
                 if frame is None:
-                    raise TimeoutError("task - timeout waiting for driver to "
-                                       "acknowledge configuration")
+                    raise TimeoutError(
+                        "task - timeout waiting for driver to "
+                        "acknowledge configuration"
+                    )
                 elif (
                     _TASK_STATE_CHANNEL not in frame
                     or len(frame[_TASK_STATE_CHANNEL]) == 0
@@ -262,7 +312,7 @@ class Client:
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),
-                types=override(type, types)
+                types=override(type, types),
             ),
             _RetrieveResponse,
         )

@@ -54,7 +54,7 @@ from synnax.util.interop import overload_comparison_operators
 from synnax.hardware.task import Task, Client as TaskClient
 from synnax.ontology import Client as OntologyClient
 from synnax.hardware.ni import AnalogReadTask
-from synnax.util.normalize import check_for_none
+from synnax.util.normalize import check_for_none, normalize
 
 from uuid import UUID
 from typing import overload
@@ -92,7 +92,6 @@ class _InternalScopedChannel(ChannelPayload):
         ontology: OntologyClient,
         payload: ChannelPayload,
         aliaser: Aliaser | None = None,
-
     ):
         super().__init__(**payload.dict())
         self.__range = rng
@@ -570,7 +569,7 @@ class RangeClient:
 
         res: list[Range] = list()
         if retrieve_if_name_exists:
-            res = self.retrieve([r.name for r in to_create])
+            res = self.retrieve(names=[r.name for r in to_create])
             if is_single and len(res) > 1:
                 filtered = [r for r in res if r.time_range == time_range]
                 if len(filtered) == 0:
@@ -633,10 +632,9 @@ class RangeClient:
 
     def delete(
         self,
-        params: RangeParams,
+        key: RangeKey | RangeKeys,
     ) -> None:
-        _ranges = self._retriever.retrieve(params)
-        self._writer.delete([r.key for r in _ranges])
+        self._writer.delete(normalize(key))
 
     def search(
         self,

@@ -43,52 +43,86 @@ class TestTaskClient:
         assert res.type == type
         assert res.key == task.key
 
+    def test_execute_command_sync(self, client: sy.Synnax):
+        def driver(ev: threading.Event):
+            with client.open_streamer("sy_task_cmd") as s:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                    ev.set()
+                    f = s.read(timeout=1)
+                    cmd = f["sy_task_cmd"][0]
+                    w.write(
+                        "sy_task_state",
+                        [
+                            {
+                                "key": cmd["key"],
+                                "task": cmd["task"],
+                                "variant": "success",
+                                "details": {"message": "Command executed."},
+                            }
+                        ],
+                    )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        tsk = client.hardware.tasks.create(name="test", type="test")
+        ev.wait()
+        tsk.execute_command_sync("test", {"key": "value"})
+        t.join()
+
     def test_task_configure_success(self, client: sy.Synnax):
         """Should not throw an error when the task is configured successfully."""
 
-        def driver():
+        def driver(ev: threading.Event):
             with client.open_streamer("sy_task_set") as s:
                 with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                    ev.set()
                     f = s.read(timeout=2)
                     key = f["sy_task_set"][0]
                     w.write(
                         "sy_task_state",
-                        [{
-
-                            "task": int(key),
-                            "variant": "success",
-                            "details": {"message": "Task configured."}
-                        }]
+                        [
+                            {
+                                "task": int(key),
+                                "variant": "success",
+                                "details": {"message": "Task configured."},
+                            }
+                        ],
                     )
 
         tsk = sy.Task()
-        t = threading.Thread(target=driver)
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
         t.start()
-        time.sleep(0.2)
+        ev.wait()
         client.hardware.tasks.configure(tsk)
         t.join()
 
     def test_task_configure_invalid_config(self, client: sy.Synnax):
         """Should throw an error when the driver responds with an error"""
 
-        def driver():
+        def driver(ev: threading.Event):
             with client.open_streamer("sy_task_set") as s:
                 with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                    ev.set()
                     f = s.read(timeout=1)
                     key = f["sy_task_set"][0]
                     w.write(
                         "sy_task_state",
-                        [{
-                            "task": int(key),
-                            "variant": "error",
-                            "details": {"message": "Invalid Configuration."}
-                        }]
+                        [
+                            {
+                                "task": int(key),
+                                "variant": "error",
+                                "details": {"message": "Invalid Configuration."},
+                            }
+                        ],
                     )
 
         tsk = sy.Task()
-        t = threading.Thread(target=driver)
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
         t.start()
-        time.sleep(0.3)
+        ev.wait()
         with pytest.raises(sy.ConfigurationError, match="Invalid Configuration."):
             client.hardware.tasks.configure(tsk)
         t.join()

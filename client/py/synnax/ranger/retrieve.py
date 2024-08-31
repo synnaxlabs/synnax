@@ -12,11 +12,7 @@ import uuid
 from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient
 
-from synnax.ranger.payload import (
-    RangePayload,
-    RangeKey,
-    RangeName
-)
+from synnax.ranger.payload import RangePayload, RangeKey, RangeName
 from synnax.util.normalize import normalize
 
 

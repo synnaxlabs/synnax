@@ -149,12 +149,12 @@ export class Task<
     );
   }
 
-  async snapshottedTo(): Promise<ranger.Range | null> {
+  async snapshottedTo(): Promise<ontology.Resource | null> {
     if (this.ontologyClient == null || this.rangeClient == null) throw TASK_NOT_CREATED;
+    if (!this.snapshot) return null;
     const parents = await this.ontologyClient.retrieveParents(this.ontologyID);
-    const parent = parents.find((p) => p.id.type === "range");
-    if (parent == null) return null;
-    return this.rangeClient.resourceToRange(parent);
+    if (parents.length == 0) return null;
+    return parents[0];
   }
 }
 

@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { ontology } from "@synnaxlabs/client";
 import { Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -14,7 +23,7 @@ import { FC, ReactElement, useState } from "react";
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/external";
-import { State as SchematicState } from "@/schematic/Schematic";
+import { type State as SchematicState } from "@/schematic/slice";
 
 interface SnapshotService {
   icon: ReactElement;

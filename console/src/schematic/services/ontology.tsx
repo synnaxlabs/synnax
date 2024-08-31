@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, Synnax } from "@synnaxlabs/client";
+import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -16,6 +16,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
 import { Menu } from "@/components/menu";
+import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -180,7 +181,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.RenameItem />
-      <PMenu.Divider />
       <Menu.DeleteItem />
       <PMenu.Divider />
       {resources.every((r) => r.data?.snapshot === false) && (
@@ -212,13 +212,13 @@ const handleRename: Ontology.HandleTreeRename = {
     store.dispatch(Layout.rename({ key: id.key, name })),
 };
 
-export const loadSchematic = async (
+const loadSchematic = async (
   client: Synnax,
   id: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
   const schematic = await client.workspaces.schematic.retrieve(id.key);
-  return placeLayout(
+  placeLayout(
     create({
       ...(schematic.data as unknown as State),
       key: schematic.key,
@@ -228,9 +228,11 @@ export const loadSchematic = async (
   );
 };
 
-const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout }) => {
-  void loadSchematic(client, selection[0].id, placeLayout);
-};
+const handleSelect: Ontology.HandleSelect = async ({
+  client,
+  selection,
+  placeLayout,
+}) => await loadSchematic(client, selection[0].id, placeLayout);
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,

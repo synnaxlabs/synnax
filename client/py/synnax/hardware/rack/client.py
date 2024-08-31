@@ -104,10 +104,7 @@ class Client:
         res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(
-                keys=override(key, keys),
-                names=override(name, names)
-            ),
+            _RetrieveRequest(keys=override(key, keys), names=override(name, names)),
             _RetrieveResponse,
         )
         return res.racks[0] if is_single else res.racks

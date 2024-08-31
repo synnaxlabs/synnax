@@ -52,6 +52,8 @@ export const { actions, reducer } = createSlice({
       });
     },
     remove: (state, { payload: { keys } }: PA<RemovePayload>) => {
+      if (state.activeRange != null && keys.includes(state.activeRange))
+        state.activeRange = null;
       keys.forEach((k) => delete state.ranges[k]);
     },
     setActive: (state, { payload }: PA<SetActivePayload>) => {
