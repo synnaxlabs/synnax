@@ -33,7 +33,7 @@ TEST(OPCUAScnannerTest, testScannerCmdParseOnlyEdnpoint) {
         {"errors", std::vector<json>()}
     };
     bool ok = true;
-    auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
+    auto parsedScanCmd = opcua::scanner_scan_command(cmd, err, ok);
     EXPECT_TRUE(ok);
     EXPECT_EQ(parsedScanCmd.endpoint, "opc.tcp://localhost:4840");
     EXPECT_EQ(parsedScanCmd.username, "");
@@ -50,7 +50,7 @@ TEST(OPCUAScannerTest, testScannerCmdParseEndpointUsernamePassword) {
         {"errors", std::vector<json>()}
     };
     bool ok = true;
-    auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
+    auto parsedScanCmd = opcua::scanner_scan_command(cmd, err, ok);
     EXPECT_TRUE(ok);
     EXPECT_EQ(parsedScanCmd.endpoint, "opc.tcp://localhost:4840");
     EXPECT_EQ(parsedScanCmd.username, "user");
@@ -66,7 +66,7 @@ TEST(OPCUAScannerTest, testScannerCmdParseNoEndpoint) {
         {"errors", std::vector<json>()}
     };
     bool ok = true;
-    auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
+    auto parsedScanCmd = opcua::scanner_scan_command(cmd, err, ok);
     EXPECT_FALSE(ok);
     auto field_err = err["errors"][0];
     EXPECT_EQ(field_err["path"], "endpoint");
@@ -92,7 +92,7 @@ TEST(OPCUAScannerTest, testScannerCmdParseNoAccessControl) {
         {"errors", std::vector<json>()}
     };
     bool ok = true;
-    auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
+    auto parsedScanCmd = opcua::scanner_scan_command(cmd, err, ok);
     EXPECT_FALSE(ok);
     auto field_err = err["errors"][0];
     EXPECT_EQ(field_err["path"], "username");
