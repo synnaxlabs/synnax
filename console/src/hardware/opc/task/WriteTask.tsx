@@ -529,15 +529,6 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
         label="Channel Name"
         inputProps={{ variant: "natural", level: "h3" }}
       />
-      <Form.SwitchField
-        path={`${prefix}.useAsIndex`}
-        label="Use as Index"
-        visible={(_, ctx) =>
-          DataType.TIMESTAMP.equals(
-            ctx.get<string>(`${prefix}.dataType`, { optional: true })?.value ?? "",
-          )
-        }
-      />
     </Align.Space>
   );
 };
