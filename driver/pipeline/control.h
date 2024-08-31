@@ -30,10 +30,10 @@ public:
     /// during shut down or occurred during a commanded shutdown.
     ///
     /// After this method is called, the pipeline will NOT make nay furhter calls to
-    /// the source (read, stoppedWithErr) until the pipeline is restarted.
+    /// the source (read, stopped_with_err) until the pipeline is restarted.
     ///
     /// This method may be called even if stop() was called on the pipeline.
-    virtual void stoppedWithErr(const freighter::Error &_) {
+    virtual void stopped_with_err(const freighter::Error &_) {
     }
 
     virtual ~Sink() = default;

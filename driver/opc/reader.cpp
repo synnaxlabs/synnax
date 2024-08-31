@@ -28,7 +28,9 @@
 
 using namespace opc;
 
-
+///////////////////////////////////////////////////////////////////////////////////
+//                                     ReaderConfig                              //
+///////////////////////////////////////////////////////////////////////////////////
 ReaderConfig::ReaderConfig(
     config::Parser &parser
 ) : device(parser.required<std::string>("device")),
@@ -43,34 +45,41 @@ ReaderConfig::ReaderConfig(
     });
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                     Helper Functions                          //
+///////////////////////////////////////////////////////////////////////////////////
+///@brief retrieves index channel information for given set of channels
 std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     freighter::Error> retrieveAdditionalChannelInfo(
     const std::shared_ptr<task::Context> &ctx,
     ReaderConfig &cfg,
     breaker::Breaker &breaker
 ) {
-    auto channelKeys = cfg.channelKeys();
-    if (channelKeys.empty()) return {{channelKeys, {}}, freighter::NIL};
+    auto channel_keys = cfg.channel_keys();
+    if (channel_keys.empty()) return {{channel_keys, {}}, freighter::NIL};
     auto indexes = std::set<ChannelKey>();
-    auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channelKeys());
+    auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channel_keys());
     if (c_err) {
         if (c_err.matches(freighter::UNREACHABLE) && breaker.wait(c_err.message()))
             return retrieveAdditionalChannelInfo(ctx, cfg, breaker);
-        return {{channelKeys, indexes}, c_err};
+        return {{channel_keys, indexes}, c_err};
     }
     for (auto i = 0; i < channels.size(); i++) {
         const auto ch = channels[i];
-        if (std::count(channelKeys.begin(), channelKeys.end(), ch.index) == 0) {
+        if (std::count(channel_keys.begin(), channel_keys.end(), ch.index) == 0) {
             if (ch.index != 0) {
-                channelKeys.push_back(ch.index);
+                channel_keys.push_back(ch.index);
                 indexes.insert(ch.index);
             }
         }
         cfg.channels[i].ch = ch;
     }
-    return {{channelKeys, indexes}, freighter::Error()};
+    return {{channel_keys, indexes}, freighter::Error()};
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Source                              //
+///////////////////////////////////////////////////////////////////////////////////
 class ReaderSource final : public pipeline::Source {
 public:
     ReaderConfig cfg;
@@ -114,7 +123,8 @@ public:
     void initializeReadRequest() {
         UA_ReadRequest_init(&req);
         // Allocate and prepare readValueIds for enabled channels
-        readValueIds.reserve(cfg.channels.size());
+        readValueIds.reserve(
+            cfg.channels.size()); // TODO: is this reserving every time?
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             UA_ReadValueId rvid;
@@ -129,46 +139,13 @@ public:
         req.nodesToReadSize = readValueIds.size();
     }
 
-    void stoppedWithErr(const freighter::Error &err) override {
+    void stopped_with_err(const freighter::Error &err) override {
         curr_state.variant = "error";
         curr_state.details = json{
             {"message", err.message()},
             {"running", false}
         };
         ctx->setState(curr_state);
-    }
-
-    freighter::Error communicate_res_error(const UA_StatusCode &status) {
-        freighter::Error err;
-        if (
-            status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
-            status == UA_STATUSCODE_BADSECURECHANNELCLOSED
-        ) {
-            err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
-            err.data = "connection rejected";
-            curr_state.variant = "warning";
-            curr_state.details = json{
-                {
-                    "message",
-                    "Temporarily unable to reach OPC UA server. Will keep trying."
-                },
-                {"running", true}
-            };
-        } else {
-            err.type = driver::CRITICAL_HARDWARE_ERROR.type;
-            err.data = "failed to execute read: " + std::string(
-                           UA_StatusCode_name(status));
-            curr_state.variant = "error";
-            curr_state.details = json{
-                {
-                    "message", "Failed to read from OPC UA server: " + std::string(
-                                   UA_StatusCode_name(status))
-                },
-                {"running", false}
-            };
-        }
-        ctx->setState(curr_state);
-        return err;
     }
 
     [[nodiscard]] freighter::Error communicate_value_error(
@@ -487,18 +464,21 @@ public:
                 << " for task " << task.name;
     }
 
+    // TODO: this function is 100 lines - feel like it can be broken down into a more digestible format
+    // or at least have comments to explain what is happening
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
-        auto read_calls_per_cycle = static_cast<std::size_t>(
-            cfg.sample_rate.value / cfg.stream_rate.value
-        );
+
+        // TODO: what is read_calls_per_cycle? explain whats happening here
+        auto read_calls_per_cycle = static_cast<std::size_t>(cfg.sample_rate.value /
+                                                             cfg.stream_rate.value);
         auto series_size = read_calls_per_cycle;
         if (cfg.array_size > 1) {
             read_calls_per_cycle = 1;
             series_size = cfg.array_size * read_calls_per_cycle;
         }
 
-        std::size_t en_count = 0;
+        std::size_t en_count = 0; // enabled channels
         for (const auto &ch: cfg.channels)
             if (ch.enabled) {
                 fr.add(ch.channel, Series(ch.ch.data_type, series_size));
@@ -512,7 +492,8 @@ public:
             auto status = res.responseHeader.serviceResult;
 
             if (status != UA_STATUSCODE_GOOD) {
-                auto err = communicate_res_error(status);
+                auto err = opc::communicate_response_error(status, this->ctx,
+                                                           this->curr_state);
                 UA_ReadResponse_clear(&res);
                 return std::make_pair(std::move(fr), err);
             }
@@ -596,7 +577,9 @@ public:
     }
 };
 
-
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Task                                //
+///////////////////////////////////////////////////////////////////////////////////
 std::unique_ptr<task::Task> Reader::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
@@ -604,6 +587,7 @@ std::unique_ptr<task::Task> Reader::configure(
     VLOG(2) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
+    //    LOG(INFO) << "Reader Config: " << config_parser.get_json().dump(4);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
         ctx->setState({
@@ -646,7 +630,7 @@ std::unique_ptr<task::Task> Reader::configure(
         });
         return nullptr;
     }
-    auto [channelKeys, indexes] = res;
+    auto [channel_keys, indexes] = res;
 
     // Connect to the OPC UA server.
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
@@ -699,7 +683,7 @@ std::unique_ptr<task::Task> Reader::configure(
     );
 
     auto writer_cfg = synnax::WriterConfig{
-        .channels = channelKeys,
+        .channels = channel_keys,
         .start = TimeStamp::now(),
         .subject = synnax::ControlSubject{
             .name = task.name,
@@ -752,30 +736,21 @@ void Reader::stop() {
 }
 
 void Reader::start() {
-    // first try to check for timeout
-    UA_StatusCode status = UA_Client_connect(this->ua_client.get(),
-                                             device_props.connection.endpoint.c_str());
-    if (status != UA_STATUSCODE_GOOD) {
-        // attempt again to reestablish if timed out
-        UA_StatusCode status_retry = UA_Client_connect(this->ua_client.get(),
-                                                       device_props.connection.endpoint.c_str());
-        if (status_retry != UA_STATUSCODE_GOOD) {
-            ctx->setState({
-                .task = task.key,
-                .variant = "error",
-                .details = json{
-                    {
-                        "message",
-                        "Failed to connect to OPC UA server: " + std::string(
-                            UA_StatusCode_name(status))
-                    }
-                }
-            });
-            LOG(ERROR) << "[opc.reader] connection failed: "
-                    << UA_StatusCode_name(status);
-        }
+    freighter::Error conn_err = refresh_connection(
+        this->ua_client,
+        device_props.connection.endpoint
+    );
+    if (conn_err) {
+        ctx->setState({
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", conn_err.message()}
+            }
+        });
+        LOG(ERROR) << "[opc.reader] connection failed: " << conn_err.message();
+        return;
     }
-    VLOG(1) << "[opc.reader] Connection Established";
     pipe.start();
     ctx->setState({
         .task = task.key,

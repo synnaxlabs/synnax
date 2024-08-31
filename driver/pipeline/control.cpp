@@ -134,7 +134,7 @@ void Control::runInternal() {
             && breaker.wait(open_err.message())
         )
             return runInternal();
-        return this->sink->stoppedWithErr(open_err);
+        return this->sink->stopped_with_err(open_err);
     }
 
     while (breaker.running()) {
@@ -157,5 +157,5 @@ void Control::runInternal() {
         && breaker.wait()
     )
         return runInternal();
-    if (close_err) this->sink->stoppedWithErr(close_err);
+    if (close_err) this->sink->stopped_with_err(close_err);
 }

@@ -23,5 +23,10 @@ export const opcuaNav: PageNavNode = {
       href: "/reference/device-drivers/opc-ua/read-task",
       name: "Configure a Read Task",
     },
+    {
+      key: "/reference/device-drivers/opc-ua/write-task",
+      href: "/reference/device-drivers/opc-ua/write-task",
+      name: "Configure a Write Task",
+    },
   ],
 };

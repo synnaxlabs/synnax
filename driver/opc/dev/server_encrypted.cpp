@@ -225,6 +225,19 @@ int main(int argc, char *argv[]) {
                               parentReferenceNodeId, myDoubleName,
                               UA_NODEID_NULL, attr2, NULL, NULL);
 
+    // add a uint8 variable node to the adresspace
+    UA_VariableAttributes attr3 = UA_VariableAttributes_default;
+    UA_Byte myUInt8 = 0;
+    UA_Variant_setScalarCopy(&attr3.value, &myUInt8, &UA_TYPES[UA_TYPES_BYTE]);
+    attr3.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer 3");
+    attr3.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer 3");
+    attr3.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+    UA_NodeId myUInt8NodeId = UA_NODEID_STRING_ALLOC(1, "the.answer3");
+    UA_QualifiedName myUInt8Name = UA_QUALIFIEDNAME_ALLOC(1, "the answer 3");
+    UA_Server_addVariableNode(server, myUInt8NodeId, parentNodeId,
+                              parentReferenceNodeId, myUInt8Name,
+                              UA_NODEID_NULL, attr3, NULL, NULL);
+                              
 
     setCustomAccessControl(config);
     UA_ByteString_clear(&certificate);

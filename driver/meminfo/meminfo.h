@@ -86,7 +86,7 @@ public:
 };
 
 class Factory final : public task::Factory {
-    std::pair<std::unique_ptr<task::Task>, bool> configureTask(
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override {
@@ -96,7 +96,7 @@ class Factory final : public task::Factory {
     }
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-    configureInitialTasks(
+    configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override {
@@ -115,7 +115,7 @@ class Factory final : public task::Factory {
                 LOG(ERROR) << "[meminfo] failed to retrieve meminfo task: " << err;
                 return {};
             }
-            auto [task, ok] = configureTask(ctx, sy_task);
+            auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err) {
             LOG(ERROR) << "[meminfo] failed to retrieve existing tasks: " << err;

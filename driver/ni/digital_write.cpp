@@ -314,7 +314,7 @@ void ni::DigitalWriteSink::log_error(std::string err_msg) {
     this->ok_state = false;
 }
 
-void ni::DigitalWriteSink::stoppedWithErr(const freighter::Error &err) {
+void ni::DigitalWriteSink::stopped_with_err(const freighter::Error &err) {
     // Unprompted stop so we pass in an empty command key
     this->stop("");
     this->log_error("stopped with error: " + err.message());
@@ -373,31 +373,113 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     std::smatch channel_match;
     if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
         cn = physical_channel_match[1].str();
+        <<
+        <<
+        <<
+        <
+        HEAD
         if (!device.empty())
             cn = device + "/" + cn; // Combine device and physical channel name
     } else if (std::regex_search(s, channel_match, channel_regex))
         cn = channel_match[1].str();
+    ==
+    ==
+    ==
+    =
+    if (!device.empty()) cn = device + "/" + cn; // Combine device and physical channel name
+}
 
-    // Check if the channel name is in the channel map
-    this->err_info["path"] = channel_map.count(cn) != 0
-                                 ? channel_map[cn]
-                                 : !cn.empty()
-                                       ? cn
-                                       : "";
-    // Handle the special case for -200170 error
-    if (is_port_error)
-        this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
+else
+if
+(std::regex_search
+(s
+,
+channel_match
+,
+channel_regex
+)
+)
+cn= channel_match
+[1]
+.
+str();
 
-    std::string error_message = "NI Error " + sc + ": " + message + " Path: " + this->
-                                err_info["path"].get<std::string>();
+>
+>
+>
+>
+>
+>
+>
+6ac783907e6ea38ca7856416cf48895c0bf1eab7
 
-    if (!cn.empty()) error_message += " Channel: " + cn;
+// Check if the channel name is in the channel map
+this
+->
+err_info ["path"] = channel_map
+.
+count (cn)
+!=
+0
+?
+channel_map [cn]
+    :
 
-    this->err_info["message"] = error_message;
+!
+cn
+.
+empty()
 
-    json j = json::array();
-    j.push_back(this->err_info);
-    this->err_info["errors"] = j;
+?
+cn:
+"";
+// Handle the special case for -200170 error
+if
+(is_port_error)
+this
+->
+err_info ["path"] =
+this
+->
+err_info ["path"]
+.
+get<std::string>()
+
++
+".port";
+
+std::string error_message = "NI Error " + sc + ": " + message + " Path: " + this->
+                            err_info["path"].get<std::string>();
+
+if
+(
+!
+cn
+.
+empty()
+
+)
+error_message
++=
+" Channel: "
++
+cn;
+
+this
+->
+err_info ["message"] = error_message;
+
+json j = json::array();
+j
+.
+push_back (
+this
+->
+err_info
+);
+this
+->
+err_info ["errors"] = j;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -406,8 +488,7 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
 ni::StateSource::StateSource(
     float state_rate,
     synnax::ChannelKey &state_index_key,
-    std::vector<synnax::ChannelKey> &
-    state_channel_keys
+    std::vector<synnax::ChannelKey> &state_channel_keys
 ) {
     this->state_rate.value = state_rate;
     // start the periodic thread
@@ -429,9 +510,15 @@ std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
 }
 
 synnax::Frame ni::StateSource::get_state() {
+    // frame size = # monitored states + 1 state index channel
     auto state_frame = synnax::Frame(this->state_map.size() + 1);
-    state_frame.add(this->state_index_key,
-                    synnax::Series(synnax::TimeStamp::now().value, synnax::TIMESTAMP));
+    state_frame.add(
+        this->state_index_key,
+        synnax::Series(
+            synnax::TimeStamp::now().value,
+            synnax::TIMESTAMP
+        )
+    );
     for (auto &[key, value]: this->state_map)
         state_frame.add(key, synnax::Series(value));
     return state_frame;

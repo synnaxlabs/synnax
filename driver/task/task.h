@@ -184,12 +184,12 @@ private:
 class Factory {
 public:
     virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
-    configureInitialTasks(
+    configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) { return {}; }
 
-    virtual std::pair<std::unique_ptr<Task>, bool> configureTask(
+    virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::Task &task
     ) = 0;
@@ -203,26 +203,25 @@ public:
         : factories(std::move(factories)) {
     }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
-    configureInitialTasks(
+    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > tasks;
         for (const auto &factory: factories) {
-            auto new_tasks = factory->configureInitialTasks(ctx, rack);
+            auto new_tasks = factory->configure_initial_tasks(ctx, rack);
             for (auto &task: new_tasks) tasks.emplace_back(std::move(task));
         }
         return tasks;
     }
 
     std::pair<std::unique_ptr<Task>, bool>
-    configureTask(
+    configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::Task &task
     ) override {
         for (const auto &factory: factories) {
-            auto [t, ok] = factory->configureTask(ctx, task);
+            auto [t, ok] = factory->configure_task(ctx, task);
             if (ok) return {std::move(t), true};
         }
         return {nullptr, false};

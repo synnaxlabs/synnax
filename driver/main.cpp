@@ -93,8 +93,7 @@ int main(int argc, char *argv[]) {
         std::move(heartbeat_factory)
     };
 
-    auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(),
-                                 opc::INTEGRATION_NAME);
+    auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), opc::INTEGRATION_NAME);
     if (opc_enabled != cfg.integrations.end()) {
         auto opc_factory = std::make_unique<opc::Factory>();
         factories.push_back(std::move(opc_factory));

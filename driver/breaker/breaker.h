@@ -19,22 +19,99 @@
 
 
 namespace breaker {
-    /// @brief struct for configuring a breaker.
-    struct Config {
-        /// @brief the name of the breaker.
-        std::string name;
-        /// @brief the interval that will be used by the breaker on the first trigger.
-        /// This interval will be scaled on each successive retry based on the value of
-        /// scale.
-        TimeSpan base_interval;
-        /// @brief sets the maximum number of retries before the wait() method returns false.
-        uint32_t max_retries;
-        /// @brief sets the rate at which the base_interval will scale on each successive
-        /// call to wait(). We do not recommend setting this factor lower than 1.
-        float_t scale;
+/// @brief struct for configuring a breaker.
+struct Config {
+    /// @brief the name of the breaker.
+    std::string name;
+    /// @brief the interval that will be used by the breaker on the first trigger.
+    /// This interval will be scaled on each successive retry based on the value of
+    /// scale.
+    TimeSpan base_interval;
+    /// @brief sets the maximum number of retries before the wait() method returns false.
+    uint32_t max_retries;
+    /// @brief sets the rate at which the base_interval will scale on each successive
+    /// call to wait(). We do not recommend setting this factor lower than 1.
+    float_t scale;
 
-        [[nodiscard]] Config child(const std::string &name) const {
-            return Config{this->name + "." + name, base_interval, max_retries, scale};
+    [[nodiscard]] Config child(const std::string &name) const {
+        return Config{this->name + "." + name, base_interval, max_retries, scale};
+    }
+};
+
+
+/// @brief implements a general purpose circuit breaker that allows for retry at a
+/// scaled interval, with a set number of maximum retries before giving up.
+/// @see breaker::Config for information on configuring the breaker.
+class Breaker {
+public:
+    explicit Breaker(
+        const Config &config
+    ) : config(config),
+        interval(config.base_interval),
+        retries(0),
+        is_running(false),
+        breaker_shutdown(std::make_unique<std::condition_variable>()) {
+    }
+
+    Breaker(): Breaker(Config{
+        "default",
+        TimeSpan(1 * SECOND),
+        10,
+        1.1
+    }) {
+    }
+
+    Breaker(
+        const Breaker &other
+    ) noexcept: config(other.config),
+                interval(other.interval),
+                retries(other.retries),
+                is_running(other.is_running),
+                breaker_shutdown(std::make_unique<std::condition_variable>()) {
+    }
+
+    Breaker(Breaker &&other) noexcept : config(other.config),
+                                        interval(other.interval),
+                                        retries(other.retries),
+                                        is_running(other.is_running),
+                                        breaker_shutdown(
+                                            std::make_unique<
+                                                std::condition_variable>()) {
+    }
+
+    Breaker &operator=(const Breaker &other) noexcept {
+        if (this == &other) return *this;
+        this->config = other.config;
+        this->interval = other.interval;
+        this->retries = other.retries;
+        this->is_running = other.is_running;
+        this->breaker_shutdown = std::make_unique<std::condition_variable>();
+        return *this;
+    }
+
+    ~Breaker() {
+        stop();
+        // sleep to allow for the breaker to shutdown.
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+
+    /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
+    /// immediately returns false. Otherwise, sleeps the current thread for the current
+    /// retry interval and returns true. Also Logs information about the breaker trigger.
+    bool wait() { return wait(""); }
+
+    bool wait(const freighter::Error &err) { return wait(err.message()); }
+
+    /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
+    /// immediately returns false. Otherwise, sleeps the current thread for the current
+    /// retry interval and returns true.
+    /// @param message a message to inject additional information into the logs about what
+    /// error occurred to trigger the breaker.
+    bool wait(const std::string &message) {
+        if (!running()) {
+            LOG(ERROR) << "[" << config.name << "] breaker not started. Exiting.";
+            return false;
         }
     };
 
@@ -140,8 +217,14 @@ namespace breaker {
             return true;
         }
 
+        /// @brief waits for the given time duration. If the breaker stopped before the specified time,
+        /// the method will return immediately to ensure graceful exit of objects using the breaker.
+        /// @param time the time to wait (supports multiple time units).
         void waitFor(const TimeSpan &time) { this->waitFor(time.chrono()); }
 
+        /// @brief waits for the given time duration. If the breaker stopped before the specified time,
+        /// the method will return immediately to ensure graceful exit of objects using the breaker.
+        /// @param time the time to wait for in nanoseconds.
         void waitFor(const std::chrono::nanoseconds &time) {
             if (!running()) return;
             std::unique_lock lock(shutdown_mutex);
@@ -176,6 +259,7 @@ namespace breaker {
         TimeSpan interval;
         uint32_t retries;
         volatile bool is_running;
+        /// @brief a condition variable used to notify the breaker to shutdown immediately.
         std::unique_ptr<std::condition_variable> breaker_shutdown;
         std::mutex shutdown_mutex;
     };

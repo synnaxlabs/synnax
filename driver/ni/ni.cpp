@@ -714,7 +714,7 @@ void ni::Source::log_error(std::string err_msg) {
     return;
 }
 
-void ni::Source::stoppedWithErr(const freighter::Error &err) {
+void ni::Source::stopped_with_err(const freighter::Error &err) {
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
     this->ctx->setState({
@@ -752,8 +752,26 @@ void ni::Source::jsonify_error(std::string s) {
     // Extract status code
     std::string sc = "";
     std::smatch status_code_match;
+    <<
+    <<
+    <<
+    <
+    HEAD
     if (std::regex_search(s, status_code_match, status_code_regex))
         sc = status_code_match[1].str();
+    ==
+    ==
+    ==
+    =
+    if (std::regex_search(s, status_code_match, status_code_regex)) sc = status_code_match[1].str();
+    >
+    >
+    >
+    >
+    >
+    >
+    >
+    6ac783907e6ea38ca7856416cf48895c0bf1eab7
 
     // Remove the redundant Status Code line at the end
     std::regex status_code_line_regex(R"(\nStatus Code:.*$)");

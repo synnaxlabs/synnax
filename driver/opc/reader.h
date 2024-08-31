@@ -32,7 +32,7 @@ struct ReaderChannelConfig {
     explicit ReaderChannelConfig(
         config::Parser &parser
     ) : node_id(parser.required<std::string>("node_id")),
-        node(parseNodeId("node_id", parser)),
+        node(parse_node_id("node_id", parser)),
         channel(parser.required<ChannelKey>("channel")),
         enabled(parser.optional<bool>("enabled", true)) {
     }
@@ -57,7 +57,7 @@ struct ReaderConfig {
 
     explicit ReaderConfig(config::Parser &parser);
 
-    [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
+    [[nodiscard]] std::vector<ChannelKey> channel_keys() const {
         auto keys = std::vector<ChannelKey>(channels.size());
         for (std::size_t i = 0; i < channels.size(); i++)
             keys[i] = channels[i].channel;

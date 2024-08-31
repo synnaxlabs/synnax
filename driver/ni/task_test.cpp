@@ -111,9 +111,8 @@ TEST(NiTaskTests, test_NI_analog_reader_task) {
 
     // make ni factory and build reader task
     std::unique_ptr<task::Factory> ni_factory = std::make_unique<ni::Factory>();
-    auto [readerTask, ok] = ni_factory->configureTask(mockCtx, task);
-    ASSERT_TRUE(ok)
-            << "Failed to configure reader task";
+    auto [readerTask, ok] = ni_factory->configure_task(mockCtx, task);
+    ASSERT_TRUE(ok) << "Failed to configure reader task";
 
     // create commands
     auto start_cmd = task::Command{task.key, "start", {}};
@@ -270,7 +269,7 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
 
     // make ni factory and build reader task
     std::unique_ptr<task::Factory> ni_factory = std::make_unique<ni::Factory>();
-    auto [readerTask, ok] = ni_factory->configureTask(mockCtx, task);
+    auto [readerTask, ok] = ni_factory->configure_task(mockCtx, task);
     ASSERT_TRUE(ok)
             << "Failed to configure reader task";
 
@@ -469,9 +468,8 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     // make ni factory and build reader task
     std::unique_ptr<task::Factory> ni_factory = std::make_unique<ni::Factory>();
-    auto [writerTask, ok] = ni_factory->configureTask(mockCtx, task);
-    ASSERT_TRUE(ok)
-            << "Failed to configure reader task";
+    auto [writerTask, ok] = ni_factory->configure_task(mockCtx, task);
+    ASSERT_TRUE(ok) << "Failed to configure reader task";
 
     // create commands
     auto start_cmd = task::Command{task.key, "start", {}};
@@ -575,12 +573,9 @@ TEST(NiTaskTests, test_NI_scanner_task) {
     // make ni factory and build reader task
     std::unique_ptr<task::Factory> ni_factory = std::make_unique<ni::Factory>();
 
-    LOG(INFO)
-            << "Make Scanner task:" <<
-            std::endl;
-    auto [scanner_task, ok] = ni_factory->configureTask(mockCtx, task);
-    ASSERT_TRUE(ok)
-            << "Failed to configure reader task";
+    LOG(INFO) << "Make Scanner task:" << std::endl;
+    auto [scanner_task, ok] = ni_factory->configure_task(mockCtx, task);
+    ASSERT_TRUE(ok) << "Failed to configure reader task";
 
     // create commands
     LOG(INFO)

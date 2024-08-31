@@ -12,8 +12,18 @@ import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 import { ReactElement } from "react";
 
 import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
+import { configureWriteLayout } from "@/hardware/opc/task/WriteTask";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
+
+interface Args {
+  create: boolean;
+  initialValues: {
+    config: {
+      device: string;
+    };
+  };
+}
 
 export const ContextMenuItems = ({
   selection: { resources },
@@ -21,13 +31,12 @@ export const ContextMenuItems = ({
   const first = resources[0];
   const isSingle = resources.length === 1;
   const place = Layout.usePlacer();
-  const createReadTask = () =>
-    place(
-      configureReadLayout({
-        create: true,
-        initialValues: { config: { device: first.id.key } },
-      }),
-    );
+  const initialArgs: Args = {
+    create: true,
+    initialValues: { config: { device: first.id.key } },
+  };
+  const createReadTask = () => place(configureReadLayout(initialArgs));
+  const createWriteTask = () => place(configureWriteLayout(initialArgs));
   if (!isSingle) return null;
   return (
     <>
@@ -38,10 +47,21 @@ export const ContextMenuItems = ({
             <Icon.Task />
           </PIcon.Create>
         }
-        itemKey="ni.analogReadTask"
+        itemKey="opc.readTask"
         onClick={createReadTask}
       >
         Create a Read Task
+      </Menu.Item>
+      <Menu.Item
+        startIcon={
+          <PIcon.Create>
+            <Icon.Task />
+          </PIcon.Create>
+        }
+        itemKey="opc.writeTask"
+        onClick={createWriteTask}
+      >
+        Create a Write Task
       </Menu.Item>
     </>
   );

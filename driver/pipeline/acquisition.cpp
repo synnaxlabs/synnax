@@ -197,7 +197,7 @@ void Acquisition::runInternal() {
         this->breaker.wait(writer_err.message())
     )
         return this->runInternal();
-    if (writer_err) this->source->stoppedWithErr(writer_err);
+    if (writer_err) this->source->stopped_with_err(writer_err);
     LOG(INFO) << "[acquisition] acquisition thread stopped";
 }
 

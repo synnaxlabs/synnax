@@ -32,14 +32,14 @@ std::unique_ptr<task::Task> Scanner::configure(
 
 void Scanner::exec(task::Command &cmd) {
     if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
-    if (cmd.type == TEST_CONNECTION_CMD_TYPE) return testConnection(cmd);
+    if (cmd.type == TEST_CONNECTION_CMD_TYPE) return test_connection(cmd);
     LOG(ERROR) << "[opc] Scanner received unknown command type: " << cmd.type;
 }
 
 
 // Forward declaration of the callback function for recursive calls
-static UA_StatusCode nodeIter(UA_NodeId child_id, UA_Boolean is_inverse,
-                              UA_NodeId reference_type_id, void *handle);
+static UA_StatusCode node_iter(UA_NodeId child_id, UA_Boolean is_inverse,
+                               UA_NodeId reference_type_id, void *handle);
 
 
 struct ScanContext {
@@ -49,7 +49,7 @@ struct ScanContext {
 
 // Function to recursively iterate through all children
 void iterateChildren(ScanContext *ctx, UA_NodeId node_id) {
-    UA_Client_forEachChildNodeCall(ctx->client.get(), node_id, nodeIter, ctx);
+    UA_Client_forEachChildNodeCall(ctx->client.get(), node_id, node_iter, ctx);
 }
 
 
@@ -78,7 +78,7 @@ std::string nodeClassToString(UA_NodeClass nodeClass) {
 
 
 // Callback function to handle each child node
-static UA_StatusCode nodeIter(
+static UA_StatusCode node_iter(
     UA_NodeId child_id,
     UA_Boolean is_inverse,
     UA_NodeId reference_type_id,
@@ -136,7 +136,7 @@ static UA_StatusCode nodeIter(
         ctx->channels->emplace_back(
             data_type,
             name,
-            nodeIdToString(child_id),
+            node_id_to_string(child_id),
             nodeClassToString(nodeClass),
             is_array
         );
@@ -171,16 +171,42 @@ void Scanner::scan(const task::Command &cmd) const {
     };
     iterateChildren(scan_ctx, args.node);
     ctx->setState({
+<<<<<<< HEAD
         .task = task.key,
         .key = cmd.key,
         .variant = "success",
         .details = DeviceProperties(args.connection,
                                     *scan_ctx->channels).toJSON(),
     });
-    delete scan_ctx;
+    ==
+    ==
+    ==
+    =
+    .
+    task = task.key,
+    .
+    key = cmd.key,
+    .
+    variant = "success",
+    .
+    details = DeviceProperties(args.connection,
+                               *scan_ctx->channels).to_json(),
 }
 
-void Scanner::testConnection(const task::Command &cmd) const {
+);
+>
+>
+>
+>
+>
+>
+>
+6ac783907e6ea38ca7856416cf48895c0bf1eab7
+delete
+scan_ctx;
+}
+
+void Scanner::test_connection(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
@@ -198,9 +224,33 @@ void Scanner::testConnection(const task::Command &cmd) const {
             .details = {{"message", err.data}}
         });
     return ctx->setState({
+<<<<<<< HEAD
         .task = task.key,
         .key = cmd.key,
         .variant = "success",
         .details = {{"message", "Connection successful"}},
     });
+    ==
+    ==
+    ==
+    =
+    .
+    task = task.key,
+    .
+    key = cmd.key,
+    .
+    variant = "success",
+    .
+    details = {{"message", "Connection successful"}},
+}
+
+);
+>
+>
+>
+>
+>
+>
+>
+6ac783907e6ea38ca7856416cf48895c0bf1eab7
 }
