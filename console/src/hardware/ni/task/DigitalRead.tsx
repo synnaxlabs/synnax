@@ -29,7 +29,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { CopyButtons, SelectDevice, useCopyUtils } from "@/hardware/ni/task/common";
+import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import {
   Chan,
   DIChan,
@@ -49,34 +49,33 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 
-interface ConfigureDigitalReadArgs {
-  create: boolean;
-}
-
 export const configureDigitalReadLayout = (
-  create: boolean = false,
-): Layout.State<ConfigureDigitalReadArgs> => ({
+  args: TaskLayoutArgs<DigitalReadPayload> = { create: false },
+): Layout.State<TaskLayoutArgs<DigitalReadPayload>> => ({
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
   key: id.id(),
   windowKey: DIGITAL_READ_TYPE,
   location: "mosaic",
-  args: { create },
+  args,
 });
 
 export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({ ...configureDigitalReadLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...configureDigitalReadLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const Wrapped = ({

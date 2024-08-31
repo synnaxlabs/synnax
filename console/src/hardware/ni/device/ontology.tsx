@@ -10,16 +10,50 @@
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 
+import { createConfigureLayout } from "@/hardware/ni/device/Configure";
 import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { configureDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
 import { configureDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
 import { Layout } from "@/layout";
+import { Ontology } from "@/ontology";
 
-export const ContextMenuItems = () => {
+export const ContextMenuItems = ({
+  selection: { resources },
+}: Ontology.TreeContextMenuProps) => {
   const place = Layout.usePlacer();
-  const handleCreateDigitalReadTask = () => place(configureDigitalReadLayout(true));
-  const handleCreateAnalogReadTask = () => place(configureAnalogReadLayout(true));
-  const handleCreateDigitalWriteTask = () => place(configureDigitalWriteLayout(true));
+  const first = resources[0];
+  const isSingle = resources.length === 1;
+  const handleCreateDigitalReadTask = () => {
+    if (first.data?.configured === false)
+      place(createConfigureLayout(first.id.key, {}));
+    place(
+      configureDigitalReadLayout({
+        create: true,
+        initialValues: { config: { device: first.id.key } },
+      }),
+    );
+  };
+  const handleCreateAnalogReadTask = () => {
+    if (first.data?.configured === false)
+      place(createConfigureLayout(first.id.key, {}));
+    place(
+      configureAnalogReadLayout({
+        create: true,
+        initialValues: { config: { device: first.id.key } },
+      }),
+    );
+  };
+  const handleCreateDigitalWriteTask = () => {
+    if (first.data?.configured === false)
+      place(createConfigureLayout(first.id.key, {}));
+    place(
+      configureDigitalWriteLayout({
+        create: true,
+        initialValues: { config: { device: first.id.key } },
+      }),
+    );
+  };
+  if (!isSingle) return null;
   return (
     <>
       <Menu.Divider />

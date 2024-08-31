@@ -40,6 +40,7 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -47,26 +48,25 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
-interface ConfigureDigitalWriteArgs {
-  create: boolean;
-}
-
 export const configureDigitalWriteLayout = (
-  create: boolean = false,
-): Layout.State<ConfigureDigitalWriteArgs> => ({
+  args: TaskLayoutArgs<DigitalWritePayload> = { create: true },
+): Layout.State<TaskLayoutArgs<DigitalWritePayload>> => ({
   name: "Configure NI Digital Write Task",
   key: id.id(),
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",
-  args: { create },
+  args,
 });
 
 export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({ ...configureDigitalWriteLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...configureDigitalWriteLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const Wrapped = ({
