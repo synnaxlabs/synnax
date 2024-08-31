@@ -79,19 +79,25 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
   return <Core.Video ref={ref} href={href} loop muted {...props} />;
 };
 
+export interface ImageProps extends VideoProps {
+  extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
+}
+
 export const Image = ({
-  id,
-  themed = true,
-  className,
-  ...props
-}: VideoProps): ReactElement => {
+                        id,
+                        themed = true,
+                        className,
+                        extension = "png",
+                        ...props
+                      }: ImageProps): ReactElement => {
   const theme = useLiveTheme();
   let url = `${CDN_ROOT}/${id}`;
   if (themed) url += `-${theme}`;
-  url += ".png";
+  url += `.${extension}`;
   const ref = useRef<HTMLImageElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.src = url;
   }, []);
   return <img src={url} {...props} />;
 };
+
