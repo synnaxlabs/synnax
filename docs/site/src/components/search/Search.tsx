@@ -13,7 +13,6 @@ import React, {
   useEffect,
   useRef,
   type ReactElement,
-  useLayoutEffect,
 } from "react";
 
 import { Icon } from "@synnaxlabs/media";
@@ -24,6 +23,8 @@ import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
 import { Button } from "@synnaxlabs/pluto/button";
+import { Breadcrumb } from "@synnaxlabs/pluto";
+import { caseconv, deep } from "@synnaxlabs/x";
 
 interface SearchResult {
   key: string;
@@ -42,14 +43,28 @@ const ALGOLIA_HEADERS = {
 
 export const Search = (): ReactElement => {
   const d = Dropdown.use();
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") {
+        d.close();
+      }
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        d.open();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
   return (
     <Triggers.Provider>
-      <Dropdown.Dialog variant="modal" {...d} className="search-box">
+      <Dropdown.Dialog variant="modal" zIndex={1000} {...d} className="search-box">
         <Button.Button
           startIcon={<Icon.Search />}
           onClick={d.open}
           variant="outlined"
           justify="center"
+          size="large"
         >
           Search Synnax
         </Button.Button>
@@ -63,24 +78,57 @@ interface SearchDialogContentProps {
   d: Dropdown.DialogProps;
 }
 
+const ICONS: Record<string, ReactElement> = {
+  "python-client": <Icon.Python />,
+  "typescript-client": <Icon.TypeScript />,
+  cluster: <Icon.Cluster />,
+  console: <Icon.Visualize />,
+  concepts: <Icon.Concepts />,
+  guides: <Icon.Guide />,
+  "opc-ua": <Icon.Logo.OPC />,
+  ni: <Icon.Logo.NI />,
+  "device-drivers": <Icon.Device />,
+  pluto: <Icon.Table />,
+};
+
 export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
   const {
     entry: { key, href, title, content },
     hovered,
   } = props;
+  const icon = Object.entries(ICONS).find(([k]) => href.includes(k))?.[1];
+  const path = deep.transformPath(
+    href,
+    (part, index, parts) => {
+      if (part.length === 0 || index === parts.length - 1) return null;
+      const split = part
+        .split("-")
+        .filter((p) => p.length > 0)
+        .map(caseconv.capitalize);
+      return split.join(" ");
+    },
+    "/",
+  );
+  console.log(path);
   return (
     <List.ItemFrame
       id={key.toString()}
       el="a"
       direction="y"
-      size="small"
+      style={{ padding: "2.5rem 3rem" }}
+      size="medium"
       className={`search-result ${hovered ? "hovered" : ""}`}
       aria-selected={true}
       href={href}
       key={key}
       {...props}
     >
-      <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} />
+      <Align.Space direction="y" empty>
+        <Text.Text level="h4" dangerouslySetInnerHTML={{ __html: title }} />
+        <Breadcrumb.Breadcrumb level="small" separator="/" icon={icon}>
+          {path}
+        </Breadcrumb.Breadcrumb>
+      </Align.Space>
       <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
     </List.ItemFrame>
   );
@@ -104,6 +152,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
       }),
     });
     const json = await res.json();
+    console.log(json);
     setResults(
       json.hits.map((hit: any) => ({
         key: hit.objectID,
@@ -115,24 +164,10 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
     );
   }, []);
 
-  useLayoutEffect(() => {
-    if (!d.visible && value !== "") setValue("");
-  }, [d.visible, value]);
-
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") {
-        d.close();
-        inputRef.current?.blur();
-      }
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    inputRef.current?.focus();
+  }, [d.visible]);
+
   return (
     <List.List
       data={results}
@@ -147,7 +182,10 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
       <List.Selector<string, SearchResult>
         value={[]}
         allowMultiple={false}
-        onChange={(k: string) => document.getElementById(k)?.click()}
+        onChange={(k: string) => {
+          document.getElementById(k)?.click();
+          d.close();
+        }}
       >
         <List.Hover>
           <Align.Pack className="search-results__content" direction="y">
@@ -165,7 +203,9 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
               }}
               size="large"
             />
-            <List.Core<string, SearchResult>>{searchListItem}</List.Core>
+            <List.Core<string, SearchResult> className="styled-scrollbar">
+              {searchListItem}
+            </List.Core>
           </Align.Pack>
         </List.Hover>
       </List.Selector>

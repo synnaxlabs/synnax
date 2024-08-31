@@ -32,6 +32,7 @@ import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
+  FaBookOpen,
   FaDocker,
   FaLinux,
   FaStream,
@@ -98,7 +99,7 @@ import {
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
+import { RiGuideLine, RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
@@ -338,6 +339,7 @@ export const Icon: IconType = {
   Details: wrapIcon(MdOutlineTableRows, "details"),
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
   JSON: wrapIcon(MdDataObject, "json"),
+  Guide: wrapIcon(FaBookOpen, "guide"),
 };
 
 export interface IconType {
@@ -462,4 +464,5 @@ export interface IconType {
   Details: IconFC;
   LinkExternal: IconFC;
   JSON: IconFC;
+  Guide: IconFC;
 }

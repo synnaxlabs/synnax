@@ -45,11 +45,13 @@
         background: var(--pluto-gray-l0);
         backdrop-filter: saturate(300%) blur(5rem);
         overflow: hidden;
+        max-width: calc(100vw - 5rem);
     }
 
     @media (max-height: 800px) {
         .pluto-dropdown__dialog {
             top: 10%;
+            transform: translateY(0%);
         }
     }
 }

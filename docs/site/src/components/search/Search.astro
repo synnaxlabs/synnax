@@ -25,16 +25,19 @@ import { Search as S } from "@/components/search/Search";
         & .pluto-input {
             width: 100%;
         }
+    }
 
-        @media (max-width: 1100px) {
-            width: 45vw;
+    @media (max-width: 850px) {
+        .search-box {
+            left: 45%;
+            width: 45vw !important;
         }
     }
 
     .search-results__content {
-        width: 95vw;
-        max-width: 800px;
-        height: 500px;
+        width: 800px;
+        max-width: 100%;
+        height: 400px;
         min-width: 400px;
 
         & .search-result {
@@ -44,15 +47,27 @@ import { Search as S } from "@/components/search/Search";
             }
 
             & b {
-                background: var(--pluto-primary-z-30);
+                background: var(--pluto-primary-z-15);
+            }
+
+            & .pluto-breadcrumb {
+                gap: 0.25rem !important;
+                margin-left: 0.25rem;
+                * {
+                    font-size: 2.1rem;
+                    line-height: 150%;
+                }
+                .synnax-icon {
+                    transform: scale(0.8) translateY(0px) !important;
+                }
             }
 
             & small {
-                color: var(--pluto-gray-l7);
+                color: var(--pluto-gray-l8);
             }
-            a:hover {
-                text-decoration: none;
-            }
+        }
+        & a:hover {
+            text-decoration: none !important;
         }
     }
 </style>

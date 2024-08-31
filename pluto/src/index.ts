@@ -10,6 +10,7 @@
 export { Accordion } from "@/accordion";
 export { Aether } from "@/aether";
 export { Align } from "@/align";
+export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";
 export { Channel } from "@/channel";
