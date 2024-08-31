@@ -129,7 +129,7 @@ private:
         UA_WriteValue *write_value
     );
 
-    void stoppedWithErr(const freighter::Error &err) override;
+    void stopped_with_err(const freighter::Error &err) override;
 
     [[nodiscard]] freighter::Error
     communicate_response_error(const UA_StatusCode &status);

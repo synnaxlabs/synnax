@@ -163,7 +163,7 @@ public:
 
 
     void log_error(std::string err_msg);
-    
+
     std::vector<synnax::ChannelKey> getChannelKeys();
 
     virtual void parse_config(config::Parser &parser);
@@ -177,8 +177,8 @@ public:
     virtual freighter::Error stop_ni();
 
     void clear_task();
-    
-    virtual void stoppedWithErr(const freighter::Error &err) override;
+
+    virtual void stopped_with_err(const freighter::Error &err) override;
 
     virtual bool ok();
 
@@ -193,8 +193,8 @@ public:
     virtual void acquire_data() = 0;
 
     virtual int create_channels() = 0;
-    
-    
+
+
     /// @brief shared resources between daq sampling thread and acquisition thread
     struct DataPacket {
         // void *data; // actual data
@@ -214,7 +214,7 @@ public:
     int buffer_size = 0;
     uint64_t num_channels = 0;
     bool ok_state = true;
-    
+
     /// @brief Synnax related resources
     json err_info;
     std::shared_ptr<task::Context> ctx;
@@ -356,7 +356,7 @@ public:
     freighter::Error stop_ni();
 
     freighter::Error cycle();
-    
+
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 
     std::vector<synnax::ChannelKey> get_state_channel_keys();
@@ -367,7 +367,7 @@ public:
 
     void jsonify_error(std::string);
 
-    void stoppedWithErr(const freighter::Error &err) override;
+    void stopped_with_err(const freighter::Error &err) override;
 
     void log_error(std::string err_msg);
 
@@ -614,8 +614,8 @@ static inline bool dlls_available(){
     };
 
     bool d = true;
-    for (const auto &dll: dlls) 
-        if (!does_dll_exist(dll.c_str())) 
+    for (const auto &dll: dlls)
+        if (!does_dll_exist(dll.c_str()))
             d = false;
     if (d) LOG(INFO) << "[ni] All required DLLs found.";
     return d;

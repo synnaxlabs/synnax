@@ -315,7 +315,7 @@ void ni::DigitalWriteSink::log_error(std::string err_msg) {
     this->ok_state = false;
 }
 
-void ni::DigitalWriteSink::stoppedWithErr(const freighter::Error &err) {
+void ni::DigitalWriteSink::stopped_with_err(const freighter::Error &err) {
     // Unprompted stop so we pass in an empty command key
     this->stop("");
     this->log_error("stopped with error: " + err.message());
@@ -339,7 +339,7 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     std::regex physical_channel_regex(R"(Physical Channel Name:\s*(\S+))");
     std::regex device_regex(R"(Device:\s*(\S+))");
 
-    std::string message = s; 
+    std::string message = s;
 
     std::vector<std::string> fields = {
         "Status Code:", "Channel Name:", "Physical Channel Name:",
@@ -354,7 +354,7 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     }
 
     if (first_field_pos != std::string::npos) message = s.substr(0, first_field_pos);
-    
+
     message = std::regex_replace(message, std::regex("\\s+$"), "");
 
     std::smatch status_code_match;
@@ -372,9 +372,9 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     std::smatch channel_match;
     if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
         cn = physical_channel_match[1].str();
-        if (!device.empty())  cn = device + "/" + cn; // Combine device and physical channel name 
+        if (!device.empty())  cn = device + "/" + cn; // Combine device and physical channel name
     } else if (std::regex_search(s, channel_match, channel_regex)) cn = channel_match[1].str();
-    
+
     // Check if the channel name is in the channel map
     this->err_info["path"] = channel_map.count(cn) != 0
                                  ? channel_map[cn]

@@ -37,10 +37,10 @@ public:
     /// it to shut down or occurred during commanded shutdown.
     ///
     /// After this method is called, the pipeline will NOT make any further calls to the
-    /// source (read, stoppedWithErr) until the pipeline is restarted.
+    /// source (read, stopped_with_err) until the pipeline is restarted.
     ///
     /// This method may be called even if stop() was called on the pipeline.
-    virtual void stoppedWithErr(const freighter::Error &err) {
+    virtual void stopped_with_err(const freighter::Error &err) {
     }
 
     virtual ~Source() = default;

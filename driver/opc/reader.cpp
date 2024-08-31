@@ -139,7 +139,7 @@ public:
         req.nodesToReadSize = readValueIds.size();
     }
 
-    void stoppedWithErr(const freighter::Error &err) override {
+    void stopped_with_err(const freighter::Error &err) override {
         curr_state.variant = "error";
         curr_state.details = json{
             {"message", err.message()},

@@ -95,7 +95,7 @@ void opc::WriterSink::set_variant(
     }
 };
 
-void opc::WriterSink::stoppedWithErr(const freighter::Error &err) {
+void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
     LOG(ERROR) << "[opc.sink] Stopped with error: " << err.message();
     curr_state.variant = "error";
     curr_state.details = json{
