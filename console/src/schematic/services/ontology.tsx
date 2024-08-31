@@ -212,13 +212,13 @@ const handleRename: Ontology.HandleTreeRename = {
     store.dispatch(Layout.rename({ key: id.key, name })),
 };
 
-export const loadSchematic = async (
+const loadSchematic = async (
   client: Synnax,
   id: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
   const schematic = await client.workspaces.schematic.retrieve(id.key);
-  return placeLayout(
+  placeLayout(
     create({
       ...(schematic.data as unknown as State),
       key: schematic.key,
@@ -228,9 +228,11 @@ export const loadSchematic = async (
   );
 };
 
-const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout }) => {
-  void loadSchematic(client, selection[0].id, placeLayout);
-};
+const handleSelect: Ontology.HandleSelect = async ({
+  client,
+  selection,
+  placeLayout,
+}) => await loadSchematic(client, selection[0].id, placeLayout);
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
