@@ -41,7 +41,7 @@ jobs:
 
       # Test with Main Server
       - name: Start Main Server
-        run: docker run -d --name synnax-main -p 9090:9090 -d /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:latest
+        run: docker run -d --name synnax-main -p 9090:9090 -e SYNNAX_DATA=/data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:latest
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -111,7 +111,7 @@ jobs:
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
       - name: Start Current Server
-        run: docker run -d --name synnax-current -p 9090:9090 -d /data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
+        run: docker run -d --name synnax-current -p 9090:9090  -e SYNNAX_DATA=/data:/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
       - name: Python Test with Current Server
         run: pytest --cov=freighter --cov-report xml:coverage.xml
