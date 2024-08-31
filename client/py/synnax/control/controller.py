@@ -120,7 +120,7 @@ class Controller:
             updated_idx = {
                 channels[i].index: now
                 for i in range(len(channels))
-                if not channels[i].virtual 
+                if not channels[i].virtual
             }
             self._writer.write({**updated, **updated_idx})
             return
