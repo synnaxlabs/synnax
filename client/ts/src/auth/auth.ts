@@ -54,7 +54,6 @@ export class Client {
             this.client
               .send(
                 LOGIN_ENDPOINT,
-
                 this.credentials,
                 insecureCredentialsZ,
                 tokenResponseZ,
