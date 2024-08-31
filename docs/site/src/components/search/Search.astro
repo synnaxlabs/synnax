@@ -10,8 +10,17 @@ import { Search as S } from "@/components/search/Search";
         left: 50%;
         z-index: 50000;
         transform: translateX(-50%);
-        width: 65vw;
+        width: 65vw !important;
         max-width: 800px;
+
+        & button {
+            width: 100%;
+            * {
+                color: var(--pluto-gray-l7);
+                font-size: var(--pluto-small-size);
+                font-weight: 400;
+            }
+        }
 
         & .pluto-input {
             width: 100%;
@@ -20,28 +29,28 @@ import { Search as S } from "@/components/search/Search";
         @media (max-width: 1100px) {
             width: 45vw;
         }
+    }
 
-        .pluto-dropdown__dialog {
-            position: absolute !important;
-            left: 50% !important;
-            transform: translate(-50%, -20px);
+    .search-results__content {
+        width: 95vw;
+        max-width: 800px;
+        height: 500px;
+        min-width: 400px;
 
-            & .search-result {
-                padding: 2rem;
-                &:hover {
-                    background: var(--pluto-gray-l3);
-                }
-
-                & b {
-                    background: var(--pluto-primary-z-30);
-                }
-
-                & small {
-                    color: var(--pluto-gray-l7);
-                }
+        & .search-result {
+            padding: 2rem;
+            &:hover {
+                background: var(--pluto-gray-l3);
             }
 
-            & a:hover {
+            & b {
+                background: var(--pluto-primary-z-30);
+            }
+
+            & small {
+                color: var(--pluto-gray-l7);
+            }
+            a:hover {
                 text-decoration: none;
             }
         }

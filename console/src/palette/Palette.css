@@ -28,6 +28,9 @@
     width: 100%;
     max-width: 1200px;
     height: 500px;
+    width: 95vw;
+    min-height: 400px;
+    max-width: 1200px;
 
     .pluto-list__item {
         .console-palette__actions {
@@ -47,12 +50,6 @@
     & .pluto-status-text {
         height: 150px;
     }
-}
-
-.console-palette__content {
-    width: 95vw;
-    min-height: 400px;
-    max-width: 1200px;
 }
 
 .console-palette__item {
