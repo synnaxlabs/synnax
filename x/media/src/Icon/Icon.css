@@ -30,3 +30,7 @@
         fill: inherit !important;
     }
 }
+
+.synnax-icon-schematic {
+    transform: scale(0.85);
+}

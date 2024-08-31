@@ -30,14 +30,18 @@ export const createReadTaskCommand: Command = {
   key: "opc-create-read-task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  onSelect: ({ placeLayout }) => placeLayout(configureReadLayout(true)),
+  onSelect: ({ placeLayout }) => placeLayout(configureReadLayout({ create: true })),
 };
 
 export const createWriteTaskCommand: Command = {
   key: "opc-create-write-task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  onSelect: ({ placeLayout }) => placeLayout(configureWriteLayout(true)),
+  onSelect: ({ placeLayout }) => placeLayout(configureWriteLayout({ create: true })),
 };
 
-export const COMMANDS = [connectServerCommand, createReadTaskCommand, createWriteTaskCommand];
+export const COMMANDS = [
+  connectServerCommand,
+  createReadTaskCommand,
+  createWriteTaskCommand,
+];

@@ -41,6 +41,7 @@ import { create as createLinePlot } from "@/lineplot/LinePlot";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
+import { overviewLayout } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
   add,
@@ -147,6 +148,27 @@ export const useAddToActivePlot = (): ((key: string) => void) => {
       addStatus({
         variant: "error",
         message: `Failed to add range to plot`,
+        description: e.message,
+      });
+    },
+  }).mutate;
+};
+
+const useViewDetails = (): ((key: string) => void) => {
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+  const placer = Layout.usePlacer();
+  return useMutation<void, Error, string>({
+    mutationFn: async (key: string) => {
+      if (client == null) return;
+      const rng = await fetchIfNotInState(store, client, key);
+      placer({ ...overviewLayout, name: rng.name, key: rng.key });
+    },
+    onError: (e) => {
+      addStatus({
+        variant: "error",
+        message: `Failed to view details`,
         description: e.message,
       });
     },
@@ -283,6 +305,7 @@ export const List = (): ReactElement => {
     const handleSetActive = () => {
       dispatch(setActive(key));
     };
+    const handleViewDetails = useViewDetails();
 
     const handleAddChildRange = () => {
       placeLayout(createEditLayout({ initial: { parent: key } }));
@@ -294,6 +317,7 @@ export const List = (): ReactElement => {
       edit: () => handleAddOrEdit(rng?.key),
       remove: () => rng != null && handleRemove([rng.key]),
       delete: () => rng != null && del.mutate(rng.key),
+      details: () => rng != null && handleViewDetails(rng.key),
       save: () => rng != null && save.mutate(rng.key),
       link: () =>
         rng != null &&
@@ -312,6 +336,9 @@ export const List = (): ReactElement => {
 
     return (
       <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+        <PMenu.Item startIcon={<Icon.Details />} itemKey="details">
+          View Details
+        </PMenu.Item>
         <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
           Create New
         </PMenu.Item>

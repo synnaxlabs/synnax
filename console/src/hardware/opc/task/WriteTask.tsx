@@ -52,6 +52,7 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -59,7 +60,9 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
-export const configureWriteLayout = (create: boolean = false): Layout.State => ({
+export const configureWriteLayout = (
+  args: TaskLayoutArgs<WritePayload> = { create: false },
+): Layout.State => ({
   name: "Configure OPC UA Write Task",
   key: uuid(),
   type: WRITE_TYPE,
@@ -70,14 +73,17 @@ export const configureWriteLayout = (create: boolean = false): Layout.State => (
     size: { width: 1200, height: 900 },
     navTop: true,
   },
-  args: { create },
+  args,
 });
 
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({ ...configureWriteLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...configureWriteLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const schema = z.object({

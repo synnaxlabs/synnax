@@ -9,15 +9,35 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
+import { ReactElement } from "react";
 
 import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
 import { configureWriteLayout } from "@/hardware/opc/task/WriteTask";
 import { Layout } from "@/layout";
+import { Ontology } from "@/ontology";
 
-export const ContextMenuItems = () => {
+interface Args {
+  create: boolean;
+  initialValues: {
+    config: {
+      device: string;
+    };
+  };
+}
+
+export const ContextMenuItems = ({
+  selection: { resources },
+}: Ontology.TreeContextMenuProps): ReactElement | null => {
+  const first = resources[0];
+  const isSingle = resources.length === 1;
   const place = Layout.usePlacer();
-  const createReadTask = () => place(configureReadLayout(true));
-  const createWriteTask = () => place(configureWriteLayout(true));
+  const initialArgs: Args = {
+    create: true,
+    initialValues: { config: { device: first.id.key } },
+  };
+  const createReadTask = () => place(configureReadLayout(initialArgs));
+  const createWriteTask = () => place(configureWriteLayout(initialArgs));
+  if (!isSingle) return null;
   return (
     <>
       <Menu.Divider />

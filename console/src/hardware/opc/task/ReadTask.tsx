@@ -52,6 +52,7 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -59,7 +60,9 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
-export const configureReadLayout = (create: boolean = false): Layout.State => ({
+export const configureReadLayout = (
+  args: TaskLayoutArgs<ReadPayload> = { create: false },
+): Layout.State<TaskLayoutArgs<ReadPayload>> => ({
   name: "Configure OPC UA Read Task",
   key: uuid(),
   type: READ_TYPE,
@@ -70,14 +73,14 @@ export const configureReadLayout = (create: boolean = false): Layout.State => ({
     size: { width: 1200, height: 900 },
     navTop: true,
   },
-  args: { create },
+  args,
 });
 
 export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({ ...configureReadLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({ ...configureReadLayout({ create: true }), key: layoutKey }),
 };
 
 const schema = z.object({
@@ -295,20 +298,7 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            <Align.Space
-              className={CSS.B("browser")}
-              direction="y"
-              grow
-              bordered
-              rounded
-              style={{ overflow: "hidden", height: "100%" }}
-              empty
-            >
-              <Header.Header level="h4">
-                <Header.Title weight={500}>Browser</Header.Title>
-              </Header.Header>
-              <Browser device={device} />
-            </Align.Space>
+            <Browser device={device} />
             <ChannelList path="config.channels" device={device} />
           </Align.Space>
         </Form.Form>
@@ -394,6 +384,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
       <Menu.ContextMenu
+        style={{ maxHeight: value.length > 0 ? "calc(100% - 200px)" : "100%" }}
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
           <ChannelListContextMenu
             path={path}
