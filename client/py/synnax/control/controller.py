@@ -28,6 +28,7 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, CrudeAuthority
+from synnax.timing import sleep
 
 
 class Processor(Protocol):
@@ -116,11 +117,18 @@ class Controller:
             channels = retrieve_required(self._retriever, list(ch.keys()))
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
-            updated_idx = {channels[i].index: now for i in range(len(channels))}
+            updated_idx = {
+                channels[i].index: now
+                for i in range(len(channels))
+                if not channels[i].virtual
+            }
             self._writer.write({**updated, **updated_idx})
             return
         ch = retrieve_required(self._retriever, ch)[0]
-        self._writer.write({ch.key: value, ch.index: TimeStamp.now()})
+        to_write = {ch.key: value}
+        if not ch.virtual:
+            to_write[ch.index] = TimeStamp.now()
+        self._writer.write(to_write)
 
     @overload
     def set_authority(
@@ -199,6 +207,9 @@ class Controller:
         if processor.exc:
             raise processor.exc
         return ok
+
+    def sleep(self, dur: float | int | TimeSpan, precise: bool = False):
+        sleep(dur, precise)
 
     def wait_until_defined(
         self,
