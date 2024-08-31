@@ -34,7 +34,6 @@
         border-radius: 1rem;
         min-width: 400px;
         min-height: 150px;
-        width: fit-content;
 
         & > div {
             border: var(--pluto-border-l4);
