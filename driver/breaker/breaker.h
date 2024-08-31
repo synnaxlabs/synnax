@@ -178,7 +178,7 @@ private:
     TimeSpan interval;
     uint32_t retries;
     volatile bool is_running;
-    ///@brief a condition variable used to notify the breaker to shutdown immediately.
+    /// @brief a condition variable used to notify the breaker to shutdown immediately.
     std::unique_ptr<std::condition_variable> breaker_shutdown;
     std::mutex shutdown_mutex;
 };
