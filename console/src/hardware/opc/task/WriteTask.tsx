@@ -285,20 +285,7 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            <Align.Space
-              className={CSS.B("browser")}
-              direction="y"
-              grow
-              bordered
-              rounded
-              style={{ overflow: "hidden", height: "100%" }}
-              empty
-            >
-              <Header.Header level="h4">
-                <Header.Title weight={500}>Browser</Header.Title>
-              </Header.Header>
-              <Browser device={device} />
-            </Align.Space>
+            <Browser device={device} />
             <WriterChannelList path="config.channels" device={device} />
           </Align.Space>
         </Form.Form>
@@ -506,6 +493,11 @@ export const WriterChannelListItem = ({
         </Text.WithIcon>
       </Align.Space>
       <Align.Space direction="x" align="center">
+        {childValues.useAsIndex && (
+          <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
+            Index
+          </Text.Text>
+        )}
         <EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
