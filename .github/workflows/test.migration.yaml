@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [rc, main]
   push:
-    branches: [rc, main]
+    branches: [rc]
   workflow_dispatch:
 permissions:
   contents: write
