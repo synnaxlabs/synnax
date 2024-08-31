@@ -172,7 +172,7 @@ func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, othe
 type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"dog" msgpack:"dog"`
 	// Leaseholder is the leaseholder node for the channel.
 	Leaseholder core.NodeKey `json:"node_id" msgpack:"node_id"`
 	// DataType is the data type for the channel.
