@@ -506,11 +506,6 @@ export const WriterChannelListItem = ({
         </Text.WithIcon>
       </Align.Space>
       <Align.Space direction="x" align="center">
-        {childValues.useAsIndex && (
-          <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
-            Index
-          </Text.Text>
-        )}
         <EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
