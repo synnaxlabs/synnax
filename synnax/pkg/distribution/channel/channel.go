@@ -215,7 +215,7 @@ func (c Channel) Key() Key { return NewKey(c.Leaseholder, c.LocalKey) }
 // Index returns the key for the Channel's index channel.
 func (c Channel) Index() Key {
 	if c.LocalIndex == 0 {
-		return 1
+		return 0
 	}
 	return NewKey(c.Leaseholder, c.LocalIndex)
 }
