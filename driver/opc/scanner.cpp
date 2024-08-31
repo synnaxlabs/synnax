@@ -39,7 +39,7 @@ void Scanner::exec(task::Command &cmd) {
 
 // Forward declaration of the callback function for recursive calls
 static UA_StatusCode node_iter(UA_NodeId child_id, UA_Boolean is_inverse,
-                               UA_NodeId reference_type_id, void *handle);
+                              UA_NodeId reference_type_id, void *handle);
 
 
 struct ScanContext {
@@ -151,19 +151,19 @@ void Scanner::scan(const task::Command &cmd) const {
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .details = parser.error_json()
-        });
+                                 .task = task.key,
+                                 .key = cmd.key,
+                                 .details = parser.error_json()
+                             });
 
     auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .variant = "error",
-            .details = {{"message", err.message()}}
-        });
+                                 .task = task.key,
+                                 .key = cmd.key,
+                                 .variant = "error",
+                                 .details = {{"message", err.message()}}
+                             });
 
     const auto scan_ctx = new ScanContext{
         ua_client,
@@ -171,39 +171,13 @@ void Scanner::scan(const task::Command &cmd) const {
     };
     iterateChildren(scan_ctx, args.node);
     ctx->setState({
-<<<<<<< HEAD
-        .task = task.key,
-        .key = cmd.key,
-        .variant = "success",
-        .details = DeviceProperties(args.connection,
-                                    *scan_ctx->channels).toJSON(),
-    });
-    ==
-    ==
-    ==
-    =
-    .
-    task = task.key,
-    .
-    key = cmd.key,
-    .
-    variant = "success",
-    .
-    details = DeviceProperties(args.connection,
-                               *scan_ctx->channels).to_json(),
-}
-
-);
->
->
->
->
->
->
->
-6ac783907e6ea38ca7856416cf48895c0bf1eab7
-delete
-scan_ctx;
+                      .task = task.key,
+                      .key = cmd.key,
+                      .variant = "success",
+                      .details = DeviceProperties(args.connection,
+                                                  *scan_ctx->channels).to_json(),
+                  });
+    delete scan_ctx;
 }
 
 void Scanner::test_connection(const task::Command &cmd) const {
@@ -211,46 +185,22 @@ void Scanner::test_connection(const task::Command &cmd) const {
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .details = parser.error_json()
-        });
+                                 .task = task.key,
+                                 .key = cmd.key,
+                                 .details = parser.error_json()
+                             });
     const auto err = connect(args.connection, "[opc.scanner] ").second;
     if (err)
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .variant = "error",
-            .details = {{"message", err.data}}
-        });
+                                 .task = task.key,
+                                 .key = cmd.key,
+                                 .variant = "error",
+                                 .details = {{"message", err.data}}
+                             });
     return ctx->setState({
-<<<<<<< HEAD
-        .task = task.key,
-        .key = cmd.key,
-        .variant = "success",
-        .details = {{"message", "Connection successful"}},
-    });
-    ==
-    ==
-    ==
-    =
-    .
-    task = task.key,
-    .
-    key = cmd.key,
-    .
-    variant = "success",
-    .
-    details = {{"message", "Connection successful"}},
-}
-
-);
->
->
->
->
->
->
->
-6ac783907e6ea38ca7856416cf48895c0bf1eab7
+                             .task = task.key,
+                             .key = cmd.key,
+                             .variant = "success",
+                             .details = {{"message", "Connection successful"}},
+                         });
 }

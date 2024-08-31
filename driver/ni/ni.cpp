@@ -487,17 +487,14 @@ void ni::Source::get_index_keys() {
     for (auto &channel: this->reader_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (err)
-            return this->log_error(
-                "failed to retrieve channel " +
-                std::to_string(channel.channel_key));
+        if (err) return this->log_error(
+                    "failed to retrieve channel " + std::to_string(channel.channel_key));
         index_keys.insert(channel_info.index);
     }
-    for (auto &index_key: index_keys) {
+    for(auto &index_key : index_keys) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
-        if (err)
-            return this->log_error(
-                "failed to retrieve channel " + std::to_string(index_key));
+        if (err) return this->log_error(
+                    "failed to retrieve channel " + std::to_string(index_key));
         ni::ChannelConfig index_channel;
         index_channel.channel_key = channel_info.key;
         index_channel.channel_type = "index";
@@ -510,10 +507,11 @@ void ni::Source::get_index_keys() {
 ni::Source::Source(
     TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task) : task_handle(task_handle),
-                               ctx(ctx),
-                               task(task),
-                               err_info({}) {
+    const synnax::Task task) :
+    task_handle(task_handle),
+    ctx(ctx),
+    task(task),
+    err_info({}){
 }
 
 void ni::Source::parse_config(config::Parser &parser) {
@@ -572,13 +570,11 @@ int ni::Source::init() {
             "failed to create channels for " + this->reader_config.task_name);
         return -1;
     }
-    if (this->reader_config.sample_rate < this->reader_config.stream_rate ||
-        this->reader_config.sample_rate.value < 1) {
+    if (this->reader_config.sample_rate < this->reader_config.stream_rate || this->reader_config.sample_rate.value < 1) {
         this->log_error(
             "Failed while configuring timing for NI hardware for task " + this->
             reader_config.task_name);
-        this->err_info["message"] =
-                "sample rate must be greater than or equal to 1 and greater than or equal to the stream rate";
+        this->err_info["message"] = "sample rate must be greater than or equal to 1 and greater than or equal to the stream rate";
         this->err_info["running"] = false;
 
         this->ctx->setState({
@@ -596,19 +592,18 @@ int ni::Source::init() {
     return 0;
 }
 
-freighter::Error ni::Source::cycle() {
+freighter::Error  ni::Source::cycle(){
     auto err = this->start_ni();
-    if (err) return err;
+    if(err) return err;
     err = this->stop_ni();
-    if (err) return err;
+    if(err) return err;
     return freighter::NIL;
 }
 
-freighter::Error ni::Source::start_ni() {
+freighter::Error ni::Source::start_ni(){
     if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->log_error(
-            "failed while starting reader for task " +
-            this->reader_config.task_name +
+            "failed while starting reader for task " + this->reader_config.task_name +
             " requires reconfigure");
         this->clear_task();
         return driver::CRITICAL_HARDWARE_ERROR;
@@ -616,11 +611,10 @@ freighter::Error ni::Source::start_ni() {
     return freighter::NIL;
 }
 
-freighter::Error ni::Source::stop_ni() {
+freighter::Error ni::Source::stop_ni(){
     if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
         this->log_error(
-            "failed while stopping reader for task " +
-            this->reader_config.task_name);
+            "failed while stopping reader for task " + this->reader_config.task_name);
         return driver::CRITICAL_HARDWARE_ERROR;
     }
     return freighter::NIL;
@@ -664,19 +658,18 @@ freighter::Error ni::Source::stop(const std::string &cmd_key) {
 void ni::Source::clear_task() {
     if (this->check_ni_error(ni::NiDAQmxInterface::ClearTask(this->task_handle))) {
         this->log_error(
-            "failed while clearing reader for task " +
-            this->reader_config.task_name);
+            "failed while clearing reader for task " + this->reader_config.task_name);
     }
 }
 
 ni::Source::~Source() {
     this->clear_task();
-    if (this->sample_thread.joinable()) this->sample_thread.join();
+    if(this->sample_thread.joinable()) this->sample_thread.join();
     VLOG(1) << "[ni.reader] joined sample thread";
 }
 
 int ni::Source::check_ni_error(int32 error) {
-    if (error == 0) return 0;
+    if(error == 0) return 0;
 
     char errBuff[4096] = {'\0'};
 
@@ -702,9 +695,8 @@ bool ni::Source::ok() {
 
 std::vector<synnax::ChannelKey> ni::Source::getChannelKeys() {
     std::vector<synnax::ChannelKey> keys;
-    for (auto &channel: this->reader_config.channels)
-        keys.push_back(
-            channel.channel_key);
+    for (auto &channel: this->reader_config.channels) keys.push_back(
+        channel.channel_key);
     return keys;
 }
 
@@ -749,29 +741,10 @@ void ni::Source::jsonify_error(std::string s) {
     std::regex task_name_line_regex(R"(\nTask Name:.*\n?)");
     s = std::regex_replace(s, task_name_line_regex, "");
 
-    // Extract status code
+     // Extract status code
     std::string sc = "";
     std::smatch status_code_match;
-    <<
-    <<
-    <<
-    <
-    HEAD
-    if (std::regex_search(s, status_code_match, status_code_regex))
-        sc = status_code_match[1].str();
-    ==
-    ==
-    ==
-    =
     if (std::regex_search(s, status_code_match, status_code_regex)) sc = status_code_match[1].str();
-    >
-    >
-    >
-    >
-    >
-    >
-    >
-    6ac783907e6ea38ca7856416cf48895c0bf1eab7
 
     // Remove the redundant Status Code line at the end
     std::regex status_code_line_regex(R"(\nStatus Code:.*$)");
@@ -780,28 +753,24 @@ void ni::Source::jsonify_error(std::string s) {
     // Extract device name
     std::string device = "";
     std::smatch device_match;
-    if (std::regex_search(s, device_match, device_regex))
-        device = device_match[1].str();
+    if (std::regex_search(s, device_match, device_regex)) device = device_match[1].str();
 
     // Extract physical channel name or channel name
     std::string cn = "";
     std::smatch physical_channel_match;
     if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
         cn = physical_channel_match[1].str();
-        if (!device.empty())
-            cn = device + "/" + cn; // Combine device and physical channel name
+        if (!device.empty()) cn = device + "/" + cn; // Combine device and physical channel name
     } else {
         std::smatch channel_match;
-        if (std::regex_search(s, channel_match, channel_regex))
-            cn = channel_match[1].str();
+        if (std::regex_search(s, channel_match, channel_regex)) cn = channel_match[1].str();
     }
 
     // Extract the first property
     std::string p = "";
     std::smatch property_match;
-    if (std::regex_search(s, property_match, property_regex))
-        p = property_match[1].str();
-    if (sc == "-200170") p = "port";
+    if (std::regex_search(s, property_match, property_regex)) p = property_match[1].str();
+    if(sc == "-200170") p = "port";
 
     // Extract possible values
     std::string possible_values = "";
@@ -809,21 +778,18 @@ void ni::Source::jsonify_error(std::string s) {
     if (std::regex_search(s, possible_values_match, possible_values_regex)) {
         possible_values = possible_values_match[1].str();
         size_t pos = possible_values.find("Channel Name");
-        if (pos != std::string::npos)
-            possible_values.erase(pos, std::string("Channel Name").length());
+        if (pos != std::string::npos) possible_values.erase(pos, std::string("Channel Name").length());
     }
 
     // Extract maximum value
     std::string max_value = "";
     std::smatch max_value_match;
-    if (std::regex_search(s, max_value_match, max_value_regex))
-        max_value = max_value_match[1].str();
+    if (std::regex_search(s, max_value_match, max_value_regex)) max_value = max_value_match[1].str();
 
     // Extract minimum value
     std::string min_value = "";
     std::smatch min_value_match;
-    if (std::regex_search(s, min_value_match, min_value_regex))
-        min_value = min_value_match[1].str();
+    if (std::regex_search(s, min_value_match, min_value_regex)) min_value = min_value_match[1].str();
 
     // Check if the channel name is in the channel map
     if (channel_map.count(cn) != 0) this->err_info["path"] = channel_map[cn] + ".";
@@ -831,18 +797,13 @@ void ni::Source::jsonify_error(std::string s) {
     else this->err_info["path"] = "";
 
     // Check if the property is in the field map
-    if (FIELD_MAP.count(p) == 0)
-        this->err_info["path"] = this->err_info["path"].get<std::string>() + p;
-    else
-        this->err_info["path"] =
-                this->err_info["path"].get<std::string>() + FIELD_MAP.at(p);
+    if (FIELD_MAP.count(p) == 0) this->err_info["path"] = this->err_info["path"].get<std::string>() + p;
+    else this->err_info["path"] = this->err_info["path"].get<std::string>() + FIELD_MAP.at(p);
 
     // Construct the error message
-    std::string error_message = "NI Error " + sc + ": " + s + "\nPath: " +
-                                this->err_info["path"].get<std::string>();
+    std::string error_message = "NI Error " + sc + ": " + s + "\nPath: " + this->err_info["path"].get<std::string>();
     if (!cn.empty()) error_message += " Channel: " + cn;
-    if (!possible_values.empty())
-        error_message += " Possible Values: " + possible_values;
+    if (!possible_values.empty()) error_message += " Possible Values: " + possible_values;
     if (!max_value.empty()) error_message += " Maximum Value: " + max_value;
     if (!min_value.empty()) error_message += " Minimum Value: " + min_value;
     this->err_info["message"] = error_message;
