@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/layout/Modals.css";
+
 import { Icon } from "@synnaxlabs/media";
 import { Button, Menu, Modal as Core, Nav, Text } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { CSSProperties, FC, ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { useRemover } from "@/layout/hooks";
 import { useSelectModals } from "@/layout/selectors";
@@ -94,3 +97,14 @@ export const Modals = () => {
     </>
   );
 };
+
+export interface ModalBarProps extends Nav.BarProps {}
+
+export const BottomNavBar = ({ className, ...props }: ModalBarProps) => (
+  <Nav.Bar
+    location="bottom"
+    size="8rem"
+    className={CSS(CSS.B("bottom-nav-bar"), className)}
+    {...props}
+  />
+);
