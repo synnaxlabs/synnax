@@ -42,6 +42,9 @@ export interface UseDeepProps {
   handlers: Handler[];
 }
 
+const openUrlErrorMessage =
+  "Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>";
+
 export const useDeep = ({ handlers }: UseDeepProps): void => {
   const client = PSynnax.use();
   const clientRef = useSyncedRef(client);
@@ -50,8 +53,6 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
   const placer = Layout.usePlacer();
   const store = useStore();
   const windowKey = useSelectWindowKey() as string;
-  const openUrlErrorMessage =
-    "Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>";
   const addOpenUrlErrorStatus = () => {
     addStatus({
       variant: "error",

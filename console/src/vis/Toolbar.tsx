@@ -14,7 +14,6 @@ import { type FC, type ReactElement } from "react";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
-import { Selector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Schematic } from "@/schematic";
 import { type LayoutType } from "@/vis/types";
@@ -27,10 +26,9 @@ interface ToolbarProps {
   layoutKey: string;
 }
 
-const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
+const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   schematic: Schematic.Toolbar,
   lineplot: LinePlot.Toolbar,
-  vis: ({ layoutKey }) => <Selector layoutKey={layoutKey} onClose={() => {}} />,
 };
 
 const NoVis = (): ReactElement => {
@@ -57,7 +55,7 @@ const Content = (): ReactElement => {
   if (layout == null) return <NoVis />;
   const Toolbar = TOOLBARS[layout.type as LayoutType];
   if (Toolbar == null) return <NoVis />;
-  return <Toolbar layoutKey={layout?.key} />;
+  return <Toolbar layoutKey={layout.key} />;
 };
 
 export const Toolbar: Layout.NavDrawerItem = {

@@ -143,13 +143,12 @@ export const useAddToActivePlot = (): ((key: string) => void) => {
         }),
       );
     },
-    onError: (e) => {
+    onError: (e) =>
       addStatus({
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
-      });
-    },
+      }),
   }).mutate;
 };
 
