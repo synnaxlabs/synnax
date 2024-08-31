@@ -60,7 +60,7 @@ struct ConnectionConfig {
         server_cert(parser.optional<std::string>("server_certificate", "")) {
     }
 
-    json toJSON() const {
+    json to_json() const {
         return {
             {"endpoint",           endpoint},
             {"username",           username},
@@ -103,7 +103,7 @@ struct DeviceNodeProperties {
                                                                    "is_array", false)) {
     }
 
-    json toJSON() const {
+    json to_json() const {
         return {
             {"data_type",  data_type.name()},
             {"name",       name},
@@ -133,12 +133,12 @@ struct DeviceProperties {
         });
     }
 
-    json toJSON() const {
+    json to_json() const {
         json j;
-        j["connection"] = connection.toJSON();
+        j["connection"] = connection.to_json();
         j["channels"] = json::array();
         for (const auto &ch: channels)
-            j["channels"].push_back(ch.toJSON());
+            j["channels"].push_back(ch.to_json());
         return j;
     }
 };
@@ -413,7 +413,7 @@ inline std::string guidToString(const UA_Guid &guid) {
 }
 
 ///@brief Parses a string NodeId into a UA_NodeId object
-inline UA_NodeId parseNodeId(const std::string &path, config::Parser &parser) {
+inline UA_NodeId parse_node_id(const std::string &path, config::Parser &parser) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     const std::string nodeIdStr = parser.required<std::string>(path);
@@ -453,7 +453,7 @@ inline UA_NodeId parseNodeId(const std::string &path, config::Parser &parser) {
 
 
 ///@brief Function to build a string identifier from a UA_NodeId
-inline std::string nodeIdToString(const UA_NodeId &nodeId) {
+inline std::string node_id_to_string(const UA_NodeId &nodeId) {
     std::ostringstream nodeIdStr;
     nodeIdStr << "NS=" << nodeId.namespaceIndex << ";";
 
@@ -484,7 +484,7 @@ inline std::string nodeIdToString(const UA_NodeId &nodeId) {
 }
 
 // TODO: Explain what a UAByteString is here
-inline UA_ByteString stringToUAByteString(const std::string &str) {
+inline UA_ByteString string_to_ua_byte_string(const std::string &str) {
     size_t len = str.length();
     const UA_Byte *strData = reinterpret_cast<const UA_Byte *>(str.data());
 

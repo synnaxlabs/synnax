@@ -167,7 +167,7 @@ UA_StatusCode privateKeyPasswordCallBack(
 const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolicy#";
 
 // TODO: make this clearer to read through
-freighter::Error configureEncryption(
+freighter::Error configure_encryption(
     opc::ConnectionConfig &cfg,
     std::shared_ptr<UA_Client> client
 ) {
@@ -289,7 +289,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     config->secureChannelLifeTime = 7200000; // (ms) 2 hours
     config->requestedSessionTimeout = 14400000; // (ms) 4 hours (default had it double the secure channel lifetime)
     config->timeout = 7200000; // (ms) 2 hours
-    configureEncryption(cfg, client);
+    configure_encryption(cfg, client);
     UA_StatusCode status;
 //    freighter::Error err = set_authentication(cfg, config);
 //    if(!err) return {std::move(client), err};

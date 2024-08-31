@@ -17,13 +17,15 @@ namespace opc {
 const std::string INTEGRATION_NAME = "opc";
 
 class Factory final : public task::Factory {
-    std::pair<std::unique_ptr<task::Task>, bool> configureTask(
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override;
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-    configureInitialTasks(const std::shared_ptr<task::Context> &ctx,
-                          const synnax::Rack &rack) override;
+    configure_initial_tasks(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Rack &rack
+    ) override;
 };
 }

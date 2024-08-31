@@ -13,7 +13,7 @@
 #include "driver/opc/reader.h"
 #include "driver/opc/writer.h"
 
-std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
+std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
@@ -27,7 +27,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-opc::Factory::configureInitialTasks(
+opc::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
@@ -46,7 +46,7 @@ opc::Factory::configureInitialTasks(
             LOG(ERROR) << "[opc] Failed to create scanner task: " << c_err;
             return tasks;
         }
-        auto [task, ok] = configureTask(ctx, sy_task);
+        auto [task, ok] = configure_task(ctx, sy_task);
         if (ok && task != nullptr)
             tasks.emplace_back(sy_task, std::move(task));
         else

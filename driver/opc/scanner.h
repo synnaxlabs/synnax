@@ -36,7 +36,7 @@ struct ScannerScanCommandArgs {
                                                                  parser.optional<std::string>(
                                                                      "node_id", "")) {
         if (node_id.empty()) node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-        else node = parseNodeId("node_id", parser);
+        else node = parse_node_id("node_id", parser);
     }
 };
 
@@ -72,6 +72,6 @@ private:
 
     void scan(const task::Command &cmd) const;
 
-    void testConnection(const task::Command &cmd) const;
+    void test_connection(const task::Command &cmd) const;
 };
 }

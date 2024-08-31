@@ -560,12 +560,12 @@ class Factory final : public task::Factory {
 public:
     Factory();
 
-    std::pair<std::unique_ptr<task::Task>, bool> configureTask(
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task) override;
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-    configureInitialTasks(const std::shared_ptr<task::Context> &ctx,
+    configure_initial_tasks(const std::shared_ptr<task::Context> &ctx,
                           const synnax::Rack &rack) override;
 
 private:

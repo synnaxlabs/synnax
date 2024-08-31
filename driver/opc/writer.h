@@ -46,7 +46,7 @@ struct WriterChannelConfig {
     explicit WriterChannelConfig(
         config::Parser &parser
     ) : node_id(parser.required<std::string>("node_id")),
-        node(parseNodeId("node_id", parser)),
+        node(parse_node_id("node_id", parser)),
         cmd_channel(parser.required<ChannelKey>("channel")),
         enabled(parser.optional<bool>("enabled", true)) {
     }
