@@ -52,7 +52,9 @@ import { type Service } from "@/ontology/service";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
 import { Permissions } from "@/permissions";
+import { SchematicServices } from "@/schematic/services";
 import { RootState, type RootStore } from "@/store";
+import { UserServices } from "@/user/services";
 
 export interface PaletteProps {
   commands: Command[];
@@ -113,8 +115,9 @@ export const Palette = ({
 }: PaletteProps): ReactElement => {
   const permissions = Permissions.useSelectAll();
   const newCommands = commands.filter((command) => {
-    if (command.key === "create-schematic") return permissions.schematic;
-    if (command.key === "register-user") return permissions.admin;
+    if (command.key === SchematicServices.createCommand.key)
+      return permissions.schematic;
+    if (command.key === UserServices.registerUserCommand.key) return permissions.admin;
     return true;
   });
   const dropdown = Dropdown.use();

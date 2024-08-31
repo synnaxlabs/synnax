@@ -38,7 +38,6 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { Permissions } from "@/permissions";
 import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
@@ -142,7 +141,6 @@ export const Mosaic = memo((): ReactElement => {
 
   const workspaceKey = Workspace.useSelectActiveKey();
   const confirm = Confirm.useModal();
-  const permissions = Permissions.useSelectAll();
 
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
@@ -158,7 +156,6 @@ export const Mosaic = memo((): ReactElement => {
             SchematicServices.fileHandler({
               mosaicKey: nodeKey,
               file: fileAsJSON,
-              permissions,
               placer,
               name,
               store,

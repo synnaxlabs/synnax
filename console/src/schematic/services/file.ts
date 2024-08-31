@@ -11,6 +11,7 @@ import { NotFoundError } from "@synnaxlabs/client";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
+import { Permissions } from "@/permissions";
 import { parser } from "@/schematic/migrations";
 import { create } from "@/schematic/Schematic";
 import { select } from "@/schematic/selectors";
@@ -20,7 +21,6 @@ export const fileHandler: Layout.FileHandler = async ({
   mosaicKey,
   file,
   placer,
-  permissions: { schematic: canCreate },
   loc,
   name,
   client,
@@ -30,6 +30,7 @@ export const fileHandler: Layout.FileHandler = async ({
 }): Promise<boolean> => {
   const newState = parser(file);
   if (newState == null) return false;
+  const canCreate = Permissions.selectSchematic(store.getState());
   if (!canCreate) throw new Error("You do not have permission to create a schematic");
   const creator = create({
     ...newState,
