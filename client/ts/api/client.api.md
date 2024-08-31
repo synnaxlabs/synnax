@@ -281,7 +281,7 @@ class Checker {
 class Client {
     constructor(client: UnaryClient);
     // (undocumented)
-    create(policies: NewPolicy): Promise<Policy>;
+    create(policy: NewPolicy): Promise<Policy>;
     // (undocumented)
     create(policies: NewPolicy[]): Promise<Policy[]>;
     // (undocumented)
