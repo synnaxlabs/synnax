@@ -141,7 +141,7 @@ const Wrapped = ({
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (!(await methods.validateAsync) || client == null) return;
+      if (!(await methods.validate) || client == null) return;
       const { config, name } = methods.value();
 
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
@@ -197,12 +197,11 @@ const Wrapped = ({
         channel: getChannelByNodeID(dev.properties, c.nodeId),
       }));
 
-      if (modified) {
+      if (modified)
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
-      }
 
       await createTask({
         key: task?.key,
@@ -345,7 +344,6 @@ export const WriterChannelList = ({
           cmdChannel: 0,
           enabled: true,
           nodeId,
-          useAsIndex: false,
           dataType: (i.data?.dataType as string) ?? "float32",
         };
       });
