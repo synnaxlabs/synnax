@@ -26,6 +26,7 @@ import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { Layout } from "@/layout";
+import { Permissions } from "@/permissions";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username must not be empty"),
@@ -61,7 +62,7 @@ export const registerLayout = ({
   },
 });
 
-export const RegisterModal = (props: Layout.RendererProps): ReactElement => {
+export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
   const addStatus = Status.useAggregator();
@@ -71,8 +72,9 @@ export const RegisterModal = (props: Layout.RendererProps): ReactElement => {
       if (!methods.validate()) return;
       const values = methods.value();
       if (client == null) throw new Error("No Cluster Connected");
-      await client.user.register(values.username, values.password);
-      props.onClose();
+      const user = await client.user.register(values.username, values.password);
+      Permissions.setBasePermissions(client, user.key);
+      onClose();
     },
     onError: (e) =>
       addStatus({

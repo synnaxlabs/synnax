@@ -18,7 +18,6 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
-import { Access } from "@/access";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Confirm } from "@/confirm";
@@ -31,6 +30,7 @@ import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
+import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
@@ -42,7 +42,6 @@ import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
-  ...Access.LAYOUTS,
   ...Layouts.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Workspace.LAYOUTS,
@@ -57,6 +56,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Confirm.LAYOUTS,
   ...Label.LAYOUTS,
   ...User.LAYOUTS,
+  ...Permissions.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

@@ -21,6 +21,7 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
+import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { create } from "@/schematic/Schematic";
 import { select } from "@/schematic/selectors";
@@ -169,13 +170,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         ontologyID: resources[0].id.payload,
       }),
   });
+  const canEditSchematic = Permissions.useSelectSchematic();
   const isSingle = resources.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Menu.RenameItem />
-      <PMenu.Divider />
-      <Menu.DeleteItem />
-      <PMenu.Divider />
+      {canEditSchematic && (
+        <>
+          <Menu.RenameItem />
+          <PMenu.Divider />
+          <Menu.DeleteItem />
+          <PMenu.Divider />
+        </>
+      )}
       {resources.every((r) => r.data?.snapshot === false) && (
         <Range.SnapshotMenuItem range={activeRange} />
       )}
@@ -214,6 +220,7 @@ const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout })
         key: schematic.key,
         name: schematic.name,
         snapshot: schematic.snapshot,
+        editable: false,
       }),
     );
   })();

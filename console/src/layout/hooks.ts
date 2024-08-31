@@ -21,7 +21,7 @@ import {
 import { compare } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import { State } from "@/layout/slice";
@@ -34,10 +34,12 @@ import {
   setNavDrawerVisible,
   toggleActiveTheme,
 } from "@/layout/slice";
+import { type RootAction, type RootState, type RootStore } from "@/store";
 
 export interface CreatorProps {
   windowKey: string;
   dispatch: Dispatch<PayloadAction<any>>;
+  store: RootStore;
 }
 
 /** A function that creates a layout given a set of utilities. */
@@ -66,11 +68,13 @@ export type Remover = (...keys: string[]) => void;
  */
 export const usePlacer = (): Placer => {
   const dispatch = useDispatch();
+  const store = useStore<RootState, RootAction>();
   const windowKey = useSelectWindowKey();
   if (windowKey == null) throw new Error("windowKey is null");
   return useCallback(
     (base) => {
-      const layout = typeof base === "function" ? base({ dispatch, windowKey }) : base;
+      const layout =
+        typeof base === "function" ? base({ dispatch, store, windowKey }) : base;
       const { key } = layout;
       dispatch(place({ ...layout, windowKey }));
       return { windowKey, key };

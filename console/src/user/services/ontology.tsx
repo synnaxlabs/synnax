@@ -11,18 +11,18 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Access } from "@/access";
 import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
+import { Permissions } from "@/permissions";
 
-const useAccessControls =
+const useSetPermissions =
   (): ((props: Ontology.TreeContextMenuProps) => void) =>
   ({ placeLayout, selection: { resources } }) => {
     placeLayout(
-      Access.accessLayout({
-        initial: {
-          name: resources[0].name,
-          subject: resources[0].id,
+      Permissions.layout({
+        user: {
+          username: resources[0].name,
+          key: resources[0].id.key,
         },
       }),
     );
@@ -32,16 +32,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection: { resources },
   } = props;
-  const access = useAccessControls();
-  const handleSelect = {
-    access: () => access(props),
-  };
+  const setPermissions = useSetPermissions();
+  const handleSelect = { permissions: () => setPermissions(props) };
   const singleResource = resources.length === 1;
+  const canEditPermissions = Permissions.useSelectAdmin();
+  const showSetPermissions = singleResource && canEditPermissions;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      {singleResource && (
+      {showSetPermissions && (
         <>
-          <PMenu.Item itemKey="access" startIcon={<Icon.Access />}>
+          <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
             Set Permissions
           </PMenu.Item>
           <PMenu.Divider />

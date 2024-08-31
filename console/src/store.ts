@@ -17,6 +17,7 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -38,6 +39,7 @@ const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Permissions.SLICE_NAME]: Permissions.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -50,6 +52,7 @@ export interface RootState {
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Permissions.SLICE_NAME]: Permissions.SliceState;
 }
 
 export type RootAction =
@@ -61,6 +64,7 @@ export type RootAction =
   | LinePlot.Action
   | Schematic.Action
   | Range.Action
+  | Permissions.Action
   | Workspace.Action;
 
 export type Payload = RootAction["payload"];
@@ -82,6 +86,7 @@ export const migrateState = (prev: RootState): RootState => {
   const range = Range.migrateSlice(prev.range);
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
+  const permissions = Permissions.migrateSlice(prev.permissions);
   console.log("--------------- Migrated State ---------------");
   return {
     ...prev,
@@ -93,6 +98,7 @@ export const migrateState = (prev: RootState): RootState => {
     range,
     docs,
     cluster,
+    permissions,
   };
 };
 

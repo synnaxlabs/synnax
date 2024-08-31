@@ -23,6 +23,7 @@ import { ComponentType } from "react";
 import { CreateConfirmModal } from "@/confirm/Confirm";
 import { type Placer } from "@/layout/hooks";
 import * as latest from "@/layout/migrations";
+import { type Permissions } from "@/permissions";
 
 export type State<A = any> = latest.State<A>;
 export type SliceState = latest.SliceState;
@@ -106,6 +107,7 @@ export interface FileHandlerProps {
   name: string;
   placer: Placer;
   store: Store;
+  permissions: Permissions.Permissions;
   confirm: CreateConfirmModal;
   client: Synnax | null;
   workspaceKey: string | null;
@@ -357,7 +359,7 @@ export const { actions, reducer } = createSlice({
       if (key != null) {
         Object.values(navState.drawers).forEach((drawer) => {
           if (drawer.menuItems.includes(key)) {
-            drawer.activeItem = value ?? drawer.activeItem !== key ? key : null;
+            drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
           }
         });
       } else if (location != null) {

@@ -9,6 +9,7 @@
 
 import "@/cluster/Dropdown.css";
 
+import { Synnax as CSynnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -34,6 +35,7 @@ import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { Permissions } from "@/permissions";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -45,15 +47,20 @@ export const List = (): ReactElement => {
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
+    const cluster = allClusters.find((c) => c.key === key);
+    const client = cluster == null ? null : new CSynnax(cluster.props);
+    Permissions.setCurrentUserPermissions(client, dispatch);
   };
 
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
+    if (active != null && keys.includes(active?.key)) {
+      dispatch(setActive(null));
+      dispatch(Permissions.removeAll());
+    }
   };
 
-  const handleRename = (key: string): void => {
-    Text.edit(`cluster-dropdown-${key}`);
-  };
+  const handleRename = (key: string): void => Text.edit(`cluster-dropdown-${key}`);
 
   const handleLink = Link.useCopyToClipboard();
 
@@ -157,10 +164,8 @@ export const List = (): ReactElement => {
 
 const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   const dispatch = useDispatch();
-
-  const handleChange = (value: string) => {
-    dispatch(rename({ key: props.entry.key, name: value }));
-  };
+  const handleChange = (value: string) =>
+    void dispatch(rename({ key: props.entry.key, name: value }));
 
   return (
     <CoreList.ItemFrame

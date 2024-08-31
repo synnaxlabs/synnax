@@ -20,6 +20,7 @@ export const fileHandler: Layout.FileHandler = async ({
   mosaicKey,
   file,
   placer,
+  permissions: { schematic: canCreate },
   loc,
   name,
   client,
@@ -29,6 +30,7 @@ export const fileHandler: Layout.FileHandler = async ({
 }): Promise<boolean> => {
   const newState = parser(file);
   if (newState == null) return false;
+  if (!canCreate) throw new Error("You do not have permission to create a schematic");
   const creator = create({
     ...newState,
     name,

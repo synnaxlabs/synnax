@@ -27,8 +27,7 @@ import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/constants";
 import { LinePlotServices } from "@/lineplot/services";
-import { Palette } from "@/palette/Palette";
-import { type TriggerConfig } from "@/palette/types";
+import { Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
@@ -38,7 +37,7 @@ import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
-const DEFAULT_TRIGGER: TriggerConfig = {
+const DEFAULT_TRIGGER: Palette.TriggerConfig = {
   defaultMode: "command",
   resource: [["Control", "P"]],
   command: [["Control", "Shift", "P"]],
@@ -61,7 +60,7 @@ const COMMANDS = [
 ];
 
 const NavTopPalette = (): ReactElement => (
-  <Palette
+  <Palette.Palette
     commands={COMMANDS}
     triggers={DEFAULT_TRIGGER}
     services={SERVICES}

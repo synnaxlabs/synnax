@@ -24,6 +24,7 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
+import { Permissions } from "@/permissions";
 import { Schematic } from "@/schematic";
 import { parser } from "@/schematic/migrations";
 import { selectActiveKey } from "@/workspace/selectors";
@@ -242,6 +243,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       }),
   };
   const singleResource = resources.length === 1;
+  const canCreateSchematic = Permissions.useSelectSchematic();
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && (
@@ -258,14 +260,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
             New Line Plot
           </PMenu.Item>
-          <PMenu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
-            New Schematic
-          </PMenu.Item>
+          {canCreateSchematic && (
+            <>
+              <PMenu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
+                Create Schematic
+              </PMenu.Item>
+              <PMenu.Item itemKey="importSchematic" startIcon={<Icon.Download />}>
+                Import Schematic
+              </PMenu.Item>
+            </>
+          )}
           <PMenu.Divider />
           <Link.CopyMenuItem />
-          <PMenu.Item itemKey="importSchematic" startIcon={<Icon.Download />}>
-            Import Schematic
-          </PMenu.Item>
           <PMenu.Divider />
         </>
       )}

@@ -25,6 +25,7 @@ export const linkHandler: Link.Handler = async ({
       ...(schematic.data as unknown as State),
       key: schematic.key,
       name: schematic.name,
+      editable: false,
     });
     placer(layoutCreator);
   } catch (e) {

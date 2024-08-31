@@ -51,6 +51,7 @@ import { type Ontology } from "@/ontology";
 import { type Service } from "@/ontology/service";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
+import { Permissions } from "@/permissions";
 import { RootState, type RootStore } from "@/store";
 
 export interface PaletteProps {
@@ -110,6 +111,12 @@ export const Palette = ({
   triggers: triggerConfig,
   commandSymbol,
 }: PaletteProps): ReactElement => {
+  const permissions = Permissions.useSelectAll();
+  const newCommands = commands.filter((command) => {
+    if (command.key === "create-schematic") return permissions.schematic;
+    if (command.key === "register-user") return permissions.admin;
+    return true;
+  });
   const dropdown = Dropdown.use();
 
   const [value, setValue] = useState("");
@@ -203,7 +210,7 @@ export const Palette = ({
           <PalletteDialogContent
             value={value}
             onChange={setValue}
-            commands={commands}
+            commands={newCommands}
             services={services}
             commandSymbol={commandSymbol}
             resourceTypes={services}

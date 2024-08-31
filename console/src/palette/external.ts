@@ -7,11 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { SET_PERMISSIONS_TYPE, UserModal } from "@/access/Modal";
-import { Layout } from "@/layout";
-
-export * from "@/access/Modal";
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [SET_PERMISSIONS_TYPE]: UserModal,
-};
+export * from "@/palette/Palette";
+export * from "@/palette/Tooltip";
+export * from "@/palette/types";
