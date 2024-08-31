@@ -4,19 +4,24 @@ title: "Workspaces"
 heading: "Workspaces"
 description: "Organize and share console layouts with workspaces."
 ---
-import { Image } from "astro:assets";
+import { Image } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
 
 import Diagram from "@/components/Diagram.astro";
-import workspace from "@/pages/reference/console/workspaces.png";
 
 <Diagram style="height: 400px" preview>
     <Image 
-        src={workspace} 
-        alt="Workspaces Diagram" 
-        style="height: 500px; width: fit-content; transform: translate(0%, 0%); border-radius: 1.5rem;"
+        client:only="react"
+        id="console/workspaces/workspaces"
+        themed={false}
+        style={{
+            height: "500px",
+            width: "fit-content",
+            transform: "translate(0%, 0%)",
+            borderRadius: "1.5rem"
+        }}
     />
 </Diagram>
 
