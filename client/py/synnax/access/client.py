@@ -17,6 +17,13 @@ from synnax.ontology.payload import ID
 from synnax.util.normalize import normalize
 
 
+class _CreateRequest(Payload):
+    policies: list[Policy]
+
+
+_CreateResponse = _CreateRequest
+
+
 class _RetrieveRequest(Payload):
     keys: list[UUID] | None
     subjects: list[ID] | None
@@ -24,13 +31,6 @@ class _RetrieveRequest(Payload):
 
 class _RetrieveResponse(Payload):
     policies: list[Policy] | None
-
-
-class _CreateRequest(Payload):
-    policies: list[Policy]
-
-
-_CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(Payload):
