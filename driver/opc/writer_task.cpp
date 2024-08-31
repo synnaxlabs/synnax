@@ -39,36 +39,36 @@ void opc::WriterTask::start() {
                                                 device_props.connection.endpoint);
     if (conn_err) {
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{
-                              {"message", conn_err.message()}
-                          }
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", conn_err.message()}
+            }
+        });
         LOG(ERROR) << "[opc.writer] failed to connect to OPC UA server: "
-                   << conn_err.message();
+                << conn_err.message();
         return;
     }
     this->cmd_pipe.start();
     ctx->setState({
-                      .task = task.key,
-                      .variant = "success",
-                      .details = json{
-                          {"running", true},
-                          {"message", "Task started successfully"}
-                      }
-                  });
+        .task = task.key,
+        .variant = "success",
+        .details = json{
+            {"running", true},
+            {"message", "Task started successfully"}
+        }
+    });
 }
 
 void opc::WriterTask::stop() {
     ctx->setState({
-                      .task = task.key,
-                      .variant = "success",
-                      .details = json{
-                          {"running", false},
-                          {"message", "Task stopped successfully"}
-                      }
-                  });
+        .task = task.key,
+        .variant = "success",
+        .details = json{
+            {"running", false},
+            {"message", "Task stopped successfully"}
+        }
+    });
     this->cmd_pipe.stop();
 }
 
@@ -82,24 +82,24 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.writer] failed to parse configuration for " << task.name;
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = config_parser.error_json(),
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = config_parser.error_json(),
+        });
         return nullptr;
     }
 
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.writer] failed to retrieve device " << cfg.device <<
-                   " error: " << dev_err.message();
+                " error: " << dev_err.message();
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{
-                              {"message", dev_err.message()}
-                          }
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", dev_err.message()}
+            }
+        });
         return nullptr;
     }
 
@@ -118,9 +118,9 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
                                               "[opc.writer.cmd] ");
     if (conn_err) {
         ctx->setState({
-                          .variant = "error",
-                          .details = json{{"message", conn_err.message()}}
-                      });
+            .variant = "error",
+            .details = json{{"message", conn_err.message()}}
+        });
         return nullptr;
     }
 
@@ -139,13 +139,13 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     };
 
     ctx->setState({
-                      .task = task.key,
-                      .variant = "success",
-                      .details = json{
-                          {"running", false},
-                          {"message", "Task configured successfully"}
-                      }
-                  });
+        .task = task.key,
+        .variant = "success",
+        .details = json{
+            {"running", false},
+            {"message", "Task configured successfully"}
+        }
+    });
 
     return std::make_unique<opc::WriterTask>(
         ctx,
