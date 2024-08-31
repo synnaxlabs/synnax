@@ -151,8 +151,10 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
     std::string log_prefix
 );
 
-static inline freighter::Error
-test_connection(std::shared_ptr<UA_Client> client, std::string endpoint) {
+static inline freighter::Error test_connection(
+    std::shared_ptr<UA_Client> client,
+    std::string endpoint
+) {
     // tru running run iterate
     UA_StatusCode status = UA_Client_connect(client.get(), endpoint.c_str());
     if (status != UA_STATUSCODE_GOOD) {
@@ -380,7 +382,7 @@ communicate_response_error(
 }
 
 ///@brief Helper function to convert string GUID to UA_Guid
-inline UA_Guid stringToGuid(const std::string &guidStr) {
+inline UA_Guid string_to_guid(const std::string &guidStr) {
     UA_Guid guid;
     unsigned int data4[8];
     std::sscanf(guidStr.c_str(),
@@ -395,7 +397,7 @@ inline UA_Guid stringToGuid(const std::string &guidStr) {
 
 
 ///@brief Helper function to convert a GUID to a string
-inline std::string guidToString(const UA_Guid &guid) {
+inline std::string guid_to_string(const UA_Guid &guid) {
     std::ostringstream stream;
     stream << std::hex << std::setfill('0')
            << std::setw(8) << guid.data1 << "-"
@@ -435,7 +437,7 @@ inline UA_NodeId parse_node_id(const std::string &path, config::Parser &parser) 
     } else if (type == "S") {
         nodeId = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
     } else if (type == "G") {
-        UA_Guid guid = stringToGuid(identifier);
+        UA_Guid guid = string_to_guid(identifier);
         nodeId = UA_NODEID_GUID(nsIndex, guid);
     } else if (type == "B") {
         // Allocate memory for ByteString
@@ -466,7 +468,7 @@ inline std::string node_id_to_string(const UA_NodeId &nodeId) {
                                              nodeId.identifier.string.length);
             break;
         case UA_NODEIDTYPE_GUID:
-            nodeIdStr << "G=" << guidToString(nodeId.identifier.guid);
+            nodeIdStr << "G=" << guid_to_string(nodeId.identifier.guid);
             break;
         case UA_NODEIDTYPE_BYTESTRING:
             // Convert ByteString to a base64 or similar readable format if needed
