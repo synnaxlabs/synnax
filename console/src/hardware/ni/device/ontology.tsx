@@ -17,41 +17,36 @@ import { configureDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
+interface InitialArgs {
+  create: true;
+  initialValues: { config: { device: string } };
+}
+
 export const ContextMenuItems = ({
   selection: { resources },
 }: Ontology.TreeContextMenuProps) => {
   const place = Layout.usePlacer();
   const first = resources[0];
   const isSingle = resources.length === 1;
-  const handleCreateDigitalReadTask = () => {
+  const args: InitialArgs = {
+    create: true,
+    initialValues: { config: { device: first.id.key } },
+  };
+  const maybeConfigure = () => {
     if (first.data?.configured === false)
       place(createConfigureLayout(first.id.key, {}));
-    place(
-      configureDigitalReadLayout({
-        create: true,
-        initialValues: { config: { device: first.id.key } },
-      }),
-    );
+  };
+  const handleCreateDigitalReadTask = () => {
+    maybeConfigure();
+    place(configureDigitalReadLayout(args));
   };
   const handleCreateAnalogReadTask = () => {
-    if (first.data?.configured === false)
-      place(createConfigureLayout(first.id.key, {}));
-    place(
-      configureAnalogReadLayout({
-        create: true,
-        initialValues: { config: { device: first.id.key } },
-      }),
-    );
+    maybeConfigure();
+    place(configureAnalogReadLayout(args));
   };
   const handleCreateDigitalWriteTask = () => {
-    if (first.data?.configured === false)
-      place(createConfigureLayout(first.id.key, {}));
-    place(
-      configureDigitalWriteLayout({
-        create: true,
-        initialValues: { config: { device: first.id.key } },
-      }),
-    );
+    maybeConfigure();
+    place(configureDigitalWriteLayout(args));
   };
   if (!isSingle) return null;
   return (

@@ -209,7 +209,7 @@ const Wrapped = ({
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
-        <Form.Form {...methods}>
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
             <Form.Field<string> path="name">
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
@@ -239,6 +239,7 @@ const Wrapped = ({
           >
             <ChannelList
               path="config.channels"
+              snapshot={task?.snapshot}
               selected={selectedChannels}
               onSelect={useCallback(
                 (v, i) => {
@@ -262,6 +263,7 @@ const Wrapped = ({
         </Form.Form>
         <Controls
           state={taskState}
+          snapshot={task?.snapshot}
           startingOrStopping={start.isPending}
           configuring={configure.isPending}
           onConfigure={configure.mutate}
@@ -291,9 +293,15 @@ interface ChannelListProps {
   path: string;
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
+  snapshot?: boolean;
 }
 
-const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
+const ChannelList = ({
+  path,
+  selected,
+  onSelect,
+  snapshot,
+}: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<DIChan>({ path });
   const handleAdd = (): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
@@ -341,7 +349,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => <ChannelListItem {...props} path={path} />}
+              {(props) => (
+                <ChannelListItem {...props} snapshot={snapshot} path={path} />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>
@@ -352,9 +362,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 
 const ChannelListItem = ({
   path,
+  snapshot = false,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
+  snapshot?: boolean;
 }): ReactElement => {
   const { entry } = props;
   const hasLine = "line" in entry;
@@ -414,6 +426,7 @@ const ChannelListItem = ({
       <EnableDisableButton
         value={childValues.enabled}
         onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
+        snapshot={snapshot}
       />
     </List.ItemFrame>
   );

@@ -196,66 +196,76 @@ export const Controls = ({
   onConfigure,
   configuring,
   snapshot = false,
-}: ControlsProps) => (
-  <Align.Space direction="x" className={CSS.B("task-controls")} justify="spaceBetween">
-    <Align.Space
-      className={CSS.B("task-state")}
-      direction="x"
-      style={{
-        borderRadius: "1rem",
-        border: "var(--pluto-border)",
-        padding: "2rem",
-        width: "100%",
-      }}
-    >
-      {snapshot && (
-        <Status.Text.Centered variant="disabled" hideIcon>
-          This task is a snapshot and cannot be modified or started.
-        </Status.Text.Centered>
-      )}
-      {state?.details?.message != null && (
-        <Status.Text variant={state?.variant as Status.Variant}>
-          {state?.details?.message}
-        </Status.Text>
-      )}
-    </Align.Space>
+}: ControlsProps) => {
+  let content: ReactElement | null = null;
+  if (state?.details?.message != null)
+    content = (
+      <Status.Text variant={state?.variant as Status.Variant}>
+        {state?.details?.message}
+      </Status.Text>
+    );
+  if (snapshot)
+    content = (
+      <Status.Text.Centered variant="disabled" hideIcon>
+        This task is a snapshot and cannot be modified or started.
+      </Status.Text.Centered>
+    );
+  return (
     <Align.Space
       direction="x"
-      bordered
-      rounded
-      style={{
-        padding: "2rem",
-        borderRadius: "1rem",
-      }}
-      justify="end"
+      className={CSS.B("task-controls")}
+      justify="spaceBetween"
     >
-      <Button.Icon
-        loading={startingOrStopping}
-        disabled={startingOrStopping || state == null || snapshot}
-        onClick={onStartStop}
-        variant="outlined"
+      <Align.Space
+        className={CSS.B("task-state")}
+        direction="x"
+        style={{
+          borderRadius: "1rem",
+          border: "var(--pluto-border)",
+          padding: "2rem",
+          width: "100%",
+        }}
       >
-        {state?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
-      </Button.Icon>
-      <Button.Button
-        loading={configuring}
-        disabled={configuring || snapshot}
-        onClick={onConfigure}
-        triggers={[CONFIGURE_TRIGGER]}
-        tooltip={
-          <Align.Space direction="x" align="center" size="small">
-            <Triggers.Text shade={7} level="small" trigger={CONFIGURE_TRIGGER} />
-            <Text.Text shade={7} level="small">
-              To Configure
-            </Text.Text>
-          </Align.Space>
-        }
+        {content}
+      </Align.Space>
+      <Align.Space
+        direction="x"
+        bordered
+        rounded
+        style={{
+          padding: "2rem",
+          borderRadius: "1rem",
+        }}
+        justify="end"
       >
-        Configure
-      </Button.Button>
+        <Button.Icon
+          loading={startingOrStopping}
+          disabled={startingOrStopping || state == null || snapshot}
+          onClick={onStartStop}
+          variant="outlined"
+        >
+          {state?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
+        </Button.Icon>
+        <Button.Button
+          loading={configuring}
+          disabled={configuring || snapshot}
+          onClick={onConfigure}
+          triggers={[CONFIGURE_TRIGGER]}
+          tooltip={
+            <Align.Space direction="x" align="center" size="small">
+              <Triggers.Text shade={7} level="small" trigger={CONFIGURE_TRIGGER} />
+              <Text.Text shade={7} level="small">
+                To Configure
+              </Text.Text>
+            </Align.Space>
+          }
+        >
+          Configure
+        </Button.Button>
+      </Align.Space>
     </Align.Space>
-  </Align.Space>
-);
+  );
+};
 
 export interface ChannelListHeaderProps extends ChannelListEmptyContentProps {}
 
