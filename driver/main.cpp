@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
 
     VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
-             cfg.client_config.port;
+            cfg.client_config.port;
 
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
@@ -94,11 +94,10 @@ int main(int argc, char *argv[]) {
     };
 
     auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), opc::INTEGRATION_NAME);
-    if( opc_enabled != cfg.integrations.end() ) {
+    if (opc_enabled != cfg.integrations.end()) {
         auto opc_factory = std::make_unique<opc::Factory>();
         factories.push_back(std::move(opc_factory));
-    }
-    else
+    } else
         LOG(INFO) << "[driver] OPC integration is not enabled";
 
 #ifdef USE_NI

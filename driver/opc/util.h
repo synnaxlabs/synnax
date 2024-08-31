@@ -62,11 +62,11 @@ struct ConnectionConfig {
 
     json to_json() const {
         return {
-            {"endpoint",           endpoint},
-            {"username",           username},
-            {"password",           password},
-            {"security_mode",      security_mode},
-            {"security_policy",    security_policy},
+            {"endpoint", endpoint},
+            {"username", username},
+            {"password", password},
+            {"security_mode", security_mode},
+            {"security_policy", security_policy},
             {"client_certificate", client_cert},
             {"client_private_key", client_private_key}
         };
@@ -91,7 +91,8 @@ struct DeviceNodeProperties {
     }
 
     explicit DeviceNodeProperties(config::Parser parser) : data_type(
-        synnax::DataType(parser.required<std::string>("data_type"))),
+                                                               synnax::DataType(
+                                                                   parser.required<std::string>("data_type"))),
                                                            name(
                                                                parser.required<std::string>(
                                                                    "name")),
@@ -105,11 +106,11 @@ struct DeviceNodeProperties {
 
     json to_json() const {
         return {
-            {"data_type",  data_type.name()},
-            {"name",       name},
-            {"node_id",    node_id},
+            {"data_type", data_type.name()},
+            {"name", name},
+            {"node_id", node_id},
             {"node_class", node_class},
-            {"is_array",   is_array}
+            {"is_array", is_array}
         };
     }
 };
@@ -177,7 +178,7 @@ static const int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
 ///@brief Function to convert UA_DateTime to Unix timestamp in nanoseconds
 inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
     int64_t unixEpochStartIn100NanoIntervals =
-        UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
+            UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
     return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
 }
 
@@ -215,7 +216,8 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
         // Potential data loss
         if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
         if (dt == synnax::UINT32) return synnax::Series(value);
-        if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+        if (dt == synnax::UINT64)
+            return synnax::Series(static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
         const auto value = *static_cast<UA_UInt64 *>(val->data);
@@ -223,24 +225,29 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
         if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
         // Potential data loss
         if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
-        if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT32)
+            return synnax::Series(static_cast<uint32_t>(value));
         // Potential data loss
         if (dt == synnax::TIMESTAMP)
             return
-                synnax::Series(static_cast<uint64_t>(value));
+                    synnax::Series(static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
         const auto value = *static_cast<UA_Byte *>(val->data);
         if (dt == synnax::UINT8) return synnax::Series(value);
-        if (dt == synnax::UINT16) return synnax::Series(static_cast<uint16_t>(value));
-        if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
-        if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+        if (dt == synnax::UINT16)
+            return synnax::Series(static_cast<uint16_t>(value));
+        if (dt == synnax::UINT32)
+            return synnax::Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT64)
+            return synnax::Series(static_cast<uint64_t>(value));
         if (dt == synnax::INT8) return synnax::Series(static_cast<int8_t>(value));
         if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
         if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
         if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
         if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-        if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+        if (dt == synnax::FLOAT64)
+            return synnax::Series(static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
         const auto value = *static_cast<UA_SByte *>(val->data);
@@ -249,20 +256,25 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
         if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
         if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
         if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-        if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+        if (dt == synnax::FLOAT64)
+            return synnax::Series(static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
         const auto value = *static_cast<UA_Boolean *>(val->data);
         if (dt == synnax::UINT8) return synnax::Series(static_cast<uint8_t>(value));
-        if (dt == synnax::UINT16) return synnax::Series(static_cast<uint16_t>(value));
-        if (dt == synnax::UINT32) return synnax::Series(static_cast<uint32_t>(value));
-        if (dt == synnax::UINT64) return synnax::Series(static_cast<uint64_t>(value));
+        if (dt == synnax::UINT16)
+            return synnax::Series(static_cast<uint16_t>(value));
+        if (dt == synnax::UINT32)
+            return synnax::Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT64)
+            return synnax::Series(static_cast<uint64_t>(value));
         if (dt == synnax::INT8) return synnax::Series(static_cast<int8_t>(value));
         if (dt == synnax::INT16) return synnax::Series(static_cast<int16_t>(value));
         if (dt == synnax::INT32) return synnax::Series(static_cast<int32_t>(value));
         if (dt == synnax::INT64) return synnax::Series(static_cast<int64_t>(value));
         if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-        if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+        if (dt == synnax::FLOAT64)
+            return synnax::Series(static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
         const auto value = *static_cast<UA_DateTime *>(val->data);
@@ -274,7 +286,8 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
             return synnax::Series(
                 static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
         if (dt == synnax::FLOAT32) return synnax::Series(static_cast<float>(value));
-        if (dt == synnax::FLOAT64) return synnax::Series(static_cast<double>(value));
+        if (dt == synnax::FLOAT64)
+            return synnax::Series(static_cast<double>(value));
     }
     return Series(1);
 }
@@ -352,28 +365,28 @@ communicate_response_error(
     if (
         status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
         status == UA_STATUSCODE_BADSECURECHANNELCLOSED
-        ) {
+    ) {
         err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
         err.data = "connection rejected";
         curr_state.variant = "warning";
         curr_state.details = json{
             {
                 "message",
-                           "Temporarily unable to reach OPC UA server. Will keep trying."
+                "Temporarily unable to reach OPC UA server. Will keep trying."
             },
-            {   "running", true}
+            {"running", true}
         };
     } else {
         err.type = driver::CRITICAL_HARDWARE_ERROR.type;
         err.data = "failed to execute read: " + std::string(
-            UA_StatusCode_name(status));
+                       UA_StatusCode_name(status));
         curr_state.variant = "error";
         curr_state.details = json{
             {
                 "message", "Failed to read from OPC UA server: " + std::string(
-                UA_StatusCode_name(status))
+                               UA_StatusCode_name(status))
             },
-            {   "running", false}
+            {"running", false}
         };
     }
     ctx->setState(curr_state);
@@ -400,17 +413,17 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
 inline std::string guid_to_string(const UA_Guid &guid) {
     std::ostringstream stream;
     stream << std::hex << std::setfill('0')
-           << std::setw(8) << guid.data1 << "-"
-           << std::setw(4) << guid.data2 << "-"
-           << std::setw(4) << guid.data3 << "-"
-           << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2) << (
-               guid.data4[1] & 0xFF) << "-"
-           << std::setw(2) << (guid.data4[2] & 0xFF) << std::setw(2) << (
-               guid.data4[3] & 0xFF)
-           << std::setw(2) << (guid.data4[4] & 0xFF) << std::setw(2) << (
-               guid.data4[5] & 0xFF)
-           << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2) << (
-               guid.data4[7] & 0xFF);
+            << std::setw(8) << guid.data1 << "-"
+            << std::setw(4) << guid.data2 << "-"
+            << std::setw(4) << guid.data3 << "-"
+            << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2) << (
+                guid.data4[1] & 0xFF) << "-"
+            << std::setw(2) << (guid.data4[2] & 0xFF) << std::setw(2) << (
+                guid.data4[3] & 0xFF)
+            << std::setw(2) << (guid.data4[4] & 0xFF) << std::setw(2) << (
+                guid.data4[5] & 0xFF)
+            << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2) << (
+                guid.data4[7] & 0xFF);
     return stream.str();
 }
 
@@ -475,7 +488,7 @@ inline std::string node_id_to_string(const UA_NodeId &nodeId) {
             nodeIdStr << "B=";
             for (std::size_t i = 0; i < nodeId.identifier.byteString.length; ++i) {
                 nodeIdStr << std::setfill('0') << std::setw(2) << std::hex
-                          << (int) nodeId.identifier.byteString.data[i];
+                        << (int) nodeId.identifier.byteString.data[i];
             }
             break;
         default:
@@ -505,4 +518,3 @@ inline UA_ByteString string_to_ua_byte_string(const std::string &str) {
 
     return b;
 }
-

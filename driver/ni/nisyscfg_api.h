@@ -13,61 +13,59 @@
 #include "nisyscfg_errors.h"
 
 namespace ni {
+class NiSysCfgInterface {
+public:
+    static NISYSCFGCFUNC InitializeSession(
+        const char *targetName,
+        const char *username,
+        const char *password,
+        NISysCfgLocale language,
+        NISysCfgBool forcePropertyRefresh,
+        unsigned int connectTimeoutMsec,
+        NISysCfgEnumExpertHandle *expertEnumHandle,
+        NISysCfgSessionHandle *sessionHandle
+    );
 
-    class NiSysCfgInterface {
-    public:
-        static NISYSCFGCFUNC InitializeSession(
-                const char *targetName,
-                const char *username,
-                const char *password,
-                NISysCfgLocale language,
-                NISysCfgBool forcePropertyRefresh,
-                unsigned int connectTimeoutMsec,
-                NISysCfgEnumExpertHandle *expertEnumHandle,
-                NISysCfgSessionHandle *sessionHandle
-        );
+    static NISYSCFGCFUNC CreateFilter(
+        NISysCfgSessionHandle sessionHandle,
+        NISysCfgFilterHandle *filterHandle
+    );
 
-        static NISYSCFGCFUNC CreateFilter(
-                NISysCfgSessionHandle sessionHandle,
-                NISysCfgFilterHandle *filterHandle
-        );
+    static NISYSCFGCDECL SetFilterProperty(
+        NISysCfgFilterHandle filterHandle,
+        NISysCfgFilterProperty propertyID,
+        ...
+    );
 
-        static NISYSCFGCDECL SetFilterProperty(
-                NISysCfgFilterHandle filterHandle,
-                NISysCfgFilterProperty propertyID,
-                ...
-        );
+    static NISYSCFGCFUNC CloseHandle(
+        void *syscfgHandle
+    );
 
-        static NISYSCFGCFUNC CloseHandle(
-                void *syscfgHandle
-        );
+    static NISYSCFGCFUNC FindHardware(
+        NISysCfgSessionHandle sessionHandle,
+        NISysCfgFilterMode filterMode,
+        NISysCfgFilterHandle filterHandle,
+        const char *expertNames,
+        NISysCfgEnumResourceHandle *resourceEnumHandle
+    );
 
-        static NISYSCFGCFUNC FindHardware(
-                NISysCfgSessionHandle sessionHandle,
-                NISysCfgFilterMode filterMode,
-                NISysCfgFilterHandle filterHandle,
-                const char *expertNames,
-                NISysCfgEnumResourceHandle *resourceEnumHandle
-        );
+    static NISYSCFGCFUNC NextResource(
+        NISysCfgSessionHandle sessionHandle,
+        NISysCfgEnumResourceHandle resourceEnumHandle,
+        NISysCfgResourceHandle *resourceHandle
+    );
 
-        static NISYSCFGCFUNC NextResource(
-                NISysCfgSessionHandle sessionHandle,
-                NISysCfgEnumResourceHandle resourceEnumHandle,
-                NISysCfgResourceHandle *resourceHandle
-        );
+    static NISYSCFGCFUNC GetResourceProperty(
+        NISysCfgResourceHandle resourceHandle,
+        NISysCfgResourceProperty propertyID,
+        void *value
+    );
 
-        static NISYSCFGCFUNC GetResourceProperty(
-                NISysCfgResourceHandle resourceHandle,
-                NISysCfgResourceProperty propertyID,
-                void *value
-        );
-
-        static NISYSCFGCFUNC GetResourceIndexedProperty(
-                NISysCfgResourceHandle resourceHandle,
-                NISysCfgIndexedProperty propertyID,
-                unsigned int index,
-                void *value
-        );
-
-    };
+    static NISYSCFGCFUNC GetResourceIndexedProperty(
+        NISysCfgResourceHandle resourceHandle,
+        NISysCfgIndexedProperty propertyID,
+        unsigned int index,
+        void *value
+    );
+};
 }

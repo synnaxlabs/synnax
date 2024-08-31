@@ -31,10 +31,10 @@ public:
     HeartbeatSource(
         const synnax::ChannelKey key,
         const RackKey rack_key
-    ): key(key),
-       rack_key(rack_key),
-       version(0),
-       timer(loop::Timer(synnax::Rate(1))) {
+    ) : key(key),
+        rack_key(rack_key),
+        version(0),
+        timer(loop::Timer(synnax::Rate(1))) {
     }
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
@@ -56,8 +56,8 @@ public:
         std::shared_ptr<pipeline::Source> source,
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
-    ): pipe(pipeline::Acquisition(ctx->client, writer_config, std::move(source),
-                                  breaker_config)) {
+    ) : pipe(pipeline::Acquisition(ctx->client, writer_config, std::move(source),
+                                   breaker_config)) {
         pipe.start();
     }
 
