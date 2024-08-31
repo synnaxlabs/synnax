@@ -89,19 +89,31 @@ func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 	})
 }
 
-type (
-	// AccessRetrievePolicyRequst is a request for retreiving a policy from the cluster.
-	AccessRetrievePolicyRequest struct {
-		// Subjects are the ontology IDs of subjects of the policy.
-		Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
-		// Keys is an optional parameter for the list of keys in the ontology.
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
-	}
-	AccessRetrievePolicyResponse struct {
-		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
-	}
-)
+// AccessRetrievePolicyRequest is a request for retrieving a policy from the cluster.
+type AccessRetrievePolicyRequest struct {
+	// Subjects are the ontology IDs of subjects of the policy.
+	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+	// Keys is an optional parameter for the list of keys in the ontology.
+	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+}
 
+// AccessRetrievePolicyResponse is the response containing the retrieved policies.
+type AccessRetrievePolicyResponse struct {
+	// Policies is a list of policies retrieved from the cluster.
+	Policies []rbac.Policy `json:"policies" msgpack:"policies"`
+}
+
+// RetrievePolicy retrieves policies from the cluster based on the provided request.
+// It filters policies by subjects and keys if they are provided in the request.
+// It enforces access control to ensure the subject has permission to retrieve the policies.
+//
+// Parameters:
+//   - ctx: The context for the request.
+//   - req: The request containing the subjects and keys to filter the policies.
+//
+// Returns:
+//   - res: The response containing the retrieved policies.
+//   - err: An error if the retrieval or access control enforcement fails.
 func (svc *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
