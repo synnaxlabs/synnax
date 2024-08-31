@@ -115,11 +115,17 @@ export const LESS_THAN = -1;
 /** The greater than return value of a compare function. */
 export const GREATER_THAN = 1;
 
+/** @returns true if the result of the comparison is less than 0. */
 export const isLessThan = (n: number): boolean => n < EQUAL;
 
+/** @returns true if the result of the comparison is greater than 0. */
 export const isGreaterThan = (n: number): boolean => n > EQUAL;
 
+/** @returns true if the result of the comparison is equal to 0. */
 export const isGreaterThanEqual = (n: number): boolean => n >= EQUAL;
+
+/** @returns true if the result of the comparison is equal to 0. */
+export const isEqualTo = (n: number): boolean => n === EQUAL;
 
 export const stringsWithNumbers = (a: string, b: string): number => {
   const alphaNumericRegex = /([a-zA-Z]+)|(\d+)/g;

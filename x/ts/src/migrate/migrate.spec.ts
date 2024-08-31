@@ -61,6 +61,84 @@ describe("compareSemVer", () => {
     expect(migrate.compareSemVer("1.0.0", "0.0.0")).toBeGreaterThan(0);
     expect(migrate.semVerNewer("3.0.0", "0.3.0")).toBeTruthy();
   });
+  describe("only check major", () => {
+    it("should return equal when the major versions are equal but the minor and patch are different", () => {
+      expect(
+        migrate.compareSemVer("1.0.0", "1.1.0", {
+          checkMinor: false,
+          checkPatch: false,
+        }),
+      ).toBe(0);
+    });
+    it("should return greater than when the major version is higher", () => {
+      expect(
+        migrate.compareSemVer("2.0.0", "1.1.0", {
+          checkMinor: false,
+          checkPatch: false,
+        }),
+      ).toBeGreaterThan(0);
+    });
+    it("should return less than when the major version is lower", () => {
+      expect(
+        migrate.compareSemVer("1.0.0", "2.1.0", {
+          checkMinor: false,
+          checkPatch: false,
+        }),
+      ).toBeLessThan(0);
+    });
+  });
+  describe("only check minor", () => {
+    it("should return equal when the minor versions are equal but the major and patch are different", () => {
+      expect(
+        migrate.compareSemVer("1.0.0", "2.0.0", {
+          checkMajor: false,
+          checkPatch: false,
+        }),
+      ).toBe(0);
+    });
+    it("should return greater than when the minor version is higher", () => {
+      expect(
+        migrate.compareSemVer("1.2.0", "1.1.0", {
+          checkMajor: false,
+          checkPatch: false,
+        }),
+      ).toBeGreaterThan(0);
+    });
+    it("should return less than when the minor version is lower", () => {
+      expect(
+        migrate.compareSemVer("1.0.0", "1.1.0", {
+          checkMajor: false,
+          checkPatch: false,
+        }),
+      ).toBeLessThan(0);
+    });
+  });
+  describe("only check patch", () => {
+    it("should return equal when the patch versions are equal but the major and minor are different", () => {
+      expect(
+        migrate.compareSemVer("2.1.1", "2.2.1", {
+          checkMajor: false,
+          checkMinor: false,
+        }),
+      ).toBe(0);
+    });
+    it("should return greater than when the patch version is higher", () => {
+      expect(
+        migrate.compareSemVer("1.4.2", "1.9.1", {
+          checkMajor: false,
+          checkMinor: false,
+        }),
+      ).toBeGreaterThan(0);
+    });
+    it("should return less than when the patch version is lower", () => {
+      expect(
+        migrate.compareSemVer("10000.2.0", "95.6.1", {
+          checkMajor: false,
+          checkMinor: false,
+        }),
+      ).toBeLessThan(0);
+    });
+  });
 });
 
 describe("migrator", () => {

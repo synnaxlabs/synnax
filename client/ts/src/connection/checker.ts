@@ -104,7 +104,13 @@ export class Checker {
           more information, see https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-cluster-version
         `);
         this.versionWarned = true;
-      } else if (!migrate.majorMinorEqual(this.clientVersion, res.nodeVersion)) {
+      } else if (
+        !migrate.versionsEqual(this.clientVersion, res.nodeVersion, {
+          checkMajor: true,
+          checkMinor: true,
+          checkPatch: false,
+        })
+      ) {
         this._state.clientServerCompatible = false;
         if (migrate.semVerNewer(this.clientVersion, res.nodeVersion)) {
           if (!this.versionWarned)

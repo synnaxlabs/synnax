@@ -15,46 +15,100 @@ export const semVerZ = z.string().regex(/^\d+\.\d+\.\d+$/);
 
 export type SemVer = z.infer<typeof semVerZ>;
 
+export interface CompareSemVerOptions {
+  /**
+   * Whether to validate that major versions are equal.
+   * @default true
+   */
+  checkMajor?: boolean;
+  /**
+   * Whether to validate that minor versions are equal.
+   * @default true
+   */
+  checkMinor?: boolean;
+  /**
+   * Whether to validate that patch versions are equal.
+   * @default true
+   */
+  checkPatch?: boolean;
+}
+
 /**
  * Compares the two semantic versions.
  *
  * @param a  The first semantic version.
  * @param b  The second semantic version.
+ * @param opts - Optional object to disable checking specific version parts
+ * (major, minor, patch).
  * @returns a number, where the the number is compare.LESS_THAN (negative) if a is OLDER
  * than B, compare.EQUAL (0) if a is the same as b, and compare.GREATER_THAN (positive)
  * if a is NEWER than b.
  */
-export const compareSemVer: compare.CompareF<string> = (a, b) => {
+export const compareSemVer = ((
+  a: SemVer,
+  b: SemVer,
+  opts: CompareSemVerOptions = {},
+) => {
+  opts.checkMajor ??= true;
+  opts.checkMinor ??= true;
+  opts.checkPatch ??= true;
   const semA = semVerZ.parse(a);
   const semB = semVerZ.parse(b);
   const [aMajor, aMinor, aPatch] = semA.split(".").map(Number);
   const [bMajor, bMinor, bPatch] = semB.split(".").map(Number);
-  if (aMajor !== bMajor) return aMajor - bMajor;
-  if (aMinor !== bMinor) return aMinor - bMinor;
-  return aPatch - bPatch;
-};
+  if (opts.checkMajor) {
+    if (aMajor < bMajor) return compare.LESS_THAN;
+    if (aMajor > bMajor) return compare.GREATER_THAN;
+  }
+  if (opts.checkMinor) {
+    if (aMinor < bMinor) return compare.LESS_THAN;
+    if (aMinor > bMinor) return compare.GREATER_THAN;
+  }
+  if (opts.checkPatch) {
+    if (aPatch < bPatch) return compare.LESS_THAN;
+    if (aPatch > bPatch) return compare.GREATER_THAN;
+  }
+  return compare.EQUAL;
+}) satisfies compare.CompareF<SemVer>;
 
-export const majorMinorEqual = (a: SemVer, b: SemVer): boolean => {
-  const [aMajor, aMinor] = a.split(".").map(Number);
-  const [bMajor, bMinor] = b.split(".").map(Number);
-  return aMajor === bMajor && aMinor === bMinor;
-};
+/**
+ * @returns true if the two semantic versions are equal.
+ * @param a - The first semantic version.
+ * @param b - The second semantic version.
+ * @param opts - Optional object to disable checking specific version parts
+ * (major, minor, patch).
+ */
+export const versionsEqual = (
+  a: SemVer,
+  b: SemVer,
+  opts: CompareSemVerOptions = {},
+): boolean => compare.isEqualTo(compareSemVer(a, b, opts));
 
 /**
  * @returns true if the first semantic version is newer than the second.
  * @param a The first semantic version.
  * @param b The second semantic version.
+ * @param opts - Optional object to disable checking specific version parts
+ * (major, minor, patch).
  */
-export const semVerNewer = (a: SemVer, b: SemVer): boolean =>
-  compare.isGreaterThan(compareSemVer(a, b));
+export const semVerNewer = (
+  a: SemVer,
+  b: SemVer,
+  opts: CompareSemVerOptions = {},
+): boolean => compare.isGreaterThan(compareSemVer(a, b, opts));
 
 /**
  * @returns true if the first semantic version is older than the second.
  * @param a The first semantic version.
  * @param b The second semantic version.
+ * @param opts - Optional object to disable checking specific version parts
+ * (major, minor, patch).
  */
-export const semVerOlder = (a: SemVer, b: SemVer): boolean =>
-  compare.isLessThan(compareSemVer(a, b));
+export const semVerOlder = (
+  a: SemVer,
+  b: SemVer,
+  opts: CompareSemVerOptions = {},
+): boolean => compare.isLessThan(compareSemVer(a, b, opts));
 
 export type Migratable<V extends string = string> = { version: V };
 
