@@ -41,7 +41,7 @@ struct ScannerScanCommandArgs {
 };
 
 const std::string SCAN_CMD_TYPE = "scan";
-const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
+const std::string TEST_CONNECTION_CMD_TYPE = "refresh_connection";
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Scanner Task                               //
@@ -72,6 +72,6 @@ private:
 
     void scan(const task::Command &cmd) const;
 
-    void test_connection(const task::Command &cmd) const;
+    void refresh_connection(const task::Command &cmd) const;
 };
 }

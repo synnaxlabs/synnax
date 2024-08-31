@@ -107,19 +107,6 @@ void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
 
 /// @brief sends out write request to the OPC server.
 freighter::Error opc::WriterSink::write(synnax::Frame frame) {
-    freighter::Error conn_err = test_connection(this->ua_client,
-                                                device_props.connection.endpoint);
-    if (conn_err) {
-        ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json{
-                {"message", conn_err.message()}
-            }
-        });
-        LOG(ERROR) << "[opc.reader] connection failed: " << conn_err.message();
-        return conn_err;
-    }
     auto client = this->ua_client.get();
     auto frame_index = 0;
     for (const auto key: *(frame.channels)) {
@@ -137,8 +124,11 @@ freighter::Error opc::WriterSink::write(synnax::Frame frame) {
             retval = UA_Client_writeValueAttribute(client, ch.node, val);
         }
         if (retval != UA_STATUSCODE_GOOD) {
-            auto err = opc::communicate_response_error(retval, this->ctx,
-                                                       this->curr_state);
+            auto err = opc::communicate_response_error(
+                retval,
+                this->ctx,
+                this->curr_state
+            );
             UA_Variant_delete(val);
             LOG(ERROR) << "[opc.sink] Failed to write to node: " << key;
             return err;

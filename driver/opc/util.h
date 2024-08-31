@@ -151,7 +151,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
     std::string log_prefix
 );
 
-static inline freighter::Error test_connection(
+static inline freighter::Error refresh_connection(
     std::shared_ptr<UA_Client> client,
     std::string endpoint
 ) {

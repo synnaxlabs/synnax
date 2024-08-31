@@ -35,8 +35,10 @@ void opc::WriterTask::exec(task::Command &cmd) {
 }
 
 void opc::WriterTask::start() {
-    freighter::Error conn_err = test_connection(this->ua_client,
-                                                device_props.connection.endpoint);
+    freighter::Error conn_err = refresh_connection(
+        this->ua_client,
+        device_props.connection.endpoint
+    );
     if (conn_err) {
         ctx->setState({
             .task = task.key,

@@ -32,7 +32,7 @@ std::unique_ptr<task::Task> Scanner::configure(
 
 void Scanner::exec(task::Command &cmd) {
     if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
-    if (cmd.type == TEST_CONNECTION_CMD_TYPE) return test_connection(cmd);
+    if (cmd.type == TEST_CONNECTION_CMD_TYPE) return refresh_connection(cmd);
     LOG(ERROR) << "[opc] Scanner received unknown command type: " << cmd.type;
 }
 
@@ -180,7 +180,7 @@ void Scanner::scan(const task::Command &cmd) const {
     delete scan_ctx;
 }
 
-void Scanner::test_connection(const task::Command &cmd) const {
+void Scanner::refresh_connection(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
