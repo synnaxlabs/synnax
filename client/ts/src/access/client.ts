@@ -40,7 +40,7 @@ export class Client {
     this.retriever = new Retriever(client);
   }
 
-  async create(policies: NewPolicy): Promise<Policy>;
+  async create(policy: NewPolicy): Promise<Policy>;
 
   async create(policies: NewPolicy[]): Promise<Policy[]>;
 
