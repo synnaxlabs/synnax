@@ -10,7 +10,7 @@
 from uuid import UUID
 from typing import overload
 
-from alamos import Instrumentation, NOOP, trace
+from alamos import Instrumentation, NOOP
 from freighter import Payload, UnaryClient, send_required, Empty
 from synnax.access.payload import Policy
 from synnax.ontology.payload import ID
@@ -77,7 +77,6 @@ class PolicyClient:
         policies: list[Policy],
     ) -> list[Policy]: ...
 
-    @trace("debug")
     def create(
         self,
         policies: Policy | list[Policy] | None = None,
@@ -97,18 +96,17 @@ class PolicyClient:
         res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
         return res.policies[0] if is_single else res.policies
 
-    @trace("debug")
     def retrieve(
         self, keys: list[UUID] | None = None, subjects: list[ID] | None = None
     ) -> list[Policy]:
-        return send_required(
+        res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
             _RetrieveRequest(keys=keys, subjects=subjects),
             _RetrieveResponse,
-        ).policies
+        )
+        return [] if res is None else res.policies
 
-    @trace("debug")
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         send_required(self._client, _DELETE_ENDPOINT, req, Empty)

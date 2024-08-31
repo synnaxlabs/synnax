@@ -88,13 +88,13 @@ class TestAccessClient:
         assert (p[0].objects[0].type, p[0].objects[1].type) == ("channel", "label")
 
     def test_retrieve_by_subject_not_found(self, client: sy.Synnax):
-        res = client.access.retrieve(subjects=ID(type="channel", key="hehe"))
-        assert len(res) == 0
+        res = client.access.retrieve(subjects=[ID(type="channel", key="hehe")])
+        assert res is None
 
     def test_delete_by_key(self, two_policies: list[sy.Policy], client: sy.Synnax):
         client.access.delete(two_policies[0].key)
         p = client.access.retrieve(subjects=[two_policies[0].subjects[0]])
-        assert len(p) == 0
+        assert p is None
 
 
 @pytest.mark.access
@@ -140,7 +140,7 @@ class TestAccessAuthClient:
 
         p = client.access.create(
             subjects=[usr.ontology_id()],
-            objects=[channel_ontology_type],
+            objects=[CHANNEL_ONTOLOGY_TYPE],
             actions=["create"],
         )
 
