@@ -11,30 +11,33 @@
 #include "driver/opc/opc.h"
 #include "driver/opc/scanner.h"
 #include "driver/opc/reader.h"
+#include "driver/opc/writer.h"
 
-std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
+std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (task.type == "opcScanner")
+    if (task.type == "opc_scan")
         return {std::make_unique<Scanner>(ctx, task), true};
     if (task.type == "opc_read")
         return {Reader::configure(ctx, task), true};
+    if (task.type == "opc_write")
+        return {WriterTask::configure(ctx, task), true};
     return {nullptr, false};
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-opc::Factory::configureInitialTasks(
+opc::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
-    auto [existing, err] = rack.tasks.retrieveByType("opcScanner");
+    auto [existing, err] = rack.tasks.retrieveByType("opc_scan");
     if (err.matches(synnax::NOT_FOUND)) {
         auto sy_task = synnax::Task(
             rack.key,
             "opc Scanner",
-            "opcScanner",
+            "opc_scan",
             "",
             true
         );
@@ -43,7 +46,7 @@ opc::Factory::configureInitialTasks(
             LOG(ERROR) << "[opc] Failed to create scanner task: " << c_err;
             return tasks;
         }
-        auto [task, ok] = configureTask(ctx, sy_task);
+        auto [task, ok] = configure_task(ctx, sy_task);
         if (ok && task != nullptr)
             tasks.emplace_back(sy_task, std::move(task));
         else

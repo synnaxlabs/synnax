@@ -57,8 +57,7 @@ public:
         "default",
         TimeSpan(1 * SECOND),
         10,
-        1.1
-    }) {
+        1.1 }) {
     }
 
     Breaker(
@@ -68,7 +67,6 @@ public:
                 retries(other.retries),
                 is_running(other.is_running),
                 breaker_shutdown(std::make_unique<std::condition_variable>()) {
-        std::cout << "copy constructor called" << std::endl;
     }
 
     Breaker(Breaker &&other) noexcept : config(other.config),
@@ -78,7 +76,6 @@ public:
                                         breaker_shutdown(
                                             std::make_unique<
                                                 std::condition_variable>()) {
-        std::cout << "move constructor called" << std::endl;
     }
 
     Breaker &operator=(const Breaker &other) noexcept {
@@ -139,8 +136,14 @@ public:
         return true;
     }
 
+    /// @brief waits for the given time duration. If the breaker stopped before the specified time,
+    /// the method will return immediately to ensure graceful exit of objects using the breaker.
+    /// @param time the time to wait (supports multiple time units).
     void waitFor(const TimeSpan &time) { this->waitFor(time.chrono()); }
 
+    /// @brief waits for the given time duration. If the breaker stopped before the specified time,
+    /// the method will return immediately to ensure graceful exit of objects using the breaker.
+    /// @param time the time to wait for in nanoseconds.
     void waitFor(const std::chrono::nanoseconds &time) {
         if (!running()) return;
         std::unique_lock lock(shutdown_mutex);
@@ -175,6 +178,7 @@ private:
     TimeSpan interval;
     uint32_t retries;
     volatile bool is_running;
+    /// @brief a condition variable used to notify the breaker to shutdown immediately.
     std::unique_ptr<std::condition_variable> breaker_shutdown;
     std::mutex shutdown_mutex;
 };

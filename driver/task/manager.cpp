@@ -74,13 +74,13 @@ freighter::Error task::Manager::startGuarded() {
     auto [tasks, tasks_err] = rack.tasks.list();
     if (tasks_err) return tasks_err;
     for (const auto &task: tasks) {
-        auto [driver_task, ok] = factory->configureTask(ctx, task);
+        auto [driver_task, ok] = factory->configure_task(ctx, task);
         if (ok && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
     }
 
     VLOG(1) << "[driver] configuring initial tasks from factory";
-    auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);
+    auto initial_tasks = factory->configure_initial_tasks(ctx, this->internal);
     for (auto &[sy_task, task]: initial_tasks)
         this->tasks[sy_task.key] = std::move(task);
 
@@ -154,7 +154,7 @@ void task::Manager::processTaskSet(const Series &series) {
         }
         LOG(INFO) << "[driver] configuring task " << sy_task.name << " with key: " <<
                 key << ".";
-        auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
+        auto [driver_task, ok] = factory->configure_task(ctx, sy_task);
         if (ok && driver_task != nullptr) tasks[key] = std::move(driver_task);
         else
             LOG(ERROR) << "[driver] failed to configure task: " << sy_task.name;

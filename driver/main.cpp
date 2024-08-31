@@ -92,12 +92,12 @@ int main(int argc, char *argv[]) {
         // std::move(meminfo_factory),
         std::move(heartbeat_factory)
     };
-    
+
     auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), opc::INTEGRATION_NAME);
     if( opc_enabled != cfg.integrations.end() ) {
         auto opc_factory = std::make_unique<opc::Factory>();
         factories.push_back(std::move(opc_factory));
-    } 
+    }
     else
         LOG(INFO) << "[driver] OPC integration is not enabled";
 
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
     if( ni_enabled != cfg.integrations.end() && ni::dlls_available()) {
         std::unique_ptr<ni::Factory>  ni_factory = std::make_unique<ni::Factory>();
         factories.push_back(std::move(ni_factory));
-    } else 
+    } else
         LOG(INFO) << "[driver] NI integration is not enabled or the required DLLs are not available";
 #endif
 

@@ -96,7 +96,7 @@ public:
         return err;
     }
 
-    void stoppedWithErr(const freighter::Error &err) override {
+    void stopped_with_err(const freighter::Error &err) override {
         this->stop_err = err;
     }
 };
