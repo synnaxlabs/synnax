@@ -153,7 +153,7 @@ void task::Manager::processTaskSet(const Series &series) {
             continue;
         }
         LOG(INFO) << "[driver] configuring task " << sy_task.name << " with key: " <<
-                  key << ".";
+                key << ".";
         auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
         if (ok && driver_task != nullptr) tasks[key] = std::move(driver_task);
         else
@@ -168,15 +168,15 @@ void task::Manager::processTaskCmd(const Series &series) {
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().
-                dump();
+                    dump();
             continue;
         }
         LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.
-            task;
+                task;
         auto it = tasks.find(cmd.task);
         if (it == tasks.end()) {
             LOG(WARNING) << "[driver] could not find task to execute command: " << cmd.
-                task;
+                    task;
             continue;
         }
         it->second->exec(cmd);

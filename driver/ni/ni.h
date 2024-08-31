@@ -52,56 +52,56 @@
 
 namespace ni {
 inline const std::map<std::string, int32_t> UNITS_MAP = {
-    {"Volts",                            DAQmx_Val_Volts},
-    {"Amps",                             DAQmx_Val_Amps},
-    {"DegF",                             DAQmx_Val_DegF},
-    {"F",                                DAQmx_Val_DegF},
-    {"DegC",                             DAQmx_Val_DegC},
-    {"C",                                DAQmx_Val_DegC},
-    {"Celsius",                          DAQmx_Val_DegC},
-    {"Farenheit",                        DAQmx_Val_DegF},
-    {"DegR",                             DAQmx_Val_DegR},
-    {"Rankine",                          DAQmx_Val_DegR},
-    {"Kelvins",                          DAQmx_Val_Kelvins},
-    {"K",                                DAQmx_Val_Kelvins},
-    {"Strain",                           DAQmx_Val_Strain},
-    {"Ohms",                             DAQmx_Val_Ohms},
-    {"Hz",                               DAQmx_Val_Hz},
-    {"Seconds",                          DAQmx_Val_Seconds},
-    {"Meters",                           DAQmx_Val_Meters},
-    {"Inches",                           DAQmx_Val_Inches},
-    {"Degrees",                          DAQmx_Val_Degrees},
-    {"Radians",                          DAQmx_Val_Radians},
-    {"g",                                DAQmx_Val_g},
-    {"MetersPerSecondSquared",           DAQmx_Val_MetersPerSecondSquared},
-    {"MetersPerSecond",                  DAQmx_Val_MetersPerSecond},
+    {"Volts", DAQmx_Val_Volts},
+    {"Amps", DAQmx_Val_Amps},
+    {"DegF", DAQmx_Val_DegF},
+    {"F", DAQmx_Val_DegF},
+    {"DegC", DAQmx_Val_DegC},
+    {"C", DAQmx_Val_DegC},
+    {"Celsius", DAQmx_Val_DegC},
+    {"Farenheit", DAQmx_Val_DegF},
+    {"DegR", DAQmx_Val_DegR},
+    {"Rankine", DAQmx_Val_DegR},
+    {"Kelvins", DAQmx_Val_Kelvins},
+    {"K", DAQmx_Val_Kelvins},
+    {"Strain", DAQmx_Val_Strain},
+    {"Ohms", DAQmx_Val_Ohms},
+    {"Hz", DAQmx_Val_Hz},
+    {"Seconds", DAQmx_Val_Seconds},
+    {"Meters", DAQmx_Val_Meters},
+    {"Inches", DAQmx_Val_Inches},
+    {"Degrees", DAQmx_Val_Degrees},
+    {"Radians", DAQmx_Val_Radians},
+    {"g", DAQmx_Val_g},
+    {"MetersPerSecondSquared", DAQmx_Val_MetersPerSecondSquared},
+    {"MetersPerSecond", DAQmx_Val_MetersPerSecond},
     // TODO: make sure option is in console
-    {"m/s",                              DAQmx_Val_MetersPerSecond},
-    {"InchesPerSecond",                  DAQmx_Val_InchesPerSecond},
+    {"m/s", DAQmx_Val_MetersPerSecond},
+    {"InchesPerSecond", DAQmx_Val_InchesPerSecond},
     // TODO: make sure option is in console
-    {"mV/m/s",                           DAQmx_Val_MillivoltsPerMillimeterPerSecond},
+    {"mV/m/s", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MillivoltsPerMillimeterPerSecond", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
-    {"MilliVoltsPerInchPerSecond",       DAQmx_Val_MilliVoltsPerInchPerSecond},
-    {"mVoltsPerNewton",                  DAQmx_Val_mVoltsPerNewton},
-    {"mVoltsPerPound",                   DAQmx_Val_mVoltsPerPound},
-    {"Newtons",                          DAQmx_Val_Newtons},
-    {"Pounds",                           DAQmx_Val_Pounds},
-    {"KilogramForce",                    DAQmx_Val_KilogramForce},
-    {"PoundsPerSquareInch",              DAQmx_Val_PoundsPerSquareInch},
-    {"Bar",                              DAQmx_Val_Bar},
+    {"MilliVoltsPerInchPerSecond", DAQmx_Val_MilliVoltsPerInchPerSecond},
+    {"mVoltsPerNewton", DAQmx_Val_mVoltsPerNewton},
+    {"mVoltsPerPound", DAQmx_Val_mVoltsPerPound},
+    {"Newtons", DAQmx_Val_Newtons},
+    {"Pounds", DAQmx_Val_Pounds},
+    {"KilogramForce", DAQmx_Val_KilogramForce},
+    {"PoundsPerSquareInch", DAQmx_Val_PoundsPerSquareInch},
+    {"Bar", DAQmx_Val_Bar},
     {"Pascals", DAQmx_Val_Pascals},
-    {"VoltsPerVolt",                     DAQmx_Val_VoltsPerVolt},
-    {"mVoltsPerVolt",                    DAQmx_Val_mVoltsPerVolt},
-    {"NewtonMeters",                     DAQmx_Val_NewtonMeters},
-    {"InchOunces",                       DAQmx_Val_InchOunces},
-    {"InchPounds",                       DAQmx_Val_InchPounds},
-    {"FootPounds",                       DAQmx_Val_FootPounds},
-    {"Strain",                           DAQmx_Val_Strain},
-    {"FromTEDS",                         DAQmx_Val_FromTEDS},
-    {"VoltsPerG",                        DAQmx_Val_VoltsPerG}, // TODO: verify this is an option in the console
-    {"mVoltsPerG",                       DAQmx_Val_mVoltsPerG},
+    {"VoltsPerVolt", DAQmx_Val_VoltsPerVolt},
+    {"mVoltsPerVolt", DAQmx_Val_mVoltsPerVolt},
+    {"NewtonMeters", DAQmx_Val_NewtonMeters},
+    {"InchOunces", DAQmx_Val_InchOunces},
+    {"InchPounds", DAQmx_Val_InchPounds},
+    {"FootPounds", DAQmx_Val_FootPounds},
+    {"Strain", DAQmx_Val_Strain},
+    {"FromTEDS", DAQmx_Val_FromTEDS},
+    {"VoltsPerG", DAQmx_Val_VoltsPerG}, // TODO: verify this is an option in the console
+    {"mVoltsPerG", DAQmx_Val_mVoltsPerG},
     // TODO: verify this is an option in the console
-    {"AccelUnit_g",                      DAQmx_Val_AccelUnit_g}
+    {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
     // TODO: verify this is an option in the console for sensitivity units
 };
 
@@ -207,6 +207,7 @@ public:
         uint64_t tf; // final timestamp
         int32 samples_read_per_channel;
     };
+
     TSQueue<DataPacket> data_queue;
     std::thread sample_thread;
 
@@ -228,7 +229,6 @@ public:
 
     /// @brief maps ni channel name to path in task configuration json
     std::map<std::string, std::string> channel_map;
-
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -578,7 +578,6 @@ public:
 
 private:
     bool dlls_present = false;
-
 };
 
 static inline bool dlls_available() {
@@ -625,11 +624,11 @@ static inline bool dlls_available() {
     for (const auto &dll: dlls)
         if (!does_dll_exist(dll.c_str()))
             d = false;
-    if (d) LOG(INFO) << "[ni] All required DLLs found.";
+    if (d)
+        LOG(INFO) << "[ni] All required DLLs found.";
     return d;
 }
 
 
 const std::string INTEGRATION_NAME = "ni";
-
 } // namespace ni

@@ -25,20 +25,20 @@
 
 /// @brief maps opc data types to their corresponding Synnax types.
 std::map<UA_UInt16, synnax::DataType> data_type_map = {
-    {UA_NS0ID_BOOLEAN,  synnax::UINT8},
-    {UA_NS0ID_SBYTE,    synnax::INT8},
-    {UA_NS0ID_BYTE,     synnax::UINT8},
-    {UA_NS0ID_INT16,    synnax::INT16},
-    {UA_NS0ID_UINT16,   synnax::UINT16},
-    {UA_NS0ID_INT32,    synnax::INT32},
-    {UA_NS0ID_UINT32,   synnax::UINT32},
-    {UA_NS0ID_INT64,    synnax::INT64},
-    {UA_NS0ID_UINT64,   synnax::UINT64},
-    {UA_NS0ID_FLOAT,    synnax::FLOAT32},
-    {UA_NS0ID_DOUBLE,   synnax::FLOAT64},
-    {UA_NS0ID_STRING,   synnax::STRING},
+    {UA_NS0ID_BOOLEAN, synnax::UINT8},
+    {UA_NS0ID_SBYTE, synnax::INT8},
+    {UA_NS0ID_BYTE, synnax::UINT8},
+    {UA_NS0ID_INT16, synnax::INT16},
+    {UA_NS0ID_UINT16, synnax::UINT16},
+    {UA_NS0ID_INT32, synnax::INT32},
+    {UA_NS0ID_UINT32, synnax::UINT32},
+    {UA_NS0ID_INT64, synnax::INT64},
+    {UA_NS0ID_UINT64, synnax::UINT64},
+    {UA_NS0ID_FLOAT, synnax::FLOAT32},
+    {UA_NS0ID_DOUBLE, synnax::FLOAT64},
+    {UA_NS0ID_STRING, synnax::STRING},
     {UA_NS0ID_DATETIME, synnax::TIMESTAMP},
-    {UA_NS0ID_GUID,     synnax::UINT128},
+    {UA_NS0ID_GUID, synnax::UINT128},
 };
 
 opc::ClientDeleter getDefaultClientDeleter() {
@@ -148,7 +148,7 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
 
     if (applicationUri.empty()) {
         LOG(ERROR) <<
-                   "No URI found in the Subject Alternative Name field of the certificate.";
+                "No URI found in the Subject Alternative Name field of the certificate.";
     }
 
     // Clean up
@@ -203,7 +203,7 @@ freighter::Error configureEncryption(
     );
     if (e_err != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: " <<
-                   UA_StatusCode_name(e_err);
+                UA_StatusCode_name(e_err);
         const auto status_name = UA_StatusCode_name(e_err);
         return freighter::Error(freighter::TYPE_UNREACHABLE,
                                 "Failed to configure encryption: " + std::string(
@@ -235,7 +235,7 @@ void fetchEndpointDiagnosticInfo(
         // get config.userIdentityToken.content.decoded.type
         if (ep.securityPolicyUri.data)
             LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.
-                securityPolicyUri.data;
+                    securityPolicyUri.data;
         auto security_mode = ep.securityMode;
         if (security_mode == UA_MESSAGESECURITYMODE_NONE)
             LOG(INFO) << "[opc.scanner] \t security: unencrypted";
@@ -252,7 +252,7 @@ void fetchEndpointDiagnosticInfo(
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
                 LOG(INFO) <<
-                          "[opc.scanner] \t supports username/password authentication";
+                        "[opc.scanner] \t supports username/password authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
                 LOG(INFO) << "[opc.scanner] \t supports issued token authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_CERTIFICATE)
@@ -289,7 +289,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
         );
         if (status != UA_STATUSCODE_GOOD) {
             LOG(ERROR) << "[opc.scanner] Failed to set authentication: " <<
-                       UA_StatusCode_name(status);
+                    UA_StatusCode_name(status);
             return {
                 std::move(client),
                 freighter::Error(freighter::TYPE_UNREACHABLE,

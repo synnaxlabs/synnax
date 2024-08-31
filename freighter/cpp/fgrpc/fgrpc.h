@@ -58,7 +58,7 @@ class Pool {
 
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<grpc::ChannelCredentials> credentials =
-        grpc::InsecureChannelCredentials();
+            grpc::InsecureChannelCredentials();
 
 public:
     Pool() = default;

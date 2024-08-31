@@ -57,12 +57,11 @@ ni::Scanner::Scanner(
         NISysCfgBoolFalse
     );
     VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.
-        name;
+            name;
 }
 
 void ni::Scanner::set_scan_thread(std::shared_ptr<std::thread> scan_thread) {
     this->scan_thread = scan_thread;
-
 }
 
 ni::Scanner::~Scanner() {
@@ -88,10 +87,10 @@ void ni::Scanner::scan() {
     devices["devices"] = json::array();
 
     while (ni::NiSysCfgInterface::NextResource(
-        this->session,
-        this->resources_handle,
-        &resource
-    ) == NISysCfg_OK) {
+               this->session,
+               this->resources_handle,
+               &resource
+           ) == NISysCfg_OK) {
         auto device = get_device_properties(resource);
         device["failed_to_create"] = false;
         devices["devices"].push_back(device);
@@ -190,7 +189,7 @@ void ni::Scanner::create_devices() {
         );
         if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
             LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] <<
-                       " with key " << device["key"] << " for task " << this->task.name;
+                    " with key " << device["key"] << " for task " << this->task.name;
             device["failed_to_create"] = true;
         }
 
@@ -214,10 +213,10 @@ void ni::Scanner::log_err(std::string err_msg) {
         {"error", err_msg}
     };
     this->ctx->setState({
-                            .task = this->task.key,
-                            .variant = "error",
-                            .details = j
-                        });
+        .task = this->task.key,
+        .variant = "error",
+        .details = j
+    });
     this->ok_state = false;
     LOG(ERROR) << "[ni.scanner] scanner in error state. Disabling.";
 }

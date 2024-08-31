@@ -1,4 +1,3 @@
-
 // Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -149,9 +148,9 @@ public:
             auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
             if (err) {
                 LOG(ERROR) <<
-                           "[task.context] failed to retrieve channel to update task state"
-                           << err.
-                               message();
+                        "[task.context] failed to retrieve channel to update task state"
+                        << err.
+                        message();
                 return;
             }
             chan = ch;
@@ -160,10 +159,10 @@ public:
             });
             if (err) {
                 LOG(ERROR) <<
-                           "[task.context] failed to open writer to update task state"
-                           <<
-                           su_err.
-                               message();
+                        "[task.context] failed to open writer to update task state"
+                        <<
+                        su_err.
+                        message();
                 return;
             }
             state_updater = std::make_unique<Writer>(std::move(su));

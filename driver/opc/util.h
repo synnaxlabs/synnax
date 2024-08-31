@@ -40,7 +40,7 @@ static const int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
 // Function to convert UA_DateTime to Unix timestamp in nanoseconds
 inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
     int64_t unixEpochStartIn100NanoIntervals =
-        UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
+            UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
     return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
 }
 
@@ -91,7 +91,7 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
         // Potential data loss
         if (dt == synnax::TIMESTAMP)
             return
-                synnax::Series(static_cast<uint64_t>(value));
+                    synnax::Series(static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
         const auto value = *static_cast<UA_Byte *>(val->data);
@@ -234,17 +234,17 @@ inline UA_Guid stringToGuid(const std::string &guidStr) {
 inline std::string guidToString(const UA_Guid &guid) {
     std::ostringstream stream;
     stream << std::hex << std::setfill('0')
-           << std::setw(8) << guid.data1 << "-"
-           << std::setw(4) << guid.data2 << "-"
-           << std::setw(4) << guid.data3 << "-"
-           << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2) << (
-               guid.data4[1] & 0xFF) << "-"
-           << std::setw(2) << (guid.data4[2] & 0xFF) << std::setw(2) << (
-               guid.data4[3] & 0xFF)
-           << std::setw(2) << (guid.data4[4] & 0xFF) << std::setw(2) << (
-               guid.data4[5] & 0xFF)
-           << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2) << (
-               guid.data4[7] & 0xFF);
+            << std::setw(8) << guid.data1 << "-"
+            << std::setw(4) << guid.data2 << "-"
+            << std::setw(4) << guid.data3 << "-"
+            << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2) << (
+                guid.data4[1] & 0xFF) << "-"
+            << std::setw(2) << (guid.data4[2] & 0xFF) << std::setw(2) << (
+                guid.data4[3] & 0xFF)
+            << std::setw(2) << (guid.data4[4] & 0xFF) << std::setw(2) << (
+                guid.data4[5] & 0xFF)
+            << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2) << (
+                guid.data4[7] & 0xFF);
     return stream.str();
 }
 
@@ -309,7 +309,7 @@ inline std::string nodeIdToString(const UA_NodeId &nodeId) {
             nodeIdStr << "B=";
             for (std::size_t i = 0; i < nodeId.identifier.byteString.length; ++i) {
                 nodeIdStr << std::setfill('0') << std::setw(2) << std::hex
-                          << (int) nodeId.identifier.byteString.data[i];
+                        << (int) nodeId.identifier.byteString.data[i];
             }
             break;
         default:

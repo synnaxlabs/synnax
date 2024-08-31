@@ -29,7 +29,7 @@ struct ScannerScanCommandArgs {
     UA_NodeId node{};
 
     explicit ScannerScanCommandArgs(config::Parser parser) : connection(
-        ConnectionConfig(parser.child("connection"))),
+                                                                 ConnectionConfig(parser.child("connection"))),
                                                              node_id(
                                                                  parser.optional<std::string>(
                                                                      "node_id",

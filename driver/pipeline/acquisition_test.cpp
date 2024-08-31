@@ -53,7 +53,7 @@ public:
         std::vector<freighter::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}
     ) : writes(
-        std::move(writes)), open_errors(std::move(open_errors)),
+            std::move(writes)), open_errors(std::move(open_errors)),
         close_errors(std::move(close_errors)),
         return_false_ok_on(std::move(return_false_ok_on)),
         config(),
@@ -65,20 +65,20 @@ public:
         this->writer_opens++;
         this->config = config;
         auto err = this->open_errors.empty()
-                   ? freighter::NIL
-                   : this->open_errors.front();
+                       ? freighter::NIL
+                       : this->open_errors.front();
         if (!this->open_errors.empty())
             this->open_errors.erase(
                 this->open_errors.begin());
         auto close_err = this->close_errors.empty()
-                         ? freighter::NIL
-                         : this->close_errors.front();
+                             ? freighter::NIL
+                             : this->close_errors.front();
         if (!this->close_errors.empty())
             this->close_errors.erase(
                 this->close_errors.begin());
         auto return_false_ok_on = this->return_false_ok_on.empty()
-                                  ? -1
-                                  : this->return_false_ok_on.front();
+                                      ? -1
+                                      : this->return_false_ok_on.front();
         if (!this->return_false_ok_on.empty())
             this->return_false_ok_on.erase(
                 this->return_false_ok_on.begin());

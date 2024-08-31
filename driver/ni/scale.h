@@ -42,7 +42,7 @@ struct LinearScale {
           offset(parser.required<double>("y_intercept")) {
         if (!parser.ok())
             LOG(ERROR) <<
-                       "[ni.analog] failed to parse custom linear configuration";
+                    "[ni.analog] failed to parse custom linear configuration";
     }
 };
 
@@ -64,7 +64,7 @@ struct MapScale {
           scaled_max(parser.required<double>("scaled_max")) {
         if (!parser.ok())
             LOG(ERROR) <<
-                       "[ni.analog] failed to parse custom map configuration";
+                    "[ni.analog] failed to parse custom map configuration";
     }
 };
 
@@ -93,7 +93,7 @@ struct PolynomialScale {
 
         if (!parser.ok()) {
             LOG(ERROR) <<
-                       "[ni.analog] failed to parse custom polynomial scale configuration";
+                    "[ni.analog] failed to parse custom polynomial scale configuration";
             return;
         }
 
@@ -102,7 +102,7 @@ struct PolynomialScale {
         // get forward coeffs (prescale -> scale conversions)
         if (!j.contains("coeffs")) {
             LOG(ERROR) <<
-                       "[ni.analog] failed to parse custom polynomial scale configuration: missing coeffs";
+                    "[ni.analog] failed to parse custom polynomial scale configuration: missing coeffs";
             return;
         }
 
@@ -179,8 +179,8 @@ struct ScaleConfig {
           parser(parser) {
         if (!parser.ok()) {
             LOG(ERROR)
-                << "[ni.analog] failed to parse custom scale configuration for "
-                << name;
+                    << "[ni.analog] failed to parse custom scale configuration for "
+                    << name;
             return;
         }
         if (type == "linear") scale.linear = LinearScale(parser);

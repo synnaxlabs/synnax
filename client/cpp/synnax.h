@@ -29,8 +29,8 @@ inline void check_little_endian() {
     int num = 1;
     if (*(char *) &num == 1) return;
     std::cout
-        << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
-        << std::endl;
+            << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
+            << std::endl;
 }
 }
 

@@ -22,7 +22,7 @@ TEST(testConfig, testParserHappyPath) {
 
     const json j = {
         {"name", "test"},
-        {"dog",  1.0}
+        {"dog", 1.0}
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -57,7 +57,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
     MyConfig v;
     json j = {
         {"name", "test"},
-        {"dog",  "1.0"}
+        {"dog", "1.0"}
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -82,9 +82,9 @@ TEST(testConfig, testParserFieldChildHappyPath) {
     json j = {
         {
             "child", {
-            {"name", "test"},
-            {"dog", 1.0}
-        }
+                {"name", "test"},
+                {"dog", 1.0}
+            }
         }
     };
     MyConfig v;
@@ -133,9 +133,9 @@ TEST(testConfig, testParserChildFieldInvalidType) {
     json j = {
         {
             "child", {
-            {"name", "test"},
-            {"dog", "1.0"}
-        }
+                {"name", "test"},
+                {"dog", "1.0"}
+            }
         }
     };
     MyConfig v;
@@ -163,15 +163,15 @@ TEST(testConfig, testIterHappyPath) {
     const json j = {
         {
             "children", {
-            {
-                {"name", "test1"},
-                {"dog", 1.0}
-            },
-            {
-                {"name", "test2"},
-                {"dog", 2.0}
+                {
+                    {"name", "test1"},
+                    {"dog", 1.0}
+                },
+                {
+                    {"name", "test2"},
+                    {"dog", 2.0}
+                }
             }
-        }
         }
     };
 
@@ -228,9 +228,9 @@ TEST(testConfig, testIterFieldIsNotArray) {
     const json j = {
         {
             "children", {
-            {"name", "test1"},
-            {"dog", 1.0}
-        }
+                {"name", "test1"},
+                {"dog", 1.0}
+            }
         }
     };
     MyConfig v;
@@ -261,15 +261,15 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     const json j = {
         {
             "children", {
-            {
-                {"name", "test1"},
-                {"dog", "1.0"}
-            },
-            {
-                {"name", "test2"},
-                {"dog", 2.0}
+                {
+                    {"name", "test1"},
+                    {"dog", "1.0"}
+                },
+                {
+                    {"name", "test2"},
+                    {"dog", 2.0}
+                }
             }
-        }
         }
     };
 

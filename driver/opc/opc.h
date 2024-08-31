@@ -51,11 +51,11 @@ struct ConnectionConfig {
 
     json toJSON() const {
         return {
-            {"endpoint",           endpoint},
-            {"username",           username},
-            {"password",           password},
-            {"security_mode",      security_mode},
-            {"security_policy",    security_policy},
+            {"endpoint", endpoint},
+            {"username", username},
+            {"password", password},
+            {"security_mode", security_mode},
+            {"security_policy", security_policy},
             {"client_certificate", client_cert},
             {"client_private_key", client_private_key}
         };
@@ -80,7 +80,8 @@ struct DeviceNodeProperties {
     }
 
     explicit DeviceNodeProperties(config::Parser parser) : data_type(
-        synnax::DataType(parser.required<std::string>("data_type"))),
+                                                               synnax::DataType(
+                                                                   parser.required<std::string>("data_type"))),
                                                            name(
                                                                parser.required<std::string>(
                                                                    "name")),
@@ -95,11 +96,11 @@ struct DeviceNodeProperties {
 
     json toJSON() const {
         return {
-            {"data_type",  data_type.name()},
-            {"name",       name},
-            {"node_id",    node_id},
+            {"data_type", data_type.name()},
+            {"name", name},
+            {"node_id", node_id},
             {"node_class", node_class},
-            {"is_array",   is_array}
+            {"is_array", is_array}
         };
     }
 };

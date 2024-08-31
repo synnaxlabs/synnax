@@ -383,8 +383,8 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const Series &s) {
         os << "Series(type: " << s.data_type.name() << ", size: " << s.size
-           << ", cap: "
-           << s.cap << ", data: [";
+                << ", cap: "
+                << s.cap << ", data: [";
         if (s.data_type == synnax::STRING || s.data_type == synnax::JSON)
             output_partial_vector(os, s.strings());
         else if (s.data_type == synnax::FLOAT32)

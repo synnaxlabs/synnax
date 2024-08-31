@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     auto cfg_json = config::read(config_path);
     if (cfg_json.empty())
         LOG(INFO) << "[driver] no configuration found at " << config_path <<
-                  ". We'll just use the default configuration";
+                ". We'll just use the default configuration";
     else {
         LOG(INFO) << "[driver] loaded configuration from " << config_path;
     }
@@ -80,8 +80,8 @@ int main(int argc, char *argv[]) {
     breaker.stop();
     if (rack_err) {
         LOG(FATAL) <<
-                   "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
-                   << rack_err;
+                "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
+                << rack_err;
         return 1;
     }
 

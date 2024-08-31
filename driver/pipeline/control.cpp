@@ -90,7 +90,7 @@ void Control::ensureThreadJoined() const {
         this->thread == nullptr ||
         !this->thread->joinable() ||
         std::this_thread::get_id() == this->thread->get_id()
-        )
+    )
         return;
     this->thread->join();
 }
@@ -132,7 +132,7 @@ void Control::runInternal() {
         if (
             open_err.matches(freighter::UNREACHABLE)
             && breaker.wait(open_err.message())
-            )
+        )
             return runInternal();
         return this->sink->stoppedWithErr(open_err);
     }
@@ -145,7 +145,7 @@ void Control::runInternal() {
             if (
                 sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR)
                 && breaker.wait(sink_err.message())
-                )
+            )
                 continue;
             break;
         }
@@ -155,7 +155,7 @@ void Control::runInternal() {
     if (
         close_err.matches(freighter::UNREACHABLE)
         && breaker.wait()
-        )
+    )
         return runInternal();
     if (close_err) this->sink->stoppedWithErr(close_err);
 }

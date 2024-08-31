@@ -58,8 +58,8 @@ public:
         const synnax::Task &task
     ) {
         auto ch_name =
-            "sy_rack" + std::to_string(rackKeyNode(taskKeyRack(task.key))) +
-            "_meminfo";
+                "sy_rack" + std::to_string(rackKeyNode(taskKeyRack(task.key))) +
+                "_meminfo";
         auto [ch, err] = ctx->client->channels.retrieve(ch_name);
         if (err.matches(synnax::NOT_FOUND)) {
             ch = synnax::Channel(

@@ -40,4 +40,3 @@ TEST(FramerTests, ostream) {
     ASSERT_EQ(ss.str(),
               "Frame{\n 65537: Series(type: float32, size: 3, cap: 3, data: [1 2 3 ]), \n}");
 }
-

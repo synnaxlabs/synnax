@@ -151,19 +151,19 @@ void Scanner::scan(const task::Command &cmd) const {
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
-                                 .task = task.key,
-                                 .key = cmd.key,
-                                 .details = parser.error_json()
-                             });
+            .task = task.key,
+            .key = cmd.key,
+            .details = parser.error_json()
+        });
 
     auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->setState({
-                                 .task = task.key,
-                                 .key = cmd.key,
-                                 .variant = "error",
-                                 .details = {{"message", err.message()}}
-                             });
+            .task = task.key,
+            .key = cmd.key,
+            .variant = "error",
+            .details = {{"message", err.message()}}
+        });
 
     const auto scan_ctx = new ScanContext{
         ua_client,
@@ -171,12 +171,12 @@ void Scanner::scan(const task::Command &cmd) const {
     };
     iterateChildren(scan_ctx, args.node);
     ctx->setState({
-                      .task = task.key,
-                      .key = cmd.key,
-                      .variant = "success",
-                      .details = DeviceProperties(args.connection,
-                                                  *scan_ctx->channels).toJSON(),
-                  });
+        .task = task.key,
+        .key = cmd.key,
+        .variant = "success",
+        .details = DeviceProperties(args.connection,
+                                    *scan_ctx->channels).toJSON(),
+    });
     delete scan_ctx;
 }
 
@@ -185,22 +185,22 @@ void Scanner::testConnection(const task::Command &cmd) const {
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
-                                 .task = task.key,
-                                 .key = cmd.key,
-                                 .details = parser.error_json()
-                             });
+            .task = task.key,
+            .key = cmd.key,
+            .details = parser.error_json()
+        });
     const auto err = connect(args.connection, "[opc.scanner] ").second;
     if (err)
         return ctx->setState({
-                                 .task = task.key,
-                                 .key = cmd.key,
-                                 .variant = "error",
-                                 .details = {{"message", err.data}}
-                             });
+            .task = task.key,
+            .key = cmd.key,
+            .variant = "error",
+            .details = {{"message", err.data}}
+        });
     return ctx->setState({
-                             .task = task.key,
-                             .key = cmd.key,
-                             .variant = "success",
-                             .details = {{"message", "Connection successful"}},
-                         });
+        .task = task.key,
+        .key = cmd.key,
+        .variant = "success",
+        .details = {{"message", "Connection successful"}},
+    });
 }

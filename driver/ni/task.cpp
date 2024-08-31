@@ -21,10 +21,10 @@ ni::ScannerTask::ScannerTask(
     synnax::Task task
 ) : scanner(ctx, task), ctx(ctx), task(task) {
     this->breaker = breaker::Breaker(breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2,
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
     });
 
     if (!scanner.ok()) {
@@ -41,8 +41,8 @@ ni::ScannerTask::ScannerTask(
 }
 
 std::unique_ptr<task::Task> ni::ScannerTask::configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
 ) {
     return std::make_unique<ni::ScannerTask>(ctx, task);
 }
@@ -79,7 +79,7 @@ bool ni::ScannerTask::ok() {
 }
 
 ni::ScannerTask::~ScannerTask() {
-    if (this->thread->joinable() && this->thread->get_id() != std::this_thread::get_id()) 
+    if (this->thread->joinable() && this->thread->get_id() != std::this_thread::get_id())
         this->thread->detach();
 }
 
@@ -95,21 +95,21 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr<task::Context> &ctx,
 ) : ctx(ctx),
     task(task),
     daq_read_pipe(
-            pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
+        pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
     source(ni_source) {
 }
 
 
 std::unique_ptr<task::Task> ni::ReaderTask::configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task) {
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task) {
     LOG(INFO) << "[ni.task] configuring task " << task.name;
 
     auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2,
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
     };
 
     auto parser = config::Parser(task.config);
@@ -136,7 +136,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
         .mode = data_saving
                     ? synnax::WriterMode::PersistStream
                     : synnax::WriterMode::StreamOnly,
-            .enable_auto_commit = true
+        .enable_auto_commit = true
     };
 
     // start and stop to catch any immediate errors
@@ -155,13 +155,13 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     }
 
     ctx->setState({
-                          .task = task.key,
-                          .variant = "success",
-                          .details = {
-                                  {"running", false},
-                                  {"message", "Successfully configured task"}
-                          }
-                  });
+        .task = task.key,
+        .variant = "success",
+        .details = {
+            {"running", false},
+            {"message", "Successfully configured task"}
+        }
+    });
 
     LOG(INFO) << "[ni.task] successfully configured task " << task.name;
 
@@ -185,8 +185,8 @@ void ni::ReaderTask::stop() { this->stop(""); }
 void ni::ReaderTask::stop(const std::string &cmd_key) {
     if (!this->running.exchange(false)) {
         LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
-                  this->running << " ok: "
-                  << this->ok();
+                this->running << " ok: "
+                << this->ok();
         return;
     }
     this->daq_read_pipe.stop();
@@ -197,7 +197,7 @@ void ni::ReaderTask::stop(const std::string &cmd_key) {
 void ni::ReaderTask::start(const std::string &cmd_key) {
     if (this->running.exchange(true) || !this->ok() || !this->source->ok()) {
         LOG(INFO) << "[ni.task] did not start " << this->task.name <<
-                  " as it is not running or in error state";
+                " as it is not running or in error state";
         return;
     }
     this->source->start(cmd_key);
@@ -240,10 +240,10 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task) {
     auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2,
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
     };
 
     auto parser = config::Parser(task.config);
@@ -264,12 +264,12 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         .mode = data_saving
                     ? synnax::WriterMode::PersistStream
                     : synnax::WriterMode::StreamOnly,
-            .enable_auto_commit = true,
+        .enable_auto_commit = true,
     };
 
     auto cmd_streamer_config = synnax::StreamerConfig{
-            .channels = cmd_keys,
-            .start = synnax::TimeStamp::now(),
+        .channels = cmd_keys,
+        .start = synnax::TimeStamp::now(),
     };
 
     if (daq_writer->ok()) daq_writer->cycle();
@@ -292,13 +292,13 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     }
 
     ctx->setState({
-                          .task = task.key,
-                          .variant = "success",
-                          .details = {
-                                  {"running", false},
-                                  {"message", "Successfully configured task"}
-                          }
-                  });
+        .task = task.key,
+        .variant = "success",
+        .details = {
+            {"running", false},
+            {"message", "Successfully configured task"}
+        }
+    });
 
     LOG(INFO) << "[ni.writer] successfully configured task " << task.name;
     return p;
@@ -324,7 +324,7 @@ void ni::WriterTask::stop() { this->stop(""); }
 void ni::WriterTask::stop(const std::string &cmd_key) {
     if (!this->running.exchange(false)) {
         LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
-                  this->running << " ok: " << this->ok();
+                this->running << " ok: " << this->ok();
         return;
     }
     this->state_write_pipe.stop();

@@ -26,7 +26,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
                     ni::ChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
                     std::string port = std::to_string(
-                            channel_builder.required<std::uint64_t>("port"));
+                        channel_builder.required<std::uint64_t>("port"));
                     std::string name = this->reader_config.device_name;
                     config.name = name + "/ai" + port;
 
@@ -34,13 +34,13 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
                     config.channel_type = channel_builder.required<std::string>("type");
 
                     config.ni_channel = this->parse_channel(
-                            channel_builder, config.channel_type, config.name);
+                        channel_builder, config.channel_type, config.name);
 
                     this->channel_map[config.name] =
                             "channels." + std::to_string(c_count);
 
                     this->port_to_channel[channel_builder.required<std::uint64_t>(
-                            "port")] = config.name;
+                        "port")] = config.name;
 
                     config.enabled = channel_builder.optional<bool>("enabled", true);
 
@@ -51,88 +51,88 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
-        config::Parser &parser, const std::string &channel_type,
-        const std::string &channel_name) {
+    config::Parser &parser, const std::string &channel_type,
+    const std::string &channel_name) {
     if (channel_type == "ai_accel")
         return std::make_shared<Acceleration>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_accel_4_wire_dc_voltage")
         return std::make_shared<
-                Acceleration4WireDCVoltage>(parser, this->task_handle, channel_name);
+            Acceleration4WireDCVoltage>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_bridge")
         return std::make_shared<Bridge>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_charge")
         return std::make_shared<Charge>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_current")
         return std::make_shared<Current>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_bridge_polynomial")
         return std::make_shared<
-                ForceBridgePolynomial>(parser, this->task_handle, channel_name);
+            ForceBridgePolynomial>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_bridge_table")
         return std::make_shared<
-                ForceBridgeTable>(parser, this->task_handle, channel_name);
+            ForceBridgeTable>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_bridge_two_point_lin")
         return std::make_shared<
-                ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+            ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_iepe")
         return std::make_shared<ForceIEPE>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_microphone")
         return std::make_shared<Microphone>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_pressure_bridge_polynomial")
         return std::make_shared<
-                PressureBridgePolynomial>(parser, this->task_handle, channel_name);
+            PressureBridgePolynomial>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_pressure_bridge_table")
         return std::make_shared<
-                PressureBridgeTable>(parser, this->task_handle, channel_name);
+            PressureBridgeTable>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_pressure_bridge_two_point_lin")
         return std::make_shared<
-                PressureBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+            PressureBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_resistance")
         return std::make_shared<Resistance>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_rtd")
         return std::make_shared<RTD>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_strain_gauge")
         return std::make_shared<StrainGage>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_temp_built_in")
         return std::make_shared<
-                TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
+            TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_thermocouple")
         return std::make_shared<Thermocouple>(
-                parser, this->task_handle, channel_name, this->port_to_channel);
+            parser, this->task_handle, channel_name, this->port_to_channel);
     if (channel_type == "ai_torque_bridge_polynomial")
         return std::make_shared<
-                TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
+            TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_torque_bridge_table")
         return std::make_shared<
-                TorqueBridgeTable>(parser, this->task_handle, channel_name);
+            TorqueBridgeTable>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_torque_bridge_two_point_lin")
         return std::make_shared<
-                TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+            TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_velocity_iepe")
         return std::make_shared<VelocityIEPE>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
     if (channel_type == "ai_voltage")
         return std::make_shared<Voltage>(
-                parser, this->task_handle, channel_name);
+            parser, this->task_handle, channel_name);
 
     // If channel type not recognized update task state
     std::string msg = "unknown channel type " + channel_type;
     this->ctx->setState({
-                                .task = task.key,
-                                .variant = "error",
-                                .details = {
-                                        {"running", false},
-                                        {"message", msg}
-                                }
-                        });
+        .task = task.key,
+        .variant = "error",
+        .details = {
+            {"running", false},
+            {"message", msg}
+        }
+    });
     this->log_error(msg);
     return nullptr;
 }
@@ -141,25 +141,23 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
 int ni::AnalogReadSource::configure_timing() {
     if (this->reader_config.timing_source == "none") {
         if (this->check_ni_error(
-                ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-                                                       "",
-                                                       this->reader_config.sample_rate.value,
-                                                       DAQmx_Val_Rising,
-                                                       DAQmx_Val_ContSamps,
-                                                       this->reader_config.sample_rate.value))) {
-
+            ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                                   "",
+                                                   this->reader_config.sample_rate.value,
+                                                   DAQmx_Val_Rising,
+                                                   DAQmx_Val_ContSamps,
+                                                   this->reader_config.sample_rate.value))) {
             this->log_error("failed while configuring timing for task "
                             + this->reader_config.task_name);
             return -1;
         }
     } else if (this->check_ni_error(
-            ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-                                                   this->reader_config.timing_source.c_str(),
-                                                   this->reader_config.sample_rate.value,
-                                                   DAQmx_Val_Rising,
-                                                   DAQmx_Val_ContSamps,
-                                                   this->reader_config.sample_rate.value))) {
-
+        ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                               this->reader_config.timing_source.c_str(),
+                                               this->reader_config.sample_rate.value,
+                                               DAQmx_Val_Rising,
+                                               DAQmx_Val_ContSamps,
+                                               this->reader_config.sample_rate.value))) {
         this->log_error("failed while configuring timing for task "
                         + this->reader_config.task_name);
         return -1;
@@ -170,8 +168,8 @@ int ni::AnalogReadSource::configure_timing() {
     // e.g. if we have 4 channels and want to stream at 100Hz at a 1000hz sample rate
     // make a call to read 10 samples at 100hz
     this->num_samples_per_channel = std::floor(
-            this->reader_config.sample_rate.value /
-            this->reader_config.stream_rate.value);
+        this->reader_config.sample_rate.value /
+        this->reader_config.stream_rate.value);
 
     this->buffer_size = this->num_ai_channels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
@@ -184,17 +182,17 @@ void ni::AnalogReadSource::acquire_data() {
         data_packet.analog_data.resize(this->buffer_size);
         data_packet.t0 = synnax::TimeStamp::now().value;
         if (this->check_ni_error(ni::NiDAQmxInterface::ReadAnalogF64(
-                this->task_handle,
-                this->num_samples_per_channel,
-                -1,
-                DAQmx_Val_GroupByChannel,
-                data_packet.analog_data.data(),
-                data_packet.analog_data.size(),
-                &data_packet.samples_read_per_channel,
-                NULL))) {
+            this->task_handle,
+            this->num_samples_per_channel,
+            -1,
+            DAQmx_Val_GroupByChannel,
+            data_packet.analog_data.data(),
+            data_packet.analog_data.size(),
+            &data_packet.samples_read_per_channel,
+            NULL))) {
             this->log_error(
-                    "failed while reading analog data for task " + this->reader_config.
-                            task_name);
+                "failed while reading analog data for task " + this->reader_config.
+                task_name);
         }
         data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
@@ -202,14 +200,14 @@ void ni::AnalogReadSource::acquire_data() {
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
-        breaker::Breaker &breaker) {
+    breaker::Breaker &breaker) {
     auto f = synnax::Frame(num_channels);
 
     auto [d, err] = data_queue.dequeue();
     if (!err)
         return std::make_pair(std::move(f), freighter::Error(
-                driver::CRITICAL_HARDWARE_ERROR,
-                "Failed to read data from queue"));
+                                  driver::CRITICAL_HARDWARE_ERROR,
+                                  "Failed to read data from queue"));
 
     // interpolate  timestamps between the initial and final timestamp to ensure
     // non-overlapping timestamps between batched reads
@@ -228,10 +226,12 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
             continue;
         }
         synnax::Series series = synnax::Series(synnax::FLOAT32, s);
-        if(this->reader_config.channels[ch].data_type == synnax::FLOAT32) series = synnax::Series(synnax::FLOAT32, s);
-        else if(this->reader_config.channels[ch].data_type == synnax::FLOAT64) series = synnax::Series(synnax::FLOAT64, s);
-        for(int i = 0; i < d.samples_read_per_channel; i++) 
-            this->write_to_series(series, d.analog_data[data_index*d.samples_read_per_channel + i], this->reader_config.channels[ch].data_type);
+        if (this->reader_config.channels[ch].data_type == synnax::FLOAT32) series = synnax::Series(synnax::FLOAT32, s);
+        else if (this->reader_config.channels[ch].data_type == synnax::FLOAT64)
+            series = synnax::Series(synnax::FLOAT64, s);
+        for (int i = 0; i < d.samples_read_per_channel; i++)
+            this->write_to_series(series, d.analog_data[data_index * d.samples_read_per_channel + i],
+                                  this->reader_config.channels[ch].data_type);
         f.add(this->reader_config.channels[ch].channel_key, std::move(series));
         data_index++;
     }
@@ -275,14 +275,18 @@ int ni::AnalogReadSource::validate_channels() {
         // if not index, make sure channel type is valid
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if(channel_info.data_type != synnax::FLOAT32 && channel_info.data_type != synnax::FLOAT64) {
+        if (channel_info.data_type != synnax::FLOAT32 && channel_info.data_type != synnax::FLOAT64) {
             this->log_error("Channel " + channel.name + " is not of type float32 or float64");
             this->ctx->setState({
                 .task = task.key,
                 .variant = "error",
                 .details = {
                     {"running", false},
-                    {"message", "Channel " + channel.name + " must be type float32 or float64. Got " + channel_info.data_type.value}, 
+                    {
+                        "message",
+                        "Channel " + channel.name + " must be type float32 or float64. Got " + channel_info.data_type.
+                        value
+                    },
                     {"path", channel.name}
                 }
             });

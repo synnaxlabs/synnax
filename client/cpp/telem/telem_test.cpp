@@ -66,7 +66,6 @@ TEST(TimeSpanTests, testMultiplication) {
     auto ts10 = TimeSpan(5);
     auto ts11 = ts10 * 5.0f;
     ASSERT_EQ(ts11.value, 25);
-
 }
 
 TEST(TimeSpanTests, testDivision) {

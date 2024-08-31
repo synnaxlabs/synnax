@@ -19,14 +19,16 @@ std::string joinPaths(const std::string &a, const std::string &b) {
     return a + adjusted;
 }
 
-URL::URL() : ip(""), port(0), path("") {}
+URL::URL() : ip(""), port(0), path("") {
+}
 
 URL::URL(
     const std::string &ip,
     std::uint16_t port,
     const std::string &path
 ) : ip(ip), port(port),
-    path(joinPaths("", path)) {}
+    path(joinPaths("", path)) {
+}
 
 URL::URL(const std::string &address) {
     auto colon = address.find(':');

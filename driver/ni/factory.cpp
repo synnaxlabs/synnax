@@ -18,8 +18,8 @@ ni::Factory::Factory() {
 
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
 ) {
     if (!this->dlls_present) {
         log_dll_error(ctx, task);
@@ -41,12 +41,12 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
 // creates initial task (scanner)
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
 ni::Factory::configureInitialTasks(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Rack &rack
 ) {
     if (!this->dlls_present) {
         LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." <<
-                   std::endl;
+                std::endl;
         return {};
     }
     // generate task list
@@ -63,18 +63,18 @@ ni::Factory::configureInitialTasks(
     for (const auto &t: existing) {
         if (t.type == "ni_scanner") {
             LOG(INFO) << "[ni] found existing scanner task with key: " << t.key <<
-                      " skipping creation." << std::endl;
+                    " skipping creation." << std::endl;
             hasScanner = true;
         }
     }
 
     if (!hasScanner) {
         auto sy_task = synnax::Task(
-                rack.key,
-                "ni scanner",
-                "ni_scanner",
-                "",
-                true
+            rack.key,
+            "ni scanner",
+            "ni_scanner",
+            "",
+            true
         );
         auto err = rack.tasks.create(sy_task);
         LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;
@@ -88,11 +88,11 @@ ni::Factory::configureInitialTasks(
             return tasks;
         }
         tasks.emplace_back(
-                std::pair<synnax::Task, std::unique_ptr<task::Task> >({
-                                                                              sy_task,
-                                                                              std::move(
-                                                                                      task)
-                                                                      }));
+            std::pair<synnax::Task, std::unique_ptr<task::Task> >({
+                sy_task,
+                std::move(
+                    task)
+            }));
     }
     return tasks;
 }

@@ -44,15 +44,15 @@ TEST(FramerTests, testWriteBasic) {
     frame.add(
         time.key,
         synnax::Series(std::vector<std::uint64_t>{
-            (now.value + synnax::SECOND).value,
-            (now + synnax::SECOND * 2).value,
-            (now + synnax::SECOND * 3).value,
-            (now + synnax::SECOND * 4).value,
-            (now + synnax::SECOND * 5).value,
-            (now + synnax::SECOND * 6).value,
-            (now + synnax::SECOND * 7).value,
-            (now + synnax::SECOND * 8).value,
-        }, synnax::TIMESTAMP)
+                           (now.value + synnax::SECOND).value,
+                           (now + synnax::SECOND * 2).value,
+                           (now + synnax::SECOND * 3).value,
+                           (now + synnax::SECOND * 4).value,
+                           (now + synnax::SECOND * 5).value,
+                           (now + synnax::SECOND * 6).value,
+                           (now + synnax::SECOND * 7).value,
+                           (now + synnax::SECOND * 8).value,
+                       }, synnax::TIMESTAMP)
     );
     frame.add(
         data.key,
