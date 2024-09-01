@@ -15,8 +15,6 @@
 }
 
 .console-palette__btn {
-    background-color: var(--pluto-gray-l2) !important;
-    border-color: var(--pluto-gray-l4) !important;
     width: 100%;
 
     &:hover {

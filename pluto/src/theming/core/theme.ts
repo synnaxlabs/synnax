@@ -28,6 +28,8 @@ const grayScaleZ = z.object({
 
 type GrayScale = z.input<typeof grayScaleZ>;
 
+export type Shade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
 const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
   color[0],
   color[1],
@@ -262,15 +264,15 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 
 const DARK_SCALE = [
   "#020202",
-  "#111111",
+  "#060606",
+  "#0D0D0D",
   "#191919",
-  "#2a2a2a",
-  "#313131",
-  "#515151",
-  "#7f7f7f",
-  "#9D9D9D",
-  "#BFBFBF",
-  "#EDEDED",
+  "#242424",
+  "#434343",
+  "#646464",
+  "#8A8A8A",
+  "#AFAFAF",
+  "#D5D5D5",
   "#FDFDFD",
 ];
 

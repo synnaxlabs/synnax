@@ -24,11 +24,7 @@ export const createAnalogReadTaskCommand: Command = {
     </PIcon.Create>
   ),
   onSelect: ({ placeLayout }) =>
-    placeLayout(() =>
-      configureAnalogReadLayout({
-        create: true,
-      }),
-    ),
+    placeLayout(() => configureAnalogReadLayout({ create: true })),
 };
 
 export const createDigitalWriteTaskCommand: Command = {

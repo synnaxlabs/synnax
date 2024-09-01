@@ -27,7 +27,7 @@
     & .pluto-input__internal {
         position: relative;
         height: 100%;
-        background: var(--pluto-gray-l1);
+        background: var(--pluto-gray-l2);
         flex-grow: 1;
     }
 
@@ -36,7 +36,7 @@
             color: var(--pluto-gray-l5) !important;
         }
         & .pluto-input__internal {
-            background-color: var(--pluto-gray-l1);
+            background-color: var(--pluto-gray-l2);
             opacity: 0.8;
             border-color: var(--pluto-gray-l3);
         }
@@ -130,7 +130,7 @@
     }
     &:hover {
         & > .pluto-input__internal {
-            background: var(--pluto-gray-l2) !important;
+            background: var(--pluto-gray-l3) !important;
             cursor: pointer;
             & input {
                 cursor: pointer;

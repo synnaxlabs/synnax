@@ -28,7 +28,7 @@
 }
 
 .pluto-select-multiple__tags {
-    background: var(--pluto-gray-l1);
+    background: var(--pluto-gray-l2);
     padding: 0.25rem 1rem;
     overflow-x: scroll;
     flex-wrap: wrap;

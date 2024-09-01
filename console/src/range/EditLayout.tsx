@@ -97,6 +97,7 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   const args = Layout.useSelectArgs<Args>(layoutKey);
   const range = useSelect(args.key);
   const client = Synnax.use();
+  console.log(args.key);
   const isCreate = args.key == null;
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
   const initialValues = useQuery<DefineRangeFormProps>({
@@ -291,25 +292,12 @@ const EditLayoutForm = ({
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            variant={showSaveToSynnax ? "outlined" : "filled"}
-            onClick={() => mutate(false)}
+            onClick={() => mutate(true)}
             disabled={isPending}
-            triggers={showSaveToSynnax ? undefined : [SAVE_TRIGGER]}
+            triggers={[SAVE_TRIGGER]}
           >
-            Save {!isRemoteEdit && "Locally"}
+            {isRemoteEdit ? "Edit" : "Save"}
           </Button.Button>
-          {showSaveToSynnax && (
-            <Button.Button
-              onClick={() => mutate(true)}
-              disabled={client == null || isPending}
-              tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
-              tooltipLocation="bottom"
-              loading={isPending}
-              triggers={[SAVE_TRIGGER]}
-            >
-              Save to Synnax
-            </Button.Button>
-          )}
         </Nav.Bar.End>
       </Layout.BottomNavBar>
     </Align.Space>

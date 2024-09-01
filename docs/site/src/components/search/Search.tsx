@@ -64,7 +64,7 @@ export const Search = (): ReactElement => {
           onClick={d.open}
           variant="outlined"
           justify="center"
-          size="large"
+          size="medium"
         >
           Search Synnax
         </Button.Button>

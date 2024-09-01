@@ -9,8 +9,8 @@
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
 
+// import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import { type Haul, Pluto, type state, type Triggers } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
