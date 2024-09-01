@@ -90,7 +90,7 @@ jobs:
 
       - name: Start Current Server
         run: docker run -d --name synnax-current -p 9090:9090 -v data:/usr/local/synnax/data -e SYNNAX_DATA=/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
-h
+
       - name: Checkout Main Branch for Tests (Again)
         uses: actions/checkout@v3
         with:
