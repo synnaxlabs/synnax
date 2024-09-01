@@ -17,7 +17,7 @@
 
 #include "driver/config.h"
 #include "task/task.h"
-#include "driver/opc/opc_pub.h"
+#include "driver/opc/opc.h"
 #include "driver/meminfo/meminfo.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
 
     VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
-             cfg.client_config.port;
+            cfg.client_config.port;
 
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
@@ -92,13 +92,12 @@ int main(int argc, char *argv[]) {
         // std::move(meminfo_factory),
         std::move(heartbeat_factory)
     };
-    
+
     auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), opc::INTEGRATION_NAME);
-    if( opc_enabled != cfg.integrations.end() ) {
+    if (opc_enabled != cfg.integrations.end()) {
         auto opc_factory = std::make_unique<opc::Factory>();
         factories.push_back(std::move(opc_factory));
-    } 
-    else
+    } else
         LOG(INFO) << "[driver] OPC integration is not enabled";
 
 #ifdef USE_NI
@@ -106,7 +105,7 @@ int main(int argc, char *argv[]) {
     if( ni_enabled != cfg.integrations.end() && ni::dlls_available()) {
         std::unique_ptr<ni::Factory>  ni_factory = std::make_unique<ni::Factory>();
         factories.push_back(std::move(ni_factory));
-    } else 
+    } else
         LOG(INFO) << "[driver] NI integration is not enabled or the required DLLs are not available";
 #endif
 

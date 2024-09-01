@@ -28,7 +28,6 @@ std::mt19937 random_generator(std::string suite_name) {
 }
 
 
-
 json add_DI_channel_JSON(
     json &config,
     std::string name,
@@ -77,7 +76,7 @@ json add_AI_channel_JSON(
     channel["key"] = "key";
     channel["custom_scale"] = scale_config;
     channel["enabled"] = true;
-    
+
     // now add json to the channels vector
     // check if the channels array exists
     if (config.find("channels") == config.end()) {

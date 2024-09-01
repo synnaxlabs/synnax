@@ -18,7 +18,7 @@ import { useDataUtilContext } from "@/list/Data";
 import { useInfiniteUtilContext } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
-import { componentRenderProp, type RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/util/renderProp";
 
 export interface UseSearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Input.OptionalControl<string> {

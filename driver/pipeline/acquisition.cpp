@@ -30,7 +30,7 @@ class SynnaxWriter final : public pipeline::Writer {
     std::unique_ptr<synnax::Writer> internal;
 
 public:
-    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal): internal(
+    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal) : internal(
         std::move(internal)) {
     }
 
@@ -45,7 +45,7 @@ class SynnaxWriterFactory final : public WriterFactory {
 public:
     explicit SynnaxWriterFactory(
         std::shared_ptr<synnax::Synnax> client
-    ): client(std::move(client)) {
+    ) : client(std::move(client)) {
     }
 
     std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
@@ -66,11 +66,11 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-): thread(nullptr),
-   factory(std::make_shared<SynnaxWriterFactory>(std::move(client))),
-   writer_config(std::move(writer_config)),
-   breaker(breaker_config),
-   source(std::move(source)) {
+) : thread(nullptr),
+    factory(std::make_shared<SynnaxWriterFactory>(std::move(client))),
+    writer_config(std::move(writer_config)),
+    breaker(breaker_config),
+    source(std::move(source)) {
 }
 
 Acquisition::Acquisition(
@@ -78,11 +78,11 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-): thread(nullptr),
-   factory(std::move(factory)),
-   writer_config(std::move(writer_config)),
-   breaker(breaker_config),
-   source(std::move(source)) {
+) : thread(nullptr),
+    factory(std::move(factory)),
+    writer_config(std::move(writer_config)),
+    breaker(breaker_config),
+    source(std::move(source)) {
 }
 
 void Acquisition::ensureThreadJoined() const {
@@ -197,7 +197,7 @@ void Acquisition::runInternal() {
         this->breaker.wait(writer_err.message())
     )
         return this->runInternal();
-    if (writer_err) this->source->stoppedWithErr(writer_err);
+    if (writer_err) this->source->stopped_with_err(writer_err);
     LOG(INFO) << "[acquisition] acquisition thread stopped";
 }
 

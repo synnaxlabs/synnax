@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "opc_pub.h"
+#include "opc.h"
 #include "util.h"
 #include "driver/config/config.h"
 #include "driver/task/task.h"
@@ -33,14 +33,14 @@ namespace opc {
 
         ReaderChannelConfig() = default;
 
-        explicit ReaderChannelConfig(
-                config::Parser &parser
-        ) : node_id(parser.required<std::string>("node_id")),
-            node(parseNodeId("node_id", parser)),
-            channel(parser.required<ChannelKey>("channel")),
-            enabled(parser.optional<bool>("enabled", true)) {
-        }
-    };
+    explicit ReaderChannelConfig(
+        config::Parser &parser
+    ) : node_id(parser.required<std::string>("node_id")),
+        node(parse_node_id("node_id", parser)),
+        channel(parser.required<ChannelKey>("channel")),
+        enabled(parser.optional<bool>("enabled", true)) {
+    }
+};
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                 ReaderConfig                                  //

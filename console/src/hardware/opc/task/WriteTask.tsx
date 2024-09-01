@@ -52,6 +52,7 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
+  TaskLayoutArgs,
   useCreate,
   useObserveState,
   WrappedTaskLayoutProps,
@@ -59,7 +60,9 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
-export const configureWriteLayout = (create: boolean = false): Layout.State => ({
+export const configureWriteLayout = (
+  args: TaskLayoutArgs<WritePayload> = { create: false },
+): Layout.State => ({
   name: "Configure OPC UA Write Task",
   key: uuid(),
   type: WRITE_TYPE,
@@ -70,14 +73,17 @@ export const configureWriteLayout = (create: boolean = false): Layout.State => (
     size: { width: 1200, height: 900 },
     navTop: true,
   },
-  args: { create },
+  args,
 });
 
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({ ...configureWriteLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...configureWriteLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const schema = z.object({
@@ -135,7 +141,7 @@ const Wrapped = ({
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (!(await methods.validateAsync) || client == null) return;
+      if (!(await methods.validate) || client == null) return;
       const { config, name } = methods.value();
 
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
@@ -191,12 +197,11 @@ const Wrapped = ({
         channel: getChannelByNodeID(dev.properties, c.nodeId),
       }));
 
-      if (modified) {
+      if (modified)
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
-      }
 
       await createTask({
         key: task?.key,
@@ -280,20 +285,7 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            <Align.Space
-              className={CSS.B("browser")}
-              direction="y"
-              grow
-              bordered
-              rounded
-              style={{ overflow: "hidden", height: "100%" }}
-              empty
-            >
-              <Header.Header level="h4">
-                <Header.Title weight={500}>Browser</Header.Title>
-              </Header.Header>
-              <Browser device={device} />
-            </Align.Space>
+            <Browser device={device} />
             <WriterChannelList path="config.channels" device={device} />
           </Align.Space>
         </Form.Form>
@@ -339,7 +331,6 @@ export const WriterChannelList = ({
           cmdChannel: 0,
           enabled: true,
           nodeId,
-          useAsIndex: false,
           dataType: (i.data?.dataType as string) ?? "float32",
         };
       });
@@ -502,11 +493,6 @@ export const WriterChannelListItem = ({
         </Text.WithIcon>
       </Align.Space>
       <Align.Space direction="x" align="center">
-        {childValues.useAsIndex && (
-          <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
-            Index
-          </Text.Text>
-        )}
         <EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
@@ -537,15 +523,6 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
         path={`${prefix}.name`}
         label="Channel Name"
         inputProps={{ variant: "natural", level: "h3" }}
-      />
-      <Form.SwitchField
-        path={`${prefix}.useAsIndex`}
-        label="Use as Index"
-        visible={(_, ctx) =>
-          DataType.TIMESTAMP.equals(
-            ctx.get<string>(`${prefix}.dataType`, { optional: true })?.value ?? "",
-          )
-        }
       />
     </Align.Space>
   );

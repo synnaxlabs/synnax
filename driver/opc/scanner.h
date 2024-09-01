@@ -12,7 +12,7 @@
 #include <string>
 #include <memory>
 #include <utility>
-#include "opc_pub.h"
+#include "opc.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"
@@ -23,7 +23,6 @@
 using json = nlohmann::json;
 
 namespace opc {
-
 ///@brief The parameters for connecting to and iterating through nodes in the OPC UA server.A
 struct ScannerScanCommandArgs {
     ConnectionConfig connection;
@@ -31,11 +30,12 @@ struct ScannerScanCommandArgs {
     UA_NodeId node{};
 
     explicit ScannerScanCommandArgs(config::Parser parser) : connection(
-        ConnectionConfig(parser.child("connection"))),
-        node_id(parser.optional<std::string>("node_id", ""))
-    {
+                                                                 ConnectionConfig(parser.child("connection"))),
+                                                             node_id(
+                                                                 parser.optional<std::string>(
+                                                                     "node_id", "")) {
         if (node_id.empty()) node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-        else node = parseNodeId("node_id", parser);
+        else node = parse_node_id("node_id", parser);
     }
 };
 
@@ -64,10 +64,13 @@ public:
 
     void stop() override {
     }
+
 private:
     std::shared_ptr<task::Context> ctx;
     const synnax::Task task;
+
     void scan(const task::Command &cmd) const;
-    void testConnection(const task::Command &cmd) const;
+
+    void test_connection(const task::Command &cmd) const;
 };
 }

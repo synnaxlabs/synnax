@@ -45,7 +45,9 @@
 #ifdef _WIN32
 #include "dll_check_windows.h"
 #else
+
 #include "dll_check_linux.h"
+
 #endif
 
 namespace ni {
@@ -163,28 +165,29 @@ public:
 
 
     void log_error(std::string err_msg);
-    
+
     std::vector<synnax::ChannelKey> getChannelKeys();
 
     virtual void parse_config(config::Parser &parser);
 
-    virtual freighter::Error start();
+    virtual freighter::Error start(const std::string &cmd_key);
 
-    virtual freighter::Error stop();
+    virtual freighter::Error stop(const std::string &cmd_key);
 
     virtual freighter::Error start_ni();
 
     virtual freighter::Error stop_ni();
 
     void clear_task();
-    
-    virtual void stoppedWithErr(const freighter::Error &err) override;
+
+    virtual void stopped_with_err(const freighter::Error &err) override;
 
     virtual bool ok();
 
     virtual void get_index_keys();
 
-    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) =0;
+    virtual std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) = 0;
 
     virtual void parse_channels(config::Parser &parser) = 0;
 
@@ -193,8 +196,8 @@ public:
     virtual void acquire_data() = 0;
 
     virtual int create_channels() = 0;
-    
-    
+
+
     /// @brief shared resources between daq sampling thread and acquisition thread
     struct DataPacket {
         // void *data; // actual data
@@ -204,6 +207,7 @@ public:
         uint64_t tf; // final timestamp
         int32 samples_read_per_channel;
     };
+
     TSQueue<DataPacket> data_queue;
     std::thread sample_thread;
 
@@ -214,7 +218,7 @@ public:
     int buffer_size = 0;
     uint64_t num_channels = 0;
     bool ok_state = true;
-    
+
     /// @brief Synnax related resources
     json err_info;
     std::shared_ptr<task::Context> ctx;
@@ -225,7 +229,6 @@ public:
 
     /// @brief maps ni channel name to path in task configuration json
     std::map<std::string, std::string> channel_map;
-
 }; // class Source
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -240,7 +243,8 @@ public:
     ) : Source(task_handle, ctx, task) {
     }
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) override;
 
     void acquire_data() override;
 
@@ -249,8 +253,8 @@ public:
     int create_channels() override;
 
     std::shared_ptr<ni::Analog> parse_channel(config::Parser &parser,
-                                             const std::string &channel_type,
-                                             const std::string &channel_name);
+                                              const std::string &channel_type,
+                                              const std::string &channel_name);
 
     void parse_channels(config::Parser &parser) override;
 
@@ -258,7 +262,9 @@ public:
 
     int validate_channels() override;
 
-    void write_to_series(synnax::Series &series, double &data, synnax::DataType data_type);
+    void write_to_series(synnax::Series &series, double &data,
+                         synnax::DataType data_type);
+
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
     uint64_t num_ai_channels = 0;
@@ -276,7 +282,8 @@ public:
     ) : Source(task_handle, ctx, task) {
     }
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) override;
 
     void acquire_data() override;
 
@@ -305,7 +312,7 @@ public:
     synnax::Frame get_state();
 
     void update_state(std::queue<synnax::ChannelKey> &modified_state_keys,
-                     std::queue<std::uint8_t> &modified_state_values);
+                      std::queue<std::uint8_t> &modified_state_values);
 
 private:
     std::mutex state_mutex;
@@ -347,16 +354,16 @@ public:
 
     freighter::Error write(synnax::Frame frame) override;
 
-    freighter::Error stop();
+    freighter::Error stop(const std::string &cmd_key);
 
-    freighter::Error start();
+    freighter::Error start(const std::string &cmd_key);
 
     freighter::Error start_ni();
 
     freighter::Error stop_ni();
 
     freighter::Error cycle();
-    
+
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 
     std::vector<synnax::ChannelKey> get_state_channel_keys();
@@ -367,7 +374,7 @@ public:
 
     void jsonify_error(std::string);
 
-    void stoppedWithErr(const freighter::Error &err) override;
+    void stopped_with_err(const freighter::Error &err) override;
 
     void log_error(std::string err_msg);
 
@@ -490,7 +497,9 @@ public:
 
     void stop() override;
 
-    void start();
+    void stop(const std::string &cmd_key);
+
+    void start(const std::string &cmd_key);
 
     bool ok();
 
@@ -529,7 +538,9 @@ public:
 
     void stop() override;
 
-    void start();
+    void stop(const std::string &cmd_key);
+
+    void start(const std::string &cmd_key);
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
@@ -556,21 +567,20 @@ class Factory final : public task::Factory {
 public:
     Factory();
 
-    std::pair<std::unique_ptr<task::Task>, bool> configureTask(
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task) override;
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-    configureInitialTasks(const std::shared_ptr<task::Context> &ctx,
-                          const synnax::Rack &rack) override;
+    configure_initial_tasks(const std::shared_ptr<task::Context> &ctx,
+                            const synnax::Rack &rack) override;
 
 private:
     bool dlls_present = false;
-
 };
 
-static inline bool dlls_available(){
-        std::vector<std::string> dlls = {
+static inline bool dlls_available() {
+    std::vector<std::string> dlls = {
         "nicaiu.dll",
         "nipalu.dll",
         "nimdbgu.dll",
@@ -610,10 +620,11 @@ static inline bool dlls_available(){
     };
 
     bool d = true;
-    for (const auto &dll: dlls) 
-        if (!does_dll_exist(dll.c_str())) 
+    for (const auto &dll: dlls)
+        if (!does_dll_exist(dll.c_str()))
             d = false;
-    if (d) LOG(INFO) << "[ni] All required DLLs found.";
+    if (d)
+        LOG(INFO) << "[ni] All required DLLs found.";
     return d;
 } // dlls_available
 

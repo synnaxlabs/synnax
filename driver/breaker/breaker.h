@@ -57,7 +57,8 @@ public:
         "default",
         TimeSpan(1 * SECOND),
         10,
-        1.1 }) {
+        1.1
+    }) {
     }
 
     Breaker(
@@ -136,6 +137,7 @@ public:
         return true;
     }
 
+
     /// @brief waits for the given time duration. If the breaker stopped before the specified time,
     /// the method will return immediately to ensure graceful exit of objects using the breaker.
     /// @param time the time to wait (supports multiple time units).
@@ -178,7 +180,7 @@ private:
     TimeSpan interval;
     uint32_t retries;
     volatile bool is_running;
-    ///@brief a condition variable used to notify the breaker to shutdown immediately.
+    /// @brief a condition variable used to notify the breaker to shutdown immediately.
     std::unique_ptr<std::condition_variable> breaker_shutdown;
     std::mutex shutdown_mutex;
 };

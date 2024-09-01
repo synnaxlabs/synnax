@@ -26,75 +26,75 @@ synnax::Synnax new_test_client() {
 }
 
 TEST(OPCUAScnannerTest, testScannerCmdParseOnlyEdnpoint) {
-   json cmd = {
-       {"endpoint", "opc.tcp://localhost:4840"},
-   };
-   json err = {
-       {"errors", std::vector<json>()}
-   };
-   bool ok = true;
-   auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
-   EXPECT_TRUE(ok);
-   EXPECT_EQ(parsedScanCmd.endpoint, "opc.tcp://localhost:4840");
-   EXPECT_EQ(parsedScanCmd.username, "");
-   EXPECT_EQ(parsedScanCmd.password, "");
+    json cmd = {
+        {"endpoint", "opc.tcp://localhost:4840"},
+    };
+    json err = {
+        {"errors", std::vector<json>()}
+    };
+    bool ok = true;
+    auto parsedScanCmd = opcua::scanner_scan_command(cmd, err, ok);
+    EXPECT_TRUE(ok);
+    EXPECT_EQ(parsedScanCmd.endpoint, "opc.tcp://localhost:4840");
+    EXPECT_EQ(parsedScanCmd.username, "");
+    EXPECT_EQ(parsedScanCmd.password, "");
 }
 
 TEST(OPCUAScannerTest, testScannerCmdParseEndpointUsernamePassword) {
-   json cmd = {
-       {"endpoint", "opc.tcp://localhost:4840"},
-       {"username", "user"},
-       {"password", "password"}
-   };
-   json err = {
-       {"errors", std::vector<json>()}
-   };
-   bool ok = true;
-   auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
-   EXPECT_TRUE(ok);
-   EXPECT_EQ(parsedScanCmd.endpoint, "opc.tcp://localhost:4840");
-   EXPECT_EQ(parsedScanCmd.username, "user");
-   EXPECT_EQ(parsedScanCmd.password, "password");
+    json cmd = {
+        {"endpoint", "opc.tcp://localhost:4840"},
+        {"username", "user"},
+        {"password", "password"}
+    };
+    json err = {
+        {"errors", std::vector<json>()}
+    };
+    bool ok = true;
+    auto parsedScanCmd = opcua::scanner_scan_command(cmd, err, ok);
+    EXPECT_TRUE(ok);
+    EXPECT_EQ(parsedScanCmd.endpoint, "opc.tcp://localhost:4840");
+    EXPECT_EQ(parsedScanCmd.username, "user");
+    EXPECT_EQ(parsedScanCmd.password, "password");
 }
 
 TEST(OPCUAScannerTest, testScannerCmdParseNoEndpoint) {
-   json cmd = {
-       {"username", "user"},
-       {"password", "password"}
-   };
-   json err = {
-       {"errors", std::vector<json>()}
-   };
-   bool ok = true;
-   auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
-   EXPECT_FALSE(ok);
-   auto field_err = err["errors"][0];
-   EXPECT_EQ(field_err["path"], "endpoint");
-   EXPECT_EQ(field_err["message"], "required");
+    json cmd = {
+        {"username", "user"},
+        {"password", "password"}
+    };
+    json err = {
+        {"errors", std::vector<json>()}
+    };
+    bool ok = true;
+    auto parsedScanCmd = opcua::scanner_scan_command(cmd, err, ok);
+    EXPECT_FALSE(ok);
+    auto field_err = err["errors"][0];
+    EXPECT_EQ(field_err["path"], "endpoint");
+    EXPECT_EQ(field_err["message"], "required");
 }
 
 
 TEST(OPCUAScannerTest, testScannerCmdParseNoAccessControl) {
-   json cmd = {
-           {"connection", {
-               "client_certificate" "",
-                       "client_private_key": "",
-                       "endpoint": "opc.tcp://0.0.0.0:4840",
-                       "password": "",
-                       "security_mode": "None",
-                       "security_policy": "None",
-                       "server_certificate": "",
-                       "username": ""
-           }},
-           {"node_id", ""}
-   }
-   json err = {
-       {"errors", std::vector<json>()}
-   };
-   bool ok = true;
-   auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
-   EXPECT_FALSE(ok);
-   auto field_err = err["errors"][0];
-   EXPECT_EQ(field_err["path"], "username");
-   EXPECT_EQ(field_err["message"], "required");
+    json cmd = {
+        {"connection", {
+                           "client_certificate" "",
+                           "client_private_key": "",
+            "endpoint": "opc.tcp://0.0.0.0:4840",
+            "password": "",
+            "security_mode": "None",
+            "security_policy": "None",
+            "server_certificate": "",
+            "username": ""
+                       }},
+        {"node_id",    ""}
+    }
+    json err = {
+        {"errors", std::vector<json>()}
+    };
+    bool ok = true;
+    auto parsedScanCmd = opcua::scanner_scan_command(cmd, err, ok);
+    EXPECT_FALSE(ok);
+    auto field_err = err["errors"][0];
+    EXPECT_EQ(field_err["path"], "username");
+    EXPECT_EQ(field_err["message"], "required");
 }

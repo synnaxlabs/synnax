@@ -89,14 +89,14 @@ export const Confirm: Layout.Renderer = ({ layoutKey, onClose }) => {
           {description}
         </Text.Text>
       </Align.Space>
-      <Nav.Bar location="bottom" size="7rem">
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+      <Layout.BottomNavBar>
+        <Nav.Bar.Start size="small">
           <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
             To {confirmLabel.toLowerCase()}
           </Text.Text>
         </Nav.Bar.Start>
-        <Nav.Bar.End direction="x" align="center" style={{ paddingRight: "2rem" }}>
+        <Nav.Bar.End direction="x" align="center">
           <Button.Button
             variant="outlined"
             status={cancelVariant}
@@ -112,7 +112,7 @@ export const Confirm: Layout.Renderer = ({ layoutKey, onClose }) => {
             {confirmLabel}
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Layout.BottomNavBar>
     </Align.Space>
   );
 };
@@ -134,8 +134,13 @@ export const useModal = (): CreateConfirmModal => {
         const l = Layout.select(store.getState(), layout.key);
         if (l == null) resolve(false);
         const args = selectArgs<ConfirmLayoutArgs>(store.getState(), layout.key);
-        if (args.result == null) return;
-        resolve(args.result);
+        // This means the action was unrelated to the confirmation.
+        if (args != null && args.result == null) return;
+        // This means that the layout was removed by a separate mechanism than
+        // the user hitting 'Confirm' or 'Cancel'. We treat this as a cancellation.
+        if (args == null) resolve(false);
+        // Resolve with the standard result.
+        else resolve(args.result as boolean);
         unsubscribe?.();
       });
     });

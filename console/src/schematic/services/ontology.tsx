@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -16,6 +16,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
 import { Menu } from "@/components/menu";
+import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -91,6 +92,13 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
     },
+    onError: (err, { addStatus }) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to copy schematic",
+        description: err.message,
+      });
+    },
   }).mutate;
 
 const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -108,14 +116,14 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
             ),
         ),
       );
-      const otgsIDs = schematics.map(
+      const otgIDs = schematics.map(
         ({ key }) => new ontology.ID({ type: "schematic", key }),
       );
       const rangeID = new ontology.ID({ type: "range", key: activeRange });
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
         rangeID,
-        ...otgsIDs,
+        ...otgIDs,
       );
     },
   }).mutate;
@@ -173,7 +181,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.RenameItem />
-      <PMenu.Divider />
       <Menu.DeleteItem />
       <PMenu.Divider />
       {resources.every((r) => r.data?.snapshot === false) && (
@@ -205,19 +212,27 @@ const handleRename: Ontology.HandleTreeRename = {
     store.dispatch(Layout.rename({ key: id.key, name })),
 };
 
-const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout }) => {
-  void (async () => {
-    const schematic = await client.workspaces.schematic.retrieve(selection[0].id.key);
-    placeLayout(
-      create({
-        ...(schematic.data as unknown as State),
-        key: schematic.key,
-        name: schematic.name,
-        snapshot: schematic.snapshot,
-      }),
-    );
-  })();
+const loadSchematic = async (
+  client: Synnax,
+  id: ontology.ID,
+  placeLayout: Layout.Placer,
+) => {
+  const schematic = await client.workspaces.schematic.retrieve(id.key);
+  placeLayout(
+    create({
+      ...(schematic.data as unknown as State),
+      key: schematic.key,
+      name: schematic.name,
+      snapshot: schematic.snapshot,
+    }),
+  );
 };
+
+const handleSelect: Ontology.HandleSelect = async ({
+  client,
+  selection,
+  placeLayout,
+}) => await loadSchematic(client, selection[0].id, placeLayout);
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
