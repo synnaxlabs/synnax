@@ -262,6 +262,9 @@ export const DefaultItem = memo(
 
     const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
 
+    let offset = depth * 2 + 1;
+    if (actuallyHasChildren && useMargin) offset -= 1;
+
     const baseProps: Button.LinkProps | Button.ButtonProps = {
       id: key,
       variant: "text",
@@ -282,7 +285,7 @@ export const DefaultItem = memo(
         border: "none",
         position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
-        [offsetKey]: `${depth * 1.5 + 1.5}rem`,
+        [offsetKey]: `${offset}rem`,
         // @ts-expect-error - CSS variable
         "--pluto-tree-indicator-offset": `${depth * 1.5 + (depth === 0 ? 0 : 0.5)}rem`,
       },

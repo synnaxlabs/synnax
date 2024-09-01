@@ -29,8 +29,8 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
     }
 
     .pluto-tree {
-        max-height: calc(100vh - 32rem);
-        overflow-y: auto;
+        max-height: calc(100vh - 32rem) !important;
+        overflow-y: auto !important;
         .pluto-text {
             color: var(--pluto-gray-l7);
             font-size: var(--pluto-small-size);
@@ -53,7 +53,7 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             width: unset !important;
 
             &:not(.pluto--has-children) {
-                padding-left: 4rem !important;
+                padding-left: 4.25rem !important;
             }
 
             &:hover:not(.pluto--selected) {
