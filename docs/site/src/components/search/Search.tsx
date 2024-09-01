@@ -100,7 +100,7 @@ export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
   const path = deep.transformPath(
     href,
     (part, index, parts) => {
-      if (part.length === 0 || index === parts.length - 1) return null;
+      if (part.length === 0 || index === parts.length - 1) return undefined;
       const split = part
         .split("-")
         .filter((p) => p.length > 0)
@@ -109,7 +109,6 @@ export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
     },
     "/",
   );
-  console.log(path);
   return (
     <List.ItemFrame
       id={key.toString()}
@@ -152,7 +151,6 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
       }),
     });
     const json = await res.json();
-    console.log(json);
     setResults(
       json.hits.map((hit: any) => ({
         key: hit.objectID,

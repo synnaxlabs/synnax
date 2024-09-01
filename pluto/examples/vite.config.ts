@@ -15,10 +15,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    // alias: {
-    //   "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../dist"),
-    //   "@synnaxlabs/pluto": path.resolve(__dirname, "../src"),
-    //   "@synnaxlabs/drift/dist": path.resolve(__dirname, "../dist"),
-    // },
+    alias: {
+      "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../dist"),
+      "@synnaxlabs/pluto": path.resolve(__dirname, "../src"),
+      "@synnaxlabs/drift/dist": path.resolve(__dirname, "../dist"),
+    },
   },
 });
