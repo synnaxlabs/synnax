@@ -26,7 +26,7 @@ func (s *Service) Enforce(ctx context.Context, req access.Request) error {
 	if len(policies) == 0 {
 		return access.Denied
 	}
-	if AllowRequest(req, policies) {
+	if allowRequest(req, policies) {
 		return access.Granted
 	}
 	return access.Denied

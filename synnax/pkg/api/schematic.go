@@ -11,12 +11,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type SchematicService struct {
@@ -70,7 +71,7 @@ type SchematicRenameRequest struct {
 func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -88,7 +89,7 @@ type SchematicSetDataRequest struct {
 func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.Update,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err

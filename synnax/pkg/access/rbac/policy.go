@@ -41,7 +41,7 @@ func (p Policy) GorpKey() uuid.UUID { return p.Key }
 // SetOptions implements the gorp.Entry interface.
 func (p Policy) SetOptions() []interface{} { return nil }
 
-// AllowRequest returns true if the policies allow the given access.Request.
+// allowRequest returns true if the policies allow the given access.Request.
 //
 // For a request to be allowed:
 //   - The request's subject must have object-action pairs for each object specified in
@@ -49,7 +49,7 @@ func (p Policy) SetOptions() []interface{} { return nil }
 //   - An object-action pair is a pair with the specified action in the request and an
 //     object that is either a type object with the correct type, or an object that
 //     exactly matches one of the requested objects.
-func AllowRequest(req access.Request, policies []Policy) bool {
+func allowRequest(req access.Request, policies []Policy) bool {
 	requestedObjects := make(map[ontology.ID]struct{})
 	for _, o := range req.Objects {
 		requestedObjects[o] = struct{}{}
@@ -57,10 +57,19 @@ func AllowRequest(req access.Request, policies []Policy) bool {
 
 	for _, policy := range policies {
 		if !lo.Contains(policy.Subjects, req.Subject) {
-			// Policy not pertaining to requested subject.
-			continue
+			// Policy not directly pertaining to requested subject.
+			var shouldContinue bool = true
+			for _, s := range policy.Subjects {
+				if s.IsType() && s.Type == req.Subject.Type {
+					shouldContinue = false
+					break
+				}
+			}
+			if shouldContinue {
+				continue
+			}
 		}
-		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) {
+		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) && !lo.Contains(policy.Actions, access.All) {
 			// If the requested action is not described by the current policy,
 			// skip the policy.
 			// Unless the policy is an AllowAll, in which case do not skip.

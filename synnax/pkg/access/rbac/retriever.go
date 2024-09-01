@@ -36,6 +36,13 @@ func (r Retriever) WhereSubjects(subjects ...ontology.ID) Retriever {
 			if lo.Contains(subjects, subject) {
 				return true
 			}
+			if subject.IsType() {
+				for _, s := range subjects {
+					if s.Type == subject.Type {
+						return true
+					}
+				}
+			}
 		}
 		return false
 	})

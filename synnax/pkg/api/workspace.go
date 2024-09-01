@@ -11,13 +11,14 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type WorkspaceService struct {
@@ -74,7 +75,7 @@ type WorkspaceRenameRequest struct {
 func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -92,7 +93,7 @@ type WorkspaceSetLayoutRequest struct {
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err

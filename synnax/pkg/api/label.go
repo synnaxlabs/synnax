@@ -13,12 +13,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type LabelService struct {
@@ -133,7 +134,7 @@ func (s *LabelService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.Delete,
 		Objects: label.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err

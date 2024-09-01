@@ -11,12 +11,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type LinePlotService struct {
@@ -69,7 +70,7 @@ type LinePlotRenameRequest struct {
 func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -87,7 +88,7 @@ type LinePlotSetDataRequest struct {
 func (s *LinePlotService) SetData(ctx context.Context, req LinePlotSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.Update,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
