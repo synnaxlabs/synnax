@@ -41,7 +41,7 @@ jobs:
 
       # Test with Main Server
       - name: Start Main Server
-        run: docker run -d --name synnax-main -p 9090:9090 -v /usr/local/synnax/data:/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:latest
+        run: docker run -d --name synnax-main -p 9090:9090 -v /usr/local/synnax/data:/usr/local/synnax/data  ghcr.io/synnaxlabs/synnax:latest  --listen=0.0.0.0:9090 --verbose --insecure   --license-key=${{ secrets.SYNNAX_LICENSE_KEY }}
 
       - name: Checkout Main Branch for Tests
         uses: actions/checkout@v3
@@ -89,8 +89,7 @@ jobs:
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
       - name: Start Current Server
-        run: docker run -d --name synnax-current -p 9090:9090 -v /usr/local/synnax/data:/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
-
+        run: docker run -d --name synnax-current -p 9090:9090 -v /usr/local/synnax/data:/usr/local/synnax/data  ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}  --listen=0.0.0.0:9090 --verbose --insecure   --license-key=${{ secrets.synnax_license_key }}
       - name: Checkout Main Branch for Tests (Again)
         uses: actions/checkout@v3
         with:
