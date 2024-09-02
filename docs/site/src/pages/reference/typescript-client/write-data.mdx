@@ -9,15 +9,14 @@ export const components = { pre: Code };
 import { Divider } from "@synnaxlabs/pluto";
 import Note from "@/components/Note.astro";
 
-The Synnax TypeScript client supports multiple methods for writing data to a
-cluster. We can write directly to a channel, or we can write to multiple
-channels in a streaming fashion using a writer.
+The Synnax TypeScript client supports multiple methods for writing data to a cluster. We
+can write directly to a channel, or we can write to multiple channels in a streaming
+fashion using a writer.
 
-Writes in Synnax are more complicated than reads, and, as such, we 
-recommend checking out our [concepts](/reference/concepts/writes) page
-to learn more about writing data to Synnax.
-
-At the very least, you should be familiar with the [rules of writes](/reference/concepts/writes#rules-of-writes).
+Writes in Synnax are more complicated than reads, and, as such, we recommend checking
+out our [concepts](/reference/concepts/writes) page to learn more about writing data to
+Synnax. The [rules of writes](/reference/concepts/writes#rules-of-writes) are especially
+important.
 
 <Divider.Divider direction="x" />
 
@@ -31,15 +30,15 @@ examples:
 import { DataType } from "@synnaxlabs/client";
 
 const timeChannel = await client.channels.create({
-    name: "time",
-    dataType: DataType.TIMESTAMP,
-    isIndex: true,
+  name: "time",
+  dataType: DataType.TIMESTAMP,
+  isIndex: true,
 });
 
 const temperatureChannel = await client.channels.create({
-    name: "temperature",
-    dataType: DataType.FLOAT32,
-    index: timeChannel.key,
+  name: "temperature",
+  dataType: DataType.FLOAT32,
+  index: timeChannel.key,
 });
 ```
 
@@ -53,11 +52,11 @@ import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
 
 const start = TimeStamp.now();
 const timestamps = new BigInt64Array([
-    start.valueOf(), // valueOf() converts a TimeSpan to a bigint.
-    start.add(TimeSpan.seconds(1)).valueOf(),
-    start.add(TimeSpan.seconds(2)).valueOf(),
-    start.add(TimeSpan.seconds(3)).valueOf(),
-    start.add(TimeSpan.seconds(4)).valueOf(),
+  start.valueOf(), // valueOf() converts a TimeSpan to a bigint.
+  start.add(TimeSpan.seconds(1)).valueOf(),
+  start.add(TimeSpan.seconds(2)).valueOf(),
+  start.add(TimeSpan.seconds(3)).valueOf(),
+  start.add(TimeSpan.seconds(4)).valueOf(),
 ]);
 const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
 
@@ -96,15 +95,15 @@ We'll create the following channels to use as examples:
 import { DataType } from "@synnaxlabs/client";
 
 const timeChannel = await client.channels.create({
-    name: "time",
-    dataType: DataType.TIMESTAMP,
-    isIndex: true,
+  name: "time",
+  dataType: DataType.TIMESTAMP,
+  isIndex: true,
 });
 
 const temperatureChannel = await client.channels.create({
-    name: "temperature",
-    dataType: DataType.FLOAT32,
-    index: timeChannel.key,
+  name: "temperature",
+  dataType: DataType.FLOAT32,
+  index: timeChannel.key,
 });
 ```
 
@@ -169,26 +168,26 @@ await writer.write("temperature", [20.0, 20.1, 20.2, 20.3, 20.4]);
 
 // Write a single sample for several channels
 await writer.write({
-    time: TimeStamp.now(),
-    temperature: 20.0,
+  time: TimeStamp.now(),
+  temperature: 20.0,
 });
 
 // Write multiple samples for several channels
 const start = TimeStamp.now();
 await writer.write({
-    time: [start, start.add(TimeSpan.seconds(1))],
-    temperature: [20.0, 20.1],
+  time: [start, start.add(TimeSpan.seconds(1))],
+  temperature: [20.0, 20.1],
 });
 
 // Write typed arrays for several channels
 await writer.write(
-    new Frame({
-        [timeChannel.key]: new BigInt64Array([
-            start.valueOf(),
-            start.add(TimeSpan.seconds(1)).valueOf(),
-        ]),
-        [temperatureChannel.key]: new Float32Array([20.0, 20.1]),
-    }),
+  new Frame({
+    [timeChannel.key]: new BigInt64Array([
+      start.valueOf(),
+      start.add(TimeSpan.seconds(1)).valueOf(),
+    ]),
+    [temperatureChannel.key]: new Float32Array([20.0, 20.1]),
+  }),
 );
 ```
 
@@ -202,24 +201,24 @@ option to `true` when opening the writer:
 import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
 const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"],
-    enableAutoCommit: true,
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  enableAutoCommit: true,
 });
 
 try {
-    for (let i = 0; i < 100; i++) {
-        const start = TimeStamp.now();
-        await writer.write(
-            new Frame({
-                time: start,
-                temperature: Math.sin(i / 100),
-            }),
-        );
-        await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+  for (let i = 0; i < 100; i++) {
+    const start = TimeStamp.now();
+    await writer.write(
+      new Frame({
+        time: start,
+        temperature: Math.sin(i / 100),
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 } finally {
-    await writer.close();
+  await writer.close();
 }
 ```
 
@@ -245,9 +244,9 @@ argument with an integer.
 import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
 const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"],
-    authority: 100,
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  authority: 100,
 });
 ```
 
@@ -261,9 +260,9 @@ in the writer.
 import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
 const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"],
-    authority: [100, 200],
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  authority: [100, 200],
 });
 ```
 
@@ -277,8 +276,8 @@ method:
 await writer.setAuthority(200);
 // Set the authority on just a few channels
 await writer.setAuthority({
-    time: 200,
-    temperature: 100,
+  time: 200,
+  temperature: 100,
 });
 ```
 
@@ -295,9 +294,9 @@ For example, to open a writer that only persists data:
 import { TimeStamp, Series, Frame, WriterMode } from "@synnaxlabs/client";
 
 const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"],
-    mode: "persist",
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  mode: "persist",
 });
 ```
 
@@ -329,16 +328,16 @@ This is also a bad idea:
 
 ```typescript
 for (let i = 0; i < 100; i++) {
-    const writer = await client.openWriter({
-        start: TimeStamp.now(),
-        channels: ["time", "temperature"],
-        enableAutoCommit: true,
-    });
-    await writer.write({
-        time: TimeStamp.now(),
-        temperature: Math.sin(i / 100),
-    });
-    await writer.close();
+  const writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: ["time", "temperature"],
+    enableAutoCommit: true,
+  });
+  await writer.write({
+    time: TimeStamp.now(),
+    temperature: Math.sin(i / 100),
+  });
+  await writer.close();
 }
 ```
 
@@ -375,19 +374,19 @@ This is a bad idea:
 
 ```typescript
 const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"],
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
 });
 try {
-    for (let i = 0; i < 100; i++) {
-        await writer.write({
-            time: TimeStamp.now(),
-            temperature: Math.sin(i / 100),
-        });
-        await writer.commit();
-    }
+  for (let i = 0; i < 100; i++) {
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: Math.sin(i / 100),
+    });
+    await writer.commit();
+  }
 } finally {
-    await writer.close();
+  await writer.close();
 }
 ```
 
@@ -395,17 +394,17 @@ Instead, use auto-commit:
 
 ```typescript
 const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"],
-    enableAutoCommit: true,
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  enableAutoCommit: true,
 });
 try {
-    for (let i = 0; i < 100; i++)
-        await writer.write({
-            time: TimeStamp.now(),
-            temperature: Math.sin(i / 100),
-        });
+  for (let i = 0; i < 100; i++)
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: Math.sin(i / 100),
+    });
 } finally {
-    await writer.close();
+  await writer.close();
 }
 ```
