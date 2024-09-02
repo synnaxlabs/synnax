@@ -42,7 +42,7 @@ import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
-import { IoBookSharp, IoCopy, IoDownloadOutline, IoTime } from "react-icons/io5";
+import { IoBookSharp, IoCopy, IoTime } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
