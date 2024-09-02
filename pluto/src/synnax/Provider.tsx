@@ -39,6 +39,15 @@ const CONNECTION_STATE_VARIANT: Record<connection.Status, Status.Variant> = {
   failed: "error",
 };
 
+export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
+
+const generateErrorDescription = (
+  oldServer: boolean,
+  clientVersion: string,
+  nodeVersion?: string,
+): string =>
+  `Cluster version ${nodeVersion != null ? nodeVersion + " " : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+
 export const Provider = Aether.wrap<ProviderProps>(
   synnax.Provider.TYPE,
   ({ aetherKey, connParams, children }): ReactElement => {
@@ -53,19 +62,19 @@ export const Provider = Aether.wrap<ProviderProps>(
       initialState: { props: connParams ?? null, state: null },
     });
 
-    const add = Status.useAggregator();
+    const addStatus = Status.useAggregator();
 
     const handleChange = useCallback(
       (state: connection.State) => {
         if (ref.current.state.status !== state.status) {
-          add({
+          addStatus({
             variant: CONNECTION_STATE_VARIANT[state.status],
             message: state.message ?? caseconv.capitalize(state.status),
           });
         }
         setState((prev) => ({ ...prev, state }));
       },
-      [add],
+      [addStatus],
     );
 
     useAsyncEffect(async () => {
@@ -91,7 +100,7 @@ export const Provider = Aether.wrap<ProviderProps>(
       const connectivity = await c.connectivity.check();
 
       setState({ synnax: c, state: connectivity });
-      add({
+      addStatus({
         variant: CONNECTION_STATE_VARIANT[connectivity.status],
         message: connectivity.message ?? connectivity.status.toUpperCase(),
       });
@@ -101,25 +110,18 @@ export const Provider = Aether.wrap<ProviderProps>(
           connectivity.nodeVersion == null ||
           migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
 
-        let description: string;
-        if (!oldServer)
-          description = `
-        Cluster version ${connectivity.nodeVersion} is newer than client version ${connectivity.clientVersion}.
-        Compatibility issues may arise. 
-        `;
-        else if (connectivity.nodeVersion != null)
-          description = `Cluster version ${connectivity.nodeVersion} is older than client version ${connectivity.clientVersion}.
-        Compatibility issues may arise. 
-        `;
-        else
-          description = `Cluster version is older than client version ${connectivity.clientVersion}. Compatibility issues may arise. `;
+        const description = generateErrorDescription(
+          oldServer,
+          connectivity.clientVersion,
+          connectivity.nodeVersion,
+        );
 
-        add({
+        addStatus({
           variant: "warning",
           message: "Incompatible cluster version",
           description,
           data: {
-            type: "serverVersionMismatch",
+            type: SERVER_VERSION_MISMATCH,
             oldServer,
             nodeVersion: connectivity.nodeVersion,
             clientVersion: connectivity.clientVersion,
