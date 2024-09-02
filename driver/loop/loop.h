@@ -58,12 +58,12 @@ public:
 
     explicit Timer(
         const synnax::TimeSpan &interval
-    ): interval(interval), last(std::chrono::high_resolution_clock::now()) {
+    ) : interval(interval), last(std::chrono::high_resolution_clock::now()) {
     }
 
     explicit Timer(
         const synnax::Rate &rate
-    ): interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
+    ) : interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
     }
 
     ::TimeSpan elapsed(std::chrono::high_resolution_clock::time_point now) {
@@ -98,7 +98,8 @@ public:
         }
         const auto remaining = interval - elapsed;;
         if (this->highRate()) preciseSleep(remaining);
-        else if (this->mediumRate()) std::this_thread::sleep_for(remaining.chrono());
+        else if (this->mediumRate())
+            std::this_thread::sleep_for(remaining.chrono());
         else breaker.waitFor(remaining);
         last = hs_clock::now();
         return {synnax::TimeSpan(elapsed), true};
@@ -106,7 +107,11 @@ public:
 
 private:
     [[nodiscard]] bool highRate() const { return interval < HIGH_RES_THRESHOLD; }
-    [[nodiscard]] bool mediumRate() const { return interval < MEDIUM_RES_THRESHOLD; }
+
+    [[nodiscard]] bool mediumRate() const {
+        return interval < MEDIUM_RES_THRESHOLD;
+    }
+
     synnax::TimeSpan interval{};
     bool last_set = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;

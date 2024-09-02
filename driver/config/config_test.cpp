@@ -306,7 +306,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
     ASSERT_NEAR(v.dog, 1.232, 0.0001);
 }
 
-TEST(testConfig, testArray){
+TEST(testConfig, testArray) {
     json j = {
         {"array", {1, 2, 3, 4, 5}}
     };
@@ -321,7 +321,7 @@ TEST(testConfig, testArray){
     ASSERT_EQ(values[4], 5);
 }
 
-TEST(testConfig, testArrayDoesNotExist){
+TEST(testConfig, testArrayDoesNotExist) {
     json j = {};
     config::Parser parser(j);
     auto values = parser.required_vector<int>("array");
@@ -332,7 +332,7 @@ TEST(testConfig, testArrayDoesNotExist){
     EXPECT_EQ(err["message"], "This field is required");
 }
 
-TEST(testConfig, testArrayIsNotArray){
+TEST(testConfig, testArrayIsNotArray) {
     json j = {
         {"array", 1}
     };
@@ -345,7 +345,7 @@ TEST(testConfig, testArrayIsNotArray){
     EXPECT_EQ(err["message"], "Expected an array");
 }
 
-TEST(testConfig, testOptionalArray){
+TEST(testConfig, testOptionalArray) {
     json j = {
         {"array", {1, 2, 3, 4, 5}}
     };

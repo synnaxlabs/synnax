@@ -21,6 +21,7 @@
 
 namespace priv {
 const std::string PROTOCOL = "grpc";
+
 /// @brief converts a grpc::Status to a freighter::Error.
 inline freighter::Error errFromStatus(const grpc::Status &status) {
     if (status.ok()) return freighter::NIL;
@@ -192,7 +193,7 @@ public:
             freighter::Stream<RQ, RS> > > &mw,
         freighter::Context &req_ctx,
         freighter::Context &res_ctx
-    ): mw(mw) {
+    ) : mw(mw) {
         stub = RPC::NewStub(ch);
         for (const auto &[k, v]: req_ctx.params)
             grpc_ctx.AddMetadata(k, v);

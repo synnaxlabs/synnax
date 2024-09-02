@@ -30,7 +30,10 @@ body {
 }
 
 * {
-    user-select: none !important;
-    -webkit-user-select: none !important;
+    *:not(:is(.pluto-text, input, label)) {
+        user-select: none !important;
+        -webkit-user-select: none !important;
+    }
+
     box-sizing: border-box;
 }

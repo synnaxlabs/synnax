@@ -294,14 +294,14 @@ freighter::Error HardwareClient::createDevice(Device &device) const {
     return err;
 }
 
-Device::Device(const api::v1::Device &device): key(device.key()),
-                                               name(device.name()),
-                                               rack(device.rack()),
-                                               location(device.location()),
-                                               identifier(device.identifier()),
-                                               make(device.make()),
-                                               model(device.model()),
-                                               properties(device.properties()) {
+Device::Device(const api::v1::Device &device) : key(device.key()),
+                                                name(device.name()),
+                                                rack(device.rack()),
+                                                location(device.location()),
+                                                identifier(device.identifier()),
+                                                make(device.make()),
+                                                model(device.model()),
+                                                properties(device.properties()) {
 }
 
 void Device::to_proto(api::v1::Device *device) const {

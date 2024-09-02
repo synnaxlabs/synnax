@@ -15,7 +15,6 @@ import {
   type MultiSeries,
   TimeRange,
   TimeSpan,
-  toArray,
 } from "@synnaxlabs/x";
 
 import { type Key, type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";

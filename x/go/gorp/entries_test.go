@@ -96,4 +96,12 @@ var _ = Describe("Entries", func() {
 		})
 	})
 
+	Describe("Keys", func() {
+		It("Should return the keys of the entries", func() {
+			q := gorp.NewRetrieve[int, entry]()
+			gorp.SetEntry[int, entry](q.Params, &entry{ID: 1})
+			entries := gorp.GetEntries[int, entry](q.Params)
+			Expect(entries.Keys()).To(ConsistOf(1))
+		})
+	})
 })

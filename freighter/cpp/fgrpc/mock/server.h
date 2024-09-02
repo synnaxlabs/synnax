@@ -20,7 +20,7 @@
 #include <condition_variable>
 #include "freighter/cpp/fgrpc/mock/freighter/cpp/freighter/fgrpc/mock/service.grpc.pb.h"
 
-/// @brief Used to awake main thread when we are 
+/// @brief Used to awake main thread when we are
 /// done processing messages.
 std::mutex mut;
 std::condition_variable cond;
@@ -30,7 +30,8 @@ bool end_session = false;
 class unaryServiceImpl final : public test::UnaryMessageService::Service {
 public:
     /// @brief The implementation on the server side of unary communication.
-    grpc::Status Exec(grpc::ServerContext *context, const test::Message *request, test::Message *reply) override {
+    grpc::Status Exec(grpc::ServerContext *context, const test::Message *request,
+                      test::Message *reply) override {
         // get the key 'test' from meta data
         auto test = context->client_metadata().find("test");
         std::string rep("Read request: ");
@@ -41,13 +42,15 @@ public:
         reply->set_payload(rep + request->payload());
         return grpc::Status::OK;
     }
+
 private:
 };
 
 class myStreamServiceImpl final : public test::StreamMessageService::Service {
     /// @brief The implementation of the server side stream.
     grpc::Status
-    Exec(grpc::ServerContext *context, grpc::ServerReaderWriter<test::Message, test::Message> *stream) override {
+    Exec(grpc::ServerContext *context,
+         grpc::ServerReaderWriter<test::Message, test::Message> *stream) override {
         // Send initial meta data
         context->AddInitialMetadata("test", "dog");
         stream->SendInitialMetadata();

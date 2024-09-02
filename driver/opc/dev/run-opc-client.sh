@@ -9,4 +9,4 @@
 # included in the file licenses/APL.txt.
 #
 
-bazel run //driver/opc:client opc.tcp://0.0.0.0:4840 /Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/client_cert.pem /Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/client_key.pem /Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/server_cert.der
+bazel run //driver/opc/dev:client

@@ -25,7 +25,7 @@ public:
             queue.pop();
         }
         queue.push(item);
-        
+
         waiting_consumers.notify_one();
     }
 

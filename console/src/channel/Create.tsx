@@ -174,14 +174,14 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
           </Form.Field>
         </Form.Form>
       </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
+      <Layout.BottomNavBar>
+        <Nav.Bar.Start size="small">
           <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
             To Save
           </Text.Text>
         </Nav.Bar.Start>
-        <Nav.Bar.End style={{ padding: "1rem" }} align="center" size="large">
+        <Nav.Bar.End align="center" size="large">
           <Align.Space direction="x" align="center" size="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
             <Text.Text level="p" shade={7}>
@@ -197,7 +197,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
             Create Channel
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Layout.BottomNavBar>
     </Align.Space>
   );
 };

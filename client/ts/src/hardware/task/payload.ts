@@ -55,6 +55,7 @@ export const taskZ = z.object({
     }),
   ) as z.ZodType<UnknownRecord>,
   state: stateZ.optional().nullable(),
+  snapshot: z.boolean().optional(),
 });
 
 export const newTaskZ = taskZ.omit({ key: true }).extend({

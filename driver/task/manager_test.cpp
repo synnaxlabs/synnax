@@ -20,7 +20,7 @@ class MockTaskFactory : public task::Factory {
 public:
     bool configured = false;
 
-    std::pair<std::unique_ptr<task::Task>, bool> configureTask(
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override { return {nullptr, false}; }

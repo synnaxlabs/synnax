@@ -268,7 +268,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      {singleResource && <Link.CopyMenuItem />}
+      {singleResource && (
+        <>
+          <PMenu.Divider />
+          <Link.CopyMenuItem />
+        </>
+      )}
       <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>

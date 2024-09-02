@@ -121,9 +121,7 @@ const SymbolRenderer = ({
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
-  if (C == null) {
-    throw new Error(`Symbol ${key} not found`);
-  }
+  if (C == null) throw new Error(`Symbol ${key} not found`);
 
   const zoom = useSelectViewport(layoutKey);
 

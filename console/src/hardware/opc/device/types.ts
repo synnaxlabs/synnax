@@ -59,6 +59,9 @@ export const propertiesZ = z.object({
     index: z.number(),
     channels: z.record(z.string(), z.number()),
   }),
+  write: z.object({
+    channels: z.record(z.string(), z.number()),
+  }),
 });
 
 export type Properties = z.infer<typeof propertiesZ>;
