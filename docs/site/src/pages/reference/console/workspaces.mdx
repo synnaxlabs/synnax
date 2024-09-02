@@ -4,6 +4,7 @@ title: "Workspaces"
 heading: "Workspaces"
 description: "Organize and share console layouts with workspaces."
 ---
+
 import { Image } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
@@ -12,17 +13,17 @@ import { Video } from "@/components/Media";
 import Diagram from "@/components/Diagram.astro";
 
 <Diagram style="height: 400px" preview>
-    <Image 
-        client:only="react"
-        id="console/workspaces/workspaces"
-        themed={false}
-        style={{
-            height: "500px",
-            width: "fit-content",
-            transform: "translate(0%, 0%)",
-            borderRadius: "1.5rem"
-        }}
-    />
+  <Image
+    client:only="react"
+    id="console/workspaces/workspaces"
+    themed={false}
+    style={{
+      height: "500px",
+      width: "fit-content",
+      transform: "translate(0%, 0%)",
+      borderRadius: "1.5rem",
+    }}
+  />
 </Diagram>
 
 Workspaces allow you to save a particular console layout for later access and to share
@@ -33,7 +34,7 @@ with others. This can be useful for organizing your console layouts for differen
 
 ## Creating a New Workspace
 
-To create a new workspace, use the workspace selector in the top-left corner of the 
+To create a new workspace, use the workspace selector in the top-left corner of the
 console.
 
 <Video client:only="react" id="console/workspaces/create" />
