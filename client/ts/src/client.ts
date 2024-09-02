@@ -80,6 +80,11 @@ export default class Synnax extends framer.Client {
   private readonly transport: Transport;
 
   /**
+   * The version of the client.
+   */
+  readonly clientVersion: string = __VERSION__;
+
+  /**
    * @param props.host - Hostname of a node in the cluster.
    * @param props.port - Port of the node in the cluster.
    * @param props.username - Username for authentication. Not required if the
@@ -101,10 +106,7 @@ export default class Synnax extends framer.Client {
     transport.use(errorsMiddleware);
     let auth_: auth.Client | undefined;
     if (username != null && password != null) {
-      auth_ = new auth.Client(transport.unary, {
-        username,
-        password,
-      });
+      auth_ = new auth.Client(transport.unary, { username, password });
       transport.use(auth_.middleware());
     }
     const chRetriever = new channel.CacheRetriever(
@@ -120,6 +122,7 @@ export default class Synnax extends framer.Client {
     this.connectivity = new connection.Checker(
       transport.unary,
       connectivityPollFrequency,
+      this.clientVersion,
       props.name,
     );
     this.control = new control.Client(this);

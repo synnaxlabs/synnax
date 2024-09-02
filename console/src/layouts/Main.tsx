@@ -15,6 +15,7 @@ import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { ChannelServices } from "@/channel/services";
+import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
@@ -28,6 +29,20 @@ import { SchematicServices } from "@/schematic/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
+const NOTIFICATION_ADAPTERS = [
+  ...Device.NOTIFICATION_ADAPTERS,
+  ...Version.NOTIFICATION_ADAPTERS,
+  ...Cluster.NOTIFICATION_ADAPTERS,
+];
+
+const LINK_HANDLERS: Link.Handler[] = [
+  ChannelServices.linkHandler,
+  LinePlotServices.linkHandler,
+  RangeServices.linkHandler,
+  SchematicServices.linkHandler,
+  Workspace.linkHandler,
+];
+
 const SideEffect = (): null => {
   const dispatch = useDispatch();
   useEffect(() => {
@@ -36,7 +51,7 @@ const SideEffect = (): null => {
   Version.useLoadTauri();
   Device.useListenForChanges();
   Workspace.useSyncLayout();
-  Link.useDeep({ handlers: HANDLERS });
+  Link.useDeep({ handlers: LINK_HANDLERS });
   return null;
 };
 
@@ -49,7 +64,7 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
 export const Main = (): ReactElement => (
   <>
     {/* We need to place notifications here so they are in the proper stacking context */}
-    <Notifications.Notifications />
+    <Notifications.Notifications adapters={NOTIFICATION_ADAPTERS} />
     <SideEffect />
     <NavTop />
     <Layout.Modals />
@@ -73,11 +88,3 @@ export const Main = (): ReactElement => (
     <NavBottom />
   </>
 );
-
-export const HANDLERS: Link.Handler[] = [
-  ChannelServices.linkHandler,
-  LinePlotServices.linkHandler,
-  RangeServices.linkHandler,
-  SchematicServices.linkHandler,
-  Workspace.linkHandler,
-];

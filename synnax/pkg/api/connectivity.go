@@ -12,6 +12,8 @@ package api
 import (
 	"context"
 	"go/types"
+
+	"github.com/synnaxlabs/synnax/pkg/version"
 )
 
 // ConnectivityService is a simple service that allows a client to check their connection
@@ -26,12 +28,14 @@ func NewConnectivityService(p Provider) *ConnectivityService {
 
 // ConnectivityCheckResponse is returned by the ConnectivityService.Check method.
 type ConnectivityCheckResponse struct {
-	ClusterKey string `json:"cluster_key"`
+	ClusterKey  string `json:"cluster_key" msgpack:"cluster_key"`
+	NodeVersion string `json:"node_version" msgpack:"node_version"`
 }
 
 // Check does nothing except return a success response.
 func (c *ConnectivityService) Check(ctx context.Context, _ types.Nil) (ConnectivityCheckResponse, error) {
 	return ConnectivityCheckResponse{
-		ClusterKey: c.clusterProvider.cluster.Key().String(),
+		ClusterKey:  c.clusterProvider.cluster.Key().String(),
+		NodeVersion: version.Get(),
 	}, nil
 }

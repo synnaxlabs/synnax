@@ -37,14 +37,20 @@ func (c connectivityResponseTranslator) Forward(
 	ctx context.Context,
 	r api.ConnectivityCheckResponse,
 ) (*gapi.ConnectivityCheckResponse, error) {
-	return &gapi.ConnectivityCheckResponse{ClusterKey: r.ClusterKey}, nil
+	return &gapi.ConnectivityCheckResponse{
+		ClusterKey:  r.ClusterKey,
+		NodeVersion: r.NodeVersion,
+	}, nil
 }
 
 func (c connectivityResponseTranslator) Backward(
 	ctx context.Context,
 	r *gapi.ConnectivityCheckResponse,
 ) (api.ConnectivityCheckResponse, error) {
-	return api.ConnectivityCheckResponse{ClusterKey: r.ClusterKey}, nil
+	return api.ConnectivityCheckResponse{
+		ClusterKey:  r.ClusterKey,
+		NodeVersion: r.NodeVersion,
+	}, nil
 }
 
 func newConnectivity(a *api.Transport) fgrpc.BindableTransport {
