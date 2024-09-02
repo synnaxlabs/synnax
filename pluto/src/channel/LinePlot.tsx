@@ -11,7 +11,7 @@ import "@/channel/LinePlot.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { box, location as loc, xy } from "@synnaxlabs/x/spatial";
-import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
+import { type TimeRange, TimeSpan } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
@@ -53,6 +53,7 @@ export interface BaseLineProps {
 export interface StaticLineProps extends BaseLineProps {
   variant: "static";
   timeRange: TimeRange;
+  offset?: number;
 }
 
 export interface DynamicLineProps extends BaseLineProps {
@@ -320,7 +321,7 @@ const YAxis = ({
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
     >
       {lines.map((l) => (
-        <Line key={lineKey(l)} line={l} />
+        <Line key={l.key} line={l} />
       ))}
       {rules?.map((r) => (
         <Rule.Rule
@@ -369,6 +370,7 @@ const StaticLine = ({
     timeRange,
     key,
     channels: { x, y },
+    offset,
     ...props
   },
 }: {
@@ -380,6 +382,7 @@ const StaticLine = ({
     timeRange,
     channel: hasX ? x : y,
     useIndexOfChannel: !hasX,
+    offset,
   });
   return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };

@@ -60,7 +60,7 @@ export { Triggers } from "@/triggers";
 export * from "@/util/renderProp";
 export { Video } from "@/video";
 export { Viewport } from "@/viewport";
-export { axis } from "@/vis/axis";
+export { axis } from "@/vis/axis/aether";
 export { Canvas } from "@/vis/canvas";
 export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
@@ -71,6 +71,7 @@ export { Range } from "@/vis/lineplot/range";
 export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
+export { Timeline } from "@/vis/timeline";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
 export type {

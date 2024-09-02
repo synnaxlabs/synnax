@@ -21,8 +21,8 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { axis } from "@/vis/axis";
-import { type TickType } from "@/vis/axis/ticks";
+import { axis } from "@/vis/axis/aether";
+import { type TickType } from "@/vis/axis/aether/ticks";
 import { calculateGridPosition, type GridSpec } from "@/vis/lineplot/aether/grid";
 import { render } from "@/vis/render";
 

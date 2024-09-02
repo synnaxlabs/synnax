@@ -18,7 +18,8 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
-import { setActiveToolbarTab,type ToolbarTab } from "@/lineplot/slice";
+import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
+import { Alignment } from "@/lineplot/toolbar/Alignment";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
@@ -43,6 +44,10 @@ const TABS = [
     name: "Axes",
   },
   {
+    tabKey: "alignment",
+    name: "Alignment",
+  },
+  {
     tabKey: "properties",
     name: "Properties",
   },
@@ -64,6 +69,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <Properties layoutKey={layoutKey} />;
         case "annotations":
           return <Annotations layoutKey={layoutKey} />;
+        case "alignment":
+          return <Alignment layoutKey={layoutKey} />;
         default:
           return <Data layoutKey={layoutKey} />;
       }

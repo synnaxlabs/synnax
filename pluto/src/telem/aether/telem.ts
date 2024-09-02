@@ -63,6 +63,7 @@ export interface Telem {
 
 export interface Source<V> extends Telem, observe.Observable<void> {
   value: (props?: ValueProps) => Promise<V>;
+  shouldUpdateI?: (props: Spec) => boolean;
 }
 
 export interface Sink<V> extends Telem {

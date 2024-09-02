@@ -11,7 +11,11 @@ import { type box, location, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { color } from "@/color/core";
-import { type TickFactoryContext, tickFactoryProps, tickType } from "@/vis/axis/ticks";
+import {
+  type TickFactoryContext,
+  tickFactoryProps,
+  tickType,
+} from "@/vis/axis/aether/ticks";
 
 export interface RenderResult {
   size: number;

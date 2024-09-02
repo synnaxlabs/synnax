@@ -34,7 +34,7 @@ export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
-export const selectRanges = (key: string): XAxisRecord<Range.Range[]> => {
+export const useSelectRanges = (key: string): XAxisRecord<Range.Range[]> => {
   return useMemoSelect(
     (state: StoreState & Range.StoreState) => {
       const p = select(state, key);

@@ -994,6 +994,12 @@ export class TimeRange implements Stringer {
     return overlapDuration.greaterThanOrEqual(delta);
   }
 
+  /**
+   * @returns true if the start and end of the given time range are within the given
+   * delta.
+   * @param other - The time range to check against.
+   * @param delta - The tolerance threshold for equality.
+   */
   roughlyEquals(other: TimeRange, delta: TimeSpan): boolean {
     let startDist = this.start.sub(other.start).valueOf();
     let endDist = this.end.sub(other.end).valueOf();
@@ -1002,8 +1008,19 @@ export class TimeRange implements Stringer {
     return startDist <= delta.valueOf() && endDist <= delta.valueOf();
   }
 
+  /**
+   * @returns true if this TimeRange completely contains the other TimeRange. This
+   * function will return true if the two time ranges are equal.
+   * @param other - The TimeRange to check against.
+   */
   contains(other: TimeRange): boolean;
 
+  /**
+   * @returns true if the TimeRange contains the given timestamp. A TimeRange is start
+   * inclusive and end exclusive. If ts is equal to start, this function returns true.
+   * If ts is equal to end, this function returns false.
+   * @param ts - The TimeStamp to check against.
+   */
   contains(ts: CrudeTimeStamp): boolean;
 
   contains(other: TimeRange | CrudeTimeStamp): boolean {
@@ -1012,12 +1029,26 @@ export class TimeRange implements Stringer {
     return this.start.beforeEq(other) && this.end.after(other);
   }
 
-  boundBy(other: TimeRange): TimeRange {
+  /**
+   * @returns a new TimeRange whose start and end times are both translated by the given
+   * time span.
+   * @param span - The TimeSpan to translate the time range by.
+   */
+  translate(span: CrudeTimeSpan): TimeRange {
+    return new TimeRange({ start: this.start.add(span), end: this.end.add(span) });
+  }
+
+  /**
+   * @returns a new TimeRange whose start and end time is clamped by the bounds time
+   * range.
+   * @param bounds - The bounds to clamp the time range by.
+   */
+  clamp(bounds: TimeRange): TimeRange {
     const next = new TimeRange(this.start, this.end);
-    if (other.start.after(this.start)) next.start = other.start;
-    if (other.start.after(this.end)) next.end = other.start;
-    if (other.end.before(this.end)) next.end = other.end;
-    if (other.end.before(this.start)) next.start = other.end;
+    if (bounds.start.after(this.start)) next.start = bounds.start;
+    if (bounds.start.after(this.end)) next.end = bounds.start;
+    if (bounds.end.before(this.end)) next.end = bounds.end;
+    if (bounds.end.before(this.start)) next.start = bounds.end;
     return next;
   }
 

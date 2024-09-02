@@ -366,6 +366,16 @@ describe("TimeRange", () => {
       tr.swap().equals(new TimeRange(new TimeStamp(1000), new TimeStamp(0))),
     ).toBeTruthy();
   });
+
+  describe("translate", () => {
+    it("should translate the time range by the given value", () => {
+      const tr = new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(5));
+      const translated = tr.translate(TimeSpan.seconds(5));
+      expect(translated.start.valueOf()).toEqual(TimeStamp.seconds(6).valueOf());
+      expect(translated.end.valueOf()).toEqual(TimeStamp.seconds(10).valueOf());
+    });
+  });
+
   describe("contains", () => {
     test("TimeStamp", () => {
       const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
@@ -382,6 +392,7 @@ describe("TimeRange", () => {
       ).toBeFalsy();
     });
   });
+
   describe("overlapsWith", () => {
     it("should return true if the end of one time range is after the start of the next time range", () => {
       const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
@@ -421,14 +432,14 @@ describe("TimeRange", () => {
     it("should bound the time range to the provided constraints", () => {
       const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));
       const bound = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
-      const bounded = tr.boundBy(bound);
+      const bounded = tr.clamp(bound);
       const expected = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
       expect(bounded.equals(expected)).toBeTruthy();
     });
     it("should bound the time range even if the start is after the end", () => {
       const tr = new TimeRange(TimeSpan.seconds(4), TimeSpan.seconds(1));
       const bound = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
-      const bounded = tr.boundBy(bound);
+      const bounded = tr.clamp(bound);
       const expected = new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(2));
       expect(bounded.equals(expected)).toBeTruthy();
     });

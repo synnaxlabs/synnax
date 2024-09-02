@@ -53,10 +53,10 @@ import {
 import { download } from "@/lineplot/download";
 import {
   select,
-  selectRanges,
   useSelect,
   useSelectAxisBounds,
   useSelectControlState,
+  useSelectRanges as useSelectRanges,
   useSelectSelection,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
@@ -95,7 +95,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const placer = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
-  const ranges = selectRanges(layoutKey);
+  const ranges = useSelectRanges(layoutKey);
   const client = Synnax.use();
   const dispatch = useDispatch();
   const syncDispatch = Workspace.useSyncComponent<SyncPayload>(
@@ -466,6 +466,7 @@ const buildLines = (
               : {
                   variant: "static",
                   timeRange: range.timeRange,
+                  offset: range.offset,
                 };
 
           return (yChannels as number[]).map((channel) => {

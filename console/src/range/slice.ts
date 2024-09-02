@@ -37,6 +37,11 @@ interface RenamePayload {
   name: string;
 }
 
+export interface SetOffset {
+  key: string;
+  offset: number;
+}
+
 type SetActivePayload = string | null;
 
 type PA<P> = PayloadAction<P>;
@@ -64,9 +69,14 @@ export const { actions, reducer } = createSlice({
       if (range == null) return;
       range.name = name;
     },
+    setOffset: (state, { payload: { key, offset } }: PA<SetOffset>) => {
+      const range = state.ranges[key];
+      if (range == null || range.variant !== "static") return;
+      range.offset = offset;
+    },
   },
 });
-export const { add, remove, rename, setActive } = actions;
+export const { add, remove, rename, setActive, setOffset } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
