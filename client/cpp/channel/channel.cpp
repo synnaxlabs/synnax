@@ -53,7 +53,7 @@ Channel::Channel(
     const std::string &name,
     synnax::DataType data_type,
     bool is_virtual
-): name(name), data_type(data_type), is_virtual(is_virtual) {
+) : name(name), data_type(data_type), is_virtual(is_virtual) {
 }
 
 

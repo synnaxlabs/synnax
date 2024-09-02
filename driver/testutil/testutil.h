@@ -19,10 +19,11 @@
 using json = nlohmann::json;
 
 const synnax::Config test_client_config = {
-        "localhost",
-        9090,
-        "synnax",
-        "seldon"};
+    "localhost",
+    9090,
+    "synnax",
+    "seldon"
+};
 
 /// @brief instantiates a new client for testing purposes. The cluster
 /// is expected to be running on localhost:9090 in insecure mode.
@@ -46,8 +47,8 @@ json add_index_channel_JSON(json &config,
                             int key);
 
 json add_state_index_channel_JSON(json &config,
-                               std::string name,
-                               int key);
+                                  std::string name,
+                                  int key);
 
 /// @brief adds a  digital input channel to a json object passed by ref
 /// returns just the JSON of the channel constructed
@@ -67,4 +68,4 @@ json add_AI_channel_JSON(json &config,
                          std::float_t min_val,
                          std::float_t max_val,
                          std::string terminal_config,
-                         json scale_config); 
+                         json scale_config);
