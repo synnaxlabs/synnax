@@ -28,11 +28,11 @@
 using namespace opc;
 
 opc::ReaderSource::ReaderSource(
-        ReaderConfig cfg,
-        const std::shared_ptr<UA_Client> &client,
-        std::set<ChannelKey> indexes,
-        std::shared_ptr<task::Context> ctx,
-        synnax::Task task
+    ReaderConfig cfg,
+    const std::shared_ptr<UA_Client> &client,
+    std::set<ChannelKey> indexes,
+    std::shared_ptr<task::Context> ctx,
+    synnax::Task task
 ) : cfg(std::move(cfg)),
     client(client),
     indexes(std::move(indexes)),
@@ -45,8 +45,8 @@ opc::ReaderSource::ReaderSource(
     curr_state.task = task.key;
     curr_state.variant = "success";
     curr_state.details = json{
-            {"message", "Task configured successfully"},
-            {"running", true}
+        {"message", "Task configured successfully"},
+        {"running", true}
     };
     this->ctx->setState(curr_state);
 }
@@ -72,15 +72,15 @@ void opc::ReaderSource::initialize_read_request() {
 void opc::ReaderSource::stopped_with_err(const freighter::Error &err) {
     curr_state.variant = "error";
     curr_state.details = json{
-            {"message", err.message()},
-            {"running", false}
+        {"message", err.message()},
+        {"running", false}
     };
     ctx->setState(curr_state);
 }
 
 freighter::Error opc::ReaderSource::communicate_value_error(
-        const std::string &channel,
-        const UA_StatusCode &status
+    const std::string &channel,
+    const UA_StatusCode &status
 ) const {
     const std::string status_name = UA_StatusCode_name(status);
     const std::string message =
@@ -88,34 +88,34 @@ freighter::Error opc::ReaderSource::communicate_value_error(
             status_name;
     LOG(ERROR) << "[opc.reader]" << message;
     ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{
-                                  {"message", message},
-                                  {"running", false}
-                          }
-                  });
+        .task = task.key,
+        .variant = "error",
+        .details = json{
+            {"message", message},
+            {"running", false}
+        }
+    });
     return {
-            driver::CRITICAL_HARDWARE_ERROR.type,
-            message
+        driver::CRITICAL_HARDWARE_ERROR.type,
+        message
     };
 }
 
 size_t opc::ReaderSource::cap_array_length(
-        const size_t i,
-        const size_t length
+    const size_t i,
+    const size_t length
 ) {
     if (i + length > cfg.array_size) {
         if (curr_state.variant != "warning") {
             curr_state.variant = "warning";
             curr_state.details = json{
-                    {
-                            "message",
-                                       "Received array of length " + std::to_string(length) +
-                                       " from OPC UA server, which is larger than the configured size of "
-                                       + std::to_string(cfg.array_size) + ". Truncating array."
-                    },
-                    {       "running", true}
+                {
+                    "message",
+                    "Received array of length " + std::to_string(length) +
+                    " from OPC UA server, which is larger than the configured size of "
+                    + std::to_string(cfg.array_size) + ". Truncating array."
+                },
+                {"running", true}
             };
             ctx->setState(curr_state);
         }
@@ -125,9 +125,9 @@ size_t opc::ReaderSource::cap_array_length(
 }
 
 size_t opc::ReaderSource::write_to_series(
-        const UA_Variant *val,
-        const size_t i,
-        synnax::Series &s
+    const UA_Variant *val,
+    const size_t i,
+    synnax::Series &s
 ) {
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_FLOAT])) {
         const auto *data = static_cast<UA_Float *>(val->data);
@@ -192,71 +192,71 @@ size_t opc::ReaderSource::write_to_series(
         if (s.data_type == synnax::FLOAT32) return s.write(value);
         if (s.data_type == synnax::FLOAT64)
             return s.write(
-                    static_cast<double>(value));
+                static_cast<double>(value));
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int32_t>(value));
+                static_cast<int32_t>(value));
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
         const auto value = *static_cast<UA_Double *>(val->data);
         if (s.data_type == synnax::FLOAT32)
             return s.write(
-                    static_cast<float>(value));
+                static_cast<float>(value));
         if (s.data_type == synnax::FLOAT64) return s.write(value);
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int32_t>(value));
+                static_cast<int32_t>(value));
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_INT16]) {
         const auto value = *static_cast<UA_Int16 *>(val->data);
         if (s.data_type == synnax::INT16) return s.write(value);
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int16_t>(value));
+                static_cast<int16_t>(value));
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
         if (s.data_type == synnax::UINT16)
             return s.write(
-                    static_cast<uint16_t>(value));
+                static_cast<uint16_t>(value));
         if (s.data_type == synnax::UINT32)
             return s.write(
-                    static_cast<uint32_t>(value));
+                static_cast<uint32_t>(value));
         if (s.data_type == synnax::UINT64)
             return s.write(
-                    static_cast<uint64_t>(value));
+                static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
         const auto value = *static_cast<UA_Int32 *>(val->data);
         if (s.data_type == synnax::INT32) return s.write(value);
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
         if (s.data_type == synnax::UINT32)
             return s.write(
-                    static_cast<uint32_t>(value));
+                static_cast<uint32_t>(value));
         if (s.data_type == synnax::UINT64)
             return s.write(
-                    static_cast<uint64_t>(value));
+                static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
         const auto value = *static_cast<UA_Int64 *>(val->data);
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int32_t>(value));
+                static_cast<int32_t>(value));
         if (s.data_type == synnax::INT64) return s.write(value);
         if (s.data_type == synnax::UINT32)
             return s.write(
-                    static_cast<uint32_t>(value));
+                static_cast<uint32_t>(value));
         if (s.data_type == synnax::UINT64)
             return s.write(
-                    static_cast<uint64_t>(value));
+                static_cast<uint64_t>(value));
         if (s.data_type == synnax::TIMESTAMP)
             return s.write(static_cast<uint64_t>(value));
     }
@@ -264,29 +264,29 @@ size_t opc::ReaderSource::write_to_series(
         const auto value = *static_cast<UA_UInt32 *>(val->data);
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int32_t>(value));
+                static_cast<int32_t>(value));
         // Potential data loss
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
         if (s.data_type == synnax::UINT32) return s.write(value);
         if (s.data_type == synnax::UINT64)
             return s.write(
-                    static_cast<uint64_t>(value));
+                static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
         const auto value = *static_cast<UA_UInt64 *>(val->data);
         if (s.data_type == synnax::UINT64) return s.write(value);
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int32_t>(value));
+                static_cast<int32_t>(value));
         // Potential data loss
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
         if (s.data_type == synnax::UINT32)
             return s.write(
-                    static_cast<uint32_t>(value));
+                static_cast<uint32_t>(value));
         // Potential data loss
         if (s.data_type == synnax::TIMESTAMP)
             s.write(static_cast<uint64_t>(value));
@@ -296,97 +296,97 @@ size_t opc::ReaderSource::write_to_series(
         if (s.data_type == synnax::UINT8) return s.write(value);
         if (s.data_type == synnax::UINT16)
             return s.write(
-                    static_cast<uint16_t>(value));
+                static_cast<uint16_t>(value));
         if (s.data_type == synnax::UINT32)
             return s.write(
-                    static_cast<uint32_t>(value));
+                static_cast<uint32_t>(value));
         if (s.data_type == synnax::UINT64)
             return s.write(
-                    static_cast<uint64_t>(value));
+                static_cast<uint64_t>(value));
         if (s.data_type == synnax::INT8) return s.write(static_cast<int8_t>(value));
         if (s.data_type == synnax::INT16)
             return s.write(
-                    static_cast<int16_t>(value));
+                static_cast<int16_t>(value));
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int32_t>(value));
+                static_cast<int32_t>(value));
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
         if (s.data_type == synnax::FLOAT32)
             return s.write(
-                    static_cast<float>(value));
+                static_cast<float>(value));
         if (s.data_type == synnax::FLOAT64)
             return s.write(
-                    static_cast<double>(value));
+                static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
         const auto value = *static_cast<UA_SByte *>(val->data);
         if (s.data_type == synnax::INT8) return s.write(value);
         if (s.data_type == synnax::INT16)
             return s.write(
-                    static_cast<int16_t>(value));
+                static_cast<int16_t>(value));
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int32_t>(value));
+                static_cast<int32_t>(value));
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
         if (s.data_type == synnax::FLOAT32)
             return s.write(
-                    static_cast<float>(value));
+                static_cast<float>(value));
         if (s.data_type == synnax::FLOAT64)
             return s.write(
-                    static_cast<double>(value));
+                static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
         const auto value = *static_cast<UA_Boolean *>(val->data);
         if (s.data_type == synnax::UINT8)
             return s.write(
-                    static_cast<uint8_t>(value));
+                static_cast<uint8_t>(value));
         if (s.data_type == synnax::UINT16)
             return s.write(
-                    static_cast<uint16_t>(value));
+                static_cast<uint16_t>(value));
         if (s.data_type == synnax::UINT32)
             return s.write(
-                    static_cast<uint32_t>(value));
+                static_cast<uint32_t>(value));
         if (s.data_type == synnax::UINT64)
             return s.write(
-                    static_cast<uint64_t>(value));
+                static_cast<uint64_t>(value));
         if (s.data_type == synnax::INT8) return s.write(static_cast<int8_t>(value));
         if (s.data_type == synnax::INT16)
             return s.write(
-                    static_cast<int16_t>(value));
+                static_cast<int16_t>(value));
         if (s.data_type == synnax::INT32)
             return s.write(
-                    static_cast<int32_t>(value));
+                static_cast<int32_t>(value));
         if (s.data_type == synnax::INT64)
             return s.write(
-                    static_cast<int64_t>(value));
+                static_cast<int64_t>(value));
         if (s.data_type == synnax::FLOAT32)
             return s.write(
-                    static_cast<float>(value));
+                static_cast<float>(value));
         if (s.data_type == synnax::FLOAT64)
             return s.write(
-                    static_cast<double>(value));
+                static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
         const auto value = *static_cast<UA_DateTime *>(val->data);
         if (s.data_type == synnax::INT64)
             return s.write(
-                    ua_datetime_to_unix_nano(value));
+                ua_datetime_to_unix_nano(value));
         if (s.data_type == synnax::TIMESTAMP)
             return s.write(
-                    ua_datetime_to_unix_nano(value));
+                ua_datetime_to_unix_nano(value));
         if (s.data_type == synnax::UINT64)
             return s.write(
-                    static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
+                static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
         if (s.data_type == synnax::FLOAT32)
             return s.write(
-                    static_cast<float>(value));
+                static_cast<float>(value));
         if (s.data_type == synnax::FLOAT64)
             return s.write(
-                    static_cast<double>(value));
+                static_cast<double>(value));
     }
     LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName << " for task " << task.name;
 }
@@ -394,7 +394,7 @@ size_t opc::ReaderSource::write_to_series(
 std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &breaker) {
     auto fr = Frame(cfg.channels.size() + indexes.size());
 
-// TODO: what is read_calls_per_cycle? explain whats happening here
+    // TODO: what is read_calls_per_cycle? explain whats happening here
     auto read_calls_per_cycle = static_cast<std::size_t>(cfg.sample_rate.value / cfg.stream_rate.value);
     auto series_size = read_calls_per_cycle;
     if (cfg.array_size > 1) {
@@ -432,18 +432,18 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
                 return std::make_pair(std::move(fr), err);
             }
             const auto next_arr_size = write_to_series(
-                    value, i * cfg.array_size, fr.series->at(j));
+                value, i * cfg.array_size, fr.series->at(j));
             if (j != 0 && curr_arr_size != next_arr_size) {
                 curr_state.variant = "warning";
                 curr_state.details = json{
-                        {
-                                "message",
-                                           "Received array of length " + std::to_string(next_arr_size)
-                                           +
-                                           " from OPC UA server, which is different from the previous array length of "
-                                           + std::to_string(curr_arr_size) + ". Skipping write."
-                        },
-                        {       "running", true}
+                    {
+                        "message",
+                        "Received array of length " + std::to_string(next_arr_size)
+                        +
+                        " from OPC UA server, which is different from the previous array length of "
+                        + std::to_string(curr_arr_size) + ". Skipping write."
+                    },
+                    {"running", true}
                 };
                 UA_ReadResponse_clear(&res);
                 return std::make_pair(std::move(fr),
@@ -459,11 +459,11 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
             for (std::size_t j = en_count; j < en_count + indexes.size(); j++)
                 fr.series->at(j).write(now.value);
         } else if (indexes.size() > 0) {
-// In this case we don't know the exact spacing between the timestamps,
-// so we just back it out from the sample rate.
+            // In this case we don't know the exact spacing between the timestamps,
+            // so we just back it out from the sample rate.
             const auto now = synnax::TimeStamp::now();
             const auto spacing = cfg.sample_rate.period();
-// make an array of timestamps with the same spacing
+            // make an array of timestamps with the same spacing
             auto to_generate = std::min(series_size, curr_arr_size);
             for (std::size_t k = 0; k < to_generate; k++)
                 timestamp_buf[k] = (now + (spacing * k)).value;
@@ -476,11 +476,11 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
             if (exceed_time_count == 5) {
                 curr_state.variant = "warning";
                 curr_state.details = json{
-                        {
-                                "message",
-                                           "Sample rate exceeds OPC UA server throughput. samples may be delayed"
-                        },
-                        {       "running", true}
+                    {
+                        "message",
+                        "Sample rate exceeds OPC UA server throughput. samples may be delayed"
+                    },
+                    {"running", true}
                 };
                 ctx->setState(curr_state);
             }
@@ -489,8 +489,8 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
     if (exceed_time_count < 5 && curr_state.variant != "success") {
         curr_state.variant = "success";
         curr_state.details = json{
-                {"message", "Operating normally"},
-                {"running", true}
+            {"message", "Operating normally"},
+            {"running", true}
         };
         ctx->setState(curr_state);
     }

@@ -86,7 +86,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     VLOG(2) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
-//    LOG(INFO) << "Reader Config: " << config_parser.get_json().dump(4);
+    //    LOG(INFO) << "Reader Config: " << config_parser.get_json().dump(4);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
         ctx->setState({
@@ -203,15 +203,15 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         }
     });
     return std::make_unique<ReaderTask>(
-                                ctx, 
-                                task, 
-                                cfg, 
-                                breaker_config, 
-                                std::move(source),
-                                writer_cfg, 
-                                ua_client,
-                                properties
-                            );
+        ctx,
+        task,
+        cfg,
+        breaker_config,
+        std::move(source),
+        writer_cfg,
+        ua_client,
+        properties
+    );
 }
 
 void ReaderTask::exec(task::Command &cmd) {
@@ -231,12 +231,12 @@ void ReaderTask::stop() {
             {"message", "Task stopped successfully"}
         }
     });
-    pipe.stop(); 
+    pipe.stop();
 }
 
-void ReaderTask::start(){
+void ReaderTask::start() {
     freighter::Error conn_err = refresh_connection(this->ua_client, device_props.connection.endpoint);
-    if(conn_err){
+    if (conn_err) {
         ctx->setState({
             .task = task.key,
             .variant = "error",
