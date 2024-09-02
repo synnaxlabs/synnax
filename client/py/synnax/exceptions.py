@@ -21,14 +21,6 @@ class Field:
     field: str
     message: str
 
-class ConfigurationError(Exception):
-    """
-    Raised when a configuration error occurs.
-    """
-
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "configuration"
-
-    pass
 
 class ConfigurationError(Exception):
     """
