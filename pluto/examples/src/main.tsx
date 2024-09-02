@@ -10,8 +10,7 @@
 import "@synnaxlabs/pluto/dist/style.css";
 import "./main.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Pluto, Ranger, Text, TimeSpan, TimeStamp } from "@synnaxlabs/pluto";
+import { Pluto } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
 import { ChildRanges } from "./ChildRanges";
