@@ -42,6 +42,17 @@ const DEFAULT: State = {
   clientVersion: __VERSION__,
 };
 
+const generateWarning = (
+  nodeVersion: string | null,
+  clientVersion: string,
+  clientIsNewer: boolean,
+): string => {
+  const toUpgrade = clientIsNewer ? "cluster" : "client";
+  return `Synnax cluster node version ${nodeVersion != null ? nodeVersion + " " : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
+  This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see
+  https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-${toUpgrade}-version`;
+};
+
 /** Polls a synnax cluster for connectivity information. */
 export class Checker {
   private static readonly ENDPOINT = "/connectivity/check";
@@ -95,41 +106,33 @@ export class Checker {
         responseZ,
       );
       if (err != null) throw err;
-      if (res.nodeVersion == null) {
+      const nodeVersion = res.nodeVersion;
+      const clientVersion = this.clientVersion;
+      const warned = this.versionWarned;
+      if (nodeVersion == null) {
         this._state.clientServerCompatible = false;
-        if (!this.versionWarned)
-          console.warn(`
-          Synnax cluster node version is too old for client version ${this.clientVersion}.
-          This may cause compatibility issues. We recommend updating the cluster. For
-          more information, see https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-cluster-version
-        `);
-        this.versionWarned = true;
+        if (!warned) {
+          console.warn(generateWarning(null, clientVersion, true));
+          this.versionWarned = true;
+        }
       } else if (
-        !migrate.versionsEqual(this.clientVersion, res.nodeVersion, {
+        !migrate.versionsEqual(clientVersion, nodeVersion, {
           checkMajor: true,
           checkMinor: true,
           checkPatch: false,
         })
       ) {
         this._state.clientServerCompatible = false;
-        if (migrate.semVerNewer(this.clientVersion, res.nodeVersion)) {
-          if (!this.versionWarned)
-            console.warn(
-              `Synnax cluster node version ${res.nodeVersion} is too old for client version ${this.clientVersion}.
-            This may cause compatibility issues. We recommend updating the cluster. For more information, see
-            https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-cluster-version
-            `,
-            );
-        } else {
-          if (!this.versionWarned)
-            console.warn(
-              `Synnax cluster node version ${res.nodeVersion} too new for than client version ${this.clientVersion}.
-            This may cause compatibility issues. We recommend updating the client. For more information, see
-            https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-client-version
-            `,
-            );
+        if (!warned) {
+          console.warn(
+            generateWarning(
+              nodeVersion,
+              clientVersion,
+              migrate.semVerNewer(clientVersion, nodeVersion),
+            ),
+          );
+          this.versionWarned = true;
         }
-        this.versionWarned = true;
       } else this._state.clientServerCompatible = true;
       this._state.status = "connected";
       this._state.message = `Connected to ${this.name ?? "cluster"}`;
