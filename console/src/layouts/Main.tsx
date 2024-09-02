@@ -29,13 +29,13 @@ import { SchematicServices } from "@/schematic/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
-export const NOTIFICATION_ADAPTERS = [
+const NOTIFICATION_ADAPTERS = [
   ...Device.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
   ...Cluster.NOTIFICATION_ADAPTERS,
 ];
 
-export const LINK_HANDLERS: Link.Handler[] = [
+const LINK_HANDLERS: Link.Handler[] = [
   ChannelServices.linkHandler,
   LinePlotServices.linkHandler,
   RangeServices.linkHandler,
@@ -61,32 +61,30 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
-export const Main = (): ReactElement => {
-  return (
-    <>
-      {/* We need to place notifications here so they are in the proper stacking context */}
-      <Notifications.Notifications adapters={NOTIFICATION_ADAPTERS} />
-      <SideEffect />
-      <NavTop />
-      <Layout.Modals />
-      <Align.Space className="console-main-fixed--y" direction="x" empty>
-        <NavLeft />
-        <Align.Space
-          className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
-          empty
-        >
-          <Align.Space className="console-main--driven" direction="x" empty>
-            <NavDrawer location="left" />
-            <main className="console-main--driven" style={{ position: "relative" }}>
-              <Mosaic />
-            </main>
-            <NavDrawer location="right" />
-          </Align.Space>
-          <NavDrawer location="bottom" />
+export const Main = (): ReactElement => (
+  <>
+    {/* We need to place notifications here so they are in the proper stacking context */}
+    <Notifications.Notifications adapters={NOTIFICATION_ADAPTERS} />
+    <SideEffect />
+    <NavTop />
+    <Layout.Modals />
+    <Align.Space className="console-main-fixed--y" direction="x" empty>
+      <NavLeft />
+      <Align.Space
+        className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
+        empty
+      >
+        <Align.Space className="console-main--driven" direction="x" empty>
+          <NavDrawer location="left" />
+          <main className="console-main--driven" style={{ position: "relative" }}>
+            <Mosaic />
+          </main>
+          <NavDrawer location="right" />
         </Align.Space>
-        <NavRight />
+        <NavDrawer location="bottom" />
       </Align.Space>
-      <NavBottom />
-    </>
-  );
-};
+      <NavRight />
+    </Align.Space>
+    <NavBottom />
+  </>
+);

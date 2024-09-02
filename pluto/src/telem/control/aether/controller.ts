@@ -12,7 +12,6 @@ import {
   channel,
   control,
   framer,
-  Series,
   type Synnax,
   TimeStamp,
   UnexpectedError,

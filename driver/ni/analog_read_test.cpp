@@ -44,7 +44,7 @@ PXI1Slot3 : NI PXIe-4357 (simulated device)
 TEST(read_tests, multiple_analog_channels) {
     // setup synnax test infrustructure
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    
+
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
@@ -67,7 +67,7 @@ TEST(read_tests, multiple_analog_channels) {
         {"sample_rate", 100},
         {"stream_rate", 20},
         {"device_location", "Dev1"},
-        {"type", "ni_analog_read"}, 
+        {"type", "ni_analog_read"},
         {"test", true},
         {"device", ""}
     };
@@ -91,7 +91,7 @@ TEST(read_tests, multiple_analog_channels) {
     TaskHandle taskHandle;
     ni::NiDAQmxInterface::CreateTask("", &taskHandle);
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task); 
+    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
@@ -226,7 +226,8 @@ TEST(read_tests, analog_map_scaling) {
 ///////////////////////////////////////////////////////////////////
 //                          Helper                               //
 ///////////////////////////////////////////////////////////////////
-void analog_channel_helper(json config, json scale_config, json channel_config, float lower_bound = -1000, float upper_bound = 1000) {
+void analog_channel_helper(json config, json scale_config, json channel_config, float lower_bound = -1000,
+                           float upper_bound = 1000) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create(
@@ -266,7 +267,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
     auto reader = ni::AnalogReadSource(
         taskHandle,
         mockCtx,
-        task); 
+        task);
 
     auto b = breaker::Breaker(
         breaker::Config{
@@ -289,7 +290,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
     // check every series with the frame stays within the bounds
 
     std::vector<float> s = frame.series->at(0).values<float>();
-    for (auto &val : s) {
+    for (auto &val: s) {
         ASSERT_GE(val, lower_bound);
         ASSERT_LE(val, upper_bound);
     }
@@ -376,7 +377,7 @@ TEST(read_tests, one_torque_linear_bridge_channel) {
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 2.5},
-        {"nominal_bridge_resistance", 1}, 
+        {"nominal_bridge_resistance", 1},
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "VoltsPerVolt"},
@@ -411,8 +412,8 @@ TEST(read_tests, one_torque_table_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
-        {"nominal_bridge_resistance", 1}, 
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1},
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "NewtonMeters"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
@@ -451,7 +452,7 @@ TEST(read_tests, one_torque_polynomial_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
+        {"voltage_excit_val", 2.5},
         {"nominal_bridge_resistance", 1},
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "NewtonMeters"},
@@ -487,7 +488,7 @@ TEST(read_tests, one_velocity_channel) {
         {"units", "MetersPerSecond"},
         {"enabled", true},
         {"key", "key"},
-        {"terminal_config", "Default"}, 
+        {"terminal_config", "Default"},
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0.0},
         {"sensitivity", 50},
@@ -523,8 +524,8 @@ TEST(read_tests, one_force_polynomial_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
-        {"nominal_bridge_resistance", 1}, 
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1},
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Newtons"},
         {"forward_coeffs", {1, 3, 2}},
@@ -558,8 +559,8 @@ TEST(read_tests, one_force_table_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
-        {"nominal_bridge_resistance", 1}, 
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1},
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Newtons"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
@@ -597,8 +598,8 @@ TEST(read_tests, one_force_linear_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
-        {"nominal_bridge_resistance", 1}, 
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1},
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "VoltsPerVolt"},
@@ -667,8 +668,8 @@ TEST(read_tests, one_pressure_polynomial_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
-        {"nominal_bridge_resistance", 1}, 
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1},
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Pascals"},
         {"forward_coeffs", {1, 3, 2}},
@@ -703,8 +704,8 @@ TEST(read_tests, one_pressure_table_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
-        {"nominal_bridge_resistance", 1}, 
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1},
         {"electrical_units", "VoltsPerVolt"},
         {"physical_units", "Pascals"},
         {"electrical_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
@@ -743,8 +744,8 @@ TEST(read_tests, one_pressure_linear_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
-        {"nominal_bridge_resistance", 1}, 
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1},
         {"first_electrical_val", 0.0},
         {"second_electrical_val", 1.0},
         {"electrical_units", "VoltsPerVolt"},
@@ -1004,12 +1005,11 @@ TEST(read_tests, one_bridge_channel) {
         {"key", "key"},
         {"bridge_config", "HalfBridge"},
         {"voltage_excit_source", "Internal"},
-        {"voltage_excit_val", 2.5}, 
-        {"nominal_bridge_resistance", 1}, 
+        {"voltage_excit_val", 2.5},
+        {"nominal_bridge_resistance", 1},
     };
     auto scale_config = json{
         {"type", "none"}
     };
     analog_channel_helper(config, scale_config, channel_config);
 }
-

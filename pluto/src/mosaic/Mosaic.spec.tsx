@@ -33,7 +33,7 @@ describe("Mosaic", () => {
           selected: "tab1",
         });
       });
-      it("shouldn't split an empty tree with one tab", () => {
+      it("shouldn't split an empty tree with one tab, instead put the tab in the center", () => {
         const tab = {
           tabKey: "tab1",
           name: "Tab 1",
@@ -41,7 +41,8 @@ describe("Mosaic", () => {
         const tree = Mosaic.insertTab({ key: 1, tabs: [] }, tab, "right", 1);
         expect(tree).toEqual({
           key: 1,
-          tabs: [],
+          tabs: [tab],
+          selected: "tab1",
         });
       });
       it("should split a tree with one tab", () => {

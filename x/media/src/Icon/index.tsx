@@ -57,6 +57,7 @@ import {
   MdEdit,
   MdEditOff,
   MdFiberManualRecord,
+  MdFileUpload,
   MdHardware,
   MdInsights,
   MdKeyboardAlt,
@@ -95,6 +96,7 @@ import {
   PiCaretLeft,
   PiCaretRight,
   PiCaretUpBold,
+  PiDownloadSimple,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
 } from "react-icons/pi";
@@ -246,6 +248,8 @@ export const Icon: IconType = {
   Reference: wrapIcon(IoBookSharp, "reference"),
   Bolt: wrapIcon(HiLightningBolt, "bolt"),
   Download: wrapIcon(HiDownload, "download"),
+  Import: wrapIcon(MdFileUpload, "import"),
+  Export: wrapIcon(PiDownloadSimple, "export"),
   Range: wrapIcon(MdOutlineAccessTimeFilled, "range"),
   Node: wrapIcon(MdOutlineDeviceHub, "node"),
   Channel: wrapIcon(MdSensors, "channel"),
@@ -380,6 +384,8 @@ export interface IconType {
   Reference: IconFC;
   Bolt: IconFC;
   Download: IconFC;
+  Import: IconFC;
+  Export: IconFC;
   Range: IconFC;
   Node: IconFC;
   Channel: IconFC;
