@@ -54,26 +54,26 @@ std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     ReaderConfig &cfg,
     breaker::Breaker &breaker
 ) {
-    auto channelKeys = cfg.channelKeys();
-    if (channelKeys.empty()) return {{channelKeys, {}}, freighter::NIL};
+    auto channel_keys = cfg.channel_keys();
+    if (channel_keys.empty()) return {{channel_keys, {}}, freighter::NIL};
     auto indexes = std::set<ChannelKey>();
-    auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channelKeys());
+    auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channel_keys());
     if (c_err) {
         if (c_err.matches(freighter::UNREACHABLE) && breaker.wait(c_err.message()))
             return retrieveAdditionalChannelInfo(ctx, cfg, breaker);
-        return {{channelKeys, indexes}, c_err};
+        return {{channel_keys, indexes}, c_err};
     }
     for (auto i = 0; i < channels.size(); i++) {
         const auto ch = channels[i];
-        if (std::count(channelKeys.begin(), channelKeys.end(), ch.index) == 0) {
+        if (std::count(channel_keys.begin(), channel_keys.end(), ch.index) == 0) {
             if (ch.index != 0) {
-                channelKeys.push_back(ch.index);
+                channel_keys.push_back(ch.index);
                 indexes.insert(ch.index);
             }
         }
         cfg.channels[i].ch = ch;
     }
-    return {{channelKeys, indexes}, freighter::Error()};
+    return {{channel_keys, indexes}, freighter::Error()};
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -129,7 +129,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         });
         return nullptr;
     }
-    auto [channelKeys, indexes] = res;
+    auto [channel_keys, indexes] = res;
 
     // Connect to the OPC UA server.
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
@@ -182,7 +182,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     );
 
     auto writer_cfg = synnax::WriterConfig{
-        .channels = channelKeys,
+        .channels = channel_keys,
         .start = TimeStamp::now(),
         .subject = synnax::ControlSubject{
             .name = task.name,

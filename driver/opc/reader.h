@@ -64,7 +64,7 @@ struct ReaderConfig {
 
     explicit ReaderConfig(config::Parser &parser);
 
-    [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
+    [[nodiscard]] std::vector<ChannelKey> channel_keys() const {
         auto keys = std::vector<ChannelKey>(channels.size());
         for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
         return keys;
