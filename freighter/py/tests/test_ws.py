@@ -15,7 +15,11 @@ from freighter.context import Context
 from freighter.codec import MsgPackCodec, JSONCodec
 from freighter.transport import AsyncNext, Next
 from freighter.url import URL
-from freighter.websocket import AsyncWebsocketClient, WebsocketClient, ConnectionClosedError
+from freighter.websocket import (
+    AsyncWebsocketClient,
+    WebsocketClient,
+    ConnectionClosedError,
+)
 from freighter.http import HTTPClient
 
 from .interface import Error, Message
@@ -106,9 +110,7 @@ class TestWS:
         await stream.send(Message(id=1, message=msg_str))
         time.sleep(2)
         res, err = unary_client.send(
-            "/slamMessagesTimeoutCheck",
-            Message(id=1, message=msg_str),
-            Message
+            "/slamMessagesTimeoutCheck", Message(id=1, message=msg_str), Message
         )
         assert err is None
         assert res.message == "timeout"
@@ -117,7 +119,6 @@ class TestWS:
                 _, err = await stream.receive()
                 if isinstance(err, freighter.EOF):
                     break
-
 
 
 class TestSyncWebsocket:

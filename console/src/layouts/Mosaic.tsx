@@ -40,7 +40,7 @@ import {
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { LinePlotServices } from "@/lineplot/services";
-import { SchematicServices } from "@/schematic/services";
+import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
@@ -246,6 +246,6 @@ Window.displayName = "MosaicWindow";
 
 export const FILE_HANDLERS = [
   Workspace.fileHandler,
-  SchematicServices.fileHandler,
+  Schematic.fileHandler,
   LinePlotServices.fileHandler,
 ];

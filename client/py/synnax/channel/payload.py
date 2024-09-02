@@ -37,9 +37,10 @@ class ChannelPayload(Payload):
     is_index: bool = False
     index: ChannelKey = 0
     internal: bool = False
+    virtual: bool = False
 
     def __str__(self):
-        return f"Channel with name {self.name} and key {self.key}"
+        return f"Channel(name={self.name}, key={self.key})"
 
     def __hash__(self) -> int:
         return hash(self.key)

@@ -62,6 +62,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       variant = "outlined",
       className,
       children,
+      disabled,
       onBlur,
       ...props
     },
@@ -142,6 +143,8 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       };
     }
 
+    if (variant === "preview" || disabled) showDragHandle = false;
+
     return (
       <Text
         ref={ref}
@@ -149,6 +152,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         variant={variant}
         value={value_.toString()}
         onChange={handleChange}
+        disabled={disabled}
         style={style}
         selectOnFocus={selectOnFocus}
         // When the user hits 'Enter', we should try to evaluate the input and update the

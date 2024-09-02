@@ -29,7 +29,6 @@ import {
 } from "react-icons/ai";
 import { BiLinkExternal, BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
-import { CiExport, CiImport } from "react-icons/ci";
 import {
   FaApple,
   FaBezierCurve,
@@ -43,7 +42,7 @@ import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
-import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
+import { IoBookSharp, IoCopy, IoTime } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
@@ -58,6 +57,7 @@ import {
   MdEdit,
   MdEditOff,
   MdFiberManualRecord,
+  MdFileUpload,
   MdHardware,
   MdInsights,
   MdKeyboardAlt,
@@ -96,6 +96,7 @@ import {
   PiCaretLeft,
   PiCaretRight,
   PiCaretUpBold,
+  PiDownloadSimple,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
 } from "react-icons/pi";
@@ -220,7 +221,7 @@ export const Icon: IconType = {
   EditOff: wrapIcon(MdEditOff, "edit-off"),
   Add: wrapIcon(HiOutlinePlus, "add"),
   Subtract: wrapIcon(AiOutlineMinus, "subtract"),
-  Copy: wrapIcon(IoCopySharp, "copy"),
+  Copy: wrapIcon(IoCopy, "copy"),
   Close: wrapIcon(AiOutlineClose, "close"),
   Info: wrapIcon(AiFillInfoCircle, "info"),
   Warning: wrapIcon(AiFillWarning, "warning"),
@@ -247,8 +248,8 @@ export const Icon: IconType = {
   Reference: wrapIcon(IoBookSharp, "reference"),
   Bolt: wrapIcon(HiLightningBolt, "bolt"),
   Download: wrapIcon(HiDownload, "download"),
-  Import: wrapIcon(CiImport, "import"),
-  Export: wrapIcon(CiExport, "export"),
+  Import: wrapIcon(MdFileUpload, "import"),
+  Export: wrapIcon(PiDownloadSimple, "export"),
   Range: wrapIcon(MdOutlineAccessTimeFilled, "range"),
   Node: wrapIcon(MdOutlineDeviceHub, "node"),
   Channel: wrapIcon(MdSensors, "channel"),
@@ -340,6 +341,7 @@ export const Icon: IconType = {
   Label: wrapIcon(MdLabel, "label"),
   Details: wrapIcon(MdOutlineTableRows, "details"),
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
+  JSON: wrapIcon(MdDataObject, "json"),
 };
 
 export interface IconType {
@@ -465,4 +467,5 @@ export interface IconType {
   Label: IconFC;
   Details: IconFC;
   LinkExternal: IconFC;
+  JSON: IconFC;
 }

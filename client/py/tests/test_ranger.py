@@ -22,11 +22,11 @@ class TestRangeClient:
         return client.ranges.create(
             [
                 sy.Range(
-                    name="test",
+                    name=f"test-{str(uuid4())}",
                     time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
                 ),
                 sy.Range(
-                    name="test2",
+                    name=f"test-{str(uuid4())}",
                     time_range=sy.TimeStamp.now().span_range(30 * sy.TimeSpan.SECOND),
                 ),
             ]
@@ -52,13 +52,13 @@ class TestRangeClient:
 
     def test_retrieve_by_key(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should retrieve a range by key"""
-        rng = client.ranges.retrieve(two_ranges[0].key)
+        rng = client.ranges.retrieve(key=two_ranges[0].key)
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
 
     def test_retrieve_by_name(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should retrieve a range by name"""
-        rng = client.ranges.retrieve([two_ranges[0].name])[0]
+        rng = client.ranges.retrieve(name=two_ranges[0].name)
         assert rng.name == two_ranges[0].name
 
     def test_retrieve_by_name_not_found(
@@ -66,7 +66,7 @@ class TestRangeClient:
     ):
         """Should raise an error when a range is not found"""
         with pytest.raises(sy.exceptions.QueryError):
-            client.ranges.retrieve("not_found")
+            client.ranges.retrieve(name="not_found")
 
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should search for ranges"""
@@ -99,13 +99,7 @@ class TestRangeClient:
             """Should delete a range by key"""
             client.ranges.delete(rng.key)
             with pytest.raises(sy.exceptions.QueryError):
-                client.ranges.retrieve(rng.key)
-
-        def test_delete_by_name(self, rng: sy.Range, client: sy.Synnax):
-            """Should delete a range by name"""
-            client.ranges.delete([rng.name])
-            with pytest.raises(sy.exceptions.QueryError):
-                client.ranges.retrieve(rng.name)
+                client.ranges.retrieve(key=rng.key)
 
     @pytest.mark.ranger
     class TestRangeChannelResolution:
@@ -206,6 +200,7 @@ class TestRangeClient:
             )
             with pytest.raises(sy.exceptions.QueryError):
                 rng.set_alias("not_found", "test")
+
 
 @pytest.mark.ranger
 class TestRangeData:

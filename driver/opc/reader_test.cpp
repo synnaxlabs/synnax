@@ -49,15 +49,15 @@ TEST(opcReaderTest, testReaderConfigurationFromJSON) {
     auto j = json{
         {
             "connection", json{
-                {"endpoint", "opc.tcp://0.0.0.0:4840"},
-            }
+            {"endpoint", "opc.tcp://0.0.0.0:4840"},
+        }
         },
-        {"rate", 22.5},
+        {   "rate",       22.5},
         {
-            "channels", std::vector<json>{
-                {{"ns", 1}, {"node", "node1"}, {"key", ch1.key}},
-                {{"ns", 1}, {"node", "node2"}, {"key", ch2.key}}
-            }
+            "channels",   std::vector<json>{
+            {{"ns", 1}, {"node", "node1"}, {"key", ch1.key}},
+            {{"ns", 1}, {"node", "node2"}, {"key", ch2.key}}
+        }
         }
     };
 

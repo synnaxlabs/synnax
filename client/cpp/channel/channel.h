@@ -115,8 +115,8 @@ private:
 class ChannelClient {
 public:
     ChannelClient(std::unique_ptr<ChannelRetrieveClient> retrieve_client,
-                  std::unique_ptr<ChannelCreateClient> create_client) : retrieve_client(
-            std::move(retrieve_client)),
+                  std::unique_ptr<ChannelCreateClient> create_client
+    ) : retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)) {
     }
 

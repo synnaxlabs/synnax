@@ -15,6 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { useExport } from "@/schematic/hooks";
 import {
   useSelect,
@@ -70,7 +71,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const schematic = useSelect(layoutKey);
-  const exprt = useExport(name);
+  const handleExport = useExport(name);
+  const handleLink = Link.useCopyToClipboard();
 
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
@@ -105,15 +107,33 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     >
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Schematic />}>{name}</ToolbarTitle>
-        <Align.Space direction="x" align="center" size={0}>
-          <Button.Icon
-            tooltip={`Export ${name}`}
-            style={{ height: "100%" }}
-            onClick={() => exprt(schematic.key)}
-          >
-            <Icon.Export />
-          </Button.Icon>
-          <Tabs.Selector style={{ borderBottom: "none" }} />
+        <Align.Space direction="x" align="center" empty>
+          <Align.Space direction="x" size={0} style={{ height: "100%", width: 66 }}>
+            <Button.Icon
+              tooltip={`Export ${name}`}
+              sharp
+              size="medium"
+              style={{ height: "100%" }}
+              onClick={() => handleExport(schematic.key)}
+            >
+              <Icon.Export />
+            </Button.Icon>
+            <Button.Icon
+              tooltip={`Copy link to ${name}`}
+              sharp
+              size="medium"
+              style={{ height: "100%" }}
+              onClick={() =>
+                handleLink({
+                  name,
+                  ontologyID: { key: schematic.key, type: "schematic" },
+                })
+              }
+            >
+              <Icon.Link />
+            </Button.Icon>
+          </Align.Space>
+          <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />
         </Align.Space>
       </ToolbarHeader>
       <Tabs.Content />

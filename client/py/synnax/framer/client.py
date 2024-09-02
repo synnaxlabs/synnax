@@ -298,8 +298,8 @@ class Client:
         tr: TimeRange,
         params: ChannelParams,
     ) -> Frame:
-        fr = Frame()
-        with self.open_iterator(tr, params) as i:
-            for frame in i:
-                fr.append(frame)
-        return fr
+        aggregate = Frame()
+        with self.open_iterator(tr, params) as it:
+            for fr in it:
+                aggregate.append(fr)
+        return aggregate

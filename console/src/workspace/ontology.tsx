@@ -204,6 +204,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Item itemKey="schematic" startIcon={<SchematicServices.CreateIcon />}>
             New Schematic
           </PMenu.Item>
+          <PMenu.Divider />
+          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
+            Export
+          </PMenu.Item>
+          <Link.CopyMenuItem />
           <PMenu.Item
             itemKey="importSchematic"
             startIcon={<SchematicServices.ImportIcon />}
@@ -211,10 +216,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             Import Schematic
           </PMenu.Item>
           <PMenu.Divider />
-          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
-            Export
-          </PMenu.Item>
-          <Link.CopyMenuItem />
+
           <PMenu.Divider />
         </>
       )}

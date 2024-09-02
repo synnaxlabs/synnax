@@ -10,6 +10,7 @@
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE, Schematic } from "@/schematic/Schematic";
 
+export * from "@/schematic/file";
 export * from "@/schematic/hooks";
 export * from "@/schematic/middleware";
 export * from "@/schematic/NavControls";

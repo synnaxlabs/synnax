@@ -32,7 +32,7 @@ struct ReaderChannelConfig {
     explicit ReaderChannelConfig(
         config::Parser &parser
     ) : node_id(parser.required<std::string>("node_id")),
-        node(parseNodeId("node_id", parser)),
+        node(parse_node_id("node_id", parser)),
         channel(parser.required<ChannelKey>("channel")),
         enabled(parser.optional<bool>("enabled", true)) {
     }
@@ -57,9 +57,10 @@ struct ReaderConfig {
 
     explicit ReaderConfig(config::Parser &parser);
 
-    [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
+    [[nodiscard]] std::vector<ChannelKey> channel_keys() const {
         auto keys = std::vector<ChannelKey>(channels.size());
-        for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
+        for (std::size_t i = 0; i < channels.size(); i++)
+            keys[i] = channels[i].channel;
         return keys;
     }
 };
@@ -79,18 +80,18 @@ public:
         synnax::WriterConfig writer_config,
         std::shared_ptr<UA_Client> ua_client,
         opc::DeviceProperties device_props
-    ): ctx(ctx),
-       task(std::move(task)),
-       cfg(std::move(cfg)),
-       breaker(breaker::Breaker(breaker_config)),
-       pipe(pipeline::Acquisition(
-           ctx->client,
-           std::move(writer_config),
-           std::move(source),
-           breaker_config
-       )),
-       ua_client(ua_client),
-       device_props(device_props) {
+    ) : ctx(ctx),
+        task(std::move(task)),
+        cfg(std::move(cfg)),
+        breaker(breaker::Breaker(breaker_config)),
+        pipe(pipeline::Acquisition(
+            ctx->client,
+            std::move(writer_config),
+            std::move(source),
+            breaker_config
+        )),
+        ua_client(ua_client),
+        device_props(device_props) {
     }
 
     std::string name() override { return task.name; }
@@ -104,7 +105,8 @@ public:
 
     void stop() override;
 
-    void start(); 
+    void start();
+
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;

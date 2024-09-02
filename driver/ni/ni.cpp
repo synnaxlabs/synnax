@@ -494,7 +494,7 @@ void ni::Source::get_index_keys() {
     for(auto &index_key : index_keys) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
         if (err) return this->log_error(
-                    "failed to retrieve channel " + std::to_string(index_key));        
+                    "failed to retrieve channel " + std::to_string(index_key));
         ni::ChannelConfig index_channel;
         index_channel.channel_key = channel_info.key;
         index_channel.channel_type = "index";
@@ -507,9 +507,9 @@ void ni::Source::get_index_keys() {
 ni::Source::Source(
     TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task) : 
-    task_handle(task_handle), 
-    ctx(ctx), 
+    const synnax::Task task) :
+    task_handle(task_handle),
+    ctx(ctx),
     task(task),
     err_info({}){
 }
@@ -620,13 +620,14 @@ freighter::Error ni::Source::stop_ni(){
     return freighter::NIL;
 }
 
-freighter::Error ni::Source::start() {
+freighter::Error ni::Source::start(const std::string &cmd_key) {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
-    this->start_ni(); 
+    this->start_ni();
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
     ctx->setState({
         .task = task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = {
             {"running", true},
@@ -636,7 +637,7 @@ freighter::Error ni::Source::start() {
     return freighter::NIL;
 }
 
-freighter::Error ni::Source::stop() {
+freighter::Error ni::Source::stop(const std::string &cmd_key) {
     if (!this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.stop();
     if (this->sample_thread.joinable()) this->sample_thread.join();
@@ -644,6 +645,7 @@ freighter::Error ni::Source::stop() {
     data_queue.reset();
     ctx->setState({
         .task = task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = {
             {"running", false},
@@ -704,7 +706,7 @@ void ni::Source::log_error(std::string err_msg) {
     return;
 }
 
-void ni::Source::stoppedWithErr(const freighter::Error &err) {
+void ni::Source::stopped_with_err(const freighter::Error &err) {
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
     this->ctx->setState({
@@ -715,7 +717,8 @@ void ni::Source::stoppedWithErr(const freighter::Error &err) {
             {"message", j}
         }
     });
-    this->stop();
+    // Unprompted stop so we pass in an empty command key.
+    this->stop("");
     this->clear_task();
 }
 
@@ -742,7 +745,7 @@ void ni::Source::jsonify_error(std::string s) {
     std::string sc = "";
     std::smatch status_code_match;
     if (std::regex_search(s, status_code_match, status_code_regex)) sc = status_code_match[1].str();
-    
+
     // Remove the redundant Status Code line at the end
     std::regex status_code_line_regex(R"(\nStatus Code:.*$)");
     s = std::regex_replace(s, status_code_line_regex, "");
@@ -807,6 +810,6 @@ void ni::Source::jsonify_error(std::string s) {
 
     json j = json::array();
     j.push_back(this->err_info);
-    
+
     LOG(INFO) << this->err_info.dump(4);
 }

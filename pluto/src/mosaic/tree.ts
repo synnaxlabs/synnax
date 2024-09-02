@@ -52,11 +52,10 @@ export const insertTab = (
   if (findNodeOrAncestor(root, potentialChildKey).key !== node.key)
     return insertTab(root, tab, "center", potentialChildKey);
 
-  // If we're not dropping the tab in the center,
-  // and we have no tabs in the current node,
-  // we can't split the node (because one side would be empty),
-  // so we do nothing.
-  if (node.tabs == null || node.tabs.length === 0) return root;
+  // If we're not dropping the tab in the center, and we have no tabs in the current
+  // node, we can't split the node, so we instead insert the tab in the center
+  if (node.tabs == null || node.tabs.length === 0)
+    return insertTab(root, tab, "center", key);
 
   const [insertOrder, siblingOrder, dir] = splitArrangement(loc);
   node.direction = dir;

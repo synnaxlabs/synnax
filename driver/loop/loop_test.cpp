@@ -65,10 +65,10 @@ void runBreaker(breaker::Breaker &brker) {
 
 TEST(LoopTest, testWaitBreaker) {
     const auto b = breaker::Config{
-        .name="test",
-        .base_interval=synnax::MILLISECOND * 10,
-        .max_retries=10,
-        .scale=1.1
+        .name = "test",
+        .base_interval = synnax::MILLISECOND * 10,
+        .max_retries = 10,
+        .scale = 1.1
     };
     auto brker = breaker::Breaker(b);
     brker.start();
@@ -78,8 +78,7 @@ TEST(LoopTest, testWaitBreaker) {
     brker.stop();
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = synnax::TimeSpan(end - start);
-    EXPECT_NEAR(elapsed.value, (synnax::MILLISECOND * 10).value, (synnax::MILLISECOND * 10).value);
+    EXPECT_NEAR(elapsed.value, (synnax::MILLISECOND * 10).value,
+                (synnax::MILLISECOND * 10).value);
     t.join();
 }
-
-

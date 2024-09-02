@@ -238,6 +238,7 @@
       "OPCUA",
       "reduxjs",
       "renderable",
+      "Snapshotted",
       "Swatinem",
       "syncer",
       "Syncer",
@@ -245,6 +246,7 @@
       "tauri",
       "Tauri",
       "telem",
+      "Telem",
       "zodutil"
     ],
     "cSpell.enableFiletypes": ["mdx"],
