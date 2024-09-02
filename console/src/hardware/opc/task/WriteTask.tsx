@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/ReadTask.css";
 
-import { DataType, device, NotFoundError } from "@synnaxlabs/client";
+import { device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
