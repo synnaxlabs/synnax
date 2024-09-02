@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/pluto";
+import { Button, Synnax } from "@synnaxlabs/pluto";
 
 import {
   NotificationAdapter,
@@ -17,10 +17,10 @@ import { OpenUpdateDialogAction } from "@/version/Updater";
 
 export const versionOutdatedAdapter: NotificationAdapter = (status) => {
   if (status.data == null) return null;
-  if (status.data.type !== "serverVersionMismatch") return null;
-  const oldSever = status.data.oldServer as boolean;
+  if (status.data.type !== Synnax.SERVER_VERSION_MISMATCH) return null;
+  const oldServer = status.data.oldServer as boolean;
   const nextStatus: SugaredNotification = { ...status };
-  if (oldSever)
+  if (oldServer)
     nextStatus.actions = [
       <Button.Link
         key="update"
