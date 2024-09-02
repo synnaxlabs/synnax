@@ -78,6 +78,10 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
+
+  /**
+   * The version of the client.
+   */
   readonly clientVersion: string = __VERSION__;
 
   /**
