@@ -100,7 +100,7 @@ namespace opc {
 
         void initialize_read_request();
 
-        void stoppedWithErr(const freighter::Error &err) override;
+        void stopped_with_err(const freighter::Error &err) override;
 
         [[nodiscard]] freighter::Error communicate_value_error(
                 const std::string &channel,

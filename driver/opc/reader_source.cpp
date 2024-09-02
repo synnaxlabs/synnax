@@ -69,7 +69,7 @@ void opc::ReaderSource::initialize_read_request() {
     req.nodesToReadSize = readValueIds.size();
 }
 
-void opc::ReaderSource::stoppedWithErr(const freighter::Error &err) {
+void opc::ReaderSource::stopped_with_err(const freighter::Error &err) {
     curr_state.variant = "error";
     curr_state.details = json{
             {"message", err.message()},
