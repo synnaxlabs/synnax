@@ -356,9 +356,8 @@ export const { actions, reducer } = createSlice({
 
       if (key != null) {
         Object.values(navState.drawers).forEach((drawer) => {
-          if (drawer.menuItems.includes(key)) {
+          if (drawer.menuItems.includes(key))
             drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
-          }
         });
       } else if (location != null) {
         let drawer = navState.drawers[location];

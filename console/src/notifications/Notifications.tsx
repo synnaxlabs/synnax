@@ -32,7 +32,7 @@ export type NotificationAdapter = (
   status: Status.NotificationSpec,
 ) => null | SugaredNotification;
 
-const DEFAULT_EXPIRATION = TimeSpan.seconds(5000);
+const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 
 export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
   adapters = [notificationAdapter, versionAdapter];
