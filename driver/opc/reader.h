@@ -118,8 +118,6 @@ namespace opc {
                 synnax::Series &s
         );
 
-        // TODO: this function is 100 lines - feel like it can be broken down into a more digestible format
-        // or at least have comments to explain what is happening
         std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override;
     };
 
