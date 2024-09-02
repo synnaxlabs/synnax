@@ -45,10 +45,6 @@ export const useContext = (): ContextValue => reactUseContext(Context);
  * {@link Space} containing the header.
  * @param props.level - The font level for the header. See the {@link Typography.Text}
  * component for all possible levels. Default is "h1."
- * @param props.icon - An optional icon to add add before the start of the header text.
- * @param props.actions - A list of actions to be rendered on the right side ofthe header.
- * If the action is a JSX element, it will be rendered directly, and if its of type
- * ButtonIconProps, a ButtonIconOnly will be rendered using the given props.
  * @param props.divided - If true, creates a divider between the start icon, header text,
  * and each action. Default is false.
  */

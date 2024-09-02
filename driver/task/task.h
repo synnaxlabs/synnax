@@ -1,4 +1,3 @@
-
 // Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -39,10 +38,10 @@ struct Command {
     /// @brief constructs the command from the provided configuration parser.
     explicit Command(
         config::Parser parser
-    ): task(parser.required<TaskKey>("task")),
-       type(parser.required<std::string>("type")),
-       key(parser.optional<std::string>("key", "")),
-       args(parser.optional<json>("args", json{})) {
+    ) : task(parser.required<TaskKey>("task")),
+        type(parser.required<std::string>("type")),
+        key(parser.optional<std::string>("key", "")),
+        args(parser.optional<json>("args", json{})) {
     }
 
     /// @brief Construct a new Task Command object
@@ -112,7 +111,7 @@ public:
 
     virtual ~Context() = default;
 
-    explicit Context(std::shared_ptr<Synnax> client): client(std::move(client)) {
+    explicit Context(std::shared_ptr<Synnax> client) : client(std::move(client)) {
     }
 
     /// @brief updates the state of the task in the Synnax cluster.
@@ -124,7 +123,7 @@ class MockContext final : public Context {
 public:
     std::vector<State> states{};
 
-    explicit MockContext(std::shared_ptr<Synnax> client): Context(client) {
+    explicit MockContext(std::shared_ptr<Synnax> client) : Context(client) {
     }
 
 
@@ -140,7 +139,7 @@ private:
 
 class SynnaxContext final : public Context {
 public:
-    explicit SynnaxContext(std::shared_ptr<Synnax> client): Context(client) {
+    explicit SynnaxContext(std::shared_ptr<Synnax> client) : Context(client) {
     }
 
     void setState(const State &state) override {
@@ -160,7 +159,8 @@ public:
             });
             if (err) {
                 LOG(ERROR) <<
-                        "[task.context] failed to open writer to update task state" <<
+                        "[task.context] failed to open writer to update task state"
+                        <<
                         su_err.
                         message();
                 return;
@@ -236,10 +236,10 @@ private:
 class Manager {
 public:
     Manager(
-        const Rack& rack,
+        const Rack &rack,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> factory,
-        const breaker::Config& breaker
+        const breaker::Config &breaker
     );
 
     ~Manager();

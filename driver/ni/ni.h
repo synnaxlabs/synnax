@@ -45,7 +45,9 @@
 #ifdef _WIN32
 #include "dll_check_windows.h"
 #else
+
 #include "dll_check_linux.h"
+
 #endif
 
 namespace ni {
@@ -184,7 +186,8 @@ public:
 
     virtual void get_index_keys();
 
-    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) =0;
+    virtual std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) = 0;
 
     virtual void parse_channels(config::Parser &parser) = 0;
 
@@ -204,6 +207,7 @@ public:
         uint64_t tf; // final timestamp
         int32 samples_read_per_channel;
     };
+
     TSQueue<DataPacket> data_queue;
     std::thread sample_thread;
 
@@ -225,7 +229,6 @@ public:
 
     /// @brief maps ni channel name to path in task configuration json
     std::map<std::string, std::string> channel_map;
-
 }; // class Source
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -240,7 +243,8 @@ public:
     ) : Source(task_handle, ctx, task) {
     }
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) override;
 
     void acquire_data() override;
 
@@ -249,8 +253,8 @@ public:
     int create_channels() override;
 
     std::shared_ptr<ni::Analog> parse_channel(config::Parser &parser,
-                                             const std::string &channel_type,
-                                             const std::string &channel_name);
+                                              const std::string &channel_type,
+                                              const std::string &channel_name);
 
     void parse_channels(config::Parser &parser) override;
 
@@ -258,7 +262,9 @@ public:
 
     int validate_channels() override;
 
-    void write_to_series(synnax::Series &series, double &data, synnax::DataType data_type);
+    void write_to_series(synnax::Series &series, double &data,
+                         synnax::DataType data_type);
+
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
     uint64_t num_ai_channels = 0;
@@ -276,7 +282,8 @@ public:
     ) : Source(task_handle, ctx, task) {
     }
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) override;
 
     void acquire_data() override;
 
@@ -305,7 +312,7 @@ public:
     synnax::Frame get_state();
 
     void update_state(std::queue<synnax::ChannelKey> &modified_state_keys,
-                     std::queue<std::uint8_t> &modified_state_values);
+                      std::queue<std::uint8_t> &modified_state_values);
 
 private:
     std::mutex state_mutex;
@@ -566,15 +573,14 @@ public:
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
     configure_initial_tasks(const std::shared_ptr<task::Context> &ctx,
-                          const synnax::Rack &rack) override;
+                            const synnax::Rack &rack) override;
 
 private:
     bool dlls_present = false;
-
 };
 
-static inline bool dlls_available(){
-        std::vector<std::string> dlls = {
+static inline bool dlls_available() {
+    std::vector<std::string> dlls = {
         "nicaiu.dll",
         "nipalu.dll",
         "nimdbgu.dll",
@@ -617,7 +623,8 @@ static inline bool dlls_available(){
     for (const auto &dll: dlls)
         if (!does_dll_exist(dll.c_str()))
             d = false;
-    if (d) LOG(INFO) << "[ni] All required DLLs found.";
+    if (d)
+        LOG(INFO) << "[ni] All required DLLs found.";
     return d;
 } // dlls_available
 

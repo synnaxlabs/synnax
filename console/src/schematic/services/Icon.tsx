@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Version } from "@/version";
+import { Icon } from "@synnaxlabs/media";
+import { Icon as PIcon } from "@synnaxlabs/pluto";
+import { ReactElement } from "react";
 
-export * from "@/hardware/device/ontology";
-export * from "@/hardware/device/useListenForChanges";
-
-export const NOTIFICATION_ADAPTERS = [Version.notificationAdapter];
+export const ImportIcon = (): ReactElement => (
+  <PIcon.Import>
+    <Icon.Schematic />
+  </PIcon.Import>
+);

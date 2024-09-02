@@ -22,8 +22,8 @@ class MemInfoSource final : public pipeline::Source {
     loop::Timer timer;
 
 public:
-    explicit MemInfoSource(const synnax::ChannelKey &key): key(key),
-        timer(synnax::HZ * 1) {
+    explicit MemInfoSource(const synnax::ChannelKey &key) : key(key),
+                                                            timer(synnax::HZ * 1) {
     }
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
@@ -42,7 +42,7 @@ public:
         std::shared_ptr<pipeline::Source> source,
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
-    ): pipe(pipeline::Acquisition(
+    ) : pipe(pipeline::Acquisition(
         ctx->client,
         writer_config,
         std::move(source),
@@ -57,8 +57,9 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) {
-        auto ch_name = "sy_rack" + std::to_string(rackKeyNode(taskKeyRack(task.key))) +
-                       "_meminfo";
+        auto ch_name =
+                "sy_rack" + std::to_string(rackKeyNode(taskKeyRack(task.key))) +
+                "_meminfo";
         auto [ch, err] = ctx->client->channels.retrieve(ch_name);
         if (err.matches(synnax::NOT_FOUND)) {
             ch = synnax::Channel(

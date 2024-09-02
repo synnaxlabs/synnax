@@ -154,17 +154,17 @@ public:
     ) const {
         const std::string status_name = UA_StatusCode_name(status);
         const std::string message =
-            "Failed to read value from channel " + channel + ": " +
-            status_name;
+                "Failed to read value from channel " + channel + ": " +
+                status_name;
         LOG(ERROR) << "[opc.reader]" << message;
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{
-                              {"message", message},
-                              {"running", false}
-                          }
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", message},
+                {"running", false}
+            }
+        });
         return {
             driver::CRITICAL_HARDWARE_ERROR.type,
             message
@@ -181,13 +181,13 @@ public:
                 curr_state.details = json{
                     {
                         "message",
-                                   "Received array of length " +
-                                   std::to_string(length) +
-                                   " from OPC UA server, which is larger than the configured size of "
-                                   + std::to_string(cfg.array_size) +
-                                   ". Truncating array."
+                        "Received array of length " +
+                        std::to_string(length) +
+                        " from OPC UA server, which is larger than the configured size of "
+                        + std::to_string(cfg.array_size) +
+                        ". Truncating array."
                     },
-                    {   "running", true}
+                    {"running", true}
                 };
                 ctx->setState(curr_state);
             }
@@ -461,7 +461,7 @@ public:
                     static_cast<double>(value));
         }
         LOG(ERROR) << "[opc.reader] unsupported data type: " << val->type->typeName
-                   << " for task " << task.name;
+                << " for task " << task.name;
     }
 
     // TODO: this function is 100 lines - feel like it can be broken down into a more digestible format
@@ -515,14 +515,14 @@ public:
                     curr_state.details = json{
                         {
                             "message",
-                                       "Received array of length " +
-                                       std::to_string(next_arr_size)
-                                       +
-                                       " from OPC UA server, which is different from the previous array length of "
-                                       + std::to_string(curr_arr_size) +
-                                       ". Skipping write."
+                            "Received array of length " +
+                            std::to_string(next_arr_size)
+                            +
+                            " from OPC UA server, which is different from the previous array length of "
+                            + std::to_string(curr_arr_size) +
+                            ". Skipping write."
                         },
-                        {   "running", true}
+                        {"running", true}
                     };
                     UA_ReadResponse_clear(&res);
                     return std::make_pair(std::move(fr),
@@ -557,9 +557,9 @@ public:
                     curr_state.details = json{
                         {
                             "message",
-                                       "Sample rate exceeds OPC UA server throughput. samples may be delayed"
+                            "Sample rate exceeds OPC UA server throughput. samples may be delayed"
                         },
-                        {   "running", true}
+                        {"running", true}
                     };
                     ctx->setState(curr_state);
                 }
@@ -587,28 +587,28 @@ std::unique_ptr<task::Task> Reader::configure(
     VLOG(2) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
-//    LOG(INFO) << "Reader Config: " << config_parser.get_json().dump(4);
+    //    LOG(INFO) << "Reader Config: " << config_parser.get_json().dump(4);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = config_parser.error_json(),
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = config_parser.error_json(),
+        });
         return nullptr;
     }
     VLOG(2) << "[opc.reader] successfully parsed configuration for " << task.name;
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
-                   " error: " << dev_err.message();
+                " error: " << dev_err.message();
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{
-                              {"message", dev_err.message()}
-                          }
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", dev_err.message()}
+            }
+        });
         return nullptr;
     }
     auto properties_parser = config::Parser(device.properties);
@@ -624,10 +624,10 @@ std::unique_ptr<task::Task> Reader::configure(
     auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
     if (err) {
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{{"message", err.message()}}
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = json{{"message", err.message()}}
+        });
         return nullptr;
     }
     auto [channel_keys, indexes] = res;
@@ -636,10 +636,10 @@ std::unique_ptr<task::Task> Reader::configure(
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{{"message", conn_err.message()}}
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = json{{"message", conn_err.message()}}
+        });
         return nullptr;
     }
 
@@ -667,10 +667,10 @@ std::unique_ptr<task::Task> Reader::configure(
 
     if (!config_parser.ok()) {
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = config_parser.error_json(),
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = config_parser.error_json(),
+        });
         return nullptr;
     }
 
@@ -690,19 +690,19 @@ std::unique_ptr<task::Task> Reader::configure(
             .key = std::to_string(task.key)
         },
         .mode = cfg.data_saving
-                ? synnax::WriterMode::PersistStream
-                : synnax::WriterMode::StreamOnly,
+                    ? synnax::WriterMode::PersistStream
+                    : synnax::WriterMode::StreamOnly,
         .enable_auto_commit = true
     };
 
     ctx->setState({
-                      .task = task.key,
-                      .variant = "success",
-                      .details = json{
-                          {"running", false},
-                          {"message", "Task configured successfully"}
-                      }
-                  });
+        .task = task.key,
+        .variant = "success",
+        .details = json{
+            {"running", false},
+            {"message", "Task configured successfully"}
+        }
+    });
     return std::make_unique<Reader>(
         ctx,
         task,
@@ -725,13 +725,13 @@ void Reader::exec(task::Command &cmd) {
 
 void Reader::stop() {
     ctx->setState({
-                      .task = task.key,
-                      .variant = "success",
-                      .details = json{
-                          {"running", false},
-                          {"message", "Task stopped successfully"}
-                      }
-                  });
+        .task = task.key,
+        .variant = "success",
+        .details = json{
+            {"running", false},
+            {"message", "Task stopped successfully"}
+        }
+    });
     pipe.stop();
 }
 
@@ -742,22 +742,22 @@ void Reader::start() {
     );
     if (conn_err) {
         ctx->setState({
-                          .task = task.key,
-                          .variant = "error",
-                          .details = json{
-                              {"message", conn_err.message()}
-                          }
-                      });
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", conn_err.message()}
+            }
+        });
         LOG(ERROR) << "[opc.reader] connection failed: " << conn_err.message();
         return;
     }
     pipe.start();
     ctx->setState({
-                      .task = task.key,
-                      .variant = "success",
-                      .details = json{
-                          {"running", true},
-                          {"message", "Task started successfully"}
-                      }
-                  });
+        .task = task.key,
+        .variant = "success",
+        .details = json{
+            {"running", true},
+            {"message", "Task started successfully"}
+        }
+    });
 }

@@ -140,7 +140,7 @@ struct TableScale {
         }
 
         prescaled = parser.required_vector<double>("pre_scaled_vals");
-        scaled = parser.required_vector<double>("scaled_vals"); 
+        scaled = parser.required_vector<double>("scaled_vals");
     }
 };
 
@@ -173,11 +173,13 @@ struct ScaleConfig {
     ScaleConfig(config::Parser &parser, std::string &name)
         : name(name),
           type(parser.required<std::string>("type")),
-          prescaled_units(parser.optional<std::string>("pre_scaled_units", "Volts")),
+          prescaled_units(
+              parser.optional<std::string>("pre_scaled_units", "Volts")),
           scaled_units(parser.optional<std::string>("scaled_units", "Volts")),
           parser(parser) {
         if (!parser.ok()) {
-            LOG(ERROR) << "[ni.analog] failed to parse custom scale configuration for "
+            LOG(ERROR)
+                    << "[ni.analog] failed to parse custom scale configuration for "
                     << name;
             return;
         }
@@ -219,7 +221,7 @@ struct ScaleConfig {
     ScaleConfig(ScaleConfig &&other) = delete;
 
     int32 create_ni_scale() {
-        if (type == "linear") 
+        if (type == "linear")
             return ni::NiDAQmxInterface::CreateLinScale(
                 name.c_str(),
                 scale.linear.slope,

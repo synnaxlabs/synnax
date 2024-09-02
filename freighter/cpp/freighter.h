@@ -31,23 +31,23 @@ public:
     std::string data;
 
     /// @brief constructs the default version fo the error with TYPE_NIL.
-    Error(): type(TYPE_NIL) {
+    Error() : type(TYPE_NIL) {
     }
 
     /// @brief constructs the error from a particular string data and data.
-    Error(std::string type, std::string data): type(std::move(type)),
-                                               data(std::move(data)) {
+    Error(std::string type, std::string data) : type(std::move(type)),
+                                                data(std::move(data)) {
     }
 
     /// @brief constructs the error from a particular string freighter:Error and data.
-    Error(const freighter::Error err, std::string data): type(err.type),
-                                                         data(std::move(data)) {
+    Error(const freighter::Error err, std::string data) : type(err.type),
+                                                          data(std::move(data)) {
     }
 
     /// @brief constructs the provided error from a string. If the string is of the form
     /// "type---data", the type and data will be extracted from the string. Otherwise,
     /// the string is assumed to be the type.
-    explicit Error(const std::string &err_or_type): type(err_or_type) {
+    explicit Error(const std::string &err_or_type) : type(err_or_type) {
         const size_t pos = err_or_type.find("---");
         if (pos == std::string::npos) return;
         type = err_or_type.substr(0, pos);
@@ -55,8 +55,8 @@ public:
     }
 
     /// @brief constructs the error from its protobuf representation.
-    explicit Error(const errors::PBPayload &err): type(err.type()),
-                                                  data(err.data()) {
+    explicit Error(const errors::PBPayload &err) : type(err.type()),
+                                                   data(err.data()) {
     }
 
     [[nodiscard]] freighter::Error sub(const std::string &type_extension) const {
@@ -184,10 +184,10 @@ public:
     /// @brief Copy constructor
     Context(
         const Context &other
-    ): id(other.id),
-       protocol(other.protocol),
-       target(other.target),
-       variant(other.variant) {
+    ) : id(other.id),
+        protocol(other.protocol),
+        target(other.target),
+        variant(other.variant) {
         for (const auto &[k, v]: other.params) params[k] = v;
     }
 
@@ -320,7 +320,7 @@ public:
                 const MiddlewareCollector &collector,
                 freighter::Finalizer<RQ, RS> *finalizer,
                 RQ &req
-            ): index(0), collector(collector), finalizer(finalizer), req(req) {
+            ) : index(0), collector(collector), finalizer(finalizer), req(req) {
             }
 
             std::pair<Context, freighter::Error> operator()(

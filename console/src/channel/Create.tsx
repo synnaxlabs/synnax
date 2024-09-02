@@ -175,7 +175,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
         </Form.Form>
       </Align.Space>
       <Layout.BottomNavBar>
-        <Nav.Bar.Start>
+        <Nav.Bar.Start size="small">
           <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
             To Save

@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Connect, connectWindowLayout } from "@/cluster/Connect";
+import { versionOutdatedAdapter } from "@/cluster/notification";
 import { Layout } from "@/layout";
+import { NotificationAdapter } from "@/notifications/Notifications";
 
 export * from "@/cluster/Badges";
 export * from "@/cluster/Connect";
@@ -20,3 +22,5 @@ export * from "@/cluster/testConnection";
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [connectWindowLayout.type]: Connect,
 };
+
+export const NOTIFICATION_ADAPTERS: NotificationAdapter[] = [versionOutdatedAdapter];

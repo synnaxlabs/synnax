@@ -28,7 +28,7 @@ import { z } from "zod";
 
 import { statusVariants } from "@/cluster/Badges";
 import { useSelectMany } from "@/cluster/selectors";
-import { isLocalCluster, LOCAL_CLUSTER_KEY, set, setActive } from "@/cluster/slice";
+import { set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
