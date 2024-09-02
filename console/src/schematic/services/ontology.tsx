@@ -14,7 +14,6 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
-import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -134,14 +133,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useRangeSnapshot();
-  const exprt = useExport(resources[0].name);
+  const handleExport = useExport(resources[0].name);
   const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu("schematic.menu", {
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    export: () => exprt(resources[0].id.key),
+    export: () => handleExport(resources[0].id.key),
     link: () =>
       handleLink({
         name: resources[0].name,

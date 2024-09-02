@@ -71,7 +71,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const schematic = useSelect(layoutKey);
-  const exprt = useExport(name);
+  const handleExport = useExport(name);
   const handleLink = Link.useCopyToClipboard();
 
   const content = useCallback(
@@ -114,7 +114,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               sharp
               size="medium"
               style={{ height: "100%" }}
-              onClick={() => exprt(schematic.key)}
+              onClick={() => handleExport(schematic.key)}
             >
               <Icon.Export />
             </Button.Icon>
