@@ -56,14 +56,12 @@ export const DateTime = ({
   };
 
   const handleBlur: React.FocusEventHandler<HTMLInputElement> = (e) => {
-    console.log("ABC");
     handleChange(e.target.value, true);
     setTempValue(null);
     onBlur?.(e);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    console.log("DEF");
     if (!onlyChangeOnBlur) return;
     if (e.key === "Enter") e.currentTarget.blur();
   };
