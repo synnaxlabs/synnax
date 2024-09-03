@@ -109,7 +109,7 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create / Edit Range Modal
+- [ ] Create Range Modal
   - [ ] Create a new local range.
   - [ ] Create a new persisted range.
   - [ ] Set parent range
