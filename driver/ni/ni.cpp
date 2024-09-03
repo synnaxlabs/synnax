@@ -624,7 +624,6 @@ freighter::Error ni::Source::start(const std::string &cmd_key) {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
     this->start_ni();
-    this->sample_thread = std::thread(&ni::Source::acquire_data, this);
     ctx->setState({
         .task = task.key,
         .key = cmd_key,
@@ -640,9 +639,7 @@ freighter::Error ni::Source::start(const std::string &cmd_key) {
 freighter::Error ni::Source::stop(const std::string &cmd_key) {
     if (!this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.stop();
-    if (this->sample_thread.joinable()) this->sample_thread.join();
     this->stop_ni();
-    data_queue.reset();
     ctx->setState({
         .task = task.key,
         .key = cmd_key,
@@ -664,8 +661,6 @@ void ni::Source::clear_task() {
 
 ni::Source::~Source() {
     this->clear_task();
-    if(this->sample_thread.joinable()) this->sample_thread.join();
-    VLOG(1) << "[ni.reader] joined sample thread";
 }
 
 int ni::Source::check_ni_error(int32 error) {
