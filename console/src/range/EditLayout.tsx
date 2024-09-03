@@ -293,7 +293,7 @@ const EditLayoutForm = ({
             disabled={isPending}
             triggers={[SAVE_TRIGGER]}
           >
-            {isRemoteEdit ? "Edit" : "Save"}
+            Save
           </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>
