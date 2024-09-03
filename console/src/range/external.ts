@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { Edit, EDIT_LAYOUT_TYPE } from "@/range/EditLayout";
+import { Create, CREATE_LAYOUT_TYPE } from "@/range/EditLayout";
 import { Overview, overviewLayout } from "@/range/overview/Overview";
 
 export * from "@/range/ContextMenu";
@@ -21,6 +21,6 @@ export * from "@/range/slice";
 export * from "@/range/Toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [EDIT_LAYOUT_TYPE]: Edit,
+  [CREATE_LAYOUT_TYPE]: Create,
   [overviewLayout.type]: Overview,
 };

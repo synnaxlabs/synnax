@@ -24,7 +24,7 @@ import {
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { createEditLayout } from "@/range/EditLayout";
+import { createLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/slice";
 
 export interface SelectMultipleRangesProps
@@ -103,12 +103,7 @@ const SelectEmptyContent = (): ReactElement => {
       <Status.Text variant="disabled" hideIcon>
         No Ranges:
       </Status.Text>
-      <Button.Button
-        variant="outlined"
-        onClick={() => {
-          newLayout(createEditLayout({}));
-        }}
-      >
+      <Button.Button variant="outlined" onClick={() => newLayout(createLayout({}))}>
         Define a Range
       </Button.Button>
     </Align.Center>
