@@ -13,63 +13,70 @@ import { type ReactElement, useState } from "react";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 
-export interface DateTimeProps extends BaseProps<number> {}
+export interface DateTimeProps extends BaseProps<number> {
+  onlyChangeOnBlur?: boolean;
+}
 
 export const DateTime = ({
   value,
   onChange,
   onBlur,
+  onlyChangeOnBlur,
   ...props
 }: DateTimeProps): ReactElement => {
-  const ts = new TimeStamp(value, "UTC");
-  const [internalValue, setInternalValue] = useState(
-    ts.fString("ISO", "local").slice(0, -1),
-  );
-  const [valueIsValid, setValueIsValid] = useState(true);
+  const [tempValue, setTempValue] = useState<string | null>(null);
 
-  const handleChange = (next: string | number): void => {
+  const handleChange = (next: string | number, override: boolean = false): void => {
     let nextStr = next.toString();
-    setInternalValue(nextStr);
+    setTempValue(nextStr);
 
-    let ts = new TimeStamp(next, "UTC");
+    let nextTS = new TimeStamp(next, "UTC");
     if (nextStr.length < 23) nextStr += ".000";
 
-    ts = ts.add(
+    nextTS = nextTS.add(
       BigInt(
-        TimeStamp.now().date().getTimezoneOffset() - ts.date().getTimezoneOffset(),
+        TimeStamp.now().date().getTimezoneOffset() - nextTS.date().getTimezoneOffset(),
       ) * TimeSpan.MINUTE.valueOf(),
     );
     let ok = false;
     try {
-      const str = ts.fString("ISO", "local");
+      const str = nextTS.fString("ISO", "local");
       ok = str.slice(0, -1) === nextStr;
-    } catch (_) {
-      console.error("e");
+    } catch (e) {
+      console.error(e);
     }
-    if (!ok) {
-      setValueIsValid(false);
-      return;
+    if (ok && !onlyChangeOnBlur) {
+      onChange(Number(nextTS.valueOf()));
+      setTempValue(null);
     }
-    onChange(Number(ts.valueOf()));
-    setValueIsValid(true);
+    if (override) {
+      if (ok) onChange(Number(nextTS.valueOf()));
+      setTempValue(null);
+    }
   };
 
   const handleBlur: React.FocusEventHandler<HTMLInputElement> = (e) => {
-    setValueIsValid(true);
-    setInternalValue(new TimeStamp(value, "UTC").fString("ISO", "local").slice(0, -1));
+    console.log("ABC");
+    handleChange(e.target.value, true);
+    setTempValue(null);
     onBlur?.(e);
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    console.log("DEF");
+    if (!onlyChangeOnBlur) return;
+    if (e.key === "Enter") e.currentTarget.blur();
+  };
+
+  const parsedValue = new TimeStamp(value, "UTC").fString("ISO", "local").slice(0, -1);
 
   return (
     <Text
       type="datetime-local"
       onBlur={handleBlur}
       required={false}
-      value={
-        valueIsValid
-          ? new TimeStamp(value, "UTC").fString("ISO", "local").slice(0, -1)
-          : internalValue
-      }
+      onKeyDown={handleKeyDown}
+      value={tempValue ?? parsedValue}
       onChange={handleChange}
       {...props}
     />
