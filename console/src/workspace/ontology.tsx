@@ -162,7 +162,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const group = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const importSchematic = Schematic.useImport(selection.resources[0].id.key);
-  const exprt = useExport(selection.resources[0].name);
+  const handleExport = useExport(selection.resources[0].name);
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
@@ -176,7 +176,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
-    export: () => exprt(selection.resources[0].id.key),
+    export: () => handleExport(selection.resources[0].id.key),
   };
   const singleResource = resources.length === 1;
   return (

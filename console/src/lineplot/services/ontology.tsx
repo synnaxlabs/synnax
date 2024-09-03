@@ -59,7 +59,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { resources } = props.selection;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
-  const exprt = useExport(resources[0].name);
+  const handleExport = useExport(resources[0].name);
   const onSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
@@ -68,7 +68,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
-    export: () => exprt(resources[0].id.key),
+    export: () => handleExport(resources[0].id.key),
   };
   const isSingle = resources.length === 1;
   return (
