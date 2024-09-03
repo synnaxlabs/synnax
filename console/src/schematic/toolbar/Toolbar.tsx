@@ -108,7 +108,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Schematic />}>{name}</ToolbarTitle>
         <Align.Space direction="x" align="center" empty>
-          <Align.Space direction="x" size={0} style={{ height: "100%", width: 66 }}>
+          <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
             <Button.Icon
               tooltip={`Export ${name}`}
               sharp
