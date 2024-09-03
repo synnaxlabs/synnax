@@ -8,8 +8,14 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { NotFoundError, workspace as cWorkspace } from "@synnaxlabs/client";
+import { Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { useMutation } from "@tanstack/react-query";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
+import { type RootState } from "@/store";
 import { select } from "@/workspace/selectors";
 import { add, remove } from "@/workspace/slice";
 
@@ -59,4 +65,33 @@ export const fileHandler: Layout.FileHandler = async ({
     await client.workspaces.create(workspace);
   }
   return true;
+};
+
+export const useExport = (name: string = "workspace"): ((key: string) => void) => {
+  const client = PSynnax.use();
+  const addStatus = Status.useAggregator();
+  const store = useStore<RootState>();
+
+  return useMutation<void, Error, string>({
+    mutationFn: async (key) => {
+      let workspace = select(store.getState(), key);
+      if (workspace == null) {
+        if (client == null) throw new Error("Client is not available");
+        workspace = await client.workspaces.retrieve(key);
+      }
+      const savePath = await save({
+        title: `Export ${name}`,
+        defaultPath: `${workspace.name}.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (savePath == null) return;
+      await writeFile(savePath, new TextEncoder().encode(JSON.stringify(workspace)));
+    },
+    onError: (err) =>
+      addStatus({
+        variant: "error",
+        message: `Failed to export ${name}`,
+        description: err.message,
+      }),
+  }).mutate;
 };

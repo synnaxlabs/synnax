@@ -16,7 +16,7 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { useExport } from "@/schematic/hooks";
+import { useExport } from "@/schematic/file";
 import {
   useSelect,
   useSelectControlStatus,

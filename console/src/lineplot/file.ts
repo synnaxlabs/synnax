@@ -11,16 +11,17 @@ import { NotFoundError, UnexpectedError } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type DialogFilter, open, save } from "@tauri-apps/plugin-dialog";
+import { DialogFilter, open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { useDispatch, useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
 import { Layout } from "@/layout";
-import { create } from "@/schematic/Schematic";
-import { select } from "@/schematic/selectors";
-import { parser, remove, type State, type StateWithName } from "@/schematic/slice";
-import { RootState } from "@/store";
+import { create } from "@/lineplot/LinePlot";
+import { parser } from "@/lineplot/migrations";
+import { select } from "@/lineplot/selectors";
+import { remove, type State, type StateWithName } from "@/lineplot/slice";
+import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const fileHandler: Layout.FileHandler = async ({
@@ -34,22 +35,22 @@ export const fileHandler: Layout.FileHandler = async ({
   name: fileName,
   store,
 }): Promise<boolean> => {
-  const state = parser(file);
-  if (state == null) return false;
-  const key = state.key;
+  const linePlot = parser(file);
+  if (linePlot == null) return false;
+  const key = linePlot.key;
   let name = file?.name;
   if (typeof name !== "string" || name.length === 0)
     name = fileName.split(".").slice(0, -1).join(".");
-  if (name.length === 0) name = "New Schematic";
-
-  const existingState = select(store.getState(), key);
-  const existingName = Layout.select(store.getState(), key)?.name;
+  if (name.length === 0) name = "New Line Plot";
 
   const creator = create({
-    ...state,
+    ...linePlot,
     tab,
     name,
   });
+
+  const existingState = select(store.getState(), key);
+  const existingName = Layout.select(store.getState(), key)?.name;
 
   if (existingState != null) {
     if (
@@ -71,17 +72,16 @@ export const fileHandler: Layout.FileHandler = async ({
 
   // Logic for changing the schematic in the cluster
   try {
-    await client.workspaces.schematic.retrieve(key);
-    await client.workspaces.schematic.setData(key, state as unknown as UnknownRecord);
-    await client.workspaces.schematic.rename(key, name);
+    await client.workspaces.linePlot.retrieve(key);
+    await client.workspaces.linePlot.setData(key, linePlot);
+    await client.workspaces.linePlot.rename(key, name);
   } catch (e) {
     if (!NotFoundError.matches(e)) throw e;
     if (workspaceKey != null)
-      await client.workspaces.schematic.create(workspaceKey, {
-        ...state,
-        data: state as unknown as UnknownRecord,
+      await client.workspaces.linePlot.create(workspaceKey, {
+        ...linePlot,
         name,
-        snapshot: state.snapshot,
+        data: linePlot as unknown as UnknownRecord,
         key,
       });
   }
@@ -90,7 +90,7 @@ export const fileHandler: Layout.FileHandler = async ({
 
 const filters: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const useExport = (name: string = "schematic"): ((key: string) => void) => {
+export const useExport = (name: string = "line plot"): ((key: string) => void) => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   const store = useStore<RootState>();
@@ -101,18 +101,17 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
       let state = select(storeState, key);
       let name = Layout.select(storeState, key)?.name;
       if (state == null) {
-        if (client == null) throw new UnexpectedError("Client is unavailable");
-        const schematic = await client.workspaces.schematic.retrieve(key);
+        if (client == null) throw new UnexpectedError("Client is not available");
+        const linePlot = await client.workspaces.linePlot.retrieve(key);
         state = {
-          ...(schematic.data as unknown as State),
-          snapshot: schematic.snapshot,
-          key: schematic.key,
+          ...(linePlot.data as unknown as State),
+          key: linePlot.key,
         };
-        name = schematic.name;
+        name = linePlot.name;
       }
       if (name == null)
         throw new UnexpectedError(
-          `Schematic with key ${key} is missing in store state`,
+          `Line plot with key ${key} is missing in store state`,
         );
       const savePath = await save({
         title: `Export ${name}`,
@@ -120,11 +119,8 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
         filters,
       });
       if (savePath == null) return;
-      const schematicData: StateWithName = { ...state, name };
-      await writeFile(
-        savePath,
-        new TextEncoder().encode(JSON.stringify(schematicData)),
-      );
+      const linePlotData: StateWithName = { ...state, name };
+      await writeFile(savePath, new TextEncoder().encode(JSON.stringify(linePlotData)));
     },
     onError: (err) =>
       addStatus({
@@ -146,12 +142,12 @@ export const useImport = (workspaceKey?: string): (() => void) => {
   if (workspaceKey != null && activeKey !== workspaceKey)
     dispatch(Workspace.setActive(workspaceKey));
 
-  let name = "schematic";
+  let name = "line plot";
 
   return useMutation<void, Error>({
     mutationFn: async () => {
       const fileResponses = await open({
-        title: "Import schematic",
+        title: "Import line plot",
         filters,
         multiple: true,
         directory: false,
@@ -175,7 +171,7 @@ export const useImport = (workspaceKey?: string): (() => void) => {
             dispatch,
           }))
         )
-          throw new Error(`${fileName} is not a valid schematic`);
+          throw new Error(`${fileName} is not a valid line plot`);
       }
     },
     onError: (err) =>

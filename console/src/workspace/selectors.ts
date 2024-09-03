@@ -12,13 +12,10 @@ import { type workspace } from "@synnaxlabs/client";
 import { useMemoSelect } from "@/hooks";
 import { SLICE_NAME, type SliceState, type StoreState } from "@/workspace/slice";
 
-export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
-
-export const useSelectSliceState = (): SliceState =>
-  useMemoSelect(selectSliceState, []);
+const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const selectActiveKey = (state: StoreState): string | null =>
-  selectSliceState(state).active;
+  selectState(state).active;
 
 export const useSelectActiveKey = (): string | null =>
   useMemoSelect(selectActiveKey, []);
@@ -26,14 +23,14 @@ export const useSelectActiveKey = (): string | null =>
 export const selectActive = (state: StoreState): workspace.Workspace | null => {
   const activeKey = selectActiveKey(state);
   if (activeKey == null) return null;
-  return selectSliceState(state).workspaces[activeKey];
+  return selectState(state).workspaces[activeKey];
 };
 
 export const useSelectActive = (): workspace.Workspace | null =>
   useMemoSelect(selectActive, []);
 
 export const select = (state: StoreState, key: string): workspace.Workspace | null =>
-  selectSliceState(state).workspaces[key];
+  selectState(state).workspaces[key];
 
 export const useSelect = (key: string): workspace.Workspace | null =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);

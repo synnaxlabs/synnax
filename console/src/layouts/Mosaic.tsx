@@ -39,7 +39,6 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { LinePlotServices } from "@/lineplot/services";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
@@ -54,6 +53,12 @@ const EmptyContent = (): ReactElement => (
 const emptyContent = <EmptyContent />;
 
 export const MOSAIC_TYPE = "mosaic";
+
+const FILE_HANDLERS = [
+  Workspace.fileHandler,
+  Schematic.fileHandler,
+  LinePlot.fileHandler,
+];
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {
@@ -243,9 +248,3 @@ export const Window = memo(({ layoutKey }: Layout.RendererProps): ReactElement =
   );
 });
 Window.displayName = "MosaicWindow";
-
-export const FILE_HANDLERS = [
-  Workspace.fileHandler,
-  Schematic.fileHandler,
-  LinePlotServices.fileHandler,
-];

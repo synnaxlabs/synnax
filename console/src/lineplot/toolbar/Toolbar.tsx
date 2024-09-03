@@ -17,7 +17,7 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { useExport } from "@/lineplot/hooks";
+import { useExport } from "@/lineplot/file";
 import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";

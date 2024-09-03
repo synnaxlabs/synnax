@@ -10,6 +10,7 @@
 import { type Layout } from "@/layout";
 import { LAYOUT_TYPE, LinePlot } from "@/lineplot/LinePlot";
 
+export * from "@/lineplot/file";
 export * from "@/lineplot/hooks";
 export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/middleware";
