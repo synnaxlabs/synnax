@@ -176,52 +176,44 @@ int ni::AnalogReadSource::configure_timing() {
     return 0;
 }
 
-void ni::AnalogReadSource::acquire_data() {
-    while (this->breaker.running() && this->ok()) {
-        DataPacket data_packet;
-        data_packet.analog_data.resize(this->buffer_size);
-        data_packet.t0 = synnax::TimeStamp::now().value;
-        if (this->check_ni_error(ni::NiDAQmxInterface::ReadAnalogF64(
-            this->task_handle,
-            this->num_samples_per_channel,
-            -1,
-            DAQmx_Val_GroupByChannel,
-            data_packet.analog_data.data(),
-            data_packet.analog_data.size(),
-            &data_packet.samples_read_per_channel,
-            NULL))) {
-            this->log_error(
-                "failed while reading analog data for task " + this->reader_config.
-                task_name);
-        }
-        data_packet.tf = synnax::TimeStamp::now().value;
-        data_queue.enqueue(data_packet);
-    }
+int ni::AnalogReadSource::acquire_data() {
+    this->t0 = synnax::TimeStamp::now().value;
+    auto err = ni::NiDAQmxInterface::ReadAnalogF64(
+        this->task_handle,
+        this->num_samples_per_channel,
+        -1,
+        DAQmx_Val_GroupByChannel,
+        this->data.data(),
+        this->data.size(),
+        &this->samples_read_per_channel,
+        NULL
+    );
+    this->tf = synnax::TimeStamp::now().value;
+    return err;
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
     auto f = synnax::Frame(num_channels);
 
-    auto [d, err] = data_queue.dequeue();
-    if (!err)
+    if (!this->check_ni_error(this->acquire_data()))
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::CRITICAL_HARDWARE_ERROR,
-                                  "Failed to read data from queue"));
+                                  "Failed to read data from from device"));
 
     // interpolate  timestamps between the initial and final timestamp to ensure
     // non-overlapping timestamps between batched reads
-    uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
+    uint64_t incr = ((this->tf - this->t0) / this->num_samples_per_channel);
     // Construct and populate index channel
 
-    size_t s = d.samples_read_per_channel;
+    size_t s = this->samples_read_per_channel;
     // Construct and populate synnax frame
     size_t data_index = 0;
     for (int ch = 0; ch < num_channels; ch++) {
         if (this->reader_config.channels[ch].channel_type == "index") {
-            auto t = synnax::Series(synnax::TIMESTAMP, d.samples_read_per_channel);
-            for (uint64_t i = 0; i < d.samples_read_per_channel; ++i)
-                t.write(d.t0 + i * incr);
+            auto t = synnax::Series(synnax::TIMESTAMP, this->samples_read_per_channel);
+            for (uint64_t i = 0; i < this->samples_read_per_channel; ++i)
+                t.write(this->t0 + i * incr);
             f.add(this->reader_config.channels[ch].channel_key, std::move(t));
             continue;
         }
@@ -229,8 +221,8 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
         if (this->reader_config.channels[ch].data_type == synnax::FLOAT32) series = synnax::Series(synnax::FLOAT32, s);
         else if (this->reader_config.channels[ch].data_type == synnax::FLOAT64)
             series = synnax::Series(synnax::FLOAT64, s);
-        for (int i = 0; i < d.samples_read_per_channel; i++)
-            this->write_to_series(series, d.analog_data[data_index * d.samples_read_per_channel + i],
+        for (int i = 0; i < this->samples_read_per_channel; i++)
+            this->write_to_series(series, this->data[data_index * this->samples_read_per_channel + i],
                                   this->reader_config.channels[ch].data_type);
         f.add(this->reader_config.channels[ch].channel_key, std::move(series));
         data_index++;

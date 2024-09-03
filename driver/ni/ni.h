@@ -31,7 +31,6 @@
 
 #include "driver/ni/ai_channels.h"
 #include "driver/ni/error.h"
-#include "driver/ni/ts_queue.h"
 
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
@@ -193,23 +192,7 @@ public:
 
     virtual int configure_timing() = 0;
 
-    virtual void acquire_data() = 0;
-
     virtual int create_channels() = 0;
-
-
-    /// @brief shared resources between daq sampling thread and acquisition thread
-    struct DataPacket {
-        // void *data; // actual data
-        std::vector<double> analog_data;
-        std::vector<std::uint8_t> digital_data;
-        uint64_t t0; // initial timestamp
-        uint64_t tf; // final timestamp
-        int32 samples_read_per_channel;
-    };
-
-    TSQueue<DataPacket> data_queue;
-    std::thread sample_thread;
 
     /// @brief NI related resources
     TaskHandle task_handle = 0;
@@ -246,7 +229,7 @@ public:
     std::pair<synnax::Frame, freighter::Error>
     read(breaker::Breaker &breaker) override;
 
-    void acquire_data() override;
+    int acquire_data();
 
     int configure_timing() override;
 
@@ -268,6 +251,12 @@ public:
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
     uint64_t num_ai_channels = 0;
+
+    std::vector<double> data;
+    uint64_t t0 = 0;
+    uint64_t tf = 0;
+    int32 samples_read_per_channel = 0;
+
 }; // class AnalogReadSource
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -285,7 +274,7 @@ public:
     std::pair<synnax::Frame, freighter::Error>
     read(breaker::Breaker &breaker) override;
 
-    void acquire_data() override;
+    int acquire_data();
 
     int configure_timing() override;
 
@@ -294,6 +283,11 @@ public:
     int create_channels() override;
 
     void parse_channels(config::Parser &parser) override;
+
+    std::vector<std::uint8_t> data;
+    uint64_t t0 = 0;
+    uint64_t tf = 0;
+    int32 samples_read_per_channel = 0;
 }; // class DigitalReadSource
 
 ///////////////////////////////////////////////////////////////////////////////////
