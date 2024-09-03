@@ -173,6 +173,7 @@ int ni::AnalogReadSource::configure_timing() {
 
     this->buffer_size = this->num_ai_channels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
+    this->data.resize(this->buffer_size);
     return 0;
 }
 

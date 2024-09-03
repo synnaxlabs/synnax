@@ -90,6 +90,7 @@ int ni::DigitalReadSource::configure_timing() {
     this->buffer_size = this->num_channels * this->num_samples_per_channel;
     this->timer = loop::Timer(this->reader_config.stream_rate);
     this->sample_timer = loop::Timer(this->reader_config.sample_rate);
+    this->data.resize(this->buffer_size); // TODO make sure
     return 0;
 }
 
