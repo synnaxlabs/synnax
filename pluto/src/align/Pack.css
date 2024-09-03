@@ -30,12 +30,13 @@
         border: none !important;
 
         &:not(.pluto-pack--shadow) > * {
-            border: var(--pluto-border-l4);
+            border: var(--pluto-border);
+            border-color: var(--pluto-pack-border-shade);
         }
 
         &.pluto-pack--shadow {
             &:is(:hover, :focus-within) > * {
-                border: var(--pluto-border-l4);
+                border: var(--pluto-border);
                 opacity: 1 !important;
             }
 

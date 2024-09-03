@@ -32,13 +32,14 @@ timestamps:
 # Create a time channel to store the timestamps of our data channel
 time_index_channel = client.channels.create(
     name="time",
-    # Index channels must have a data type of TIMESTAMP and is_index set to True
+    # Index channels must have a data type of TIMESTAMP and is_index 
+    # set to True
     data_type=sy.DataType.TIMESTAMP, 
     is_index=True,
 )
 
-# You can also create a channel by creating the channel locally and passing it to the
-# create method on the client.
+# You can also create a channel by creating the channel locally and 
+# passing it to the create method on the client.
 my_sensor = sy.Channel(
     name="my_sensor",
     data_type=sy.DataType.FLOAT32,

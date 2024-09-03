@@ -62,8 +62,8 @@ const { title, description } = Astro.props;
             margin: 1.5rem 0;
         }
 
-        video,
-        img {
+        & video,
+        img:not(.diagram img) {
             width: 100%;
             border-radius: 1rem !important;
             border: var(--pluto-border-l4);
@@ -77,6 +77,10 @@ const { title, description } = Astro.props;
         .pluto-divider {
             border-top: var(--pluto-border-l4);
             margin: 5% 0;
+        }
+
+        .pluto-tabs-selector {
+            --pluto-height-medium: 6.5rem !important;
         }
 
         /* Makes icons appear centered in the toolbar */

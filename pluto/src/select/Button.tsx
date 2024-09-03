@@ -73,7 +73,11 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   } as const as UseSelectProps<K, E>);
 
   return (
-    <Align.Pack className={CSS(CSS.B("select-button"), className)} {...props}>
+    <Align.Pack
+      borderShade={4}
+      className={CSS(CSS.B("select-button"), className)}
+      {...props}
+    >
       {data.map((e) => {
         return children({
           key: e.key,

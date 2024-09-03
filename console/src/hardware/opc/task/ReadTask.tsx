@@ -378,6 +378,7 @@ export const ChannelList = ({ path, device }: ChannelListProps): ReactElement =>
       empty
       bordered
       rounded
+      background={1}
       {...props}
     >
       <Header.Header level="h4">

@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@synnaxlabs/pluto": "^0.21.0",
+    "@synnaxlabs/pluto": "workspace:*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

@@ -24,8 +24,8 @@ from datetime import datetime
 time_format = "%Y-%m-%d %H:%M:%S"
 
 my_range = client.ranges.create(
-    # This name does not need to be unique, but it's a good idea to pick something that
-    # will be easy to identify later.
+    # This name does not need to be unique, but it's a good idea to 
+    # pick something that will be easy to identify later.
     name="My Range",
     time_range=sy.TimeRange(
         start = datetime.strptime("2023-2-12 12:30:00", time_format),

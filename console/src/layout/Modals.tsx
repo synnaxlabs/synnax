@@ -10,9 +10,8 @@
 import "@/layout/Modals.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Menu, Modal as Core, Nav, Text } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { CSSProperties, FC, ReactElement } from "react";
+import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
+import { CSSProperties } from "react";
 
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
@@ -35,33 +34,6 @@ interface ModalProps {
   remove: (key: string) => void;
 }
 
-const BreadCrumb = ({ name, icon }: Pick<State, "name" | "icon">): ReactElement => {
-  let iconC: ReactElement | undefined = undefined;
-  if (icon) {
-    const IconC = deep.get<FC, typeof Icon>(Icon, icon);
-    iconC = <IconC />;
-  }
-  const split = name.split(".");
-  const content: (ReactElement | string)[] = split
-    .map((name, index) => [
-      <Icon.Caret.Right
-        key={`${name}-${index}`}
-        style={{
-          transform: "scale(0.8) translateY(1px)",
-          color: "var(--pluto-gray-l6)",
-        }}
-      />,
-      name,
-    ])
-    .flat();
-  return (
-    <Text.WithIcon level="p" shade={7} weight={450} size={0.5}>
-      {iconC}
-      {...content}
-    </Text.WithIcon>
-  );
-};
-
 const Modal = ({ state, remove }: ModalProps) => {
   const { key, name, window, icon } = state;
   const menuProps = Menu.useContextMenu();
@@ -72,7 +44,7 @@ const Modal = ({ state, remove }: ModalProps) => {
           <Nav.Bar location="top" size="6rem">
             {(window?.showTitle ?? true) && (
               <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-                <BreadCrumb name={name} icon={icon} />
+                <Breadcrumb.Breadcrumb icon={icon}>{name}</Breadcrumb.Breadcrumb>
               </Nav.Bar.Start>
             )}
             <Nav.Bar.End style={{ paddingRight: "1rem" }}>
