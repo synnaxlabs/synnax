@@ -24,7 +24,7 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
-import { useExport } from "@/workspace/hooks";
+import { useExport } from "@/workspace/file";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 

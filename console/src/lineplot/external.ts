@@ -11,13 +11,13 @@ import { type Layout } from "@/layout";
 import { LAYOUT_TYPE, LinePlot } from "@/lineplot/LinePlot";
 
 export * from "@/lineplot/file";
-export * from "@/lineplot/hooks";
 export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/middleware";
 export * from "@/lineplot/NavControls";
 export * from "@/lineplot/selectors";
 export * from "@/lineplot/slice";
 export * from "@/lineplot/toolbar";
+export * from "@/lineplot/useTriggerHold";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: LinePlot,
