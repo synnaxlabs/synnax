@@ -12,11 +12,12 @@ import uuid
 from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient
 
-from synnax.ranger.payload import RangeParams, RangePayload, normalize_range_params
+from synnax.ranger.payload import RangePayload, RangeKey, RangeName
+from synnax.util.normalize import normalize
 
 
 class _Request(Payload):
-    keys: list[uuid.UUID] | None = None
+    keys: list[uuid.UUID | str] | None = None
     names: list[str] | None = None
     term: str | None = None
 
@@ -39,9 +40,18 @@ class RangeRetriever:
         self.instrumentation = instrumentation
 
     @trace("debug")
-    def retrieve(self, params: RangeParams) -> list[RangePayload]:
-        normal = normalize_range_params(params)
-        return self.__execute(_Request(**{normal.variant: normal.params}))
+    def retrieve(
+        self,
+        key: RangeKey | None = None,
+        name: RangeName | None = None,
+        names: list[RangeName] | None = None,
+        keys: list[RangeKey] | None = None,
+    ) -> list[RangePayload]:
+        if key is not None:
+            keys = normalize(key)
+        if name is not None:
+            names = normalize(name)
+        return self.__execute(_Request(keys=keys, names=names))
 
     @trace("debug")
     def search(self, term: str) -> list[RangePayload]:

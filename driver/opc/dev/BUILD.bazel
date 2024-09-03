@@ -42,7 +42,7 @@ cc_binary(
 
 cc_binary(
     name = "client_encrypted",
-    srcs = ["dev/client_encrypted.cpp"],
+    srcs = ["client_encrypted.cpp"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
@@ -50,5 +50,31 @@ cc_binary(
     deps = [
         "//driver/opc:mbedtls",
         "@open62541",
+    ],
+)
+
+cc_binary(
+    name = "client",
+    srcs = ["client.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@open62541",
+        "//driver/opc:mbedtls",
+    ],
+)
+
+cc_binary(
+    name = "client_observer",
+    srcs = ["client_observer.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@open62541",
+        "//driver/opc:mbedtls",
     ],
 )

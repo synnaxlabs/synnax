@@ -13,4 +13,5 @@ service ConnectivityService {
 
 message ConnectivityCheckResponse {
     string cluster_key = 1;
+    string node_version = 2;
 }

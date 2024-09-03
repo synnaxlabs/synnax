@@ -20,10 +20,13 @@
     height: 100%;
     z-index: 10;
     background: var(--pluto-gray-l3-40);
+    padding: 0 5rem;
+    /* don't allow to select things underneath */
+    user-select: none;
 
     .pluto-modal__dialog {
         container-type: inline-size;
-        position: absolute;
+        position: relative;
         top: 30%;
         z-index: 11;
         transform: translateY(-25%);

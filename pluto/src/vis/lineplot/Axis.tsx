@@ -126,14 +126,12 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           const dims = Text.dimensions(label, font);
           let labelSize =
             dims[direction.dimension(direction.construct(labelDirection))];
-          if (labelSize > 0) labelSize += 6;
-          setState((state) => ({
-            ...state,
-            labelSize,
-          }));
+          if (labelSize > 0) labelSize += 9;
+          setState((state) => ({ ...state, labelSize }));
         } else {
           const dims = Text.dimensions(label, font);
-          const labelSize = dims.height + 12;
+          let labelSize = dims.height * 1.3;
+          if (labelSize > 0) labelSize += 12;
           const prevSize = prevLabelSize.current;
           if (!withinSizeThreshold(prevSize, labelSize)) {
             prevLabelSize.current = labelSize;
@@ -156,7 +154,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
             )}
             style={{ ...style, ...gridStyle }}
             align="center"
-            justify={dir === "x" ? "end" : "start"}
+            justify={location !== "left" ? "end" : "start"}
             direction={direction.swap(dir)}
             {...props}
           >

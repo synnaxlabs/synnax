@@ -104,7 +104,7 @@ const LabelControls = ({ path }: { path: string }): ReactElement => (
 
 const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
   <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
-    {({ value, onChange, ...props }) => (
+    {({ value, onChange, variant: _, ...props }) => (
       <Color.Swatch
         value={value ?? Color.ZERO.setAlpha(1).rgba255}
         onChange={(v) => onChange(v.rgba255)}

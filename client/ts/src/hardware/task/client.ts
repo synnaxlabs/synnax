@@ -18,13 +18,27 @@ import { z } from "zod";
 import { framer } from "@/framer";
 import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
-import { NewTask, newTaskZ, Payload, State, StateObservable, stateZ, TaskKey, taskKeyZ, taskZ } from "@/hardware/task/payload";
+import {
+  NewTask,
+  newTaskZ,
+  Payload,
+  State,
+  StateObservable,
+  stateZ,
+  TaskKey,
+  taskKeyZ,
+  taskZ,
+} from "@/hardware/task/payload";
+import { ontology } from "@/ontology";
+import { ranger } from "@/ranger";
 import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const TASK_STATE_CHANNEL = "sy_task_state";
 const TASK_CMD_CHANNEL = "sy_task_cmd";
+
+const TASK_NOT_CREATED = new Error("Task not created");
 
 export class Task<
   C extends UnknownRecord = UnknownRecord,
@@ -36,25 +50,34 @@ export class Task<
   readonly internal: boolean;
   readonly type: T;
   readonly config: C;
+  readonly snapshot: boolean;
   state?: State<D>;
-  private readonly frameClient: framer.Client;
+  private readonly frameClient: framer.Client | null;
+  private readonly ontologyClient: ontology.Client | null;
+  private readonly rangeClient: ranger.Client | null;
 
   constructor(
     key: TaskKey,
     name: string,
     type: T,
     config: C,
-    frameClient: framer.Client,
     internal: boolean = false,
+    snapshot: boolean = false,
     state?: State<D> | null,
+    frameClient: framer.Client | null = null,
+    ontologyClient: ontology.Client | null = null,
+    rangeClient: ranger.Client | null = null,
   ) {
     this.key = key;
     this.name = name;
     this.type = type;
     this.config = config;
     this.internal = internal;
+    this.snapshot = snapshot;
     if (state !== null) this.state = state;
     this.frameClient = frameClient;
+    this.ontologyClient = ontologyClient;
+    this.rangeClient = rangeClient;
   }
 
   get payload(): Payload<C, D> {
@@ -68,7 +91,12 @@ export class Task<
     };
   }
 
+  get ontologyID(): ontology.ID {
+    return new ontology.ID({ type: "task", key: this.key });
+  }
+
   async executeCommand(type: string, args?: UnknownRecord): Promise<string> {
+    if (this.frameClient == null) throw TASK_NOT_CREATED;
     const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
     const key = id.id();
     await writer.write(TASK_CMD_CHANNEL, [{ task: this.key, type, key, args }]);
@@ -81,6 +109,7 @@ export class Task<
     args: UnknownRecord,
     timeout: CrudeTimeSpan,
   ): Promise<State<D>> {
+    if (this.frameClient == null) throw TASK_NOT_CREATED;
     const streamer = await this.frameClient.openStreamer(TASK_STATE_CHANNEL);
     const cmdKey = await this.executeCommand(type, args);
     let res: State<D>;
@@ -105,6 +134,7 @@ export class Task<
   async openStateObserver<D extends UnknownRecord = UnknownRecord>(): Promise<
     StateObservable<D>
   > {
+    if (this.frameClient == null) throw TASK_NOT_CREATED;
     return new framer.ObservableStreamer<State<D>>(
       await this.frameClient.openStreamer(TASK_STATE_CHANNEL),
       (frame) => {
@@ -117,6 +147,14 @@ export class Task<
         return [state, true];
       },
     );
+  }
+
+  async snapshottedTo(): Promise<ontology.Resource | null> {
+    if (this.ontologyClient == null || this.rangeClient == null) throw TASK_NOT_CREATED;
+    if (!this.snapshot) return null;
+    const parents = await this.ontologyClient.retrieveParents(this.ontologyID);
+    if (parents.length == 0) return null;
+    return parents[0];
   }
 }
 
@@ -143,20 +181,36 @@ export type RetrieveOptions = Pick<
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
 const DELETE_ENDPOINT = "/hardware/task/delete";
+const COPY_ENDPOINT = "/hardware/task/copy";
 
 const createReqZ = z.object({ tasks: newTaskZ.array() });
 const createResZ = z.object({ tasks: taskZ.array() });
 const deleteReqZ = z.object({ keys: taskKeyZ.array() });
 const deleteResZ = z.object({});
+const copyReqZ = z.object({
+  key: taskKeyZ,
+  name: z.string(),
+  snapshot: z.boolean(),
+});
+const copyResZ = z.object({ task: taskZ });
 
 export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   readonly type: string = "task";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
+  private readonly ontologyClient: ontology.Client;
+  private readonly rangeClient: ranger.Client;
 
-  constructor(client: UnaryClient, frameClient: framer.Client) {
+  constructor(
+    client: UnaryClient,
+    frameClient: framer.Client,
+    ontologyClient: ontology.Client,
+    rangeClient: ranger.Client,
+  ) {
     this.client = client;
     this.frameClient = frameClient;
+    this.ontologyClient = ontologyClient;
+    this.rangeClient = rangeClient;
   }
 
   async create<
@@ -251,6 +305,17 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     return single && variant !== "rack" ? sugared[0] : sugared;
   }
 
+  async copy(key: string, name: string, snapshot: boolean): Promise<Task> {
+    const res = await sendRequired(
+      this.client,
+      COPY_ENDPOINT,
+      { key, name, snapshot },
+      copyReqZ,
+      copyResZ,
+    );
+    return this.sugar([res.task])[0];
+  }
+
   async retrieveByName(name: string, rack?: number): Promise<Task> {
     const tasks = await this.execRetrieve({ names: [name], rack });
     checkForMultipleOrNoResults("Task", name, tasks, true);
@@ -270,8 +335,19 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
 
   private sugar(payloads: Payload[]): Task[] {
     return payloads.map(
-      ({ key, name, type, config, state, internal }) =>
-        new Task(key, name, type, config, this.frameClient, internal, state),
+      ({ key, name, type, config, state, internal, snapshot }) =>
+        new Task(
+          key,
+          name,
+          type,
+          config,
+          internal,
+          snapshot,
+          state,
+          this.frameClient,
+          this.ontologyClient,
+          this.rangeClient,
+        ),
     );
   }
 

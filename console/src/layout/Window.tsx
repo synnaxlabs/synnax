@@ -106,6 +106,12 @@ export const Window = (): ReactElement | null => {
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
   const ctx = Haul.useContext();
   const dragging = Haul.useDraggingRef();
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (Haul.isFileDrag(event, dragging.current))
+      ctx?.start(Haul.ZERO_ITEM, [Haul.FILE]);
+  };
+
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
 
@@ -118,10 +124,7 @@ export const Window = (): ReactElement | null => {
           CSS.BM("main", os.toLowerCase()),
           maximized && CSS.BM("main", "maximized"),
         )}
-        onDragOver={(event) => {
-          if (Haul.isFileDrag(event, dragging.current))
-            ctx?.start(Haul.ZERO_ITEM, [Haul.FILE]);
-        }}
+        onDragOver={handleDragOver}
       >
         <NavTop title={layout.name} {...layout.window} />
         {content}

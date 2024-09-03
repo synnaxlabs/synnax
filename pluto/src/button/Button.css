@@ -95,9 +95,9 @@
 /* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
-    --pluto-bg: var(--pluto-gray-l0);
+    --pluto-bg: var(--pluto-gray-l2);
     background: var(--pluto-bg);
-    border: var(--pluto-border-width) solid var(--pluto-border-color);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l4);
 
     &.pluto--warning {
         border-color: var(--pluto-warning-z) !important;
@@ -110,7 +110,7 @@
     }
 
     &:hover:not(.pluto--disabled) {
-        --pluto-bg: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l3);
         background: var(--pluto-bg);
         border-color: var(--pluto-gray-l4) !important;
     }
@@ -179,6 +179,14 @@
     &.pluto--disabled {
         color: var(--pluto-gray-l5);
     }
+}
+
+/** |||| PREVIEW |||| */
+
+.pluto-btn--preview {
+    background: none !important;
+    border: none !important;
+    padding-left: 0;
 }
 
 /* |||| ICON |||| */

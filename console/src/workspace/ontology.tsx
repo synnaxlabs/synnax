@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, UnexpectedError } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
-import { Confirm } from "@/confirm";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -25,7 +22,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
-import { parser } from "@/schematic/migrations";
+import { SchematicServices } from "@/schematic/services";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -109,72 +106,6 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
   }).mutate;
 
-const useImportSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = Confirm.useModal();
-  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({ client, placeLayout, selection, store }) => {
-      const fileResponse = await open({
-        directory: false,
-        multiple: false,
-        title: `Import schematic into ${selection.resources[0].name}`,
-        extensions: ["json"],
-      });
-      if (fileResponse == null) return;
-      const file = await readFile(fileResponse.path);
-      const fileName = fileResponse.path.split("/").pop();
-      if (fileName == null) throw new UnexpectedError("File name is null");
-      const name = fileName.slice(0, -5);
-      const fileAsJSON = JSON.parse(new TextDecoder().decode(file));
-      const newState = parser(fileAsJSON);
-      if (newState == null) throw new Error(`${fileName} is not a valid schematic.`);
-      const key = newState.key;
-      const creator = Schematic.create({
-        ...newState,
-        name,
-      });
-      const existingState = Schematic.select(store.getState(), newState.key);
-      if (existingState != null) {
-        if (deep.equal(existingState, newState)) throw Error(`${name} already exists.`);
-        if (
-          !(await confirm({
-            message: `${name} already exists`,
-            description: "Would you like to replace the existing schematic?",
-            cancel: { label: "Cancel" },
-            confirm: { label: "Replace", variant: "error" },
-          }))
-        )
-          throw errors.CANCELED;
-        Layout.remove({ keys: [key] });
-        Schematic.remove({ keys: [key] });
-      }
-      if (client != null) {
-        try {
-          await client.workspaces.schematic.retrieve(key);
-          await client.workspaces.schematic.setData(
-            key,
-            newState as unknown as UnknownRecord,
-          );
-        } catch (e) {
-          if (!NotFoundError.matches(e)) throw e;
-          await client.workspaces.schematic.create(selection.resources[0].id.key, {
-            name,
-            data: newState as unknown as UnknownRecord,
-            ...newState,
-          });
-        }
-      }
-      placeLayout(creator);
-    },
-    onError: (e, { addStatus }) => {
-      addStatus({
-        variant: "error",
-        message: "Failed to import schematic.",
-        description: e.message,
-      });
-    },
-  }).mutate;
-};
-
 const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
@@ -227,14 +158,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createLinePlot = useCreateLinePlot();
   const group = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
-  const importSchematic = useImportSchematic();
+  const importSchematic = Schematic.useImport(selection.resources[0].id.key);
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
     plot: () => createLinePlot(props),
     schematic: () => createSchematic(props),
-    importSchematic: () => importSchematic(props),
+    importSchematic: () => importSchematic(),
     link: () =>
       handleLink({
         name: resources[0].name,
@@ -263,7 +194,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           </PMenu.Item>
           <PMenu.Divider />
           <Link.CopyMenuItem />
-          <PMenu.Item itemKey="importSchematic" startIcon={<Icon.Download />}>
+          <PMenu.Item
+            itemKey="importSchematic"
+            startIcon={<SchematicServices.ImportIcon />}
+          >
             Import Schematic
           </PMenu.Item>
           <PMenu.Divider />

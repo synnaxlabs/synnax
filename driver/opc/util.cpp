@@ -166,32 +166,39 @@ UA_StatusCode privateKeyPasswordCallBack(
 
 const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolicy#";
 
-freighter::Error configureEncryption(
+// TODO: make this clearer to read through
+freighter::Error configure_encryption(
     opc::ConnectionConfig &cfg,
     std::shared_ptr<UA_Client> client
 ) {
     auto client_config = UA_Client_getConfig(client.get());
+
     if (cfg.security_mode == "Sign")
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGN;
     else if (cfg.security_mode == "SignAndEncrypt")
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
-    else
-        client_config->securityMode = UA_MESSAGESECURITYMODE_NONE;
+    else client_config->securityMode = UA_MESSAGESECURITYMODE_NONE;
     if (cfg.security_policy == "None") return freighter::NIL;
+
     client_config->privateKeyPasswordCallback = privateKeyPasswordCallBack;
+
     std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     client_config->authSecurityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     UA_String_clear(&client_config->clientDescription.applicationUri);
+
     std::string app_uri = extractApplicationUriFromCert(cfg.client_cert);
     if (app_uri.empty()) app_uri = "urn:synnax.opcua.client";
     client_config->clientDescription.applicationUri = UA_STRING_ALLOC(app_uri.c_str());
+
     UA_ByteString certificate = loadFile(cfg.client_cert.c_str());
     UA_ByteString privateKey = loadFile(cfg.client_private_key.c_str());
+
     size_t trustListSize = 0;
     UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
     if (!cfg.server_cert.empty())
         trustList[0] = loadFile(cfg.server_cert.c_str());
+
     UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(
         client_config,
         certificate,
@@ -201,6 +208,7 @@ freighter::Error configureEncryption(
         NULL,
         0
     );
+
     if (e_err != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: " <<
                 UA_StatusCode_name(e_err);
@@ -264,22 +272,24 @@ void fetchEndpointDiagnosticInfo(
 }
 
 
+///@ connect returns a new UA_Client object which is connected to the specified endpoint
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     opc::ConnectionConfig &cfg,
     std::string log_prefix
 ) {
-    auto client = std::shared_ptr<
-        UA_Client>(UA_Client_new(), getDefaultClientDeleter());
+    auto client = std::shared_ptr<UA_Client>(
+        UA_Client_new(),
+        getDefaultClientDeleter()
+    );
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
     config->logging->context = &log_prefix;
 
     // Set Timeouts
-    config->secureChannelLifeTime = 600000000; // Approximately a week
-    config->requestedSessionTimeout = 1200000000; // 2 weeks (default had it double the secure channel lifetime)
-
-
-    configureEncryption(cfg, client);
+    config->secureChannelLifeTime = 7200000; // (ms) 2 hours
+    config->requestedSessionTimeout = 14400000; // (ms) 4 hours (default had it double the secure channel lifetime)
+    config->timeout = 7200000; // (ms) 2 hours
+    configure_encryption(cfg, client);
     UA_StatusCode status;
     if (!cfg.username.empty() || !cfg.password.empty()) {
         status = UA_ClientConfig_setAuthenticationUsername(
@@ -298,6 +308,8 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
             };
         }
     }
+
+
     // fetchEndpointDiagnosticInfo(client, cfg.endpoint);
     status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
     if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};

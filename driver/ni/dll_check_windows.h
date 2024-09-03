@@ -24,11 +24,14 @@ inline bool does_dll_exist(const char *dll_path) {
 }
 
 inline void log_dll_error(const std::shared_ptr<task::Context> &ctx,
-                   const synnax::Task &task) {
+                          const synnax::Task &task) {
     LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." <<
             std::endl;
     json j = {
-        {"error", "Required NI DLLs not found. To find more information on how to install the required DLLS, please visit https://www.ni.com/en/support/downloads/driver"}
+        {
+            "error",
+            "Required NI DLLs not found. To find more information on how to install the required DLLS, please visit https://www.ni.com/en/support/downloads/driver"
+        }
     };
     ctx->setState({
         .task = task.key,
