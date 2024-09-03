@@ -75,8 +75,8 @@ in the database, the entirety of the `delete` operation fails, no data is delete
 `NotFound` error is returned:
 
 ```python
-# Suppose 111 and 112 are keys to channels that do exist, since 113 does not exist, none
-# of these channels' data get deleted.
+# Suppose 111 and 112 are keys to channels that do exist, since 113 
+# does not exist, none of these channels' data get deleted.
 client.delete([111, 112, 113], time_range_to_delete)
 ```
 

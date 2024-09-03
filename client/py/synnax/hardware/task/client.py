@@ -26,6 +26,7 @@ from synnax.hardware.rack import Rack, Client as RackClient
 from synnax.exceptions import ConfigurationError
 
 
+
 class _CreateRequest(Payload):
     tasks: list[TaskPayload]
 
@@ -326,3 +327,4 @@ class Client:
             )
             for t in tasks
         ]
+

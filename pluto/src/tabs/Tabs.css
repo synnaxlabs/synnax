@@ -21,7 +21,7 @@
     padding: 0 0.25rem;
 }
 
-.pluto-tabs-selector__btn.pluto--selected .pluto-text {
+.pluto-tabs-selector__btn.pluto--selected :is(.pluto-text, .pluto-text-icon) {
     color: var(--pluto-text-color);
 }
 
@@ -58,6 +58,7 @@
 .pluto-tabs-selector__btn {
     cursor: pointer;
     border: none;
+    transition: box-shadow 0.25s;
     &.pluto--selected.pluto--altColor .pluto-text {
         color: var(--pluto-primary-z);
         font-weight: 500;
@@ -94,13 +95,15 @@
     }
 
     &:hover:not(.pluto--selected) {
-        background: var(--pluto-gray-l2);
-        /* border-color: var(--pluto-border-color); */
+        background: var(--pluto-gray-l2-80);
     }
 
     &:active:not(.pluto--selected) {
-        background: var(--pluto-gray-l3);
-        /* border-color: var(--pluto-gray-l4); */
+        background: var(--pluto-gray-l2);
+    }
+
+    .pluto-text-icon {
+        color: var(--pluto-gray-l6);
     }
 
     .pluto-text {

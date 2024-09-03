@@ -38,6 +38,7 @@ export interface CSSType extends BEM {
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
   shade: (value: number) => string;
+  shadeVar: (value: number) => string;
 }
 
 const newCSS = (prefix: string): CSSType => {
@@ -67,6 +68,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.px = (value: number) => `${value}px`;
   CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");
   CSS.shade = (value) => CSS.M(`shade-${value}`);
+  CSS.shadeVar = (value) => `var(--${prefix}-gray-l${value})`;
   return CSS;
 };
 

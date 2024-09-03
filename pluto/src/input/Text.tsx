@@ -124,6 +124,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           status != null && CSS.M(status),
           className,
         )}
+        borderShade={4}
         align="center"
         size={size}
       >

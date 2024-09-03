@@ -285,9 +285,9 @@ export const List = (): ReactElement => {
     return (
       <Align.Space empty style={{ height: "100%", position: "relative" }}>
         <Align.Center direction="y" style={{ height: "100%" }} size="small">
-          <Text.Text level="p">No ranges added.</Text.Text>
+          <Text.Text level="p">No ranges.</Text.Text>
           <Text.Link level="p" onClick={handleLinkClick}>
-            Add a range
+            Create a range
           </Text.Link>
         </Align.Center>
       </Align.Space>

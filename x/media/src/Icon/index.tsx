@@ -32,6 +32,7 @@ import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
+  FaBookOpen,
   FaDocker,
   FaLinux,
   FaStream,
@@ -342,6 +343,7 @@ export const Icon: IconType = {
   Details: wrapIcon(MdOutlineTableRows, "details"),
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
   JSON: wrapIcon(MdDataObject, "json"),
+  Guide: wrapIcon(FaBookOpen, "guide"),
 };
 
 export interface IconType {
@@ -468,4 +470,5 @@ export interface IconType {
   Details: IconFC;
   LinkExternal: IconFC;
   JSON: IconFC;
+  Guide: IconFC;
 }

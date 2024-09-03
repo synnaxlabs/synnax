@@ -207,6 +207,27 @@ const Wrapped = ({
     },
   });
 
+  const copy = useCopyToClipboard();
+  const handleCopyPythonCode = () => {
+    const name = methods.get("name").value;
+    copy(
+      `
+      from synnax.hardware.ni import AnalogReadTask
+      # Retrieve ${name}
+      task = AnalogReadTask(client.hardware.tasks.retrieve(key=${task?.key}))
+      `,
+      `Python code for ${name}`,
+    );
+  };
+
+  const handleCopyAsJSON = () => {
+    const name = methods.get("name").value;
+    copy(
+      binary.JSON_CODEC.encodeString(methods.value().config),
+      `configuration JSON for ${name}`,
+    );
+  };
+
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
