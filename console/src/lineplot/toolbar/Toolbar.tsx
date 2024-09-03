@@ -25,6 +25,7 @@ import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
 import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
+import { Link } from "@/link";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -54,7 +55,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const linePlot = useSelect(layoutKey);
-  const exprt = useExport(name);
+  const handleExport = useExport(name);
+  const handleLink = Link.useCopyToClipboard();
 
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
@@ -95,15 +97,33 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
-          <Align.Space direction="x" align="center" size={0}>
-            <Button.Icon
-              tooltip={`Export ${name}`}
-              style={{ height: "100%" }}
-              onClick={() => exprt(linePlot.key)}
-            >
-              <Icon.Export />
-            </Button.Icon>
-            <Tabs.Selector size="medium" />
+          <Align.Space direction="x" align="center" empty>
+            <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
+              <Button.Icon
+                tooltip={`Export ${name}`}
+                sharp
+                size="medium"
+                style={{ height: "100%" }}
+                onClick={() => handleExport(linePlot.key)}
+              >
+                <Icon.Export />
+              </Button.Icon>
+              <Button.Icon
+                tooltip={`Copy link to ${name}`}
+                sharp
+                size="medium"
+                style={{ height: "100%" }}
+                onClick={() =>
+                  handleLink({
+                    name,
+                    ontologyID: { key: linePlot.key, type: "lineplot" },
+                  })
+                }
+              >
+                <Icon.Link />
+              </Button.Icon>
+            </Align.Space>
+            <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />
           </Align.Space>
         </ToolbarHeader>
         <Tabs.Content />
