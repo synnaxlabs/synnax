@@ -18,9 +18,8 @@ import { useDispatch, useStore } from "react-redux";
 import { Confirm } from "@/confirm";
 import { Layout } from "@/layout";
 import { create } from "@/lineplot/LinePlot";
-import { parser } from "@/lineplot/migrations";
 import { select } from "@/lineplot/selectors";
-import { remove, type State, type StateWithName } from "@/lineplot/slice";
+import { parser, remove, type State, type StateWithName } from "@/lineplot/slice";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
