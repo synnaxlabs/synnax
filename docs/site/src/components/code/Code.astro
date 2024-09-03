@@ -3,10 +3,11 @@ import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 
-const { tabindex, variant, ...props } = Astro.props;
+const { tabindex, single, variant, ...props } = Astro.props;
 ---
 
 <div class=`astro-code-wrapper ${variant}`>
+<div class=`astro-code-wrapper ${variant} ${single ? 'single' : ''}` tabindex={tabindex}>
     <Button.Icon variant="outlined" size="medium">
         <Fragment>
             <Icon.Copy className="copy" /><Icon.Check className="check" />
@@ -36,7 +37,8 @@ const { tabindex, variant, ...props } = Astro.props;
     }
     .astro-code-wrapper {
         position: relative;
-        margin: 3rem 1rem;
+
+        margin: 5rem 1rem;
         button {
             opacity: 0;
             position: absolute;
@@ -54,6 +56,7 @@ const { tabindex, variant, ...props } = Astro.props;
         &:hover button {
             opacity: 1;
         }
+
         .astro-code {
             padding: 3rem;
             position: relative;

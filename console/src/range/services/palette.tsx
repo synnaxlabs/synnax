@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
-import { createLayout } from "@/range/EditLayout";
+import { createLayout } from "@/range/CreateLayout";
 
 export const defineCommand: Command = {
   key: "define-range",

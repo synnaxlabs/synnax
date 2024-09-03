@@ -350,19 +350,21 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
-              Copy time range as ISO
+              Copy ISO Time Range
             </PMenu.Item>
             <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
-              Copy time range as Python
+              Copy Python Time Range
             </PMenu.Item>
             <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
-              Copy time range as TypeScript
+              Copy TypeScript Time Range
             </PMenu.Item>
+            <PMenu.Divider />
             <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
-              Create new range from selection
+              Create Range from Selection
             </PMenu.Item>
+            <PMenu.Divider />
             <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download data as CSV
+              Download as CSV
             </PMenu.Item>
           </>
         )}

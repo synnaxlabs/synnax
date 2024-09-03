@@ -115,7 +115,7 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
         endIcon={<Icon.Menu />}
         variant="text"
         onClick={() => toggle(!visible)}
-        size="large"
+        size="medium"
         style={{
           border: "none",
         }}

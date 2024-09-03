@@ -40,7 +40,7 @@ import { Layout } from "@/layout";
 import { create as createLinePlot } from "@/lineplot/LinePlot";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
-import { createLayout } from "@/range/EditLayout";
+import { createLayout } from "@/range/CreateLayout";
 import { overviewLayout } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {

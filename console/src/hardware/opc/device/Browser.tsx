@@ -164,6 +164,7 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
         height: "100%",
       }}
       empty
+      background={1}
     >
       <Header.Header level="h4">
         <Header.Title weight={500}>Browser</Header.Title>

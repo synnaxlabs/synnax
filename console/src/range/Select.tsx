@@ -24,7 +24,7 @@ import {
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { createLayout } from "@/range/EditLayout";
+import { createLayout } from "@/range/CreateLayout";
 import { type Range } from "@/range/slice";
 
 export interface SelectMultipleRangesProps

@@ -21,7 +21,7 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { createLayout } from "@/range/EditLayout";
+import { createLayout } from "@/range/CreateLayout";
 import { overviewLayout } from "@/range/overview/Overview";
 import { select, useSelect } from "@/range/selectors";
 import { add, remove, rename, setActive, type StoreState } from "@/range/slice";

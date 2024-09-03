@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { Create, CREATE_LAYOUT_TYPE } from "@/range/EditLayout";
+import { Create, CREATE_LAYOUT_TYPE } from "@/range/CreateLayout";
 import { Overview, overviewLayout } from "@/range/overview/Overview";
 
 export * from "@/range/ContextMenu";
-export * from "@/range/EditLayout";
+export * from "@/range/CreateLayout";
 export * from "@/range/overview/Overview";
 export * from "@/range/Select";
 export * from "@/range/selectors";

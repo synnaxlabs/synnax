@@ -256,7 +256,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           align="center"
         >
           <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
-            {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+            {(p) => (
+              <Input.DateTime level="h4" variant="natural" onlyChangeOnBlur {...p} />
+            )}
           </Form.Field>
           <Text.WithIcon
             className={CSS.B("time-range-divider")}
@@ -264,7 +266,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             startIcon={<Icon.Arrow.Right />}
           />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-            {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+            {(p) => (
+              <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
+            )}
           </Form.Field>
         </Align.Space>
       </Align.Space>
