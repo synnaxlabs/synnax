@@ -291,8 +291,6 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     config->timeout = 7200000; // (ms) 2 hours
     configure_encryption(cfg, client);
     UA_StatusCode status;
-    //    freighter::Error err = set_authentication(cfg, config);
-    //    if(!err) return {std::move(client), err};
     if (!cfg.username.empty() || !cfg.password.empty()) {
         status = UA_ClientConfig_setAuthenticationUsername(
             config,

@@ -86,7 +86,6 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     VLOG(2) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
-    //    LOG(INFO) << "Reader Config: " << config_parser.get_json().dump(4);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
         ctx->setState({
@@ -131,7 +130,6 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     }
     auto [channel_keys, indexes] = res;
 
-    // Connect to the OPC UA server.
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
         ctx->setState({
@@ -215,9 +213,8 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 }
 
 void ReaderTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") {
-        this->start();
-    } else if (cmd.type == "stop") return stop();
+    if (cmd.type == "start") this->start();
+    else if (cmd.type == "stop") return stop();
     else
         LOG(ERROR) << "unknown command type: " << cmd.type;
 }
