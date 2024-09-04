@@ -574,6 +574,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
   const handleSinkChange = (v: channel.Key): void => {
+    v = v ?? 0;
     const t = telem.sinkPipeline("boolean", {
       connections: [
         {
