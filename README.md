@@ -35,8 +35,8 @@ scale.
 Synnax is currently in beta and is under active development. The APIs are stable
 and are unlikely to change significantly.
 
-Versions prior to 1.x.x follow modified Semantic Versioning. Versions with the same 
-patch (e.g. 0.0.1 and 0.0.2) are guaranteed to maintain the same API, while minor 
+Versions prior to 1.x.x follow modified Semantic Versioning. Versions with the same
+patch (e.g. 0.0.1 and 0.0.2) are guaranteed to maintain the same API, while minor
 versions may include API changes.
 
 Our team is targeting a v1 release before the end of 2024, at which point all APIs
@@ -44,10 +44,9 @@ will be stable and follow strict semantic versioning.
 
 # How to Contribute
 
-Help us modernize industrial control! Reach out
-to [Emiliano](mailto:ebonilla@synnaxlabs.com)(ebonilla@synnaxlabs.com) if you'd like to
-get involved. While you wait for a response, check out
-the [New Contributor Guide](docs/CONTRIBUTING.md) to get up to speed.
+Help us modernize industrial control! Reach out to [Emiliano](mailto:ebonilla@synnaxlabs.com)
+if you'd like to get involved. While you wait for a response, check out the [New
+Contributor Guide](docs/CONTRIBUTING.md) to get up to speed.
 
 # Repository Organization
 
