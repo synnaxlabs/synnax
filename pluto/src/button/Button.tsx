@@ -39,11 +39,12 @@ export interface ButtonExtensionProps {
   loading?: boolean;
   triggers?: Triggers.Trigger[];
   status?: status.Variant;
+  color?: Color.Crude;
 }
 
 /** The base props accepted by all button types in this directory. */
 export interface BaseProps
-  extends ComponentPropsWithoutRef<"button">,
+  extends Omit<ComponentPropsWithoutRef<"button">, "color">,
     ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */
@@ -77,7 +78,7 @@ export type ButtonProps = Omit<
  */
 export const Button = Tooltip.wrap(
   ({
-    size = "medium",
+    size,
     variant = "filled",
     type = "button",
     className,
@@ -93,6 +94,7 @@ export const Button = Tooltip.wrap(
     onClick,
     color,
     status,
+    style,
     ...props
   }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
@@ -120,6 +122,23 @@ export const Button = Tooltip.wrap(
       ),
     });
 
+    const pStyle = { ...style };
+    const res = Color.Color.z.safeParse(color);
+    const hasCustomColor = res.success && variant === "filled";
+    if (hasCustomColor) {
+      // @ts-expect-error - css variable
+      pStyle[CSS.var("btn-color")] = res.data.rgbString;
+      // @ts-expect-error - css variable
+      pStyle[CSS.var("text-color")] = res.data.pickByContrast(
+        "#000000",
+        "#ffffff",
+      ).rgbCSS;
+    }
+
+    if (size == null && level != null) size = Text.LevelComponentSizes[level];
+    else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
+    else if (size == null) size = "medium";
+
     return (
       <Text.WithIcon<"button", any>
         el="button"
@@ -130,6 +149,7 @@ export const Button = Tooltip.wrap(
           variant !== "preview" && CSS.disabled(disabled),
           status != null && CSS.M(status),
           CSS.BM("btn", variant),
+          hasCustomColor && CSS.BM("btn", "custom-color"),
           className,
         )}
         type={type}
@@ -137,7 +157,7 @@ export const Button = Tooltip.wrap(
         size={iconSpacing}
         onClick={handleClick}
         noWrap
-        color={Color.cssString(color)}
+        style={pStyle}
         startIcon={startIcon}
         {...props}
       >
