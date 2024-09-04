@@ -347,6 +347,27 @@ export const TankPreview = (props: TankProps): ReactElement => (
   <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} />
 );
 
+export interface BoxProps extends Omit<TankProps, "borderRadius"> {}
+
+export const Box = Aether.wrap<SymbolProps<BoxProps>>(
+  "Box",
+  ({ label, onChange, orientation, color, dimensions }): ReactElement => (
+    <Labeled {...label} onChange={onChange}>
+      <Primitives.Tank
+        onResize={(dims) => onChange({ dimensions: dims })}
+        orientation={orientation}
+        color={color}
+        dimensions={dimensions}
+        borderRadius={3}
+      />
+    </Labeled>
+  ),
+);
+
+export const BoxPreview = (props: BoxProps): ReactElement => (
+  <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} borderRadius={0} />
+);
+
 export interface ReliefValveProps extends Primitives.ReliefValveProps {
   label?: LabelExtensionProps;
 }

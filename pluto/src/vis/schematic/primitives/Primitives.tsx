@@ -481,31 +481,6 @@ export const AngledValve = ({
   </Toggle>
 );
 
-export interface ReduceFittingProps extends DivProps, SVGBasedPrimitiveProps {}
-
-export const ReduceFitting = ({
-  className,
-  orientation,
-  color,
-  scale,
-  ...props
-}: ReduceFittingProps): ReactElement => (
-  <Div
-    orientation={orientation}
-    className={CSS(CSS.B("reduce-fitting"), className)}
-    {...props}
-  >
-    <InternalSVG
-      dimensions={{ width: 42, height: 43 }}
-      color={color}
-      orientation={orientation}
-      scale={scale}
-    >
-      <Path d="M38.862 31.1414L4.86205 41.3414C2.93721 41.9189 1 40.4775 1 38.4679V21.8707V4.53209C1 2.5225 2.93721 1.08116 4.86204 1.65861L38.862 11.8586C40.131 12.2393 41 13.4073 41 14.7321V21.5V28.2679C41 29.5927 40.131 30.7607 38.862 31.1414Z" />
-    </InternalSVG>
-  </Div>
-);
-
 export interface PumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const Pump = ({
@@ -687,7 +662,6 @@ const parseBorderRadius = (radius: BorderRadius): DetailedBorderRadius => {
       bottomLeft: xy.construct(radius.bottomLeft),
       bottomRight: xy.construct(radius.bottomRight),
     };
-
   return radius as DetailedBorderRadius;
 };
 
@@ -697,7 +671,7 @@ const cssBorderRadius = (radius: DetailedBorderRadius): string => {
 };
 
 const DEFAULT_DIMENSIONS = { width: 40, height: 80 };
-const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
+export const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
 
 export interface TankProps extends DivProps {
   dimensions?: dimensions.Dimensions;
