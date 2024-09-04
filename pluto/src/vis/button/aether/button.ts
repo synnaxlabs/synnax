@@ -34,7 +34,6 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
     this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
 
     if (this.state.trigger <= this.internal.prevTrigger) return;
-    console.log("TRIGGER");
     this.internal.prevTrigger = this.state.trigger;
     this.internal.sink.set(true).catch(console.error);
   }
