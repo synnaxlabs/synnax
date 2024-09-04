@@ -90,8 +90,11 @@ void ni::Scanner::scan() {
                &resource
            ) == NISysCfg_OK) {
         auto device = get_device_properties(resource);
-        device["failed_to_create"] = false;
-        devices["devices"].push_back(device);
+        if(device_keys.find(device["key"]) == device_keys.end()) {
+            device["failed_to_create"] = false;
+            devices["devices"].push_back(device);
+            device_keys.insert(device["key"]);
+        }
     }
     LOG(INFO) << "[ni.scanner] devices: " << devices.dump(4);
 }
