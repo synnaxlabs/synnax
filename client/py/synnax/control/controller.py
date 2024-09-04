@@ -18,7 +18,7 @@ import numpy as np
 from janus import Queue
 
 from synnax.util.thread import AsyncThread
-from synnax import framer
+from synnax import framer, ValidationError
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -27,7 +27,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp
-from synnax.telem.control import Authority, CrudeAuthority
+from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
 
 
@@ -40,15 +40,20 @@ class WaitUntil(Processor):
     event: Event
     callback: Callable[[Controller], bool]
     exc: Exception | None
+    reverse: bool
 
-    def __init__(self, callback: Callable[[Controller], bool]):
+    def __init__(self, callback: Callable[[Controller], bool], reverse: bool = False):
         self.event = Event()
         self.callback = callback
         self.exc = None
+        self.reverse = reverse
 
     def process(self, state: Controller) -> Any:
         try:
-            if self.callback(state):
+            res = self.callback(state)
+            if self.reverse:
+                res = not res
+            if res:
                 self.event.set()
         except Exception as e:
             self.exc = e
@@ -56,34 +61,86 @@ class WaitUntil(Processor):
         return None
 
 
+class RemainsTrueFor(Processor):
+    event: Event
+    callback: Callable[[Controller], bool]
+    exc: Exception | None
+    target: float
+    actual: float = 0
+    count: int = 0
+
+    def __init__(
+        self,
+        callback: Callable[[Controller], bool],
+        percentage: float,
+    ):
+        self.event = Event()
+        self.callback = callback
+        self.exc = None
+        self.target = percentage
+
+    def process(self, state: Controller) -> Any:
+        try:
+            v = self.callback(state)
+            if v is False and self.target >= 1:
+                self.event.set()
+            else:
+                self.actual = (self.actual * self.count + v) / (self.count + 1)
+                self.count += 1
+        except Exception as e:
+            self.exc = e
+            self.event.set()
+        return None
+
+
 class Controller:
-    _writer: framer.Writer
+    _writer_opt: framer.Writer | None = None
+    _receiver_opt: _Receiver | None = None
     _idx_map: dict[ChannelKey, ChannelKey]
     _retriever: ChannelRetriever
-    _receiver: _Receiver
 
     def __init__(
         self,
         name: str,
-        write: ChannelParams,
-        read: ChannelParams,
+        write: ChannelParams | None,
+        read: ChannelParams | None,
         frame_client: framer.Client,
         retriever: ChannelRetriever,
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
-        write_channels = retrieve_required(retriever, write)
-        write_keys = [ch.index for ch in write_channels if ch.index != 0]
-        write_keys.extend([ch.key for ch in write_channels])
-        self._writer = frame_client.open_writer(
-            name=name,
-            start=TimeStamp.now(),
-            channels=write_keys,
-            authorities=write_authorities,
-        )
-        self._receiver = _Receiver(frame_client, read, retriever, self)
         self._retriever = retriever
-        self._receiver.start()
-        self._receiver.startup_ack.wait()
+        if write is not None and len(write) > 0:
+            write_channels = retrieve_required(self._retriever, write)
+            write_keys = [ch.index for ch in write_channels if ch.index != 0]
+            write_keys.extend([ch.key for ch in write_channels])
+            self._writer_opt = frame_client.open_writer(
+                name=name,
+                start=TimeStamp.now(),
+                channels=write_keys,
+                authorities=write_authorities,
+            )
+        if read is not None and len(read) > 0:
+            self._receiver_opt = _Receiver(frame_client, read, retriever, self)
+            self._receiver.start()
+            self._receiver.startup_ack.wait()
+
+    @property
+    def _writer(self) -> framer.Writer:
+        if self._writer_opt is None:
+            raise ValidationError("""
+            tried to command a channel but no channels were passed into the write
+            argument when calling acquire()!
+            """)
+        return self._writer_opt
+
+    @property
+    def _receiver(self) -> _Receiver:
+        if self._receiver_opt is None:
+            raise ValidationError("""
+            tried to read from a channel but no channels were passed into the read
+            argument when calling acquire()!
+            """)
+        return self._receiver_opt
 
     @overload
     def set(self, ch: ChannelKey | ChannelName, value: int | float | bool):
@@ -173,16 +230,18 @@ class Controller:
 
     def wait_until(
         self,
-        callback: Callable[[Controller], bool],
+        cond: Callable[[Controller], bool],
         timeout: CrudeTimeSpan = None,
     ) -> bool:
-        """Blocks the controller until the provided callback returns True or the timeout
-        is reached.
+        """Blocks the controller, calling the provided callback on every new sample
+        received by the controller. Once the callback returns True, the method will
+        return. If a timeout is provided, the method will return False if the timeout is
+        reached before the callback returns True.
 
         CAVEAT: Do not call wait_until from within a callback that is being processed by
         the controller. This will cause a deadlock.
 
-        :param callback: A callable that takes the controller as an argument and returns
+        :param cond: A callable that takes the controller as an argument and returns
         a boolean. The controller will execute this callback on every new sample
         received to the channels it is reading from. The controller will block until
         the callback returns True.
@@ -195,9 +254,29 @@ class Controller:
         >>> controller.wait_until(lambda c: c["my_channel"] > 42)
         >>> controller.wait_until(lambda c: c["channel_1"] > 42 and c["channel_2"] < 3.14)
         """
-        if not callable(callback):
+        self._internal_wait_until(cond, timeout)
+
+    def while_(
+        self,
+        cond: Callable[[Controller], bool],
+        timeout: CrudeTimeSpan = None,
+    ):
+        """Blocks the controller, calling the provided callback on every new sample
+        received by the controller. The controller will continue to block until the
+        callback returns False. If a timeout is provided, the method will return False
+        if the timeout is reached before the callback returns False.
+        """
+        self._internal_wait_until(cond, timeout, reverse=True)
+
+    def _internal_wait_until(
+        self,
+        cond: Callable[[Controller], bool],
+        timeout: CrudeTimeSpan = None,
+        reverse: bool = False,
+    ):
+        if not callable(cond):
             raise ValueError("First argument to wait_until must be a callable.")
-        processor = WaitUntil(callback)
+        processor = WaitUntil(cond, reverse)
         try:
             self._receiver.processors.add(processor)
             timeout_seconds = TimeSpan(timeout).seconds if timeout else None
@@ -209,6 +288,15 @@ class Controller:
         return ok
 
     def sleep(self, dur: float | int | TimeSpan, precise: bool = False):
+        """Sleeps the controller for the provided duration.
+
+        :param dur: The duration to sleep for. This can be a flot or int representing
+        the number of seconds to sleep, or a synnax TimeSpan object.
+        :param precise: If True, the controller will use a more precise sleep method
+        that is more accurate for short durations, but consumes more CPU resources.
+        If you're looking for millisecond level precision, set this value to True.
+        Otherwise, we recommend leaving it as False.
+        """
         sleep(dur, precise)
 
     def wait_until_defined(
@@ -232,12 +320,53 @@ class Controller:
         res = retrieve_required(self._retriever, channels)
         return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
 
+    def remains_true_for(
+        self,
+        cond: Callable[[Controller], bool],
+        duration: CrudeTimeSpan,
+        percentage: float = 1,
+    ) -> bool:
+        """Blocks the controller and repeatedly checks that the provided callback
+        returns True for the entire duration. Also accepts a decimal target percentage,
+        which can be used to check that the callback returns True for a certain
+        percentage of the duration.
+
+        :param cond: A callable that takes the controller as an argument and returns
+        a boolean. The controller will execute this callback on every new sample
+        received to the channels it is reading from.
+        :param duration: The duration in seconds to check that the callback returns True.
+        :param percentage: The target percentage of the duration that the callback
+        should return True. If this value is greater than 1, the controller will immediately
+        unblock if the callback returns False. If this value is less than 1, the controller
+        will return the result after the entire duration has elapsed.
+        """
+        if not callable(cond):
+            raise ValueError("First argument to remains_true_for must be a callable.")
+        processor = RemainsTrueFor(cond, percentage)
+        try:
+            self._receiver.processors.add(processor)
+            timeout_seconds = TimeSpan(duration).seconds
+            # If the event is set, this means the target percentage was >= 1 and the
+            # callback returned False, so we just exit immediately.
+            ok = not processor.event.wait(timeout=timeout_seconds)
+        finally:
+            self._receiver.processors.remove(processor)
+        # If we executed the callback for the entire duration and the actual percentage
+        # is still less than the target percentage, we return False.
+        if ok:
+            ok = processor.actual >= processor.target
+        if processor.exc:
+            raise processor.exc
+        return ok
+
     def release(self):
         """Release control and shuts down the controller. No further control operations
         can be performed after calling this method.
         """
-        self._writer.close()
-        self._receiver.close()
+        if self._writer_opt is not None:
+            self._writer_opt.close()
+        if self._receiver_opt is not None:
+            self._receiver.close()
 
     def __setitem__(
         self, ch: ChannelKey | ChannelName | ChannelPayload, value: int | float
@@ -362,6 +491,7 @@ class _Receiver(AsyncThread):
         create_task(self.__listen_for_close())
 
         async for frame in self.streamer:
+            print(frame)
             for i, key in enumerate(frame.channels):
                 self.state[key] = frame.series[i][-1]
             self.__process()
