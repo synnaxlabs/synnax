@@ -58,6 +58,8 @@ ni::Scanner::Scanner(
     );
     VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.
             name;
+
+    this->devices["devices"] = json::array();
 }
 
 void ni::Scanner::set_scan_thread(std::shared_ptr<std::thread> scan_thread) {
@@ -82,10 +84,6 @@ void ni::Scanner::scan() {
     );
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
 
-
-    // Now iterate through found devices and get requested properties
-    devices["devices"] = json::array();
-
     while (ni::NiSysCfgInterface::NextResource(
                this->session,
                this->resources_handle,
@@ -95,6 +93,7 @@ void ni::Scanner::scan() {
         device["failed_to_create"] = false;
         devices["devices"].push_back(device);
     }
+    LOG(INFO) << "[ni.scanner] devices: " << devices.dump(4);
 }
 
 json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
