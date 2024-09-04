@@ -18,27 +18,27 @@ pnpm build:freighter
 To make sure the client builds properly, run the following command in the `client/ts`
 directory:
 
-```shell
+```bash
 pnpm build
 ```
 
 Synnax's TypeScript client unit tests are written with [Vitest](https://vitest.dev/). To
 test the framework, run the following command in the `client/ts` directory:
 
-```shell
+```bash
 pnpm test
 ```
 
 To check code for linting errors, please run the following command in the `client/ts` directory:
 
-```shell
+```bash
 pnpm lint
 ```
 
 If you create changes to the API for the client, generate a new API document by running
 the following command in the `client/ts` directory:
 
-```shell
+```bash
 pnpm genApi
 ```
 

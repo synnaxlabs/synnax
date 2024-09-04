@@ -15,7 +15,7 @@ more information about using the TypeScript client.
 If you want to install the client library, please install it via a package manager such
 as npm or yarn:
 
-```shell
+```bash
 npm i @synnaxlabs/client
 ```
 
