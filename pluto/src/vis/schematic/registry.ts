@@ -577,7 +577,8 @@ const button: Spec<ButtonProps> = {
   Symbol: Button,
   Form: ButtonForm,
   Preview: ButtonPreview,
-  defaultProps: () => ({
+  defaultProps: (t) => ({
+    color: t.colors.primary.z.rgba255,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
   }),

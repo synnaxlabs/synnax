@@ -930,18 +930,26 @@ export const Switch = ({
   </Div>
 );
 
-export interface ButtonProps extends Omit<DivProps, "onClick"> {
+export interface ButtonProps
+  extends Omit<DivProps, "onClick">,
+    Pick<CoreButton.ButtonProps, "color" | "size" | "level"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  color?: Color.Crude;
 }
 
 export const Button = ({
   onClick,
   orientation = "left",
   label = "",
+  color,
+  size,
+  level,
 }: ButtonProps): ReactElement => (
   <Div orientation={orientation}>
-    <CoreButton.Button onClick={onClick}>{label}</CoreButton.Button>
+    <CoreButton.Button onClick={onClick} color={color} size={size} level={level}>
+      {label}
+    </CoreButton.Button>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={100} top={50} id="2" />

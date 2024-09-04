@@ -829,11 +829,16 @@ export interface ButtonProps
 
 export const Button = Aether.wrap<SymbolProps<ButtonProps>>(
   "Button",
-  ({ aetherKey, label, orientation, sink, control }) => {
+  ({ aetherKey, label, orientation, sink, control, color }) => {
     const { click } = CoreButton.use({ aetherKey, sink });
     return (
       <ControlState {...control} className={CSS.B("symbol")} orientation={orientation}>
-        <Primitives.Button label={label?.label} onClick={click} />
+        <Primitives.Button
+          label={label?.label}
+          onClick={click}
+          color={color}
+          level={label?.level}
+        />
       </ControlState>
     );
   },

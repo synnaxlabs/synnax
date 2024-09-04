@@ -635,6 +635,9 @@ export const ButtonForm = (): ReactElement => {
           <FormWrapper direction="x" align="stretch">
             <Align.Space direction="y" grow>
               <LabelControls path="label" />
+              <Align.Space direction="x">
+                <ColorControl path="color" />
+              </Align.Space>
             </Align.Space>
             <OrientationControl path="" />
           </FormWrapper>
