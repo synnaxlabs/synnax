@@ -14,18 +14,16 @@ interface ListItemProps {
   timeRange?: TimeRange;
 }
 
-const ListItem = ({ name, timeRange }: ListItemProps) => {
-  return (
-    <Align.Space direction="x" justify="spaceBetween">
-      <Text.WithIcon startIcon={<Icon.Range />} level="p">
-        {name}
-      </Text.WithIcon>
-      {timeRange != null && (
-        <Ranger.TimeRangeChip level="p" timeRange={timeRange} showSpan />
-      )}
-    </Align.Space>
-  );
-};
+const ListItem = ({ name, timeRange }: ListItemProps) => (
+  <Align.Space direction="x" justify="spaceBetween">
+    <Text.WithIcon startIcon={<Icon.Range />} level="p">
+      {name}
+    </Text.WithIcon>
+    {timeRange != null && (
+      <Ranger.TimeRangeChip level="p" timeRange={timeRange} showSpan />
+    )}
+  </Align.Space>
+);
 
 const start = TimeStamp.now();
 
@@ -47,43 +45,41 @@ const TIME_RANGES = [
   },
 ];
 
-export const ChildRanges = () => {
-  return (
-    <Align.Center
-      direction="x"
+export const ChildRanges = () => (
+  <Align.Center
+    direction="x"
+    style={{
+      width: "100vw",
+    }}
+  >
+    <Align.Space
+      direction="y"
       style={{
-        width: "100vw",
+        background: "var(--pluto-gray-l1)",
+        padding: "2rem",
+        border: "var(--pluto-border-l4)",
+        borderRadius: "1rem",
+        width: 500,
       }}
     >
+      <ListItem name="Test 1" />
       <Align.Space
         direction="y"
+        justify="spaceBetween"
         style={{
-          background: "var(--pluto-gray-l1)",
+          marginLeft: "1rem",
+          marginTop: "1rem",
+          borderLeft: "var(--pluto-border)",
           padding: "2rem",
-          border: "var(--pluto-border-l4)",
-          borderRadius: "1rem",
-          width: 500,
         }}
       >
-        <ListItem name="Test 1" />
-        <Align.Space
-          direction="y"
-          justify="spaceBetween"
-          style={{
-            marginLeft: "1rem",
-            marginTop: "1rem",
-            borderLeft: "var(--pluto-border)",
-            padding: "2rem",
-          }}
-        >
-          {TIME_RANGES.map((item, i) => (
-            <>
-              <ListItem key={item.name} {...item} />
-              {i !== TIME_RANGES.length - 1 && <Divider.Divider direction="x" />}
-            </>
-          ))}
-        </Align.Space>
+        {TIME_RANGES.map((item, i) => (
+          <>
+            <ListItem key={item.name} {...item} />
+            {i !== TIME_RANGES.length - 1 && <Divider.Divider direction="x" />}
+          </>
+        ))}
       </Align.Space>
-    </Align.Center>
-  );
-};
+    </Align.Space>
+  </Align.Center>
+);

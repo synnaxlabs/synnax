@@ -25,12 +25,16 @@ import {
   ValueForm,
 } from "@/vis/schematic/Forms";
 import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
+import { DEFAULT_BORDER_RADIUS } from "@/vis/schematic/primitives/Primitives";
 import {
   AngledReliefValve,
   AngledReliefValvePreview,
   AngledValve,
   AngledValvePreview,
   type AngledValveProps,
+  Box,
+  BoxPreview,
+  type BoxProps,
   BurstDisc,
   BurstDiscPreview,
   Button,
@@ -128,6 +132,7 @@ const Z_INDEX_LOWER = 2;
 const VARIANTS = [
   "angledReliefValve",
   "angledValve",
+  "box",
   "burstDisc",
   "button",
   "cap",
@@ -361,7 +366,7 @@ const screwPump: Spec<ScrewPumpProps> = {
 const tank: Spec<TankProps> = {
   name: "Tank",
   key: "tank",
-  Form: TankForm,
+  Form: () => TankForm({ includeBorderRadius: true }),
   Symbol: Tank,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -370,9 +375,28 @@ const tank: Spec<TankProps> = {
       width: 100,
       height: 200,
     },
+    borderRadius: DEFAULT_BORDER_RADIUS,
     ...ZERO_PROPS,
   }),
   Preview: TankPreview,
+  zIndex: Z_INDEX_LOWER,
+};
+
+const box: Spec<BoxProps> = {
+  name: "Box",
+  key: "box",
+  Form: TankForm,
+  Symbol: Box,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Box"),
+    dimensions: {
+      width: 100,
+      height: 200,
+    },
+    ...ZERO_PROPS,
+  }),
+  Preview: BoxPreview,
   zIndex: Z_INDEX_LOWER,
 };
 
@@ -553,7 +577,8 @@ const button: Spec<ButtonProps> = {
   Symbol: Button,
   Form: ButtonForm,
   Preview: ButtonPreview,
-  defaultProps: () => ({
+  defaultProps: (t) => ({
+    color: t.colors.primary.z.rgba255,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
   }),
@@ -679,6 +704,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   button,
   setpoint,
   tank,
+  box,
   valve,
   solenoidValve,
   threeWayValve,

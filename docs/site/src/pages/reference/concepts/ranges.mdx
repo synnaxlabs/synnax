@@ -2,7 +2,7 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Ranges"
 heading: "Ranges"
-description: "Ranges are the primary means for organizing data in Synnax."
+description: "Learn how ranges organize your data."
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
@@ -11,8 +11,8 @@ A range (short for _time range_) is a named time interval that labels interestin
 events in your cluster's data. Ranges are the primary means for organizing and accessing
 the data stored within Synnax, and can be used to correlate meta-data with channel telemetry.
 
-To create a range, you only need to specify a name, a starting timestamp, and an ending 
-timestamp. While a range can be used to query the data within a channel, it is not 
+To create a range, you only need to specify a name, a starting timestamp, and an ending
+timestamp. While a range can be used to query the data within a channel, it is not
 necessary to specify the channels that belong within a range.
 
 <Divider.Divider direction="x" />
@@ -21,28 +21,28 @@ necessary to specify the channels that belong within a range.
 
 Ranges can store arbitrary pieces of meta-data that describe important information about
 the events that occurred within that range. Common examples include part numbers, links
-to procedures, and configuration information. 
+to procedures, and configuration information.
 
 The metadata on a range is organized as key-value pairs, where they key is an arbitrary
-piece of text (a string), and the value is a link, number, or other data point. 
+piece of text (a string), and the value is a link, number, or other data point.
 
-We generally recommend against storing large blobs of information as meta-data 
-(e.g. a configuration file larger than 250KB), as this can have a negative impact on 
-performance. Instead, consider storing a link to the configuration file in a cloud storage
-service or git repository.
+We generally recommend against storing large blobs of information as metadata, such as a
+250 kB configuration file, as this can have a negative impact on performance. Instead,
+consider storing a link to the configuration file in a cloud storage service or Git
+repository.
 
 <Divider.Divider direction="x" />
 
 ## Channel Aliases
 
-Sometimes you want to refer to a channel by a different name within the scope of 
+Sometimes you want to refer to a channel by a different name within the scope of
 a range. For example, imagine you're connecting to a device with three analog input voltage
 channels: `ai_0`, `ai_1`, and `ai_2`. For an experiment where you're using the first input
 to measure pressure in a tank, you might want to refer to the channel as `tank_pressure`.
 For a second experiment, you may have the first analog input measuring temperature,
 and you'd want to refer to the channel as `temperature`.
 
-_Aliases_ let you configure range-specific names for channels. When you query data 
+_Aliases_ let you configure range-specific names for channels. When you query data
 within a range, you can search for the channel by both its original name and its alias.
 
 <Divider.Divider direction="x" />
@@ -52,7 +52,7 @@ within a range, you can search for the channel by both its original name and its
 Child ranges can be used to further segment a range into small, specific intervals.
 If you have a range that tracks a series of tests for a single component, you can create
 a range for all tests (typically called a campaign), and then create child ranges that
-identify specific tests within the campaign. 
+identify specific tests within the campaign.
 
 Child ranges inherit the metadata and channel aliases from their parent range, but can
 override them within the scope of the child range.
@@ -62,10 +62,11 @@ override them within the scope of the child range.
 ## Snapshots
 
 Snapshots can be used to capture the configuration of a resource and tie it to a range.
-The most relevant example is a snapshot of a data acquisition and/or control [task](/reference/device-drivers).
-When you create a snapshot of a task, you're capturing critical information such as calibrations,
-scaling values, and mappings to physical ports and lines. The snapshot provides a permanent way
-to refer to the configuration of the task at the time the range was created.
+The most relevant example is a snapshot of a data acquisition or control
+[task](/reference/device-drivers). When you create a snapshot of a task, you're
+capturing critical information such as calibrations, scaling values, and mappings to
+physical ports and lines. The snapshot provides a permanent way to refer to the
+configuration of the task at the time the range was created.
 
 You can also create snapshots of other resources, such as [schematics](/reference/console/schematics).
 
@@ -80,9 +81,10 @@ relevant to your team.
 
 <Divider.Divider direction="x" />
 
-## Next Steps
+## Using Ranges
 
-There are a number of ways to create, access, and modify ranges within Synnax. For 
-programmatic interfaces, see the [Python](/reference/python-client/ranges) and 
-[TypeScript](/reference/typescript-client/ranges) client libraries. To manage ranges
-via a UI, check out the [Synnax Console](/reference/console/ranges).
+There are a number of ways to create, access, and modify ranges within Synnax. The
+[Python](/reference/python-client/ranges) and
+[TypeScript](/reference/typescript-client/ranges) client libraries provide programmatic
+interfaces. Ranges can also be managed in the [Synnax
+Console](/reference/console/ranges).

@@ -14,8 +14,12 @@
 #include "driver/config/config.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/loop/loop.h"
 
 namespace opc {
+///////////////////////////////////////////////////////////////////////////////////
+//                              ReaderChannelConfig                              //
+///////////////////////////////////////////////////////////////////////////////////
 struct ReaderChannelConfig {
     /// @brief the node id.
     std::string node_id;
@@ -38,6 +42,9 @@ struct ReaderChannelConfig {
     }
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                 ReaderConfig                                  //
+///////////////////////////////////////////////////////////////////////////////////
 struct ReaderConfig {
     /// @brief the device representing the OPC UA server to read from.
     std::string device;
@@ -65,12 +72,62 @@ struct ReaderConfig {
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Source                              //
+///////////////////////////////////////////////////////////////////////////////////
+class ReaderSource final : public pipeline::Source {
+public:
+    ReaderConfig cfg;
+    std::shared_ptr<UA_Client> client;
+    std::set<ChannelKey> indexes;
+    std::shared_ptr<task::Context> ctx;
+    synnax::Task task;
+
+    UA_ReadRequest req;
+    std::vector<UA_ReadValueId> readValueIds;
+    loop::Timer timer;
+    synnax::Frame fr;
+    std::unique_ptr<int64_t[]> timestamp_buf;
+    int exceed_time_count = 0;
+    task::State curr_state;
+
+    ReaderSource(
+        ReaderConfig cfg,
+        const std::shared_ptr<UA_Client> &client,
+        std::set<ChannelKey> indexes,
+        std::shared_ptr<task::Context> ctx,
+        synnax::Task task
+    );
+
+    void initialize_read_request();
+
+    void stopped_with_err(const freighter::Error &err) override;
+
+    [[nodiscard]] freighter::Error communicate_value_error(
+        const std::string &channel,
+        const UA_StatusCode &status
+    ) const;
+
+    size_t cap_array_length(
+        const size_t i,
+        const size_t length
+    );
+
+    size_t write_to_series(
+        const UA_Variant *val,
+        const size_t i,
+        synnax::Series &s
+    );
+
+    std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+};
+
+///////////////////////////////////////////////////////////////////////////////////
 //                                    Reader Task                                //
 ///////////////////////////////////////////////////////////////////////////////////
 /// @brief a task that reads values from an OPC UA server.
-class Reader final : public task::Task {
+class ReaderTask final : public task::Task {
 public:
-    explicit Reader(
+    explicit ReaderTask(
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         ReaderConfig cfg,

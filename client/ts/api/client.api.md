@@ -219,7 +219,7 @@ const ChannelOntologyType: ontology.ResourceType;
 //
 // @public
 class Checker {
-    constructor(client: UnaryClient, pollFreq?: TimeSpan, name?: string);
+    constructor(client: UnaryClient, pollFreq: TimeSpan | undefined, clientVersion: string, name?: string);
     check(): Promise<State>;
     // (undocumented)
     static readonly connectionStateZ: z.ZodObject<{
@@ -227,16 +227,25 @@ class Checker {
         error: z.ZodOptional<z.ZodType<Error, z.ZodTypeDef, Error>>;
         message: z.ZodOptional<z.ZodString>;
         clusterKey: z.ZodString;
+        clientVersion: z.ZodString;
+        clientServerCompatible: z.ZodBoolean;
+        nodeVersion: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         status: "disconnected" | "connecting" | "connected" | "failed";
         clusterKey: string;
+        clientVersion: string;
+        clientServerCompatible: boolean;
         message?: string | undefined;
         error?: Error | undefined;
+        nodeVersion?: string | undefined;
     }, {
         status: "disconnected" | "connecting" | "connected" | "failed";
         clusterKey: string;
+        clientVersion: string;
+        clientServerCompatible: boolean;
         message?: string | undefined;
         error?: Error | undefined;
+        nodeVersion?: string | undefined;
     }>;
     // (undocumented)
     static readonly DEFAULT: State;
@@ -2516,16 +2525,25 @@ const state: z.ZodObject<{
     error: z.ZodOptional<z.ZodType<Error, z.ZodTypeDef, Error>>;
     message: z.ZodOptional<z.ZodString>;
     clusterKey: z.ZodString;
+    clientVersion: z.ZodString;
+    clientServerCompatible: z.ZodBoolean;
+    nodeVersion: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     status: "disconnected" | "connecting" | "connected" | "failed";
     clusterKey: string;
+    clientVersion: string;
+    clientServerCompatible: boolean;
     message?: string | undefined;
     error?: Error | undefined;
+    nodeVersion?: string | undefined;
 }, {
     status: "disconnected" | "connecting" | "connected" | "failed";
     clusterKey: string;
+    clientVersion: string;
+    clientServerCompatible: boolean;
     message?: string | undefined;
     error?: Error | undefined;
+    nodeVersion?: string | undefined;
 }>;
 
 // Warning: (ae-missing-release-tag) "State" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -2686,6 +2704,7 @@ export class Synnax extends framer.Client {
     readonly auth: auth.Client | undefined;
     // (undocumented)
     readonly channels: channel.Client;
+    readonly clientVersion: string;
     // (undocumented)
     close(): void;
     // (undocumented)

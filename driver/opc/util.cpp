@@ -148,7 +148,7 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
 
     if (applicationUri.empty()) {
         LOG(ERROR) <<
-                   "No URI found in the Subject Alternative Name field of the certificate.";
+                "No URI found in the Subject Alternative Name field of the certificate.";
     }
 
     // Clean up
@@ -211,7 +211,7 @@ freighter::Error configure_encryption(
 
     if (e_err != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: " <<
-                   UA_StatusCode_name(e_err);
+                UA_StatusCode_name(e_err);
         const auto status_name = UA_StatusCode_name(e_err);
         return freighter::Error(freighter::TYPE_UNREACHABLE,
                                 "Failed to configure encryption: " + std::string(
@@ -243,7 +243,7 @@ void fetchEndpointDiagnosticInfo(
         // get config.userIdentityToken.content.decoded.type
         if (ep.securityPolicyUri.data)
             LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.
-                securityPolicyUri.data;
+                    securityPolicyUri.data;
         auto security_mode = ep.securityMode;
         if (security_mode == UA_MESSAGESECURITYMODE_NONE)
             LOG(INFO) << "[opc.scanner] \t security: unencrypted";
@@ -260,7 +260,7 @@ void fetchEndpointDiagnosticInfo(
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
                 LOG(INFO) <<
-                          "[opc.scanner] \t supports username/password authentication";
+                        "[opc.scanner] \t supports username/password authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN)
                 LOG(INFO) << "[opc.scanner] \t supports issued token authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_CERTIFICATE)
@@ -291,8 +291,6 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     config->timeout = 7200000; // (ms) 2 hours
     configure_encryption(cfg, client);
     UA_StatusCode status;
-//    freighter::Error err = set_authentication(cfg, config);
-//    if(!err) return {std::move(client), err};
     if (!cfg.username.empty() || !cfg.password.empty()) {
         status = UA_ClientConfig_setAuthenticationUsername(
             config,
@@ -301,7 +299,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
         );
         if (status != UA_STATUSCODE_GOOD) {
             LOG(ERROR) << "[opc.scanner] Failed to set authentication: " <<
-                       UA_StatusCode_name(status);
+                    UA_StatusCode_name(status);
             return {
                 std::move(client),
                 freighter::Error(freighter::TYPE_UNREACHABLE,

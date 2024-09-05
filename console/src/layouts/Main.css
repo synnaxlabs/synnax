@@ -16,7 +16,7 @@
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--pluto-gray-l1);
+    background: transparent;
     z-index: -1;
 }
 

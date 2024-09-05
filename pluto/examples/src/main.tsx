@@ -14,7 +14,6 @@ import { Pluto } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
 import { ChildRanges } from "./ChildRanges";
-import { ExampleTimeline } from "./TImeline";
 import WorkerURL from "./worker?worker&url";
 
 const Main = () => (
@@ -28,7 +27,7 @@ const Main = () => (
       secure: true,
     }}
   >
-    <ExampleTimeline />
+    <ChildRanges />
   </Pluto.Provider>
 );
 

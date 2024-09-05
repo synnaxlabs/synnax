@@ -23,7 +23,7 @@ class SynnaxStreamer final : public pipeline::Streamer {
 public:
     explicit SynnaxStreamer(
         std::unique_ptr<synnax::Streamer> internal
-    ): internal(std::move(internal)) {
+    ) : internal(std::move(internal)) {
     }
 
     std::pair<synnax::Frame, freighter::Error> read() override {
@@ -34,7 +34,7 @@ public:
         return this->internal->close();
     }
 
-    void closeSend() override{
+    void closeSend() override {
         this->internal->closeSend();
     }
 };
@@ -45,7 +45,7 @@ class SynnaxStreamerFactory final : public StreamerFactory {
 public:
     explicit SynnaxStreamerFactory(
         std::shared_ptr<synnax::Synnax> client
-    ): client(std::move(client)) {
+    ) : client(std::move(client)) {
     }
 
     std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
@@ -65,11 +65,11 @@ Control::Control(
     synnax::StreamerConfig streamer_config,
     std::shared_ptr<pipeline::Sink> sink,
     const breaker::Config &breaker_config
-): thread(nullptr),
-   factory(std::make_shared<SynnaxStreamerFactory>(std::move(client))),
-   config(std::move(streamer_config)),
-   sink(std::move(sink)),
-   breaker(breaker::Breaker(breaker_config)) {
+) : thread(nullptr),
+    factory(std::make_shared<SynnaxStreamerFactory>(std::move(client))),
+    config(std::move(streamer_config)),
+    sink(std::move(sink)),
+    breaker(breaker::Breaker(breaker_config)) {
 }
 
 Control::Control(
@@ -77,11 +77,11 @@ Control::Control(
     synnax::StreamerConfig streamer_config,
     std::shared_ptr<Sink> sink,
     const breaker::Config &breaker_config
-): thread(nullptr),
-   factory(std::move(streamer_factory)),
-   config(std::move(streamer_config)),
-   sink(std::move(sink)),
-   breaker(breaker::Breaker(breaker_config)) {
+) : thread(nullptr),
+    factory(std::move(streamer_factory)),
+    config(std::move(streamer_config)),
+    sink(std::move(sink)),
+    breaker(breaker::Breaker(breaker_config)) {
 }
 
 
@@ -108,7 +108,7 @@ void Control::stop() {
     const auto was_running = this->breaker.running();
     // Stop the breaker and join the thread regardless of whether it was running.
     // This ensures that the thread gets joined even in the case of an internal error.
-    if(this->streamer) this->streamer->closeSend();
+    if (this->streamer) this->streamer->closeSend();
     this->breaker.stop();
     this->ensureThreadJoined();
     if (was_running) LOG(INFO) << "[control] stopped";

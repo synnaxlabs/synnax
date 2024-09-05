@@ -32,7 +32,7 @@ const uint64_t DAY = HOUR * 24;
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
-    DataType(): value("") {
+    DataType() : value("") {
     }
 
     /// @brief Holds the id of the data type
@@ -253,13 +253,19 @@ public:
         return TimeSpan(value * other);
     }
 
-    TimeSpan operator*(const double &other) const { return TimeSpan(value * other); }
+    TimeSpan operator*(const double &other) const {
+        return TimeSpan(value * other);
+    }
 
     TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
 
-    TimeSpan operator*(const unsigned long &other) const { return TimeSpan(value * other); }
+    TimeSpan operator*(const unsigned long &other) const {
+        return TimeSpan(value * other);
+    }
 
-    TimeSpan operator*(const long long &other) const { return TimeSpan(value * other); }
+    TimeSpan operator*(const long long &other) const {
+        return TimeSpan(value * other);
+    }
 
 
     ////////////////////////////////// DIVISION /////////////////////////////////
@@ -404,7 +410,8 @@ public:
         return TimeStamp(value + other.value);
     }
 
-    friend TimeStamp operator+(const unsigned long long &lhs, const TimeStamp &rhs) {
+    friend TimeStamp
+    operator+(const unsigned long long &lhs, const TimeStamp &rhs) {
         return TimeStamp(lhs + rhs.value);
     }
 
@@ -473,7 +480,7 @@ public:
     }
 
     TimeRange(const std::uint64_t start, const std::uint64_t end) : start(start),
-        end(end) {
+                                                                    end(end) {
     }
 
     /// @brief returns true if the given timestamp is within the range, start inclusive,

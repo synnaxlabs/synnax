@@ -4,24 +4,27 @@ title: "Ranges"
 heading: "Ranges"
 description: "Create, view, and manage ranges using the Console"
 ---
+
 import { Icon } from "@synnaxlabs/media";
-import { Text, Divider, Triggers } from "@synnaxlabs/pluto"
-import { Video, Image } from "@/components/Media"
-import { Table } from "@/components/Table"
-import Diagram from "@/components/Diagram.astro"
+import { Text, Divider, Triggers } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/Media";
+import { Table } from "@/components/Table";
+import Diagram from "@/components/Diagram.astro";
 
 <Diagram preview>
-    <Image client:only="react" id="console/ranges/range-3" themed={false} />
+  <Image client:only="react" id="console/ranges/range-3" themed={false} />
 </Diagram>
 
 Ranges are the primary means for organizing and accessing the data stored in a Synnax
-cluster. They identify and name a specific time interval, and can be used to correlate 
-meta-data with channel telemetry. If you'd like a conceptual introduction to 
-ranges and their use cases, check out the [range concepts](/reference/concepts/ranges) page.
+cluster. They identify and name a specific time interval, and can be used to correlate
+meta-data with channel telemetry. If you'd like a conceptual introduction to ranges and
+their use cases, visit the [concepts page](/reference/concepts/ranges) on ranges.
 
 <Divider.Divider direction="x" />
 
 ## Creating a Range
+
+There are several ways to create ranges in the Synnax Console.
 
 ### Using the Range Toolbar
 
@@ -34,7 +37,7 @@ range toolbar. This will open a dialog where you can fill in the required fields
 
 You can also create a range using the command palette. To open the palette, click on
 the search bar at the top, or type `Cmd+Shift+P` on Mac or `Ctrl+Shift+P` on Windows
-and Linux. 
+and Linux.
 
 <Video client:only="react" id="console/ranges/palette-create" />
 
@@ -51,7 +54,7 @@ populate the `From` and `To` fields with the selected region.
 ## Finding Existing Ranges
 
 There are two primary ways to search for existing ranges in the console: the resources
-and command and search palette.
+toolbar and command and search palette.
 
 ### Using the Resources Toolbar
 
@@ -74,22 +77,28 @@ saved range just by typing its name into the palette.
 Use the arrow keys to navigate the results, and press <Icon.Keyboard.Return /> to load
 the range you're interested in. You can also hover and click using your mouse.
 
+<Divider.Divider direction="x" />
+
 ## Child Ranges
 
-[Child ranges](/reference/concepts/ranges#child-ranges) are a way to further segment a 
+[Child ranges](/reference/concepts/ranges#child-ranges) are a way to further segment a
 range into smaller, specific intervals. The easiest way to create a child range is by
 specifying the parent range field in the range creation dialog. You can also create a
 child by clicking on the **Add Child Range** button in the range overview page.
 
 <Video client:only="react" id="console/ranges/create-child" />
 
+<Divider.Divider direction="x" />
+
 ## Meta Data
 
 You can also attach arbitrary meta-data to a range, including links to external resources.
-To add a new field, simply click on a cell in the meta data section of the range 
-overview page. 
+To add a new field, simply click on a cell in the meta data section of the range
+overview page.
 
 <Video client:only="react" id="console/ranges/add-meta-data" />
+
+<Divider.Divider direction="x" />
 
 ## Labels
 

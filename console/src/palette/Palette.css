@@ -29,6 +29,7 @@
     width: 95vw;
     min-height: 400px;
     max-width: 1200px;
+    overflow: hidden;
 
     .pluto-list__item {
         .console-palette__actions {

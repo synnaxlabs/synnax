@@ -23,7 +23,6 @@
 using json = nlohmann::json;
 
 namespace opc {
-
 ///@brief The parameters for connecting to and iterating through nodes in the OPC UA server.A
 struct ScannerScanCommandArgs {
     ConnectionConfig connection;
@@ -31,7 +30,7 @@ struct ScannerScanCommandArgs {
     UA_NodeId node{};
 
     explicit ScannerScanCommandArgs(config::Parser parser) : connection(
-        ConnectionConfig(parser.child("connection"))),
+                                                                 ConnectionConfig(parser.child("connection"))),
                                                              node_id(
                                                                  parser.optional<std::string>(
                                                                      "node_id", "")) {

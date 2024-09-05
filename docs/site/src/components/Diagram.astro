@@ -44,6 +44,12 @@ const { preview, ...props } = Astro.props;
                 var(--pluto-gray-l5-70) 0.5px,
                 transparent 0.5px
             );
+            @media (prefers-color-scheme: dark) {
+                background-image: radial-gradient(
+                    var(--pluto-dark-gray-l4) 0.5px,
+                    transparent 0.5px
+                );
+            }
             img {
                 width: 100%;
                 border-radius: 1rem;

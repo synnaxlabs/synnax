@@ -57,7 +57,8 @@ public:
         "default",
         TimeSpan(1 * SECOND),
         10,
-        1.1 }) {
+        1.1
+    }) {
     }
 
     Breaker(
@@ -135,6 +136,7 @@ public:
         interval = interval * config.scale;
         return true;
     }
+
 
     /// @brief waits for the given time duration. If the breaker stopped before the specified time,
     /// the method will return immediately to ensure graceful exit of objects using the breaker.

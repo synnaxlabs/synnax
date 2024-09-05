@@ -97,9 +97,8 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   const args = Layout.useSelectArgs<Args>(layoutKey);
   const range = useSelect(args.key);
   const client = Synnax.use();
-  console.log(args.key);
   const isCreate = args.key == null;
-  const isRemoteEdit = !isCreate && (range == null || range.persisted);
+  const isEdit = !isCreate && (range == null || range.persisted);
   const initialValues = useQuery<DefineRangeFormProps>({
     queryKey: ["range-edit", args],
     queryFn: async () => {
@@ -139,7 +138,7 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   if (initialValues.isError) throw initialValues.error;
   return (
     <EditLayoutForm
-      isRemoteEdit={isRemoteEdit}
+      isRemoteEdit={isEdit}
       initialValues={initialValues.data}
       {...props}
     />
@@ -191,8 +190,6 @@ const EditLayoutForm = ({
     },
     onError: (e) => addStatus({ message: e.message, variant: "error" }),
   });
-
-  const showSaveToSynnax = isCreate || !isRemoteEdit;
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
@@ -296,7 +293,7 @@ const EditLayoutForm = ({
             disabled={isPending}
             triggers={[SAVE_TRIGGER]}
           >
-            {isRemoteEdit ? "Edit" : "Save"}
+            Save
           </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>

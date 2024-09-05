@@ -16,16 +16,35 @@ import { CSS } from "@/css";
 import { Text } from "@/text";
 import { isValidElement } from "@/util/children";
 
+/**
+ * Props for the Breadcrumb component.
+ *
+ * @template E - The type of the space element.
+ * @template L - The text level.
+ */
 export type BreadcrumbProps<
   E extends Align.SpaceElementType = "div",
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
+  /** Icon to display in the breadcrumb. */
   icon?: string;
+  /** The breadcrumb items, either a single string or an array of strings. */
   children: string | string[];
+  /** Separator to use between breadcrumb items. Defaults to ".". */
   separator?: string;
+  /** Whether to hide the first breadcrumb item. */
   hideFirst?: boolean;
 };
 
+/**
+ * Breadcrumb component for displaying a breadcrumb navigation.
+ *
+ * @template E - The type of the space element.
+ * @template L - The text level.
+ *
+ * @param props - The props for the Breadcrumb component.
+ * @returns The Breadcrumb component.
+ */
 export const Breadcrumb = <
   E extends Align.SpaceElementType = "div",
   L extends Text.Level = Text.Level,

@@ -73,7 +73,11 @@ export const Core = <K extends Key, E extends Keyed<K>>({
 
   if (variant !== "connected") {
     dialogContent = (
-      <Align.Pack direction="y" className={CSS.B("select-dialog-content")}>
+      <Align.Pack
+        direction="y"
+        borderShade={4}
+        className={CSS.B("select-dialog-content")}
+      >
         {dialogContent}
       </Align.Pack>
     );

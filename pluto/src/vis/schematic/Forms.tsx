@@ -257,54 +257,80 @@ export const SolenoidValveForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
-export const CommonNonToggleForm = (): ReactElement => {
-  return (
-    <FormWrapper direction="x">
-      <Align.Space direction="y" grow>
-        <LabelControls path="label" />
-        <ColorControl path="color" />
-      </Align.Space>
-      <OrientationControl path="" />
-    </FormWrapper>
-  );
-};
+export const CommonNonToggleForm = (): ReactElement => (
+  <FormWrapper direction="x">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <ColorControl path="color" />
+    </Align.Space>
+    <OrientationControl path="" />
+  </FormWrapper>
+);
 
 const DIMENSIONS_DRAG_SCALE: xy.Crude = { y: 2, x: 0.25 };
 const DIMENSIONS_BOUNDS: bounds.Bounds = { lower: 0, upper: 2000 };
 
-export const TankForm = (): ReactElement => {
-  return (
-    <FormWrapper direction="x" align="stretch">
-      <Align.Space direction="y" grow>
-        <LabelControls path="label" />
-        <Align.Space direction="x">
-          <ColorControl path="color" />
-          <Form.Field<number> path="dimensions.width" label="Width" grow>
-            {({ value, ...props }) => (
-              <Input.Numeric
-                value={value ?? 200}
-                dragScale={DIMENSIONS_DRAG_SCALE}
-                bounds={DIMENSIONS_BOUNDS}
-                {...props}
-              />
-            )}
-          </Form.Field>
-          <Form.Field<number> path="dimensions.height" label="Height" grow>
-            {({ value, ...props }) => (
-              <Input.Numeric
-                value={value ?? 200}
-                dragScale={DIMENSIONS_DRAG_SCALE}
-                bounds={DIMENSIONS_BOUNDS}
-                {...props}
-              />
-            )}
-          </Form.Field>
-        </Align.Space>
+export interface TankFormProps {
+  includeBorderRadius?: boolean;
+}
+
+export const TankForm = ({
+  includeBorderRadius = false,
+}: TankFormProps): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        {includeBorderRadius && (
+          <>
+            <Form.Field<number> path="borderRadius.x" label="X Border Radius" grow>
+              {({ value, ...props }) => (
+                <Input.Numeric
+                  value={value}
+                  dragScale={DIMENSIONS_DRAG_SCALE}
+                  bounds={DIMENSIONS_BOUNDS}
+                  {...props}
+                />
+              )}
+            </Form.Field>
+            <Form.Field<number> path="borderRadius.y" label="Y Border Radius" grow>
+              {({ value, ...props }) => (
+                <Input.Numeric
+                  value={value}
+                  dragScale={DIMENSIONS_DRAG_SCALE}
+                  bounds={DIMENSIONS_BOUNDS}
+                  {...props}
+                />
+              )}
+            </Form.Field>
+          </>
+        )}
+        <Form.Field<number> path="dimensions.width" label="Width" grow>
+          {({ value, ...props }) => (
+            <Input.Numeric
+              value={value ?? 200}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              {...props}
+            />
+          )}
+        </Form.Field>
+        <Form.Field<number> path="dimensions.height" label="Height" grow>
+          {({ value, ...props }) => (
+            <Input.Numeric
+              value={value ?? 200}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              {...props}
+            />
+          )}
+        </Form.Field>
       </Align.Space>
-      <OrientationControl path="" />
-    </FormWrapper>
-  );
-};
+    </Align.Space>
+    <OrientationControl path="" />
+  </FormWrapper>
+);
 
 const VALUE_FORM_TABS: Tabs.Tab[] = [
   {
@@ -548,6 +574,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
   const handleSinkChange = (v: channel.Key): void => {
+    v = v ?? 0;
     const t = telem.sinkPipeline("boolean", {
       connections: [
         {
@@ -609,6 +636,9 @@ export const ButtonForm = (): ReactElement => {
           <FormWrapper direction="x" align="stretch">
             <Align.Space direction="y" grow>
               <LabelControls path="label" />
+              <Align.Space direction="x">
+                <ColorControl path="color" />
+              </Align.Space>
             </Align.Space>
             <OrientationControl path="" />
           </FormWrapper>

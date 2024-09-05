@@ -3,11 +3,11 @@ import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 
-const { tabindex, single, ...props } = Astro.props;
-console.log(props);
+const { tabindex, single, variant, ...props } = Astro.props;
 ---
 
-<div class=`astro-code-wrapper ${single ? 'single' : ''}` tabindex={tabindex}>
+<div class=`astro-code-wrapper ${variant}`>
+<div class=`astro-code-wrapper ${variant} ${single ? 'single' : ''}` tabindex={tabindex}>
     <Button.Icon variant="outlined" size="medium">
         <Fragment>
             <Icon.Copy className="copy" /><Icon.Check className="check" />
@@ -17,6 +17,24 @@ console.log(props);
 </div>
 
 <style is:global>
+    .error .astro-code-wrapper {
+        .astro-code {
+            border: 1px solid var(--pluto-error-z);
+            background-color: var(--pluto-error-z-15) !important;
+        }
+        button {
+            display: none;
+        }
+    }
+    .warning .astro-code-wrapper {
+        .astro-code {
+            border: 1px solid var(--pluto-warning-z);
+            background-color: var(--pluto-warning-z-15) !important;
+        }
+        button {
+            display: none;
+        }
+    }
     .astro-code-wrapper {
         position: relative;
 

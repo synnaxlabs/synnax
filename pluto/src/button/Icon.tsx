@@ -38,6 +38,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
       disabled = false,
       loading = false,
       onClick,
+      color: propColor,
       ...props
     },
     ref,
@@ -61,7 +62,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
         {typeof children === "string"
           ? children
           : cloneElement(children, {
-              color: color(variant, disabled, props.color),
+              color: color(variant, disabled, propColor),
               fill: "currentColor",
               ...children.props,
             })}

@@ -3,11 +3,12 @@ layout: "@/layouts/MainLayout.astro"
 title: "Channels"
 description: "Learn how channels represent data in Synnax."
 ---
+
 import { Image } from "@/components/Media";
-import { Divider, Text } from "@synnaxlabs/pluto"
-import Diagram from "@/components/Diagram.astro"
+import { Divider, Text } from "@synnaxlabs/pluto";
+import Diagram from "@/components/Diagram.astro";
 import { Icon } from "@synnaxlabs/media";
-import Note from "@/components/Note.astro"
+import Note from "@/components/Note.astro";
 
 This page walks you through what channels are, their important properties, and
 how to use them when structuring your cluster.
@@ -20,12 +21,12 @@ visit the respective pages for the [Python](../python-client/channels) and
 
 ## Introduction
 
-A channel is a logical collection of samples representing the values of a single source. 
-This source is typically a sensor, although channels can also hold actuator commands, 
-post-processed results, or any other time-ordered data. 
+A channel is a logical collection of samples representing the values of a single source.
+This source is typically a sensor, although channels can also hold actuator commands,
+post-processed results, or any other time-ordered data.
 
-Channels are used for both **data storage** and **real-time communication**. A sensor 
-recording samples 25 times per second (or 25Hz) would write data to a channel in order 
+Channels are used for both **data storage** and **real-time communication**. A sensor
+recording samples 25 times per second (or 25Hz) would write data to a channel in order
 to store it permanently within Synnax, while at the same time streaming the data
 for live consumption.
 
@@ -33,12 +34,12 @@ The following diagram shows a sensor writing samples to a channel, which are the
 stored and forwarded to a visualization tool and analysis script.
 
 <Diagram>
-<Image 
+  <Image
     client:only="react"
     id="concepts/channels/channels"
     extension="svg"
     themed={false}
-/>
+  />
 </Diagram>
 
 Channels are comparable to **tags** in a time-series database like [InfluxDB](https://www.influxdata.com/)
@@ -61,18 +62,18 @@ An **index** channel (or just _index_) is a special type of channel optimized fo
 lookups on timestamps. Index channels always have a data type of `timestamp`, meaning
 that they must contain ordered `int64` nanosecond UTC timestamps.
 
-These channels are comparable to the index in a book. To find a particular piece of 
-information, you first look through the index, which then points you to the relevant 
-page. In Synnax, index channels are used in a similar fashion. To find the samples in 
-a data channel for a particular time range, Synnax will first look through the index 
-channel to find the relevant timestamps, and then retrieve the samples from the data 
+These channels are comparable to the index in a book. To find a particular piece of
+information, you first look through the index, which then points you to the relevant
+page. In Synnax, index channels are used in a similar fashion. To find the samples in
+a data channel for a particular time range, Synnax will first look through the index
+channel to find the relevant timestamps, and then retrieve the samples from the data
 channel.
 
 ### Data Channels
 
-Data channels are the primary method for storing telemetry samples in Synnax. Data 
+Data channels are the primary method for storing telemetry samples in Synnax. Data
 channels can store sensor readings, actuator commands, calculated values, or any
-other time-ordered points. 
+other time-ordered points.
 
 Every sample in a data channel must have the same, fixed size data type. This means
 that data channels cannot store variable length values, such as strings or JSON objects.
@@ -83,18 +84,18 @@ with a single index channel.
 
 ### Virtual Channels
 
-Virtual channels are only used for real-time data streaming. Their values are not 
+Virtual channels are only used for real-time data streaming. Their values are not
 persisted to disk. Virtual channels do not have an associated index channel, and have
-the benefit of being able to support variable length data types. 
+the benefit of being able to support variable length data types.
 
-It's common to send strings, logs, JSON values, or other complex data types over virtual 
+It's common to send strings, logs, JSON values, or other complex data types over virtual
 channels.
 
 <Divider.Divider direction="x" />
 
 ## Channel Fields
 
-All channel types have a common set of fields. There may be slight variations in the 
+All channel types have a common set of fields. There may be slight variations in the
 naming conventions between the various Synnax client libraries, but the core concepts
 remain the same.
 
@@ -106,16 +107,16 @@ and cannot be edited.
 
 ### Name
 
-A human-readable name for the channel. This is the most common way to search for and 
+A human-readable name for the channel. This is the most common way to search for and
 reference a channel. Synnax does not prevent duplicate names, although it is highly
 recommended that you keep them unique.
 
-### Data Type 
+### Data Type
 
-All channel's must have a consistent data type. Index channels must always have a 
+All channel's must have a consistent data type. Index channels must always have a
 data type of `timestamp`, while data channels can have any of the following types:
 
-| Data Type   | Description                   | Density |
+| Data Type   | Description                   | Size    |
 | ----------- | ----------------------------- | ------- |
 | `bool`      | Boolean value                 | 1 byte  |
 | `int8`      | Signed 8-bit integer          | 1 byte  |
@@ -133,8 +134,8 @@ data type of `timestamp`, while data channels can have any of the following type
 In addition to these basic types, virtual channels also support the following variable
 length data types:
 
-| Data Type | Description |
-| --------- | ----------- |
+| Data Type | Description  |
+| --------- | ------------ |
 | `string`  | UTF-8 string |
 | `json`    | JSON object  |
 
@@ -143,9 +144,9 @@ length data types:
 A boolean field indicating whether the channel should be treated as an index channel.
 This field defaults to `false`, and should only be set to `true` for index channels.
 
-### Virtual 
+### Virtual
 
-A boolean field indicating whether the channel is virtual. Virtual channels cannot 
+A boolean field indicating whether the channel is virtual. Virtual channels cannot
 be indexes. This field defaults to `false`, and should only be set to `true` for
 virtual channels.
 
