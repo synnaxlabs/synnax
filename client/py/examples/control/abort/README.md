@@ -1,5 +1,5 @@
-To run this example, you'll need three python shells open. In the first shell, start the
-simulated_daq:
+To run this example, you'll need three Python shells open. In the first shell, start the
+simulated data acquisition computer:
 
 ```bash
 python simulated_daq.py
@@ -17,5 +17,6 @@ In the third shell, run the nominal sequence:
 python nominal_sequence.py
 ```
 
-We highly recommend using the Synnax [Console](https://docs.synnaxlabs.com/reference/console/get-started)
-to visualize the data in these examples.
+We highly recommend using the[Synnax
+Console](https://docs.synnaxlabs.com/reference/console/get-started) to visualize the
+data in these examples.
