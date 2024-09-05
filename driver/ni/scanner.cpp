@@ -68,7 +68,6 @@ void ni::Scanner::set_scan_thread(std::shared_ptr<std::thread> scan_thread) {
 
 ni::Scanner::~Scanner() {
     ni::NiSysCfgInterface::CloseHandle(this->filter);
-    ni::NiSysCfgInterface::CloseHandle(this->resources_handle);
     ni::NiSysCfgInterface::CloseHandle(this->session);
     if (this->scan_thread && scan_thread->joinable()) scan_thread->join();
 }
@@ -82,6 +81,7 @@ void ni::Scanner::scan() {
         this->filter, NULL,
         &this->resources_handle
     );
+   
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
 
     while (ni::NiSysCfgInterface::NextResource(
@@ -90,12 +90,14 @@ void ni::Scanner::scan() {
                &resource
            ) == NISysCfg_OK) {
         auto device = get_device_properties(resource);
-        if(device_keys.find(device["key"]) == device_keys.end()) {
+        if(device["key"] != "" && device_keys.find(device["key"]) == device_keys.end()) {
             device["failed_to_create"] = false;
             devices["devices"].push_back(device);
             device_keys.insert(device["key"]);
         }
+        ni::NiSysCfgInterface::CloseHandle(resource);
     }
+    ni::NiSysCfgInterface::CloseHandle(this->resources_handle);
 }
 
 json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
