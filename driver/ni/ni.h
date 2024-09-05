@@ -480,7 +480,7 @@ private:
     synnax::Task task;
     std::shared_ptr<std::thread> thread;
     bool ok_state = true;
-    synnax::Rate scan_rate = synnax::Rate(1000);
+    synnax::Rate scan_rate = synnax::Rate(1);
 }; // class ScannerTask
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //

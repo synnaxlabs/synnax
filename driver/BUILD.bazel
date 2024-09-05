@@ -58,7 +58,7 @@ cc_binary(
     copts = select({
         ":use_ni": ["-DUSE_NI"],
         "@platforms//os:windows": [
-            "/fsanitize=address",  # Enable AddressSanitizer for Visual Studio
+#            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
             "-std:c++20"
         ],
         "//conditions:default": ["-std=c++20"],
@@ -68,8 +68,8 @@ cc_binary(
             "/DEFAULTLIB:ws2_32.lib",
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
-            "/debug",
-            "/fsanitize=address",  # Enable AddressSanitizer for linking
+#            "/debug",
+#            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
         ],
         "//conditions:default": [],
     }),
@@ -95,7 +95,6 @@ cc_binary(
             "@com_github_gflags_gflags//:gflags",
             "@com_github_google_glog//:glog",
             "@mbedtls_linux",
-            "-fsanitize=address"  # Enable AddressSanitizer for GCC/Clang
         ],
         "//conditions:default": [
             "//driver",
@@ -107,7 +106,6 @@ cc_binary(
             "@com_github_gflags_gflags//:gflags",
             "@com_github_google_glog//:glog",
             "@mbedtls_macos",
-            "-fsanitize=address"  # Enable AddressSanitizer for macOS
         ],
     }),
 )
