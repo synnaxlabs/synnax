@@ -29,12 +29,8 @@ export const OSDownloadButton = ({
   ...props
 }: OSDownloadButtonProps): ReactElement | null => {
   const os = runtime.getOS();
-  if (entries.length === 0) return null;
-  let entry = entries.find((entry) => entry.os === os);
-  if (entry == null || os === "Docker" || os === "Linux")
-    return (
-      <Button.Button disabled>Synnax Console isn't available for {os}</Button.Button>
-    );
+  const entry = entries.find((entry) => entry.os === os);
+  if (entry == null) return null;
   const { href } = entry;
   return (
     <Button.Link href={href} startIcon={<Icon.Download />} {...props}>
