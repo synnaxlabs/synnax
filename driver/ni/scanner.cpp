@@ -96,7 +96,6 @@ void ni::Scanner::scan() {
             device_keys.insert(device["key"]);
         }
     }
-    LOG(INFO) << "[ni.scanner] devices: " << devices.dump(4);
 }
 
 json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
