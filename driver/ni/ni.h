@@ -26,7 +26,6 @@
 
 #include "nlohmann/json.hpp"
 
-
 #include "client/cpp/synnax.h"
 
 #include "driver/ni/ai_channels.h"
@@ -49,6 +48,8 @@
 #include "dll_check_linux.h"
 
 #endif
+
+using json = nlohmann::json;
 
 namespace ni {
 inline const std::map<std::string, int32_t> UNITS_MAP = {
@@ -135,14 +136,71 @@ struct ReaderConfig {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
+// make an enumerated type for the 4 different tasks : analog/digital read/write
+
+enum TaskType {
+    ANALOG_READ,
+    ANALOG_WRITE,
+    DIGITAL_READ,
+    DIGITAL_WRITE
+};
+
+class TaskHandler {
+public:
+    explicit TaskHandler(
+        TaskHandle task_handle,
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task,
+        std::string log_prefix,
+        breaker::Breaker &breaker
+    );
+
+    freighter::Error cycle();
+
+    int check_ni_error(int32 error);
+
+    void jsonify_error(std::string);
+
+    void log_error(std::string err_msg);  // TODO: maybe don't need this
+
+    freighter::Error start(const std::string &cmd_key);
+
+    freighter::Error stop(const std::string &cmd_key);
+
+    freighter::Error start_ni(); // might not need these
+
+    freighter::Error stop_ni(); // might not need these
+
+    void clear_task();
+
+    void stopped_with_err(const freighter::Error &err); // will just be called in the actual one
+
+    virtual bool ok();
+
+    TaskHandle task_handle = 0;
+    synnax::Task task;
+
+    std::shared_ptr<task::Context> ctx;
+    json err_info;
+    bool ok_state = true;
+    breaker::Breaker breaker;
+
+    std::string task_name;
+    std::string log_prefix;
+
+    task::State curr_state;
+};
+
 
 /// @brief an interface for a source that abstracts the common pattern of configuring and acquiring data
 /// from a National Instruments device. Serves as base class for special purpose readers.
 class Source : public pipeline::Source {
 public:
-    explicit Source(TaskHandle task_handle,
-                    const std::shared_ptr<task::Context> &ctx,
-                    const synnax::Task task);
+    explicit Source(
+        TaskHandle task_handle,
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task task
+    );
 
     int init();
 
@@ -162,7 +220,6 @@ public:
 
     /// @brief formats NI error into parseable format for console display
     void jsonify_error(std::string);
-
 
     void log_error(std::string err_msg);
 
@@ -196,7 +253,6 @@ public:
     virtual void acquire_data() = 0;
 
     virtual int create_channels() = 0;
-
 
     /// @brief shared resources between daq sampling thread and acquisition thread
     struct DataPacket {

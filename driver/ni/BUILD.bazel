@@ -47,6 +47,7 @@ cc_library(
         "digital_write.cpp",
         "factory.cpp",
         "ni.cpp",
+        "task_handler.cpp",
         "scanner.cpp",
         "task.cpp",
     ],
