@@ -29,6 +29,11 @@ export const consoleNav: PageNavNode = {
       name: "UI Overview",
     },
     {
+      key: "/reference/console/channels",
+      href: "/reference/console/channels",
+      name: "Channels",
+    },
+    {
       key: "/reference/console/workspaces",
       href: "/reference/console/workspaces",
       name: "Workspaces",
