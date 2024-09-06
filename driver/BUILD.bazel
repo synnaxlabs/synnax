@@ -57,14 +57,19 @@ cc_binary(
     }),
     copts = select({
         ":use_ni": ["-DUSE_NI"],
-        "//conditions:default": ["-std=c++20"], 
+#         "@platforms//os:windows": [
+# #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+#             "-std:c++20"
+#         ],
+        "//conditions:default": ["-std=c++20"],
     }),
     linkopts = select({
         "@platforms//os:windows": [
             "/DEFAULTLIB:ws2_32.lib",
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
-            "/debug"
+#            "/debug",
+#            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
         ],
         "//conditions:default": [],
     }),
