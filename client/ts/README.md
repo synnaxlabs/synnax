@@ -16,7 +16,7 @@ If you want to install the client library, please install it via a package manag
 as npm or yarn:
 
 ```bash
-npm i @synnaxlabs/client
+npm install @synnaxlabs/client
 ```
 
 ## Examples
