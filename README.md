@@ -42,12 +42,6 @@ versions may include API changes.
 Our team is targeting a v1 release before the end of 2024, at which point all APIs
 will be stable and follow strict semantic versioning.
 
-# How to Contribute
-
-Help us modernize industrial control! Reach out to [Emiliano](mailto:ebonilla@synnaxlabs.com)
-if you'd like to get involved. While you wait for a response, check out the [New
-Contributor Guide](docs/CONTRIBUTING.md) to get up to speed.
-
 # Repository Organization
 
 Synnax is built as a collection of several projects, all of which are collected
