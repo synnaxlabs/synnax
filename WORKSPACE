@@ -161,7 +161,7 @@ new_local_repository(
 
 new_local_repository(
     name = "mbedtls_macos",
-    path = "/opt/homebrew/Cellar/mbedtls/3.6.0",
+    path = "/opt/homebrew/Cellar/mbedtls/3.6.1",
     build_file="@//driver/vendor/mbedtls:BUILD.bazel"
 )
 
