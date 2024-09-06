@@ -37,8 +37,8 @@ client = sy.Synnax()
 
 # Open the controller
 with client.control.acquire(
-    read_from=["temperature", "daq_do_1_state"],
-    write_to=["daq_do_1_cmd"]
+    read=["temperature", "daq_do_1_state"],
+    write=["daq_do_1_cmd"]
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Your control sequence here
@@ -55,12 +55,12 @@ The `acquire` method takes a few arguments:
     </thead>
     <tbody>
         <tr>
-            <td>`read_from`</td>
+            <td>`read`</td>
             <td>A list of channels that your control sequence will need to read from. Any
             channels not present in this list will not be available to your control sequence.</td>
         </tr>
         <tr>
-            <td>`write_to`</td>
+            <td>`write`</td>
             <td>A list of channels that your sequence needs control over. Any channels not
             in this list cannot be commanded</td>
         </tr>
@@ -83,8 +83,8 @@ and assign a value to it.
 
 ```python
 with client.control.acquire(
-    read_from=["pressure_1", "daq_do_1_state"],
-    write_to=["daq_do_1_cmd"]
+    read=["pressure_1", "daq_do_1_state"],
+    write=["daq_do_1_cmd"]
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Set a 1 on the digital output channel
@@ -144,8 +144,8 @@ method:
 
 ```python
 with client.control.acquire(
-    read_from=["pressure_1", "daq_do_1_state"],
-    write_to=["daq_do_1_cmd"]
+    read=["pressure_1", "daq_do_1_state"],
+    write=["daq_do_1_cmd"]
     write_authorities=[sy.Authority.ABSOLUTE]
 ) as controller:
     # Wait until the pressure sensor value is above 25
