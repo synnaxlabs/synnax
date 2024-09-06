@@ -53,14 +53,14 @@ cc_test(
 cc_binary(
     name = "driver_main",
     srcs = select({
-        "//conditions:default": ["main.cpp"],
+        "//conditions:default":["main.cpp"],
     }),
     copts = select({
         ":use_ni": ["-DUSE_NI"],
-        "@platforms//os:windows": [
-#            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-            "-std:c++20"
-        ],
+#         "@platforms//os:windows": [
+# #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+#             "-std:c++20"
+#         ],
         "//conditions:default": ["-std=c++20"],
     }),
     linkopts = select({
