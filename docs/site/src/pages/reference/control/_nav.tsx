@@ -23,5 +23,10 @@ export const controlNav: PageNavNode = {
       href: "/reference/control/sequence-basics",
       name: "Sequence Basics",
     },
+    {
+      key: "/reference/control/examples",
+      href: "/reference/control/examples",
+      name: "Examples",
+    },
   ],
 };
