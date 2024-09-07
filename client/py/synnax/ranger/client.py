@@ -378,10 +378,12 @@ class Range(RangePayload):
         return self._channels
 
     @overload
-    def set_alias(self, channel: ChannelKey | ChannelName, alias: str): ...
+    def set_alias(self, channel: ChannelKey | ChannelName, alias: str):
+        ...
 
     @overload
-    def set_alias(self, channel: dict[ChannelKey | ChannelName, str]): ...
+    def set_alias(self, channel: dict[ChannelKey | ChannelName, str]):
+        ...
 
     def set_alias(
         self,
@@ -407,19 +409,20 @@ class Range(RangePayload):
         return RangePayload(name=self.name, time_range=self.time_range, key=self.key)
 
     @overload
-    def write(
-        self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries
-    ): ...
+    def write(self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries):
+        ...
 
     @overload
     def write(
         self,
         to: ChannelKeys | ChannelNames | list[ChannelPayload],
         series: list[CrudeSeries],
-    ): ...
+    ):
+        ...
 
     @overload
-    def write(self, frame: CrudeFrame): ...
+    def write(self, frame: CrudeFrame):
+        ...
 
     def write(
         self,
@@ -593,16 +596,20 @@ class RangeClient:
         return res if not is_single else res[0]
 
     @overload
-    def retrieve(self, *, key: RangeKey) -> Range: ...
+    def retrieve(self, *, key: RangeKey) -> Range:
+        ...
 
     @overload
-    def retrieve(self, *, name: RangeName) -> Range: ...
+    def retrieve(self, *, name: RangeName) -> Range:
+        ...
 
     @overload
-    def retrieve(self, *, names: RangeNames) -> list[Range]: ...
+    def retrieve(self, *, names: RangeNames) -> list[Range]:
+        ...
 
     @overload
-    def retrieve(self, *, keys: RangeKeys) -> list[Range]: ...
+    def retrieve(self, *, keys: RangeKeys) -> list[Range]:
+        ...
 
     def retrieve(
         self,

@@ -90,7 +90,9 @@ class CacheChannelRetriever:
     def delete(self, keys: ChannelParams) -> None:
         normal = normalize_channel_params(keys)
         if normal.variant == "names":
-            matches = {ch for ch in self._channels.values() if ch.name in normal.channels}
+            matches = {
+                ch for ch in self._channels.values() if ch.name in normal.channels
+            }
             for ch in matches:
                 self._channels.pop(ch.key)
                 self._names_to_keys.pop(ch.name)

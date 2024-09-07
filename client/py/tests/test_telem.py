@@ -324,15 +324,24 @@ class TestTimeSpan:
     @pytest.mark.parametrize(
         "span, expected",
         [
-            (1.0, 1 * TimeSpan.SECOND,),
-            (1, 1 * TimeSpan.SECOND,),
-            (1 * TimeSpan.SECOND, 1 * TimeSpan.SECOND,),
-        ])
+            (
+                1.0,
+                1 * TimeSpan.SECOND,
+            ),
+            (
+                1,
+                1 * TimeSpan.SECOND,
+            ),
+            (
+                1 * TimeSpan.SECOND,
+                1 * TimeSpan.SECOND,
+            ),
+        ],
+    )
     def test_from_seconds(self, span, expected):
         """It should evaluate pure floats or integers as seconds"""
         abc = TimeSpan.from_seconds(1.0)
         assert abc == TimeSpan(1 * TimeSpan.SECOND)
-
 
     @pytest.mark.parametrize(
         "span, expected",
@@ -340,7 +349,8 @@ class TestTimeSpan:
             (1.0, 1.0),
             (1, 1),
             (1 * TimeSpan.MILLISECOND, 0.001),
-        ])
+        ],
+    )
     def test_to_seconds(self, span, expected):
         """It should evaluate pure floats or integers as seconds"""
         abc = TimeSpan.to_seconds(span)

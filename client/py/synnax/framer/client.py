@@ -267,7 +267,10 @@ class Client:
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
-        return Streamer(adapter=adapter, client=self.__stream_client, )
+        return Streamer(
+            adapter=adapter,
+            client=self.__stream_client,
+        )
 
     async def open_async_streamer(self, channels: ChannelParams) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)

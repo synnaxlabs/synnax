@@ -72,7 +72,9 @@ def normalize_channel_params(
         try:
             numeric_strings = [ChannelKey(s) for s in normalized]
             return NormalizedChannelKeyResult(
-                single=single, variant="keys", channels=cast(ChannelKeys, numeric_strings)
+                single=single,
+                variant="keys",
+                channels=cast(ChannelKeys, numeric_strings),
             )
         except ValueError:
             return NormalizedChannelNameResult(

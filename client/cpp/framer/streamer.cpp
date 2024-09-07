@@ -20,7 +20,8 @@ void StreamerConfig::toProto(api::v1::FrameStreamerRequest &f) const {
 }
 
 std::pair<Streamer, freighter::Error> FrameClient::openStreamer(
-    const StreamerConfig &config) const {
+    const StreamerConfig &config
+) const {
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
     if (exc)
         return {Streamer(), exc};

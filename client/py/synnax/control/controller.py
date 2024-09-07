@@ -200,7 +200,9 @@ class Controller:
         processor = WaitUntil(callback)
         try:
             self._receiver.processors.add(processor)
-            timeout_seconds = TimeSpan.from_seconds(timeout).seconds if timeout else None
+            timeout_seconds = (
+                TimeSpan.from_seconds(timeout).seconds if timeout else None
+            )
             ok = processor.event.wait(timeout=timeout_seconds)
         finally:
             self._receiver.processors.remove(processor)

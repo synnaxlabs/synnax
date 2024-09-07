@@ -55,6 +55,7 @@ class Streamer:
 
     For detailed documentation, see https://docs.synnaxlabs.com/reference/python-client/stream-data
     """
+
     _stream: Stream[_Request, _Response]
     _adapter: ReadFrameAdapter
 
@@ -124,8 +125,7 @@ class Streamer:
         self._stream.send(_Request(keys=self._adapter.keys))
 
     def close(self, timeout: float | int | TimeSpan | None = None):
-        """Closes the streamer and frees all network resources.
-        """
+        """Closes the streamer and frees all network resources."""
         exc = self._stream.close_send()
         if exc is not None:
             raise exc
@@ -152,13 +152,11 @@ class Streamer:
         return self
 
     def __enter__(self):
-        """Returns the streamer object when used as a context manager.
-        """
+        """Returns the streamer object when used as a context manager."""
         return self
 
     def __next__(self):
-        """Reads the next frame of telemetry from the streamer.
-        """
+        """Reads the next frame of telemetry from the streamer."""
         return self.read()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -180,6 +178,7 @@ class AsyncStreamer:
     the frames of telemetry as they are received. This is useful when you want to process
     each frame as it is received.
     """
+
     _stream: AsyncStream[_Request, _Response]
     _client: AsyncStreamClient
     _adapter: ReadFrameAdapter
@@ -193,15 +192,13 @@ class AsyncStreamer:
         self._adapter = adapter
 
     async def internal_open(self):
-        """Internal method to open the streamer. Should not be called directly.
-        """
+        """Internal method to open the streamer. Should not be called directly."""
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(_Request(keys=self._adapter.keys))
 
     @property
     def received(self) -> bool:
-        """Returns True if a frame has been received, False otherwise.
-        """
+        """Returns True if a frame has been received, False otherwise."""
         return self._stream.received()
 
     async def read(self) -> Frame:
@@ -238,8 +235,7 @@ class AsyncStreamer:
             raise exc
 
     async def __aenter__(self):
-        """Returns the async streamer object when used as an async context manager.
-        """
+        """Returns the async streamer object when used as an async context manager."""
         return self
 
     def __aiter__(self):
@@ -250,14 +246,12 @@ class AsyncStreamer:
         return self
 
     async def __anext__(self):
-        """Reads the next frame of telemetry from the streamer.
-        """
+        """Reads the next frame of telemetry from the streamer."""
         try:
             return await self.read()
         except EOF:
             raise StopAsyncIteration
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Closes the streamer when used as an async context manager
-        """
+        """Closes the streamer when used as an async context manager"""
         await self.close()
