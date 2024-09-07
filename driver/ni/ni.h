@@ -434,6 +434,7 @@ private:
     json get_device_properties(NISysCfgResourceHandle resource);
 
     json devices;
+    std::set<std::string> device_keys;
     bool ok_state = true;
     NISysCfgSessionHandle session;
     NISysCfgFilterHandle filter;

@@ -414,3 +414,4 @@ I can successfully:
 I can successfully:
 
 - [ ] Toggle the color theme from the command search bar.
+- [ ] Run the driver for long periods of time with minimal memory leakage.
