@@ -69,7 +69,7 @@ export const fileHandler: Layout.FileHandler = async ({
   placer(creator);
   if (client == null) return true;
 
-  // Logic for changing the schematic in the cluster
+  // Logic for changing the line plot in the cluster
   try {
     await client.workspaces.linePlot.retrieve(key);
     await client.workspaces.linePlot.setData(key, linePlot);
@@ -100,7 +100,7 @@ export const useExport = (name: string = "line plot"): ((key: string) => void) =
       let state = select(storeState, key);
       let name = Layout.select(storeState, key)?.name;
       if (state == null) {
-        if (client == null) throw new UnexpectedError("Client is not available");
+        if (client == null) throw new Error("Cannot reach cluster");
         const linePlot = await client.workspaces.linePlot.retrieve(key);
         state = {
           ...(linePlot.data as unknown as State),
@@ -109,9 +109,7 @@ export const useExport = (name: string = "line plot"): ((key: string) => void) =
         name = linePlot.name;
       }
       if (name == null)
-        throw new UnexpectedError(
-          `Line plot with key ${key} is missing in store state`,
-        );
+        throw new UnexpectedError("Cannot find name of line plot to export");
       const savePath = await save({
         title: `Export ${name}`,
         defaultPath: `${name}.json`,
@@ -141,8 +139,6 @@ export const useImport = (workspaceKey?: string): (() => void) => {
   if (workspaceKey != null && activeKey !== workspaceKey)
     dispatch(Workspace.setActive(workspaceKey));
 
-  let name = "line plot";
-
   return useMutation<void, Error>({
     mutationFn: async () => {
       const fileResponses = await open({
@@ -156,7 +152,6 @@ export const useImport = (workspaceKey?: string): (() => void) => {
         const rawData = await readFile(fileResponse.path);
         const fileName = fileResponse.path.split("/").pop();
         if (fileName == null) throw new UnexpectedError("File name is null");
-        name = fileName;
         const file = JSON.parse(new TextDecoder().decode(rawData));
         if (
           !(await fileHandler({
@@ -176,7 +171,7 @@ export const useImport = (workspaceKey?: string): (() => void) => {
     onError: (err) =>
       addStatus({
         variant: "error",
-        message: `Failed to import ${name}`,
+        message: `Failed to import line plot`,
         description: err.message,
       }),
   }).mutate;

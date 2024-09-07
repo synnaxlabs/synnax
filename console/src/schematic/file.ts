@@ -101,7 +101,7 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
       let state = select(storeState, key);
       let name = Layout.select(storeState, key)?.name;
       if (state == null) {
-        if (client == null) throw new UnexpectedError("Client is unavailable");
+        if (client == null) throw new Error("Cannot reach cluster");
         const schematic = await client.workspaces.schematic.retrieve(key);
         state = {
           ...(schematic.data as unknown as State),
@@ -111,9 +111,7 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
         name = schematic.name;
       }
       if (name == null)
-        throw new UnexpectedError(
-          `Schematic with key ${key} is missing in store state`,
-        );
+        throw new UnexpectedError("Cannot find name of schematic to export");
       const savePath = await save({
         title: `Export ${name}`,
         defaultPath: `${name}.json`,
@@ -146,8 +144,6 @@ export const useImport = (workspaceKey?: string): (() => void) => {
   if (workspaceKey != null && activeKey !== workspaceKey)
     dispatch(Workspace.setActive(workspaceKey));
 
-  let name = "schematic";
-
   return useMutation<void, Error>({
     mutationFn: async () => {
       const fileResponses = await open({
@@ -161,7 +157,6 @@ export const useImport = (workspaceKey?: string): (() => void) => {
         const rawData = await readFile(fileResponse.path);
         const fileName = fileResponse.path.split("/").pop();
         if (fileName == null) throw new UnexpectedError("File name is null");
-        name = fileName;
         const file = JSON.parse(new TextDecoder().decode(rawData));
         if (
           !(await fileHandler({
@@ -181,7 +176,7 @@ export const useImport = (workspaceKey?: string): (() => void) => {
     onError: (err) =>
       addStatus({
         variant: "error",
-        message: `Failed to import ${name}`,
+        message: `Failed to import schematic`,
         description: err.message,
       }),
   }).mutate;
