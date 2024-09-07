@@ -43,8 +43,9 @@ CHANNEL_ONTOLOGY_TYPE = ID(type="channel")
 
 class Channel(ChannelPayload):
     """A channel is a logical collection of samples emitted by or representing the
-    values of a single source. See https://docs.synnaxlabs.com/concepts/channels for an
-    introduction to channels and how they work.
+    values of a single source. See
+    https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
+    channels and how they work.
     """
 
     ___frame_client: FrameClient | None = PrivateAttr(None)
@@ -106,16 +107,14 @@ class Channel(ChannelPayload):
     def read(
         self,
         start_or_range: TimeRange,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     @overload
     def read(
         self,
         start_or_range: CrudeTimeStamp,
         end: CrudeTimeStamp,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     def read(
         self,
@@ -209,20 +208,17 @@ class ChannelClient:
         is_index: bool = False,
         leaseholder: int = 0,
         retrieve_if_name_exists: bool = False,
-    ) -> Channel:
-        ...
+    ) -> Channel: ...
 
     @overload
     def create(
         self, channels: Channel, *, retrieve_if_name_exists: bool = False
-    ) -> Channel:
-        ...
+    ) -> Channel: ...
 
     @overload
     def create(
         self, channels: list[Channel], *, retrieve_if_name_exists: bool = False
-    ) -> list[Channel]:
-        ...
+    ) -> list[Channel]: ...
 
     def create(
         self,
@@ -296,15 +292,13 @@ class ChannelClient:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel:
-        ...
+    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel: ...
 
     @overload
     def retrieve(
         self,
         channel: ChannelKeys | ChannelNames,
-    ) -> list[Channel]:
-        ...
+    ) -> list[Channel]: ...
 
     def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.

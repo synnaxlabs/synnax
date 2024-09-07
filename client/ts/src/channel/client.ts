@@ -53,7 +53,8 @@ interface CreateOptions {
  * instantiated directly, but instead created via the `.channels.create` or retrieved
  * via the `.channels.retrieve` method on a Synnax client.
  *
- * Please refer to the [Synnax documentation](https://docs.synnaxlabs.com) for detailed
+ * Please refer to the [Synnax
+ * documentation](https://docs.synnaxlabs.com/reference/concepts/channels) for detailed
  * information on what channels are and how to use them.
  */
 export class Channel {
@@ -228,13 +229,14 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @param rate - The rate of the channel. This only applies to fixed rate channels.
    * @param dataType - The data type for the samples stored in the channel.
    * @param index - The key of the index channel that this channel should be associated
-   * with. An 'index' channel is a channel that stores timestamps for other channels. Refer
-   * to the Synnax documentation (https://docs.synnaxlabs.com) for more information. The
-   * index channel must have already been created. This field does not need to be specified
-   * if the channel is an index channel, or the channel is a fixed rate channel. If this
-   * value is specified, the 'rate' parameter will be ignored.
-   * @param isIndex - Set to true if the channel is an index channel, and false otherwise.
-   * Index channels must have a data type of `DataType.TIMESTAMP`.
+   * with. An 'index' channel is a channel that stores timestamps for other channels.
+   * Refer to the Synnax documentation
+   * (https://docs.synnaxlabs.com/reference/concepts/channels) for more information. The
+   * index channel must have already been created. This field does not need to be
+   * specified if the channel is an index channel, or the channel is a fixed rate
+   * channel. If this value is specified, the 'rate' parameter will be ignored.
+   * @param isIndex - Set to true if the channel is an index channel, and false
+   * otherwise. Index channels must have a data type of `DataType.TIMESTAMP`.
    * @returns the created channel. {@see Channel}
    * @throws {ValidationError} if any of the parameters for creating the channel are
    * invalid.
