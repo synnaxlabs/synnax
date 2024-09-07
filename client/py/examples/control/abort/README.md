@@ -1,5 +1,5 @@
 To run this example, you'll need three Python shells open. In the first shell, start the
-simulated data acquisition computer:
+simulated data acquisition device:
 
 ```bash
 python simulated_daq.py
