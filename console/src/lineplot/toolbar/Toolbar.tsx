@@ -123,7 +123,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 <Icon.Link />
               </Button.Icon>
             </Align.Space>
-            <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />
+            <Tabs.Selector style={{ borderBottom: "none" }} />
           </Align.Space>
         </ToolbarHeader>
         <Tabs.Content />
