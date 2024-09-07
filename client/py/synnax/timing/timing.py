@@ -48,4 +48,4 @@ def _precise_sleep(dur: TimeSpan | float | int):
 def sleep(dur: TimeSpan | float | int, precise: bool = False):
     if precise:
         return _precise_sleep(dur)
-    return time.sleep(TimeSpan.parse_seconds(dur).seconds)
+    return time.sleep(TimeSpan.from_seconds(dur).seconds)

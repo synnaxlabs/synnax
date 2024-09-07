@@ -36,12 +36,12 @@ class ReadFrameAdapter:
         normal = normalize_channel_params(channels)
         if normal.variant == "keys":
             self.__adapter = None
-            self.keys = normal.params
+            self.keys = normal.channels
             return
 
-        fetched = self.retriever.retrieve(normal.params)
+        fetched = self.retriever.retrieve(normal.channels)
         self.__adapter = dict[int, str]()
-        for name in normal.params:
+        for name in normal.channels:
             ch = next((c for c in fetched if c.name == name), None)
             if ch is None:
                 raise KeyError(f"Channel {name} not found.")

@@ -17,7 +17,6 @@ using namespace synnax;
 
 void StreamerConfig::toProto(api::v1::FrameStreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
-    f.set_start(start.value);
 }
 
 std::pair<Streamer, freighter::Error> FrameClient::openStreamer(

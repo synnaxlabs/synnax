@@ -100,7 +100,8 @@ export const syncCurrent = async (
     changes.push([
       "visible",
       async () => {
-        await runtime.setVisible(nextWin.visible as boolean);
+        console.log("Setting visibility", nextWin);
+        // await runtime.setVisible(nextWin.visible as boolean);
         if (nextWin.visible === false) return;
         let position = nextWin.position;
         if (position == null) position = (await runtime.getProps()).position;

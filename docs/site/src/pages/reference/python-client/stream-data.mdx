@@ -34,11 +34,49 @@ To read the next incoming frame, call the `read` method on the streamer:
 frame = streamer.read()
 ```
 
-This call will block until a new frame is available. **This frame may not
-contain data for every channel specified**. For example, if we're reading from
-two sensors that are being sampled by different devices at different rates, we
-may receive a frame containing data only for the first channel, followed by a
-frame containing only data for the second channel.
+This call will block until a new frame is available. 
+
+### Specifying a Timeout
+
+It's also possible to add a `timeout` parameter to the `read` method. If the timeout is 
+reached before a new frame is available, the method will return `None` instead of a frame:
+
+```python
+frame = streamer.read(timeout=5) # Wait for 5 seconds
+if frame is None:
+    print("Timed out waiting for a frame")
+```
+
+You can also provide a `TimeSpan` object as the `timeout` parameter:
+
+```python
+import synnax as sy
+
+frame = streamer.read(timeout=5 * sy.TimeSpan.SECOND)
+if frame is None:
+    print("Timed out waiting for a frame")
+```
+
+### Handling Partial Frames
+
+When reading frames from a streamer, it's important to note that a frame may not
+contain data for every channel specified when opening the streamer. For example, if 
+we're reading from two sensors, `temperature` and `pressure`, that are being sampled by 
+different devices at different rates, we may receive a frame containing data only for 
+the first channel, followed by a frame containing only data for the second channel.
+
+```python
+stream = client.open_streamer(["temperature", "pressure"])
+frame = streamer.read()
+print(frame[-1]) # Print only the last sample(s) in the frame
+# Output: {"temperature": 25.0}
+frame = streamer.read()
+print(frame[-1])
+# Output: {"pressure": 1013.25}
+frame = streamer.read()
+print(frame[-1])
+# Output: {"temperature": 25.1, "pressure": 1013.25}
+```
 
 ### Using a For Loop
 
@@ -48,6 +86,17 @@ over incoming frames, blocking on each iteration until a new frame is received:
 ```python
 for frame in streamer:
     print(frame)
+```
+
+<Divider.Divider direction="x" />
+
+## Updating the Channel List
+
+If you want to update the list of channels being streamed, you can call the
+`update_channels` method on the streamer:
+
+```python
+streamer.update_channels(["channel3", "channel4"])
 ```
 
 <Divider.Divider direction="x" />

@@ -40,7 +40,7 @@ class _Response(Payload):
 class ChannelRetriever(Protocol):
     """Protocol for retrieving channel payloads from the cluster."""
 
-    def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
+    def retrieve(self, channels: ChannelParams) -> list[ChannelPayload]:
         ...
 
 
@@ -63,11 +63,11 @@ class ClusterChannelRetriever:
         return self
 
     @trace("debug")
-    def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
-        normal = normalize_channel_params(params)
-        if len(normal.params) == 0:
+    def retrieve(self, channels: ChannelParams) -> list[ChannelPayload]:
+        normal = normalize_channel_params(channels)
+        if len(normal.channels) == 0:
             return list()
-        req = _Request(**{normal.variant: normal.params})
+        req = _Request(**{normal.variant: normal.channels})
         return send_required(self._client, _ENDPOINT, req, _Response).channels
 
 
@@ -90,12 +90,12 @@ class CacheChannelRetriever:
     def delete(self, keys: ChannelParams) -> None:
         normal = normalize_channel_params(keys)
         if normal.variant == "names":
-            matches = {ch for ch in self._channels.values() if ch.name in normal.params}
+            matches = {ch for ch in self._channels.values() if ch.name in normal.channels}
             for ch in matches:
                 self._channels.pop(ch.key)
                 self._names_to_keys.pop(ch.name)
         else:
-            for key in normal.params:
+            for key in normal.channels:
                 channel = self._channels.get(key)
                 if channel is not None:
                     self._channels.pop(key)
@@ -143,11 +143,11 @@ class CacheChannelRetriever:
                 keys.add(channel.key)
 
     @trace("debug")
-    def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
-        normal = normalize_channel_params(params)
+    def retrieve(self, channels: ChannelParams) -> list[ChannelPayload]:
+        normal = normalize_channel_params(channels)
         results = list()
         to_retrieve: ChannelKeys | ChannelNames = list()  # type: ignore
-        for p in normal.params:
+        for p in normal.channels:
             ch = self._get(p)
             if ch is None:
                 to_retrieve.append(p)  # type: ignore
@@ -164,12 +164,12 @@ class CacheChannelRetriever:
 
 
 def retrieve_required(
-    r: ChannelRetriever, params: ChannelParams
+    r: ChannelRetriever, channels: ChannelParams
 ) -> list[ChannelPayload]:
-    normal = normalize_channel_params(params)
-    results = r.retrieve(params)
+    normal = normalize_channel_params(channels)
+    results = r.retrieve(channels)
     not_found = list()
-    for p in normal.params:
+    for p in normal.channels:
         ch = next((c for c in results if c.key == p or c.name == p), None)
         if ch is None:
             not_found.append(p)

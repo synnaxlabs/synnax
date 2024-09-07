@@ -174,7 +174,7 @@ class Controller:
     def wait_until(
         self,
         callback: Callable[[Controller], bool],
-        timeout: CrudeTimeSpan = None,
+        timeout: float | int | TimeSpan = None,
     ) -> bool:
         """Blocks the controller until the provided callback returns True or the timeout
         is reached.
@@ -200,7 +200,7 @@ class Controller:
         processor = WaitUntil(callback)
         try:
             self._receiver.processors.add(processor)
-            timeout_seconds = TimeSpan(timeout).seconds if timeout else None
+            timeout_seconds = TimeSpan.from_seconds(timeout).seconds if timeout else None
             ok = processor.event.wait(timeout=timeout_seconds)
         finally:
             self._receiver.processors.remove(processor)
