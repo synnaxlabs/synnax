@@ -269,7 +269,6 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 
     auto cmd_streamer_config = synnax::StreamerConfig{
         .channels = cmd_keys,
-        .start = synnax::TimeStamp::now(),
     };
 
     if (daq_writer->ok()) daq_writer->cycle();

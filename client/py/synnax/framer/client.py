@@ -273,7 +273,7 @@ class Client:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         s = AsyncStreamer(adapter=adapter, client=self.__async_client)
-        await s.open()
+        await s.internal_open()
         return s
 
     def delete(self, channels: ChannelParams, tr: TimeRange) -> None:

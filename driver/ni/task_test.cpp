@@ -101,7 +101,6 @@ TEST(NiTaskTests, test_NI_analog_reader_task) {
     // create a streamer to read the frames that the pipe writes to the server
     auto streamer_config = synnax::StreamerConfig{
         .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-        .start = TimeStamp::now(),
     };
 
     auto [streamer, sErr] = mockCtx->client->telem.openStreamer(streamer_config);
@@ -259,7 +258,6 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
     // create a streamer to read the frames that the pipe writes to the server
     auto streamer_config = synnax::StreamerConfig{
         .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-        .start = TimeStamp::now(),
     };
 
     auto [streamer, sErr] = mockCtx->client->telem.openStreamer(streamer_config);
@@ -456,7 +454,6 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
     // create a streamer to stream do_state channel (for in test use only)
     auto doStateStreamerConfig = synnax::StreamerConfig{
         .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
-        .start = TimeStamp::now(),
     };
     auto [doStateStreamer, sErr] = client->telem.openStreamer(doStateStreamerConfig);
     ASSERT_FALSE(sErr)

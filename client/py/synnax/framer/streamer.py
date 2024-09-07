@@ -124,6 +124,8 @@ class Streamer:
         self._stream.send(_Request(keys=self._adapter.keys))
 
     def close(self, timeout: float | int | TimeSpan | None = None):
+        """Closes the streamer and frees all network resources.
+        """
         exc = self._stream.close_send()
         if exc is not None:
             raise exc
@@ -143,12 +145,20 @@ class Streamer:
             break
 
     def __iter__(self):
+        """Returns an iterator object that can be used to iterate over the frames of
+        telemetry as they are received. This is useful when you want to process each
+        frame as it is received.
+        """
         return self
 
     def __enter__(self):
+        """Returns the streamer object when used as a context manager.
+        """
         return self
 
     def __next__(self):
+        """Reads the next frame of telemetry from the streamer.
+        """
         return self.read()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -156,40 +166,69 @@ class Streamer:
 
 
 class AsyncStreamer:
-    __stream: AsyncStream[_Request, _Response]
-    __client: AsyncStreamClient
-    __adapter: ReadFrameAdapter
+    """An asynchronous version of the Streamer class. This class is used to stream
+    frames of telemetry in real-time from a Synnax cluster. It should not be constructed
+    directly, and should instead be created using the client's `open_streamer` method.
+
+    To open an async streamer, use the `open_async_streamer` method on the client and pass
+    in the list of channels you'd like to stream. Once a new async streamer has been opened,
+    you can call the `read` method to read the next frame of telemetry. Once done, call the
+    `close` method to close the streamer and free all necessary resources. We recommend
+    using the async streamer as an async context manager to ensure that it is closed properly.
+
+    Async streamers also support the async iterator protocol, allowing you to iterate over
+    the frames of telemetry as they are received. This is useful when you want to process
+    each frame as it is received.
+    """
+    _stream: AsyncStream[_Request, _Response]
+    _client: AsyncStreamClient
+    _adapter: ReadFrameAdapter
 
     def __init__(
         self,
         client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
     ) -> None:
-        self.__client = client
-        self.__adapter = adapter
+        self._client = client
+        self._adapter = adapter
 
-    async def open(self):
-        self.__stream = await self.__client.stream(_ENDPOINT, _Request, _Response)
-        await self.__stream.send(_Request(keys=self.__adapter.keys))
+    async def internal_open(self):
+        """Internal method to open the streamer. Should not be called directly.
+        """
+        self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
+        await self._stream.send(_Request(keys=self._adapter.keys))
 
     @property
     def received(self) -> bool:
-        return self.__stream.received()
+        """Returns True if a frame has been received, False otherwise.
+        """
+        return self._stream.received()
 
     async def read(self) -> Frame:
-        res, err = await self.__stream.receive()
-        if err is not None:
-            raise err
-        return self.__adapter.adapt(Frame(res.frame))
-
-    async def close_loop(self):
-        await self.__stream.close_send()
-
-    async def close(self):
-        exc = await self.__stream.close_send()
+        """Reads the next frame of telemetry from the streamer. If an error occurs while
+        reading the frame, an exception will be raised.
+        """
+        res, exc = await self._stream.receive()
         if exc is not None:
             raise exc
-        _, exc = await self.__stream.receive()
+        return self._adapter.adapt(Frame(res.frame))
+
+    async def close_loop(self):
+        """Closes the sending end of the streamer, requiring the caller to process all
+        remaining frames and close acknowledgements by calling read. This method is
+        useful for managing the lifecycle of a streamer within a separate event loop or
+        thread.
+        """
+        await self._stream.close_send()
+
+    async def close(self):
+        """Close the streamer and free all network resources, waiting for the server to
+        acknowledge the close request.
+        """
+        exc = await self._stream.close_send()
+        if exc is not None:
+            raise exc
+        _, exc = await self._stream.receive()
         if exc is None:
             raise UnexpectedError(
                 """Unexpected missing close acknowledgement from server.
@@ -199,16 +238,26 @@ class AsyncStreamer:
             raise exc
 
     async def __aenter__(self):
+        """Returns the async streamer object when used as an async context manager.
+        """
         return self
 
     def __aiter__(self):
+        """Returns an async iterator object that can be used to iterate over the frames
+        of telemetry as they are received. This is useful when you want to process each
+        frame as it is received.
+        """
         return self
 
     async def __anext__(self):
+        """Reads the next frame of telemetry from the streamer.
+        """
         try:
             return await self.read()
         except EOF:
             raise StopAsyncIteration
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Closes the streamer when used as an async context manager
+        """
         await self.close()
