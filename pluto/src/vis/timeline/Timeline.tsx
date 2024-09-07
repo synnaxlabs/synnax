@@ -18,7 +18,6 @@ import {
   TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { c } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
 import { ReactElement, useCallback, useRef } from "react";
 
 import { Align } from "@/align";
@@ -28,6 +27,7 @@ import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Ranger } from "@/ranger";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 
 export interface BarSpec {
   key: string;
@@ -56,7 +56,7 @@ export const Timeline = ({ className, bars, onTranslate, ...props }: TimelinePro
     <Align.Space
       direction="y"
       className={CSS(CSS.B("timeline"), className)}
-      size={0.5}
+      size="small"
       {...props}
     >
       {bars.map((spec) => (
@@ -126,10 +126,11 @@ export const Bar = ({
     onStart: useCallback(() => {
       offsetRef.current = bOffsetRef.current;
     }, []),
-    onMove: useCallback((b: box.Box) => {
+    onMove: useCallback((b: box.Box, _: any, ev: MouseEvent) => {
       const barBox = box.construct(barRef.current);
-      const width = box.signedWidth(b);
+      let width = box.signedWidth(b);
       const totalSize = box.width(barBox) / (right - left);
+      if (ev.altKey) width *= 0.1;
       const dragSizeDecimal = width / totalSize;
       onTranslate?.(
         key,

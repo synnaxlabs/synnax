@@ -27,9 +27,12 @@ export const specZ = z.object({
   valueType: z.string(),
   props: z.any(),
   transfer: z.array(transferrable).optional(),
+  cache: z.unknown().optional(),
 });
 
-export const sourceSpecZ = specZ.extend({ variant: z.literal("source") });
+export const sourceSpecZ = specZ.extend({
+  variant: z.literal("source"),
+});
 export const sinkSpecZ = specZ.extend({ variant: z.literal("sink") });
 export const sourceTransformerSpecZ = specZ.extend({
   variant: z.literal("source-transformer"),
@@ -63,7 +66,7 @@ export interface Telem {
 
 export interface Source<V> extends Telem, observe.Observable<void> {
   value: (props?: ValueProps) => Promise<V>;
-  shouldUpdateI?: (props: Spec) => boolean;
+  cache?: unknown;
 }
 
 export interface Sink<V> extends Telem {

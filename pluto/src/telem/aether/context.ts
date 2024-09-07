@@ -45,6 +45,10 @@ class MemoizedSource<V> implements Source<V> {
     this.prevKey = prevProv.clusterKey;
   }
 
+  get cache(): unknown {
+    return this.wrapped.cache;
+  }
+
   async value(): Promise<V> {
     return await this.wrapped.value();
   }
@@ -96,6 +100,7 @@ export const useSource = async <V>(
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
+    spec.cache = prev.cache;
     await prev.cleanup?.();
   }
   return new MemoizedSource<V>(prov.create(spec), prov, spec);

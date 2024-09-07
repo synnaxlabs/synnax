@@ -152,9 +152,18 @@ export class ChannelData
   private initialOffsets: NumericTelemValue[] = [];
   schema = channelDataSourcePropsZ;
 
-  constructor(client: client.ReadClient & client.ChannelClient, props: unknown) {
+  constructor(
+    client: client.ReadClient & client.ChannelClient,
+    props: unknown,
+    cache?: unknown,
+  ) {
     super(props);
     this.client = client;
+    if (cache != null) this.initialOffsets = cache as NumericTelemValue[];
+  }
+
+  get cache(): unknown {
+    return this.initialOffsets;
   }
 
   async cleanup(): Promise<void> {
@@ -199,8 +208,8 @@ export class ChannelData
     const newData = res[key].data;
     newData.forEach((d) => d.acquire());
     this.data = newData;
-    console.log("SET OFFSETS", this.initialOffsets);
-    this.initialOffsets = this.data.map((d) => d.sampleOffset);
+    if (this.initialOffsets.length !== this.data.length)
+      this.initialOffsets = this.data.map((d) => d.sampleOffset);
     this.valid = true;
   }
 }
@@ -286,7 +295,11 @@ export class StreamChannelData
   }
 }
 
-type Constructor = new (client: client.Client, props: unknown) => Telem;
+type Constructor = new (
+  client: client.Client,
+  props: unknown,
+  cache?: unknown,
+) => Telem;
 
 const REGISTRY: Record<string, Constructor> = {
   [ChannelData.TYPE]: ChannelData,
@@ -304,7 +317,7 @@ export class RemoteFactory implements RemoteFactory {
   create(spec: Spec): Telem | null {
     const V = REGISTRY[spec.type];
     if (V == null) return null;
-    return new V(this.client, spec.props);
+    return new V(this.client, spec.props, spec.cache);
   }
 }
 
