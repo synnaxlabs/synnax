@@ -54,11 +54,7 @@ const emptyContent = <EmptyContent />;
 
 export const MOSAIC_TYPE = "mosaic";
 
-const FILE_HANDLERS = [
-  Workspace.fileHandler,
-  Schematic.fileHandler,
-  LinePlot.fileHandler,
-];
+const FILE_HANDLERS = [Schematic.fileHandler, LinePlot.fileHandler];
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {

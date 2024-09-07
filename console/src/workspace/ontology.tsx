@@ -24,7 +24,6 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
-import { useExport } from "@/workspace/file";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -162,7 +161,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const group = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const importSchematic = Schematic.useImport(selection.resources[0].id.key);
-  const handleExport = useExport(selection.resources[0].name);
   const handleSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
@@ -176,7 +174,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
-    export: () => handleExport(selection.resources[0].id.key),
   };
   const singleResource = resources.length === 1;
   return (
@@ -211,9 +208,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             Import Schematic
           </PMenu.Item>
           <PMenu.Divider />
-          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
-            Export
-          </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
