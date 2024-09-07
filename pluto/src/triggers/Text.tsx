@@ -42,15 +42,13 @@ export const Text = <L extends Core.Level>({
   trigger,
   children,
   ...props
-}: TextProps<L>): ReactElement => {
-  return (
-    <>
-      {trigger.map((t) => (
-        // @ts-expect-error - issues with generic element types
-        <Core.Keyboard<L> key={t} {...props}>
-          {getCustomText(t)}
-        </Core.Keyboard>
-      ))}
-    </>
-  );
-};
+}: TextProps<L>): ReactElement => (
+  <>
+    {trigger.map((t) => (
+      // @ts-expect-error - issues with generic element types
+      <Core.Keyboard<L> key={t} {...props}>
+        {getCustomText(t)}
+      </Core.Keyboard>
+    ))}
+  </>
+);
