@@ -11,7 +11,6 @@ import { Layout } from "@/layout";
 import { Create, CREATE_LAYOUT_TYPE } from "@/workspace/Create";
 
 export * from "@/workspace/Create";
-export * from "@/workspace/file";
 export * from "@/workspace/hooks";
 export * from "@/workspace/link";
 export * from "@/workspace/ontology";
