@@ -77,7 +77,7 @@ for sensor in SENSORS:
         retrieve_if_name_exists=True,
     )
 
-loop = sy.Loop(sy.Rate.HZ * 100, precise=True)
+loop = sy.Loop(sy.Rate.HZ * 30, precise=True)
 
 DAQ_STATE = {
     OX_VENT_CMD: 0,
