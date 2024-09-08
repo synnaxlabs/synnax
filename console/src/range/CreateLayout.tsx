@@ -9,7 +9,7 @@
 
 import "@/range/CreateLayout.css";
 
-import { ontology, ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { ontology, type ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,

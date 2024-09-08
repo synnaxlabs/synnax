@@ -166,12 +166,12 @@ const useViewDetails = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
-  const placeLayout = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) return;
       const rng = await fetchIfNotInState(store, client, key);
-      placeLayout({ ...overviewLayout, name: rng.name, key: rng.key });
+      placer({ ...overviewLayout, name: rng.name, key: rng.key });
     },
     onError: (e) => {
       addStatus({
@@ -186,13 +186,13 @@ const useViewDetails = (): ((key: string) => void) => {
 const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   const addStatus = Status.useAggregator();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) return;
       const res = await fetchIfNotInState(store, client, key);
-      placeLayout(
+      placer(
         createLinePlot({
           name: `Plot for ${res.name}`,
           ranges: { x1: [key], x2: [] },
@@ -233,14 +233,14 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
 const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const activeRange = useSelect();
 
   const handleCreate = (key?: string): void =>
-    void placeLayout(createLayout({ initial: { key } }));
+    void placer(createLayout({ initial: { key } }));
 
   const handleRemove = (keys: string[]): void => void dispatch(remove({ keys }));
 
@@ -306,11 +306,11 @@ const List = (): ReactElement => {
     const activeLayout = Layout.useSelectActiveMosaicLayout();
     const addToActivePlot = useAddToActivePlot();
     const addToNewPlot = useAddToNewPlot();
-    const placeLayout = Layout.usePlacer();
+    const placer = Layout.usePlacer();
     const handleSetActive = () => void dispatch(setActive(key));
     const handleViewDetails = useViewDetails();
     const handleAddChildRange = () =>
-      void placeLayout(createLayout({ initial: { parent: key } }));
+      void placer(createLayout({ initial: { parent: key } }));
 
     const rangeExists = rng != null;
 

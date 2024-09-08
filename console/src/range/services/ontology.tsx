@@ -134,14 +134,13 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   }).mutate;
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const placeLayout = Layout.usePlacer();
-  return ({ selection: { resources } }) => {
-    placeLayout({
+  const placer = Layout.usePlacer();
+  return ({ selection: { resources } }) =>
+    placer({
       ...overviewLayout,
       name: resources[0].name,
       key: resources[0].id.key,
     });
-  };
 };
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -215,9 +214,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activate = useActivate();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
-  const placeLayout = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   const handleAddChildRange = () =>
-    void placeLayout(createLayout({ initial: { parent: resources[0].id.key } }));
+    void placer(createLayout({ initial: { parent: resources[0].id.key } }));
   const viewDetails = useViewDetails();
   const handleSelect = {
     delete: () => handleDelete(props),

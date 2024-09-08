@@ -27,14 +27,13 @@ import { Layout } from "@/layout";
 import { createLayout } from "@/range/CreateLayout";
 import { type Range } from "@/range/slice";
 
-export interface SelectMultipleRangesProps
-  extends Select.MultipleProps<string, Range> {}
+interface SelectMultipleRangesProps extends Select.MultipleProps<string, Range> {}
 
 const dynamicIcon = (
   <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
 );
 
-export const listColumns: Array<List.ColumnSpec<string, Range>> = [
+const listColumns: Array<List.ColumnSpec<string, Range>> = [
   {
     key: "name",
     name: "Name",
@@ -72,9 +71,7 @@ const RenderTag = ({
 
 const renderTag = componentRenderProp(RenderTag);
 
-export const SelectMultipleRanges = (
-  props: SelectMultipleRangesProps,
-): ReactElement => (
+const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => (
   <Select.Multiple
     columns={listColumns}
     entryRenderKey="name"
@@ -83,13 +80,13 @@ export const SelectMultipleRanges = (
   />
 );
 
-export interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
+interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
 
-export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
+const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
   <Select.Single columns={listColumns} {...props} entryRenderKey="name" />
 );
 
-export interface SelectMultipleInputItemProps
+interface SelectMultipleInputItemProps
   extends Omit<Input.ItemProps, "label" | "onChange">,
     Pick<SelectMultipleRangesProps, "data"> {
   value: string[];
@@ -97,13 +94,13 @@ export interface SelectMultipleInputItemProps
 }
 
 const SelectEmptyContent = (): ReactElement => {
-  const newLayout = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   return (
     <Align.Center style={{ height: 150 }} direction="x">
       <Status.Text variant="disabled" hideIcon>
         No Ranges:
       </Status.Text>
-      <Button.Button variant="outlined" onClick={() => newLayout(createLayout({}))}>
+      <Button.Button variant="outlined" onClick={() => placer(createLayout({}))}>
         Define a Range
       </Button.Button>
     </Align.Center>
@@ -126,7 +123,7 @@ export const SelectMultipleInputItem = ({
   </Input.Item>
 );
 
-export interface SelectInputItemProps
+interface SelectInputItemProps
   extends Omit<Input.ItemProps, "label" | "onChange">,
     Input.Control<string>,
     Pick<SelectSingleRangeProps, "data"> {}
