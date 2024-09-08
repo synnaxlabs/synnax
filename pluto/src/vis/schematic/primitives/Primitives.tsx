@@ -214,10 +214,11 @@ interface SVGBasedPrimitiveProps extends OrientableProps {
 
 interface InternalSVGProps
   extends SVGBasedPrimitiveProps,
-    Omit<ComponentPropsWithoutRef<"svg">, "direction" | "color" | "orientation"> {
+    Omit<
+      ComponentPropsWithoutRef<"svg">,
+      "direction" | "color" | "orientation" | "scale"
+    > {
   dimensions: dimensions.Dimensions;
-  color?: Color.Crude;
-  scale?: number;
 }
 
 const BASE_SCALE = 0.8;

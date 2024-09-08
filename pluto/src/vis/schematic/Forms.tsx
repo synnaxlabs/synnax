@@ -114,7 +114,7 @@ export const CommonStyleForm = (): ReactElement => (
     <Align.Space direction="y" grow>
       <LabelControls path="label" />
       <Align.Space direction="x" grow>
-        <ColorControl path="color" hideIfNull optional />
+        <ColorControl path="color" optional />
         <Form.Field<boolean>
           path="normallyOpen"
           label="Normally Open"
@@ -124,7 +124,7 @@ export const CommonStyleForm = (): ReactElement => (
         >
           {(p) => <Input.Switch {...p} />}
         </Form.Field>
-        <ScaleControl path="scale" hideIfNull optional />
+        <ScaleControl path="scale" />
       </Align.Space>
     </Align.Space>
     <OrientationControl path="" />
