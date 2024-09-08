@@ -265,7 +265,7 @@ class Controller:
         timeout: CrudeTimeSpan = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
-        received by the controller. The controller will continue to block until the
+        received. The controller will continue to block until the
         callback returns False. If a timeout is provided, the method will return False
         if the timeout is reached before the callback returns False.
         """
