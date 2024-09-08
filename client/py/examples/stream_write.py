@@ -51,9 +51,7 @@ start = sy.TimeStamp.now()
 
 # Set a rough data rate of 20 Hz. This won't be exact because we're sleeping for a
 # fixed amount of time, but it's close enough for demonstration purposes.
-rough_rate = sy.Rate.HZ * 50
-
-total = 5000
+loop = sy.Loop(sy.Rate.HZ * 50)
 
 # Open the writer as a context manager. This will make sure the writer is properly
 # closed when we're done writing. We'll write to both the time and data channels. In
@@ -64,16 +62,11 @@ with client.open_writer(
     start, [time_ch.key, data_ch_1.key, data_ch_2.key], enable_auto_commit=True
 ) as writer:
     i = 0
-    while i < total:
+    while loop.wait():
         # Write the data to the writer
-        writer.write(
-            {
-                time_ch.key: np.int64(sy.TimeStamp.now()),
-                data_ch_1.key: np.float32(np.sin(i / 10)),
-                data_ch_2.key: i % 2,
-            }
-        )
+        writer.write({
+            time_ch.key: np.int64(sy.TimeStamp.now()),
+            data_ch_1.key: np.float32(np.sin(i / 10)),
+            data_ch_2.key: i % 2,
+        })
         i += 1
-        # time.sleep(rough_rate.period.seconds)
-
-print(sy.TimeSpan.since(start))
