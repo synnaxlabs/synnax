@@ -271,9 +271,16 @@ class TimeSpan(int):
         """
         if isinstance(timeout, TimeSpan):
             return timeout
+        if isinstance(timeout, Rate):
+            return timeout.period
         if isinstance(timeout, (float, int)):
             return TimeSpan.SECOND * timeout
         return TimeSpan(timeout)
+
+    @property
+    def rate(self) -> Rate:
+        """:returns: The rate of the TimeSpan as a Rate."""
+        return Rate(1 / self.seconds)
 
     @property
     def days(self) -> float:
@@ -574,13 +581,16 @@ class Rate(float):
     def __str__(self):
         if self < 1:
             return f"{self.period} per cycle"
-        return str(int(self)) + "Hz"
+        return f"{round(self, 2)} Hz"
 
     def __repr__(self):
         return f"Rate({super().__repr__()} Hz)"
 
     def __mul__(self, rhs: CrudeRate) -> Rate:
         return Rate(super().__mul__(Rate(rhs)))
+
+    def __rmul__(self, other) -> Rate:
+        return self.__mul__(other)
 
     HZ: Rate
     """One Hz."""

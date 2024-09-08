@@ -16,8 +16,7 @@ import numpy as np
 @pytest.mark.timing
 class TestTiming:
     def test_sleep(self):
-        """
-        Test that the sleep function is consistently better that time.sleep in terms
+        """Test that the sleep function is consistently better that time.sleep in terms
         of precision.
 
         Execute 50 different timing tests at random intervals between 100 microseconds
@@ -39,3 +38,35 @@ class TestTiming:
             accumulated_standard.append(standard_delta)
 
         assert sum(accumulated_precise) < sum(accumulated_standard)
+
+    @pytest.mark.focus
+    def test_sleep_rate(self):
+        """Should sleep correctly based on a rate argument
+        """
+        t = sy.Timer()
+        sy.sleep(100 * sy.Rate.HZ, precise=True)
+        print((100 * sy.Rate.HZ).period)
+        assert t.elapsed() < sy.TimeSpan.MILLISECOND * 11
+        assert t.elapsed() > sy.TimeSpan.MILLISECOND * 9
+
+
+
+    def test_loop(self):
+        """Test that the loop holds timing consistent even when operations in the loop
+        take a long time.
+        """
+        loop = sy.Loop(sy.TimeSpan.MILLISECOND * 10, precise=True)
+        i = 0
+        start = time.perf_counter_ns()
+        with loop:
+            for _ in loop:
+                i += 1
+                if i == 10:
+                    break
+                sy.sleep(sy.TimeSpan.MILLISECOND * 5, precise=True)
+        end = time.perf_counter_ns()
+        assert sy.TimeSpan(end - start) < sy.TimeSpan.MILLISECOND * 110
+
+
+
+
