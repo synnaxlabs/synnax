@@ -24,7 +24,7 @@ from synnax.channel.payload import (
     ChannelParams,
     ChannelPayload,
 )
-from synnax.channel.retrieve import ChannelRetriever, retrieve_required
+from synnax.channel.retrieve import ChannelRetriever, retrieve_one_required, retrieve_required
 from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
@@ -184,7 +184,7 @@ class Controller:
             }
             self._writer.write({**updated, **updated_idx})
             return
-        ch = retrieve_required(self._retriever, ch)[0]
+        ch = retrieve_one_required(self._retriever, ch)
         to_write = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
@@ -227,7 +227,7 @@ class Controller:
             for ch in channels:
                 value[ch.index] = value.get(ch.key, value.get(ch.name))
         elif authority is not None:
-            ch = retrieve_required(self._retriever, value)[0]
+            ch = retrieve_one_required(self._retriever, value)
             value = {ch.key: authority, ch.index: authority}
         return self._writer.set_authority(value)
 
@@ -416,11 +416,11 @@ class Controller:
         >>> controller.get("my_channel")
         >>> controller.get("my_channel", 42)
         """
-        ch = retrieve_required(self._retriever, ch)[0]
+        ch = retrieve_one_required(self._retriever, ch)
         return self._receiver.state.get(ch.key, default)
 
     def __getitem__(self, item):
-        ch = retrieve_required(self._retriever, item)[0]
+        ch = retrieve_one_required(self._retriever, item)
         try:
             return self._receiver.state[ch.key]
         except KeyError:

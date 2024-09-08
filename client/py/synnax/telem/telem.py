@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone, tzinfo, UTC
+from datetime import datetime, timedelta, tzinfo, UTC
 from math import trunc
 from typing import ClassVar, Literal, TypeAlias, cast, get_args
 
@@ -41,9 +41,9 @@ class TimeStamp(int):
     def __new__(cls, value: CrudeTimeStamp):
         if isinstance(value, str):
             value = int(value)
-        if isinstance(value, TimeStamp):
+        elif isinstance(value, TimeStamp):
             return value
-        if isinstance(value, TimeSpan):
+        elif isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
             value = int(

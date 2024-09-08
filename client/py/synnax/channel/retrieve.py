@@ -43,6 +43,9 @@ class ChannelRetriever(Protocol):
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         ...
 
+    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+        ...
+
 
 _ENDPOINT = "/channel/retrieve"
 
@@ -69,6 +72,19 @@ class ClusterChannelRetriever:
             return list()
         req = _Request(**{normal.variant: normal.params})
         return send_required(self._client, _ENDPOINT, req, _Response).channels
+
+    @trace("debug")
+    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+        req = _Request()
+        if isinstance(param, ChannelKey):
+            req.keys = [param]
+        else:
+            req.names = [param]
+        res = send_required(self._client, _ENDPOINT, req, _Response)
+        if len(res.channels) == 0:
+            return None
+        return res.channels[0]
+
 
 
 class CacheChannelRetriever:
@@ -133,14 +149,25 @@ class CacheChannelRetriever:
                 channels.append(ch)
         return None if len(channels) == 0 else channels
 
+    def get_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+        if isinstance(param, ChannelKey):
+            return self._channels.get(param)
+        keys = self._names_to_keys.get(param, None)
+        if keys is None:
+            return None
+        return self._channels.get(next(iter(keys)))
+
     def set(self, channels: list[ChannelPayload]) -> None:
         for channel in channels:
-            self._channels[channel.key] = channel
-            keys = self._names_to_keys.get(channel.name)
-            if keys is None:
-                self._names_to_keys[channel.name] = {channel.key}
-            else:
-                keys.add(channel.key)
+            self.set_one(channel)
+
+    def set_one(self, channel: ChannelPayload) -> None:
+        self._channels[channel.key] = channel
+        keys = self._names_to_keys.get(channel.name)
+        if keys is None:
+            self._names_to_keys[channel.name] = {channel.key}
+        else:
+            keys.add(channel.key)
 
     @trace("debug")
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
@@ -162,6 +189,14 @@ class CacheChannelRetriever:
         results.extend(retrieved)
         return results
 
+    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+        ch = self.get_one(param)
+        if ch is not None:
+            return ch
+        retrieved = self._retriever.retrieve_one(param)
+        self.set_one(retrieved)
+        return retrieved
+
 
 def retrieve_required(
     r: ChannelRetriever, params: ChannelParams
@@ -176,3 +211,11 @@ def retrieve_required(
     if len(not_found) > 0:
         raise NotFoundError(f"Could not find channels: {not_found}")
     return results
+
+def retrieve_one_required(
+    r: ChannelRetriever, param: ChannelKey | ChannelName
+) -> ChannelPayload:
+    ch = r.retrieve_one(param)
+    if ch is None:
+        raise NotFoundError(f"Could not find channel: {param}")
+    return ch
