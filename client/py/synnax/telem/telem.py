@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo, UTC
 from math import trunc
 from typing import ClassVar, Literal, TypeAlias, cast, get_args
 
@@ -111,8 +111,7 @@ class TimeStamp(int):
         timezone is used.
         """
         return (
-            datetime.utcfromtimestamp(self / TimeSpan.SECOND)
-            .replace(tzinfo=timezone.utc)
+            datetime.fromtimestamp(self / TimeSpan.SECOND, UTC)
             .astimezone(tz)
         )
 

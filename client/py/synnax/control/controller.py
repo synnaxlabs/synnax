@@ -12,10 +12,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from threading import Event
 from typing import Any, Protocol, overload
-from asyncio import create_task
+from asyncio import create_task, Future
 
 import numpy as np
-from janus import Queue
 
 from synnax.util.thread import AsyncThread
 from synnax import framer, ValidationError
@@ -127,19 +126,23 @@ class Controller:
     @property
     def _writer(self) -> framer.Writer:
         if self._writer_opt is None:
-            raise ValidationError("""
+            raise ValidationError(
+                """
             tried to command a channel but no channels were passed into the write
             argument when calling acquire()!
-            """)
+            """
+            )
         return self._writer_opt
 
     @property
     def _receiver(self) -> _Receiver:
         if self._receiver_opt is None:
-            raise ValidationError("""
+            raise ValidationError(
+                """
             tried to read from a channel but no channels were passed into the read
             argument when calling acquire()!
-            """)
+            """
+            )
         return self._receiver_opt
 
     @overload
@@ -254,19 +257,19 @@ class Controller:
         >>> controller.wait_until(lambda c: c["my_channel"] > 42)
         >>> controller.wait_until(lambda c: c["channel_1"] > 42 and c["channel_2"] < 3.14)
         """
-        self._internal_wait_until(cond, timeout)
+        return self._internal_wait_until(cond, timeout)
 
-    def while_(
+    def while_true(
         self,
         cond: Callable[[Controller], bool],
         timeout: CrudeTimeSpan = None,
-    ):
+    ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
         received by the controller. The controller will continue to block until the
         callback returns False. If a timeout is provided, the method will return False
         if the timeout is reached before the callback returns False.
         """
-        self._internal_wait_until(cond, timeout, reverse=True)
+        return self._internal_wait_until(cond, timeout, reverse=True)
 
     def _internal_wait_until(
         self,
@@ -354,6 +357,8 @@ class Controller:
         # If we executed the callback for the entire duration and the actual percentage
         # is still less than the target percentage, we return False.
         if ok:
+            if processor.count == 0:
+                return False
             ok = processor.actual >= processor.target
         if processor.exc:
             raise processor.exc
@@ -366,7 +371,7 @@ class Controller:
         if self._writer_opt is not None:
             self._writer_opt.close()
         if self._receiver_opt is not None:
-            self._receiver.close()
+            self._receiver.stop()
 
     def __setitem__(
         self, ch: ChannelKey | ChannelName | ChannelPayload, value: int | float
@@ -446,7 +451,6 @@ class Controller:
 
 
 class _Receiver(AsyncThread):
-    queue: Queue | None
     state: dict[ChannelKey, np.number]
     channels: ChannelParams
     client: framer.Client
@@ -455,7 +459,7 @@ class _Receiver(AsyncThread):
     retriever: ChannelRetriever
     controller: Controller
     startup_ack: Event
-    shutdown_ack: Event
+    shutdown_future: Future
 
     def __init__(
         self,
@@ -464,40 +468,33 @@ class _Receiver(AsyncThread):
         retriever: ChannelRetriever,
         controller: Controller,
     ):
+        super().__init__()
         self.channels = retriever.retrieve(channels)
         self.client = client
         self.state = dict()
         self.controller = controller
         self.startup_ack = Event()
-        self.shutdown_ack = Event()
         self.processors = set()
-        self.queue = None
-        super().__init__()
 
-    def __process(self):
+    def _process(self):
         for p in self.processors:
             p.process(self.controller)
 
-    async def __listen_for_close(self):
-        await self.queue.async_q.get()
+    async def _listen_for_close(self):
+        await self.shutdown_future
         await self.streamer.close_loop()
 
     async def run_async(self):
-        # It's very important that we initialize the queue here, because it needs access
-        # to the thread-level event loop.
-        self.queue = Queue(maxsize=1)
         self.streamer = await self.client.open_async_streamer(self.channels)
+        self.shutdown_future = self.loop.create_future()
+        self.loop.create_task(self._listen_for_close())
         self.startup_ack.set()
-        create_task(self.__listen_for_close())
-
         async for frame in self.streamer:
-            print(frame)
             for i, key in enumerate(frame.channels):
                 self.state[key] = frame.series[i][-1]
-            self.__process()
+            self._process()
 
-        self.shutdown_ack.set()
 
-    def close(self):
-        self.queue.sync_q.put(None)
-        self.shutdown_ack.wait()
+    def stop(self):
+        self.loop.call_soon_threadsafe(self.shutdown_future.set_result, None)
+        self.join()

@@ -1129,20 +1129,6 @@ files = [
 colors = ["colorama (>=0.4.6)"]
 
 [[package]]
-name = "janus"
-version = "1.0.0"
-description = "Mixed sync-async queue to interoperate between asyncio tasks and classic threads"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "janus-1.0.0-py3-none-any.whl", hash = "sha256:2596ea5482711c1ee3ef2df6c290aaf370a13c55a007826e8f7c32d696d1d00a"},
-    {file = "janus-1.0.0.tar.gz", hash = "sha256:df976f2cdcfb034b147a2d51edfc34ff6bfb12d4e2643d3ad0e10de058cb1612"},
-]
-
-[package.dependencies]
-typing-extensions = ">=3.7.4.3"
-
-[[package]]
 name = "jaraco-classes"
 version = "3.4.0"
 description = "Utility functions for Python class constructs"
@@ -3775,4 +3761,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "b33251a370ede61374031ad5472ad9c6ecb86685126725956a7926c859bc333d"
+content-hash = "7c234a07b2a62e9315be306a2815ae22daf7a5db5081e688c849cb05b7683ab6"
