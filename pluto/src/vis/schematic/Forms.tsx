@@ -283,12 +283,7 @@ export const TankForm = ({
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
-        <ColorControl
-          path="backgroundColor"
-          label="Background Color"
-          hideIfNull={false}
-          optional={true}
-        />
+        <ColorControl path="backgroundColor" label="Background Color" />
         <Form.Field<number>
           path="borderRadius.x"
           hideIfNull
