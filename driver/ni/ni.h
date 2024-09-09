@@ -107,6 +107,7 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
 
 struct ChannelConfig {
     uint32_t channel_key;
+    uint32_t state_channel_key;
     std::string name;
     std::string channel_type;
     std::shared_ptr<ni::Analog> ni_channel;

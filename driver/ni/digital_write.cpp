@@ -114,6 +114,8 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
                         "state_channel");
                     this->writer_config.state_channel_keys.push_back(
                         state_key);
+                    
+                    config.state_channel_key = state_key;
 
                     this->channel_map[config.name] =
                             "channels." + std::to_string(c_count);
@@ -283,7 +285,9 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
 }
 
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_state_channel_keys() {
-    std::vector<synnax::ChannelKey> keys = this->writer_config.state_channel_keys;
+    std::vector<synnax::ChannelKey> keys;
+    for (auto &channel: this->writer_config.channels)
+        if (channel.channel_type == "index" && channel.enabled) keys.push_back(channel.state_channel_key);
     keys.push_back(this->writer_config.state_index_key);
     return keys;
 }
