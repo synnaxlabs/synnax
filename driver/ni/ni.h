@@ -166,7 +166,7 @@ public:
 
     void log_error(std::string err_msg);
 
-    std::vector<synnax::ChannelKey> getChannelKeys();
+    std::vector<synnax::ChannelKey> get_channel_keys();
 
     virtual void parse_config(config::Parser &parser);
 

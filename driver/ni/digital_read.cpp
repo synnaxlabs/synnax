@@ -37,6 +37,7 @@ void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
                     config.channel_key = channel_builder.required<uint32_t>("channel");
                     config.name = (this->reader_config.device_name + "/" + port + "/" +
                                    line);
+                    config.enabled = channel_builder.optional<bool>("enabled", true);
                     this->reader_config.channels.push_back(config);
                 });
     if (!parser.ok())
