@@ -11,6 +11,8 @@ package ranger
 
 import (
 	"context"
+	"regexp"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -20,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"regexp"
 )
 
 // Range (short for time range) is an interesting, user defined regions of time in a
@@ -31,13 +32,13 @@ type Range struct {
 	otg *ontology.Ontology
 	// Key is a unique identifier for the Range. If not provided on creation, a new one
 	// will be generated.
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key uuid.UUID `json:"key" msg:"key"`
 	// Name is a human-readable name for the range. This name does not need to be unique.
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name" msg:"name"`
 	// TimeRange is the range of time occupied by the range.
-	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+	TimeRange telem.TimeRange `json:"time_range" msg:"time_range"`
 	// Color is the color used to represent the range in the UI.
-	Color string `json:"color" msgpack:"color"`
+	Color string `json:"color" msg:"color"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}

@@ -19,24 +19,24 @@ import (
 
 type Device struct {
 	// The key of the device is its serial no.
-	Key string `json:"key" msgpack:"key"`
+	Key string `json:"key" msg:"key"`
 	// Rack is the rack that the device is in.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msg:"rack"`
 	// Location is the location of the device in the rack.
-	Location string `json:"location" msgpack:"location"`
+	Location string `json:"location" msg:"location"`
 	// Name is a human-readable name for the device.
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name" msg:"name"`
 	// Identifier is a short ID that is useful for identifying items related to this
 	// device.
-	Identifier string `json:"identifier" msgpack:"identifier"`
+	Identifier string `json:"identifier" msg:"identifier"`
 	// Make is the manufacturer of the device.
-	Make string `json:"make" msgpack:"make"`
+	Make string `json:"make" msg:"make"`
 	// Model is the model of the device.
-	Model string `json:"model" msgpack:"model"`
+	Model string `json:"model" msg:"model"`
 	// Configured sets whether the device has been configured yet.
-	Configured bool `json:"configured" msgpack:"configured"`
+	Configured bool `json:"configured" msg:"configured"`
 	// Properties
-	Properties string `json:"properties" msgpack:"properties"`
+	Properties string `json:"properties" msg:"properties"`
 }
 
 var _ gorp.Entry[string] = Device{}

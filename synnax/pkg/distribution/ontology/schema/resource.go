@@ -11,8 +11,9 @@ package schema
 
 import (
 	"fmt"
-	"github.com/synnaxlabs/x/validate"
 	"strings"
+
+	"github.com/synnaxlabs/x/validate"
 
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -32,11 +33,11 @@ import (
 // resources. We need something universally unique across the entire delta cluster.
 type ID struct {
 	// Key is a string that uniquely identifies a Resource within its Type.
-	Key string `json:"key" msgpack:"key"`
+	Key string `json:"key" msg:"key"`
 	// Type defines the type of Resource the Key refers to :). For example,
 	// a channel is a Resource of type "channel". Key user is a Resource of type
 	// "user".
-	Type Type `json:"type" msgpack:"type"`
+	Type Type `json:"type" msg:"type"`
 }
 
 // Validate ensures that the given ID has both a Key and Type.
@@ -84,13 +85,13 @@ type Data = map[string]any
 
 // Resource represents an instance matching a [Schema] (think class and object in OOP).
 type Resource struct {
-	ID ID `json:"id" msgpack:"id"`
+	ID ID `json:"id" msg:"id"`
 	// Schema is the schema that this entity matches.
-	Schema *Schema `json:"schema" msgpack:"schema"`
+	Schema *Schema `json:"schema" msg:"schema"`
 	// Name is a human-readable name for the entity.
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name" msg:"name"`
 	// Data is the data for the entity. Data must match [Schema.Fields].
-	Data Data `json:"data" msgpack:"data"`
+	Data Data `json:"data" msg:"data"`
 }
 
 func ResourceIDs(resources []Resource) []ID {

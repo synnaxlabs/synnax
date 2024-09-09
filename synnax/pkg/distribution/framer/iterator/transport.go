@@ -38,17 +38,17 @@ const (
 // Request is a request to an Iterator.
 type Request struct {
 	// Command is the command to execute on the Iterator.
-	Command Command `json:"command" msgpack:"command"`
+	Command Command `json:"command" msg:"command"`
 	// Stamp should be set during calls to SeekLE and SeekGE.
-	Stamp telem.TimeStamp `json:"stamp" msgpack:"stamp"`
+	Stamp telem.TimeStamp `json:"stamp" msg:"stamp"`
 	// Span should be set during calls to Next and Prev.
-	Span telem.TimeSpan `json:"span" msgpack:"span"`
+	Span telem.TimeSpan `json:"span" msg:"span"`
 	// Bounds should be set during calls to SetBounds.
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	Bounds telem.TimeRange `json:"bounds" msg:"bounds"`
 	// Keys should only be set when opening the Iterator.
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys `json:"keys" msg:"keys"`
 	// ChunkSize should only be set when opening the Iterator.
-	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
+	ChunkSize int64 `json:"chunk_size" msg:"chunk_size"`
 }
 
 //go:generate stringer -type=ResponseVariant
@@ -64,21 +64,21 @@ const (
 // Response is a response from a remote Iterator.
 type Response struct {
 	// Variant is the type of response returned.
-	Variant ResponseVariant `json:"variant" msgpack:"variant"`
+	Variant ResponseVariant `json:"variant" msg:"variant"`
 	// Command is non-zero when the
-	Command Command `json:"command" msgpack:"command"`
+	Command Command `json:"command" msg:"command"`
 	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
-	Frame core.Frame `json:"frame" msgpack:"frame"`
+	Frame core.Frame `json:"frame" msg:"frame"`
 	// NodeKey is the node Name where the remote Iterator lives.
-	NodeKey dcore.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey dcore.NodeKey `json:"node_key" msg:"node_key"`
 	// Ack is only relevant for variant AckResponse. Is true if the Iterator successfully
 	// executed the request.
-	Ack bool `json:"ack" msgpack:"ack"`
+	Ack bool `json:"ack" msg:"ack"`
 	// SeqNum
-	SeqNum int `json:"seq_num" msgpack:"seq_num"`
+	SeqNum int `json:"seq_num" msg:"seq_num"`
 	// Error is only relevant for variant AckResponse. It is an error returned during a call to
 	// Iterator.Error
-	Error error `json:"error" msgpack:"error"`
+	Error error `json:"error" msg:"error"`
 }
 
 type (

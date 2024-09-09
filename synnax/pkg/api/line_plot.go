@@ -11,12 +11,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type LinePlotService struct {
@@ -34,12 +35,12 @@ func NewLinePlotService(p Provider) *LinePlotService {
 }
 
 type LinePlotCreateRequest struct {
-	Workspace uuid.UUID           `json:"workspace" msgpack:"workspace"`
-	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
+	Workspace uuid.UUID           `json:"workspace" msg:"workspace"`
+	LinePlots []lineplot.LinePlot `json:"line_plots" msg:"line_plots"`
 }
 
 type LinePlotCreateResponse struct {
-	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
+	LinePlots []lineplot.LinePlot `json:"line_plots" msg:"line_plots"`
 }
 
 func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest) (res LinePlotCreateResponse, err error) {
@@ -62,8 +63,8 @@ func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest)
 }
 
 type LinePlotRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msg:"key"`
+	Name string    `json:"name" msg:"name"`
 }
 
 func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest) (res types.Nil, err error) {
@@ -80,8 +81,8 @@ func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest)
 }
 
 type LinePlotSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msg:"key"`
+	Data string    `json:"data" msg:"data"`
 }
 
 func (s *LinePlotService) SetData(ctx context.Context, req LinePlotSetDataRequest) (res types.Nil, err error) {
@@ -99,10 +100,10 @@ func (s *LinePlotService) SetData(ctx context.Context, req LinePlotSetDataReques
 
 type (
 	LinePlotRetrieveRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+		Keys []uuid.UUID `json:"keys" msg:"keys"`
 	}
 	LinePlotRetrieveResponse struct {
-		LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
+		LinePlots []lineplot.LinePlot `json:"line_plots" msg:"line_plots"`
 	}
 )
 
@@ -120,7 +121,7 @@ func (s *LinePlotService) Retrieve(ctx context.Context, req LinePlotRetrieveRequ
 }
 
 type LinePlotDeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []uuid.UUID `json:"keys" msg:"keys"`
 }
 
 func (s *LinePlotService) Delete(ctx context.Context, req LinePlotDeleteRequest) (res types.Nil, err error) {

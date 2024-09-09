@@ -11,13 +11,14 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
@@ -45,11 +46,11 @@ func NewRangeService(p Provider) *RangeService {
 
 type (
 	RangeCreateRequest struct {
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
-		Ranges []Range     `json:"ranges" msgpack:"ranges"`
+		Parent ontology.ID `json:"parent" msg:"parent"`
+		Ranges []Range     `json:"ranges" msg:"ranges"`
 	}
 	RangeCreateResponse struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
+		Ranges []Range `json:"ranges" msg:"ranges"`
 	}
 )
 
@@ -70,15 +71,15 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 
 type (
 	RangeRetrieveRequest struct {
-		Keys         []uuid.UUID     `json:"keys" msgpack:"keys"`
-		Names        []string        `json:"names" msgpack:"names"`
-		Term         string          `json:"term" msgpack:"term"`
-		OverlapsWith telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
-		Limit        int             `json:"limit" msgpack:"limit"`
-		Offset       int             `json:"offset" msgpack:"offset"`
+		Keys         []uuid.UUID     `json:"keys" msg:"keys"`
+		Names        []string        `json:"names" msg:"names"`
+		Term         string          `json:"term" msg:"term"`
+		OverlapsWith telem.TimeRange `json:"overlaps_with" msg:"overlaps_with"`
+		Limit        int             `json:"limit" msg:"limit"`
+		Offset       int             `json:"offset" msg:"offset"`
 	}
 	RangeRetrieveResponse struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
+		Ranges []Range `json:"ranges" msg:"ranges"`
 	}
 )
 
@@ -124,8 +125,8 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 }
 
 type RangeRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msg:"key"`
+	Name string    `json:"name" msg:"name"`
 }
 
 func (s *RangeService) Rename(ctx context.Context, req RangeRenameRequest) (res types.Nil, _ error) {
@@ -142,7 +143,7 @@ func (s *RangeService) Rename(ctx context.Context, req RangeRenameRequest) (res 
 }
 
 type RangeDeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []uuid.UUID `json:"keys" msg:"keys"`
 }
 
 func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res types.Nil, _ error) {
@@ -165,11 +166,11 @@ func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res 
 
 type (
 	RangeKVGetRequest struct {
-		Range uuid.UUID `json:"range" msgpack:"range"`
-		Keys  []string  `json:"keys" msgpack:"keys"`
+		Range uuid.UUID `json:"range" msg:"range"`
+		Keys  []string  `json:"keys" msg:"keys"`
 	}
 	RangeKVGetResponse struct {
-		Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
+		Pairs []ranger.KVPair `json:"pairs" msg:"pairs"`
 	}
 )
 
@@ -194,8 +195,8 @@ func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res Ra
 }
 
 type RangeKVSetRequest struct {
-	Range uuid.UUID       `json:"range" msgpack:"range"`
-	Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
+	Range uuid.UUID       `json:"range" msg:"range"`
+	Pairs []ranger.KVPair `json:"pairs" msg:"pairs"`
 }
 
 func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res types.Nil, _ error) {
@@ -219,8 +220,8 @@ func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res ty
 }
 
 type RangeKVDeleteRequest struct {
-	Range uuid.UUID `json:"range" msgpack:"range"`
-	Keys  []string  `json:"keys" msgpack:"keys"`
+	Range uuid.UUID `json:"range" msg:"range"`
+	Keys  []string  `json:"keys" msg:"keys"`
 }
 
 func (s *RangeService) KVDelete(ctx context.Context, req RangeKVDeleteRequest) (res types.Nil, _ error) {
@@ -249,8 +250,8 @@ func (s *RangeService) KVDelete(ctx context.Context, req RangeKVDeleteRequest) (
 }
 
 type RangeAliasSetRequest struct {
-	Range   uuid.UUID              `json:"range" msgpack:"range"`
-	Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+	Range   uuid.UUID              `json:"range" msg:"range"`
+	Aliases map[channel.Key]string `json:"aliases" msg:"aliases"`
 }
 
 func (s *RangeService) AliasSet(ctx context.Context, req RangeAliasSetRequest) (res types.Nil, _ error) {
@@ -280,11 +281,11 @@ func (s *RangeService) AliasSet(ctx context.Context, req RangeAliasSetRequest) (
 
 type (
 	RangeAliasResolveRequest struct {
-		Range   uuid.UUID `json:"range" msgpack:"range"`
-		Aliases []string  `json:"aliases" msgpack:"aliases"`
+		Range   uuid.UUID `json:"range" msg:"range"`
+		Aliases []string  `json:"aliases" msg:"aliases"`
 	}
 	RangeAliasResolveResponse struct {
-		Aliases map[string]channel.Key `json:"aliases" msgpack:"aliases"`
+		Aliases map[string]channel.Key `json:"aliases" msg:"aliases"`
 	}
 )
 
@@ -317,8 +318,8 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 }
 
 type RangeAliasDeleteRequest struct {
-	Range    uuid.UUID     `json:"range" msgpack:"range"`
-	Channels []channel.Key `json:"channels" msgpack:"channels"`
+	Range    uuid.UUID     `json:"range" msg:"range"`
+	Channels []channel.Key `json:"channels" msg:"channels"`
 }
 
 func (s *RangeService) AliasDelete(ctx context.Context, req RangeAliasDeleteRequest) (res types.Nil, _ error) {
@@ -348,10 +349,10 @@ func (s *RangeService) AliasDelete(ctx context.Context, req RangeAliasDeleteRequ
 
 type (
 	RangeAliasListRequest struct {
-		Range uuid.UUID `json:"range" msgpack:"range"`
+		Range uuid.UUID `json:"range" msg:"range"`
 	}
 	RangeAliasListResponse struct {
-		Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+		Aliases map[channel.Key]string `json:"aliases" msg:"aliases"`
 	}
 )
 

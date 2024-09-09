@@ -16,10 +16,10 @@ import (
 )
 
 type Workspace struct {
-	Key    uuid.UUID `json:"key" msgpack:"key"`
-	Name   string    `json:"name" msgpack:"name"`
-	Author uuid.UUID `json:"author" msgpack:"author"`
-	Layout string    `json:"layout" msgpack:"layout"`
+	Key    uuid.UUID `json:"key" msg:"key"`
+	Name   string    `json:"name" msg:"name"`
+	Author uuid.UUID `json:"author" msg:"author"`
+	Layout string    `json:"layout" msg:out"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Workspace{}

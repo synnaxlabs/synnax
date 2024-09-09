@@ -11,9 +11,10 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
@@ -69,7 +70,7 @@ func (s *UserService) Register(ctx context.Context, req RegistrationRequest) (tr
 // ChangePasswordRequest is an API request to change the password for a user.
 type ChangePasswordRequest struct {
 	auth.InsecureCredentials
-	NewPassword password.Raw `json:"new_password" msgpack:"new_password" validate:"required"`
+	NewPassword password.Raw `json:"new_password" msg:"new_password" validate:"required"`
 }
 
 // ChangePassword changes the password for the user with the provided credentials.
@@ -93,8 +94,8 @@ func (s *UserService) ChangePassword(ctx context.Context, cpr ChangePasswordRequ
 
 // ChangeUsernameRequest is an API request to change the username for a user.
 type ChangeUsernameRequest struct {
-	auth.InsecureCredentials `json:"" msgpack:""`
-	NewUsername              string `json:"new_username" msgpack:"new_username" validate:"required"`
+	auth.InsecureCredentials `json:"" msg:""`
+	NewUsername              string `json:"new_username" msg:"new_username" validate:"required"`
 }
 
 // ChangeUsername changes the username for the user with the provided credentials.

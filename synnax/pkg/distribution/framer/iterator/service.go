@@ -31,9 +31,9 @@ import (
 )
 
 type Config struct {
-	Keys      channel.Keys    `json:"keys" msgpack:"keys"`
-	Bounds    telem.TimeRange `json:"bounds" msgpack:"bounds"`
-	ChunkSize int64           `json:"chunk_size" msgpack:"chunk_size"`
+	Keys      channel.Keys    `json:"keys" msg:"keys"`
+	Bounds    telem.TimeRange `json:"bounds" msg:"bounds"`
+	ChunkSize int64           `json:"chunk_size" msg:"chunk_size"`
 }
 
 type ServiceConfig struct {

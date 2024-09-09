@@ -11,21 +11,21 @@ package freighter_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type request struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
+	ID      int    `json:"id" msg:"id"`
+	Message string `json:"message" msg:"message"`
 }
 
 type response struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
+	ID      int    `json:"id" msg:"id"`
+	Message string `json:"message" msg:"message"`
 }
 
 var myCustomError = errors.New("my custom error")

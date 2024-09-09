@@ -11,13 +11,14 @@ package fhttp
 
 import (
 	"context"
-	"github.com/gofiber/fiber/v2"
-	"github.com/synnaxlabs/x/errors"
 	"go/types"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/x/errors"
 
 	ws "github.com/fasthttp/websocket"
 	fiberws "github.com/gofiber/websocket/v2"
@@ -50,12 +51,12 @@ const (
 // error across the socket.
 type message[P freighter.Payload] struct {
 	// Type represents the type of message being sent. One of msgTypeData
-	// or msgTypeClose.
-	Type messageType `json:"type" msgpack:"type"`
+	// or msgTypeClose.msg:
+	Type messageType `json:"type" msg:"type"`
 	// Err is the error payload to send if the message type is msgTypeClose.
-	Err errors.Payload `json:"error" msgpack:"error"`
+	Err errors.Payload `json:"error" msg:"error"`
 	// Payload is the user payload to send if the message type is msgTypeData.
-	Payload P `json:"payload" msgpack:"payload"`
+	Payload P `json:"payload" msg:"payload"`
 }
 
 func newStreamCore[RQ, RS freighter.Payload](

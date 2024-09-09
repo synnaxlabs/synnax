@@ -22,11 +22,11 @@ import (
 // synnax ontology. A label has a unique UUID key, a name, and a color.
 type Label struct {
 	// Key is a unique identifier for the label.
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key uuid.UUID `json:"key" msg:"key"`
 	// Name is the human-readable name of the label.
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name" msg:"name"`
 	// Color is the color associated with the label.
-	Color color.Color `json:"color" msgpack:"color"`
+	Color color.Color `json:"color" msg:or"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Label{}

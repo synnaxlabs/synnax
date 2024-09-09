@@ -13,12 +13,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type LabelService struct {
@@ -40,13 +41,13 @@ type Label = label.Label
 // LabelCreateRequest is a request to create a Label in the cluster.
 type LabelCreateRequest struct {
 	// Labels are the labels to create.
-	Labels []Label `json:"labels" msgpack:"labels"`
+	Labels []Label `json:"labels" msg:"labels"`
 }
 
 // LabelCreateResponse is a response to a LabelCreateRequest.
 type LabelCreateResponse struct {
 	// Labels are the labels that were created.
-	Labels []Label `json:"labels" msgpack:"labels"`
+	Labels []Label `json:"labels" msg:"labels"`
 }
 
 // Create creates the labels in the cluster.
@@ -70,17 +71,17 @@ func (s *LabelService) Create(
 
 type LabelRetrieveRequest struct {
 	// Keys are the keys of the labels to retrieve.
-	Keys   []uuid.UUID `json:"keys" msgpack:"keys"`
-	Names  []string    `json:"names" msgpack:"names"`
-	For    ontology.ID `json:"for" msgpack:"for"`
-	Search string      `json:"search" msgpack:"search"`
-	Limit  int         `json:"limit" msgpack:"limit"`
-	Offset int         `json:"offset" msgpack:"offset"`
+	Keys   []uuid.UUID `json:"keys" msg:"keys"`
+	Names  []string    `json:"names" msg:"names"`
+	For    ontology.ID `json:"for" msg:"for"`
+	Search string      `json:"search" msg:"search"`
+	Limit  int         `json:"limit" msg:"limit"`
+	Offset int         `json:"offset" msg:"offset"`
 }
 
 type LabelRetrieveResponse struct {
 	// Labels are the labels that were retrieved.
-	Labels []Label `json:"labels" msgpack:"labels"`
+	Labels []Label `json:"labels" msg:"labels"`
 }
 
 func (s *LabelService) Retrieve(
@@ -124,7 +125,7 @@ func (s *LabelService) Retrieve(
 }
 
 type LabelDeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []uuid.UUID `json:"keys" msg:"keys"`
 }
 
 func (s *LabelService) Delete(
@@ -144,9 +145,9 @@ func (s *LabelService) Delete(
 }
 
 type LabelAddRequest struct {
-	Labels  []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
-	Replace bool        `json:"replace" msgpack:"replace"`
-	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
+	Labels  []uuid.UUID `json:"labels" msg:"labels" validate:"required"`
+	Replace bool        `json:"replace" msg:"replace"`
+	ID      ontology.ID `json:"id" msg:"id" validate:"required"`
 }
 
 func (s *LabelService) Add(
@@ -172,8 +173,8 @@ func (s *LabelService) Add(
 }
 
 type LabelRemoveRequest struct {
-	ID     ontology.ID `json:"id" msgpack:"id" validate:"required"`
-	Labels []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
+	ID     ontology.ID `json:"id" msg:"id" validate:"required"`
+	Labels []uuid.UUID `json:"labels" msg:"labels" validate:"required"`
 }
 
 func (s *LabelService) Remove(

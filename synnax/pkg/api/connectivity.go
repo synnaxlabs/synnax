@@ -28,8 +28,8 @@ func NewConnectivityService(p Provider) *ConnectivityService {
 
 // ConnectivityCheckResponse is returned by the ConnectivityService.Check method.
 type ConnectivityCheckResponse struct {
-	ClusterKey  string `json:"cluster_key" msgpack:"cluster_key"`
-	NodeVersion string `json:"node_version" msgpack:"node_version"`
+	ClusterKey  string `json:"cluster_key" msg:"cluster_key"`
+	NodeVersion string `json:"node_version" msg:"node_version"`
 }
 
 // Check does nothing except return a success response.

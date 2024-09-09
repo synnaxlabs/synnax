@@ -15,9 +15,9 @@ import (
 )
 
 type LinePlot struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Name string    `json:"name" msgpack:"name"`
-	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msg:"key"`
+	Name string    `json:"name" msg:"name"`
+	Data string    `json:"data" msg:a"`
 }
 
 var _ gorp.Entry[uuid.UUID] = LinePlot{}

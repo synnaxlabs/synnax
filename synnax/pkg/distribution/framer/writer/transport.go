@@ -36,12 +36,12 @@ type Mode = ts.WriterMode
 // Request represents a streaming call to a Writer.
 type Request struct {
 	// Command is the command to execute on the writer.
-	Command Command `json:"command" msgpack:"command"`
+	Command Command `json:"command" msg:"command"`
 	// Config sets the configuration to use when opening the writer. Only used internally
 	// when open command is sent.
-	Config Config `json:"config" msgpack:"config"`
+	Config Config `json:"config" msg:"config"`
 	// Frame is the telemetry frame. This field is only acknowledged during Data commands.
-	Frame core.Frame `json:"frame" msgpack:"keys"`
+	Frame core.Frame `json:"frame" msg:"keys"`
 }
 
 type ResponseVariant uint8
@@ -55,15 +55,15 @@ const (
 // Response represents a response to a streaming call to a Writer.
 type Response struct {
 	// Command is the command that was executed on the writer.
-	Command Command `json:"command" msgpack:"command"`
+	Command Command `json:"command" msg:"command"`
 	// Ack is the acknowledgement of the command.
-	Ack           bool             `json:"ack" msgpack:"ack"`
-	SeqNum        int              `json:"seq_num" msgpack:"seq_num"`
-	NodeKey       dcore.NodeKey    `json:"node_key" msgpack:"node_key"`
-	Error         error            `json:"error" msgpack:"error"`
-	End           telem.TimeStamp  `json:"end" msgpack:"end"`
-	Variant       ResponseVariant  `json:"variant" msgpack:"variant"`
-	ControlDigest ts.ControlDigest `json:"control_digest" msgpack:"control_digest"`
+	Ack           bool             `json:"ack" msg:"ack"`
+	SeqNum        int              `json:"seq_num" msg:"seq_num"`
+	NodeKey       dcore.NodeKey    `json:"node_key" msg:"node_key"`
+	Error         error            `json:"error" msg:"error"`
+	End           telem.TimeStamp  `json:"end" msg:"end"`
+	Variant       ResponseVariant  `json:"variant" msg:"variant"`
+	ControlDigest ts.ControlDigest `json:"control_digest" msg:"control_digest"`
 }
 
 type (

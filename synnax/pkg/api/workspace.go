@@ -11,13 +11,14 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type WorkspaceService struct {
@@ -36,7 +37,7 @@ func NewWorkspaceService(p Provider) *WorkspaceService {
 
 type (
 	WorkspaceCreateRequest struct {
-		Workspaces []workspace.Workspace `json:"workspaces" msgpack:"workspaces"`
+		Workspaces []workspace.Workspace `json:"workspaces" msg:"workspaces"`
 	}
 	WorkspaceCreateResponse = WorkspaceCreateRequest
 )
@@ -67,8 +68,8 @@ func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateReques
 }
 
 type WorkspaceRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msg:"key"`
+	Name string    `json:"name" msg:e"`
 }
 
 func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
@@ -85,8 +86,8 @@ func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameReques
 }
 
 type WorkspaceSetLayoutRequest struct {
-	Key    uuid.UUID `json:"key" msgpack:"key"`
-	Layout string    `json:"layout" msgpack:"layout"`
+	Key    uuid.UUID `json:"key" msg:"key"`
+	Layout string    `json:"layout" msg:"layout"`
 }
 
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
@@ -104,14 +105,14 @@ func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayout
 
 type (
 	WorkspaceRetrieveRequest struct {
-		Keys   []uuid.UUID `json:"keys" msgpack:"keys"`
-		Search string      `json:"search" msgpack:"search"`
-		Author uuid.UUID   `json:"author" msgpack:"author"`
-		Limit  int         `json:"limit" msgpack:"limit"`
-		Offset int         `json:"offset" msgpack:"offset"`
+		Keys   []uuid.UUID `json:"keys" msg:"keys"`
+		Search string      `json:"search" msg:"search"`
+		Author uuid.UUID   `json:"author" msg:"author"`
+		Limit  int         `json:"limit" msg:"limit"`
+		Offset int         `json:"offset" msg:"offset"`
 	}
 	WorkspaceRetrieveResponse struct {
-		Workspaces []workspace.Workspace `json:"workspaces" msgpack:"workspaces"`
+		Workspaces []workspace.Workspace `json:"workspaces" msg:"workspaces"`
 	}
 )
 
@@ -144,7 +145,7 @@ func (s *WorkspaceService) Retrieve(
 }
 
 type WorkspaceDeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []uuid.UUID `json:"keys" msg:"keys"`
 }
 
 func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (res types.Nil, err error) {

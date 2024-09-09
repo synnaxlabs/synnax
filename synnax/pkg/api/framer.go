@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
@@ -27,7 +29,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 type Frame = framer.Frame
@@ -51,9 +52,9 @@ func NewFrameService(p Provider) *FrameService {
 }
 
 type FrameDeleteRequest struct {
-	Keys   channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
-	Names  []string        `json:"names" msgpack:"names" validate:"names"`
+	Keys   channel.Keys    `json:"keys" msg:"keys" validate:"required"`
+	Bounds telem.TimeRange `json:"bounds" msg:"bounds" validate:"bounds"`
+	Names  []string        `json:"names" msg:"names" validate:"names"`
 }
 
 func (s *FrameService) FrameDelete(
@@ -188,47 +189,47 @@ type FrameWriterConfig struct {
 	// Authorities is the authority to use when writing to the channels. We set this
 	// as an int and not control.Authorities because msgpack has a tough time decoding
 	// lists of uint8.
-	Authorities []uint32 `json:"authorities" msgpack:"authorities"`
+	Authorities []uint32 `json:"authorities" msg:"authorities"`
 	// ControlSubject is an identifier for the writer.
-	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
+	ControlSubject control.Subject `json:"control_subject" msg:"control_subject"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
 	// telemetry occupying the given timestamp already exists for the provided keys,
 	// the writer will fail to open.
 	// [REQUIRED]
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	Start telem.TimeStamp `json:"start" msg:"start"`
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
 	// have an array specified for each key, and all series must be the same length (i.e.
 	// calls to Frame.Even must return true).
 	// [REQUIRED]
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys `json:"keys" msg:"keys"`
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL]
-	Mode writer.Mode `json:"mode" msgpack:"mode"`
+	Mode writer.Mode `json:"mode" msg:"mode"`
 	// ErrOnUnauthorized controls whether the writer will return an error when
 	// attempting to write to a channel that it does not have authority over.
 	// In non-control scenarios, this value should be set to true. In scenarios
 	// that require control handoff, this value should be set to false.
 	// [OPTIONAL] - Defaults to false.
-	ErrOnUnauthorized bool `json:"err_on_unauthorized" msgpack:"err_on_unauthorized"`
+	ErrOnUnauthorized bool `json:"err_on_unauthorized" msg:"err_on_unauthorized"`
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
 	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
-	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	EnableAutoCommit bool `json:"enable_auto_commit" msg:"enable_auto_commit"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
 	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
 	// to AlwaysAutoPersist.
 	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
+	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msg:"auto_index_persist_interval"`
 }
 
 // FrameWriterRequest represents a request to write CreateNet data for a set of channels.
 type FrameWriterRequest struct {
-	Config  FrameWriterConfig `json:"config" msgpack:"config"`
-	Command WriterCommand     `json:"command" msgpack:"command"`
-	Frame   framer.Frame      `json:"frame" msgpack:"frame"`
+	Config  FrameWriterConfig `json:"config" msg:"config"`
+	Command WriterCommand     `json:"command" msg:"command"`
+	Frame   framer.Frame      `json:"frame" msg:"frame"`
 }
 
 type (

@@ -60,13 +60,13 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 }
 
 type Task struct {
-	Key      Key    `json:"key" msgpack:"key"`
-	Name     string `json:"name" msgpack:"name"`
-	Type     string `json:"type" msgpack:"type"`
-	Config   string `json:"config" msgpack:"config"`
-	State    *State `json:"state" msgpack:"state"`
-	Internal bool   `json:"internal" msgpack:"internal"`
-	Snapshot bool   `json:"snapshot" msgpack:"snapshot"`
+	Key      Key    `json:"key" msg:"key"`
+	Name     string `json:"name" msg:"name"`
+	Type     string `json:"type" msg:"type"`
+	Config   string `json:"config" msg:"config"`
+	State    *State `json:"state" msg:"state"`
+	Internal bool   `json:"internal" msg:"internal"`
+	Snapshot bool   `json:"snapshot" msg:"snapshot"`
 }
 
 func (t Task) String() string {
@@ -116,11 +116,11 @@ func (d *Details) UnmarshalJSON(data []byte) error {
 }
 
 type State struct {
-	Key      string  `json:"key" msgpack:"key"`
-	Internal bool    `json:"internal" msgpack:"internal"`
-	Task     Key     `json:"task" msgpack:"task"`
-	Variant  Status  `json:"variant" msgpack:"variant"`
-	Details  Details `json:"details" msgpack:"details"`
+	Key      string  `json:"key" msg:"key"`
+	Internal bool    `json:"internal" msg:"internal"`
+	Task     Key     `json:"task" msg:"task"`
+	Variant  Status  `json:"variant" msg:"variant"`
+	Details  Details `json:"details" msg:ails"`
 }
 
 var _ gorp.Entry[Key] = Task{}

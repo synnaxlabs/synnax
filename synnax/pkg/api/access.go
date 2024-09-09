@@ -11,12 +11,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type AccessService struct {
@@ -33,7 +34,7 @@ func NewAccessService(p Provider) *AccessService {
 
 type (
 	AccessCreatePolicyRequest struct {
-		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
+		Policies []rbac.Policy `json:"policies" msg:"policies"`
 	}
 	AccessCreatePolicyResponse = AccessCreatePolicyRequest
 )
@@ -66,7 +67,7 @@ func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicy
 }
 
 type AccessDeletePolicyRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []uuid.UUID `json:"keys" msg:"keys"`
 }
 
 func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
@@ -90,10 +91,10 @@ func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 
 type (
 	AccessRetrievePolicyRequest struct {
-		Subject ontology.ID `json:"subject" msgpack:"subject"`
+		Subject ontology.ID `json:"subject" msg:"subject"`
 	}
 	AccessRetrievePolicyResponse struct {
-		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
+		Policies []rbac.Policy `json:"policies" msg:"policies"`
 	}
 )
 

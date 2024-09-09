@@ -24,13 +24,13 @@ import (
 // In a policy, **Subjects do Actions on Objects**.
 type Policy struct {
 	// Key is a unique uuid to identify the policy.
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key uuid.UUID `json:"key" msg:"`
 	// Subjects it the list of subjects of the policy
-	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+	Subjects []ontology.ID `json:"subjects" msg:"subjects"`
 	// Objects is the list of objects that the policy applies to
-	Objects []ontology.ID `json:"objects" msgpack:"objects"`
+	Objects []ontology.ID `json:"objects" msg:"objects"`
 	// Actions is the list of actions that the policy applies to
-	Actions []access.Action `json:"actions" msgpack:"actions"`
+	Actions []access.Action `json:"actions" msg:"actions"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}

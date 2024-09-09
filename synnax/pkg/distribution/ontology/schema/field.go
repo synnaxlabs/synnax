@@ -14,7 +14,7 @@ import "github.com/google/uuid"
 // Field represents a dynamically typed field in a Schema.
 type Field struct {
 	// Type is the type of field.
-	Type   FieldType `json:"type" msgpack:"type"`
+	Type   FieldType `json:"type" msg:"type"`
 	Schema *Schema
 }
 

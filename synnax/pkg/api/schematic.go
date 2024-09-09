@@ -11,12 +11,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type SchematicService struct {
@@ -35,11 +36,11 @@ func NewSchematicService(p Provider) *SchematicService {
 
 type (
 	SchematicCreateRequest struct {
-		Workspace  uuid.UUID             `json:"workspace" msgpack:"workspace"`
-		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
+		Workspace  uuid.UUID             `json:"workspace" msg:"workspace"`
+		Schematics []schematic.Schematic `json:"schematics" msg:"schematics"`
 	}
 	SchematicCreateResponse struct {
-		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
+		Schematics []schematic.Schematic `json:"schematics" msg:ematics"`
 	}
 )
 
@@ -63,8 +64,8 @@ func (s *SchematicService) Create(ctx context.Context, req SchematicCreateReques
 }
 
 type SchematicRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msg:"key"`
+	Name string    `json:"name" msg:"name"`
 }
 
 func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (res types.Nil, err error) {
@@ -81,8 +82,8 @@ func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameReques
 }
 
 type SchematicSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msg:"key"`
+	Data string    `json:"data" msg:"data"`
 }
 
 func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
@@ -100,10 +101,10 @@ func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequ
 
 type (
 	SchematicRetrieveRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+		Keys []uuid.UUID `json:"keys" msg:"keys"`
 	}
 	SchematicRetrieveResponse struct {
-		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
+		Schematics []schematic.Schematic `json:"schematics" msg:"schematics"`
 	}
 )
 
@@ -124,7 +125,7 @@ func (s *SchematicService) Retrieve(ctx context.Context, req SchematicRetrieveRe
 }
 
 type SchematicDeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []uuid.UUID `json:"keys" msg:"keys"`
 }
 
 func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteRequest) (res types.Nil, err error) {
@@ -142,12 +143,12 @@ func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteReques
 
 type (
 	SchematicCopyRequest struct {
-		Key      uuid.UUID `json:"key" msgpack:"key"`
-		Name     string    `json:"name" msgpack:"name"`
-		Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
+		Key      uuid.UUID `json:"key" msg:"key"`
+		Name     string    `json:"name" msg:"name"`
+		Snapshot bool      `json:"snapshot" msg:"snapshot"`
 	}
 	SchematicCopyResponse struct {
-		Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
+		Schematic schematic.Schematic `json:"schematic" msg:"schematic"`
 	}
 )
 

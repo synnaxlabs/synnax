@@ -21,8 +21,8 @@ type Request struct {
 }
 
 type Response struct {
-	Frame core.Frame `json:"frame" msgpack:"frame"`
-	Error error      `json:"error" msgpack:"error"`
+	Frame core.Frame `json:"frame" msg:"frame"`
+	Error error      `json:"error" msg:"error"`
 }
 
 func reqToStorage(req Request) (ts.StreamerRequest, error) {

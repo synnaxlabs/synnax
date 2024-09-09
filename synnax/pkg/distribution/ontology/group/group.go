@@ -19,9 +19,9 @@ import (
 type Group struct {
 	// Key is the unique identifier for the group. Will be generated on creation if not
 	// set.
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key uuid.UUID `json:"key" msg:"key"`
 	// Name is the name for the group.
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name" msg:"name"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Group{}

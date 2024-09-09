@@ -17,8 +17,8 @@ import (
 )
 
 type Frame struct {
-	Keys   channel.Keys   `json:"keys" msgpack:"keys"`
-	Series []telem.Series `json:"series" msgpack:"series"`
+	Keys   channel.Keys   `json:"keys" msg:"keys"`
+	Series []telem.Series `json:"series" msg:"series"`
 }
 
 func (f Frame) Vertical() bool { return len(f.Keys.Unique()) == len(f.Series) }

@@ -172,34 +172,34 @@ func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, othe
 type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name" msg:"name"`
 	// Leaseholder is the leaseholder node for the channel.
-	Leaseholder core.NodeKey `json:"node_id" msgpack:"node_id"`
+	Leaseholder core.NodeKey `json:"node_id" msg:"node_id"`
 	// DataType is the data type for the channel.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	DataType telem.DataType `json:"data_type" msg:a_type"`
 	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
 	// be int64 values written in ascending order. LocalIndex channels are most commonly
 	// unix nanosecond timestamps.
-	IsIndex bool `json:"is_index" msgpack:"is_index"`
+	IsIndex bool `json:"is_index" msg:"is_index"`
 	// Rate sets the rate at which the channels values are written. This is used to
 	// determine the timestamp of each sample.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	Rate telem.Rate `json:"rate" msg:"rate"`
 	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
 	// When creating a channel, a unique key will be generated.
-	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
+	LocalKey LocalKey `json:"local_key" msg:"local_key"`
 	// LocalIndex is the channel used to index the channel's values. The LocalIndex is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
-	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
+	LocalIndex LocalKey `json:"local_index" msg:"local_index"`
 	// Virtual is set to true if the channel is a virtual channel. The data from virtual
 	// channels is not persisted into the DB.
-	Virtual bool `json:"virtual" msgpack:"virtual"`
+	Virtual bool `json:"virtual" msg:"virtual"`
 	// Concurrency sets the policy for concurrent writes to the same region of the
 	// channel's data. Only virtual channels can have a policy of control.Shared.
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency control.Concurrency `json:"concurrency" msg:"concurrency"`
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
-	Internal bool `json:"internal" msgpack:"internal"`
+	Internal bool `json:"internal" msg:"internal"`
 }
 
 func (c Channel) String() string {

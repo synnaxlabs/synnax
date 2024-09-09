@@ -18,9 +18,9 @@ import (
 // It includes type information as well as encoded error data.
 type Payload struct {
 	// Type is the type of the error.
-	Type string `json:"type" msgpack:"type"`
+	Type string `json:"type" msg:"type"`
 	// Data is the encoded error data.
-	Data string `json:"data" msgpack:"data"`
+	Data string `json:"data" msg:"data"`
 }
 
 // Error implements the error interface.

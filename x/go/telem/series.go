@@ -11,20 +11,21 @@ package telem
 
 import (
 	"bytes"
+
 	"github.com/synnaxlabs/x/types"
 )
 
 type Series struct {
 	// TimeRange represents the time range occupied by the series' data.
-	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
+	TimeRange TimeRange `json:"time_range" msg:"time_range"`
 	// DataType is the data type of the series.
-	DataType DataType `json:"data_type" msgpack:"data_type"`
+	DataType DataType `json:"data_type" msg:"data_type"`
 	// Data is the underlying binary buffer.
-	Data []byte `json:"data" msgpack:"data"`
+	Data []byte `json:"data" msg:"data"`
 	// Alignment can be used to define the alignment of the series relative to other
 	// series in a logical group. This is typically used for defining the position of
 	// the series within a channel's data, but can be used for arbitrary purposes.
-	Alignment AlignmentPair `json:"alignment" msgpack:"alignment"`
+	Alignment AlignmentPair `json:"alignment" msg:"alignment"`
 }
 
 // Len returns the number of samples currently in the Series.

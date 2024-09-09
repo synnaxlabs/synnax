@@ -11,10 +11,11 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -30,17 +31,17 @@ import (
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
-	Key         channel.Key          `json:"key" msgpack:"key"`
-	Name        string               `json:"name" msgpack:"name"`
-	Leaseholder distribution.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	Rate        telem.Rate           `json:"rate" msgpack:"rate"`
-	DataType    telem.DataType       `json:"data_type" msgpack:"data_type" validate:"required"`
-	Density     telem.Density        `json:"density" msgpack:"density"`
-	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
-	Index       channel.Key          `json:"index" msgpack:"index"`
-	Alias       string               `json:"alias" msgpack:"alias"`
-	Virtual     bool                 `json:"virtual" msgpack:"virtual"`
-	Internal    bool                 `json:"internal" msgpack:"internal"`
+	Key         channel.Key          `json:"key" msg:"key"`
+	Name        string               `json:"name" msg:"name"`
+	Leaseholder distribution.NodeKey `json:"leaseholder" msg:seholder"`
+	Rate        telem.Rate           `json:"rate" msg:"rate"`
+	DataType    telem.DataType       `json:"data_type" msg:"data_type" validate:"required"`
+	Density     telem.Density        `json:"density" msg:"density"`
+	IsIndex     bool                 `json:"is_index" msg:"is_index"`
+	Index       channel.Key          `json:"index" msg:"index"`
+	Alias       string               `json:"alias" msg:"alias"`
+	Virtual     bool                 `json:"virtual" msg:"virtual"`
+	Internal    bool                 `json:"internal" msg:"internal"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -63,13 +64,13 @@ func NewChannelService(p Provider) *ChannelService {
 // ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
-	Channels []Channel `json:"channels" msgpack:"channels"`
+	Channels []Channel `json:"channels" msg:"channels"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
 // successfully been created in the cluster.
 type ChannelCreateResponse struct {
-	Channels []Channel `json:"channels" msgpack:"channels"`
+	Channels []Channel `json:"channels" msg:"channels"`
 }
 
 // Create creates a Channel based on the parameters given in the request.
@@ -102,35 +103,35 @@ func (s *ChannelService) Create(
 // from the cluster.
 type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its node Name.
-	NodeKey distribution.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey distribution.NodeKey `json:"node_key" msg:"node_key"`
 	// Optional parameter that queries a Channel by its key.
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys `json:"keys" msg:"keys"`
 	// Optional parameter that queries a Channel by its name.
-	Names []string `json:"names" msgpack:"names"`
+	Names []string `json:"names" msg:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
-	Search string `json:"search" msgpack:"search"`
+	Search string `json:"search" msg:"search"`
 	// RangeKey is used for fetching aliases.
-	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
+	RangeKey uuid.UUID `json:"range_key" msg:"range_key"`
 	// Limit limits the number of results returned.
-	Limit int `json:"limit" msgpack:"limit"`
+	Limit int `json:"limit" msg:"limit"`
 	// Offset offsets the results returned.
-	Offset int `json:"offset" msgpack:"offset"`
+	Offset int `json:"offset" msg:"offset"`
 	// DataTypes filters for channels whose DataType attribute matches the provided data types.
-	DataTypes []telem.DataType `json:"data_types" msgpack:"data_types"`
+	DataTypes []telem.DataType `json:"data_types" msg:"data_types"`
 	// NotDataTypes filters for channels whose DataType attribute does not match the provided data types.
-	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
+	NotDataTypes []telem.DataType `json:"not_data_types" msg:"not_data_types"`
 	// Virtual filters for channels that are virtual if true, or are not virtual if false.
-	Virtual *bool `json:"virtual" msgpack:"virtual"`
+	Virtual *bool `json:"virtual" msg:"virtual"`
 	// IsIndex filters for channels that are indexes if true, or are not indexes if false.
-	IsIndex *bool `json:"is_index" msgpack:"is_index"`
+	IsIndex *bool `json:"is_index" msg:"is_index"`
 	// Internal filters for channels that are internal if true, or are not internal if false.
-	Internal *bool `json:"internal" msgpack:"internal"`
+	Internal *bool `json:"internal" msg:"internal"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
 type ChannelRetrieveResponse struct {
 	// Channels is a slice of Channels matching the request.
-	Channels []Channel `json:"channels" msgpack:"channels"`
+	Channels []Channel `json:"channels" msg:"channels"`
 }
 
 // Retrieve retrieves a Channel based on the parameters given in the request. If no
@@ -272,8 +273,8 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 }
 
 type ChannelDeleteRequest struct {
-	Keys  channel.Keys `json:"keys" msgpack:"keys" validate:"required"`
-	Names []string     `json:"names" msgpack:"names" validate:"required"`
+	Keys  channel.Keys `json:"keys" msg:"keys" validate:"required"`
+	Names []string     `json:"names" msg:"names" validate:"required"`
 }
 
 func (s *ChannelService) Delete(
@@ -317,8 +318,8 @@ func (s *ChannelService) Delete(
 }
 
 type ChannelRenameRequest struct {
-	Keys  channel.Keys `json:"keys" msgpack:"keys" validate:"required"`
-	Names []string     `json:"names" msgpack:"names" validate:"required"`
+	Keys  channel.Keys `json:"keys" msg:"keys" validate:"required"`
+	Names []string     `json:"names" msg:"names" validate:"required"`
 }
 
 func (s *ChannelService) Rename(
@@ -341,7 +342,7 @@ type ChannelRetrieveGroupRequest struct {
 }
 
 type ChannelRetrieveGroupResponse struct {
-	Group group.Group `json:"group" msgpack:"group"`
+	Group group.Group `json:"group" msg:"group"`
 }
 
 func (s *ChannelService) RetrieveGroup(

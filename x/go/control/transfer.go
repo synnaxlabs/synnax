@@ -14,8 +14,8 @@ import (
 )
 
 type Subject struct {
-	Key  string `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
+	Key  string `json:"key" msg:"key"`
+	Name string `json:"name" msg:"name"`
 }
 
 func (s Subject) String() string {
@@ -26,9 +26,9 @@ func (s Subject) String() string {
 }
 
 type State[R comparable] struct {
-	Subject   Subject   `json:"subject" msgpack:"subject"`
-	Resource  R         `json:"resource" msgpack:"resource"`
-	Authority Authority `json:"authority" msgpack:"authority"`
+	Subject   Subject   `json:"subject" msg:"subject"`
+	Resource  R         `json:"resource" msg:"resource"`
+	Authority Authority `json:"authority" msg:"authority"`
 }
 
 // Transfer represents a transfer of control over an entity. It is represented as a

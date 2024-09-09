@@ -11,15 +11,16 @@ package http
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/errors"
 	"strconv"
 	"strings"
+
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Message struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
+	ID      int    `json:"id" msg:"id"`
+	Message string `json:"message" msg:sage"`
 }
 
 type (

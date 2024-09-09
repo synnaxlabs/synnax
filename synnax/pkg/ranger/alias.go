@@ -12,6 +12,8 @@ package ranger
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"strings"
 )
 
 const aliasKeySeparator = "---"
@@ -47,9 +48,9 @@ func parseAliasKey(s string) (uuid.UUID, channel.Key, error) {
 }
 
 type alias struct {
-	Range   uuid.UUID   `json:"range" msgpack:"range"`
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	Alias   string      `json:"alias" msgpack:"alias"`
+	Range   uuid.UUID   `json:"range" msg:"range"`
+	Channel channel.Key `json:"channel" msg:"channel"`
+	Alias   string      `json:"alias" msg:"alias"`
 }
 
 var _ gorp.Entry[string] = alias{}

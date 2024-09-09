@@ -46,10 +46,10 @@ type (
 
 type (
 	HardwareCreateRackRequest struct {
-		Racks []rack.Rack `json:"racks" msgpack:"racks"`
+		Racks []rack.Rack `json:"racks" msg:"racks"`
 	}
 	HardwareCreateRackResponse struct {
-		Racks []rack.Rack `json:"racks" msgpack:"racks"`
+		Racks []rack.Rack `json:"racks" msg:"racks"`
 	}
 )
 
@@ -76,14 +76,14 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 
 type (
 	HardwareRetrieveRackRequest struct {
-		Keys   []rack.Key `json:"keys" msgpack:"keys"`
-		Names  []string   `json:"names" msgpack:"names"`
-		Search string     `json:"search" msgpack:"search"`
-		Limit  int        `json:"limit" msgpack:"limit"`
-		Offset int        `json:"offset" msgpack:"offset"`
+		Keys   []rack.Key `json:"keys" msg:"keys"`
+		Names  []string   `json:"names" msg:"names"`
+		Search string     `json:"search" msg:"search"`
+		Limit  int        `json:"limit" msg:"limit"`
+		Offset int        `json:"offset" msg:"offset"`
 	}
 	HardwareRetrieveRackResponse struct {
-		Racks []rack.Rack `json:"racks" msgpack:"racks"`
+		Racks []rack.Rack `json:"racks" msg:"racks"`
 	}
 )
 
@@ -127,7 +127,7 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 }
 
 type HardwareDeleteRackRequest struct {
-	Keys []rack.Key `json:"keys" msgpack:"keys"`
+	Keys []rack.Key `json:"keys" msg:"keys"`
 }
 
 func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRackRequest) (res types.Nil, _ error) {
@@ -151,10 +151,10 @@ func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRa
 
 type (
 	HardwareCreateTaskRequest struct {
-		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		Tasks []task.Task `json:"tasks" msg:"tasks"`
 	}
 	HardwareCreateTaskResponse struct {
-		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		Tasks []task.Task `json:"tasks" msg:"tasks"`
 	}
 )
 
@@ -182,16 +182,16 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 type (
 	HardwareRetrieveTaskRequest struct {
 		Rack         rack.Key
-		Keys         []task.Key `json:"keys" msgpack:"keys"`
-		Names        []string   `json:"names" msgpack:"names"`
-		Types        []string   `json:"types" msgpack:"types"`
-		IncludeState bool       `json:"include_state" msgpack:"include_state"`
-		Search       string     `json:"search" msgpack:"search"`
-		Limit        int        `json:"limit" msgpack:"limit"`
-		Offset       int        `json:"offset" msgpack:"offset"`
+		Keys         []task.Key `json:"keys" msg:"keys"`
+		Names        []string   `json:"names" msg:"names"`
+		Types        []string   `json:"types" msg:"types"`
+		IncludeState bool       `json:"include_state" msg:"include_state"`
+		Search       string     `json:"search" msg:"search"`
+		Limit        int        `json:"limit" msg:"limit"`
+		Offset       int        `json:"offset" msg:"offset"`
 	}
 	HardwareRetrieveTaskResponse struct {
-		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		Tasks []task.Task `json:"tasks" msg:"tasks"`
 	}
 )
 
@@ -249,7 +249,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 }
 
 type HardwareDeleteTaskRequest struct {
-	Keys []task.Key `json:"keys" msgpack:"keys"`
+	Keys []task.Key `json:"keys" msg:"keys"`
 }
 
 func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTaskRequest) (res types.Nil, _ error) {
@@ -273,12 +273,12 @@ func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTa
 
 type (
 	HardwareCopyTaskRequest struct {
-		Key      task.Key `json:"key" msgpack:"key"`
-		Name     string   `json:"name" msgpack:"name"`
-		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
+		Key      task.Key `json:"key" msg:"key"`
+		Name     string   `json:"name" msg:"name"`
+		Snapshot bool     `json:"snapshot" msg:"snapshot"`
 	}
 	HardwareCopyTaskResponse struct {
-		Task task.Task `json:"task" msgpack:"task"`
+		Task task.Task `json:"task" msg:"task"`
 	}
 )
 
@@ -303,11 +303,11 @@ func (svc *HardwareService) CopyTask(ctx context.Context, req HardwareCopyTaskRe
 }
 
 type HardwareCreateDeviceRequest struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []device.Device `json:"devices" msg:"devices"`
 }
 
 type HardwareCreateDeviceResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []device.Device `json:"devices" msg:"devices"`
 }
 
 func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreateDeviceRequest) (res HardwareCreateDeviceResponse, _ error) {
@@ -331,18 +331,18 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	Keys      []string `json:"keys" msgpack:"keys"`
-	Names     []string `json:"names" msgpack:"names"`
-	Makes     []string `json:"makes" msgpack:"makes"`
-	Models    []string `json:"models" msgpack:"models"`
-	Locations []string `json:"locations" msgpack:"locations"`
-	Search    string   `json:"search" msgpack:"search"`
-	Limit     int      `json:"limit" msgpack:"limit"`
-	Offset    int      `json:"offset" msgpack:"offset"`
+	Keys      []string `json:"keys" msg:"keys"`
+	Names     []string `json:"names" msg:"names"`
+	Makes     []string `json:"makes" msg:"makes"`
+	Models    []string `json:"models" msg:"models"`
+	Locations []string `json:"locations" msg:"locations"`
+	Search    string   `json:"search" msg:"search"`
+	Limit     int      `json:"limit" msg:"limit"`
+	Offset    int      `json:"offset" msg:"offset"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []device.Device `json:"devices" msg:"devices"`
 }
 
 func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetrieveDeviceRequest) (res HardwareRetrieveDeviceResponse, _ error) {
@@ -396,7 +396,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 }
 
 type HardwareDeleteDeviceRequest struct {
-	Keys []string `json:"keys" msgpack:"keys"`
+	Keys []string `json:"keys" msg:"keys"`
 }
 
 func (svc *HardwareService) DeleteDevice(ctx context.Context, req HardwareDeleteDeviceRequest) (res types.Nil, _ error) {

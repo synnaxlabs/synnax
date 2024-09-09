@@ -12,12 +12,13 @@ package telem
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/clamp"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/clamp"
 )
 
 const (
@@ -111,9 +112,9 @@ func (ts TimeStamp) Span(t TimeStamp) TimeSpan { return TimeSpan(t - ts) }
 // exclusive.
 type TimeRange struct {
 	// Start is the start of the range.
-	Start TimeStamp `json:"start" msgpack:"start"`
+	Start TimeStamp `json:"start" msg:"start"`
 	// End is the end of the range.
-	End TimeStamp `json:"end" msgpack:"end"`
+	End TimeStamp `json:"end" msg:"end"`
 }
 
 // Span returns the TimeSpan that the TimeRange occupies.

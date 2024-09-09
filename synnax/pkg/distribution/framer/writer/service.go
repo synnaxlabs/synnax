@@ -44,25 +44,25 @@ import (
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
 	// ControlSubject is an identifier for the writer.
-	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
+	ControlSubject control.Subject `json:"control_subject" msg:"control_subject"`
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
 	// have an array specified for each key, and all series must be the same length (i.e.
 	// calls to Frame.Even must return true).
 	// [REQUIRED]
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys `json:"keys" msg:"keys"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
 	// telemetry occupying the given timestamp already exists for the provided keys,
 	// the writer will fail to open.
 	// [REQUIRED]
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	Start telem.TimeStamp `json:"start" msg:"start"`
 	// Authorities sets the control authority the writer has on each channel for the
 	// write. This should either be a single authority for all channels or a slice
 	// of authorities with the same length as the number of channels where each
 	// authority corresponds to the channel at the same index. Defaults to
 	// absolute authority for all channels.
 	// [OPTIONAL]
-	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	Authorities []control.Authority `json:"authorities" msg:"authorities"`
 	// ErrOnUnauthorized controls whether the writer will return an error when
 	// attempting to write to a channel that it does not have authority over.
 	// In non-control scenarios, this value should be set to true. In scenarios
@@ -72,17 +72,17 @@ type Config struct {
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
-	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
+	Mode ts.WriterMode `json:"mode" msg:"mode"`
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
 	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
-	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	EnableAutoCommit *bool `json:"enable_auto_commit" msg:"enable_auto_commit"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
 	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
 	// to AlwaysAutoPersist.
 	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
+	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msg:"auto_index_persist_interval"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {

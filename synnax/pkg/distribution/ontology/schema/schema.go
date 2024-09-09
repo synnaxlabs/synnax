@@ -28,7 +28,7 @@ func (t Type) String() string { return string(t) }
 type Schema struct {
 	// Type is the type of the entity. This type should be unique across all schemas
 	// in the cluster.
-	Type Type `json:"type" msgpack:"type"`
+	Type Type `json:"type" msg:"type"`
 	// Fields is a map of field names to field types.
-	Fields map[string]Field `json:"fields" msgpack:"fields"`
+	Fields map[string]Field `json:"fields" msg:"fields"`
 }

@@ -17,11 +17,11 @@ import (
 // KVPair is a unique, key-value pair tied directly to a specific range.
 type KVPair struct {
 	// Range is the range that the key-value pair belongs to.
-	Range uuid.UUID `json:"range" msgpack:"range"`
+	Range uuid.UUID `json:"range" msg:"range"`
 	// Key is the key of the key-value pair.
-	Key string `json:"key" msgpack:"key"`
+	Key string `json:"key" msg:"key"`
 	// Value is the value of the key-value pair.
-	Value string `json:"value" msgpack:"value"`
+	Value string `json:"value" msg:"value"`
 }
 
 var _ gorp.Entry[string] = KVPair{}

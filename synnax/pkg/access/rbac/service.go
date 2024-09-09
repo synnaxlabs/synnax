@@ -35,7 +35,7 @@ func (c Config) Override(other Config) Config {
 }
 
 type Config struct {
-	DB *gorp.DB `json:"db" msgpack:"db"`
+	DB *gorp.DB `json:"db" msg:`
 }
 
 type Service struct {

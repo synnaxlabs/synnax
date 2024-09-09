@@ -12,10 +12,11 @@
 package rack
 
 import (
+	"strconv"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 type Key uint32
@@ -34,9 +35,9 @@ func (k Key) IsValid() bool { return k.Node() != 0 && k.LocalKey() != 0 }
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 type Rack struct {
-	Key         Key    `json:"key" msgpack:"key"`
-	Name        string `json:"name" msgpack:"name"`
-	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
+	Key         Key    `json:"key" msg:"key"`
+	Name        string `json:"name" msg:"name"`
+	TaskCounter uint32 `json:"task_counter" msg:k_counter"`
 }
 
 var _ gorp.Entry[Key] = Rack{}

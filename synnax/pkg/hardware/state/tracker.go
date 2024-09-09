@@ -34,9 +34,9 @@ import (
 )
 
 type Rack struct {
-	Key       rack.Key                `json:"key" msgpack:"key"`
-	Heartbeat uint64                  `json:"heartbeat" msgpack:"heartbeat"`
-	Tasks     map[task.Key]task.State `json:"tasks" msgpack:"tasks"`
+	Key       rack.Key                `json:"key" msg:"key"`
+	Heartbeat uint64                  `json:"heartbeat" msg:"heartbeat"`
+	Tasks     map[task.Key]task.State `json:"tasks" msg:ks"`
 }
 
 type Tracker struct {

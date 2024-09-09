@@ -10,11 +10,12 @@
 package ontology
 
 import (
+	"strings"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
-	"strings"
 )
 
 // RelationshipType is a string that uniquely identifies the type of a relationship
@@ -38,12 +39,12 @@ const (
 // Think about the relationship like From->Type->To i.e. Dog->Parent->Puppy.
 type Relationship struct {
 	// From is the ID of the resource that the relationship starts from.
-	From ID `json:"from" msgpack:"from"`
+	From ID `json:"from" msg:"from"`
 	// To is the ID of the resource that the relationship ends at.
-	To ID `json:"to" msgpack:"to"`
+	To ID `json:"to" msg:"to"`
 	// Type is the type of relationship between the two resources. For more information
 	// on relationship types, see the [RelationshipType] documentation.
-	Type RelationshipType `json:"type" msgpack:"type"`
+	Type RelationshipType `json:"type" msg:"type"`
 }
 
 var _ gorp.Entry[[]byte] = Relationship{}

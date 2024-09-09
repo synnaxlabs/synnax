@@ -11,6 +11,7 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -37,37 +38,37 @@ const (
 type Channel struct {
 	// Key is a unique identifier to the channel within the cesium data engine.
 	// [REQUIRED]
-	Key ChannelKey `json:"key" msgpack:"key"`
+	Key ChannelKey `json:"key" msg:"key"`
 	// Name is a non-unique, human-readable identifier to the channel within the data
 	// engine. Note that it is never used to index or retrieve a channel.
 	// [OPTIONAL]
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name" msg:"name"`
 	// IsIndex determines whether the channel acts as an index channel. If false, then
 	// either the channel is a rate-based channel or uses another channel as its Index.
 	IsIndex bool
 	// DataType is the type of data stored in the channel.
 	// [REQUIRED]
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	DataType telem.DataType `json:"data_type" msg:"data_type"`
 	// Rate sets the rate at which the channels values are written. This is used to
 	// determine the timestamp of each sample. Rate based channels are far more efficient
 	// than index based channels, and should be used whenever channel's values are
 	// regularly spaced. One of Index or Rate must be non-zero.
 	// [OPTIONAL]
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	Rate telem.Rate `json:"rate" msg:"rate"`
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of Index or Rate must be non-zero.
 	// [OPTIONAL]
-	Index ChannelKey `json:"index" msgpack:"index"`
+	Index ChannelKey `json:"index" msg:"index"`
 	// Virtual specifies whether the channel is virtual.
 	// [OPTIONAL]
-	Virtual bool `json:"virtual" msgpack:"virtual"`
+	Virtual bool `json:"virtual" msg:"virtual"`
 	// Concurrency specifies the concurrency setting for the channel's controller
 	// (Exclusive or shared).
 	// [OPTIONAL]
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency control.Concurrency `json:"concurrency" msg:"concurrency"`
 	// Version specifies the format of files stored in this channel.
-	Version version.Version `json:"version" msgpack:"version"`
+	Version version.Version `json:"version" msg:sion"`
 }
 
 func (c Channel) String() string {

@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type OntologyService struct {
@@ -39,18 +40,18 @@ func NewOntologyService(p Provider) *OntologyService {
 
 type (
 	OntologyRetrieveRequest struct {
-		IDs              []ontology.ID   `json:"ids" msgpack:"ids" validate:"required"`
-		Children         bool            `json:"children" msgpack:"children"`
-		Parents          bool            `json:"parents" msgpack:"parents"`
-		IncludeSchema    bool            `json:"include_schema" msgpack:"include_schema"`
-		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
-		Types            []ontology.Type `json:"types" msgpack:"types"`
-		Term             string          `json:"term" msgpack:"term"`
-		Limit            int             `json:"limit" msgpack:"limit"`
-		Offset           int             `json:"offset" msgpack:"offset"`
+		IDs              []ontology.ID   `json:"ids" msg:"ids" validate:"required"`
+		Children         bool            `json:"children" msg:"children"`
+		Parents          bool            `json:"parents" msg:"parents"`
+		IncludeSchema    bool            `json:"include_schema" msg:"include_schema"`
+		ExcludeFieldData bool            `json:"exclude_field_data" msg:"exclude_field_data"`
+		Types            []ontology.Type `json:"types" msg:"types"`
+		Term             string          `json:"term" msg:"term"`
+		Limit            int             `json:"limit" msg:"limit"`
+		Offset           int             `json:"offset" msg:"offset"`
 	}
 	OntologyRetrieveResponse struct {
-		Resources []ontology.Resource `json:"resources" msgpack:"resources"`
+		Resources []ontology.Resource `json:"resources" msg:"resources"`
 	}
 )
 
@@ -98,12 +99,12 @@ func (o *OntologyService) Retrieve(
 
 type (
 	OntologyCreateGroupRequest struct {
-		Name   string      `json:"name" msgpack:"name" validate:"required"`
-		Key    uuid.UUID   `json:"key" msgpack:"key"`
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
+		Name   string      `json:"name" msg:"name" validate:"required"`
+		Key    uuid.UUID   `json:"key" msg:"key"`
+		Parent ontology.ID `json:"parent" msg:"parent"`
 	}
 	OntologyCreateGroupResponse struct {
-		Group group.Group `json:"group" msgpack:"group"`
+		Group group.Group `json:"group" msg:"group"`
 	}
 )
 
@@ -127,7 +128,7 @@ func (o *OntologyService) CreateGroup(
 }
 
 type OntologyDeleteGroupRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys" validate:"required"`
+	Keys []uuid.UUID `json:"keys" msg:"keys" validate:"required"`
 }
 
 func (o *OntologyService) DeleteGroup(
@@ -148,8 +149,8 @@ func (o *OntologyService) DeleteGroup(
 }
 
 type OntologyRenameGroupRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
-	Name string    `json:"name" msgpack:"name" validate:"required"`
+	Key  uuid.UUID `json:"key" msg:"key" validate:"required"`
+	Name string    `json:"name" msg:"name" validate:"required"`
 }
 
 func (o *OntologyService) RenameGroup(
@@ -170,8 +171,8 @@ func (o *OntologyService) RenameGroup(
 }
 
 type OntologyAddChildrenRequest struct {
-	ID       ontology.ID   `json:"id" msgpack:"id" validate:"required"`
-	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+	ID       ontology.ID   `json:"id" msg:"id" validate:"required"`
+	Children []ontology.ID `json:"children" msg:"children" validate:"required"`
 }
 
 func (o *OntologyService) AddChildren(
@@ -197,8 +198,8 @@ func (o *OntologyService) AddChildren(
 }
 
 type OntologyRemoveChildrenRequest struct {
-	ID       ontology.ID   `json:"id" msgpack:"id" validate:"required"`
-	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+	ID       ontology.ID   `json:"id" msg:"id" validate:"required"`
+	Children []ontology.ID `json:"children" msg:"children" validate:"required"`
 }
 
 func (o *OntologyService) RemoveChildren(
@@ -224,9 +225,9 @@ func (o *OntologyService) RemoveChildren(
 }
 
 type OntologyMoveChildrenRequest struct {
-	From     ontology.ID   `json:"from" msgpack:"from" validate:"required"`
-	To       ontology.ID   `json:"to" msgpack:"to" validate:"required"`
-	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+	From     ontology.ID   `json:"from" msg:"from" validate:"required"`
+	To       ontology.ID   `json:"to" msg:"to" validate:"required"`
+	Children []ontology.ID `json:"children" msg:"children" validate:"required"`
 }
 
 func (o *OntologyService) MoveChildren(
