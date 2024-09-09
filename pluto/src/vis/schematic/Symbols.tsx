@@ -324,13 +324,21 @@ export const PumpPreview = (props: PumpProps): ReactElement => (
   <Primitives.Pump {...props} />
 );
 
-export interface TankProps extends Primitives.TankProps {
+export interface TankProps extends Omit<Primitives.TankProps, "boxBorderRadius"> {
   label?: LabelExtensionProps;
 }
 
 export const Tank = Aether.wrap<SymbolProps<TankProps>>(
   "Tank",
-  ({ label, onChange, orientation, color, dimensions, borderRadius }): ReactElement => (
+  ({
+    backgroundColor,
+    label,
+    onChange,
+    orientation,
+    color,
+    dimensions,
+    borderRadius,
+  }): ReactElement => (
     <Labeled {...label} onChange={onChange}>
       <Primitives.Tank
         onResize={(dims) => onChange({ dimensions: dims })}
@@ -338,6 +346,7 @@ export const Tank = Aether.wrap<SymbolProps<TankProps>>(
         color={color}
         dimensions={dimensions}
         borderRadius={borderRadius}
+        backgroundColor={backgroundColor}
       />
     </Labeled>
   ),
@@ -347,18 +356,29 @@ export const TankPreview = (props: TankProps): ReactElement => (
   <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} />
 );
 
-export interface BoxProps extends Omit<TankProps, "borderRadius"> {}
+export interface BoxProps extends Omit<TankProps, "borderRadius"> {
+  borderRadius?: number;
+}
 
 export const Box = Aether.wrap<SymbolProps<BoxProps>>(
   "Box",
-  ({ label, onChange, orientation, color, dimensions }): ReactElement => (
+  ({
+    backgroundColor,
+    borderRadius,
+    label,
+    onChange,
+    orientation,
+    color,
+    dimensions,
+  }): ReactElement => (
     <Labeled {...label} onChange={onChange}>
       <Primitives.Tank
         onResize={(dims) => onChange({ dimensions: dims })}
         orientation={orientation}
         color={color}
         dimensions={dimensions}
-        borderRadius={3}
+        boxBorderRadius={borderRadius}
+        backgroundColor={backgroundColor}
       />
     </Labeled>
   ),

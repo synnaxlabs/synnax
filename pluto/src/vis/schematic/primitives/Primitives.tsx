@@ -678,58 +678,73 @@ export interface TankProps extends DivProps {
   borderRadius?: BorderRadius;
   color?: Color.Crude;
   onResize?: (dimensions: dimensions.Dimensions) => void;
+  boxBorderRadius?: number;
+  backgroundColor?: Color.Crude;
 }
 
 export const Tank = ({
   className,
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
+  boxBorderRadius,
   color,
+  backgroundColor,
   ...props
 }: TankProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
+  const hasCornerBoundaries = boxBorderRadius == null;
   const t = Theming.use();
   return (
     <Div
       className={CSS(className, CSS.B("tank"))}
       style={{
         ...dimensions,
-        borderRadius: cssBorderRadius(detailedRadius),
+        borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
         borderColor: Color.cssString(color ?? t.colors.gray.l9),
+        backgroundColor:
+          backgroundColor == null ? backgroundColor : Color.cssString(backgroundColor),
       }}
       {...props}
     >
       <HandleBoundary>
         <Handle location="top" orientation="left" left={50} top={0} id="1" />
-        <Handle
-          location="top"
-          orientation="left"
-          left={-0.5}
-          top={detailedRadius.topLeft.y - 1}
-          id="2"
-        />
-        <Handle
-          location="top"
-          orientation="left"
-          left={101}
-          top={detailedRadius.topRight.y - 1}
-          id="3"
-        />
+        {hasCornerBoundaries && (
+          <>
+            <Handle
+              location="top"
+              orientation="left"
+              left={-0.5}
+              top={detailedRadius.topLeft.y - 1}
+              id="2"
+            />
+            <Handle
+              location="top"
+              orientation="left"
+              left={101}
+              top={detailedRadius.topRight.y - 1}
+              id="3"
+            />
+          </>
+        )}
         <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
-        <Handle
-          location="bottom"
-          orientation="left"
-          left={-0.5}
-          top={100 - detailedRadius.bottomLeft.y + 1}
-          id="5"
-        />
-        <Handle
-          location="bottom"
-          orientation="left"
-          left={101}
-          top={100 - detailedRadius.bottomRight.y + 1}
-          id="6"
-        />
+        {hasCornerBoundaries && (
+          <>
+            <Handle
+              location="bottom"
+              orientation="left"
+              left={-0.5}
+              top={100 - detailedRadius.bottomLeft.y + 1}
+              id="5"
+            />
+            <Handle
+              location="bottom"
+              orientation="left"
+              left={101}
+              top={100 - detailedRadius.bottomRight.y + 1}
+              id="6"
+            />
+          </>
+        )}
         <Handle location="left" orientation="left" left={-0.5} top={50} id="7" />
         <Handle location="right" orientation="left" left={101} top={50} id="8" />
       </HandleBoundary>
