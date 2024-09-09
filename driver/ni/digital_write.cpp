@@ -104,6 +104,9 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
 
                     config.channel_key = channel_builder.required<uint32_t>(
                         "cmd_channel");
+
+                    config.enabled = channel_builder.optional<bool>("enabled", true);
+
                     this->writer_config.drive_cmd_channel_keys.push_back(
                         config.channel_key);
 
@@ -125,7 +128,7 @@ int ni::DigitalWriteSink::init() {
     auto channels = this->writer_config.channels;
 
     for (auto &channel: channels) {
-        if (channel.channel_type != "index") {
+        if (channel.channel_type != "index" || !channel.enabled) {
             err = this->check_ni_error(ni::NiDAQmxInterface::CreateDOChan(
                 this->task_handle, channel.name.c_str(), "",
                 DAQmx_Val_ChanPerLine));
