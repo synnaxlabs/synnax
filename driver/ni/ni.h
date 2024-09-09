@@ -110,7 +110,7 @@ struct ChannelConfig {
     std::string name;
     std::string channel_type;
     std::shared_ptr<ni::Analog> ni_channel;
-    bool enabled = false;
+    bool enabled = true;
     synnax::DataType data_type;
 };
 
