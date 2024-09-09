@@ -287,7 +287,7 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_state_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->writer_config.channels)
-        if (channel.channel_type == "index" && channel.enabled) keys.push_back(channel.state_channel_key);
+        if (channel.channel_type != "index" && channel.enabled) keys.push_back(channel.state_channel_key);
     keys.push_back(this->writer_config.state_index_key);
     return keys;
 }
