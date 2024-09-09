@@ -142,7 +142,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     uint64_t data_index = 0;
 
     for (int i = 0; i < num_channels; i++) {
-        if(this->reader_config.channels[i].enabled == false) continue;
+        if (this->reader_config.channels[i].enabled == false) continue;
         if (this->reader_config.channels[i].channel_type == "index") {
             auto t = synnax::Series(synnax::TIMESTAMP, this->num_samples_per_channel);
             for (uint64_t j = 0; j < d.samples_read_per_channel; ++j)
