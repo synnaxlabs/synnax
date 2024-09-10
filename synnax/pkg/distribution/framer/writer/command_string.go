@@ -12,11 +12,12 @@ func _() {
 	_ = x[Data-1]
 	_ = x[Commit-2]
 	_ = x[Error-3]
+	_ = x[SetAuthority-4]
 }
 
-const _Command_name = "OpenDataCommitError"
+const _Command_name = "OpenDataCommitErrorSetAuthority"
 
-var _Command_index = [...]uint8{0, 4, 8, 14, 19}
+var _Command_index = [...]uint8{0, 4, 8, 14, 19, 31}
 
 func (i Command) String() string {
 	if i >= Command(len(_Command_index)-1) {

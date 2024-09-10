@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
-//go:generate msgp
 const OntologyType ontology.Type = "workspace"
 
 func OntologyID(k uuid.UUID) ontology.ID {

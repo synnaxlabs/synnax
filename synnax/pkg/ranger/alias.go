@@ -25,8 +25,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
-//go:generate msgp
-
 const aliasKeySeparator = "---"
 
 func aliasKey(r uuid.UUID, c channel.Key) string {
@@ -49,6 +47,7 @@ func parseAliasKey(s string) (uuid.UUID, channel.Key, error) {
 	return r, c, nil
 }
 
+//go:generate msgp
 type alias struct {
 	Range   uuid.UUID   `json:"range" msg:"range"`
 	Channel channel.Key `json:"channel" msg:"channel"`
