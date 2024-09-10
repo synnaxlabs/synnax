@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Schematics"
-heading: "Schematic Control"
-description: "Command and control hardware using schematics."
+heading: "Schematics"
+description: "Control hardware using schematics."
 ---
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
@@ -226,6 +226,17 @@ The color of the bar indicates what is controlling the elements on the Schematic
 is a legend on the display indicating what controlling node is what color.
 
 <Video client:only="react" id="console/schematics/valve" />
+
+<Divider.Divider direction="x" />
+
+## Snapshotting a Schematic
+
+Oftentimes, you will want to save the configuration of a schematic to a particular
+range, so you can see exactly how a schematic looked at a certain point in time. To do
+this, you can snapshot a schematic to a range by finding the schematic in the resources
+toolbar, opening the context menu, and snapshotting the schematic to a range.
+
+<Video client:only="react" id="console/schematics/snapshot" />
 
 <Divider.Divider direction="x" />
 

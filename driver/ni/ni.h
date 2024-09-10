@@ -45,7 +45,9 @@
 #ifdef _WIN32
 #include "dll_check_windows.h"
 #else
+
 #include "dll_check_linux.h"
+
 #endif
 
 namespace ni {
@@ -163,7 +165,7 @@ public:
 
 
     void log_error(std::string err_msg);
-    
+
     std::vector<synnax::ChannelKey> getChannelKeys();
 
     virtual void parse_config(config::Parser &parser);
@@ -177,14 +179,15 @@ public:
     virtual freighter::Error stop_ni();
 
     void clear_task();
-    
-    virtual void stoppedWithErr(const freighter::Error &err) override;
+
+    virtual void stopped_with_err(const freighter::Error &err) override;
 
     virtual bool ok();
 
     virtual void get_index_keys();
 
-    virtual std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) =0;
+    virtual std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) = 0;
 
     virtual void parse_channels(config::Parser &parser) = 0;
 
@@ -193,8 +196,8 @@ public:
     virtual void acquire_data() = 0;
 
     virtual int create_channels() = 0;
-    
-    
+
+
     /// @brief shared resources between daq sampling thread and acquisition thread
     struct DataPacket {
         // void *data; // actual data
@@ -204,6 +207,7 @@ public:
         uint64_t tf; // final timestamp
         int32 samples_read_per_channel;
     };
+
     TSQueue<DataPacket> data_queue;
     std::thread sample_thread;
 
@@ -214,7 +218,7 @@ public:
     int buffer_size = 0;
     uint64_t num_channels = 0;
     bool ok_state = true;
-    
+
     /// @brief Synnax related resources
     json err_info;
     std::shared_ptr<task::Context> ctx;
@@ -225,8 +229,7 @@ public:
 
     /// @brief maps ni channel name to path in task configuration json
     std::map<std::string, std::string> channel_map;
-
-};
+}; // class Source
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    AnalogReadSource                           //
@@ -240,7 +243,8 @@ public:
     ) : Source(task_handle, ctx, task) {
     }
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) override;
 
     void acquire_data() override;
 
@@ -249,8 +253,8 @@ public:
     int create_channels() override;
 
     std::shared_ptr<ni::Analog> parse_channel(config::Parser &parser,
-                                             const std::string &channel_type,
-                                             const std::string &channel_name);
+                                              const std::string &channel_type,
+                                              const std::string &channel_name);
 
     void parse_channels(config::Parser &parser) override;
 
@@ -258,14 +262,16 @@ public:
 
     int validate_channels() override;
 
-    void write_to_series(synnax::Series &series, double &data, synnax::DataType data_type);
+    void write_to_series(synnax::Series &series, double &data,
+                         synnax::DataType data_type);
+
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
     uint64_t num_ai_channels = 0;
-};
+}; // class AnalogReadSource
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    DigitalReadSource                           //
+//                                    DigitalReadSource                          //
 ///////////////////////////////////////////////////////////////////////////////////
 class DigitalReadSource final : public Source {
 public:
@@ -276,7 +282,8 @@ public:
     ) : Source(task_handle, ctx, task) {
     }
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<synnax::Frame, freighter::Error>
+    read(breaker::Breaker &breaker) override;
 
     void acquire_data() override;
 
@@ -287,7 +294,7 @@ public:
     int create_channels() override;
 
     void parse_channels(config::Parser &parser) override;
-};
+}; // class DigitalReadSource
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
@@ -300,12 +307,12 @@ public:
                          synnax::ChannelKey &state_index_key,
                          std::vector<synnax::ChannelKey> &state_channel_keys);
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker);
+    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
     synnax::Frame get_state();
 
     void update_state(std::queue<synnax::ChannelKey> &modified_state_keys,
-                     std::queue<std::uint8_t> &modified_state_values);
+                      std::queue<std::uint8_t> &modified_state_values);
 
 private:
     std::mutex state_mutex;
@@ -314,7 +321,7 @@ private:
     std::map<synnax::ChannelKey, uint8_t> state_map;
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
-};
+}; // class StateSource
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalWriteSink                           //
@@ -333,7 +340,7 @@ struct WriterConfig {
     synnax::ChannelKey state_index_key;
     std::queue<synnax::ChannelKey> modified_state_keys;
     std::queue<std::uint8_t> modified_state_values;
-};
+}; // struct WriterConfig
 
 class DigitalWriteSink final : public pipeline::Sink {
 public:
@@ -356,7 +363,7 @@ public:
     freighter::Error stop_ni();
 
     freighter::Error cycle();
-    
+
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 
     std::vector<synnax::ChannelKey> get_state_channel_keys();
@@ -367,7 +374,7 @@ public:
 
     void jsonify_error(std::string);
 
-    void stoppedWithErr(const freighter::Error &err) override;
+    void stopped_with_err(const freighter::Error &err) override;
 
     void log_error(std::string err_msg);
 
@@ -397,7 +404,7 @@ private:
     breaker::Breaker breaker;
     synnax::Task task;
     std::map<std::string, std::string> channel_map;
-};
+}; // class DigitalWriteSink
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Scanner                                    //
@@ -419,7 +426,7 @@ public:
 
     void create_devices();
 
-    void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
+    void set_scan_thread(std::shared_ptr<std::thread> scan_thread); // TODO: rename
 
     void log_err(std::string err_msg);
 
@@ -427,6 +434,7 @@ private:
     json get_device_properties(NISysCfgResourceHandle resource);
 
     json devices;
+    std::set<std::string> device_keys;
     bool ok_state = true;
     NISysCfgSessionHandle session;
     NISysCfgFilterHandle filter;
@@ -434,7 +442,7 @@ private:
     synnax::Task task;
     std::shared_ptr<task::Context> ctx;
     std::shared_ptr<std::thread> scan_thread = nullptr; //optional scan thread a task could be running
-};
+}; // class Scanner
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                         //
@@ -473,8 +481,7 @@ private:
     std::shared_ptr<std::thread> thread;
     bool ok_state = true;
     synnax::Rate scan_rate = synnax::Rate(1);
-};
-
+}; // class ScannerTask
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -510,7 +517,7 @@ private:
     pipeline::Acquisition daq_read_pipe; // source is a daqreader
     bool ok_state = true;
     std::shared_ptr<ni::Source> source;
-};
+}; // class ReaderTask
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //
@@ -552,7 +559,7 @@ private:
     pipeline::Acquisition state_write_pipe;
     bool ok_state = true;
     std::shared_ptr<ni::DigitalWriteSink> sink;
-};
+}; // class WriterTask
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Factory                                    //
@@ -561,21 +568,20 @@ class Factory final : public task::Factory {
 public:
     Factory();
 
-    std::pair<std::unique_ptr<task::Task>, bool> configureTask(
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task) override;
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-    configureInitialTasks(const std::shared_ptr<task::Context> &ctx,
-                          const synnax::Rack &rack) override;
+    configure_initial_tasks(const std::shared_ptr<task::Context> &ctx,
+                            const synnax::Rack &rack) override;
 
 private:
     bool dlls_present = false;
-
 };
 
-static inline bool dlls_available(){
-        std::vector<std::string> dlls = {
+static inline bool dlls_available() {
+    std::vector<std::string> dlls = {
         "nicaiu.dll",
         "nipalu.dll",
         "nimdbgu.dll",
@@ -615,14 +621,13 @@ static inline bool dlls_available(){
     };
 
     bool d = true;
-    for (const auto &dll: dlls) 
-        if (!does_dll_exist(dll.c_str())) 
+    for (const auto &dll: dlls)
+        if (!does_dll_exist(dll.c_str()))
             d = false;
-    if (d) LOG(INFO) << "[ni] All required DLLs found.";
+    if (d)
+        LOG(INFO) << "[ni] All required DLLs found.";
     return d;
-}
-
+} // dlls_available
 
 const std::string INTEGRATION_NAME = "ni";
-
 } // namespace ni

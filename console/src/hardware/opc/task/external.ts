@@ -8,14 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { READ_SELECTABLE, ReadTask } from "@/hardware/opc/task/ReadTask";
-import { READ_TYPE } from "@/hardware/opc/task/types";
+import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types";
+import { WRITE_SELECTABLE, WriteTask } from "@/hardware/opc/task/WriteTask";
 import { Layout } from "@/layout";
 
 export * from "@/hardware/opc/task/ReadTask";
 export * from "@/hardware/opc/task/types";
+export * from "@/hardware/opc/task/WriteTask";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [READ_TYPE]: ReadTask,
+  [WRITE_TYPE]: WriteTask,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [READ_SELECTABLE];
+export const SELECTABLES: Layout.Selectable[] = [READ_SELECTABLE, WRITE_SELECTABLE];

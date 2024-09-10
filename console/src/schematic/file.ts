@@ -8,7 +8,7 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
 import { Permissions } from "@/permissions";
@@ -18,61 +18,67 @@ import { select } from "@/schematic/selectors";
 import { remove } from "@/schematic/slice";
 
 export const fileHandler: Layout.FileHandler = async ({
-  mosaicKey,
   file,
   placer,
-  loc,
-  name,
+  tab,
+  dispatch,
   client,
   workspaceKey,
   confirm,
+  name: fileName,
   store,
 }): Promise<boolean> => {
-  const newState = parser(file);
-  if (newState == null) return false;
+  const state = parser(file);
+  if (state == null) return false;
   const canCreate = Permissions.selectSchematic(store.getState());
   if (!canCreate) throw new Error("You do not have permission to create a schematic");
-  const creator = create({
-    ...newState,
-    name,
-    tab: {
-      mosaicKey: mosaicKey,
-      location: loc,
-    },
-  });
-  const key = newState.key;
+  const key = state.key;
+  let name = file?.name;
+  if (typeof name !== "string" || name.length === 0)
+    name = fileName.split(".").slice(0, -1).join(".");
+  if (name.length === 0) name = "New Schematic";
+
   const existingState = select(store.getState(), key);
+  const existingName = Layout.select(store.getState(), key)?.name;
+
+  const creator = create({
+    ...state,
+    tab,
+    name,
+  });
+
   if (existingState != null) {
-    if (deep.equal(existingState, newState)) throw Error(`${name} already exists.`);
     if (
       !(await confirm({
-        message: `${name} already exists`,
+        message:
+          `${fileName} already exists` +
+          (existingName != null ? ` as ${existingName}` : ""),
         description: "Would you like to replace the existing schematic?",
         cancel: { label: "Cancel" },
         confirm: { label: "Replace", variant: "error" },
       }))
     )
-      throw errors.CANCELED;
-    Layout.remove({ keys: [key] });
-    remove({ keys: [key] });
-  }
-  if (client != null) {
-    try {
-      await client.workspaces.schematic.retrieve(key);
-      await client.workspaces.schematic.setData(
-        key,
-        newState as unknown as UnknownRecord,
-      );
-    } catch (e) {
-      if (!NotFoundError.matches(e)) throw e;
-      if (workspaceKey != null)
-        await client.workspaces.schematic.create(workspaceKey, {
-          name,
-          data: newState as unknown as UnknownRecord,
-          ...newState,
-        });
-    }
+      return true;
+    dispatch(Layout.remove({ keys: [key] }));
+    dispatch(remove({ keys: [key] }));
   }
   placer(creator);
+  if (client == null) return true;
+
+  // Logic for changing the schematic in the cluster
+  try {
+    await client.workspaces.schematic.retrieve(key);
+    await client.workspaces.schematic.setData(key, state as unknown as UnknownRecord);
+    await client.workspaces.schematic.rename(key, name);
+  } catch (e) {
+    if (!NotFoundError.matches(e)) throw e;
+    if (workspaceKey != null)
+      await client.workspaces.schematic.create(workspaceKey, {
+        data: state as unknown as UnknownRecord,
+        name,
+        snapshot: state.snapshot,
+        key,
+      });
+  }
   return true;
 };

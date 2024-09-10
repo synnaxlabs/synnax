@@ -54,6 +54,7 @@ export type Key<T, D extends number = 5> = [D] extends [never]
 export interface GetOptions<O extends boolean | undefined = boolean | undefined> {
   optional: O;
   getter?: (obj: UnknownRecord, key: string) => unknown;
+  separator?: string;
 }
 
 /**
@@ -101,17 +102,18 @@ export const transformPath = (
     index: number,
     parts: string[],
   ) => string | string[] | undefined,
+  separator = ".",
 ): string => {
-  const parts = path.split(".");
+  const parts = path.split(separator);
   const result = parts
     .map((part, index) => {
       const r = replacer(part, index, parts);
       if (r == null) return null;
       if (typeof r === "string") return r;
-      return r.join(".");
+      return r.join(separator);
     })
     .filter((part) => part != null) as string[];
-  return result.join(".");
+  return result.join(separator);
 };
 
 /**
@@ -128,10 +130,11 @@ export const transformPath = (
 export const get = (<V = unknown, T = UnknownRecord>(
   obj: T,
   path: string,
-  opts: GetOptions = { optional: false },
+  opts: GetOptions = { optional: false, separator: "." },
 ): V | null => {
+  opts.separator ??= ".";
   const { optional, getter = (obj, key) => (obj as UnknownRecord)[key] } = opts;
-  const parts = path.split(".");
+  const parts = path.split(opts.separator);
   if (parts.length === 1 && parts[0] === "") return obj as unknown as V;
   let result: UnknownRecord = obj as UnknownRecord;
   for (const part of parts) {

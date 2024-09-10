@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -443,7 +444,9 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		if fr.Series[i].Len() != lengthOfFrame {
 			return errors.Wrapf(
 				validate.Error,
-				"frame must have the same length for all series, expected %d, got %d",
+				`frame must have the same length for all series, expected %d, got %d. \n 
+				See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1 
+				`,
 				lengthOfFrame,
 				fr.Series[i].Len(),
 			)
@@ -457,7 +460,10 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 	if numChannelsWrittenTo != len(w.internal) {
 		return errors.Wrapf(
 			validate.Error,
-			"frame must have exactly one series per channel, expected %d, got %d",
+			`frame must have exactly one series for each data channel associated with an index. Expected
+			%d series, got %d.
+			See https://docs.synnaxlabs.com/reference/concepts/writes#the-rules-of-writes
+			`,
 			len(w.internal),
 			numChannelsWrittenTo,
 		)

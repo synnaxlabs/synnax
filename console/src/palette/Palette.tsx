@@ -210,7 +210,7 @@ export const Palette = ({
           >
             Quick Search & Command
           </Button.Button>
-          <PalletteDialogContent
+          <PaletteDialogContent
             value={value}
             onChange={setValue}
             commands={newCommands}
@@ -265,7 +265,7 @@ export interface PaletteDialogProps extends Input.Control<string> {
   close: () => void;
 }
 
-const PalletteDialogContent = ({
+const PaletteDialogContent = ({
   value,
   onChange,
   commands,

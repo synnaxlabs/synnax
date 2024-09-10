@@ -119,7 +119,8 @@ const SymbolRenderer = ({
     [dispatch, symbolKey, layoutKey, key],
   );
 
-  const C = Core.SYMBOLS[key];
+  const C = Core.SYMBOLS[key as Core.Variant];
+
   const zoom = useSelectViewport(layoutKey);
 
   if (C == null) throw new Error(`Symbol ${key} not found`);

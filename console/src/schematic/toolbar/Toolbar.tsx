@@ -8,14 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Status, Tabs } from "@synnaxlabs/pluto";
+import { Align, Button, Status, Tabs } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Permissions } from "@/permissions";
+import { useExport } from "@/schematic/hooks";
 import {
   useSelect,
   useSelectControlStatus,
@@ -76,6 +78,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const schematic = useSelect(layoutKey);
+  const handleExport = useExport(name);
+  const handleLink = Link.useCopyToClipboard();
+
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       if (!schematic.editable) return <NotEditableContent layoutKey={layoutKey} />;
@@ -110,7 +115,34 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     >
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Schematic />}>{name}</ToolbarTitle>
-        {canEdit && <Tabs.Selector style={{ borderBottom: "none" }} />}
+        <Align.Space direction="x" align="center" empty>
+          <Align.Space direction="x" size={0} style={{ height: "100%", width: 66 }}>
+            <Button.Icon
+              tooltip={`Export ${name}`}
+              sharp
+              size="medium"
+              style={{ height: "100%" }}
+              onClick={() => handleExport(schematic.key)}
+            >
+              <Icon.Export />
+            </Button.Icon>
+            <Button.Icon
+              tooltip={`Copy link to ${name}`}
+              sharp
+              size="medium"
+              style={{ height: "100%" }}
+              onClick={() =>
+                handleLink({
+                  name,
+                  ontologyID: { key: schematic.key, type: "schematic" },
+                })
+              }
+            >
+              <Icon.Link />
+            </Button.Icon>
+          </Align.Space>
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />}
+        </Align.Space>
       </ToolbarHeader>
       <Tabs.Content />
     </Tabs.Provider>

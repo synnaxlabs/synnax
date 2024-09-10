@@ -124,6 +124,7 @@ interface TrafficLightProps extends Button.IconProps {}
 const TrafficLight = ({
   className,
   disabled,
+  color: _,
   ...props
 }: TrafficLightProps): ReactElement => (
   <button

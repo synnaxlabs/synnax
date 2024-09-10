@@ -40,7 +40,7 @@
     border: var(--pluto-border);
     border-color: var(--pluto-bg) !important;
     & * {
-        color: var(--pluto-text-on-primary) !important;
+        color: var(--pluto-text-color, var(--pluto-text-on-primary)) !important;
     }
 
     &:hover:not(.pluto--disabled) {
@@ -53,6 +53,24 @@
         --pluto-bg: var(--pluto-primary-m1);
         background: var(--pluto-bg);
         border-color: var(--pluto-bg) !important;
+    }
+
+    &.pluto-btn--custom-color {
+        --pluto-bg: rgba(var(--pluto-btn-color), 0.9);
+        background: var(--pluto-bg);
+        border-color: var(--pluto-bg) !important;
+
+        &:hover:not(.pluto--disabled) {
+            --pluto-bg: rgba(var(--pluto-btn-color), 1);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
+        }
+
+        &:active:not(.pluto--disabled) {
+            --pluto-bg: rgba(var(--pluto-btn-color), 0.8);
+            background: var(--pluto-bg);
+            border-color: var(--pluto-bg) !important;
+        }
     }
 
     &.pluto--warning {
@@ -95,9 +113,9 @@
 /* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
-    --pluto-bg: var(--pluto-gray-l1);
+    --pluto-bg: var(--pluto-gray-l2);
     background: var(--pluto-bg);
-    border: var(--pluto-border-width) solid var(--pluto-border-color);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l4);
 
     &.pluto--warning {
         border-color: var(--pluto-warning-z) !important;
@@ -110,7 +128,7 @@
     }
 
     &:hover:not(.pluto--disabled) {
-        --pluto-bg: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l3);
         background: var(--pluto-bg);
         border-color: var(--pluto-gray-l4) !important;
     }

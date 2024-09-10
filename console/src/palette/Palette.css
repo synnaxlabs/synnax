@@ -15,8 +15,6 @@
 }
 
 .console-palette__btn {
-    background-color: var(--pluto-gray-l2) !important;
-    border-color: var(--pluto-gray-l4) !important;
     width: 100%;
 
     &:hover {
@@ -28,6 +26,10 @@
     width: 100%;
     max-width: 1200px;
     height: 500px;
+    width: 95vw;
+    min-height: 400px;
+    max-width: 1200px;
+    overflow: hidden;
 
     .pluto-list__item {
         .console-palette__actions {
@@ -47,12 +49,6 @@
     & .pluto-status-text {
         height: 150px;
     }
-}
-
-.console-palette__content {
-    width: 95vw;
-    min-height: 400px;
-    max-width: 1200px;
 }
 
 .console-palette__item {

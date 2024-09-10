@@ -4,6 +4,7 @@ export interface Props {
 }
 
 const { variant = "info" }: Props = Astro.props;
+import { Icon } from "@synnaxlabs/media";
 ---
 
 <div class={`note ${variant}`}>
@@ -16,6 +17,7 @@ const { variant = "info" }: Props = Astro.props;
         margin: 4rem 0;
         border: var(--pluto-border);
         border-radius: 1rem;
+        box-shadow: 0 0 1rem 0 var(--pluto-gray-l4-40);
 
         & > * {
             font-size: var(--pluto-small-size);
@@ -25,17 +27,13 @@ const { variant = "info" }: Props = Astro.props;
         }
 
         &.info {
-            background: var(--pluto-primary-z-30);
-            border-color: var(--pluto-primary-z-40);
+            background: var(--pluto-primary-z-10);
+            border-color: var(--pluto-primary-z-50);
         }
 
         &.warning {
-            background: #fffbe0;
-            border-color: #f9eba8;
-            @media (prefers-color-scheme: dark) {
-                border-color: #fae78ba6;
-                background: #f6fa0034;
-            }
+            background: #ffe8501d;
+            border-color: #ffe357;
         }
     }
 </style>

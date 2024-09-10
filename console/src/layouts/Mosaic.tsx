@@ -15,6 +15,7 @@ import {
   Eraser,
   Mosaic as Core,
   Nav,
+  Status,
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
@@ -38,7 +39,7 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { SchematicServices } from "@/schematic/services";
+import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
@@ -141,32 +142,51 @@ export const Mosaic = memo((): ReactElement => {
 
   const workspaceKey = Workspace.useSelectActiveKey();
   const confirm = Confirm.useModal();
+  const addStatus = Status.useAggregator();
 
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
-      const files = Array.from(event.dataTransfer.files);
-      if (files.length === 0) return;
-      files.forEach((file) => {
-        if (file.type !== "application/json") return;
-        file
-          ?.arrayBuffer()
-          .then((b) => {
-            const fileAsJSON = JSON.parse(new TextDecoder().decode(b));
-            const name = file.name.slice(0, -5);
-            SchematicServices.fileHandler({
-              mosaicKey: nodeKey,
-              file: fileAsJSON,
-              placer,
-              name,
-              store,
-              confirm,
-              client,
-              workspaceKey,
-              loc,
-            });
-          })
-          .catch((e) => console.error(e));
-      });
+      void (async () => {
+        const files = Array.from(event.dataTransfer.files);
+        for (const file of files) {
+          const name = file.name;
+          try {
+            if (file.type !== "application/json")
+              throw Error(`${name} is not a JSON file`);
+            const buffer = await file.arrayBuffer();
+            const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
+
+            let handlerFound = false;
+            for (const fileHandler of FILE_HANDLERS) {
+              if (
+                await fileHandler({
+                  file: fileAsJSON,
+                  placer,
+                  name,
+                  store,
+                  confirm,
+                  client,
+                  workspaceKey: workspaceKey ?? undefined,
+                  dispatch,
+                  tab: { mosaicKey: nodeKey, location: loc },
+                })
+              ) {
+                handlerFound = true;
+                break;
+              }
+            }
+            if (!handlerFound)
+              throw Error(`${name} is not recognized as a Synnax object`);
+          } catch (e) {
+            if (e instanceof Error)
+              addStatus({
+                variant: "error",
+                message: `Failed to read ${name}`,
+                description: e.message,
+              });
+          }
+        }
+      })();
     },
     [dispatch],
   );
@@ -222,4 +242,4 @@ export const Window = memo(({ layoutKey }: Layout.RendererProps): ReactElement =
 });
 Window.displayName = "MosaicWindow";
 
-export const FILE_HANDLERS = [SchematicServices.fileHandler];
+export const FILE_HANDLERS = [Schematic.fileHandler];

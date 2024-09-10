@@ -98,7 +98,7 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   const range = useSelect(args.key);
   const client = Synnax.use();
   const isCreate = args.key == null;
-  const isRemoteEdit = !isCreate && (range == null || range.persisted);
+  const isEdit = !isCreate && (range == null || range.persisted);
   const initialValues = useQuery<DefineRangeFormProps>({
     queryKey: ["range-edit", args],
     queryFn: async () => {
@@ -138,7 +138,7 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   if (initialValues.isError) throw initialValues.error;
   return (
     <EditLayoutForm
-      isRemoteEdit={isRemoteEdit}
+      isRemoteEdit={isEdit}
       initialValues={initialValues.data}
       {...props}
     />
@@ -190,8 +190,6 @@ const EditLayoutForm = ({
     },
     onError: (e) => addStatus({ message: e.message, variant: "error" }),
   });
-
-  const showSaveToSynnax = isCreate || !isRemoteEdit;
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
@@ -291,25 +289,12 @@ const EditLayoutForm = ({
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            variant={showSaveToSynnax ? "outlined" : "filled"}
-            onClick={() => mutate(false)}
+            onClick={() => mutate(true)}
             disabled={isPending}
-            triggers={showSaveToSynnax ? undefined : [SAVE_TRIGGER]}
+            triggers={[SAVE_TRIGGER]}
           >
-            Save {!isRemoteEdit && "Locally"}
+            Save
           </Button.Button>
-          {showSaveToSynnax && (
-            <Button.Button
-              onClick={() => mutate(true)}
-              disabled={client == null || isPending}
-              tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
-              tooltipLocation="bottom"
-              loading={isPending}
-              triggers={[SAVE_TRIGGER]}
-            >
-              Save to Synnax
-            </Button.Button>
-          )}
         </Nav.Bar.End>
       </Layout.BottomNavBar>
     </Align.Space>

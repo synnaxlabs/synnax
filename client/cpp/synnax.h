@@ -97,7 +97,8 @@ public:
             5
         );
         t.use(auth_mw);
-        channels = ChannelClient(std::move(t.chan_retrieve), std::move(t.chan_create));
+        channels = ChannelClient(std::move(t.chan_retrieve),
+                                 std::move(t.chan_create));
         ranges = RangeClient(
             std::move(t.range_retrieve),
             std::move(t.range_create),
