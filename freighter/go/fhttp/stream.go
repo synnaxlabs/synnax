@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate msgp
 var (
 	_ freighter.StreamClient[any, types.Nil] = (*streamClient[any, types.Nil])(nil)
 	_ freighter.ClientStream[any, types.Nil] = (*clientStream[any, types.Nil])(nil)

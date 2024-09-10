@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+//go:generate msgp
 type Device struct {
 	// The key of the device is its serial no.
 	Key string `json:"key" msg:"key"`

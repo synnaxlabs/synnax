@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+//go:generate msgp
 type Message struct {
 	ID      int    `json:"id" msg:"id"`
 	Message string `json:"message" msg:sage"`

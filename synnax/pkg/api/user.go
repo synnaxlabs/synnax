@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
+
 // UserService is the core authentication service for the delta API.
 type UserService struct {
 	dbProvider

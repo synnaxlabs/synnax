@@ -11,6 +11,7 @@ package relay
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
+//go:generate msgp
 type Streamer = confluence.Segment[Request, Response]
 
 type streamer struct {

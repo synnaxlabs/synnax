@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+//go:generate msgp
 type Key uint32
 
 func NewKey(node core.NodeKey, localKey uint16) Key {

@@ -24,6 +24,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+//go:generate msgp
+
 // Range (short for time range) is an interesting, user defined regions of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {

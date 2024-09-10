@@ -14,6 +14,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
+
 // KVPair is a unique, key-value pair tied directly to a specific range.
 type KVPair struct {
 	// Range is the range that the key-value pair belongs to.

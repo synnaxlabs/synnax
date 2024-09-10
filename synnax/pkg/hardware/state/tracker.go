@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate msgp
 type Rack struct {
 	Key       rack.Key                `json:"key" msg:"key"`
 	Heartbeat uint64                  `json:"heartbeat" msg:"heartbeat"`

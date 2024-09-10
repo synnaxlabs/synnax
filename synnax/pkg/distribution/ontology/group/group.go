@@ -16,6 +16,8 @@ import (
 )
 
 // Group is a simple grouping of resources within the cluster's ontology.
+//
+//go:generate msgp
 type Group struct {
 	// Key is the unique identifier for the group. Will be generated on creation if not
 	// set.

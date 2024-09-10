@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
+
 // Policy is a simple access control policy in the RBAC model.
 // A policy sets an action that is allowed. All other accesses except for those
 // specified by a policy are denied by default.

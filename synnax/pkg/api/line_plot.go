@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
 type LinePlotService struct {
 	dbProvider
 	accessProvider

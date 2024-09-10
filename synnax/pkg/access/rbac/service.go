@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+//go:generate msgp
 var (
 	_             config.Config[Config] = Config{}
 	DefaultConfig                       = Config{}
@@ -35,7 +36,7 @@ func (c Config) Override(other Config) Config {
 }
 
 type Config struct {
-	DB *gorp.DB `json:"db" msg:`
+	DB *gorp.DB `json:"db" msg:"db"`
 }
 
 type Service struct {

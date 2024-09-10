@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
 type Schematic struct {
 	Key      uuid.UUID `json:"key" msg:"key"`
 	Snapshot bool      `json:"snapshot" msg:"snapshot"`

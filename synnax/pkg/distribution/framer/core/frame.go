@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+//go:generate msgp
+
 type Frame struct {
 	Keys   channel.Keys   `json:"keys" msg:"keys"`
 	Series []telem.Series `json:"series" msg:"series"`

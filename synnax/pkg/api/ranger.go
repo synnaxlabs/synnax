@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
 type (
 	Range       = ranger.Range
 	RangeKVPair = ranger.KVPair

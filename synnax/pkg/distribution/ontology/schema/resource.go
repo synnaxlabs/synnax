@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
+
 // ID is a unique identifier for a Resource. An example:
 //
 //	userKey := Name{

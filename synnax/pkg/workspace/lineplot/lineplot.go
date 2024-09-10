@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
 type LinePlot struct {
 	Key  uuid.UUID `json:"key" msg:"key"`
 	Name string    `json:"name" msg:"name"`

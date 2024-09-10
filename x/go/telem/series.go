@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
+//go:generate msgp
 type Series struct {
 	// TimeRange represents the time range occupied by the series' data.
 	TimeRange TimeRange `json:"time_range" msg:"time_range"`

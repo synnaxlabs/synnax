@@ -25,6 +25,8 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
+//go:generate msgp
+
 const aliasKeySeparator = "---"
 
 func aliasKey(r uuid.UUID, c channel.Key) string {

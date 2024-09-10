@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/clamp"
 )
 
+//go:generate msgp
 const (
 	// TimeStampMin represents the minimum value for a TimeStamp
 	TimeStampMin = TimeStamp(0)

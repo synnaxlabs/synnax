@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
 type WorkspaceService struct {
 	dbProvider
 	accessProvider

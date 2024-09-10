@@ -13,6 +13,7 @@ import (
 	"fmt"
 )
 
+//go:generate msgp
 type Subject struct {
 	Key  string `json:"key" msg:"key"`
 	Name string `json:"name" msg:"name"`

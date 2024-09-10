@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/version"
 )
 
+//go:generate msgp
+
 // ConnectivityService is a simple service that allows a client to check their connection
 // to the server.
 type ConnectivityService struct {

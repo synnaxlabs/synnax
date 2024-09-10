@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+//go:generate msgp
+
 // RelationshipType is a string that uniquely identifies the type of a relationship
 // between two resources. For example, a relationship of type "member" could indicate
 // that a particular resource is a member of another resource. When defining relationship

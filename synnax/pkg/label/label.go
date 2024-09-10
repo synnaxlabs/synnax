@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
+
 // Label represents a label that can be applied to arbitrary resources within the
 // synnax ontology. A label has a unique UUID key, a name, and a color.
 type Label struct {

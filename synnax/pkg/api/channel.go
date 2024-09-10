@@ -9,6 +9,7 @@
 
 package api
 
+//go:generate msgp
 import (
 	"context"
 	"go/types"

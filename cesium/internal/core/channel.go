@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+//go:generate msgp
 type ChannelKey = uint32
 
 type ChannelVariant uint8

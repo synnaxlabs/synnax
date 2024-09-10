@@ -11,6 +11,8 @@ package schema
 
 import "github.com/google/uuid"
 
+//go:generate msgp
+
 // Field represents a dynamically typed field in a Schema.
 type Field struct {
 	// Type is the type of field.

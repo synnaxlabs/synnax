@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
 type AccessService struct {
 	internal *rbac.Service
 	dbProvider

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+//go:generate msgp
 type LabelService struct {
 	dbProvider
 	accessProvider

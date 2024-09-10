@@ -41,6 +41,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+//go:generate msgp
+
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
 	// ControlSubject is an identifier for the writer.

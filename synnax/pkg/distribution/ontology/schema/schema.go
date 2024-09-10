@@ -12,6 +12,8 @@
 // while still providing strongly typed getters and setters for the entity fields.
 package schema
 
+//go:generate msgp
+
 // Type is the type of an [Resource]/[Schema]. This type should be unique for each
 // [Schema] in the cluster. in the cluster. in the cluster. in the cluster.
 type Type string

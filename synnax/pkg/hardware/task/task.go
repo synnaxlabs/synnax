@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
+//go:generate msgp
 type Key types.StringParseableUint64
 
 func NewKey(rack rack.Key, localKey uint32) Key {

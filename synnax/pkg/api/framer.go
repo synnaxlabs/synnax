@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+//go:generate msgp
 type Frame = framer.Frame
 
 type FrameService struct {

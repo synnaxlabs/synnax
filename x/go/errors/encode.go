@@ -14,6 +14,8 @@ import (
 	"strings"
 )
 
+//go:generate msgp
+
 // Payload is a typed payload for transporting an error OVER a NETWORK.
 // It includes type information as well as encoded error data.
 type Payload struct {

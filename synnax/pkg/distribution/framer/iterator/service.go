@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+//go:generate msgp
 type Config struct {
 	Keys      channel.Keys    `json:"keys" msg:"keys"`
 	Bounds    telem.TimeRange `json:"bounds" msg:"bounds"`

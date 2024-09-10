@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
+//go:generate msgp
 type Request struct {
 	Keys channel.Keys
 }

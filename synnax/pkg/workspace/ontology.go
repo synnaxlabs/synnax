@@ -11,6 +11,7 @@ package workspace
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
+//go:generate msgp
 const OntologyType ontology.Type = "workspace"
 
 func OntologyID(k uuid.UUID) ontology.ID {
