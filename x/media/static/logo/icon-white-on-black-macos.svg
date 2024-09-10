@@ -9,4 +9,25 @@
   - included in the file licenses/APL.txt.
   -->
 
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs><style>.cls-1{fill:#212429;}.cls-2{fill:#fff;isolation:isolate;}</style></defs><g id="Layer_2" data-name="Layer 2"><g id="Layer_1-2" data-name="Layer 1"><rect class="cls-1" width="1024" height="1024" rx="184"/><path class="cls-2" d="M319,808.63a59.25,59.25,0,0,1-51.32-88.88L485.4,342.67c22.8-39.52,80-39.52,103.6,1.68L796.08,703A27.12,27.12,0,0,0,806,713l61.68,35.64a27.12,27.12,0,0,0,37-37.08L588,163a59.21,59.21,0,0,0-102.6,0L116.52,801.79a59.25,59.25,0,0,0,51.32,88.88H790.08a27.12,27.12,0,0,0,13.56-50.6l-48.2-27.8a27.33,27.33,0,0,0-13.56-3.64Z"/></g></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+    <defs>
+        <style>
+            .cls-1 {
+                fill: #212429;
+            }
+            .cls-2 {
+                fill: #fff;
+                isolation: isolate;
+            }
+        </style>
+    </defs>
+    <g id="Layer_2" data-name="Layer 2">
+        <g id="Layer_1-2" data-name="Layer 1">
+            <rect class="cls-1" width="1024" height="1024" rx="184" />
+            <path
+                class="cls-2"
+                d="M319,808.63a59.25,59.25,0,0,1-51.32-88.88L485.4,342.67c22.8-39.52,80-39.52,103.6,1.68L796.08,703A27.12,27.12,0,0,0,806,713l61.68,35.64a27.12,27.12,0,0,0,37-37.08L588,163a59.21,59.21,0,0,0-102.6,0L116.52,801.79a59.25,59.25,0,0,0,51.32,88.88H790.08a27.12,27.12,0,0,0,13.56-50.6l-48.2-27.8a27.33,27.33,0,0,0-13.56-3.64Z"
+            />
+        </g>
+    </g>
+</svg>
