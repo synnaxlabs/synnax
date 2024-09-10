@@ -18,8 +18,8 @@ import { migrate } from "@synnaxlabs/x";
 
 import {
   allowAllPolicy,
-  consolePolicySet,
   consolePolicyMap,
+  consolePolicySet,
   initialPermissions,
   type Permissions,
   policiesAreEqual,
