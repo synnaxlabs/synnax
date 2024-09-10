@@ -23,6 +23,7 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Button as CoreButton } from "@/vis/button";
 import { useInitialViewport } from "@/vis/diagram/aether/Diagram";
+import { Light as CoreLight } from "@/vis/light";
 import { Labeled, type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { Primitives } from "@/vis/schematic/primitives";
 import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
@@ -1051,30 +1052,17 @@ export const RotaryMixerPreview = (props: RotaryMixerProps): ReactElement => (
 
 export interface LightProps
   extends Primitives.LightProps,
-    Omit<Toggle.UseProps, "aetherKey"> {
+    Omit<CoreLight.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
 }
 
 export const Light = Aether.wrap<SymbolProps<LightProps>>(
   "light",
-  ({
-    aetherKey,
-    label,
-    className,
-    orientation = "left",
-    source,
-    onChange,
-    ...rest
-  }): ReactElement => {
-    const { enabled } = Toggle.use({ aetherKey, source });
+  ({ aetherKey, label, source, onChange, ...rest }): ReactElement => {
+    const { enabled } = CoreLight.use({ aetherKey, source });
     return (
       <Labeled {...label} onChange={onChange}>
-        <Primitives.Light
-          enabled={enabled}
-          className={className}
-          orientation={orientation}
-          {...rest}
-        />
+        <Primitives.Light enabled={enabled} {...rest} />
       </Labeled>
     );
   },

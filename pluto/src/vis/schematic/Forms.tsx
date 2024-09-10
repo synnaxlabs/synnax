@@ -472,9 +472,7 @@ export const ValueForm = (): ReactElement => {
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<LightTelemFormT>({
-    path,
-  });
+  const { value, onChange } = Form.useField<LightTelemFormT>({ path });
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -500,9 +498,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
 
   const c = Channel.useName(source.channel as number);
 
-  useEffect(() => {
-    onChange({ ...value });
-  }, [c]);
+  useEffect(() => onChange({ ...value }), [c]);
 
   return (
     <FormWrapper direction="x" align="stretch">

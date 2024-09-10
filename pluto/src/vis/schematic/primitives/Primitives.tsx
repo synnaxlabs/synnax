@@ -1297,21 +1297,40 @@ export const RotaryMixer = ({
   </Toggle>
 );
 
-export interface LightProps extends ToggleProps, SVGBasedPrimitiveProps {}
+export interface LightProps extends DivProps, SVGBasedPrimitiveProps {
+  enabled?: boolean;
+}
 
 export const Light = ({
   className,
   color,
   orientation = "left",
+  enabled,
   scale,
   ...props
 }: LightProps): ReactElement => (
-  <Toggle {...props} className={CSS(CSS.B("light"), className)}>
+  <Div
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("light"), enabled && CSS.M("enabled"), className)}
+  >
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
-      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+      <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={96.875}
+        top={50}
+        id="2"
+      />
+      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.75}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 64, height: 64 }}
@@ -1321,7 +1340,7 @@ export const Light = ({
     >
       <Circle cx="32" cy="32" r="30" />
     </InternalSVG>
-  </Toggle>
+  </Div>
 );
 
 export interface ElectricRegulatorProps extends DivProps, SVGBasedPrimitiveProps {}
