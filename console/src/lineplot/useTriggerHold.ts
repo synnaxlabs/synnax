@@ -20,7 +20,7 @@ export const useTriggerHold = (triggers: Config): void => {
   const { hold } = useSelectControlState();
   const ref = useSyncedRef(hold);
   const triggersRef = useSyncedRef(triggers);
-  const d = useDispatch();
+  const dispatch = useDispatch();
   const flat = Triggers.useFlattenedMemoConfig(triggers);
   Triggers.use({
     triggers: flat,
@@ -29,14 +29,15 @@ export const useTriggerHold = (triggers: Config): void => {
       (e: Triggers.UseEvent) => {
         const mode = Triggers.determineMode(triggersRef.current, e.triggers);
         if (mode === "hold") {
-          if (e.stage === "start") d(setControlState({ state: { hold: true } }));
-          else if (e.stage === "end") d(setControlState({ state: { hold: false } }));
+          if (e.stage === "start") dispatch(setControlState({ state: { hold: true } }));
+          else if (e.stage === "end")
+            dispatch(setControlState({ state: { hold: false } }));
           return;
         }
         if (e.stage !== "start") return;
-        d(setControlState({ state: { hold: !ref.current } }));
+        dispatch(setControlState({ state: { hold: !ref.current } }));
       },
-      [d],
+      [dispatch],
     ),
   });
 };

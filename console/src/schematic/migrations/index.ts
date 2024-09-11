@@ -7,7 +7,7 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
+import { migrate, zodutil } from "@synnaxlabs/x";
 
 import * as v0 from "@/schematic/migrations/v0";
 import * as v1 from "@/schematic/migrations/v1";
@@ -48,10 +48,8 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   def: ZERO_SLICE_STATE,
 });
 
-// Descending order so that the latest state is tried first
-const STATES_Z = [v2.stateZ, v1.stateZ, v0.stateZ];
-
-export const parser: (potentialState: any) => State | null = (potentialState) => {
-  const stateZ = STATES_Z.find((stateZ) => stateZ.safeParse(potentialState).success);
-  return stateZ == null ? null : migrateState(stateZ.parse(potentialState));
-};
+export const parser = zodutil.transformer<AnyState, State>(migrateState, [
+  v2.stateZ,
+  v1.stateZ,
+  v0.stateZ,
+]);

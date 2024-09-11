@@ -19,8 +19,7 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { usePlacer } from "@/layout/hooks";
-import { setNavDrawerVisible } from "@/layout/slice";
+import { Layout } from "@/layout";
 import { createSelector } from "@/layouts/Selector";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
@@ -33,7 +32,7 @@ export const GetStarted = (): ReactElement => {
 
 const NoCluster = (): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
-  const placer = usePlacer();
+  const placer = Layout.usePlacer();
   const dispatch = useDispatch();
 
   // As a note, we need to stop propagation on these events so that we don't
@@ -47,7 +46,9 @@ const NoCluster = (): ReactElement => {
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
     placer(createSelector({}));
-    dispatch(setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }));
+    dispatch(
+      Layout.setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }),
+    );
   };
 
   const handleDocs: Text.LinkProps["onClick"] = (e) => {
@@ -83,10 +84,9 @@ const NoCluster = (): ReactElement => {
 };
 
 const Overview = (): ReactElement => {
-  const p = usePlacer();
-  const handleWorkspace: Button.ButtonProps["onClick"] = () => {
-    p(Workspace.createWindowLayout());
-  };
+  const placer = Layout.usePlacer();
+  const handleWorkspace: Button.ButtonProps["onClick"] = () =>
+    placer(Workspace.createWindowLayout());
 
   return (
     <Eraser.Eraser>

@@ -13,12 +13,12 @@ import { ReactElement } from "react";
 
 export const ImportIcon = (): ReactElement => (
   <PIcon.Import>
-    <Icon.Schematic />
+    <Icon.LinePlot />
   </PIcon.Import>
 );
 
 export const CreateIcon = (): ReactElement => (
   <PIcon.Create>
-    <Icon.Schematic />
+    <Icon.LinePlot />
   </PIcon.Create>
 );
