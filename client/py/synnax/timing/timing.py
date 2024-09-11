@@ -120,7 +120,7 @@ class Loop:
                 the ideal time to sleep for the given duration.
         """
         self._timer = Timer()
-        self.interval = TimeSpan.parse_seconds(interval)
+        self.interval = TimeSpan.from_seconds(interval)
         self.precise = precise
         self._last = time.perf_counter_ns()
 
