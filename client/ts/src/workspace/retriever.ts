@@ -40,8 +40,8 @@ export class Retriever {
     this.client = client;
   }
 
-  async retrieve(params: Params): Promise<Workspace[]> {
-    const normalized = toArray(params);
+  async retrieve(workspaces: Params): Promise<Workspace[]> {
+    const normalized = toArray(workspaces);
     return await this.execute({ keys: normalized });
   }
 

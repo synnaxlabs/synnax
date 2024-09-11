@@ -18,6 +18,7 @@ import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
@@ -157,6 +158,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const del = useDelete();
   const createSchematic = useCreateSchematic();
   const createLinePlot = useCreateLinePlot();
+  const importLinePlot = LinePlot.useImport();
   const group = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const importSchematic = Schematic.useImport(selection.resources[0].id.key);
@@ -165,6 +167,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
     plot: () => createLinePlot(props),
+    importLinePlot: () => importLinePlot(),
     schematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
     link: () =>
@@ -188,13 +191,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       <PMenu.Divider />
       {singleResource && (
         <>
-          <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
-            New Line Plot
+          <PMenu.Item itemKey="plot" startIcon={<LinePlotServices.CreateIcon />}>
+            Create New Line Plot
+          </PMenu.Item>
+          <PMenu.Item
+            itemKey="importLinePlot"
+            startIcon={<LinePlotServices.ImportIcon />}
+          >
+            Import Line Plot
           </PMenu.Item>
           {canCreateSchematic && (
             <>
-              <PMenu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
-                Create Schematic
+              <PMenu.Item
+                itemKey="schematic"
+                startIcon={<SchematicServices.CreateIcon />}
+              >
+                Create New Schematic
               </PMenu.Item>
               <PMenu.Item
                 itemKey="importSchematic"

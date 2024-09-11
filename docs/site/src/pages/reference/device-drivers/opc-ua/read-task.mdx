@@ -5,9 +5,8 @@ heading: "OPC UA Read Task"
 description: "Read data from OPC UA servers with read tasks."
 ---
 import { Icon } from "@synnaxlabs/media";
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
-import Note from "@/components/Note.astro";
 import { StepText } from "@/components/StepText";
 import Table from "@/components/Table.astro";
 
@@ -157,12 +156,12 @@ typically only necessary for very high rate tasks (&gt;500 Hz). Instead of readi
 single samples from the server, Synnax will read many samples in bulk. Array sampling
 requires a little bit of tuning to set up.
 
-<Note variant="info">
+<Note.Note variant="info">
 When experimenting with array based sampling, we recommend running a separate [Synnax
 database](/reference/cluster/quick-start) with a memory-backed data store. This will
 allow you to quickly test different configurations without writing a large amount of
 experimental data to your production database.
-</Note>
+</Note.Note>
 
 Running a task with array sampling enabled can result in both **oversampling** and
 **undersampling**. Oversampling occurs when the OPC UA server doesn't completely replace

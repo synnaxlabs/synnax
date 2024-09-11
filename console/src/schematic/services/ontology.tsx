@@ -21,7 +21,7 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
-import { useExport } from "@/schematic/hooks";
+import { useExport } from "@/schematic/file";
 import { create } from "@/schematic/Schematic";
 import { type State } from "@/schematic/slice";
 

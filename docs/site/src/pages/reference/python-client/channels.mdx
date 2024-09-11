@@ -3,10 +3,9 @@ layout: "@/layouts/MainLayout.astro"
 title: "Channels"
 description: "Create, retrieve, and delete channels using the Synnax Python client."
 ---
-import { Divider } from "@synnaxlabs/pluto"
+import { Divider, Note } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro";
 export const components = {pre: Code};
-import Note from "@/components/Note.astro";
 
 The Python client provides interfaces for creating, retrieving, and deleting channels.
 We'll cover the details of each of these operations in this guide.
@@ -145,10 +144,10 @@ The client will raise a `NotFoundError` if no channels match the query, and a
 no or multiple results, provide a list to the `retrieve` method as shown in the next
 section.
 
-<Note variant="info">
+<Note.Note variant="info">
 Retrieving by key is faster than retrieving by name, and we recommend doing so when
 possible.
-</Note>
+</Note.Note>
 
 ### Retrieving Multiple Channels
 
@@ -187,10 +186,10 @@ ch = test_one["sensor_one"]
 ch = test_one.sensor_one
 ```
 
-<Note variant="info">
+<Note.Note variant="info">
 When using a range, it's possible to retrieve a channel by it's
 [alias](/reference/python-client/ranges#aliasing-channels) instead of its name.
-</Note>
+</Note.Note>
 
 ### Retrieving Channels Using Regular Expressions
 
@@ -229,10 +228,10 @@ client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_tw
 
 ## Deleting Channels
 
-<Note variant="warning">
+<Note.Note variant="warning">
 Deleting a channel will also delete all of the data stored in that channel. This is a
 permanent operation that cannot be undone. Be careful!
-</Note>
+</Note.Note>
 
 To delete a channel, we can use the `channels.delete` method:
 

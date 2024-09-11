@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import datetime, timedelta, tzinfo, UTC
 from math import trunc
 from typing import ClassVar, Literal, TypeAlias, cast, get_args
 
@@ -41,9 +41,9 @@ class TimeStamp(int):
     def __new__(cls, value: CrudeTimeStamp):
         if isinstance(value, str):
             value = int(value)
-        if isinstance(value, TimeStamp):
+        elif isinstance(value, TimeStamp):
             return value
-        if isinstance(value, TimeSpan):
+        elif isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
             value = int(
@@ -111,8 +111,7 @@ class TimeStamp(int):
         timezone is used.
         """
         return (
-            datetime.utcfromtimestamp(self / TimeSpan.SECOND)
-            .replace(tzinfo=timezone.utc)
+            datetime.fromtimestamp(self / TimeSpan.SECOND, UTC)
             .astimezone(tz)
         )
 
@@ -266,15 +265,28 @@ class TimeSpan(int):
         return v.strip()
 
     @staticmethod
-    def parse_seconds(timeout: CrudeTimeSpan) -> TimeSpan:
+    def from_seconds(span: CrudeTimeSpan) -> TimeSpan:
         """An alternative constructor for TimeSpan that parses raw numeric values as
         seconds instead of nanoseconds.
         """
-        if isinstance(timeout, TimeSpan):
-            return timeout
-        if isinstance(timeout, (float, int)):
-            return TimeSpan.SECOND * timeout
-        return TimeSpan(timeout)
+        if isinstance(span, TimeSpan):
+            return span
+        if isinstance(span, Rate):
+            return span.period
+        if isinstance(span, (float, int)):
+            return TimeSpan.SECOND * span
+        return TimeSpan(span)
+
+    @staticmethod
+    def to_seconds(dur: CrudeTimeSpan | None) -> float | None:
+        if dur is None:
+            return None
+        return TimeSpan.from_seconds(dur).seconds
+
+    @property
+    def rate(self) -> Rate:
+        """:returns: The rate of the TimeSpan as a Rate."""
+        return Rate(1 / self.seconds)
 
     @property
     def days(self) -> float:
@@ -575,13 +587,16 @@ class Rate(float):
     def __str__(self):
         if self < 1:
             return f"{self.period} per cycle"
-        return str(int(self)) + "Hz"
+        return f"{round(self, 2)} Hz"
 
     def __repr__(self):
         return f"Rate({super().__repr__()} Hz)"
 
     def __mul__(self, rhs: CrudeRate) -> Rate:
         return Rate(super().__mul__(Rate(rhs)))
+
+    def __rmul__(self, other) -> Rate:
+        return self.__mul__(other)
 
     HZ: Rate
     """One Hz."""

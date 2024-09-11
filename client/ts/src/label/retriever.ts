@@ -37,8 +37,8 @@ export class Retriever {
     this.client = client;
   }
 
-  async retrieve(params: Params): Promise<Label[]> {
-    const normalized = toArray(params);
+  async retrieve(labels: Params): Promise<Label[]> {
+    const normalized = toArray(labels);
     return await this.execute({ keys: normalized });
   }
 

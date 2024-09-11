@@ -56,7 +56,7 @@ class Deleter:
         normal = normalize_channel_params(channels)
         req = _Request(
             **{
-                normal.variant: normal.params,
+                normal.variant: normal.channels,
                 "bounds": tr,
             }
         )

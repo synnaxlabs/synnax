@@ -127,9 +127,9 @@ export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
   async retrieve(keys: number[] | RackKey[]): Promise<Rack[]>;
 
   async retrieve(
-    params: string | RackKey | string[] | RackKey[],
+    racks: string | RackKey | string[] | RackKey[],
   ): Promise<Rack | Rack[]> {
-    const { variant, normalized, single } = analyzeParams(params, {
+    const { variant, normalized, single } = analyzeParams(racks, {
       string: "names",
       number: "keys",
     });
@@ -141,7 +141,7 @@ export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
       retrieveRackResZ,
     );
     const sugared = this.sugar(res.racks);
-    checkForMultipleOrNoResults("Rack", params, sugared, single);
+    checkForMultipleOrNoResults("Rack", racks, sugared, single);
     return single ? sugared[0] : sugared;
   }
 
@@ -186,4 +186,3 @@ export class Rack {
   }
 }
 export { rackKeyZ };
-

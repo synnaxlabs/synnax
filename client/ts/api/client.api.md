@@ -110,7 +110,7 @@ const analyzeChannelParams: (channels: Params_2) => ParamAnalysisResult_2<KeyOrN
 // Warning: (ae-missing-release-tag) "analyzeParams" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const analyzeParams_2: (params: Params_5) => ParamAnalysisResult_3;
+const analyzeParams_2: (ranges: Params_5) => ParamAnalysisResult_3;
 
 // Warning: (ae-missing-release-tag) "AuthError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2611,7 +2611,7 @@ class Retriever_3 {
     // (undocumented)
     page(offset: number, limit: number): Promise<Label[]>;
     // (undocumented)
-    retrieve(params: Params_4): Promise<Label[]>;
+    retrieve(labels: Params_4): Promise<Label[]>;
     // (undocumented)
     retrieveFor(id: ontology.ID): Promise<Label[]>;
     // (undocumented)
@@ -2633,7 +2633,7 @@ type RetrieveRequest_3 = z.infer<typeof retrieveReqZ_3>;
 // Warning: (ae-missing-release-tag) "retrieveRequired" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const retrieveRequired: (r: Retriever, params: Params_2) => Promise<Payload_2[]>;
+const retrieveRequired: (r: Retriever, channels: Params_2) => Promise<Payload_2[]>;
 
 // Warning: (ae-missing-release-tag) "Root" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2937,11 +2937,11 @@ class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     // (undocumented)
     next(): Promise<IteratorResult<Frame, any>>;
     // (undocumented)
-    static _open(retriever: Retriever, client: StreamClient, { channels, from }: StreamerConfig): Promise<Streamer>;
+    static _open(retriever: Retriever, client: StreamClient, { channels }: StreamerConfig): Promise<Streamer>;
     // (undocumented)
     read(): Promise<Frame>;
     // (undocumented)
-    update(params: Params_2): Promise<void>;
+    update(channels: Params_2): Promise<void>;
 }
 
 // Warning: (ae-missing-release-tag) "StreamerConfig" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -2950,8 +2950,6 @@ class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 interface StreamerConfig {
     // (undocumented)
     channels: Params_2;
-    // (undocumented)
-    from?: CrudeTimeStamp;
 }
 
 // Warning: (ae-missing-release-tag) "stringIDZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
