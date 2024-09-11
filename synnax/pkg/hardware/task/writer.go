@@ -16,9 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
@@ -63,14 +61,6 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	q := gorp.NewDelete[Key, Task]().WhereKeys(key)
-	if !allowInternal {
-		q = q.Guard(func(t Task) error {
-			if t.Internal {
-				return errors.Wrapf(validate.Error, "internal task %v cannot be deleted", t)
-			}
-			return nil
-		})
-	}
 	if err := q.Exec(ctx, w.tx); err != nil {
 		return err
 	}

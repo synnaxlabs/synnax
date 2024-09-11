@@ -75,6 +75,7 @@ export const createConfigureLayout =
 export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   const client = Synnax.use();
   const [connState, setConnState] = useState<TestConnCommandState | null>(null);
+  const addStatus = Status.useAggregator();
 
   const methods = Form.use({
     values: {
@@ -106,6 +107,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       );
       setConnState(t);
     },
+    onError: (e) => addStatus({ variant: "error", message: e.message }),
   });
 
   const confirm = useMutation<void, Error, void>({
@@ -132,7 +134,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
             write: {
               index: 0,
               channels: {},
-            }
+            },
           },
           configured: true,
         });
@@ -238,7 +240,9 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
             triggers={[SAVE_TRIGGER]}
             loading={testConnection.isPending}
             disabled={testConnection.isPending}
-            onClick={() => testConnection.mutate()}
+            onClick={() => {
+              testConnection.mutate();
+            }}
           >
             Test Connection
           </Button.Button>
