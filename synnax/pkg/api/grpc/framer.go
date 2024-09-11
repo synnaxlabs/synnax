@@ -235,20 +235,14 @@ func (t frameStreamerRequestTranslator) Forward(
 	ctx context.Context,
 	msg api.FrameStreamerRequest,
 ) (*gapi.FrameStreamerRequest, error) {
-	return &gapi.FrameStreamerRequest{
-		Start: int64(msg.Start),
-		Keys:  translateChannelKeysForward(msg.Keys),
-	}, nil
+	return &gapi.FrameStreamerRequest{Keys: translateChannelKeysForward(msg.Keys)}, nil
 }
 
 func (t frameStreamerRequestTranslator) Backward(
 	ctx context.Context,
 	msg *gapi.FrameStreamerRequest,
 ) (api.FrameStreamerRequest, error) {
-	return api.FrameStreamerRequest{
-		Start: telem.TimeStamp(msg.Start),
-		Keys:  translateChannelKeysBackward(msg.Keys),
-	}, nil
+	return api.FrameStreamerRequest{Keys: translateChannelKeysBackward(msg.Keys)}, nil
 }
 
 func (t frameStreamerResponseTranslator) Forward(

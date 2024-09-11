@@ -102,10 +102,7 @@ func (s *Provider) Subscribe(
 	if cfg.DeleteChannelKey != 0 {
 		keys = append(keys, cfg.DeleteChannelKey)
 	}
-	streamer, err := s.Framer.NewStreamer(sCtx, framer.StreamerConfig{
-		Keys:  keys,
-		Start: telem.TimeStampMax,
-	})
+	streamer, err := s.Framer.NewStreamer(sCtx, framer.StreamerConfig{Keys: keys})
 	if err != nil {
 		return nil, err
 	}

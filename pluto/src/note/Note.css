@@ -10,26 +10,22 @@
  */
 
 .pluto-note {
-    padding: 3rem;
+    padding: 0.1rem 3rem;
     border: var(--pluto-border);
     border-radius: 1rem;
 
     &.pluto--info {
-        background: var(--pluto-primary-z-30);
-        border-color: var(--pluto-primary-z-40);
+        background: var(--pluto-primary-z-10);
+        border-color: var(--pluto-primary-z-50);
     }
 
     &.pluto--warning {
-        background: #fffbe0;
-        border-color: #f9eba8;
-        @media (prefers-color-scheme: dark) {
-            border-color: #fae78ba6;
-            background: #f6fa0034;
-        }
+        background: var(--pluto-warning-z-10);
+        border-color: var(--pluto-warning-z-);
     }
 
     &.pluto--error {
-        background: var(--pluto-error-z-20);
+        background: var(--pluto-error-z-10);
         border-color: var(--pluto-error-z-40);
     }
 }

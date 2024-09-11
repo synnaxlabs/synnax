@@ -22,10 +22,12 @@ import {
   schematicZ,
 } from "@/workspace/schematic/payload";
 
-export const newSchematicZ = schematicZ.partial({ key: true, snapshot: true }).transform((p) => ({
-  ...p,
-  data: JSON.stringify(p.data),
-}));
+export const newSchematicZ = schematicZ
+  .partial({ key: true, snapshot: true })
+  .transform((p) => ({
+    ...p,
+    data: JSON.stringify(p.data),
+  }));
 
 export type NewSchematic = z.input<typeof newSchematicZ>;
 
@@ -105,8 +107,8 @@ export class Writer {
     return res.schematic;
   }
 
-  async delete(params: Params): Promise<void> {
-    const normalized = toArray(params);
+  async delete(schematics: Params): Promise<void> {
+    const normalized = toArray(schematics);
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,

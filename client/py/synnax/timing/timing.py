@@ -52,7 +52,7 @@ def sleep(dur: Rate | TimeSpan | float | int, precise: bool = False):
     higher precision. It uses Welford's algorithm to estimate the ideal time to sleep
     for the given duration.
     """
-    dur = TimeSpan.parse_seconds(dur).seconds
+    dur = TimeSpan.from_seconds(dur).seconds
     if precise:
         return _precise_sleep(dur)
     return time.sleep(dur)
@@ -120,7 +120,7 @@ class Loop:
                 the ideal time to sleep for the given duration.
         """
         self._timer = Timer()
-        self.interval = TimeSpan.parse_seconds(interval)
+        self.interval = TimeSpan.from_seconds(interval)
         self.precise = precise
         self._last = time.perf_counter_ns()
 

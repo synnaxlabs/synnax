@@ -117,13 +117,6 @@ class StreamerConfig {
 public:
     /// @brief the channels to stream.
     std::vector<ChannelKey> channels;
-
-    /// @brief sets the timestamp that that the streamer should forward previous reads
-    /// from. On startup, the streamer will read all existing data from the provided
-    /// channels starting at this timestamp. If this timestamp is zero or in the future,
-    /// no samples will be read.
-    synnax::TimeStamp start;
-
 private:
     void toProto(api::v1::FrameStreamerRequest &f) const;
 

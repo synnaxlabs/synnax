@@ -5,10 +5,9 @@ heading: "The Synnax Python Client"
 description: "Use the Synnax Python client to connect with a Synnax cluster."
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
-import Note from "@/components/Note.astro";
 
 Synnax provides first-class support for Python. Our client delivers many capabilities,
 including
@@ -32,11 +31,11 @@ as a requirement in your virtual environment of choice:
 pip install synnax
 ```
 
-<Note variant="info">
+<Note.Note variant="info">
     Python can be difficult to get installed and running correctly, so we've put
     together a [troubleshooting guide](/reference/python-client/troubleshooting) that
     you can reference.
-</Note>
+</Note.Note>
 
 <Divider.Divider direction="x" />
 
@@ -61,11 +60,11 @@ To authenticate, run the following command:
 synnax login
 ```
 
-<Note variant="info">
+<Note.Note variant="info">
     If you get the error `command not found`, you might not have Python scripts in your
     `PATH` variable. See our [troubleshooting
     guide](/reference/python-client/troubleshooting) for more information.
-</Note>
+</Note.Note>
 
 This command will prompt us for the following information:
 

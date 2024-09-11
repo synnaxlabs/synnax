@@ -265,17 +265,23 @@ class TimeSpan(int):
         return v.strip()
 
     @staticmethod
-    def parse_seconds(timeout: CrudeTimeSpan) -> TimeSpan:
+    def from_seconds(span: CrudeTimeSpan) -> TimeSpan:
         """An alternative constructor for TimeSpan that parses raw numeric values as
         seconds instead of nanoseconds.
         """
-        if isinstance(timeout, TimeSpan):
-            return timeout
-        if isinstance(timeout, Rate):
-            return timeout.period
-        if isinstance(timeout, (float, int)):
-            return TimeSpan.SECOND * timeout
-        return TimeSpan(timeout)
+        if isinstance(span, TimeSpan):
+            return span
+        if isinstance(span, Rate):
+            return span.period
+        if isinstance(span, (float, int)):
+            return TimeSpan.SECOND * span
+        return TimeSpan(span)
+
+    @staticmethod
+    def to_seconds(dur: CrudeTimeSpan | None) -> float | None:
+        if dur is None:
+            return None
+        return TimeSpan.from_seconds(dur).seconds
 
     @property
     def rate(self) -> Rate:

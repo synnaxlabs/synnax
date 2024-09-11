@@ -82,8 +82,8 @@ export class Writer {
     return res.linePlots[0];
   }
 
-  async delete(params: Params): Promise<void> {
-    const normalized = toArray(params);
+  async delete(workspaces: Params): Promise<void> {
+    const normalized = toArray(workspaces);
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,

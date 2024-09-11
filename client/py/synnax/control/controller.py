@@ -234,7 +234,7 @@ class Controller:
     def wait_until(
         self,
         cond: Callable[[Controller], bool],
-        timeout: CrudeTimeSpan = None,
+        timeout: float | int | TimeSpan = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
         received by the controller. Once the callback returns True, the method will
@@ -282,7 +282,9 @@ class Controller:
         processor = WaitUntil(cond, reverse)
         try:
             self._receiver.processors.add(processor)
-            timeout_seconds = TimeSpan(timeout).seconds if timeout else None
+            timeout_seconds = (
+                TimeSpan.from_seconds(timeout).seconds if timeout else None
+            )
             ok = processor.event.wait(timeout=timeout_seconds)
         finally:
             self._receiver.processors.remove(processor)
