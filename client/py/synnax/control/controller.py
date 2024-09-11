@@ -24,7 +24,7 @@ from synnax.channel.payload import (
     ChannelParams,
     ChannelPayload,
 )
-from synnax.channel.retrieve import ChannelRetriever, retrieve_one_required, retrieve_required
+from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
@@ -155,12 +155,12 @@ class Controller:
 
     def set(
         self,
-        ch: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, int | float],
+        channel: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, int | float],
         value: int | float | None = None,
     ):
         """Sets the provided channel(s) to the provided value(s).
 
-        :param ch: A single channel key or name, or a dictionary of channel keys and
+        :param channel: A single channel key or name, or a dictionary of channel keys and
         names to their corresponding values to set.
         :param value: The value to set the channel to. This parameter should not be
         provided if ch is a dictionary.
@@ -172,9 +172,9 @@ class Controller:
         ...     "channel_2": 3.14,
         ... })
         """
-        if isinstance(ch, dict):
-            values = list(ch.values())
-            channels = retrieve_required(self._retriever, list(ch.keys()))
+        if isinstance(channel, dict):
+            values = list(channel.values())
+            channels = retrieve_required(self._retriever, list(channel.keys()))
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
             updated_idx = {
@@ -184,7 +184,7 @@ class Controller:
             }
             self._writer.write({**updated, **updated_idx})
             return
-        ch = retrieve_one_required(self._retriever, ch)
+        ch = self._retriever.retrieve_one(channel)
         to_write = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
@@ -227,7 +227,7 @@ class Controller:
             for ch in channels:
                 value[ch.index] = value.get(ch.key, value.get(ch.name))
         elif authority is not None:
-            ch = retrieve_one_required(self._retriever, value)
+            ch = self._retriever.retrieve_one(value)
             value = {ch.key: authority, ch.index: authority}
         return self._writer.set_authority(value)
 
@@ -416,11 +416,11 @@ class Controller:
         >>> controller.get("my_channel")
         >>> controller.get("my_channel", 42)
         """
-        ch = retrieve_one_required(self._retriever, ch)
+        ch = self._retriever.retrieve_one(ch)
         return self._receiver.state.get(ch.key, default)
 
     def __getitem__(self, item):
-        ch = retrieve_one_required(self._retriever, item)
+        ch = self._retriever.retrieve_one(item)
         try:
             return self._receiver.state[ch.key]
         except KeyError:

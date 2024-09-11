@@ -16,7 +16,9 @@ import synnax as sy
 
 
 @pytest.mark.channel
-class TestChannelClient:
+class TestChannel:
+    """Tests all things related to channel operations. Create, delete, retrieve, etc.
+    """
     @pytest.fixture(scope="class")
     def two_channels(self, client: sy.Synnax) -> list[sy.Channel]:
         return client.channels.create(
@@ -280,3 +282,19 @@ class TestChannelClient:
         for i, name in enumerate(new_names):
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
+
+
+class TestChannelRetriever:
+    """Tests methods internal to the channel retriever that are not publicly availble
+    through the ChannelClient.
+    """
+    def test_retrieve_one(self, client: sy.Synnax):
+        ch = client.channels.create(
+            data_type=sy.DataType.FLOAT32, name="test", rate=1 * sy.Rate.HZ
+        )
+        retrieved = client.channels._retriever.retrieve_one(ch.key)
+        assert retrieved.key == ch.key
+
+    def test_retrieve_one_not_found(self, client: sy.Synnax):
+        with pytest.raises(sy.NotFoundError):
+            client.channels._retriever.retrieve_one(1234)

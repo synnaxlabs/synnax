@@ -43,7 +43,7 @@ class ChannelRetriever(Protocol):
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         ...
 
-    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload:
         ...
 
 
@@ -82,7 +82,7 @@ class ClusterChannelRetriever:
             req.names = [param]
         res = send_required(self._client, _ENDPOINT, req, _Response)
         if len(res.channels) == 0:
-            return None
+            raise NotFoundError(f"Could not find channel matching {param}")
         return res.channels[0]
 
 
@@ -149,7 +149,7 @@ class CacheChannelRetriever:
                 channels.append(ch)
         return None if len(channels) == 0 else channels
 
-    def get_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+    def _get_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
         if isinstance(param, ChannelKey):
             return self._channels.get(param)
         keys = self._names_to_keys.get(param, None)
@@ -159,9 +159,9 @@ class CacheChannelRetriever:
 
     def set(self, channels: list[ChannelPayload]) -> None:
         for channel in channels:
-            self.set_one(channel)
+            self._set_one(channel)
 
-    def set_one(self, channel: ChannelPayload) -> None:
+    def _set_one(self, channel: ChannelPayload) -> None:
         self._channels[channel.key] = channel
         keys = self._names_to_keys.get(channel.name)
         if keys is None:
@@ -190,11 +190,12 @@ class CacheChannelRetriever:
         return results
 
     def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
-        ch = self.get_one(param)
+        ch = self._get_one(param)
         if ch is not None:
             return ch
         retrieved = self._retriever.retrieve_one(param)
-        self.set_one(retrieved)
+        if retrieved is not None:
+            self._set_one(retrieved)
         return retrieved
 
 
@@ -211,11 +212,3 @@ def retrieve_required(
     if len(not_found) > 0:
         raise NotFoundError(f"Could not find channels: {not_found}")
     return results
-
-def retrieve_one_required(
-    r: ChannelRetriever, param: ChannelKey | ChannelName
-) -> ChannelPayload:
-    ch = r.retrieve_one(param)
-    if ch is None:
-        raise NotFoundError(f"Could not find channel: {param}")
-    return ch

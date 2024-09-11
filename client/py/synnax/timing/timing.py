@@ -10,16 +10,12 @@
 import time
 import math
 
-from synnax.telem import TimeSpan, Rate
+from synnax.telem import TimeSpan, Rate, TimeStamp
 
 RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
 
+
 def _precise_sleep(dur: float | int):
-    """Sleep implements a higher precision alternative to time.sleep. It uses welford's
-    algorithm to estimate the ideal time to sleep for the given duration. This function
-    uses considerably more CPU than time.sleep, so it should only be used when high
-    precision is required.
-    """
     estimate = RESOLUTION * 10  # Initial overestimate
     mean = RESOLUTION * 10
     m2 = 0
@@ -43,18 +39,18 @@ def _precise_sleep(dur: float | int):
 
 
 def sleep(dur: Rate | TimeSpan | float | int, precise: bool = False):
-    """Sleep is a function that sleeps for the given duration. The duration can be
-    specified as a Rate, TimeSpan, float, or int. If the precise flag is set to True,
-    the function will use a more precise sleep implementation. It uses welford's
-    algorithm to estimate the ideal time to sleep for the given duration. This function
-    uses considerably more CPU than time.sleep, so it should only be used when high
-    precision is required.
+    """Sleeps for the given duration, with the option to use a high-precision sleep
+    that is more accurate than Python's default time.sleep implementation.
 
-    Args:
-        dur (Rate | TimeSpan | float | int): The duration to sleep for.
-        precise (bool): Whether to use a more precise sleep implementation. This will
-            use more CPU than the default sleep implementation, but will provide significantly
-            higher precision
+
+    :param dur: The duration to sleep for. The value can be a float or int representing
+    the number of seconds to sleep for, a Rate object representing the rate at
+    which to sleep (i.e. 1 Hz = 1 second), or a TimeSpan object representing the
+    duration to sleep for.
+    :param precise: Whether to use a more precise sleep implementation. This will
+    use more CPU than the default sleep implementation, but will provide significantly
+    higher precision. It uses Welford's algorithm to estimate the ideal time to sleep
+    for the given duration.
     """
     dur = TimeSpan.parse_seconds(dur).seconds
     if precise:
@@ -68,25 +64,25 @@ class Timer:
     counter to measure time. The timer can be started, reset, and the elapsed time can
     be queried.
     """
-    _start: TimeSpan
+    _start: TimeStamp
 
     def __init__(self):
         self.reset()
 
     def elapsed(self) -> TimeSpan:
-        """Elapsed returns the time elapsed since the timer was started.
+        """Returns the time elapsed since the timer was started.
         """
         return TimeSpan(time.perf_counter_ns() - self._start)
 
     def start(self):
-        """Start starts the timer.
+        """Starts the timer.
         """
         self.reset()
 
     def reset(self):
-        """Reset resets the timer to zero.
+        """Resets the timer to zero.
         """
-        self._start = TimeSpan(time.perf_counter_ns())
+        self._start = TimeStamp(time.perf_counter_ns())
 
 
 class Loop:
@@ -99,9 +95,12 @@ class Loop:
     """
     _timer: Timer
     interval: TimeSpan
+    """The interval at which to run the loop."""
     counter: int = 0
+    """The number of iterations that have been run."""
     average: TimeSpan = TimeSpan(0)
-    correction: TimeSpan = TimeSpan(0)
+    """The average execution time of the loop."""
+    _correction: TimeSpan = TimeSpan(0)
 
     def __init__(
         self,
@@ -110,11 +109,15 @@ class Loop:
     ):
         """Creates a new Loop object with the given interval and precision.
 
-        Args:
-            interval (Rate | TimeSpan | float | int): The interval at which to run the loop.
-            precise (bool): Whether to use a more precise sleep implementation. This will
-                use more CPU than the default sleep implementation, but will provide significantly
-                higher precision.
+        :param interval: The interval at which to run the loop. This can be a float or
+                int representing the number of seconds between each iteration, a Rate
+                object representing the rate at which to run the loop (i.e. 1 Hz = 1
+                second per iteration), or a TimeSpan object representing the duration
+                between each iteration.
+        :param precise: Whether to use a more precise sleep implementation. This will
+                use more CPU than the default sleep implementation, but will provide
+                significantly higher precision. It uses Welford's algorithm to estimate
+                the ideal time to sleep for the given duration.
         """
         self._timer = Timer()
         self.interval = TimeSpan.parse_seconds(interval)
@@ -134,7 +137,7 @@ class Loop:
     def __next__(self):
         elapsed = self._timer.elapsed()
         if elapsed < self.interval:
-            sleep_for = self.interval - elapsed - self.correction
+            sleep_for = self.interval - elapsed - self._correction
             if sleep_for < TimeSpan(0):
                 sleep_for = TimeSpan(0)
             sleep(sleep_for, self.precise)
@@ -142,16 +145,16 @@ class Loop:
         self.average = TimeSpan(
             (self.average * (self.counter - 1) + self._timer.elapsed()) / self.counter
         )
-        self.correction = self.average - self.interval
+        self._correction = self.average - self.interval
         self._timer.reset()
 
     def __call__(self):
         return self.__next__()
 
     def wait(self) -> True:
-        """Wait is a blocking function that will wait for the next iteration of the loop.
-        This function will block until the next iteration of the loop is complete.
+        """Waits for the next iteration of the loop, automatically sleeping for the
+        remainder of the interval if the calling block of code executes faster than the
+        interval.
         """
         self.__next__()
         return True
-

@@ -16,8 +16,7 @@ from synnax.channel.payload import (
     ChannelPayload,
     normalize_channel_params,
 )
-from synnax.channel.retrieve import ChannelRetriever, retrieve_required, \
-    retrieve_one_required
+from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, CrudeFrame
 from synnax.telem.series import CrudeSeries, Series
@@ -102,9 +101,9 @@ class WriteFrameAdapter:
     def __adapt_ch(
         self, ch: ChannelKey | ChannelName | ChannelPayload
     ) -> ChannelPayload:
-        if not isinstance(ch, (ChannelKey, ChannelName)):
-            return ch
-        return retrieve_one_required(self.retriever, ch)
+        if isinstance(ch, (ChannelKey, ChannelName)):
+            return self.retriever.retrieve_one(ch)
+        return ch
 
     def adapt(
         self,
