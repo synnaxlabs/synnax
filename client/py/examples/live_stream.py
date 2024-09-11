@@ -29,10 +29,14 @@ channels = [
     "stream_write_example_data_2",
 ]
 
+count = 1000
+
 # Open the streamer as a context manager. This will make sure the streamer is properly
 # closed when we're done reading. We'll read from both the time and data channels. In
 with client.open_streamer(channels) as s:
     # Loop through the frames in the streamer. Each iteration will block until a new
     # frame is available, then we'll just print it out.
-    for frame in s:
-        print(frame)
+    i = 0
+    while i < count:
+        s.read()
+        i += 1

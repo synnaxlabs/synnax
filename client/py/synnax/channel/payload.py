@@ -82,7 +82,7 @@ def normalize_channel_params(
                 variant="names",
                 channels=cast(ChannelNames, normalized),
             )
-    if isinstance(normalized[0], ChannelPayload):
+    elif isinstance(normalized[0], ChannelPayload):
         return NormalizedChannelNameResult(
             single=single,
             variant="keys",
