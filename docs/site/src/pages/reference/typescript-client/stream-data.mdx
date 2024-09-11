@@ -6,7 +6,7 @@ description: "Use the TypeScript client to stream data from a Synnax cluster."
 ---
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
-import { Divider } from "@synnaxlabs/pluto"
+import { Divider, Note } from "@synnaxlabs/pluto"
 
 Streaming data is useful for real-time processing, visualization, and
 monitoring. This page guides you through using the TypeScript client to stream
@@ -94,7 +94,9 @@ If you need to update the list of channels being streamed, you can call the
 await streamer.update(["temperature1", "temperature2", "pressure"]);
 ```
 
+<Note.Note variant="info">
 This method will *replace* the current list of channels with the new list, not add to it.
+</Note.Note>
 
 <Divider.Divider direction="x"/>
 

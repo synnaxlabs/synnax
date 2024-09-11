@@ -116,7 +116,8 @@ class Streamer:
             return None
 
     def update_channels(self, channels: ChannelParams):
-        """Updates the list of channels to stream.
+        """Updates the list of channels to stream. This method will replace the current
+        list of channels with the new list, not add to it.
 
         :param channels: The list of channels to stream.
         :raises NotFoundError: If any of the channels in the list are not found.
@@ -125,7 +126,13 @@ class Streamer:
         self._stream.send(_Request(keys=self._adapter.keys))
 
     def close(self, timeout: float | int | TimeSpan | None = None):
-        """Closes the streamer and frees all network resources."""
+        """Closes the streamer and frees all network resources.
+
+        :param timeout: The maximum amount of time to wait for the server to acknowledge
+        the closure before raising a TimeoutError. This can be a float or integer
+        representing the number of seconds, or a synnax TimeSpan object. If no timeout
+        is provided, this method will block until the server acknowledges the closure.
+        """
         exc = self._stream.close_send()
         if exc is not None:
             raise exc
@@ -191,8 +198,7 @@ class AsyncStreamer:
         self._client = client
         self._adapter = adapter
 
-    async def internal_open(self):
-        """Internal method to open the streamer. Should not be called directly."""
+    async def _open(self):
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(_Request(keys=self._adapter.keys))
 
