@@ -10,10 +10,11 @@
 package grpc
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fnoop"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"go/types"
 )
 
 func New() (a api.Transport, transports []fgrpc.BindableTransport) {
@@ -33,12 +34,14 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.ChannelRetrieveGroup = fnoop.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse]{}
 
 	// User
-	a.UserRegistrationOld = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
-	a.UserChangeUsernameOld = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
-	a.UserChangePasswordOld = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
-	a.UserChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
-	a.UserChangePassword = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
-	a.UserRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
+	a.UserRegistrationOld = fnoop.UnaryServer[api.UserRegisterRequest, api.TokenResponse]{}
+	a.UserChangeUsernameOld = fnoop.UnaryServer[api.UserChangeUserNameRequest, types.Nil]{}
+	a.UserChangePasswordOld = fnoop.UnaryServer[api.UserChangePasswordRequest, types.Nil]{}
+	a.UserChangeUsername = fnoop.UnaryServer[api.UserChangeUserNameRequest, types.Nil]{}
+	a.UserChangePassword = fnoop.UnaryServer[api.UserChangePasswordRequest, types.Nil]{}
+	a.UserRegistration = fnoop.UnaryServer[api.UserRegisterRequest, api.TokenResponse]{}
+	a.UserChangeName = fnoop.UnaryServer[api.UserChangeNameRequest, types.Nil]{}
+	a.UserUnregister = fnoop.UnaryServer[api.UserUnregisterRequest, types.Nil]{}
 
 	// RANGE
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}

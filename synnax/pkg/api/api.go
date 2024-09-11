@@ -123,12 +123,14 @@ type Transport struct {
 	// AUTH
 	AuthLogin freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
 	// User
-	UserChangeUsernameOld freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	UserChangePasswordOld freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	UserRegistrationOld   freighter.UnaryServer[RegistrationRequest, TokenResponse]
-	UserChangeUsername    freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	UserChangePassword    freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	UserRegistration      freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	UserChangeUsernameOld freighter.UnaryServer[UserChangeUserNameRequest, types.Nil]
+	UserChangePasswordOld freighter.UnaryServer[UserChangePasswordRequest, types.Nil]
+	UserRegistrationOld   freighter.UnaryServer[UserRegisterRequest, TokenResponse]
+	UserChangeUsername    freighter.UnaryServer[UserChangeUserNameRequest, types.Nil]
+	UserChangePassword    freighter.UnaryServer[UserChangePasswordRequest, types.Nil]
+	UserRegistration      freighter.UnaryServer[UserRegisterRequest, TokenResponse]
+	UserChangeName        freighter.UnaryServer[UserChangeNameRequest, types.Nil]
+	UserUnregister        freighter.UnaryServer[UserUnregisterRequest, types.Nil]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
@@ -345,6 +347,8 @@ func (a *API) BindTo(t Transport) {
 	t.UserRegistration.BindHandler(a.User.Register)
 	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
 	t.UserChangePassword.BindHandler(a.User.ChangePassword)
+	t.UserChangeName.BindHandler(a.User.ChangeName)
+	t.UserUnregister.BindHandler(a.User.Unregister)
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(a.Channel.Create)
