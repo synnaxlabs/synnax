@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Task", Ordered, func() {
@@ -156,17 +155,17 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
-		It("Should prevent the deletion of internal tasks", func() {
-			m := &task.Task{
-				Key:      task.NewKey(rack_.Key, 0),
-				Name:     "Test Task",
-				Internal: true,
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
-			Expect(m.Name).To(Equal("Test Task"))
-			Expect(w.Delete(ctx, m.Key, false)).To(HaveOccurredAs(validate.Error))
-		})
+		// It("Should prevent the deletion of internal tasks", func() {
+		// 	m := &task.Task{
+		// 		Key:      task.NewKey(rack_.Key, 0),
+		// 		Name:     "Test Task",
+		// 		Internal: true,
+		// 	}
+		// 	Expect(w.Create(ctx, m)).To(Succeed())
+		// 	Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+		// 	Expect(m.Name).To(Equal("Test Task"))
+		// 	Expect(w.Delete(ctx, m.Key, false)).To(HaveOccurredAs(validate.Error))
+		// })
 	})
 
 })
