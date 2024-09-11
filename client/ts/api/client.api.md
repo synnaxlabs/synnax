@@ -2649,7 +2649,7 @@ class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     // (undocumented)
     next(): Promise<IteratorResult<Frame, any>>;
     // (undocumented)
-    static _open(retriever: Retriever, client: StreamClient, { channels, from }: StreamerConfig): Promise<Streamer>;
+    static _open(retriever: Retriever, client: StreamClient, { channels }: StreamerConfig): Promise<Streamer>;
     // (undocumented)
     read(): Promise<Frame>;
     // (undocumented)
@@ -2662,8 +2662,6 @@ class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 interface StreamerConfig {
     // (undocumented)
     channels: Params;
-    // (undocumented)
-    from?: CrudeTimeStamp;
 }
 
 // Warning: (ae-missing-release-tag) "stringIDZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
