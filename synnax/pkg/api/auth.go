@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/user"
 )
@@ -45,9 +46,9 @@ func (s *AuthService) Login(ctx context.Context, cred auth.InsecureCredentials) 
 // the token is associated with.
 type TokenResponse struct {
 	// User is the user the token is associated with.
-	User user.User `json:"user"`
+	User user.User `json:"user" msgpack:"user"`
 	// Token is the JWT.
-	Token string `json:"token"`
+	Token string `json:"token" msgpack:"token"`
 }
 
 func (s *AuthService) tokenResponse(u user.User) (TokenResponse, error) {

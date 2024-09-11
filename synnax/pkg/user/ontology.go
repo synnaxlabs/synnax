@@ -11,6 +11,7 @@ package user
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -22,19 +23,18 @@ import (
 
 const ontologyType ontology.Type = "user"
 
+// OntologyID returns a unique identifier for a User for use within a resource ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: key.String()}
-}
-
-func FromOntologyID(id ontology.ID) (uuid.UUID, error) {
-	return uuid.Parse(id.Key)
 }
 
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":      {Type: schema.String},
-		"username": {Type: schema.String},
+		"key":       {Type: schema.String},
+		"username":  {Type: schema.String},
+		"firstName": {Type: schema.String},
+		"lastName":  {Type: schema.String},
 	},
 }
 
@@ -78,19 +78,17 @@ func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, User](s.DB).OpenNexter()
-	return newNextCloser(n), err
-}
-
-func newNextCloser(i iter.NexterCloser[User]) iter.NexterCloser[schema.Resource] {
 	return iter.NexterCloserTranslator[User, schema.Resource]{
-		Wrap:      i,
+		Wrap:      n,
 		Translate: newResource,
-	}
+	}, err
 }
 
 func newResource(u User) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(u.Key), u.Username)
 	schema.Set(e, "key", u.Key.String())
 	schema.Set(e, "username", u.Username)
+	schema.Set(e, "firstName", u.FirstName)
+	schema.Set(e, "lastName", u.LastName)
 	return e
 }

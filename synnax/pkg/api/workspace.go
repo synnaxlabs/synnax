@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -50,7 +49,7 @@ func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateReques
 	}); err != nil {
 		return res, err
 	}
-	userKey, err := user.FromOntologyID(getSubject(ctx))
+	userKey, err := getSubject(ctx).ParsedKey()
 	if err != nil {
 		return res, err
 	}

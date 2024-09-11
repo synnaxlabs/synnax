@@ -11,6 +11,8 @@ package ranger
 
 import (
 	"context"
+	"regexp"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -20,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"regexp"
 )
 
 // Range (short for time range) is an interesting, user defined regions of time in a
@@ -182,7 +183,10 @@ func (r Range) Parent(ctx context.Context) (Range, error) {
 	if len(resources) == 0 {
 		return Range{}, errors.Wrapf(query.NotFound, "range %s has no parent", r.Key)
 	}
-	key, err := KeyFromOntologyID(resources[0].ID)
+	key, err := resources[0].ID.ParsedKey()
+	if err != nil {
+		return Range{}, err
+	}
 	var res Range
 	if err = gorp.NewRetrieve[uuid.UUID, Range]().
 		WhereKeys(key).

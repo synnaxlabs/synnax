@@ -11,13 +11,13 @@ package user
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -56,6 +56,7 @@ type Service struct {
 
 const groupName = "Users"
 
+// NewService creates a new user service.
 func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -70,6 +71,8 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	return s, nil
 }
 
+// NewWriter opens a new writer on a user service, capable of creating, updating, and
+// deleting Users.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:  gorp.OverrideTx(s.DB, tx),
@@ -96,47 +99,11 @@ func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User
 		Exec(ctx, s.DB)
 }
 
-// UsernameExists checks if a user with the given username exists.
+// UsernameExists checks if a User with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
 	var u User
 	return gorp.NewRetrieve[uuid.UUID, User]().
 		Where(func(u *User) bool { return u.Username == username }).
 		Entry(&u).
 		Exists(ctx, s.DB)
-}
-
-type Writer struct {
-	svc *Service
-	tx  gorp.Tx
-	otg ontology.Writer
-}
-
-func (w Writer) Create(ctx context.Context, u *User) error {
-	if u.Key == uuid.Nil {
-		u.Key = uuid.New()
-	}
-
-	exists, err := w.svc.UsernameExists(ctx, u.Username)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return query.UniqueViolation
-	}
-
-	if err := gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-
-	otgID := OntologyID(u.Key)
-
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
-		return err
-	}
-
-	return w.otg.DefineRelationship(ctx, w.svc.group.OntologyID(), ontology.ParentOf, otgID)
-}
-
-func (w Writer) Update(ctx context.Context, u User) error {
-	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(ctx, w.tx)
 }

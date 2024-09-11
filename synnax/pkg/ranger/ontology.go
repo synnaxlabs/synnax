@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -35,16 +36,12 @@ func OntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
 	})
 }
 
-func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) {
-	return uuid.Parse(id.Key)
-}
-
 // KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys, returning
 // an error if any of the IDs are invalid.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
-		keys[i], err = KeyFromOntologyID(id)
+		keys[i], err = id.ParsedKey()
 		if err != nil {
 			return nil, err
 		}

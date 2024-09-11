@@ -10,14 +10,15 @@
 package embedded
 
 import (
+	"io"
+	"os/exec"
+	"sync"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"io"
-	"os/exec"
-	"sync"
 )
 
 type Config struct {
@@ -26,15 +27,15 @@ type Config struct {
 	// Enabled is used to enable or disable the embedded driver.
 	Enabled *bool `json:"enabled"`
 	// Address
-	Address        address.Address `json:"address"`
-	RackName       string          `json:"rack_name"`
-	Integrations   []string        `json:"integrations"`
-	CACertPath     string          `json:"ca_cert_path"`
-	ClientCertFile string          `json:"client_cert_file"`
-	ClientKeyFile  string          `json:"client_key_file"`
-	Username       string          `json:"username"`
-	Password       string          `json:"password"`
-	Debug          *bool           `json:"debug"`
+	Address        address.Address `json:"address" msgpack:"address"`
+	RackName       string          `json:"rack_name" msgpack:"rack_name"`
+	Integrations   []string        `json:"integrations" msgpack:"integrations"`
+	CACertPath     string          `json:"ca_cert_path" msgpack:"ca_cert_path"`
+	ClientCertFile string          `json:"client_cert_file" msgpack:"client_cert_file"`
+	ClientKeyFile  string          `json:"client_key_file" msgpack:"client_key_file"`
+	Username       string          `json:"username" msgpack:"username"`
+	Password       string          `json:"password" msgpack:"password"`
+	Debug          *bool           `json:"debug" msgpack:"debug"`
 }
 
 func (c Config) format() map[string]interface{} {

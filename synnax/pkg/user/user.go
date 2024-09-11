@@ -15,8 +15,10 @@ import (
 )
 
 type User struct {
-	Key      uuid.UUID `json:"key"`
-	Username string    `json:"username"`
+	Key       uuid.UUID `json:"key" msgpack:"key"`
+	Username  string    `json:"username" msgpack:"username"`
+	FirstName string    `json:"first_name" msgpack:"first_name"`
+	LastName  string    `json:"last_name" msgpack:"last_name"`
 }
 
 var _ gorp.Entry[uuid.UUID] = User{}
