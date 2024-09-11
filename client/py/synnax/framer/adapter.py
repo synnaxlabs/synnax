@@ -101,9 +101,9 @@ class WriteFrameAdapter:
     def __adapt_ch(
         self, ch: ChannelKey | ChannelName | ChannelPayload
     ) -> ChannelPayload:
-        if not isinstance(ch, (ChannelKey, ChannelName)):
-            return ch
-        return retrieve_required(self.retriever, ch)[0]
+        if isinstance(ch, (ChannelKey, ChannelName)):
+            return self.retriever.retrieve_one(ch)
+        return ch
 
     def adapt(
         self,
