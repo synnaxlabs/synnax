@@ -129,7 +129,7 @@ int ni::DigitalWriteSink::init() {
     auto channels = this->writer_config.channels;
 
     for (auto &channel: channels) {
-        if (channel.channel_type != "index" || !channel.enabled) {
+        if (channel.channel_type != "index" && channel.enabled) {
             err = this->check_ni_error(ni::NiDAQmxInterface::CreateDOChan(
                 this->task_handle, channel.name.c_str(), "",
                 DAQmx_Val_ChanPerLine));
@@ -219,14 +219,16 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
     int32 samplesWritten = 0;
     format_data(std::move(frame));
 
-    if (this->check_ni_error(ni::NiDAQmxInterface::WriteDigitalLines(this->task_handle,
-                                                                     1, // number of samples per channel
-                                                                     1, // auto start
-                                                                     10.0, // timeout
-                                                                     DAQmx_Val_GroupByChannel, // data layout
-                                                                     write_buffer, // data
-                                                                     &samplesWritten, // samples written
-                                                                     NULL))) {
+    if (this->check_ni_error(ni::NiDAQmxInterface::WriteDigitalLines(
+        this->task_handle,
+        1, // number of samples per channel
+        1, // auto start
+        10.0, // timeout
+        DAQmx_Val_GroupByChannel, // data layout
+        write_buffer, // data
+        &samplesWritten, // samples written
+        NULL
+    ))) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
