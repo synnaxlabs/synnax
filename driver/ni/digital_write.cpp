@@ -87,40 +87,39 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
 
     this->writer_config.device_name = dev.location;
     std::uint64_t c_count = 0;
-    parser.iter("channels",
-                [&](config::Parser &channel_builder) {
-                    ni::ChannelConfig config;
-                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    auto port = "port" + std::to_string(
-                                    channel_builder.required<std::uint64_t>(
-                                        "port"));
-                    auto line = "line" + std::to_string(
-                                    channel_builder.required<std::uint64_t>(
-                                        "line"));
+    parser.iter(
+        "channels",
+        [&](config::Parser &channel_builder) {
+            ni::ChannelConfig config;
+            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+            auto port = "port" + std::to_string(
+                            channel_builder.required<std::uint64_t>(
+                                "port"));
+            auto line = "line" + std::to_string(
+                            channel_builder.required<std::uint64_t>(
+                                "line"));
 
-                    config.name = (this->writer_config.device_name + "/" + port + "/" +
-                                   line);
+            config.name = (this->writer_config.device_name + "/" + port + "/" +
+                            line);
 
-                    config.channel_key = channel_builder.required<uint32_t>(
-                        "cmd_channel");
+            
+            config.enabled = channel_builder.optional<bool>("enabled", true);
+            
+            if(config.enabled) {
+                config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
+                this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
 
-                    config.enabled = channel_builder.optional<bool>("enabled", true);
+                auto state_key = channel_builder.required<uint32_t>("state_channel");
+                this->writer_config.state_channel_keys.push_back(state_key);
 
-                    this->writer_config.drive_cmd_channel_keys.push_back(
-                        config.channel_key);
+                config.state_channel_key = state_key;
 
-                    auto state_key = channel_builder.required<uint32_t>(
-                        "state_channel");
-                    this->writer_config.state_channel_keys.push_back(
-                        state_key);
+                this->channel_map[config.name] = "channels." + std::to_string(c_count);
 
-                    config.state_channel_key = state_key;
-
-                    this->channel_map[config.name] =
-                            "channels." + std::to_string(c_count);
-                    this->writer_config.channels.push_back(config);
-                    c_count++;
-                });
+                this->writer_config.channels.push_back(config);
+                c_count++;
+            }
+        });
 }
 
 
@@ -281,14 +280,16 @@ void ni::DigitalWriteSink::clear_task() {
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->writer_config.channels)
-        if (channel.channel_type != "index" && channel.enabled) keys.push_back(channel.channel_key);
+        if (channel.channel_type != "index" && channel.enabled) 
+            keys.push_back(channel.channel_key);
     return keys;
 }
 
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_state_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->writer_config.channels)
-        if (channel.channel_type != "index" && channel.enabled) keys.push_back(channel.state_channel_key);
+        if (channel.channel_type != "index" && channel.enabled)
+            keys.push_back(channel.state_channel_key);
     keys.push_back(this->writer_config.state_index_key);
     return keys;
 }
