@@ -32,17 +32,6 @@ import { type Toggle } from "@/vis/toggle";
 
 export interface SymbolFormProps {}
 
-const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
-  {
-    tabKey: "style",
-    name: "Style",
-  },
-  {
-    tabKey: "control",
-    name: "Control",
-  },
-];
-
 interface FormWrapperProps extends Align.SpaceProps {}
 
 const FormWrapper: FC<FormWrapperProps> = ({
@@ -115,7 +104,35 @@ const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
   </Form.Field>
 );
 
-export const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
+const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
+  <Form.Field hideIfNull label="Scale" align="start" padHelpText={false} {...props}>
+    {(p) => <Input.Numeric dragScale={1} bounds={{ lower: 0.5, upper: 10 }} {...p} />}
+  </Form.Field>
+);
+
+export const CommonStyleForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <Align.Space direction="x" grow>
+        <ColorControl path="color" optional />
+        <Form.Field<boolean>
+          path="normallyOpen"
+          label="Normally Open"
+          padHelpText={false}
+          hideIfNull
+          optional
+        >
+          {(p) => <Input.Switch {...p} />}
+        </Form.Field>
+        <ScaleControl path="scale" />
+      </Align.Space>
+    </Align.Space>
+    <OrientationControl path="" />
+  </FormWrapper>
+);
+
+const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
     Omit<Toggle.UseProps, "aetherKey"> & { control: ControlStateProps }
   >({ path });
@@ -203,70 +220,30 @@ export const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
+const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
+  {
+    tabKey: "style",
+    name: "Style",
+  },
+  {
+    tabKey: "control",
+    name: "Control",
+  },
+];
+
 export const CommonToggleForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "control":
         return <ToggleControlForm path="" />;
-      default: {
-        return (
-          <FormWrapper direction="x" align="stretch">
-            <Align.Space direction="y" grow>
-              <LabelControls path="label" />
-              <ColorControl path="color" hideIfNull optional />
-            </Align.Space>
-            <OrientationControl path="" />
-          </FormWrapper>
-        );
-      }
+      default:
+        return <CommonStyleForm />;
     }
   }, []);
 
   const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
   return <Tabs.Tabs {...props} />;
 };
-
-export const SolenoidValveForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "control":
-        return <ToggleControlForm path="" />;
-      default: {
-        return (
-          <FormWrapper direction="x" align="stretch">
-            <Align.Space direction="y" grow>
-              <LabelControls path="label" />
-              <Align.Space direction="x">
-                <ColorControl path="color" />
-                <Form.Field<boolean>
-                  path="normallyOpen"
-                  label="Normally Open"
-                  padHelpText={false}
-                >
-                  {(p) => <Input.Switch {...p} />}
-                </Form.Field>
-              </Align.Space>
-            </Align.Space>
-            <OrientationControl path="" />
-          </FormWrapper>
-        );
-      }
-    }
-  }, []);
-
-  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
-};
-
-export const CommonNonToggleForm = (): ReactElement => (
-  <FormWrapper direction="x">
-    <Align.Space direction="y" grow>
-      <LabelControls path="label" />
-      <ColorControl path="color" />
-    </Align.Space>
-    <OrientationControl path="" />
-  </FormWrapper>
-);
 
 const DIMENSIONS_DRAG_SCALE: xy.Crude = { y: 2, x: 0.25 };
 const DIMENSIONS_BOUNDS: bounds.Bounds = { lower: 0, upper: 2000 };
@@ -494,7 +471,7 @@ export const ValueForm = (): ReactElement => {
     switch (tabKey) {
       case "telemetry":
         return <ValueTelemForm path="" />;
-      default: {
+      default:
         return (
           <FormWrapper direction="x">
             <Align.Space direction="y" grow>
@@ -514,7 +491,6 @@ export const ValueForm = (): ReactElement => {
             <OrientationControl path="" />
           </FormWrapper>
         );
-      }
     }
   }, []);
   const props = Tabs.useStatic({ tabs: VALUE_FORM_TABS, content });
@@ -524,9 +500,7 @@ export const ValueForm = (): ReactElement => {
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<LightTelemFormT>({
-    path,
-  });
+  const { value, onChange } = Form.useField<LightTelemFormT>({ path });
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -552,9 +526,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
 
   const c = Channel.useName(source.channel as number);
 
-  useEffect(() => {
-    onChange({ ...value });
-  }, [c]);
+  useEffect(() => onChange({ ...value }), [c]);
 
   return (
     <FormWrapper direction="x" align="stretch">
@@ -573,19 +545,8 @@ export const LightForm = (): ReactElement => {
     switch (tabKey) {
       case "telemetry":
         return <LightTelemForm path="" />;
-      default: {
-        return (
-          <FormWrapper direction="x">
-            <Align.Space direction="y" grow>
-              <LabelControls path="label" />
-              <Align.Space direction="x">
-                <ColorControl path="color" />
-              </Align.Space>
-            </Align.Space>
-            <OrientationControl path="" />
-          </FormWrapper>
-        );
-      }
+      default:
+        return <CommonStyleForm />;
     }
   }, []);
   const props = Tabs.useStatic({ tabs: VALUE_FORM_TABS, content });
@@ -660,17 +621,7 @@ export const ButtonForm = (): ReactElement => {
       case "control":
         return <ButtonTelemForm path="" />;
       default:
-        return (
-          <FormWrapper direction="x" align="stretch">
-            <Align.Space direction="y" grow>
-              <LabelControls path="label" />
-              <Align.Space direction="x">
-                <ColorControl path="color" />
-              </Align.Space>
-            </Align.Space>
-            <OrientationControl path="" />
-          </FormWrapper>
-        );
+        return <CommonStyleForm />;
     }
   }, []);
 

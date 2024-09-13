@@ -16,11 +16,10 @@ import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
   ButtonForm,
-  CommonNonToggleForm,
+  CommonStyleForm,
   CommonToggleForm,
   LightForm,
   SetpointForm,
-  SolenoidValveForm,
   type SymbolFormProps,
   TankForm,
   ValueForm,
@@ -168,6 +167,7 @@ export type Variant = z.infer<typeof typeZ>;
 
 const ZERO_PROPS = {
   orientation: "left" as const,
+  scale: 1,
 };
 
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
@@ -308,7 +308,7 @@ const valve: Spec<ValveProps> = {
 const solenoidValve: Spec<SolenoidValveProps> = {
   name: "Solenoid Valve",
   key: "solenoidValve",
-  Form: SolenoidValveForm,
+  Form: CommonToggleForm,
   Symbol: SolenoidValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -411,7 +411,7 @@ const box: Spec<BoxProps> = {
 const reliefValve: Spec<ReliefValveProps> = {
   name: "Relief Valve",
   key: "reliefValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: ReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -425,7 +425,7 @@ const reliefValve: Spec<ReliefValveProps> = {
 const regulator: Spec<RegulatorProps> = {
   name: "Regulator",
   key: "regulator",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: Regulator,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -439,7 +439,7 @@ const regulator: Spec<RegulatorProps> = {
 const electricRegulator: Spec<ElectricRegulatorProps> = {
   name: "Electric Regulator",
   key: "electricRegulator",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: ElectricRegulator,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -453,7 +453,7 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
 const burstDisc: Spec<ReliefValveProps> = {
   name: "Burst Disc",
   key: "burstDisc",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: BurstDisc,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -467,7 +467,7 @@ const burstDisc: Spec<ReliefValveProps> = {
 const cap: Spec<ReliefValveProps> = {
   name: "Cap",
   key: "cap",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: Cap,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -481,7 +481,7 @@ const cap: Spec<ReliefValveProps> = {
 const manualValve: Spec<ManualValveProps> = {
   name: "Manual Valve",
   key: "manualValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: ManualValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -495,7 +495,7 @@ const manualValve: Spec<ManualValveProps> = {
 const filter: Spec<FilterProps> = {
   name: "Filter",
   key: "filter",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: Filter,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -509,7 +509,7 @@ const filter: Spec<FilterProps> = {
 const needleValve: Spec<NeedleValveProps> = {
   name: "Needle Valve",
   key: "needleValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: NeedleValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -523,7 +523,7 @@ const needleValve: Spec<NeedleValveProps> = {
 const checkValve: Spec<CheckValveProps> = {
   name: "Check Valve",
   key: "checkValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: CheckValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -537,7 +537,7 @@ const checkValve: Spec<CheckValveProps> = {
 const orifice: Spec<OrificeProps> = {
   name: "Orifice",
   key: "orifice",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: Orifice,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -551,7 +551,7 @@ const orifice: Spec<OrificeProps> = {
 const angledReliefValve: Spec<ReliefValveProps> = {
   name: "Angled Relief Valve",
   key: "angledReliefValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -589,6 +589,7 @@ const button: Spec<ButtonProps> = {
     color: t.colors.primary.z.rgba255,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
+    scale: null,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -602,6 +603,7 @@ const switch_: Spec<SwitchProps> = {
   defaultProps: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,
+    scale: null,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -652,7 +654,7 @@ const staticMixer: Spec<StaticMixerProps> = {
   name: "Static Mixer",
   key: "staticMixer",
   Symbol: StaticMixer,
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Static Mixer"),
