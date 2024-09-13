@@ -21,9 +21,7 @@ import { SchematicOntologyType } from "@/workspace/schematic/payload";
 
 const client = newClient();
 
-const sortByKey = (a: any, b: any) => {
-  return a.key.localeCompare(b.key);
-};
+const sortByKey = (a: any, b: any) => a.key.localeCompare(b.key);
 
 describe("Policy", () => {
   describe("create", () => {
@@ -274,7 +272,7 @@ describe("Policy", () => {
 describe("Registration", async () => {
   test("register a user", async () => {
     const username = id.id();
-    await client.user.register(username, "pwd1");
+    await client.user.create({ username, password: "pwd1" });
     new Synnax({
       host: HOST,
       port: PORT,
@@ -284,14 +282,16 @@ describe("Registration", async () => {
   });
   test("duplicate username", async () => {
     const username = id.id();
-    await client.user.register(username, "pwd1");
-    await expect(client.user.register(username, "pwd1")).rejects.toThrow(AuthError);
+    await client.user.create({ username, password: "pwd1" });
+    await expect(client.user.create({ username, password: "pwd1" })).rejects.toThrow(
+      AuthError,
+    );
   });
 });
 describe("privilege", async () => {
   test("new user", async () => {
     const username = id.id();
-    const user2 = await client.user.register(username, "pwd1");
+    const user2 = await client.user.create({ username, password: "pwd1" });
     expect(user2).toBeDefined();
     const client2 = new Synnax({
       host: HOST,

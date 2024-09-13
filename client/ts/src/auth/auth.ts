@@ -7,28 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
+import { type Middleware, sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { InvalidTokenError } from "@/errors";
 import { user } from "@/user";
 
-export const insecureCredentialsZ = z.object({
+const insecureCredentialsZ = z.object({
   username: z.string(),
   password: z.string(),
 });
-export type InsecureCredentials = z.infer<typeof insecureCredentialsZ>;
+type InsecureCredentials = z.infer<typeof insecureCredentialsZ>;
 
-export const tokenResponseZ = z.object({
+const tokenResponseZ = z.object({
   token: z.string(),
-  user: user.payloadZ,
+  user: user.userZ,
 });
-
-export type TokenResponse = z.infer<typeof tokenResponseZ>;
 
 const LOGIN_ENDPOINT = "/auth/login";
 
 const MAX_RETRIES = 3;
+
+const CHANGE_USERNAME_ENDPOINT = "/auth/change-username";
+const CHANGE_PASSWORD_ENDPOINT = "/auth/change-password";
+
+const changeUsernameReqZ = z.object({
+  username: z.string(),
+  password: z.string(),
+  newUsername: z.string().min(1),
+});
+const changeUsernameResZ = z.object({});
+
+const changePasswordReqZ = z.object({
+  username: z.string(),
+  password: z.string(),
+  newPassword: z.string().min(1),
+});
+const changePasswordResZ = z.object({});
 
 export class Client {
   token: string | undefined;
@@ -36,7 +51,7 @@ export class Client {
   private readonly credentials: InsecureCredentials;
   private authenticating: Promise<Error | null> | undefined;
   authenticated: boolean;
-  user: user.Payload | undefined;
+  user: user.User | undefined;
   private retryCount: number;
 
   constructor(client: UnaryClient, credentials: InsecureCredentials) {
@@ -44,6 +59,39 @@ export class Client {
     this.authenticated = false;
     this.credentials = credentials;
     this.retryCount = 0;
+  }
+
+  async changeUsername(newUsername: string): Promise<void> {
+    if (!this.authenticated || this.user == null) throw new Error("Not authenticated");
+    await sendRequired<typeof changeUsernameReqZ, typeof changeUsernameResZ>(
+      this.client,
+      CHANGE_USERNAME_ENDPOINT,
+      {
+        username: this.credentials.username,
+        password: this.credentials.password,
+        newUsername,
+      },
+      changeUsernameReqZ,
+      changeUsernameResZ,
+    );
+    this.credentials.username = newUsername;
+    this.user.username = newUsername;
+  }
+
+  async changePassword(newPassword: string): Promise<void> {
+    if (!this.authenticated) throw new Error("Not authenticated");
+    await sendRequired<typeof changePasswordReqZ, typeof changePasswordResZ>(
+      this.client,
+      CHANGE_PASSWORD_ENDPOINT,
+      {
+        username: this.credentials.username,
+        password: this.credentials.password,
+        newPassword,
+      },
+      changePasswordReqZ,
+      changePasswordResZ,
+    );
+    this.credentials.password = newPassword;
   }
 
   middleware(): Middleware {

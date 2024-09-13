@@ -11,7 +11,7 @@ from freighter import UnaryClient, send_required
 from synnax.auth import InsecureCredentials, TokenResponse
 from synnax.user.payload import UserPayload
 
-_REGISTER_ENDPOINT = "/user/register"
+_CREATE_ENDPOINT = "/user/create"
 
 
 class UserClient:
@@ -26,7 +26,7 @@ class UserClient:
     def register(self, username: str, password: str) -> UserPayload:
         return send_required(
             self.client,
-            _REGISTER_ENDPOINT,
+            _CREATE_ENDPOINT,
             InsecureCredentials(username=username, password=password),
             TokenResponse,
         ).user

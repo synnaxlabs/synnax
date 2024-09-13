@@ -12,15 +12,20 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 
 export const keyZ = z.string().uuid();
-
 export type Key = z.infer<typeof keyZ>;
 
-export const payloadZ = z.object({
-  key: z.string(),
-  username: z.string(),
+export const userZ = z.object({
+  key: keyZ,
+  username: z.string().min(1),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
+export type User = z.infer<typeof userZ>;
 
-export type Payload = z.infer<typeof payloadZ>;
+export const newUserZ = userZ
+  .omit({ key: true })
+  .extend({ password: z.string().min(1) });
+export type NewUser = z.infer<typeof newUserZ>;
 
 export const UserOntologyType = "user" as ontology.ResourceType;
 
