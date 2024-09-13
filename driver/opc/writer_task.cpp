@@ -137,7 +137,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
 
     auto cmd_streamer_config = synnax::StreamerConfig{
         .channels = cfg.cmd_keys(),
-        .start = synnax::TimeStamp::now(),
     };
 
     ctx->setState({

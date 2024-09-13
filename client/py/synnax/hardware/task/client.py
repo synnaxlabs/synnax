@@ -26,7 +26,6 @@ from synnax.hardware.rack import Rack, Client as RackClient
 from synnax.exceptions import ConfigurationError
 
 
-
 class _CreateRequest(Payload):
     tasks: list[TaskPayload]
 
@@ -136,8 +135,8 @@ class Task:
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args)
             while True:
-                print(TimeSpan.parse_seconds(timeout).seconds)
-                frame = s.read(TimeSpan.parse_seconds(timeout).seconds)
+                print(TimeSpan.from_seconds(timeout).seconds)
+                frame = s.read(TimeSpan.from_seconds(timeout).seconds)
                 if frame is None:
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"
@@ -327,4 +326,3 @@ class Client:
             )
             for t in tasks
         ]
-

@@ -255,8 +255,8 @@ Please call client.ranges.create(range) before attempting to read from a range."
 class Range(RangePayload):
     """A range is a user-defined region of a cluster's data. It's identified by a name,
     time range, and uniquely generated key. See
-    https://docs.synnaxlabs.com/concepts/read-ranges for an introduction to ranges and
-    how they work.
+    https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to ranges
+    and how they work.
     """
 
     __frame_client: Client | None = PrivateAttr(None)

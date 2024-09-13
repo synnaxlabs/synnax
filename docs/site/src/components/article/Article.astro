@@ -91,5 +91,15 @@ const { title, description } = Astro.props;
         h3 .synnax-icon {
             transform: translateY(3px);
         }
+
+        .pluto-note {
+            display: block;
+            & > * {
+                font-size: var(--pluto-small-size);
+                font-family: var(--pluto-font-family);
+                font-weight: 450 !important;
+                line-height: calc(var(--pluto-small-line-height) * 1.2);
+            }
+        }
     }
 </style>

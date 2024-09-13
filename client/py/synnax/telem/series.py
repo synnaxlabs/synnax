@@ -30,9 +30,6 @@ from synnax.util.interop import overload_comparison_operators
 
 
 class Series(Payload):
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(overload_comparison_operators(cls, "__array__"))
-
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -234,6 +231,7 @@ class Series(Payload):
         else:
             return False
 
+Series = overload_comparison_operators(Series, "__array__")
 
 SampleValue = np.number | uuid.UUID | dict | str
 TypedCrudeSeries = Series | pd.Series | np.ndarray
@@ -262,9 +260,6 @@ def elapsed_seconds(d: np.ndarray) -> np.ndarray:
 
 class MultiSeries:
     series: list[Series]
-
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(overload_comparison_operators(cls, "__array__"))
 
     def __init__(self, series: list[Series]):
         self.series = series
@@ -320,3 +315,5 @@ class MultiSeries:
     @property
     def size(self) -> Size:
         return Size(sum(s.size for s in self.series))
+
+MultiSeries = overload_comparison_operators(MultiSeries, "__array__")

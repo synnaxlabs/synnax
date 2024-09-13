@@ -40,7 +40,7 @@
     border: var(--pluto-border);
     border-color: var(--pluto-bg) !important;
     & * {
-        color: var(--pluto-text-color, var(--pluto-text-on-primary)) !important;
+        color: var(--pluto-btn-text-color, var(--pluto-text-on-primary)) !important;
     }
 
     &:hover:not(.pluto--disabled) {

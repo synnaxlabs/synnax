@@ -29,8 +29,8 @@ class Client:
     def acquire(
         self,
         name: str,
-        read: ChannelParams,
-        write: ChannelParams,
+        read: ChannelParams | None,
+        write: ChannelParams | None,
         write_authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
     ) -> Controller:
         """Opens a new controller for executing control sequences. We recommend using

@@ -4,11 +4,10 @@ title: "NI | Digital Write Task"
 heading: "NI Digital Write Task"
 description: "Learn how to create a digital write task for NI hardware."
 ---
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
 import { Video, Image } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
-import Note from "@/components/Note.astro";
 
 The Digital Write Task is used for sending commands to the digital outputs of your NI 
 cards. In this guide, we'll walk you through the steps to create a Digital Write Task in 
@@ -48,11 +47,11 @@ A command channel for a digital output might be `my_temp_card_do_0_1_cmd`, where
 `my_temp_card` is the device identifier, `do_0_1` is the port and line of the digital 
 output, and `_cmd` indicates that it's a command channel.
 
-<Note variant="info">
+<Note.Note variant="info">
 Command channels also have an associated index channel that stores the timestamps at
 which commands were sent. This channel is suffixed with `_cmd_time`. For the command
 channel `my_temp_card_do_0_1_cmd`, the index channel would be `my_temp_card_do_0_1_cmd_time`.
-</Note>
+</Note.Note>
 
 State channels represent the current state of the digital output. When you send a command,
 the corresponding digital write task will process the command and update the value in
@@ -146,8 +145,8 @@ task and enable the Play (<Icon.Play />) button in the dialog. Click this button
 
 <Video client:only="react" id="device-drivers/ni/digital-write-task/digital-write-task-start" />
 
-<Note variant="info">
+<Note.Note variant="info">
 Starting and stopping a task does not re-apply the task configuration. If you've made 
 changes to the configuration, you'll need to re-configure the task by hitting the "
 Configure" button.
-</Note>
+</Note.Note>

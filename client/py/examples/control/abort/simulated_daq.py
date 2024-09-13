@@ -115,7 +115,7 @@ state = {
     "daq_time": sy.TimeStamp.now(),
 }
 
-rate = (sy.Rate.HZ * 50).period.seconds
+loop = sy.Loop(sy.Rate.HZ * 50)
 
 with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
     with client.open_writer(
@@ -129,8 +129,7 @@ with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
         name="Simulated DAQ",
         enable_auto_commit=True,
     ) as writer:
-        while True:
-            time.sleep(rate)
+        while loop.wait():
             while True:
                 # Read incoming commands with a non-blocking timeout.
                 f = streamer.read(0)

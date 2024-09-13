@@ -60,8 +60,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 			Exec(ctx, nil),
 		).To(Succeed())
 		streamer = MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys:  channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
-			Start: telem.Now(),
+			Keys: channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
 		}))
 		requests, responses = confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()

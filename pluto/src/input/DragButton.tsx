@@ -10,7 +10,7 @@
 import "@/input/DragButton.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { box,type direction, xy } from "@synnaxlabs/x";
+import { box, type direction, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { Button } from "@/button";

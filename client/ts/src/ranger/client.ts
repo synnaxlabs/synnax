@@ -271,18 +271,18 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
 
   async retrieve(range: Keys | Names): Promise<Range[]>;
 
-  async retrieve(params: Params | CrudeTimeRange): Promise<Range | Range[]> {
-    if (typeof params === "object" && "start" in params)
-      return await this.execRetrieve({ overlapsWith: new TimeRange(params) });
-    const { single, actual, variant, normalized, empty } = analyzeParams(params);
+  async retrieve(ranges: Params | CrudeTimeRange): Promise<Range | Range[]> {
+    if (typeof ranges === "object" && "start" in ranges)
+      return await this.execRetrieve({ overlapsWith: new TimeRange(ranges) });
+    const { single, actual, variant, normalized, empty } = analyzeParams(ranges);
     if (empty) return [];
-    const ranges = await this.execRetrieve({ [variant]: normalized });
-    if (!single) return ranges;
-    if (ranges.length === 0)
+    const retrieved = await this.execRetrieve({ [variant]: normalized });
+    if (!single) return retrieved;
+    if (retrieved.length === 0)
       throw new NotFoundError(`range matching ${actual} not found`);
-    if (ranges.length > 1)
+    if (retrieved.length > 1)
       throw new MultipleFoundError(`multiple ranges matching ${actual} found`);
-    return ranges[0];
+    return retrieved[0];
   }
 
   getKV(range: Key): KV {
