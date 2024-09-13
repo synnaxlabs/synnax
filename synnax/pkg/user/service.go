@@ -73,30 +73,19 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 
 // NewWriter opens a new writer on a user service, capable of creating, updating, and
 // deleting Users.
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
+func (svc *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(s.DB, tx),
-		otg: s.Ontology.NewWriter(tx),
-		svc: s,
+		tx:  gorp.OverrideTx(svc.DB, tx),
+		otg: svc.Ontology.NewWriter(tx),
+		svc: svc,
 	}
 }
 
-// Retrieve retrieves a User by its key.
-func (s *Service) Retrieve(ctx context.Context, key uuid.UUID) (User, error) {
-	var u User
-	return u, gorp.NewRetrieve[uuid.UUID, User]().
-		WhereKeys(key).
-		Entry(&u).
-		Exec(ctx, s.DB)
-}
-
-// RetrieveByUsername retrieves a User by its username.
-func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User, error) {
-	var u User
-	return u, gorp.NewRetrieve[uuid.UUID, User]().
-		Where(func(u *User) bool { return u.Username == username }).
-		Entry(&u).
-		Exec(ctx, s.DB)
+func (svc *Service) NewRetrieve() Retrieve {
+	return Retrieve{
+		gorp:   gorp.NewRetrieve[uuid.UUID, User](),
+		baseTX: svc.DB,
+	}
 }
 
 // UsernameExists checks if a User with the given username exists.

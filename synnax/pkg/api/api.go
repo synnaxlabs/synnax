@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package api implements the client interfaces for interacting with the delta cluster.
-// The top level package is completely transport agnostic, and provides freighter compatible
-// interfaces for all of its services. sub-packages in this directory wrap the core API
-// services to provide transport specific implementations.
+// Package api implements the client interfaces for interacting with the Synnax cluster.
+// The top level package is completely transport agnostic, and provides freighter
+// compatible interfaces for all of its services. sub-packages in this directory wrap
+// the core API services to provide transport specific implementations.
 package api
 
 import (
@@ -42,8 +42,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is all required configuration parameters and services necessary to
-// instantiate the API.
+// Config is all required configuration parameters and services necessary to instantiate
+// the API.
 type Config struct {
 	alamos.Instrumentation
 	RBAC          *rbac.Service
@@ -121,16 +121,15 @@ func (c Config) Override(other Config) Config {
 
 type Transport struct {
 	// AUTH
-	AuthLogin freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
-	// User
-	UserChangeUsernameOld freighter.UnaryServer[UserChangeUserNameRequest, types.Nil]
-	UserChangePasswordOld freighter.UnaryServer[UserChangePasswordRequest, types.Nil]
-	UserRegistrationOld   freighter.UnaryServer[UserRegisterRequest, TokenResponse]
-	UserChangeUsername    freighter.UnaryServer[UserChangeUserNameRequest, types.Nil]
-	UserChangePassword    freighter.UnaryServer[UserChangePasswordRequest, types.Nil]
-	UserRegistration      freighter.UnaryServer[UserRegisterRequest, TokenResponse]
-	UserChangeName        freighter.UnaryServer[UserChangeNameRequest, types.Nil]
-	UserUnregister        freighter.UnaryServer[UserUnregisterRequest, types.Nil]
+	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	AuthChangeUsername freighter.UnaryServer[AuthChangeUsernameRequest, types.Nil]
+	AuthChangePassword freighter.UnaryServer[AuthChangePasswordRequest, types.Nil]
+	// USER
+	UserChangeName     freighter.UnaryServer[UserChangeNameRequest, types.Nil]
+	UserChangeUsername freighter.UnaryServer[UserChangeUsernameRequest, types.Nil]
+	UserCreate         freighter.UnaryServer[UserCreateRequest, UserCreateResponse]
+	UserDelete         freighter.UnaryServer[UserDeleteRequest, types.Nil]
+	UserRetrieve       freighter.UnaryServer[UserRetrieveRequest, UserRetrieveResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
@@ -207,8 +206,8 @@ type Transport struct {
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
-// API wraps all implemented API services into a single container. Protocol-specific
-// API implementations should use this struct during instantiation.
+// API wraps all implemented API services into a single container. Protocol-specific API
+// implementations should use this struct during instantiation.
 type API struct {
 	provider     Provider
 	config       Config
@@ -247,10 +246,16 @@ func (a *API) BindTo(t Transport) {
 	freighter.UseOnAll(
 		secureMiddleware,
 
+		// AUTH
+		t.AuthChangeUsername,
+		t.AuthChangePassword,
+
 		// USER
+		t.UserChangeName,
 		t.UserChangeUsername,
-		t.UserChangePassword,
-		t.UserRegistration,
+		t.UserCreate,
+		t.UserDelete,
+		t.UserRetrieve,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -296,7 +301,7 @@ func (a *API) BindTo(t Transport) {
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
 
-		// Schematic
+		// SCHEMATIC
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
@@ -339,16 +344,15 @@ func (a *API) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(a.Auth.Login)
+	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
+	t.AuthChangeUsername.BindHandler(a.Auth.ChangeUsername)
 
 	// USER
-	t.UserRegistrationOld.BindHandler(a.User.Register)
-	t.UserChangeUsernameOld.BindHandler(a.User.ChangeUsername)
-	t.UserChangePasswordOld.BindHandler(a.User.ChangePassword)
-	t.UserRegistration.BindHandler(a.User.Register)
-	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
-	t.UserChangePassword.BindHandler(a.User.ChangePassword)
 	t.UserChangeName.BindHandler(a.User.ChangeName)
-	t.UserUnregister.BindHandler(a.User.Unregister)
+	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
+	t.UserCreate.BindHandler(a.User.Create)
+	t.UserDelete.BindHandler(a.User.Delete)
+	t.UserRetrieve.BindHandler(a.User.Retrieve)
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(a.Channel.Create)

@@ -11,6 +11,7 @@ package auth
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -97,6 +98,19 @@ func (w *kvWriter) UpdateUsername(ctx context.Context, creds InsecureCredentials
 	return w.set(ctx, secureCreds)
 }
 
+// ChangeUsername implements Authenticator.
+func (w *kvWriter) ChangeUsername(ctx context.Context, oldUsername, newUsername string) error {
+	if err := w.checkUsernameExists(ctx, newUsername); err != nil {
+		return err
+	}
+	secureCreds, err := w.service.retrieve(ctx, w.tx, oldUsername)
+	if err != nil {
+		return err
+	}
+	secureCreds.Username = newUsername
+	return w.set(ctx, secureCreds)
+}
+
 // UpdatePassword implements Authenticator.
 func (w *kvWriter) UpdatePassword(ctx context.Context, creds InsecureCredentials, newPass password.Raw) error {
 	secureCreds, err := w.service.authenticate(ctx, creds, w.tx)
@@ -108,6 +122,11 @@ func (w *kvWriter) UpdatePassword(ctx context.Context, creds InsecureCredentials
 		return err
 	}
 	return w.set(ctx, secureCreds)
+}
+
+// Deactivate implements Authenticator.
+func (w *kvWriter) Deactivate(ctx context.Context, usernames ...string) error {
+	return gorp.NewDelete[string, SecureCredentials]().WhereKeys(usernames...).Exec(ctx, w.tx)
 }
 
 func (w *kvWriter) set(ctx context.Context, creds SecureCredentials) error {

@@ -14,121 +14,107 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// UserService is the core authentication service for the delta API.
+// UserService is the core authentication service for the Synnax API.
 type UserService struct {
 	dbProvider
 	authProvider
-	userProvider
 	accessProvider
 	internal *user.Service
 }
 
+// NewUserService creates a new UserService that allows for registering, updating, and
+// removing users.
 func NewUserService(p Provider) *UserService {
 	return &UserService{
 		dbProvider:     p.db,
 		authProvider:   p.auth,
-		userProvider:   p.user,
 		accessProvider: p.access,
 		internal:       p.Config.User,
 	}
 }
 
-// UserRegisterRequest is an API request to register a new user.
-type UserRegisterRequest struct {
+// NewUser holds information for creating a new user in a Synnax server. The username
+// and password are required, and the first and last name are optional.
+type NewUser struct {
 	auth.InsecureCredentials
 	FirstName string `json:"first_name" msgpack:"first_name"`
 	LastName  string `json:"last_name" msgpack:"last_name"`
 }
 
-// Register registers a new user with the provided credentials. If successful, returns a
-// response containing a valid JWT along with the user's details.
-func (s *UserService) Register(ctx context.Context, req UserRegisterRequest) (tr TokenResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Action(user.Register),
-		Objects: []ontology.ID{},
-	}); err != nil {
-		return tr, err
+type (
+	UserCreateRequest struct {
+		Users []NewUser `json:"users" msgpack:"users"`
 	}
-	return tr, s.WithTx(ctx, func(txn gorp.Tx) error {
-		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
-			return err
+	UserCreateResponse struct {
+		Users []user.User `json:"users" msgpack:"users"`
+	}
+)
+
+// Create registers the new users with the provided credentials. If successful, Create
+// returns a slice of the new users.
+func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (UserCreateResponse, error) {
+	if err := svc.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{user.OntologyID(uuid.Nil)},
+	}); err != nil {
+		return UserCreateResponse{}, err
+	}
+	var res UserCreateResponse
+	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
+		w := svc.internal.NewWriter(tx)
+		newUsers := make([]user.User, len(req.Users))
+		for i, u := range req.Users {
+			if err := svc.authenticator.NewWriter(tx).Register(ctx, u.InsecureCredentials); err != nil {
+				return err
+			}
+			newUsers[i].Username = u.Username
+			newUsers[i].FirstName = u.FirstName
+			newUsers[i].LastName = u.LastName
+			if err := w.Create(ctx, &newUsers[i]); err != nil {
+				return err
+			}
 		}
-		u := &user.User{Username: req.Username, FirstName: req.FirstName, LastName: req.LastName}
-		if err := s.user.NewWriter(txn).Create(ctx, u); err != nil {
-			return err
-		}
-		tr, err = s.tokenResponse(*u)
-		return err
+		res.Users = newUsers
+		return nil
 	})
 }
 
-// UserChangePasswordRequest is an API request to change the password for a user.
-type UserChangePasswordRequest struct {
-	auth.InsecureCredentials
-	NewPassword password.Raw `json:"new_password" msgpack:"new_password" validate:"required"`
+type UserChangeUsernameRequest struct {
+	Key      uuid.UUID `json:"key" msgpack:"key"`
+	Username string    `json:"username" msgpack:"username"`
 }
 
-// ChangePassword changes the password for the user with the provided credentials.
-func (s *UserService) ChangePassword(ctx context.Context, req UserChangePasswordRequest) (res types.Nil, err error) {
-	u, err := s.user.RetrieveByUsername(ctx, req.Username)
-	if err != nil {
-		return res, err
-	}
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Action(user.ChangePassword),
-		Objects: []ontology.ID{user.OntologyID(u.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.WithTx(ctx, func(txn gorp.Tx) error {
-		return s.authenticator.NewWriter(txn).
-			UpdatePassword(ctx, req.InsecureCredentials, req.NewPassword)
-	})
-}
-
-// UserChangeUserNameRequest is an API request to change the username for a user.
-type UserChangeUserNameRequest struct {
-	auth.InsecureCredentials `json:"" msgpack:""`
-	NewUsername              string `json:"new_username" msgpack:"new_username" validate:"required"`
-}
-
-// ChangeUsername changes the username for the user with the provided credentials.
-func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUserNameRequest) (types.Nil, error) {
-	u, err := s.user.RetrieveByUsername(ctx, req.Username)
-	if err != nil {
+// ChangeUsername changes the username for the user with the given key.
+func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsernameRequest) (types.Nil, error) {
+	var u user.User
+	if err := s.internal.NewRetrieve().WhereKeys(req.Key).Entry(&u).Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Action(user.ChangeUsername),
-		Objects: []ontology.ID{user.OntologyID(u.Key)},
+		Action:  access.Update,
+		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.WithTx(ctx, func(txn gorp.Tx) error {
-		u, err := s.user.RetrieveByUsername(ctx, req.InsecureCredentials.Username)
-		if err != nil {
-			return err
-		}
-		if err := s.authenticator.NewWriter(txn).UpdateUsername(
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.authenticator.NewWriter(tx).ChangeUsername(
 			ctx,
-			req.InsecureCredentials,
-			req.NewUsername,
+			u.Username,
+			req.Username,
 		); err != nil {
 			return err
 		}
-		u.Username = req.NewUsername
-		return s.user.NewWriter(txn).Update(ctx, u)
+		return s.internal.NewWriter(tx).ChangeUsername(ctx, req.Key, req.Username)
 	})
 }
 
@@ -140,49 +126,78 @@ type UserChangeNameRequest struct {
 
 // ChangeName changes the name for the user with the provided key. If either the first
 // or last name is empty, the corresponding field will not be updated.
-func (s *UserService) ChangeName(ctx context.Context, req UserChangeNameRequest) (res types.Nil, err error) {
-	u, err := s.user.Retrieve(ctx, req.Key)
-	if err != nil {
-		return
-	}
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *UserService) ChangeName(ctx context.Context, req UserChangeNameRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
-		return
+		return types.Nil{}, err
 	}
-	if req.FirstName != "" {
-		u.FirstName = req.FirstName
-	}
-	if req.LastName != "" {
-		u.LastName = req.LastName
-	}
-
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Update(ctx, u)
+		return s.internal.NewWriter(tx).ChangeName(ctx, req.Key, req.FirstName, req.LastName)
 	})
 }
 
-type UserUnregisterRequest struct {
+type (
+	UserRetrieveRequest struct {
+		Keys      []uuid.UUID `json:"keys" msgpack:"keys"`
+		Usernames []string    `json:"usernames" msgpack:"usernames"`
+	}
+	UserRetrieveResponse struct {
+		Users []user.User `json:"users" msgpack:"users"`
+	}
+)
+
+// Retrieve returns the users with the provided keys or usernames.
+func (svc *UserService) Retrieve(ctx context.Context, req UserRetrieveRequest) (UserRetrieveResponse, error) {
+	q := svc.internal.NewRetrieve()
+
+	if len(req.Keys) > 0 {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if len(req.Usernames) > 0 {
+		q = q.WhereUsernames(req.Usernames...)
+	}
+	var users []user.User
+	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
+		return UserRetrieveResponse{}, err
+	}
+	if err := svc.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: user.OntologyIDsFromUsers(users),
+	}); err != nil {
+		return UserRetrieveResponse{}, err
+	}
+	return UserRetrieveResponse{Users: users}, nil
+}
+
+type UserDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-// Unregister removes the user with the provided key from the Synnax cluster.
-func (s *UserService) Unregister(ctx context.Context, req UserUnregisterRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+// Delete removes the users with the provided keys from the Synnax cluster.
+func (s *UserService) Delete(ctx context.Context, req UserDeleteRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Action(user.Unregister),
-		Objects: []ontology.ID{},
+		Action:  access.Delete,
+		Objects: user.OntologyIDsFromKeys(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(txn gorp.Tx) error {
-		return s.internal.NewWriter(txn).Delete(ctx, req.Keys...)
-	})
-}
+	var users []user.User
+	if err := s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&users).Exec(ctx, nil); err != nil {
+		return types.Nil{}, err
+	}
 
-func (s *UserService) tokenResponse(u user.User) (TokenResponse, error) {
-	tk, err := s.token.New(u.Key)
-	return TokenResponse{User: u, Token: tk}, err
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.authenticator.NewWriter(tx).
+			Deactivate(ctx, lo.Map(users, func(u user.User, _ int) string {
+				return u.Username
+			})...); err != nil {
+			return err
+		}
+		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	})
 }

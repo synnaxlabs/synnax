@@ -28,6 +28,30 @@ func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: key.String()}
 }
 
+func OntologyIDsFromKeys(keys []uuid.UUID) []ontology.ID {
+	ids := make([]ontology.ID, len(keys))
+	for i, key := range keys {
+		ids[i] = OntologyID(key)
+	}
+	return ids
+}
+
+// OntologyIDFromUser returns a unique identifier for a User for use within a resource
+// ontology.
+func OntologyIDFromUser(u *User) ontology.ID {
+	return OntologyID(u.Key)
+}
+
+// OntologyIDsFromUsers returns a slice of unique identifiers for a slice of Users for
+// use within a resource ontology.
+func OntologyIDsFromUsers(users []User) []ontology.ID {
+	ids := make([]ontology.ID, len(users))
+	for i, u := range users {
+		ids[i] = OntologyIDFromUser(&u)
+	}
+	return ids
+}
+
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
@@ -49,7 +73,11 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	if err != nil {
 		return schema.Resource{}, err
 	}
-	u, err := s.Retrieve(ctx, uuidKey)
+	var u User
+	err = s.NewRetrieve().Entry(&u).WhereKeys(uuidKey).Exec(ctx, tx)
+	if err != nil {
+		return schema.Resource{}, err
+	}
 	return newResource(u), err
 }
 

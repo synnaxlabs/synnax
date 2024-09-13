@@ -26,22 +26,23 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = append(transports, newRanger(&a))
 	transports = append(transports, newHardware(&a))
 
-	// Hardware
+	// AUTH
+	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
+	a.AuthChangeUsername = fnoop.UnaryServer[api.AuthChangeUsernameRequest, types.Nil]{}
+
+	// HARDWARE
 	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
 
-	// Channel
+	// CHANNEL
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
 	a.ChannelRetrieveGroup = fnoop.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse]{}
 
-	// User
-	a.UserRegistrationOld = fnoop.UnaryServer[api.UserRegisterRequest, api.TokenResponse]{}
-	a.UserChangeUsernameOld = fnoop.UnaryServer[api.UserChangeUserNameRequest, types.Nil]{}
-	a.UserChangePasswordOld = fnoop.UnaryServer[api.UserChangePasswordRequest, types.Nil]{}
-	a.UserChangeUsername = fnoop.UnaryServer[api.UserChangeUserNameRequest, types.Nil]{}
-	a.UserChangePassword = fnoop.UnaryServer[api.UserChangePasswordRequest, types.Nil]{}
-	a.UserRegistration = fnoop.UnaryServer[api.UserRegisterRequest, api.TokenResponse]{}
+	// USER
 	a.UserChangeName = fnoop.UnaryServer[api.UserChangeNameRequest, types.Nil]{}
-	a.UserUnregister = fnoop.UnaryServer[api.UserUnregisterRequest, types.Nil]{}
+	a.UserChangeUsername = fnoop.UnaryServer[api.UserChangeUsernameRequest, types.Nil]{}
+	a.UserCreate = fnoop.UnaryServer[api.UserCreateRequest, api.UserCreateResponse]{}
+	a.UserDelete = fnoop.UnaryServer[api.UserDeleteRequest, types.Nil]{}
+	a.UserRetrieve = fnoop.UnaryServer[api.UserRetrieveRequest, api.UserRetrieveResponse]{}
 
 	// RANGE
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}

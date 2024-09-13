@@ -11,6 +11,7 @@ package auth
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -83,6 +84,34 @@ func (w multiWriter) UpdatePassword(
 	var err error
 	for _, auth := range w {
 		if err = auth.UpdatePassword(ctx, creds, newPass); err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+func (w multiWriter) ChangeUsername(
+	ctx context.Context,
+	oldUsername string,
+	newUsername string,
+) error {
+	var err error
+	for _, auth := range w {
+		if err = auth.ChangeUsername(ctx, oldUsername, newUsername); err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+// Deactivate implements the Authenticator interface.
+func (w multiWriter) Deactivate(
+	ctx context.Context,
+	usernames ...string,
+) error {
+	var err error
+	for _, auth := range w {
+		if err = auth.Deactivate(ctx, usernames...); err == nil {
 			return nil
 		}
 	}

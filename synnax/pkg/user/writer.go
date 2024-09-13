@@ -24,7 +24,7 @@ type Writer struct {
 	otg ontology.Writer
 }
 
-// Create makes a new user in the key-value store.
+// Create makes a new user in the key- value store.
 func (w Writer) Create(ctx context.Context, u *User) error {
 	if u.Key == uuid.Nil {
 		u.Key = uuid.New()
@@ -48,9 +48,32 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 	return w.otg.DefineRelationship(ctx, w.svc.group.OntologyID(), ontology.ParentOf, otgID)
 }
 
-// Update updates the given user in the key-value store.
-func (w Writer) Update(ctx context.Context, u User) error {
-	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(ctx, w.tx)
+func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername string) error {
+	usernameExists, err := w.svc.UsernameExists(ctx, newUsername)
+	if err != nil {
+		return err
+	}
+	if usernameExists {
+		return query.UniqueViolation
+	}
+	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(u User) User {
+		u.Username = newUsername
+		return u
+	}).Exec(ctx, w.tx)
+}
+
+// ChangeName updates the first and last name of the user with the given key. If either
+// first or last is an empty string, the corresponding field will not be updated.
+func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first string, last string) error {
+	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(u User) User {
+		if first != "" {
+			u.FirstName = first
+		}
+		if last != "" {
+			u.LastName = last
+		}
+		return u
+	}).Exec(ctx, w.tx)
 }
 
 // Delete removes the users with the given keys from the key-value store.
@@ -61,10 +84,5 @@ func (w Writer) Delete(
 	if err := gorp.NewDelete[uuid.UUID, User]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DeleteManyResources(ctx, OntologyIDsFromKeys(keys))
 }
