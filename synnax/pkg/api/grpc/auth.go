@@ -11,6 +11,7 @@ package grpc
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
