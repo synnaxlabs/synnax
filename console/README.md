@@ -1,6 +1,6 @@
 <p align="center">
 <a href="https://docs.synnaxlabs.com/reference/console/get-started">
-<img src="../x/media/static/logo/icon-white-on-black.png" width="20%"/>
+<img src="../x/media/static/logo/icon-white-padded.png" width="20%"/>
 </a>
 </p>
 
