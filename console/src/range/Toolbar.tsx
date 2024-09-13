@@ -10,7 +10,7 @@
 import "@/range/Toolbar.css";
 
 import { Store } from "@reduxjs/toolkit";
-import { type label, ranger, Synnax as Client } from "@synnaxlabs/client";
+import { type label, ranger, Synnax as Client, TimeRange } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -40,7 +40,7 @@ import { Layout } from "@/layout";
 import { create as createLinePlot } from "@/lineplot/LinePlot";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
-import { createLayout } from "@/range/CreateLayout";
+import { createEditLayout } from "@/range/EditLayout";
 import { overviewLayout } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
@@ -89,13 +89,7 @@ export const addChildRangeMenuItem = (
       </PIcon.Create>
     }
   >
-    Create Child Range
-  </PMenu.Item>
-);
-
-export const deleteMenuItem = (
-  <PMenu.Item startIcon={<Icon.Delete />} itemKey="delete">
-    Delete
+    Add Child Range
   </PMenu.Item>
 );
 
@@ -105,22 +99,19 @@ export const setAsActiveMenuItem = (
   </PMenu.Item>
 );
 
-export const viewDetailsMenuItem = (
-  <PMenu.Item startIcon={<Icon.Details />} itemKey="details">
-    View Details
-  </PMenu.Item>
-);
-
 export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
   toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
     name: range.name,
-    timeRange: range.timeRange.numeric,
+    timeRange: {
+      start: Number(range.timeRange.start.valueOf()),
+      end: Number(range.timeRange.end.valueOf()),
+    },
     persisted: true,
   }));
 
-const fetchIfNotInState = async (
+export const fetchIfNotInState = async (
   store: Store<StoreState>,
   client: Client,
   key: string,
@@ -134,7 +125,7 @@ const fetchIfNotInState = async (
   return existing;
 };
 
-const useAddToActivePlot = (): ((key: string) => void) => {
+export const useAddToActivePlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
@@ -153,12 +144,13 @@ const useAddToActivePlot = (): ((key: string) => void) => {
         }),
       );
     },
-    onError: (e) =>
+    onError: (e) => {
       addStatus({
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
-      }),
+      });
+    },
   }).mutate;
 };
 
@@ -186,65 +178,49 @@ const useViewDetails = (): ((key: string) => void) => {
 const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const placer = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const addStatus = Status.useAggregator();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) return;
       const res = await fetchIfNotInState(store, client, key);
-      placer(
+      placeLayout(
         createLinePlot({
           name: `Plot for ${res.name}`,
           ranges: { x1: [key], x2: [] },
         }),
       );
     },
-    onError: (e) =>
+    onError: (e) => {
       addStatus({
         variant: "error",
         message: `Failed to add range to plot`,
         description: e.message,
-      }),
+      });
+    },
   }).mutate;
 };
 
-interface NoRangesProps {
-  onLinkClick: (key?: string) => void;
-}
-
-const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
-  const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
-    e.stopPropagation();
-    onLinkClick();
-  };
-
-  return (
-    <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center direction="y" style={{ height: "100%" }} size="small">
-        <Text.Text level="p">No ranges added.</Text.Text>
-        <Text.Link level="p" onClick={handleLinkClick}>
-          Add a range
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
-  );
-};
-
-const List = (): ReactElement => {
+export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
-  const placer = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const activeRange = useSelect();
 
-  const handleCreate = (key?: string): void =>
-    void placer(createLayout({ initial: { key } }));
+  const handleAddOrEdit = (key?: string): void => {
+    placeLayout(createEditLayout({ initial: { key } }));
+  };
 
-  const handleRemove = (keys: string[]): void => void dispatch(remove({ keys }));
+  const handleRemove = (keys: string[]): void => {
+    dispatch(remove({ keys }));
+  };
 
-  const handleSelect = (key: string): void => void dispatch(setActive(key));
+  const handleSelect = (key: string): void => {
+    dispatch(setActive(key));
+  };
 
   const addStatus = Status.useAggregator();
 
@@ -278,26 +254,45 @@ const List = (): ReactElement => {
   });
 
   const save = useMutation<void, Error, string, Range | undefined>({
-    onMutate: async (key: string) => {
-      const range = ranges.find((r) => r.key === key);
-      if (range == null || range.variant === "dynamic") return;
-      dispatch(add({ ranges: [{ ...range, persisted: true }] }));
-      return range;
-    },
     mutationFn: async (key: string) => {
       const range = ranges.find((r) => r.key === key);
       if (range == null || range.variant === "dynamic") return;
-      await client?.ranges.create({ ...range });
+      await client?.ranges.create({
+        key: range.key,
+        timeRange: new TimeRange(range.timeRange.start, range.timeRange.end),
+        name: range.name,
+      });
+      dispatch(add({ ranges: [{ ...range, persisted: true }] }));
     },
-    onError: (e) =>
+    onError: (e, _, range) => {
       addStatus({
         variant: "error",
         message: "Failed to save range",
         description: e.message,
-      }),
+      });
+      dispatch(add({ ranges: [range as Range] }));
+    },
   });
 
   const handleLink = Link.useCopyToClipboard();
+
+  const NoRanges = (): ReactElement => {
+    const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
+      e.stopPropagation();
+      handleAddOrEdit();
+    };
+
+    return (
+      <Align.Space empty style={{ height: "100%", position: "relative" }}>
+        <Align.Center direction="y" style={{ height: "100%" }} size="small">
+          <Text.Text level="p">No ranges.</Text.Text>
+          <Text.Link level="p" onClick={handleLinkClick}>
+            Create a range
+          </Text.Link>
+        </Align.Center>
+      </Align.Space>
+    );
+  };
 
   const ContextMenu = ({
     keys: [key],
@@ -306,28 +301,31 @@ const List = (): ReactElement => {
     const activeLayout = Layout.useSelectActiveMosaicLayout();
     const addToActivePlot = useAddToActivePlot();
     const addToNewPlot = useAddToNewPlot();
-    const placer = Layout.usePlacer();
-    const handleSetActive = () => void dispatch(setActive(key));
+    const placeLayout = Layout.usePlacer();
+    const handleSetActive = () => {
+      dispatch(setActive(key));
+    };
     const handleViewDetails = useViewDetails();
-    const handleAddChildRange = () =>
-      void placer(createLayout({ initial: { parent: key } }));
 
-    const rangeExists = rng != null;
+    const handleAddChildRange = () => {
+      placeLayout(createEditLayout({ initial: { parent: key } }));
+    };
 
-    const handleSelect: Record<string, () => void> = {
-      rename: () => Text.edit(`text-${key}`),
-      create: () => handleCreate(),
-      remove: () => rangeExists && handleRemove([rng.key]),
-      delete: () => rangeExists && del.mutate(rng.key),
-      details: () => rangeExists && handleViewDetails(rng.key),
-      save: () => rangeExists && save.mutate(rng.key),
+    const handleSelect = {
+      rename: (): void => Text.edit(`text-${key}`),
+      create: () => handleAddOrEdit(),
+      edit: () => handleAddOrEdit(rng?.key),
+      remove: () => rng != null && handleRemove([rng.key]),
+      delete: () => rng != null && del.mutate(rng.key),
+      details: () => rng != null && handleViewDetails(rng.key),
+      save: () => rng != null && save.mutate(rng.key),
       link: () =>
-        rangeExists &&
+        rng != null &&
         handleLink({
           name: rng.name,
           ontologyID: {
             key: rng.key,
-            type: ranger.RangeOntologyType,
+            type: "range",
           },
         }),
       addToActivePlot: () => addToActivePlot(key),
@@ -338,18 +336,22 @@ const List = (): ReactElement => {
 
     return (
       <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+        <PMenu.Item startIcon={<Icon.Details />} itemKey="details">
+          View Details
+        </PMenu.Item>
         <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
           Create New
         </PMenu.Item>
-        {rangeExists && (
+        <PMenu.Divider />
+        {rng != null && (
           <>
-            <PMenu.Divider />
-            {rng.key !== activeRange?.key && setAsActiveMenuItem}
-            {viewDetailsMenuItem}
-            <PMenu.Divider />
             <Menu.RenameItem />
+            <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
+              Edit
+            </PMenu.Item>
             {addChildRangeMenuItem}
             <PMenu.Divider />
+            {rng.key !== activeRange?.key && setAsActiveMenuItem}
             {activeLayout?.type === "lineplot" && addToActivePlotMenuItem}
             {addToNewPlotMenuItem}
             <PMenu.Divider />
@@ -357,11 +359,9 @@ const List = (): ReactElement => {
               Remove from List
             </PMenu.Item>
             {rng.persisted ? (
-              <>
-                {deleteMenuItem}
-                <PMenu.Divider />
-                <Link.CopyMenuItem />
-              </>
+              <PMenu.Item startIcon={<Icon.Delete />} itemKey="delete">
+                Delete
+              </PMenu.Item>
             ) : (
               client != null && (
                 <>
@@ -372,9 +372,15 @@ const List = (): ReactElement => {
                 </>
               )
             )}
+            {rng.persisted && (
+              <>
+                <PMenu.Divider />
+                <Link.CopyMenuItem />
+              </>
+            )}
+            <PMenu.Divider />
           </>
         )}
-        <PMenu.Divider />
         <Menu.HardReloadItem />
       </PMenu.Menu>
     );
@@ -384,7 +390,7 @@ const List = (): ReactElement => {
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
       <Core.List<string, StaticRange>
         data={ranges.filter((r) => r.variant === "static") as StaticRange[]}
-        emptyContent={<NoRanges onLinkClick={handleCreate} />}
+        emptyContent={<NoRanges />}
       >
         <Core.Selector
           value={activeRange?.key ?? null}
@@ -468,7 +474,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
 };
 
 const Content = (): ReactElement => {
-  const placer = Layout.usePlacer();
+  const p = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
@@ -477,7 +483,7 @@ const Content = (): ReactElement => {
           {[
             {
               children: <Icon.Add />,
-              onClick: () => placer(createLayout({})),
+              onClick: () => p(createEditLayout({})),
             },
           ]}
         </Header.Actions>

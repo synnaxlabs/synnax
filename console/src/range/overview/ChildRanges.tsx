@@ -23,7 +23,7 @@ import {
 import { FC, useState } from "react";
 
 import { Layout } from "@/layout";
-import { createLayout, overviewLayout } from "@/range/external";
+import { createEditLayout, overviewLayout } from "@/range/external";
 
 export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
   const { entry } = props;
@@ -99,7 +99,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         style={{ width: "fit-content" }}
         iconSpacing="small"
         variant="text"
-        onClick={() => placer(createLayout({ initial: { parent: rangeKey } }))}
+        onClick={() => placer(createEditLayout({ initial: { parent: rangeKey } }))}
       >
         Add Child Range
       </Button.Button>
