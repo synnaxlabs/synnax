@@ -17,12 +17,15 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (task.type == "opc_scan")
+    if (task.type == "opc_scan"){
+        LOG(INFO) << "[opc] Task: " << task.type;
         return {std::make_unique<Scanner>(ctx, task), true};
+    }
     if (task.type == "opc_read")
         return {ReaderTask::configure(ctx, task), true};
     if (task.type == "opc_write")
         return {WriterTask::configure(ctx, task), true};
+    LOG(ERROR) << "[opc] Unknown task type: " << task.type;
     return {nullptr, false};
 }
 
@@ -32,8 +35,16 @@ opc::Factory::configure_initial_tasks(
     const synnax::Rack &rack
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
+
+    auto [old_scanner, err2] = rack.tasks.retrieveByType("opcScanner");
+    if(err2 == freighter::NIL) {
+        LOG(INFO) << "[opc] Removing old scanner task";
+       rack.tasks.del(old_scanner.key);
+    }
+
     auto [existing, err] = rack.tasks.retrieveByType("opc_scan");
     if (err.matches(synnax::NOT_FOUND)) {
+        LOG(INFO) << "[opc] Creating scanner task";
         auto sy_task = synnax::Task(
             rack.key,
             "opc Scanner",
