@@ -10,6 +10,7 @@
 import { type FC } from "react";
 import { z } from "zod";
 
+import { color } from "@/color/core";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
@@ -264,6 +265,18 @@ const zeroLabel = (label: string): zeroLabelReturn => ({
   },
 });
 
+const ZERO_DIMENSIONS = {
+  width: 100,
+  height: 100,
+};
+
+const ZERO_BOX_PROPS = {
+  dimensions: ZERO_DIMENSIONS,
+  backgroundColor: color.ZERO,
+};
+
+const ZERO_BOX_BORDER_RADIUS = 3;
+
 const threeWayValve: Spec<ThreeWayValveProps> = {
   name: "Three Way Valve",
   key: "threeWayValve",
@@ -366,16 +379,13 @@ const screwPump: Spec<ScrewPumpProps> = {
 const tank: Spec<TankProps> = {
   name: "Tank",
   key: "tank",
-  Form: () => TankForm({ includeBorderRadius: true }),
+  Form: TankForm,
   Symbol: Tank,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Tank"),
-    dimensions: {
-      width: 100,
-      height: 200,
-    },
     borderRadius: DEFAULT_BORDER_RADIUS,
+    ...ZERO_BOX_PROPS,
     ...ZERO_PROPS,
   }),
   Preview: TankPreview,
@@ -385,15 +395,13 @@ const tank: Spec<TankProps> = {
 const box: Spec<BoxProps> = {
   name: "Box",
   key: "box",
-  Form: TankForm,
+  Form: () => TankForm({ includeBorderRadius: true }),
   Symbol: Box,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Box"),
-    dimensions: {
-      width: 100,
-      height: 200,
-    },
+    borderRadius: ZERO_BOX_BORDER_RADIUS,
+    ...ZERO_BOX_PROPS,
     ...ZERO_PROPS,
   }),
   Preview: BoxPreview,

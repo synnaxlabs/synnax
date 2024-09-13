@@ -109,6 +109,7 @@ const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
         value={value ?? Color.ZERO.setAlpha(1).rgba255}
         onChange={(v) => onChange(v.rgba255)}
         {...props}
+        bordered
       />
     )}
   </Form.Field>
@@ -282,29 +283,56 @@ export const TankForm = ({
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
+        <ColorControl path="backgroundColor" label="Background Color" />
+        <Form.Field<number>
+          path="borderRadius.x"
+          hideIfNull
+          optional
+          label="X Border Radius"
+          grow
+        >
+          {({ value, ...props }) => (
+            <Input.Numeric
+              value={value}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              {...props}
+            />
+          )}
+        </Form.Field>
+        <Form.Field<number>
+          path="borderRadius.y"
+          hideIfNull
+          optional
+          label="Y Border Radius"
+          grow
+        >
+          {({ value, ...props }) => (
+            <Input.Numeric
+              value={value}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              {...props}
+            />
+          )}
+        </Form.Field>
         {includeBorderRadius && (
-          <>
-            <Form.Field<number> path="borderRadius.x" label="X Border Radius" grow>
-              {({ value, ...props }) => (
-                <Input.Numeric
-                  value={value}
-                  dragScale={DIMENSIONS_DRAG_SCALE}
-                  bounds={DIMENSIONS_BOUNDS}
-                  {...props}
-                />
-              )}
-            </Form.Field>
-            <Form.Field<number> path="borderRadius.y" label="Y Border Radius" grow>
-              {({ value, ...props }) => (
-                <Input.Numeric
-                  value={value}
-                  dragScale={DIMENSIONS_DRAG_SCALE}
-                  bounds={DIMENSIONS_BOUNDS}
-                  {...props}
-                />
-              )}
-            </Form.Field>
-          </>
+          <Form.Field<number>
+            path="borderRadius"
+            hideIfNull
+            optional
+            label="Border Radius"
+            grow
+          >
+            {({ value, ...props }) => (
+              <Input.Numeric
+                value={value}
+                dragScale={DIMENSIONS_DRAG_SCALE}
+                bounds={DIMENSIONS_BOUNDS}
+                {...props}
+              />
+            )}
+          </Form.Field>
         )}
         <Form.Field<number> path="dimensions.width" label="Width" grow>
           {({ value, ...props }) => (
