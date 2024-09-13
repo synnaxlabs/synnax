@@ -30,14 +30,14 @@ importers:
   .:
     devDependencies:
       '@microsoft/api-extractor':
-        specifier: ^7.47.8
-        version: 7.47.8(@types/node@22.5.4)
+        specifier: ^7.47.9
+        version: 7.47.9(@types/node@22.5.4)
       prettier:
         specifier: 3.3.3
         version: 3.3.3
       turbo:
-        specifier: ^2.1.1
-        version: 2.1.1
+        specifier: ^2.1.2
+        version: 2.1.2
 
   alamos/ts:
     dependencies:
@@ -1573,15 +1573,15 @@ packages:
   '@microsoft/api-extractor-model@7.29.4':
     resolution: {integrity: sha512-LHOMxmT8/tU1IiiiHOdHFF83Qsi+V8d0kLfscG4EvQE9cafiR8blOYr8SfkQKWB1wgEilQgXJX3MIA4vetDLZw==}
 
-  '@microsoft/api-extractor-model@7.29.7':
-    resolution: {integrity: sha512-wibEw0xIVARSDvPZU4clLjMhIuUCBGBOsMylBCwTi9d57RTQ5fzWaiVDfk12kW+RSF3VGy8490y8Gz4LVrV41Q==}
+  '@microsoft/api-extractor-model@7.29.8':
+    resolution: {integrity: sha512-t3Z/xcO6TRbMcnKGVMs4uMzv/gd5j0NhMiJIGjD4cJMeFJ1Hf8wnLSx37vxlRlL0GWlGJhnFgxvnaL6JlS+73g==}
 
   '@microsoft/api-extractor@7.47.4':
     resolution: {integrity: sha512-HKm+P4VNzWwvq1Ey+Jfhhj/3MjsD+ka2hbt8L5AcRM95lu1MFOYnz3XlU7Gr79Q/ZhOb7W/imAKeYrOI0bFydg==}
     hasBin: true
 
-  '@microsoft/api-extractor@7.47.8':
-    resolution: {integrity: sha512-oUGCoTIoJvfBycmIcRD3T/vCDu57xHMqHuoL/7N7g35PUjPfBdsYujyoYNNNlKUR6C/TKXjFvHG2G0O+0Lq4JQ==}
+  '@microsoft/api-extractor@7.47.9':
+    resolution: {integrity: sha512-TTq30M1rikVsO5wZVToQT/dGyJY7UXJmjiRtkHPLb74Prx3Etw8+bX7Bv7iLuby6ysb7fuu1NFWqma+csym8Jw==}
     hasBin: true
 
   '@microsoft/tsdoc-config@0.17.0':
@@ -2427,8 +2427,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@rushstack/node-core-library@5.8.0':
-    resolution: {integrity: sha512-ByXOkTKlGDrOBVJoNz5D3pgSqU8QOjacYJm8PwtGWofATL/d4R1zYdkZcSXWXRTI7SbP2SjLaAq6sbMlP2ZHXw==}
+  '@rushstack/node-core-library@5.9.0':
+    resolution: {integrity: sha512-MMsshEWkTbXqxqFxD4gcIUWQOCeBChlGczdZbHfqmNZQFLHB3yWxDFSMHFUdu2/OB9NUk7Awn5qRL+rws4HQNg==}
     peerDependencies:
       '@types/node': '*'
     peerDependenciesMeta:
@@ -2446,8 +2446,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@rushstack/terminal@0.14.1':
-    resolution: {integrity: sha512-pvFzzrBumJBEl0XpW+D44l4QMghEMQiUYWv/Fn68WoQIkcGKv8pid/yKhFEblbzVmolGlR4DMBm1PGCvRV6qFg==}
+  '@rushstack/terminal@0.14.2':
+    resolution: {integrity: sha512-2fC1wqu1VCExKC0/L+0noVcFQEXEnoBOtCIex1TOjBzEDWcw8KzJjjj7aTP6mLxepG0XIyn9OufeFb6SFsa+sg==}
     peerDependencies:
       '@types/node': '*'
     peerDependenciesMeta:
@@ -2457,8 +2457,8 @@ packages:
   '@rushstack/ts-command-line@4.22.3':
     resolution: {integrity: sha512-edMpWB3QhFFZ4KtSzS8WNjBgR4PXPPOVrOHMbb7kNpmQ1UFS9HdVtjCXg1H5fG+xYAbeE+TMPcVPUyX2p84STA==}
 
-  '@rushstack/ts-command-line@4.22.7':
-    resolution: {integrity: sha512-kgb8hjEzKucH200xiUecU/VeA/Wzk4BBMRWP2ZLH2XGC/PEYzPih5IyYFtK1QCYboeRYTxoNYwSG6UQlstBaLg==}
+  '@rushstack/ts-command-line@4.22.8':
+    resolution: {integrity: sha512-XbFjOoV7qZHJnSuFUHv0pKaFA4ixyCuki+xMjsMfDwfvQjs5MYG0IK5COal3tRnG7KCDe2l/G+9LrzYE/RJhgg==}
 
   '@shikijs/core@1.12.1':
     resolution: {integrity: sha512-biCz/mnkMktImI6hMfMX3H9kOeqsInxWEyCHbSlL8C/2TR1FqfmGxTLRNwYCKsyCyxWLbB8rEqXRVZuyxuLFmA==}
@@ -6080,38 +6080,38 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  turbo-darwin-64@2.1.1:
-    resolution: {integrity: sha512-aYNuJpZlCoi0Htd79fl/2DywpewGKijdXeOfg9KzNuPVKzSMYlAXuAlNGh0MKjiOcyqxQGL7Mq9LFhwA0VpDpQ==}
+  turbo-darwin-64@2.1.2:
+    resolution: {integrity: sha512-3TEBxHWh99h2yIzkuIigMEOXt/ItYQp0aPiJjPd1xN4oDcsKK5AxiFKPH9pdtfIBzYsY59kQhZiFj0ELnSP7Bw==}
     cpu: [x64]
     os: [darwin]
 
-  turbo-darwin-arm64@2.1.1:
-    resolution: {integrity: sha512-tifJKD8yHY48rHXPMcM8o1jI/Jk2KCaXiNjTKvvy9Zsim61BZksNVLelIbrRoCGwAN6PUBZO2lGU5iL/TQJ5Pw==}
+  turbo-darwin-arm64@2.1.2:
+    resolution: {integrity: sha512-he0miWNq2WxJzsH82jS2Z4MXpnkzn9SH8a79iPXiJkq25QREImucscM4RPasXm8wARp91pyysJMq6aasD45CeA==}
     cpu: [arm64]
     os: [darwin]
 
-  turbo-linux-64@2.1.1:
-    resolution: {integrity: sha512-Js6d/bSQe9DuV9c7ITXYpsU/ADzFHABdz1UIHa7Oqjj9VOEbFeA9WpAn0c+mdJrVD+IXJFbbDZUjN7VYssmtcg==}
+  turbo-linux-64@2.1.2:
+    resolution: {integrity: sha512-fKUBcc0rK8Vdqv5a/E3CSpMBLG1bzwv+Q0Q83F8fG2ZfNCNKGbcEYABdonNZkkx141Rj03cZQFCgxu3MVEGU+A==}
     cpu: [x64]
     os: [linux]
 
-  turbo-linux-arm64@2.1.1:
-    resolution: {integrity: sha512-LidzTCq0yvQ+N8w8Qub9FmhQ/mmEIeoqFi7DSupekEV2EjvE9jw/zYc9Pk67X+g7dHVfgOnvVzmrjChdxpFePw==}
+  turbo-linux-arm64@2.1.2:
+    resolution: {integrity: sha512-sV8Bpmm0WiuxgbhxymcC7wSsuxfBBieI98GegSwbr/bs1ANAgzCg93urIrdKdQ3/b31zZxQwcaP4FBF1wx1Qdg==}
     cpu: [arm64]
     os: [linux]
 
-  turbo-windows-64@2.1.1:
-    resolution: {integrity: sha512-GKc9ZywKwy4xLDhwXd6H07yzl0TB52HjXMrFLyHGhCVnf/w0oq4sLJv2sjbvuarPjsyx4xnCBJ3m3oyL2XmFtA==}
+  turbo-windows-64@2.1.2:
+    resolution: {integrity: sha512-wcmIJZI9ORT9ykHGliFE6kWRQrlH930QGSjSgWC8uFChFFuOyUlvC7ttcxuSvU9VqC7NF4C+GVAcFJQ8lTjN7g==}
     cpu: [x64]
     os: [win32]
 
-  turbo-windows-arm64@2.1.1:
-    resolution: {integrity: sha512-oFKkMj11KKUv3xSK9/fhAEQTxLUp1Ol1EOktwc32+SFtEU0uls7kosAz0b+qe8k3pJGEMFdDPdqoEjyJidbxtQ==}
+  turbo-windows-arm64@2.1.2:
+    resolution: {integrity: sha512-zdnXjrhk7YO6CP+Q5wPueEvOCLH4lDa6C4rrwiakcWcPgcQGbVozJlo4uaQ6awo8HLWQEvOwu84RkWTdLAc/Hw==}
     cpu: [arm64]
     os: [win32]
 
-  turbo@2.1.1:
-    resolution: {integrity: sha512-u9gUDkmR9dFS8b5kAYqIETK4OnzsS4l2ragJ0+soSMHh6VEeNHjTfSjk1tKxCqLyziCrPogadxP680J+v6yGHw==}
+  turbo@2.1.2:
+    resolution: {integrity: sha512-Jb0rbU4iHEVQ18An/YfakdIv9rKnd3zUfSE117EngrfWXFHo3RndVH96US3GsT8VHpwTncPePDBT2t06PaFLrw==}
     hasBin: true
 
   type-check@0.4.0:
@@ -7547,11 +7547,11 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  '@microsoft/api-extractor-model@7.29.7(@types/node@22.5.4)':
+  '@microsoft/api-extractor-model@7.29.8(@types/node@22.5.4)':
     dependencies:
       '@microsoft/tsdoc': 0.15.0
       '@microsoft/tsdoc-config': 0.17.0
-      '@rushstack/node-core-library': 5.8.0(@types/node@22.5.4)
+      '@rushstack/node-core-library': 5.9.0(@types/node@22.5.4)
     transitivePeerDependencies:
       - '@types/node'
 
@@ -7573,15 +7573,15 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  '@microsoft/api-extractor@7.47.8(@types/node@22.5.4)':
+  '@microsoft/api-extractor@7.47.9(@types/node@22.5.4)':
     dependencies:
-      '@microsoft/api-extractor-model': 7.29.7(@types/node@22.5.4)
+      '@microsoft/api-extractor-model': 7.29.8(@types/node@22.5.4)
       '@microsoft/tsdoc': 0.15.0
       '@microsoft/tsdoc-config': 0.17.0
-      '@rushstack/node-core-library': 5.8.0(@types/node@22.5.4)
+      '@rushstack/node-core-library': 5.9.0(@types/node@22.5.4)
       '@rushstack/rig-package': 0.5.3
-      '@rushstack/terminal': 0.14.1(@types/node@22.5.4)
-      '@rushstack/ts-command-line': 4.22.7(@types/node@22.5.4)
+      '@rushstack/terminal': 0.14.2(@types/node@22.5.4)
+      '@rushstack/ts-command-line': 4.22.8(@types/node@22.5.4)
       lodash: 4.17.21
       minimatch: 3.0.8
       resolve: 1.22.8
@@ -8694,7 +8694,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.5.4
 
-  '@rushstack/node-core-library@5.8.0(@types/node@22.5.4)':
+  '@rushstack/node-core-library@5.9.0(@types/node@22.5.4)':
     dependencies:
       ajv: 8.13.0
       ajv-draft-04: 1.0.0(ajv@8.13.0)
@@ -8719,9 +8719,9 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.5.4
 
-  '@rushstack/terminal@0.14.1(@types/node@22.5.4)':
+  '@rushstack/terminal@0.14.2(@types/node@22.5.4)':
     dependencies:
-      '@rushstack/node-core-library': 5.8.0(@types/node@22.5.4)
+      '@rushstack/node-core-library': 5.9.0(@types/node@22.5.4)
       supports-color: 8.1.1
     optionalDependencies:
       '@types/node': 22.5.4
@@ -8735,9 +8735,9 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  '@rushstack/ts-command-line@4.22.7(@types/node@22.5.4)':
+  '@rushstack/ts-command-line@4.22.8(@types/node@22.5.4)':
     dependencies:
-      '@rushstack/terminal': 0.14.1(@types/node@22.5.4)
+      '@rushstack/terminal': 0.14.2(@types/node@22.5.4)
       '@types/argparse': 1.0.38
       argparse: 1.0.10
       string-argv: 0.3.2
@@ -13345,32 +13345,32 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  turbo-darwin-64@2.1.1:
+  turbo-darwin-64@2.1.2:
     optional: true
 
-  turbo-darwin-arm64@2.1.1:
+  turbo-darwin-arm64@2.1.2:
     optional: true
 
-  turbo-linux-64@2.1.1:
+  turbo-linux-64@2.1.2:
     optional: true
 
-  turbo-linux-arm64@2.1.1:
+  turbo-linux-arm64@2.1.2:
     optional: true
 
-  turbo-windows-64@2.1.1:
+  turbo-windows-64@2.1.2:
     optional: true
 
-  turbo-windows-arm64@2.1.1:
+  turbo-windows-arm64@2.1.2:
     optional: true
 
-  turbo@2.1.1:
+  turbo@2.1.2:
     optionalDependencies:
-      turbo-darwin-64: 2.1.1
-      turbo-darwin-arm64: 2.1.1
-      turbo-linux-64: 2.1.1
-      turbo-linux-arm64: 2.1.1
-      turbo-windows-64: 2.1.1
-      turbo-windows-arm64: 2.1.1
+      turbo-darwin-64: 2.1.2
+      turbo-darwin-arm64: 2.1.2
+      turbo-linux-64: 2.1.2
+      turbo-linux-arm64: 2.1.2
+      turbo-windows-64: 2.1.2
+      turbo-windows-arm64: 2.1.2
 
   type-check@0.4.0:
     dependencies:
