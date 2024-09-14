@@ -11,63 +11,40 @@ package confluence
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	//"github.com/synnaxlabs/synnax/pkg/distribution/channel" currently creates a cycle
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 )
-
-// DownsampleFunc applies to each series in a frame and returns downsampled series.
-type DownSampleFunc func(series telem.Series, factor int) telem.Series
 
 // Downsampler is a segment that reads values from an input Stream, downsamples them
 // using a provided downsampling function, and publishes the downsampled values to its
 // outlets. // TODO: make generic
-type DownSampler struct {
-	AbstractLinear[framer.Frame, framer.Frame]                     // TODO what is Abstract linear
-	Factors                      map[channel.Key]int // Per-series down sampling factors
-	CustomDownSampler            DownSampleFunc
+type DownSampler[V Value] struct {
+	AbstractLinear[V, V] // TODO what is Abstract linear
+	Factor               int
+	DownSample           DownSampleFunc[V]
 }
 
-func (d *DownSampler) OutTo(inlets ...Inlet[framer.Frame]) {
+// DownsampleFunc applies to each series in a frame and returns downsampled series.
+type DownSampleFunc[V Value] func(ctx context.Context, v V) (u V, err error)
+
+func (d *DownSampler[V]) OutTo(inlets ...Inlet[V]) {
 	if len(inlets) != 1 {
 		panic("[confluence.DownSampler] - must have exactly one inlet")
 	}
 	d.AbstractLinear.OutTo(inlets[0])
 }
 
-func (d *DownSampler) FLow(ctx signal.Context, opts ...Option) {
+// Flow implements the Flow interface?
+func (d *DownSampler[V]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachClosables(d.Out)
 	d.GoRange(ctx, d.downsample, fo.Signal...)
 }
 
-func (d *DownSampler) downsample(ctx context.Context, frame framer.Frame) error {
-	downSampledFrame := frame
-	for i, key := frame.Keys {
-		if factor, ok := d.Factors[key]; ok {
-			downSampledFrame.Series[i] = d.CustomDownSampler(frame.Series[i], factor)
-		} else {
-			downSampledFrame.Series[i] = frame.Series[i]
-		}
+func (d *DownSampler[V]) downsample(ctx context.Context, v V) error {
+	downsampled, err := d.DownSample(ctx, v)
+	if err != nil {
+		return err
 	}
-	return signal.SendUnderContext(ctx, d.Out.Inlet(), downSampledFrame)
-}
-
-func downSampleSeries(series telem.Series, factor int) telem.Series {
-	if factor <= 1 || len(series.Data) <= factor {
-		return series
-	}
-
-	downsampled := telem.Series{
-		TimeRange: series.TimeRange,
-		Data: make([]telem.Point, 0, len(series.Data)/factor),
-		TimeStamps: make([]time.Time, 0, len(series.Data)/factor),
-	}
-
-	for i := 0; i < len(series.Data); i += factor {
-		downsampled.Data = append(downsampled.Data, series.Data[i])
-		downsampled.TimeStamps = append(downsampled.TimeStamps, series.TimeStamps[i])
-	}
-	return downsampled;
+	return signal.SendUnderContext(ctx, d.Out.Inlet(), downsampled)
 }
