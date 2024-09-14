@@ -312,7 +312,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     [storeLegendPosition],
   );
 
-
   return (
     <div
       ref={ref}

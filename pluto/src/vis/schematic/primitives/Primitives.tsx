@@ -705,7 +705,7 @@ export const Tank = ({
       {...props}
     >
       <HandleBoundary>
-        <Handle location="top" orientation="left" left={50} top={0} id="1" />
+        <Handle location="top" orientation="left" left={50} top={-1} id="1" />
         {hasCornerBoundaries && (
           <>
             <Handle

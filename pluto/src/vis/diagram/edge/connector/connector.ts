@@ -152,7 +152,7 @@ export const segmentsToPoints = (
       firstSeg.length,
     );
     const firstMag = orientationMagnitude(firstSegOrientation);
-    const zoomMultiplier = 4.5 * (2 - zoom ** 0.5);
+    const zoomMultiplier = 4 * (2 - zoom ** 0.5);
     points[0] = xy.translate(points[0], {
       [firstSeg.direction]: -1 * firstMag * zoomMultiplier,
       [direction.swap(firstSeg.direction)]: 0,
