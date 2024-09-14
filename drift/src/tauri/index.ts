@@ -114,7 +114,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   ): Promise<void> {
     const event = encode({ ...event_, emitter });
     if (to == null) return await emit(actionEvent, event);
-    const win = WebviewWindow.getByLabel(to);
+    const win = await WebviewWindow.getByLabel(to);
     if (win == null) throw notFound(to);
     await win.emit(actionEvent, event);
   }
@@ -166,7 +166,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
         maxWidth: maxSize?.width,
         maxHeight: maxSize?.height,
         titleBarStyle: "overlay",
-        dragDropEnabled: false,
+        // dragDropEnabled: false,
         ...rest,
       });
       return await new Promise<void>((resolve, reject) => {
@@ -179,23 +179,26 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async close(label: string): Promise<void> {
-    const win = WebviewWindow.getByLabel(label);
+    const win = await WebviewWindow.getByLabel(label);
     if (win != null)
       try {
         await win.destroy();
       } catch (e) {
         console.error(e, label);
       }
-    else
+    else {
+      const wins = await getAll();
       console.error(
         "Window not found",
         label,
-        WebviewWindow.getAll().map((w) => w.label),
+        wins.map((w) => w.label),
       );
+    }
   }
 
-  listLabels(): string[] {
-    return getAll().map((w) => w.label);
+  async listLabels(): Promise<string[]> {
+    const res = await getAll();
+    return res.map((w) => w.label);
   }
 
   async focus(): Promise<void> {

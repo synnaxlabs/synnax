@@ -37,11 +37,11 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@vitest/coverage-v8": "^1.5.0",
+    "@vitest/coverage-v8": "^2.1.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.4.5",
-    "vite": "5.2.11",
-    "vitest": "^1.5.0"
+    "typescript": "^5.6.2",
+    "vite": "5.4.4",
+    "vitest": "^2.1.0"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",
