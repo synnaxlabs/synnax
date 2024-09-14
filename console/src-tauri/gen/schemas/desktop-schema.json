@@ -2362,19 +2362,6 @@
     "Identifier": {
       "oneOf": [
         {
-          "type": "string",
-          "enum": [
-            "default"
-          ]
-        },
-        {
-          "description": "my-identifier -> This describes the impact and more.",
-          "type": "string",
-          "enum": [
-            "my-identifier"
-          ]
-        },
-        {
           "description": "core:app:default -> Default permissions for the plugin.",
           "type": "string",
           "enum": [
@@ -3243,6 +3230,13 @@
           ]
         },
         {
+          "description": "core:webview:allow-get-all-webviews -> Enables the get_all_webviews command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "core:webview:allow-get-all-webviews"
+          ]
+        },
+        {
           "description": "core:webview:allow-internal-toggle-devtools -> Enables the internal_toggle_devtools command without any pre-configured scope.",
           "type": "string",
           "enum": [
@@ -3324,6 +3318,13 @@
           "type": "string",
           "enum": [
             "core:webview:deny-create-webview-window"
+          ]
+        },
+        {
+          "description": "core:webview:deny-get-all-webviews -> Denies the get_all_webviews command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "core:webview:deny-get-all-webviews"
           ]
         },
         {
@@ -3450,6 +3451,13 @@
           "type": "string",
           "enum": [
             "core:window:allow-destroy"
+          ]
+        },
+        {
+          "description": "core:window:allow-get-all-windows -> Enables the get_all_windows command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "core:window:allow-get-all-windows"
           ]
         },
         {
@@ -3905,6 +3913,13 @@
           "type": "string",
           "enum": [
             "core:window:deny-destroy"
+          ]
+        },
+        {
+          "description": "core:window:deny-get-all-windows -> Denies the get_all_windows command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "core:window:deny-get-all-windows"
           ]
         },
         {

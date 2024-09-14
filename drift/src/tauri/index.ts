@@ -166,7 +166,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
         maxWidth: maxSize?.width,
         maxHeight: maxSize?.height,
         titleBarStyle: "overlay",
-        dragDropEnabled: false,
+        // dragDropEnabled: false,
         ...rest,
       });
       return await new Promise<void>((resolve, reject) => {

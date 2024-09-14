@@ -47,19 +47,32 @@
     }
 }
 
-*:not(.pluto--editable) .pluto-symbol-primitive-toggle:hover {
-    &:not(.pluto--enabled) svg {
-        fill: rgba(var(--pluto-symbol-color), 0.2) !important;
+*:not(.pluto--editable) .pluto-symbol-primitive-toggle {
+    &:hover {
+        &:not(.pluto--enabled) svg {
+            fill: rgba(var(--pluto-symbol-color), 0.15) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.75) !important;
+        }
+        &.pluto--enabled svg {
+            stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.85) !important;
+        }
     }
-    &.pluto--enabled svg {
-        stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
-        fill: rgba(var(--pluto-symbol-color), 0.8) !important;
+    &:active {
+        &:not(.pluto--enabled) svg {
+            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+            stroke: rgba(var(--pluto-symbol-color), 0.9) !important;
+        }
+        &.pluto--enabled svg {
+            stroke: rgba(var(--pluto-symbol-color), 0.7) !important;
+            fill: rgba(var(--pluto-symbol-color), 0.75) !important;
+        }
     }
 }
 
 .pluto--enabled svg {
-    stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
-    fill: rgba(var(--pluto-symbol-color), 0.8) !important;
+    stroke: rgb(var(--pluto-symbol-color)) !important;
+    fill: rgb(var(--pluto-symbol-color)) !important;
 }
 
 .pluto-symbol-primitive-toggle {
