@@ -4,6 +4,7 @@ from typing import NamedTuple, List
 import synnax as sy
 from integration import FILE_NAME
 
+
 # Each python process opens one streamer
 class TestConfig(NamedTuple):
     identifier: str
@@ -22,7 +23,7 @@ client = sy.Synnax(
 )
 
 
-class Stream_Test():
+class Stream_Test:
     _tc: TestConfig
 
     def __init__(self, argv: List[str]):
@@ -43,7 +44,7 @@ class Stream_Test():
             argv_counter += 1
 
         self._tc = TestConfig(
-            identifier = identifier,
+            identifier=identifier,
             start_time_stamp=sy.TimeStamp(start_time_stamp),
             samples_expected=samples_expected,
             expected_error=expected_error,
@@ -59,10 +60,13 @@ class Stream_Test():
             samples = self.test()
         except Exception as e:
             actual_error = str(e)
-            if self._tc.expected_error != "no_error" and self._tc.expected_error in str(e):
+            if (
+                self._tc.expected_error != "no_error"
+                and self._tc.expected_error in str(e)
+            ):
                 error_assertion_passed = True
             else:
-                raise(e)
+                raise (e)
         else:
             actual_error = "no_error"
             if self._tc.expected_error == "no_error":
@@ -71,10 +75,10 @@ class Stream_Test():
         time = start.span(end)
         samples_per_second = samples / (float(time) / float(sy.TimeSpan.SECOND))
 
-        err_assertion = f'''
+        err_assertion = f"""
 Expected error: {self._tc.expected_error}; Actual error: {actual_error}\n{"PASS!!" if error_assertion_passed else "FAIL!!!!"}
-'''
-        s = f'''
+"""
+        s = f"""
 -- Python Stream ({self._tc.identifier})--
 Samples streamed: {samples:,.2f}
 Time taken: {time}
@@ -85,10 +89,9 @@ Configuration:
 \tSamples expected: {self._tc.samples_expected:,.2f}
 {err_assertion}
 
-            '''
+            """
         with open(FILE_NAME, "a") as f:
             f.write(s)
-
 
     def test(self) -> int:
         samples_streamed = 0

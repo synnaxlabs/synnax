@@ -9,10 +9,15 @@
 
 import synnax as sy
 
-client = sy.Synnax()
+client = sy.Synnax(
+    host="nuc",
+    port=9090,
+    secure=False,
+    username="synnax",
+    password="seldon",
+)
 
 
-with client.open_streamer(["sy_rack16_meminfo"]) as s:
+with client.open_streamer(["sy_task_state"]) as s:
     for frame in s:
-        print(sy.TimeStamp.now())
-        print(sy.Size.BYTE * frame["sy_rack16_meminfo"][0])
+        print(frame["sy_task_state"][0])

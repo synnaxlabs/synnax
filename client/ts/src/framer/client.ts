@@ -15,7 +15,6 @@ import {
   type MultiSeries,
   TimeRange,
   TimeSpan,
-  toArray,
 } from "@synnaxlabs/x";
 
 import { type Key, type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";
@@ -170,8 +169,8 @@ export class Client {
     return fr;
   }
 
-  private async readFrame(tr: CrudeTimeRange, params: Params): Promise<Frame> {
-    const i = await this.openIterator(tr, params);
+  private async readFrame(tr: CrudeTimeRange, channels: Params): Promise<Frame> {
+    const i = await this.openIterator(tr, channels);
     const frame = new Frame();
     try {
       for await (const f of i) frame.push(f);

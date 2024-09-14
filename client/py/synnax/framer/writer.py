@@ -107,8 +107,9 @@ ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
 class Writer:
-    """Write is used to write telemetry to a set of channels in time order. It should
-    not be constructed directly, and should instead be created using the Synnax client.
+    """A writer is used to write telemetry to a set of channels in time order. It
+    should not be constructed directly, and should instead be created using the Synnax
+    client's open_writer method.
 
     The writer is a streaming protocol that is heavily optimized for performance. This
     comes at the cost of increased complexity, and should only be used directly when

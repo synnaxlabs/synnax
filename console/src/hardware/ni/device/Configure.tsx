@@ -18,8 +18,9 @@ import { type ReactElement, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { configurablePropertiesZ, Properties } from "@/hardware/ni/device/types";
+import { configurablePropertiesZ, Properties, ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 import { type Layout } from "@/layout";
+import { deep } from "@synnaxlabs/x";
 
 export const Configure = ({
   layoutKey,
@@ -117,13 +118,14 @@ const ConfigureInternal = ({
         }
       } else if (step === "identifier") {
         if (!methods.validate("identifier")) return;
-        const er = enrich(device.model, device.properties);
         await client.hardware.devices.create({
           ...device,
           configured: true,
           name: methods.get<string>("name").value,
           properties: {
-            ...er,
+            ...device.properties,
+            ...deep.copy(ZERO_PROPERTIES),
+            enriched: true,
             identifier: methods.get<string>("identifier").value,
           },
         });

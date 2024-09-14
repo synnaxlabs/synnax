@@ -15,6 +15,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
+import { useExport } from "@/lineplot/file";
 import { create } from "@/lineplot/LinePlot";
 import { type State } from "@/lineplot/slice";
 import { Link } from "@/link";
@@ -58,6 +59,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { resources } = props.selection;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
+  const handleExport = useExport(resources[0].name);
   const onSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
@@ -66,6 +68,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
+    export: () => handleExport(resources[0].id.key),
   };
   const isSingle = resources.length === 1;
   return (
@@ -82,6 +85,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
+          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
+            Export
+          </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>

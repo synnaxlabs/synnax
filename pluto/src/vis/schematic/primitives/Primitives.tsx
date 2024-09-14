@@ -57,34 +57,6 @@ const Line = (props: LineProps): ReactElement => (
   <line vectorEffect="non-scaling-stroke" {...props} />
 );
 
-export interface OrientableProps {
-  orientation?: location.Outer;
-}
-
-export interface SVGBasedPrimitiveProps extends OrientableProps {
-  color?: Color.Crude;
-  scale?: number;
-}
-
-export interface DivProps
-  extends Omit<ComponentPropsWithoutRef<"div">, "color" | "onResize">,
-    OrientableProps {}
-
-interface ToggleProps
-  extends Omit<ComponentPropsWithoutRef<"button">, "color" | "value"> {
-  triggered?: boolean;
-  enabled?: boolean;
-  color?: Color.Crude;
-}
-
-interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {
-  orientation: location.Outer;
-  location: location.Outer;
-  left: number;
-  top: number;
-  id: string;
-}
-
 const ORIENTATION_RF_POSITIONS: Record<
   location.Outer,
   Record<location.Outer, RFPosition>
@@ -131,7 +103,11 @@ const adjustHandle = (
   return { top: left, left: 100 - top };
 };
 
-export interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {}
+interface OrientableProps {
+  orientation?: location.Outer;
+}
+
+interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {}
 
 const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElement => {
   let updateInternals: ReturnType<typeof useUpdateNodeInternals> | undefined;
@@ -161,6 +137,14 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
   );
 };
 
+interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {
+  orientation: location.Outer;
+  location: location.Outer;
+  left: number;
+  top: number;
+  id: string;
+}
+
 const Handle = ({
   location,
   orientation,
@@ -184,9 +168,14 @@ const Handle = ({
   );
 };
 
-interface ToggleValveButtonProps extends ToggleProps {
-  orientation?: location.Outer;
+interface ToggleProps
+  extends Omit<ComponentPropsWithoutRef<"button">, "color" | "value"> {
+  triggered?: boolean;
+  enabled?: boolean;
+  color?: Color.Crude;
 }
+
+interface ToggleValveButtonProps extends ToggleProps, OrientableProps {}
 
 const Toggle = ({
   className,
@@ -210,16 +199,26 @@ const Toggle = ({
   />
 );
 
+interface DivProps
+  extends Omit<ComponentPropsWithoutRef<"div">, "color" | "onResize">,
+    OrientableProps {}
+
 const Div = ({ className, ...props }: DivProps): ReactElement => (
   <div className={CSS(CSS.B("symbol-primitive"), className)} {...props} />
 );
 
-export interface InternalSVGProps
-  extends SVGBasedPrimitiveProps,
-    Omit<ComponentPropsWithoutRef<"svg">, "direction" | "color" | "orientation"> {
-  dimensions: dimensions.Dimensions;
+interface SVGBasedPrimitiveProps extends OrientableProps {
   color?: Color.Crude;
   scale?: number;
+}
+
+interface InternalSVGProps
+  extends SVGBasedPrimitiveProps,
+    Omit<
+      ComponentPropsWithoutRef<"svg">,
+      "direction" | "color" | "orientation" | "scale"
+    > {
+  dimensions: dimensions.Dimensions;
 }
 
 const BASE_SCALE = 0.8;
@@ -412,7 +411,7 @@ export const ReliefValve = ({
       scale={scale}
     >
       <Path d="M43.5 37L6.35453 18.2035C4.35901 17.1937 2 18.6438 2 20.8803V53.1197C2 55.3562 4.35901 56.8063 6.35453 55.7965L43.5 37ZM43.5 37L80.6455 18.2035C82.641 17.1937 85 18.6438 85 20.8803V53.1197C85 55.3562 82.641 56.8063 80.6455 55.7965L43.5 37Z" />
-      <Path d="M43.5 2L43.5 38" strokeLinecap="round" />
+      <Path d="M43.5 2 L43.5 37" strokeLinecap="round" />
       <Path d="M31.8011 14.0802L55.1773 4.29611" strokeLinecap="round" />
       <Path d="M31.8011 20.0802L55.1773 10.2961" strokeLinecap="round" />
       <Path d="M31.8011 26.0802L55.1773 16.2961" strokeLinecap="round" />
@@ -444,7 +443,7 @@ export const CheckValve = ({
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M43 2L43 40" strokeLinecap="round" />
+      <Line x1="42.3917" y1="2" x2="42.3917" y2="40" strokeLinecap="round" />
       <Path d="M41.6607 21.8946C42.3917 21.5238 42.3906 20.4794 41.6589 20.1101L6.25889 2.2412C4.26237 1.23341 1.90481 2.68589 1.90704 4.92235L1.93925 37.1617C1.94148 39.3982 4.30194 40.846 6.29644 39.8342L41.6607 21.8946Z" />
     </InternalSVG>
   </Div>
@@ -476,34 +475,8 @@ export const AngledValve = ({
     >
       <Path d="M22.3611 20.1077C21.6298 20.4778 21.6298 21.5222 22.3611 21.8923L57.7433 39.7965C59.7388 40.8063 62.0978 39.3562 62.0978 37.1197L62.0978 4.88029C62.0978 2.64384 59.7388 1.19372 57.7433 2.2035L22.3611 20.1077Z" />
       <Path d="M21.8923 22.3611C21.5222 21.6298 20.4778 21.6298 20.1077 22.3611L2.20349 57.7433C1.19372 59.7388 2.64384 62.0978 4.8803 62.0978L37.1197 62.0978C39.3562 62.0978 40.8063 59.7388 39.7965 57.7433L21.8923 22.3611Z" />
-      <Path d="M24.3461 18.5709L21.7484 19.88C20.9998 20.2572 20.3887 20.8601 20.0012 21.6035L19.3383 22.8756" />
     </InternalSVG>
   </Toggle>
-);
-
-export interface ReduceFittingProps extends DivProps, SVGBasedPrimitiveProps {}
-
-export const ReduceFitting = ({
-  className,
-  orientation,
-  color,
-  scale,
-  ...props
-}: ReduceFittingProps): ReactElement => (
-  <Div
-    orientation={orientation}
-    className={CSS(CSS.B("reduce-fitting"), className)}
-    {...props}
-  >
-    <InternalSVG
-      dimensions={{ width: 42, height: 43 }}
-      color={color}
-      orientation={orientation}
-      scale={scale}
-    >
-      <Path d="M38.862 31.1414L4.86205 41.3414C2.93721 41.9189 1 40.4775 1 38.4679V21.8707V4.53209C1 2.5225 2.93721 1.08116 4.86204 1.65861L38.862 11.8586C40.131 12.2393 41 13.4073 41 14.7321V21.5V28.2679C41 29.5927 40.131 30.7607 38.862 31.1414Z" />
-    </InternalSVG>
-  </Div>
 );
 
 export interface PumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
@@ -626,7 +599,7 @@ export const ManualValve = ({
       scale={scale}
     >
       <Line x1="43.5" y1="27" x2="43.5" y2="1" />
-      <Path d="M19.64 2L66.68 2" strokeLinecap="round" />
+      <Path d="M19.64 1 L66.68 1" strokeLinecap="round" />
       <Path d="M43.5 27L6.35453 8.20349C4.35901 7.19372 2 8.64384 2 10.8803V43.1197C2 45.3562 4.35901 46.8063 6.35453 45.7965L43.5 27ZM43.5 27L80.6455 8.20349C82.641 7.19372 85 8.64384 85 10.8803V43.1197C85 45.3562 82.641 46.8063 80.6455 45.7965L43.5 27Z" />
     </InternalSVG>
   </Div>
@@ -687,7 +660,6 @@ const parseBorderRadius = (radius: BorderRadius): DetailedBorderRadius => {
       bottomLeft: xy.construct(radius.bottomLeft),
       bottomRight: xy.construct(radius.bottomRight),
     };
-
   return radius as DetailedBorderRadius;
 };
 
@@ -697,65 +669,80 @@ const cssBorderRadius = (radius: DetailedBorderRadius): string => {
 };
 
 const DEFAULT_DIMENSIONS = { width: 40, height: 80 };
-const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
+export const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
 
 export interface TankProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
   color?: Color.Crude;
   onResize?: (dimensions: dimensions.Dimensions) => void;
+  boxBorderRadius?: number;
+  backgroundColor?: Color.Crude;
 }
 
 export const Tank = ({
   className,
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
+  boxBorderRadius,
   color,
+  backgroundColor,
   ...props
 }: TankProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
+  const hasCornerBoundaries = boxBorderRadius == null;
   const t = Theming.use();
   return (
     <Div
       className={CSS(className, CSS.B("tank"))}
       style={{
         ...dimensions,
-        borderRadius: cssBorderRadius(detailedRadius),
+        borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
         borderColor: Color.cssString(color ?? t.colors.gray.l9),
+        backgroundColor:
+          backgroundColor == null ? backgroundColor : Color.cssString(backgroundColor),
       }}
       {...props}
     >
       <HandleBoundary>
         <Handle location="top" orientation="left" left={50} top={0} id="1" />
-        <Handle
-          location="top"
-          orientation="left"
-          left={-0.5}
-          top={detailedRadius.topLeft.y - 1}
-          id="2"
-        />
-        <Handle
-          location="top"
-          orientation="left"
-          left={101}
-          top={detailedRadius.topRight.y - 1}
-          id="3"
-        />
+        {hasCornerBoundaries && (
+          <>
+            <Handle
+              location="top"
+              orientation="left"
+              left={-0.5}
+              top={detailedRadius.topLeft.y - 1}
+              id="2"
+            />
+            <Handle
+              location="top"
+              orientation="left"
+              left={101}
+              top={detailedRadius.topRight.y - 1}
+              id="3"
+            />
+          </>
+        )}
         <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
-        <Handle
-          location="bottom"
-          orientation="left"
-          left={-0.5}
-          top={100 - detailedRadius.bottomLeft.y + 1}
-          id="5"
-        />
-        <Handle
-          location="bottom"
-          orientation="left"
-          left={101}
-          top={100 - detailedRadius.bottomRight.y + 1}
-          id="6"
-        />
+        {hasCornerBoundaries && (
+          <>
+            <Handle
+              location="bottom"
+              orientation="left"
+              left={-0.5}
+              top={100 - detailedRadius.bottomLeft.y + 1}
+              id="5"
+            />
+            <Handle
+              location="bottom"
+              orientation="left"
+              left={101}
+              top={100 - detailedRadius.bottomRight.y + 1}
+              id="6"
+            />
+          </>
+        )}
         <Handle location="left" orientation="left" left={-0.5} top={50} id="7" />
         <Handle location="right" orientation="left" left={101} top={50} id="8" />
       </HandleBoundary>
@@ -870,13 +857,12 @@ export const AngledReliefValve = ({
       color={color}
       scale={scale}
     >
-      <Path d="M20.75 2L20.75 38" strokeLinecap="round" />
+      <Line x1={21} y1={2} x2={21} y2={36.7} strokeLinecap="round" />
       <Path d="M9.05106 14.0802L32.4273 4.29611" strokeLinecap="round" />
       <Path d="M9.05106 20.0802L32.4273 10.2961" strokeLinecap="round" />
       <Path d="M9.05106 26.0802L32.4273 16.2961" strokeLinecap="round" />
       <Path d="M22.3611 35.1077C21.6298 35.4778 21.6298 36.5222 22.3611 36.8923L57.7433 54.7965C59.7388 55.8063 62.0978 54.3562 62.0978 52.1197L62.0978 19.8803C62.0978 17.6438 59.7388 16.1937 57.7433 17.2035L22.3611 35.1077Z" />
       <Path d="M21.8923 37.3611C21.5222 36.6298 20.4778 36.6298 20.1077 37.3611L2.20349 72.7433C1.19372 74.7388 2.64384 77.0978 4.8803 77.0978H37.1197C39.3562 77.0978 40.8063 74.7388 39.7965 72.7433L21.8923 37.3611Z" />
-      <Path d="M24.3461 33.5709L21.7484 34.88C20.9998 35.2572 20.3887 35.8601 20.0012 36.6035L19.3383 37.8756" />
     </InternalSVG>
   </Div>
 );
@@ -938,7 +924,7 @@ export const Value = ({
   );
 };
 
-export interface SwitchProps extends Omit<ToggleProps, "onClick">, OrientableProps {
+export interface SwitchProps extends Omit<ToggleValveButtonProps, "onClick"> {
   onClick?: MouseEventHandler<HTMLInputElement>;
 }
 
@@ -956,18 +942,26 @@ export const Switch = ({
   </Div>
 );
 
-export interface ButtonProps extends Omit<DivProps, "onClick"> {
+export interface ButtonProps
+  extends Omit<DivProps, "onClick">,
+    Pick<CoreButton.ButtonProps, "color" | "size" | "level"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  color?: Color.Crude;
 }
 
 export const Button = ({
   onClick,
   orientation = "left",
   label = "",
+  color,
+  size,
+  level,
 }: ButtonProps): ReactElement => (
   <Div orientation={orientation}>
-    <CoreButton.Button onClick={onClick}>{label}</CoreButton.Button>
+    <CoreButton.Button onClick={onClick} color={color} size={size} level={level}>
+      {label}
+    </CoreButton.Button>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
@@ -1318,23 +1312,40 @@ export const RotaryMixer = ({
   </Toggle>
 );
 
-export interface LightProps extends ToggleProps, SVGBasedPrimitiveProps {
-  color?: Color.Crude;
+export interface LightProps extends DivProps, SVGBasedPrimitiveProps {
+  enabled?: boolean;
 }
 
 export const Light = ({
   className,
   color,
   orientation = "left",
+  enabled,
   scale,
   ...props
 }: LightProps): ReactElement => (
-  <Toggle {...props} className={CSS(CSS.B("light"), className)}>
+  <Div
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("light"), enabled && CSS.M("enabled"), className)}
+  >
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
-      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+      <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={96.875}
+        top={50}
+        id="2"
+      />
+      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.75}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 64, height: 64 }}
@@ -1344,7 +1355,7 @@ export const Light = ({
     >
       <Circle cx="32" cy="32" r="30" />
     </InternalSVG>
-  </Toggle>
+  </Div>
 );
 
 export interface ElectricRegulatorProps extends DivProps, SVGBasedPrimitiveProps {}

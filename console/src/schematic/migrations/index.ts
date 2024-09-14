@@ -7,7 +7,7 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
+import { migrate, zodutil } from "@synnaxlabs/x";
 
 import * as v0 from "@/schematic/migrations/v0";
 import * as v1 from "@/schematic/migrations/v1";
@@ -26,12 +26,12 @@ export type AnySliceState = v0.SliceState | v1.SliceState | v2.SliceState;
 export const ZERO_STATE = v2.ZERO_STATE;
 export const ZERO_SLICE_STATE = v2.ZERO_SLICE_STATE;
 
-export const STATE_MIGRATIONS: migrate.Migrations = {
+const STATE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.stateMigration,
   "1.0.0": v2.stateMigration,
 };
 
-export const SLICE_MIGRATIONS: migrate.Migrations = {
+const SLICE_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.sliceMigration,
   "1.0.0": v2.sliceMigration,
 };
@@ -48,9 +48,8 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   def: ZERO_SLICE_STATE,
 });
 
-export const STATES_Z = [v0.stateZ, v1.stateZ, v2.stateZ];
-
-export const parser: (potentialState: any) => State | null = (potentialState) => {
-  const z = STATES_Z.find((stateZ) => stateZ.safeParse(potentialState).success);
-  return z == null ? null : migrateState(z.parse(potentialState));
-};
+export const parser = zodutil.transformer<AnyState, State>(migrateState, [
+  v2.stateZ,
+  v1.stateZ,
+  v0.stateZ,
+]);

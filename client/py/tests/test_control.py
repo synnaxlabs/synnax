@@ -11,7 +11,6 @@ import threading
 import time
 
 import pytest
-from janus import Queue
 
 import synnax as sy
 
@@ -98,6 +97,262 @@ class TestController:
         assert assertions["seq_first_ack"]
         assert assertions["seq_second_ack"]
 
+    def test_remains_true_for_false(self, client: sy.Synnax):
+        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+
+        assertions = dict()
+
+        def sequence(ev: threading.Event):
+            # Wait for the simulated DAQ to boot up
+            ev.wait()
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en.key],
+                write=[press_en_cmd.key],
+            ) as auto:
+                auto[press_en_cmd.key] = True
+                assertions["seq_first_ack"] = auto.wait_until(
+                    lambda c: c[press_en.key],
+                    timeout=2 * sy.TimeSpan.SECOND,
+                )
+                auto[press_en_cmd.key] = False
+                assertions["seq_second_ack"] = auto.wait_until(
+                    lambda c: not c[press_en.key],
+                    timeout=2 * sy.TimeSpan.SECOND,
+                )
+                remained_true = auto.remains_true_for(
+                    lambda c: not c[press_en.key],
+                    duration=100 * sy.TimeSpan.MILLISECOND,
+                )
+                assertions["remained_true"] = remained_true
+
+        def daq(ev: threading.Event):
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en_cmd.key],
+                write=[press_en.key],
+            ) as auto:
+                ev.set()
+                auto.wait_until(lambda c: c[press_en_cmd.key])
+                auto[press_en.key] = True
+                auto.wait_until(lambda c: not c[press_en_cmd.key])
+                auto[press_en.key] = False
+                auto[press_en.key] = False
+                auto.sleep(50 * sy.TimeSpan.MILLISECOND)
+                auto[press_en.key] = True
+
+        ev = threading.Event()
+        t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
+        t2 = threading.Thread(target=daq, kwargs={"ev": ev})
+
+        t2.start()
+        t1.start()
+
+        t1.join()
+        t2.join()
+
+        assert assertions["seq_first_ack"]
+        assert assertions["seq_second_ack"]
+        assert not assertions["remained_true"]
+
+    def test_remains_true_for_true(self, client: sy.Synnax):
+        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+
+        assertions = dict()
+
+        def sequence(ev: threading.Event):
+            # Wait for the simulated DAQ to boot up
+            ev.wait()
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en.key],
+                write=[press_en_cmd.key],
+            ) as auto:
+                auto[press_en_cmd.key] = True
+                assertions["seq_first_ack"] = auto.wait_until(
+                    lambda c: c[press_en.key],
+                    timeout=2 * sy.TimeSpan.SECOND,
+                )
+                auto[press_en_cmd.key] = False
+                assertions["seq_second_ack"] = auto.wait_until(
+                    lambda c: not c[press_en.key],
+                    timeout=2 * sy.TimeSpan.SECOND,
+                )
+                remained_true = auto.remains_true_for(
+                    lambda c: not c[press_en.key],
+                    duration=100 * sy.TimeSpan.MILLISECOND,
+                )
+                assertions["remained_true"] = remained_true
+
+        def daq(ev: threading.Event):
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en_cmd.key],
+                write=[press_en.key],
+            ) as auto:
+                ev.set()
+                auto.wait_until(lambda c: c[press_en_cmd.key])
+                auto[press_en.key] = True
+                auto.wait_until(lambda c: not c[press_en_cmd.key])
+                auto[press_en.key] = False
+                auto[press_en.key] = False
+                auto.sleep(50 * sy.TimeSpan.MILLISECOND)
+                auto[press_en.key] = False
+
+        ev = threading.Event()
+        t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
+        t2 = threading.Thread(target=daq, kwargs={"ev": ev})
+
+        t2.start()
+        t1.start()
+
+        t1.join()
+        t2.join()
+
+        assert assertions["seq_first_ack"]
+        assert assertions["seq_second_ack"]
+        assert assertions["remained_true"]
+
+    def test_remains_true_for_target_percent(self, client: sy.Synnax):
+        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+
+        assertions = dict()
+
+        def sequence(ev: threading.Event):
+            # Wait for the simulated DAQ to boot up
+            ev.wait()
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en.key],
+                write=[press_en_cmd.key],
+            ) as auto:
+                auto[press_en_cmd.key] = True
+                assertions["seq_first_ack"] = auto.wait_until(
+                    lambda c: c[press_en.key],
+                    timeout=2 * sy.TimeSpan.SECOND,
+                )
+                auto[press_en_cmd.key] = False
+                assertions["seq_second_ack"] = auto.wait_until(
+                    lambda c: not c[press_en.key],
+                    timeout=2 * sy.TimeSpan.SECOND,
+                )
+                c = 0
+
+                def is_closed(auto):
+                    nonlocal c
+                    c += 1
+                    return not auto[press_en.key]
+
+                remained_true = auto.remains_true_for(
+                    is_closed,
+                    duration=100 * sy.TimeSpan.MILLISECOND,
+                    percentage=0.5,
+                )
+                assertions["remained_true"] = remained_true
+                assertions["remained_true_count"] = c
+
+        def daq(ev: threading.Event):
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en_cmd.key],
+                write=[press_en.key],
+            ) as auto:
+                ev.set()
+                auto.wait_until(lambda c: c[press_en_cmd.key])
+                auto[press_en.key] = True
+                auto.wait_until(lambda c: not c[press_en_cmd.key])
+                auto[press_en.key] = False
+                auto[press_en.key] = False
+                auto[press_en.key] = True
+                auto[press_en.key] = False
+                auto[press_en.key] = True
+                auto[press_en.key] = True
+                auto[press_en.key] = False
+                auto[press_en.key] = False
+
+        ev = threading.Event()
+        t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
+        t2 = threading.Thread(target=daq, kwargs={"ev": ev})
+
+        t2.start()
+        t1.start()
+
+        t1.join()
+        t2.join()
+
+        assert assertions["seq_first_ack"]
+        assert assertions["seq_second_ack"]
+        assert assertions["remained_true"]
+
+    def test_while_true(self, client: sy.Synnax):
+        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
+
+        assertions = dict()
+
+        def sequence(ev: threading.Event):
+            # Wait for the simulated DAQ to boot up
+            ev.wait()
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en.key],
+                write=[press_en_cmd.key],
+            ) as auto:
+                auto[press_en_cmd.key] = True
+                assertions["seq_first_ack"] = auto.wait_until(
+                    lambda c: c[press_en.key],
+                    timeout=2 * sy.TimeSpan.SECOND,
+                )
+                auto[press_en_cmd.key] = False
+                assertions["seq_second_ack"] = auto.wait_until(
+                    lambda c: not c[press_en.key],
+                    timeout=2 * sy.TimeSpan.SECOND,
+                )
+                c = 0
+
+                def is_closed(auto):
+                    nonlocal c
+                    c += 1
+                    return not auto[press_en.key]
+
+                remained_true = auto.while_true(is_closed)
+                assertions["remained_true"] = remained_true
+                assertions["remained_true_count"] = c
+
+        def daq(ev: threading.Event):
+            with client.control.acquire(
+                name="Basic Valve Toggle",
+                read=[press_en_cmd.key],
+                write=[press_en.key],
+            ) as auto:
+                ev.set()
+                auto.wait_until(lambda c: c[press_en_cmd.key])
+                auto[press_en.key] = True
+                auto.wait_until(lambda c: not c[press_en_cmd.key])
+                auto[press_en.key] = False
+                auto.sleep(50 * sy.TimeSpan.MILLISECOND)
+                auto[press_en.key] = False
+                auto[press_en.key] = False
+                auto[press_en.key] = False
+                auto[press_en.key] = True
+
+        ev = threading.Event()
+        t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
+        t2 = threading.Thread(target=daq, kwargs={"ev": ev})
+
+        t2.start()
+        t1.start()
+        t1.join()
+        t2.join()
+
+        assert assertions["seq_first_ack"]
+        assert assertions["seq_second_ack"]
+        assert assertions["remained_true"]
+        assert assertions["remained_true_count"] == 4
+
     def test_controller_channel_not_found(self, client: sy.Synnax):
         """Test that the controller raises a KeyError when a channel is not found"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
@@ -110,6 +365,7 @@ class TestController:
                 v = auto[press_en.key]
                 assert v is None
 
+    @pytest.mark.focus
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
@@ -167,9 +423,13 @@ class TestController:
                 write_authorities=[255],
             ) as auto:
                 seq_two_ev.set()
-                time.sleep(0.1)
+                # We use a sleep here instead of an auto.wait to ensure python has
+                # bandwidth to switch threads
+                auto.sleep(0.1)
                 auto.set_authority({press_en_cmd.key: 50})
-                time.sleep(0.2)
+                # We use a sleep here instead of an auto.wait to ensure python has
+                # bandwidth to switch threads
+                auto.sleep(0.2)
 
         def daq(daq_ev: threading.Event):
             with client.control.acquire(

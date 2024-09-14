@@ -70,11 +70,11 @@ export class Writer {
   }
 
   async create(workspace: string, plot: NewLinePlot): Promise<LinePlot> {
-    const schematic_ = { ...plot, data: JSON.stringify(plot.data) };
+    const linePlot = { ...plot, data: JSON.stringify(plot.data) };
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { workspace, linePlots: [schematic_] },
+      { workspace, linePlots: [linePlot] },
       createReqZ,
       createResZ,
     );
@@ -82,8 +82,8 @@ export class Writer {
     return res.linePlots[0];
   }
 
-  async delete(params: Params): Promise<void> {
-    const normalized = toArray(params);
+  async delete(workspaces: Params): Promise<void> {
+    const normalized = toArray(workspaces);
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
@@ -93,21 +93,21 @@ export class Writer {
     );
   }
 
-  async rename(schematic: Key, name: string): Promise<void> {
+  async rename(plot: Key, name: string): Promise<void> {
     await sendRequired<typeof renameReqZ, typeof renameResZ>(
       this.client,
       RENAME_ENDPOINT,
-      { key: schematic, name },
+      { key: plot, name },
       renameReqZ,
       renameResZ,
     );
   }
 
-  async setData(schematic: Key, data: UnknownRecord): Promise<void> {
+  async setData(plot: Key, data: UnknownRecord): Promise<void> {
     await sendRequired<typeof setDataReqZ, typeof setDataResZ>(
       this.client,
       SET_DATA_ENDPOINT,
-      { key: schematic, data: JSON.stringify(data) },
+      { key: plot, data: JSON.stringify(data) },
       setDataReqZ,
       setDataResZ,
     );

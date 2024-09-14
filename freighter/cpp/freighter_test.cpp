@@ -26,7 +26,8 @@ public:
 
 class BasicFinalizer final : public freighter::Finalizer<int, int> {
 public:
-    freighter::FinalizerReturn<int> operator()(freighter::Context context, int &req) override {
+    freighter::FinalizerReturn<int>
+    operator()(freighter::Context context, int &req) override {
         return {
             context,
             freighter::NIL,

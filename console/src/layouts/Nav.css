@@ -20,10 +20,6 @@
     z-index: 2;
 }
 
-.console-main-nav {
-    background: var(--pluto-gray-l0);
-}
-
 .console-main-nav-top__start {
     padding: 0rem 2rem;
     @media (min-width: 1200px) {

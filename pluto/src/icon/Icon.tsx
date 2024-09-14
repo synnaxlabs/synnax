@@ -51,3 +51,9 @@ export interface CreateProps extends Omit<IconProps, "topRight"> {}
 export const Create = (props: CreateProps): ReactElement => (
   <Icon topRight={<MediaIcon.Add />} {...props} />
 );
+
+export interface ImportProps extends CreateProps {}
+
+export const Import = (props: ImportProps): ReactElement => (
+  <Icon topRight={<MediaIcon.Import />} {...props} />
+);

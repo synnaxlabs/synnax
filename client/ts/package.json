@@ -1,10 +1,7 @@
 {
   "name": "@synnaxlabs/client",
-  "private": false,
-  "version": "0.27.0",
-  "type": "module",
-  "description": "The Client Library for Synnax",
-  "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
+  "version": "0.28.0",
+  "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
     "grpc",
@@ -15,6 +12,17 @@
     "telemetry",
     "control systems"
   ],
+  "homepage": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
+  "bugs": {
+    "url": "https://github.com/synnaxlabs/synnax/issues"
+  },
+  "license": "BUSL-1.1",
+  "main": "dist/client.cjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synnaxlabs/synnax.git",
+    "directory": "client/ts"
+  },
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "watch": "tsc --noEmit && vite build --watch",
@@ -45,7 +53,7 @@
   "peerDependencies": {
     "zod": "^3.23.8"
   },
-  "main": "dist/client.cjs",
-  "module": "dist/client.js",
-  "types": "dist/index.d.ts"
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "module": "dist/client.js"
 }

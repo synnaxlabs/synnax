@@ -100,15 +100,18 @@ interface SetAltKeyPayload {
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface FileHandlerProps {
-  mosaicKey: number;
   file: any;
-  loc: location.Location;
   name: string;
   placer: Placer;
   store: Store;
   confirm: CreateConfirmModal;
   client: Synnax | null;
-  workspaceKey: string | null;
+  workspaceKey?: string;
+  dispatch: Dispatch<UnknownAction>;
+  tab?: {
+    mosaicKey: number;
+    location: location.Location;
+  };
 }
 
 export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;
@@ -356,9 +359,8 @@ export const { actions, reducer } = createSlice({
 
       if (key != null) {
         Object.values(navState.drawers).forEach((drawer) => {
-          if (drawer.menuItems.includes(key)) {
-            drawer.activeItem = value ?? drawer.activeItem !== key ? key : null;
-          }
+          if (drawer.menuItems.includes(key))
+            drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
         });
       } else if (location != null) {
         let drawer = navState.drawers[location];

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { groupZ,type Payload } from "@/ontology/group/payload";
+import { groupZ, type Payload } from "@/ontology/group/payload";
 import { type ID, idZ } from "@/ontology/payload";
 
 const resZ = z.object({
@@ -43,35 +43,33 @@ export class Writer {
   }
 
   async create(parent: ID, name: string, key?: string): Promise<Payload> {
-    const [res, err] = await this.client.send(
+    const res = await sendRequired(
+      this.client,
       Writer.ENDPOINT,
       { parent, name, key },
       createReqZ,
       resZ,
     );
-    if (err != null) throw err;
     return res.group;
   }
 
   async rename(key: string, name: string): Promise<void> {
-    const req = { key, name };
-    const [, err] = await this.client.send(
+    await sendRequired(
+      this.client,
       Writer.ENDPOINT_RENAME,
-      req,
+      { key, name },
       renameReqZ,
       z.object({}),
     );
-    if (err != null) throw err;
   }
 
   async delete(keys: string[]): Promise<void> {
-    const req = { keys };
-    const [, err] = await this.client.send(
+    await sendRequired(
+      this.client,
       Writer.ENDPOINT_DELETE,
-      req,
+      { keys },
       deleteReqZ,
       z.object({}),
     );
-    if (err != null) throw err;
   }
 }

@@ -27,8 +27,8 @@ The purpose of this document, and the entire `docs/tech` directory, is to:
 
 The first step to working with the Synnax platform is to understand the high level
 components that make up the system. The best way to do this is to read the
-[concepts](https://docs.synnaxlabs.com/concepts/overview?) section of the official
-documentation.
+[concepts](https://docs.synnaxlabs.com/reference/concepts/overview) section of the
+official documentation.
 
 As a supplement, read through the [telemetry concepts](telemetry.md) document. This
 provides a detailed guide on what telemetry is, and how Synnax leverages the properties
@@ -56,5 +56,5 @@ you need to be familiar with when working on a specific area of the codebase.
 # 6 - Language Specific Guides
 
 We also have language specific guides for developing in [python](./python/python.md) and
-[typescript](./typescript/typescript.md). These includes information on the correct 
+[typescript](./typescript/typescript.md). These includes information on the correct
 processes for working on the codebase in that language.

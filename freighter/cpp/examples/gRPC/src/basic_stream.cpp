@@ -11,14 +11,14 @@
 // It contains the standard freighter interface.
 #include "freighter/fgrpc/client.h"
 
-// Our generated proto file that we wish to send. 
+// Our generated proto file that we wish to send.
 #include "src/protos/message_service.grpc.pb.h"
 
 // std libraries.
 #include <string>
 #include <iostream>
 
-// To make code cleaner, we always want to use type aliuses. 
+// To make code cleaner, we always want to use type aliuses.
 // The grpc client object takes four template types:
 // response_t, request_t, stream_t, err_t, and rpc_t.
 
@@ -37,8 +37,7 @@ using rpc_t = masa::Communication;
 // stream_t: a grpcStreamer of type grpcStreamer<response_t, request_t, err_t, rpc_t>
 using stream_t = grpcStreamer<RQ, RS, err_t, rpc_t>;
 
-int main()
-{
+int main() {
     // We start by creating a client object with our templates.
     auto client = grpc<RQ, RS, stream_t, err_t, rpc_t>();
 
@@ -50,7 +49,7 @@ int main()
 
     // To send a payload, we construct the proto defined Data object,
     // set a payload, and send.
-    // The return will be a grpc status, which we can check to 
+    // The return will be a grpc status, which we can check to
     // see if the message was sent successfully.
     auto payload = masa::Data();
     payload.set_name("Hey there!");
@@ -59,21 +58,21 @@ int main()
     std::cout << "Sending data: " << payload.name() << std::endl;
     auto sent_status = streamer.send(payload);
 
-    if (!sent_status.ok())
-    {
-        std::cout << "Error: unable to send message. Terminating program..." << std::endl;
-        exit(sent_status.error_code()); 
+    if (!sent_status.ok()) {
+        std::cout << "Error: unable to send message. Terminating program..."
+                  << std::endl;
+        exit(sent_status.error_code());
     }
 
     // Let's receive a message from the server!
     // To do this, we can simply call receive(). This
-    // returns a pair of 
+    // returns a pair of
     auto [response, receive_status] = streamer.receive();
 
-    if (!receive_status.ok())
-    {
-        std::cout << "Error: unable to receive message. Terminating program..." << std::endl;
-        exit(receive_status.error_code()); 
+    if (!receive_status.ok()) {
+        std::cout << "Error: unable to receive message. Terminating program..."
+                  << std::endl;
+        exit(receive_status.error_code());
     }
 
     std::cout << "Received message: " << response.name() << std::endl;

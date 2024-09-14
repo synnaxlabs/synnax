@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -31,6 +32,8 @@ func (d Delete[K, E]) Where(filter func(*E) bool, opts ...FilterOption) Delete[K
 	return d
 }
 
+// Guard executes the given function on each entry matching the query. If the function
+// returns an error, the query will fail and no further entries will be processed.
 func (d Delete[K, E]) Guard(filter func(E) error) Delete[K, E] {
 	addGuard[K, E](d.params, filter)
 	return d

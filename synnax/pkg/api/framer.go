@@ -177,10 +177,7 @@ func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) 
 	if err != nil {
 		return nil, err
 	}
-	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{
-		Start: req.Start,
-		Keys:  req.Keys,
-	})
+	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys})
 	return reader, err
 }
 

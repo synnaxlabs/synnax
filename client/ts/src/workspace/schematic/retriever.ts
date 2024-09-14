@@ -28,12 +28,12 @@ export class Retriever {
     this.client = client;
   }
 
-  async retrieve(params: Params): Promise<Schematic[]> {
+  async retrieve(schematics: Params): Promise<Schematic[]> {
     return (
       await sendRequired(
         this.client,
         this.ENDPOINT,
-        { keys: toArray(params) },
+        { keys: toArray(schematics) },
         reqZ,
         resZ,
       )

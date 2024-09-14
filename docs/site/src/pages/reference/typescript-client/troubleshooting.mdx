@@ -1,0 +1,52 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Troubleshooting"
+heading: "Troubleshooting"
+description: "Solve common issues with the TypeScript client."
+---
+
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+import { Divider } from "@synnaxlabs/pluto";
+
+The following sections outline common issues our users encounter when working with the
+Synnax TypeScript client.
+
+<Divider.Divider direction="x" />
+
+## Old Cluster Version
+
+<div class="warning">
+```
+Synnax cluster node version is too old for client version x.x.x.
+This may cause compatibility issues. We recommend upgrading the cluster.
+```
+</div>
+
+This warning message indicates that the the version of the Synnax TypeScript client you
+are using is newer than the version of the Synnax cluster you are connecting to. To
+resolve this issue, either [upgrade the Synnax cluster](/reference/cluster/installation)
+or downgrade to a matching version of the client:
+
+```sh
+npm install @synnaxlabs/client@x.x.x
+```
+
+<Divider.Divider direction="x" />
+
+## Old Client Version
+
+<div class="warning">
+```
+Synnax cluster node version is too new client version x.x.x.
+This may cause compatibility issues. We recommend upgrading the client.
+```
+</div>
+
+This warning message indicates that the the version of the Synnax TypeScript client you
+are using is older than the version of the Synnax cluster you are connecting to. To
+resolve this issue, we recommend upgrading the Synnax TypeScript client:
+
+```sh
+npm install @synnaxlabs/client@latest
+```

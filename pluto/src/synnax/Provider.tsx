@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type connection,
-  Synnax,
-  type SynnaxProps,
-  TimeSpan,
-} from "@synnaxlabs/client";
-import { caseconv } from "@synnaxlabs/x";
+import { connection, Synnax, type SynnaxProps, TimeSpan } from "@synnaxlabs/client";
+import { caseconv, migrate } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -44,6 +39,15 @@ const CONNECTION_STATE_VARIANT: Record<connection.Status, Status.Variant> = {
   failed: "error",
 };
 
+export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
+
+const generateErrorDescription = (
+  oldServer: boolean,
+  clientVersion: string,
+  nodeVersion?: string,
+): string =>
+  `Cluster version ${nodeVersion != null ? nodeVersion + " " : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+
 export const Provider = Aether.wrap<ProviderProps>(
   synnax.Provider.TYPE,
   ({ aetherKey, connParams, children }): ReactElement => {
@@ -58,19 +62,19 @@ export const Provider = Aether.wrap<ProviderProps>(
       initialState: { props: connParams ?? null, state: null },
     });
 
-    const add = Status.useAggregator();
+    const addStatus = Status.useAggregator();
 
     const handleChange = useCallback(
       (state: connection.State) => {
         if (ref.current.state.status !== state.status) {
-          add({
+          addStatus({
             variant: CONNECTION_STATE_VARIANT[state.status],
             message: state.message ?? caseconv.capitalize(state.status),
           });
         }
         setState((prev) => ({ ...prev, state }));
       },
-      [add],
+      [addStatus],
     );
 
     useAsyncEffect(async () => {
@@ -88,19 +92,42 @@ export const Provider = Aether.wrap<ProviderProps>(
           clusterKey: "",
           status: "connecting",
           message: "Connecting...",
+          clientServerCompatible: false,
+          clientVersion: c.clientVersion,
         },
       });
 
       const connectivity = await c.connectivity.check();
 
-      setState({
-        synnax: c,
-        state: connectivity,
-      });
-      add({
+      setState({ synnax: c, state: connectivity });
+      addStatus({
         variant: CONNECTION_STATE_VARIANT[connectivity.status],
         message: connectivity.message ?? connectivity.status.toUpperCase(),
       });
+
+      if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
+        const oldServer =
+          connectivity.nodeVersion == null ||
+          migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
+
+        const description = generateErrorDescription(
+          oldServer,
+          connectivity.clientVersion,
+          connectivity.nodeVersion,
+        );
+
+        addStatus({
+          variant: "warning",
+          message: "Incompatible cluster version",
+          description,
+          data: {
+            type: SERVER_VERSION_MISMATCH,
+            oldServer,
+            nodeVersion: connectivity.nodeVersion,
+            clientVersion: connectivity.clientVersion,
+          },
+        });
+      }
 
       c.connectivity.onChange(handleChange);
 

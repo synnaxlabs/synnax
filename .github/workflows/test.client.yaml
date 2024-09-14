@@ -90,7 +90,7 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install Poetry
         if: steps.filter.outputs.changed == 'true'
@@ -213,7 +213,7 @@ jobs:
           repository-cache: true
 
       - name: Test
-        run: bazel test --test_output=all //client/...
+        run: bazel test --test_output=all //client/... --nocache_test_results
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}

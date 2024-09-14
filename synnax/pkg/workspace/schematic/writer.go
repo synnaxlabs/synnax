@@ -81,14 +81,14 @@ func (w Writer) Copy(
 	key uuid.UUID,
 	name string,
 	snapshot bool,
-	schematic *Schematic,
+	result *Schematic,
 ) error {
 	newKey := uuid.New()
 	if err := gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).Change(func(p Schematic) Schematic {
 		p.Key = newKey
 		p.Name = name
 		p.Snapshot = snapshot
-		*schematic = p
+		*result = p
 		return p
 	}).Exec(ctx, w.tx); err != nil {
 		return err
@@ -101,7 +101,7 @@ func (w Writer) Copy(
 		return err
 	}
 	// In the case of a snapshot, don't create a relationship to the workspace.
-	if schematic.Snapshot {
+	if result.Snapshot {
 		return nil
 	}
 	return w.otgWriter.DefineRelationship(

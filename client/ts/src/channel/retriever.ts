@@ -267,9 +267,9 @@ export class DebouncedBatchRetriever implements Retriever {
 
 export const retrieveRequired = async (
   r: Retriever,
-  params: Params,
+  channels: Params,
 ): Promise<Payload[]> => {
-  const { normalized } = analyzeChannelParams(params);
+  const { normalized } = analyzeChannelParams(channels);
   const results = await r.retrieve(normalized);
   const notFound: KeyOrName[] = [];
   normalized.forEach((v) => {

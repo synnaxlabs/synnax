@@ -10,7 +10,7 @@
 import "@/color/Picker/Picker.css";
 
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
-import { type ColorResult,SketchPicker } from "react-color";
+import { type ColorResult, SketchPicker } from "react-color";
 
 import { color } from "@/color/core";
 import { CSS } from "@/css";

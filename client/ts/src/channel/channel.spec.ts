@@ -30,6 +30,7 @@ describe("Channel", () => {
       expect(channel.rate).toEqual(Rate.hz(1));
       expect(channel.dataType).toEqual(DataType.FLOAT32);
     });
+
     test("create index and indexed pair", async () => {
       const one = await client.channels.create({
         name: "Time",
@@ -44,6 +45,7 @@ describe("Channel", () => {
       });
       expect(two.key).not.toEqual(0);
     });
+
     test("create many", async () => {
       const channels = await client.channels.create([
         {
@@ -63,6 +65,7 @@ describe("Channel", () => {
       expect(channels[0].name).toEqual("test1");
       expect(channels[1].name).toEqual("test2");
     });
+
     test("create instances of channels", async () => {
       const timeIndexChannel = await client.channels.create({
         name: "time",
@@ -89,6 +92,20 @@ describe("Channel", () => {
       });
       await client.channels.create([sensorOne, sensorTwo, sensorThree]);
     });
+
+    describe("virtual", () => {
+      it("should create a virtual channel", async () => {
+        const channel = await client.channels.create({
+          name: "test",
+          dataType: DataType.JSON,
+          virtual: true,
+        });
+        expect(channel.virtual).toEqual(true);
+        const retrieved = await client.channels.retrieve(channel.key);
+        expect(retrieved.virtual).toBeTruthy();
+      });
+    });
+
     describe("retrieveIfNameExists", () => {
       it("should retrieve the existing channel when it exists", async () => {
         const name = `test-${Math.random()}-${TimeStamp.now().valueOf()}`;
@@ -159,38 +176,41 @@ describe("Channel", () => {
       });
     });
   });
-  test("retrieve by key", async () => {
-    const channel = await client.channels.create({
-      name: "test",
-      leaseholder: 1,
-      rate: Rate.hz(1),
-      dataType: DataType.FLOAT32,
+
+  describe("retrieve", () => {
+    test("retrieve by key", async () => {
+      const channel = await client.channels.create({
+        name: "test",
+        leaseholder: 1,
+        rate: Rate.hz(1),
+        dataType: DataType.FLOAT32,
+      });
+      const retrieved = await client.channels.retrieve(channel.key);
+      expect(retrieved.name).toEqual("test");
+      expect(retrieved.leaseholder).toEqual(1);
+      expect(retrieved.rate).toEqual(Rate.hz(1));
+      expect(retrieved.dataType).toEqual(DataType.FLOAT32);
     });
-    const retrieved = await client.channels.retrieve(channel.key);
-    expect(retrieved.name).toEqual("test");
-    expect(retrieved.leaseholder).toEqual(1);
-    expect(retrieved.rate).toEqual(Rate.hz(1));
-    expect(retrieved.dataType).toEqual(DataType.FLOAT32);
-  });
-  test("retrieve by key - not found", async () => {
-    await expect(async () => await client.channels.retrieve("1-1000")).rejects.toThrow(
-      QueryError,
-    );
-  });
-  test("retrieve by name", async () => {
-    const retrieved = await client.channels.retrieve(["test"]);
-    expect(retrieved.length).toBeGreaterThan(0);
-    retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
-  });
-  test("retrieve by key - not found", async () => {
-    await expect(async () => await client.channels.retrieve("1-1000")).rejects.toThrow(
-      NotFoundError,
-    );
-  });
-  test("retrieve by name", async () => {
-    const retrieved = await client.channels.retrieve(["test"]);
-    expect(retrieved.length).toBeGreaterThan(0);
-    retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
+    test("retrieve by key - not found", async () => {
+      await expect(
+        async () => await client.channels.retrieve("1-1000"),
+      ).rejects.toThrow(QueryError);
+    });
+    test("retrieve by name", async () => {
+      const retrieved = await client.channels.retrieve(["test"]);
+      expect(retrieved.length).toBeGreaterThan(0);
+      retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
+    });
+    test("retrieve by key - not found", async () => {
+      await expect(
+        async () => await client.channels.retrieve("1-1000"),
+      ).rejects.toThrow(NotFoundError);
+    });
+    test("retrieve by name", async () => {
+      const retrieved = await client.channels.retrieve(["test"]);
+      expect(retrieved.length).toBeGreaterThan(0);
+      retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
+    });
   });
 
   describe("delete", async () => {

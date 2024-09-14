@@ -44,46 +44,61 @@ describe("Hardware", () => {
         expect(retrieved.config).toStrictEqual({ a: "dog" });
         expect(retrieved.type).toBe("ni");
       });
-    });
-    describe("retrieveByName", () => {
-      it("should retrieve a task by its name", async () => {
-        const name = `test-${Date.now()}-${Math.random()}`;
-        const r = await client.hardware.racks.create({ name });
-        const m = await r.createTask({
-          name,
-          config: { a: "dog" },
-          type: "ni",
+      describe("retrieveByName", () => {
+        it("should retrieve a task by its name", async () => {
+          const name = `test-${Date.now()}-${Math.random()}`;
+          const r = await client.hardware.racks.create({ name });
+          const m = await r.createTask({
+            name,
+            config: { a: "dog" },
+            type: "ni",
+          });
+          const retrieved = await client.hardware.tasks.retrieveByName(name);
+          expect(retrieved.key).toBe(m.key);
         });
-        const retrieved = await client.hardware.tasks.retrieveByName(name);
-        expect(retrieved.key).toBe(m.key);
+      });
+      describe("retrieve with state", () => {
+        it("should also send the tasks state", async () => {
+          const r = await client.hardware.racks.create({ name: "test" });
+          const t = await r.createTask({
+            name: "test",
+            config: { a: "dog" },
+            type: "ni",
+          });
+          const w = await client.openWriter(["sy_task_state"]);
+          interface StateDetails {
+            dog: string;
+          }
+          const state: task.State<StateDetails> = {
+            key: id.id(),
+            task: t.key,
+            variant: "success",
+          };
+          expect(await w.write("sy_task_state", [state])).toBeTruthy();
+          await w.close();
+          const retrieved = await client.hardware.tasks.retrieve(t.key, {
+            includeState: true,
+          });
+          expect(retrieved.state).not.toBeNull();
+          expect(retrieved.state?.variant).toBe(state.variant);
+        });
       });
     });
-    describe("retrieve with state", () => {
-      it("should also send the tasks state", async () => {
+
+    describe("copy", () => {
+      it("should correctly copy the task", async () => {
         const r = await client.hardware.racks.create({ name: "test" });
-        const t = await r.createTask({
+        const m = await r.createTask({
           name: "test",
           config: { a: "dog" },
           type: "ni",
         });
-        const w = await client.openWriter(["sy_task_state"]);
-        interface StateDetails {
-          dog: string;
-        }
-        const state: task.State<StateDetails> = {
-          key: id.id(),
-          task: t.key,
-          variant: "success",
-        };
-        expect(await w.write("sy_task_state", [state])).toBeTruthy();
-        await w.close();
-        const retrieved = await client.hardware.tasks.retrieve(t.key, {
-          includeState: true,
-        });
-        expect(retrieved.state).not.toBeNull();
-        expect(retrieved.state?.variant).toBe(state.variant);
+        const copy = await client.hardware.tasks.copy(m.key, "New Name", false);
+        expect(copy.name).toBe("New Name");
+        expect(copy.config).toStrictEqual({ a: "dog" });
       });
     });
+
     describe("list", () => {
       it("should list all tasks", async () => {
         const t = await client.hardware.racks.create({ name: "test" });

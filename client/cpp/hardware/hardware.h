@@ -97,7 +97,8 @@ public:
     std::string config;
     bool internal;
 
-    Task(std::string name, std::string type, std::string config, bool internal = false);
+    Task(std::string name, std::string type, std::string config,
+         bool internal = false);
 
     Task(TaskKey key, std::string name, std::string type, std::string config,
          bool internal = false);
@@ -212,8 +213,9 @@ struct Device {
         std::string make,
         std::string model,
         std::string properties
-    ): key(key), name(name), rack(rack), location(location), identifier(identifier),
-       make(make), model(model), properties(properties) {
+    ) : key(key), name(name), rack(rack), location(location),
+        identifier(identifier),
+        make(make), model(model), properties(properties) {
     }
 
     Device() = default;
@@ -264,7 +266,8 @@ public:
     std::pair<Rack, freighter::Error> retrieveRack(const std::string &name) const;
 
     [[nodiscard]]
-    std::pair<Device, freighter::Error> retrieveDevice(const std::string &key) const;
+    std::pair<Device, freighter::Error>
+    retrieveDevice(const std::string &key) const;
 
     [[nodiscard]]
     freighter::Error createDevice(Device &device) const;

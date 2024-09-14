@@ -100,13 +100,14 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.LabelAdd = fhttp.UnaryServer[api.LabelAddRequest, types.Nil](router, false, "/api/v1/label/set")
 	t.LabelRemove = fhttp.UnaryServer[api.LabelRemoveRequest, types.Nil](router, false, "/api/v1/label/remove")
 
-	// DEVICE
+	// HARDWARE
 	t.HardwareCreateRack = fhttp.UnaryServer[api.HardwareCreateRackRequest, api.HardwareCreateRackResponse](router, false, "/api/v1/hardware/rack/create")
 	t.HardwareRetrieveRack = fhttp.UnaryServer[api.HardwareRetrieveRackRequest, api.HardwareRetrieveRackResponse](router, false, "/api/v1/hardware/rack/retrieve")
 	t.HardwareDeleteRack = fhttp.UnaryServer[api.HardwareDeleteRackRequest, types.Nil](router, false, "/api/v1/hardware/rack/delete")
 	t.HardwareCreateTask = fhttp.UnaryServer[api.HardwareCreateTaskRequest, api.HardwareCreateTaskResponse](router, false, "/api/v1/hardware/task/create")
 	t.HardwareRetrieveTask = fhttp.UnaryServer[api.HardwareRetrieveTaskRequest, api.HardwareRetrieveTaskResponse](router, false, "/api/v1/hardware/task/retrieve")
 	t.HardwareDeleteTask = fhttp.UnaryServer[api.HardwareDeleteTaskRequest, types.Nil](router, false, "/api/v1/hardware/task/delete")
+	t.HardwareCopyTask = fhttp.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse](router, false, "/api/v1/hardware/task/copy")
 	t.HardwareCreateDevice = fhttp.UnaryServer[api.HardwareCreateDeviceRequest, api.HardwareCreateDeviceResponse](router, false, "/api/v1/hardware/device/create")
 	t.HardwareRetrieveDevice = fhttp.UnaryServer[api.HardwareRetrieveDeviceRequest, api.HardwareRetrieveDeviceResponse](router, false, "/api/v1/hardware/device/retrieve")
 	t.HardwareDeleteDevice = fhttp.UnaryServer[api.HardwareDeleteDeviceRequest, types.Nil](router, false, "/api/v1/hardware/device/delete")

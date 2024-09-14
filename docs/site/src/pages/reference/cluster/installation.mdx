@@ -3,10 +3,10 @@ layout: "@/layouts/MainLayout.astro"
 title: "Cluster Installation"
 description: "Install Synnax on a variety of operating systems."
 ---
+import { Note } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 import { PlatformTabs } from "@/components/platform/PlatformTabs"
-import Note from "@/components/Note.astro";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
@@ -71,7 +71,7 @@ echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 If any previous versions of Synnax are installed and available on your `PATH`, you
 may need to remove them to avoid conflicts.
 
-<Note variant="warning">
+<Note.Note variant="warning">
 If you've also installed the [Synnax Python Client](../python-client/get-started),
 its `synnax` command may take precedence over the one you just installed. To
 avoid conflicts, rename the binary you've just installed to something else, like
@@ -82,7 +82,7 @@ mv /usr/local/bin/synnax /usr/local/bin/synnax-server
 ```
 
 Then, you can run the binary using `synnax-server` instead of `synnax`.
-</Note>
+</Note.Note>
 
 Next, give execution permissions to the binary:
 
@@ -135,7 +135,7 @@ echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 If any previous versions of Synnax are installed and available on your `PATH`,
 you may need to remove them to avoid conflicts.
 
-<Note variant="warning">
+<Note.Note variant="warning">
 If you've also installed the [Synnax Python Client](../python-client/get-started),
 its `synnax` command may take precedence over the one you just installed. To
 avoid conflicts, rename the binary you've just installed to something else, like
@@ -146,7 +146,7 @@ mv /usr/local/bin/synnax /usr/local/bin/synnax-server
 ```
 
 Then, you can run the binary using `synnax-server` instead of `synnax`.
-</Note>
+</Note.Note>
 
 Next, give execution permissions to the binary:
 
@@ -177,16 +177,16 @@ To install Synnax on Windows, download the latest binary from the following link
 
 <SynnaxDownloadURL os="windows" />
 
-<Note variant="info">
+<Note.Note variant="info">
 We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable,
 which will allow you to execute synnax commands from any shell. See [Microsoft's Environment Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
 documentation for more.
-</Note>
+</Note.Note>
 
 If any previous versions of Synnax are installed and available on your `PATH`,
 you may need to remove them to avoid conflicts.
 
-<Note variant="warning">
+<Note.Note variant="warning">
 If you've also installed the [Synnax Python Client](../python-client/get-started),
 its `synnax` command may take precedence over the one you just installed. To
 avoid conflicts, rename the binary you've just installed to something else, like
@@ -197,7 +197,7 @@ Move-Item $env:appdata/synnax/synnax.exe $env:appdata/synnax/synnax-server.exe
 ```
 
 Then, you can run the binary using `synnax-server` instead of `synnax`.
-</Note>
+</Note.Note>
 
 To verify that the installation was successful, run:
 

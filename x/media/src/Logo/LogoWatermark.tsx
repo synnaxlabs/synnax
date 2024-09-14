@@ -14,8 +14,7 @@ import { ReactElement } from "react";
 import { Logo, LogoProps } from "@/Logo/Logo";
 
 /**
- * LogoWatermark displays the Synnax logo as a watermark in the center of the
- * screen.
+ * LogoWatermark displays the Synnax logo as a watermark in the center of the screen.
  *
  * @param props - The same props as Logo.
  */

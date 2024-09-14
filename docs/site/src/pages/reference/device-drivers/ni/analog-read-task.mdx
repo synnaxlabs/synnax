@@ -5,11 +5,10 @@ heading: "NI Analog Read Task"
 description: "Learn how to create an analog read task for NI hardware."   
 ---
 import { Icon } from "@synnaxlabs/media"
-import { Divider, Text } from "@synnaxlabs/pluto";
+import { Divider, Text, Note } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
 import { Tabs } from "@/components/Tabs";
 import { Video, Image } from "@/components/Media";
-import Note from "@/components/Note.astro";
 
 The analog read task is used for acquiring data from analog inputs on your NI devices. 
 In this guide, we'll walk you through the steps for creating an analog read task using
@@ -143,8 +142,8 @@ task and enable the Play (<Icon.Play />) button in the dialog. Click this button
 
 <Video client:only="react" id="device-drivers/ni/analog-read-task/analog-read-task-start" />
 
-<Note variant="info">
+<Note.Note variant="info">
 Starting and stopping a task does not re-apply the task configuration. If you've made 
 changes to the configuration, you'll need to re-configure the task by hitting the "
 Configure" button.
-</Note>
+</Note.Note>

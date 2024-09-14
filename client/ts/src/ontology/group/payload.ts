@@ -50,16 +50,16 @@ export type ParamAnalysisResult =
       actual: Names;
     };
 
-export const analyzeParams = (params: Params): ParamAnalysisResult => {
-  const normal = toArray(params) as Keys | Names;
+export const analyzeParams = (groups: Params): ParamAnalysisResult => {
+  const normal = toArray(groups) as Keys | Names;
   if (normal.length === 0) {
     throw new Error("No groups specified");
   }
   const isKey = keyZ.safeParse(normal[0]).success;
   return {
-    single: !Array.isArray(params),
+    single: !Array.isArray(groups),
     variant: isKey ? "keys" : "names",
     normalized: normal,
-    actual: params,
+    actual: groups,
   } as const as ParamAnalysisResult;
 };

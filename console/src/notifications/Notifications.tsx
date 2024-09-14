@@ -16,8 +16,6 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { notificationAdapter } from "@/hardware/device/useListenForChanges";
-import { notificationAdapter as versionAdapter } from "@/version/Updater";
 
 interface NotificationsProps {
   adapters?: NotificationAdapter[];
@@ -35,7 +33,6 @@ export type NotificationAdapter = (
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 
 export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
-  adapters = [notificationAdapter, versionAdapter];
   const { statuses, silence } = Status.useNotifications({
     expiration: DEFAULT_EXPIRATION,
   });

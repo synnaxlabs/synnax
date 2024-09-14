@@ -62,8 +62,8 @@ const { title, description } = Astro.props;
             margin: 1.5rem 0;
         }
 
-        video,
-        img {
+        & video,
+        img:not(.diagram img) {
             width: 100%;
             border-radius: 1rem !important;
             border: var(--pluto-border-l4);
@@ -79,6 +79,10 @@ const { title, description } = Astro.props;
             margin: 5% 0;
         }
 
+        .pluto-tabs-selector {
+            --pluto-height-medium: 6.5rem !important;
+        }
+
         /* Makes icons appear centered in the toolbar */
         p .synnax-icon {
             transform: translateY(2px);
@@ -86,6 +90,16 @@ const { title, description } = Astro.props;
 
         h3 .synnax-icon {
             transform: translateY(3px);
+        }
+
+        .pluto-note {
+            display: block;
+            & > * {
+                font-size: var(--pluto-small-size);
+                font-family: var(--pluto-font-family);
+                font-weight: 450 !important;
+                line-height: calc(var(--pluto-small-line-height) * 1.2);
+            }
         }
     }
 </style>

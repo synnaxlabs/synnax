@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
+import { migrate, zodutil } from "@synnaxlabs/x";
 
 import * as v0 from "@/lineplot/migrations/v0";
 import * as v1 from "@/lineplot/migrations/v1";
@@ -104,3 +104,9 @@ export const migrateSlice = migrate.migrator<AnySliceState, v2.SliceState>({
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });
+
+export const parser = zodutil.transformer<AnyState, v2.State>(migrateState, [
+  v2.stateZ,
+  v1.stateZ,
+  v0.stateZ,
+]);

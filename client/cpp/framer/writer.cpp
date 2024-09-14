@@ -40,7 +40,7 @@ std::pair<Writer, freighter::Error> FrameClient::openWriter(
     return {Writer(std::move(s)), recExc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s): stream(std::move(s)) {
+Writer::Writer(std::unique_ptr<WriterStream> s) : stream(std::move(s)) {
 }
 
 

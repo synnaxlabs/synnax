@@ -10,6 +10,7 @@
  */
 
 .console-notifications {
+    height: unset !important;
     position: absolute;
     bottom: 7rem;
     left: 2rem;

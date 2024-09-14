@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe, Optional, Primitive } from "@synnaxlabs/x";
+import { observe, Primitive } from "@synnaxlabs/x";
 import { useState as reactUseState } from "react";
 
 import { useAsyncEffect } from "@/hooks";

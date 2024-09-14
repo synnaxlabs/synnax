@@ -47,6 +47,7 @@ export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I
   onChange: (value: O) => void;
   setStatus: (status: status.CrudeSpec) => void;
   status: status.CrudeSpec;
+  variant?: Input.Variant;
 }
 
 interface UseField {
@@ -101,30 +102,44 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     return null;
   }
 
-  return { onChange: handleChange, setStatus: handleSetStatus, ...state };
+  let variant: Input.Variant | undefined;
+  if (ctx.mode === "preview") variant = "preview";
+  return { onChange: handleChange, setStatus: handleSetStatus, variant, ...state };
 }) as UseField;
 
-export type UseFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
-  path: string,
-  optional?: false,
-  ctx?: ContextValue,
-) => O) &
-  (<I extends Input.Value, O extends Input.Value = I>(
+export interface UseFieldValue {
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodTypeAny = any>(
+    path: string,
+    optional?: false,
+    ctx?: ContextValue<Z>,
+  ): O;
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodTypeAny = any>(
     path: string,
     optional: true,
-    ctx?: ContextValue,
-  ) => O | null);
+    ctx?: ContextValue<Z>,
+  ): O | null;
+}
 
-export type UseFieldState = (<I extends Input.Value, O extends Input.Value = I>(
-  path: string,
-  optional?: false,
-  ctx?: ContextValue,
-) => FieldState<O>) &
-  (<I extends Input.Value, O extends Input.Value = I>(
+export interface UseFieldState {
+  <
+    I extends Input.Value,
+    O extends Input.Value = I,
+    Z extends z.ZodTypeAny = z.ZodTypeAny,
+  >(
+    path: string,
+    optional?: false,
+    ctx?: ContextValue<Z>,
+  ): FieldState<O>;
+  <
+    I extends Input.Value,
+    O extends Input.Value = I,
+    Z extends z.ZodTypeAny = z.ZodTypeAny,
+  >(
     path: string,
     optional: true,
-    ctx?: ContextValue,
-  ) => FieldState<O> | null);
+    ctx?: ContextValue<Z>,
+  ): FieldState<O> | null;
+}
 
 export const useFieldState = <I extends Input.Value, O extends Input.Value = I>(
   path: string,
@@ -163,7 +178,7 @@ export interface UseFieldListenerProps<
 > {
   ctx?: ContextValue<Z>;
   path: string;
-  onChange: (state: FieldState<I>, extra: ContextValue) => void;
+  onChange: (state: FieldState<I>, extra: ContextValue<Z>) => void;
 }
 
 export const useFieldListener = <
@@ -222,7 +237,7 @@ export const useChildFieldValues = (<V extends unknown = unknown>({
 export interface UseFieldArrayProps {
   path: string;
   updateOnChildren?: boolean;
-  ctx?: ContextValue;
+  ctx?: ContextValue<any>;
 }
 
 export interface FieldArrayUtils<V> {
@@ -235,7 +250,7 @@ export interface FieldArrayUtils<V> {
 }
 
 export const fieldArrayUtils = <V extends unknown = unknown>(
-  ctx: ContextValue,
+  ctx: ContextValue<any>,
   path: string,
 ): FieldArrayUtils<V> => ({
   add: (value, start) => {
@@ -352,9 +367,13 @@ interface BindProps<V = unknown> {
 
 type BindFunc = <V = unknown>(props: BindProps<V>) => Destructor;
 
+type Mode = "normal" | "preview";
+
 export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
+  mode: Mode;
   bind: BindFunc;
   set: SetFunc;
+  reset: (values: z.output<Z>) => void;
   get: GetFunc;
   remove: RemoveFunc;
   value: () => z.output<Z>;
@@ -366,8 +385,10 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
 }
 
 export const Context = createContext<ContextValue>({
+  mode: "normal",
   bind: () => () => {},
   set: () => {},
+  reset: () => {},
   remove: () => {},
   get: <V extends any = unknown>(): FieldState<V> => ({
     value: undefined as unknown as V,
@@ -417,6 +438,7 @@ export interface OnChangeProps<Z extends z.ZodTypeAny> {
 
 export interface UseProps<Z extends z.ZodTypeAny> {
   values: z.output<Z>;
+  mode?: Mode;
   sync?: boolean;
   onChange?: (props: OnChangeProps<Z>) => void;
   schema?: Z;
@@ -435,6 +457,7 @@ export const use = <Z extends z.ZodTypeAny>({
   values,
   sync = false,
   schema,
+  mode = "normal",
   onChange,
 }: UseProps<Z>): UseReturn<Z> => {
   const ref = useRef<UseRef<Z>>({
@@ -493,6 +516,14 @@ export const use = <Z extends z.ZodTypeAny>({
     touched.delete(path);
     listeners.delete(path);
     parentListeners.delete(path);
+  }, []);
+
+  const reset = useCallback((values: z.output<Z>) => {
+    const { statuses, touched } = ref.current;
+    ref.current.state = values;
+    updateFieldValues("");
+    statuses.clear();
+    touched.clear();
   }, []);
 
   const updateFieldState = useCallback((path: string) => {
@@ -683,6 +714,7 @@ export const use = <Z extends z.ZodTypeAny>({
       bind,
       set,
       get,
+      mode,
       validate,
       validateAsync,
       value: () => ref.current.state,
@@ -690,8 +722,21 @@ export const use = <Z extends z.ZodTypeAny>({
       remove,
       setStatus,
       clearStatuses,
+      reset,
     }),
-    [],
+    [
+      bind,
+      set,
+      get,
+      validate,
+      validateAsync,
+      has,
+      remove,
+      setStatus,
+      clearStatuses,
+      reset,
+      mode
+    ],
   );
 };
 

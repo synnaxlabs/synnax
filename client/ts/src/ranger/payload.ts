@@ -63,16 +63,16 @@ export type ParamAnalysisResult =
       empty: boolean;
     };
 
-export const analyzeParams = (params: Params): ParamAnalysisResult => {
-  const normal = toArray(params) as Keys | Names;
+export const analyzeParams = (ranges: Params): ParamAnalysisResult => {
+  const normal = toArray(ranges) as Keys | Names;
   const empty = normal.length === 0;
   let isKey = false;
   if (!empty) isKey = keyZ.safeParse(normal[0]).success;
   return {
-    single: !Array.isArray(params),
+    single: !Array.isArray(ranges),
     variant: isKey ? "keys" : "names",
     normalized: normal,
-    actual: params,
+    actual: ranges,
     empty,
   } as const as ParamAnalysisResult;
 };
