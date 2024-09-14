@@ -3,7 +3,7 @@ layout: "@/layouts/MainLayout.astro"
 title: "Control Sequences"
 heading: "Control Sequence Basics"
 ---
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image } from "@/components/Media";
 import Table from "@/components/Table.astro";
 import Code from "@/components/code/Code.astro";
@@ -18,8 +18,11 @@ process of writing your first control sequence.
 
 ## Prerequisites
 
-Before you can start writing control sequences, you'll need to have the Synnax Python
-client installed
+Before you can start writing control sequences, you'll need to have:
+
+- A Synnax [cluster](/reference/cluster/quick-start) running
+- The Synnax [Python Client](/reference/python-client/get-started) installed
+
 
 <Divider.Divider direction="x" />
 
@@ -123,7 +126,7 @@ The `wait_until` method allows you to wait for a condition to be met before cont
 This method accepts a function that takes in the current sensor values and returns
 a boolean. 
 
-#### Lambda Expressions
+### Lambda Expressions
 
 We recommend relying on `lambda` expressions to keep your code simple. A
 lambda expression is a simple way to define a function in one line. Here's an example
@@ -152,7 +155,7 @@ with client.control.acquire(
     controller.wait_until(lambda sv: sv["pressure_1"] > 25)
 ```
 
-#### Adding a Timeout
+### Adding a Timeout
 
 The `wait_until` method will continuously check the condition on every new value until
 it returns `True`. If you'd like to add a timeout to the wait, you can pass in a `timeout`
@@ -169,4 +172,74 @@ method:
 timed_out = controller.wait_until(lambda sv: sv["pressure_1"] > 25, timeout=10)
 if timed_out:
     print("The condition timed out")
+```
+
+<Divider.Divider direction="x" />
+
+## Blocking While a Condition is True
+
+The `wait_while` method allows you to block the control sequence until a condition is
+no longer true. This method is useful for waiting for a sensor value to reach a certain
+point before continuing. Here's an example of how you can use the `wait_while` method:
+
+```python
+with client.control.acquire(
+    read=["pressure_1", "daq_do_1_state"],
+    write=["daq_do_1_cmd"]
+    write_authorities=[sy.Authority.ABSOLUTE]
+) as controller:
+    # Wait until the pressure sensor value is above 25
+    controller.wait_while(lambda sv: sv["pressure_1"] < 25)
+```
+
+In many ways, you can think of the `wait_while` method as the opposite of the `wait_until`
+method. 
+
+<Divider.Divider direction="x" />
+
+## Asserting a Condition Remains True
+
+The `remains_true_for` method allows you to assert that a condition remains true for a
+certain duration. This method is useful for ensuring that a sensor value remains within
+a certain range for a period of time. Here's an example of how you can use the
+`remains_true_for` method:
+
+```python
+with client.control.acquire(
+    read=["pressure_1", "daq_do_1_state"],
+    write=["daq_do_1_cmd"]
+    write_authorities=[sy.Authority.ABSOLUTE]
+) as controller:
+    # Assert that the pressure sensor value remains above 25 for 10 seconds
+    controller.remains_true_for(lambda sv: sv["pressure_1"] > 25, duration=10)
+```
+
+<Note.Note variant="warning">
+The `duration` argument should be treated as a minimum duration, as the block is not 
+guaranteed to sleep for exactly the provided duration. The actual duration may be longer
+due to the operating system's scheduler. This block will _not_ sleep for less than the
+provided duration unless the condition is no longer true.
+</Note.Note>
+
+### Remains True for a Certain Percentage of Samples
+
+The `remains_true_for` method also accepts a `percentage` argument, which is a decimal
+value that allows you to specify the percentage of samples that must meet the condition.
+This is useful for ensuring that a sensor value remains within a certain range for at
+least a certain percentage of the duration. Here's an example of how you can use the
+`percentage` argument:
+
+```python
+with client.control.acquire(
+    read=["pressure_1", "daq_do_1_state"],
+    write=["daq_do_1_cmd"]
+    write_authorities=[sy.Authority.ABSOLUTE]
+) as controller:
+    # Assert that the pressure sensor value remains above 25 for 10 seconds
+    # for at least 90% of the samples
+    controller.remains_true_for(
+        lambda sv: sv["pressure_1"] > 25, 
+        duration=10, 
+        percentage=0.9
+    )
 ```

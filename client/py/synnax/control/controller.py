@@ -259,7 +259,7 @@ class Controller:
         """
         return self._internal_wait_until(cond, timeout)
 
-    def while_true(
+    def wait_while(
         self,
         cond: Callable[[Controller], bool],
         timeout: CrudeTimeSpan = None,
