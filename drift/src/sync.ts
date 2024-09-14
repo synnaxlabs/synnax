@@ -45,9 +45,11 @@ export const syncInitial = async (
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
-  const runtimeLabels = runtime.listLabels().filter((label) => label !== MAIN_WINDOW);
+  const runtimeLabels = (await runtime.listLabels()).filter(
+    (label) => label !== MAIN_WINDOW,
+  );
   const nonMain = Object.keys(state.windows).filter((label) => label !== MAIN_WINDOW);
-  log(debug, "syncInitial", state, runtime.listLabels(), nonMain);
+  log(debug, "syncInitial", state, await runtime.listLabels(), nonMain);
   // Create windows that are not in runtime, delete windows that are not in state
   const allLabels = unique([...runtimeLabels, ...nonMain]);
   for (const label of allLabels) {

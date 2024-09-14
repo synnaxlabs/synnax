@@ -58,7 +58,7 @@ export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
     this.requestClosure = cb;
   }
 
-  listLabels(): string[] {
+  async listLabels(): Promise<string[]> {
     return [];
   }
 

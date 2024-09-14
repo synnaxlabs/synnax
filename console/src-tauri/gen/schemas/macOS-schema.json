@@ -2362,6 +2362,19 @@
     "Identifier": {
       "oneOf": [
         {
+          "type": "string",
+          "enum": [
+            "default"
+          ]
+        },
+        {
+          "description": "my-identifier -> This describes the impact and more.",
+          "type": "string",
+          "enum": [
+            "my-identifier"
+          ]
+        },
+        {
           "description": "core:app:default -> Default permissions for the plugin.",
           "type": "string",
           "enum": [

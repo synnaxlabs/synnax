@@ -341,7 +341,7 @@ export class ElectronRuntime<S extends StoreState, A extends Action = UnknownAct
     this.api.send(CLOSE_EVENT, key);
   }
 
-  listLabels(): string[] {
+  async listLabels(): Promise<string[]> {
     return [];
   }
 
