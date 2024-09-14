@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax-freighter"
-version = "0.28.0"
+version = "0.29.0"
 description = ""
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
 packages = [
