@@ -129,7 +129,7 @@ export const Button = Tooltip.wrap(
       // @ts-expect-error - css variable
       pStyle[CSS.var("btn-color")] = res.data.rgbString;
       // @ts-expect-error - css variable
-      pStyle[CSS.var("text-color")] = res.data.pickByContrast(
+      pStyle[CSS.var("btn-text-color")] = res.data.pickByContrast(
         "#000000",
         "#ffffff",
       ).rgbCSS;

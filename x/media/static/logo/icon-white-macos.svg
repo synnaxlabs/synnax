@@ -9,34 +9,17 @@ License, use of this software will be governed by the Apache License, Version 2.
 included in the file licenses/APL.txt.
 -->
 
-<svg
-    xmlns="http://www.w3.org/2000/svg"
-    xmlns:xlink="http://www.w3.org/1999/xlink"
-    viewBox="0 0 1024 1024"
->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
     <defs>
         <style>
             .cls-1 {
-                fill: #fff;
+                fill: #212429;
             }
             .cls-2 {
-                opacity: 0.85;
+                fill: #fff;
                 isolation: isolate;
-                fill: url(#linear-gradient);
             }
         </style>
-        <linearGradient
-            id="linear-gradient"
-            x1="98"
-            y1="587.5"
-            x2="777.28"
-            y2="183.34"
-            gradientTransform="matrix(1, 0, 0, -1, 0, 948.23)"
-            gradientUnits="userSpaceOnUse"
-        >
-            <stop offset="0" stop-color="#10007f" />
-            <stop offset="1" stop-color="#0084e9" />
-        </linearGradient>
     </defs>
     <g id="Layer_2" data-name="Layer 2">
         <g id="Layer_1-2" data-name="Layer 1">

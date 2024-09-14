@@ -57,6 +57,11 @@
     }
 }
 
+.pluto--enabled svg {
+    stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
+    fill: rgba(var(--pluto-symbol-color), 0.8) !important;
+}
+
 .pluto-symbol-primitive-toggle {
     cursor: pointer;
     background: none;

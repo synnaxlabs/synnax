@@ -37,6 +37,7 @@ void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
                     config.channel_key = channel_builder.required<uint32_t>("channel");
                     config.name = (this->reader_config.device_name + "/" + port + "/" +
                                    line);
+                    config.enabled = channel_builder.optional<bool>("enabled", true);
                     this->reader_config.channels.push_back(config);
                 });
     if (!parser.ok())
@@ -48,7 +49,7 @@ int ni::DigitalReadSource::create_channels() {
     int err = 0;
     auto channels = this->reader_config.channels;
     for (auto &channel: channels) {
-        if (channel.channel_type != "index") {
+        if (channel.channel_type != "index" && channel.enabled) {
             err = this->check_ni_error(
                 ni::NiDAQmxInterface::CreateDIChan(task_handle,
                                                    channel.name.c_str(),
@@ -141,6 +142,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     uint64_t data_index = 0;
 
     for (int i = 0; i < num_channels; i++) {
+        if (!this->reader_config.channels[i].enabled) continue;
         if (this->reader_config.channels[i].channel_type == "index") {
             auto t = synnax::Series(synnax::TIMESTAMP, this->num_samples_per_channel);
             for (uint64_t j = 0; j < d.samples_read_per_channel; ++j)

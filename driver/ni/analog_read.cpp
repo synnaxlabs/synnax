@@ -218,6 +218,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     // Construct and populate synnax frame
     size_t data_index = 0;
     for (int ch = 0; ch < num_channels; ch++) {
+        if (this->reader_config.channels[ch].enabled == false) continue;
         if (this->reader_config.channels[ch].channel_type == "index") {
             auto t = synnax::Series(synnax::TIMESTAMP, d.samples_read_per_channel);
             for (uint64_t i = 0; i < d.samples_read_per_channel; ++i)

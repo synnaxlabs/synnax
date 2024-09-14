@@ -1,5 +1,5 @@
 <a href="https://synnaxlabs.com/" style="display: block; text-align: center;">
-    <img src="../../x/media/static/logo/icon-white-on-black.png" width="20%"/>
+    <img src="../../x/media/static/logo/icon-white-padded.png" width="20%"/>
 </a>
 
 # Synnax TypeScript Client Library

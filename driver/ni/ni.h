@@ -107,10 +107,11 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
 
 struct ChannelConfig {
     uint32_t channel_key;
+    uint32_t state_channel_key;
     std::string name;
     std::string channel_type;
     std::shared_ptr<ni::Analog> ni_channel;
-    bool enabled = false;
+    bool enabled = true;
     synnax::DataType data_type;
 };
 
@@ -166,7 +167,7 @@ public:
 
     void log_error(std::string err_msg);
 
-    std::vector<synnax::ChannelKey> getChannelKeys();
+    std::vector<synnax::ChannelKey> get_channel_keys();
 
     virtual void parse_config(config::Parser &parser);
 

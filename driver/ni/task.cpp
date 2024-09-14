@@ -128,7 +128,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     }
     source = ni_source;
     ni_source->init();
-    channel_keys = ni_source->getChannelKeys();
+    channel_keys = ni_source->get_channel_keys();
 
     auto writer_config = synnax::WriterConfig{
         .channels = channel_keys,

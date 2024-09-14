@@ -7,21 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/EditLayout.css";
+import "@/range/CreateLayout.css";
 
-import {
-  ontology,
-  ranger,
-  TimeRange,
-  TimeStamp,
-  UnexpectedError,
-} from "@synnaxlabs/client";
-import { Icon, Logo } from "@synnaxlabs/media";
+import { ontology, type ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Form,
   Icon as PIcon,
+  Input,
   Nav,
   Ranger,
   Status,
@@ -29,9 +24,8 @@ import {
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
 import { deep, primitiveIsZero } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
@@ -40,7 +34,6 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
-import { useSelect } from "@/range/selectors";
 import { add } from "@/range/slice";
 
 const formSchema = z.object({
@@ -51,29 +44,31 @@ const formSchema = z.object({
   parent: z.string().optional(),
 });
 
-type Args = Partial<z.infer<typeof formSchema>>;
+type FormProps = z.infer<typeof formSchema>;
 
-export const EDIT_LAYOUT_TYPE = "editRange";
+type Args = Partial<FormProps>;
+
+export const CREATE_LAYOUT_TYPE = "editRange";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-interface CreateEditLayoutProps extends Partial<Layout.State> {
+interface CreateLayoutProps extends Partial<Layout.State> {
   initial?: Partial<Args>;
 }
 
-export const createEditLayout = ({
+export const createLayout = ({
   name,
   initial = {},
   window,
   ...rest
-}: CreateEditLayoutProps): Layout.State => ({
+}: CreateLayoutProps): Layout.State => ({
   ...rest,
-  key: EDIT_LAYOUT_TYPE,
-  type: EDIT_LAYOUT_TYPE,
-  windowKey: EDIT_LAYOUT_TYPE,
+  key: CREATE_LAYOUT_TYPE,
+  type: CREATE_LAYOUT_TYPE,
+  windowKey: CREATE_LAYOUT_TYPE,
   icon: "Range",
   location: "modal",
-  name: name ?? (initial.key != null ? "Range.Edit" : "Range.Create"),
+  name: name ?? "Range.Create",
   window: {
     resizable: false,
     size: { height: 370, width: 700 },
@@ -83,99 +78,55 @@ export const createEditLayout = ({
   args: initial,
 });
 
-type DefineRangeFormProps = z.infer<typeof formSchema>;
-
 const parentRangeIcon = (
   <PIcon.Icon bottomRight={<Icon.Arrow.Up />}>
     <Icon.Range />
   </PIcon.Icon>
 );
 
-export const Edit = (props: Layout.RendererProps): ReactElement => {
+export const Create = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<Args>(layoutKey);
-  const range = useSelect(args.key);
-  const client = Synnax.use();
-  const isCreate = args.key == null;
-  const isEdit = !isCreate && (range == null || range.persisted);
-  const initialValues = useQuery<DefineRangeFormProps>({
-    queryKey: ["range-edit", args],
-    queryFn: async () => {
-      if (isCreate)
-        return {
-          name: "",
-          labels: [],
-          timeRange: { start: now, end: now },
-          parent: "",
-          ...args,
-        };
-      if (range == null || range.persisted) {
-        const key = args.key as string;
-        if (client == null) throw new UnexpectedError("Client is not available");
-        const rng = await client.ranges.retrieve(key);
-        const parent = await rng.retrieveParent();
-        const labels = await rng.labels();
-        return {
-          key: rng.key,
-          name: rng.name,
-          timeRange: rng.timeRange.numeric,
-          labels: labels.map((l) => l.key),
-          parent: parent?.key ?? "",
-        };
-      }
-      if (range.variant !== "static") throw new UnexpectedError("Range is not static");
-      return {
-        key: range.key,
-        name: range.name,
-        timeRange: range.timeRange,
-        labels: [],
-        parent: "",
-      };
-    },
-  });
-  if (initialValues.isPending) return <Logo.Watermark variant="loader" />;
-  if (initialValues.isError) throw initialValues.error;
-  return (
-    <EditLayoutForm
-      isRemoteEdit={isEdit}
-      initialValues={initialValues.data}
-      {...props}
-    />
-  );
+  const initialValues: FormProps = {
+    name: "",
+    labels: [],
+    timeRange: { start: now, end: now },
+    parent: "",
+    ...args,
+  };
+
+  return <CreateLayoutForm initialValues={initialValues} {...props} />;
 };
 
-interface EditLayoutFormProps extends Layout.RendererProps {
-  initialValues: DefineRangeFormProps;
-  isRemoteEdit: boolean;
+interface CreateLayoutFormProps extends Layout.RendererProps {
+  initialValues: FormProps;
   onClose: () => void;
 }
 
-const EditLayoutForm = ({
+const CreateLayoutForm = ({
   initialValues,
-  isRemoteEdit,
   onClose,
-}: EditLayoutFormProps): ReactElement => {
+}: CreateLayoutFormProps): ReactElement => {
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
   const dispatch = useDispatch();
   const client = Synnax.use();
+  const clientExists = client != null;
   const addStatus = Status.useAggregator();
-  const isCreate = initialValues.key == null;
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async (persist: boolean) => {
+    mutationFn: async (persisted: boolean) => {
       if (!methods.validate()) return;
       const values = methods.value();
-      const { timeRange: tr, parent } = methods.value();
+      const { timeRange: tr, parent } = values;
       const timeRange = new TimeRange(tr);
       const name = values.name.trim();
-      const key = isCreate ? uuidv4() : (initialValues.key as string);
-      const persisted = persist || isRemoteEdit;
+      const key = initialValues.key ?? uuidv4();
       const parentID = primitiveIsZero(parent)
         ? undefined
         : new ontology.ID({ key: parent as string, type: "range" });
       const otgID = new ontology.ID({ key, type: "range" });
-      if (persisted && client != null) {
+      if (persisted && clientExists) {
         await client.ranges.create({ key, name, timeRange }, { parent: parentID });
         await client.labels.label(otgID, values.labels, { replace: true });
       }
@@ -198,7 +149,7 @@ const EditLayoutForm = ({
   );
 
   return (
-    <Align.Space className={CSS.B("range-edit-layout")} grow empty>
+    <Align.Space className={CSS.B("range-create-layout")} grow empty>
       <Align.Space
         className="console-form"
         justify="center"
@@ -227,11 +178,7 @@ const EditLayoutForm = ({
             </Form.Field>
           </Align.Space>
           <Align.Space direction="x">
-            <Form.Field<string>
-              path="parent"
-              visible={isCreate || isRemoteEdit}
-              padHelpText={false}
-            >
+            <Form.Field<string> path="parent" visible padHelpText={false}>
               {({ onChange, ...p }) => (
                 <Ranger.SelectSingle
                   dropdownVariant="modal"
@@ -284,16 +231,26 @@ const EditLayoutForm = ({
         <Nav.Bar.Start size="small">
           <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
-            To Save
+            To Save to Synnax
           </Text.Text>
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            onClick={() => mutate(true)}
+            variant={"outlined"}
+            onClick={() => mutate(false)}
             disabled={isPending}
+          >
+            Save Locally
+          </Button.Button>
+          <Button.Button
+            onClick={() => mutate(true)}
+            disabled={!clientExists || isPending}
+            tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
+            tooltipLocation="bottom"
+            loading={isPending}
             triggers={[SAVE_TRIGGER]}
           >
-            Save
+            Save to Synnax
           </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>
