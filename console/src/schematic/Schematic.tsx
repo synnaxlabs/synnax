@@ -312,6 +312,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     [storeLegendPosition],
   );
 
+
   return (
     <div
       ref={ref}
@@ -328,7 +329,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onViewportChange={handleViewportChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
-          viewport={schematic.viewport}
+          viewport={{ ...schematic.viewport, zoom: 1 }}
+          // viewport={schematic.viewport}
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}
