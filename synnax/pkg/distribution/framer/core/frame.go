@@ -76,6 +76,7 @@ func (f Frame) ToStorage() (fr ts.Frame) {
 	return fr
 }
 
+// so do we use the filter segment anywhere?
 func (f Frame) FilterKeys(keys channel.Keys) Frame {
 	var (
 		fKeys   = make(channel.Keys, 0, len(keys))

@@ -19,7 +19,7 @@ import (
 // function, and optionally discards them to an output Stream.
 type Filter[V Value] struct {
 	AbstractLinear[V, V]
-	Filter FilterFunc[V]
+	Filter FilterFunc[V] // TODO I dont understand waht this is for
 	// Rejects is the Inlet that receives values that were discarded by Apply.
 	Rejects Inlet[V]
 }
@@ -38,7 +38,7 @@ func (f *Filter[V]) OutTo(inlets ...Inlet[V]) {
 		panic("[confluence.Filter] - provide at most two and at least one inlet")
 	}
 	if len(inlets) == 1 && f.AbstractLinear.Out != nil {
-		f.Rejects = inlets[0]
+		f.Rejects = inlets[0] // Why is the first one rejects if the length is 1?
 		return
 	}
 	f.AbstractLinear.OutTo(inlets[0])

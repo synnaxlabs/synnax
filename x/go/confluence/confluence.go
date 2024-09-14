@@ -38,7 +38,7 @@
 // by themselves or embedded into custom Segment(sink) that provide functionality specific
 // to your use case.
 //
-// A Segment is a composition of three interfaces:
+// A Segment is a composition of three interfaces
 //
 //  1. Flow - Flow.Flow method is used to start any and all operations (goroutines,
 //     network pipes, etc.) used by a Segment. The context provided to Flow should be

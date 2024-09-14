@@ -23,6 +23,7 @@ type server struct {
 	newStreamer func(ctx context.Context, cfg StreamerConfig) (confluence.Segment[Request, Response], error)
 }
 
+// TODO: Add a comment explaining the purpose of startServer
 func startServer(
 	cfg Config,
 	newStreamer func(ctx context.Context, cfg StreamerConfig) (confluence.Segment[Request, Response], error),

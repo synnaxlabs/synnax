@@ -42,6 +42,7 @@ func WithTimeout(ctx context.Context, d time.Duration, opts ...Option) (Context,
 	return c, cancel
 }
 
+// Isolated returns a Context detached from any parent Context.
 func Isolated(opts ...Option) (Context, context.CancelFunc) {
 	return WithCancel(context.Background(), opts...)
 }
@@ -69,7 +70,8 @@ type core struct {
 	context.Context
 	cancel   context.CancelFunc
 	internal errgroup.Group
-	mu       struct {
+	// w
+	mu struct {
 		sync.RWMutex
 		routines []*routine
 		stopped  chan struct{}

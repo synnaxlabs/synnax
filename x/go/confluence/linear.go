@@ -48,6 +48,7 @@ func (l *LinearTransform[I, O]) transform(ctx context.Context, i I) error {
 	return signal.SendUnderContext(ctx, l.Out.Inlet(), v)
 }
 
+// what is a TranslateFunc?
 type TranslateFunc[I, O Value] func(I) (O, error)
 
 type translator[I, IT, O, OT Value] struct {

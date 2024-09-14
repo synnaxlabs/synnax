@@ -56,11 +56,11 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			Value:   Request{Keys: r.keys},
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
-		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
+		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION. why?
 		responses, disconnect := r.relay.connectToDelta(defaultBuffer)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
-			// we do this before updating our demands, otherwise we may deadlock.
+			// we do this before updating our demands, otherwise we may deadlock. why?
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
 			r.demands.Inlet() <- demand{Variant: change.Delete, Key: r.addr}

@@ -66,7 +66,7 @@ type Relay struct {
 }
 
 // defaultBuffer is the default buffer size for channels in the relay.
-// TODO: Figure out what the optimal buffer size is.
+// TODO: Figure out what the optimal buffer size is. Did we ever do this?
 const defaultBuffer = 25
 
 func Open(configs ...Config) (*Relay, error) {
@@ -86,6 +86,9 @@ func Open(configs ...Config) (*Relay, error) {
 
 	r.delta = confluence.NewDynamicDeltaMultiplier[Response](20 * time.Millisecond)
 	writes := confluence.NewStream[Response](defaultBuffer)
+
+	// outlet-->[taps] --->[delta]---> inlet
+	// outlet-->[taps]-->[downsampler]-->[delta]---> inlet
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
 	r.delta.InFrom(writes)
@@ -93,6 +96,7 @@ func Open(configs ...Config) (*Relay, error) {
 
 	sCtx, _ := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 
+	// Start the delta and tapper flows. Stops when the context is canceled.
 	r.delta.Flow(
 		sCtx,
 		confluence.WithAddress("delta"),
@@ -106,7 +110,7 @@ func Open(configs ...Config) (*Relay, error) {
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
 	)
-	r.wg = sCtx
+	r.wg = sCtx // why do you pass a ctx into a wait group?
 
 	startServer(cfg, r.NewStreamer)
 
@@ -129,7 +133,7 @@ func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Di
 	return data, func() {
 		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
 		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
-		// inside the relay.
+		// inside the relay. Why?
 		c := make(chan struct{})
 		go func() {
 			confluence.Drain[Response](data)

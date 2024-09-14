@@ -212,11 +212,12 @@ func (t *tapper) tapIntoFreeWrites() (tap, error) {
 
 type freeWriteTap struct {
 	confluence.AbstractUnarySink[Request]
-	confluence.AbstractUnarySource[Response]
+	confluence.AbstractUnarySource[Response]d
 	freeWrites confluence.Outlet[Response]
 	keys       channel.Keys
 }
 
+// Can we add more documentation here
 func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(f.Out)
