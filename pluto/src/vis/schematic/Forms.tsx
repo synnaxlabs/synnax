@@ -732,3 +732,16 @@ export const SetpointForm = (): ReactElement => {
 
   return <Tabs.Tabs {...props} />;
 };
+
+export const TextBoxForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        <Form.Field<string> path="text" label="Text" align="start" padHelpText={false}>
+          {(p) => <Input.Text {...p} />}
+        </Form.Field>
+      </Align.Space>
+    </Align.Space>
+  </FormWrapper>
+);

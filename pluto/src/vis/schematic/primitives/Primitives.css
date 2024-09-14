@@ -102,6 +102,25 @@
     }
 }
 
+.pluto-text-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
+    border-color: var(--pluto-border-color);
+    background-color: var(--pluto-gray-l0);
+    border-width: 2px;
+    text-align: center;
+    max-width: 200px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-wrap: wrap;
+}
+
 .pluto--enabled svg .pluto--detail {
     stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
 }

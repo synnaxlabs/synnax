@@ -700,7 +700,7 @@ export const Tank = ({
         borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
         borderColor: Color.cssString(color ?? t.colors.gray.l9),
         backgroundColor:
-          backgroundColor == null ? backgroundColor : Color.cssString(backgroundColor),
+          backgroundColor == null ? undefined : Color.cssString(backgroundColor),
       }}
       {...props}
     >
@@ -970,6 +970,46 @@ export const Button = ({
     </HandleBoundary>
   </Div>
 );
+
+export interface TextBoxProps extends DivProps, Pick<Text.TextProps, "level"> {
+  text?: string;
+  color?: Color.Crude;
+}
+
+export const TextBox = ({
+  className,
+  orientation = "left",
+  text = "",
+  color,
+  level,
+}: TextBoxProps): ReactElement => {
+  const theme = Theming.use();
+  const newcolor = Color.cssString(color ?? theme.colors.gray.l0);
+
+  return (
+    <Div
+      style={{ borderColor: newcolor }}
+      orientation={orientation}
+      className={CSS(CSS.B("text-box"), className)}
+    >
+      <Text.Text color={newcolor} level={level}>
+        {text}
+      </Text.Text>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={100}
+          id="4"
+        />
+      </HandleBoundary>
+    </Div>
+  );
+};
 
 export interface SetpointProps
   extends Omit<DivProps, "onClick" | "value" | "onChange">,
@@ -1399,7 +1439,7 @@ export const Agitator = ({
 }: AgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary>
-      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+      <Handle location="bottom" orientation={orientation} left={50} top={100} id="1" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height: height }}
@@ -1408,17 +1448,15 @@ export const Agitator = ({
       scale={scale}
     >
       <Path
-        d="M1 85V48.8541C1 46.624 3.34694 45.1735 5.34164 46.1708L80.6584 83.8292C82.6531 84.8265 85 83.376 85 81.1459V44"
+        d="M1 85V48.8541C1 46.624 3.34694 45.1735 5.34164 46.1708L80.6584 83.8292 C82.6531 84.8265 85 83.376 85 81.1459 V44"
         strokeLinecap="round"
       />
-      <Path d="M42.5 1L42.5 64" strokeLinecap="round" />
+      <Path d="M43 1L43 65" strokeLinecap="round" />
     </InternalSVG>
   </Toggle>
 );
 
-export interface PropellerAgitatorProps extends ToggleProps, SVGBasedPrimitiveProps {
-  height?: number;
-}
+export interface PropellerAgitatorProps extends AgitatorProps {}
 
 export const PropellerAgitator = ({
   height = 86,
@@ -1438,7 +1476,198 @@ export const PropellerAgitator = ({
       scale={scale}
     >
       <Path d="M43.5 69.573L14.9534 55.6147C8.97428 52.6911 2 57.0443 2 63.6999V75.4462C2 82.1018 8.97429 86.455 14.9534 83.5314L43.5 69.573ZM43.5 69.573L72.0466 55.6147C78.0257 52.6911 85 57.0443 85 63.6999V75.4462C85 82.1018 78.0257 86.455 72.0466 83.5314L43.5 69.573Z" />
-      <Path d="M43 70L43 2" stroke-linecap="round" />
+      <Path d="M43.5 69.6L43.5 2" strokeLinecap="round" />
     </InternalSVG>
   </Toggle>
+);
+
+export interface FlatBladeAgitatorProps extends AgitatorProps {}
+
+export const FlatBladeAgitator = ({
+  height = 86,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: FlatBladeAgitatorProps): ReactElement => (
+  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+    <HandleBoundary>
+      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 86, height: height }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Line x1="43" y1="1" x2="43" y2="49" strokeLinecap="round" />
+      <Rect x="3" y="49" width="80" height="34" rx="3" strokeLinecap="round" />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface PaddleAgitatorProps extends AgitatorProps {}
+
+export const PaddleAgitator = ({
+  className,
+  height = 86,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: PaddleAgitatorProps): ReactElement => (
+  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+    <HandleBoundary>
+      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 86, height: height }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Line x1="43" y1="1" x2="43" y2="49" strokeLinecap="round" />
+      <Rect x="3" y="49" width="80" height="34" rx="3" />
+      <Line
+        x1="3.8"
+        y1="82.1"
+        x2="43"
+        y2="49"
+        className={CSS(CSS.M("detail"), className)}
+        strokeLinecap="round"
+      />
+      <Line
+        x1="43"
+        y1="49"
+        x2="43"
+        y2="83"
+        className={CSS(CSS.M("detail"), className)}
+        strokeLinecap="round"
+      />
+
+      <Line
+        x1="43"
+        y1="83"
+        x2="82.2"
+        y2="49.9"
+        className={CSS(CSS.M("detail"), className)}
+        strokeLinecap="round"
+      />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface CrossBeamAgitatorProps extends AgitatorProps {}
+
+export const CrossBeamAgitator = ({
+  className,
+  height = 86,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: CrossBeamAgitatorProps): ReactElement => (
+  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+    <HandleBoundary>
+      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 86, height: height }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Line x1="43" y1="1" x2="43" y2="49" strokeLinecap="round" />
+      <Line x1="3" y1="49" x2="83" y2="49" strokeLinecap="round" />
+      <Line x1="3" y1="83" x2="83" y2="83" strokeLinecap="round" />
+      <Line x1="43" y1="49" x2="43" y2="83" strokeLinecap="round" />
+      <Rect x="3" y="49" width="80" height="34" strokeWidth={0} />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface HelicalAgitatorProps extends AgitatorProps {}
+
+export const HelicalAgitator = ({
+  className,
+  height = 86,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: HelicalAgitatorProps): ReactElement => (
+  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+    <HandleBoundary>
+      <Handle location="top" left={50} top={2} id="4" orientation={orientation} />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 86, height: height }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Line x1={43} y1={1} x2={43} y2={60} strokeLinecap="round" />
+      <Path
+        d="M5.375 36L70.8204 48.7138C74.0584 49.3428 74.0573 53.9765 70.8189 54.6039L14.7952 65.4584C11.5729 66.0827 11.5494 70.6856 14.7651 71.3429L81.5208 84.9873"
+        strokeLinecap="round"
+      />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface CompressorProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const Compressor = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  ...props
+}: CompressorProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("compressor"), className)}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1.5} top={41} id="1" />
+      <Handle location="right" orientation={orientation} left={95} top={3} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 68, height: 61 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="35" cy="25" r="23" />
+      <Path d="M50 41.5L56.7186 50.8314C57.6711 52.1544 56.7257 54 55.0955 54H14.9045C13.2743 54 12.3289 52.1544 13.2814 50.8314L20 41.5" />
+      <Line x1="35" y1="2" x2="65.0167" y2="2" />
+      <Line x1="1" y1="25" x2="35" y2="25" />
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface ArrowProps extends SVGBasedPrimitiveProps, DivProps {}
+
+export const Arrow = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: FilterProps): ReactElement => (
+  <Div className={CSS(CSS.B("arrow"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={2.5} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={97} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 131, height: 86 }}
+      orientation={orientation}
+      color={color}
+      scale={scale}
+    >
+      <Path d="M82.5 28H6C4.34315 28 3 29.3431 3 31V55C3 56.6569 4.34315 58 6 58H82.5C84.1569 58 85.5 59.3431 85.5 61V76.0567C85.5 78.6858 88.6416 80.0432 90.5561 78.2413L125.679 45.1846C126.937 44.0001 126.937 41.9999 125.679 40.8154L90.5561 7.75868C88.6416 5.95677 85.5 7.31416 85.5 9.94328V25C85.5 26.6569 84.1569 28 82.5 28Z" />{" "}
+    </InternalSVG>
+  </Div>
 );

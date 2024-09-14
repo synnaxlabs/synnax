@@ -1105,22 +1105,22 @@ export const Agitator = Aether.wrap<SymbolProps<AgitatorProps>>(
     aetherKey,
     label,
     orientation = "left",
-    color,
     source,
     sink,
     onChange,
     control,
+    ...rest
   }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState orientation={orientation} {...control}>
           <Primitives.Agitator
-            color={color}
             enabled={enabled}
             orientation={orientation}
             triggered={triggered}
             onClick={toggle}
+            {...rest}
           />
         </ControlState>
       </Labeled>
@@ -1145,22 +1145,22 @@ export const PropellerAgitator = Aether.wrap<SymbolProps<PropellerAgitatorProps>
     aetherKey,
     label,
     orientation = "left",
-    color,
     source,
     sink,
     onChange,
     control,
+    ...rest
   }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState orientation={orientation} {...control}>
           <Primitives.PropellerAgitator
-            color={color}
             enabled={enabled}
             orientation={orientation}
             triggered={triggered}
             onClick={toggle}
+            {...rest}
           />
         </ControlState>
       </Labeled>
@@ -1171,3 +1171,236 @@ export const PropellerAgitator = Aether.wrap<SymbolProps<PropellerAgitatorProps>
 export const PropellerAgitatorPreview = (
   props: PropellerAgitatorProps,
 ): ReactElement => <Primitives.PropellerAgitator {...props} />;
+
+export interface FlatBladeAgitatorProps
+  extends Primitives.FlatBladeAgitatorProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const FlatBladeAgitator = Aether.wrap<SymbolProps<FlatBladeAgitatorProps>>(
+  "flatBladeAgitator",
+  ({
+    aetherKey,
+    label,
+    orientation = "left",
+    source,
+    sink,
+    onChange,
+    control,
+    ...rest
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState orientation={orientation} {...control}>
+          <Primitives.FlatBladeAgitator
+            enabled={enabled}
+            orientation={orientation}
+            triggered={triggered}
+            onClick={toggle}
+            {...rest}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const FlatBladeAgitatorPreview = (
+  props: FlatBladeAgitatorProps,
+): ReactElement => <Primitives.FlatBladeAgitator {...props} />;
+
+export interface PaddleAgitatorProps
+  extends Primitives.PaddleAgitatorProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const PaddleAgitator = Aether.wrap<SymbolProps<PaddleAgitatorProps>>(
+  "paddleAgitator",
+  ({
+    aetherKey,
+    label,
+    orientation = "left",
+    source,
+    sink,
+    onChange,
+    control,
+    ...rest
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState orientation={orientation} {...control}>
+          <Primitives.PaddleAgitator
+            enabled={enabled}
+            orientation={orientation}
+            triggered={triggered}
+            onClick={toggle}
+            {...rest}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const PaddleAgitatorPreview = (props: PaddleAgitatorProps): ReactElement => (
+  <Primitives.PaddleAgitator {...props} />
+);
+
+export interface CrossBeamAgitatorProps
+  extends Primitives.CrossBeamAgitatorProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const CrossBeamAgitator = Aether.wrap<SymbolProps<CrossBeamAgitatorProps>>(
+  "crossBeamAgitator",
+  ({
+    aetherKey,
+    label,
+    orientation = "left",
+    source,
+    sink,
+    onChange,
+    control,
+    ...rest
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState orientation={orientation} {...control}>
+          <Primitives.CrossBeamAgitator
+            enabled={enabled}
+            orientation={orientation}
+            triggered={triggered}
+            onClick={toggle}
+            {...rest}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const CrossBeamAgitatorPreview = (
+  props: CrossBeamAgitatorProps,
+): ReactElement => <Primitives.CrossBeamAgitator {...props} />;
+
+export interface HelicalAgitatorProps
+  extends Primitives.HelicalAgitatorProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const HelicalAgitator = Aether.wrap<SymbolProps<HelicalAgitatorProps>>(
+  "helicalAgitator",
+  ({
+    aetherKey,
+    label,
+    orientation = "left",
+    source,
+    sink,
+    onChange,
+    control,
+    ...rest
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState orientation={orientation} {...control}>
+          <Primitives.HelicalAgitator
+            enabled={enabled}
+            orientation={orientation}
+            triggered={triggered}
+            onClick={toggle}
+            {...rest}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const HelicalAgitatorPreview = (props: HelicalAgitatorProps): ReactElement => (
+  <Primitives.HelicalAgitator {...props} />
+);
+
+export interface CompressorProps
+  extends Primitives.CompressorProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const Compressor = Aether.wrap<SymbolProps<CompressorProps>>(
+  "compressor",
+  ({
+    aetherKey,
+    label,
+    orientation = "left",
+    source,
+    sink,
+    onChange,
+    control,
+    ...rest
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState orientation={orientation} {...control}>
+          <Primitives.Compressor
+            enabled={enabled}
+            orientation={orientation}
+            triggered={triggered}
+            onClick={toggle}
+            {...rest}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const CompressorPreview = (props: CompressorProps): ReactElement => (
+  <Primitives.Compressor {...props} />
+);
+
+export interface TextBoxProps extends Primitives.TextBoxProps {}
+
+export const TextBox = Aether.wrap<SymbolProps<TextBoxProps>>(
+  "textBox",
+  ({ ...rest }): ReactElement => <Primitives.TextBox {...rest} />,
+);
+
+export const TextBoxPreview = ({
+  text = "example text",
+  level = "p",
+  ...rest
+}: SymbolProps<TextBoxProps>): ReactElement => (
+  <Primitives.TextBox text={text} level={level} {...rest} />
+);
+
+export interface ArrowProps extends Primitives.ArrowProps {
+  label?: LabelExtensionProps;
+}
+
+export const Arrow = ({
+  label,
+  onChange,
+  ...rest
+}: SymbolProps<ArrowProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Arrow {...rest} />
+  </Labeled>
+);
+
+export const ArrowPreview = (props: ArrowProps): ReactElement => (
+  <Primitives.Arrow {...props} />
+);
