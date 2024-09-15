@@ -98,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ macos-12, windows-latest ]
+        platform: [macos-12, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout Repository
@@ -145,18 +145,17 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-
       - name: Build Pluto
         if: needs.setup.outputs.changed == 'true'
         run: pnpm build:pluto
-    
+
       - name: Build Drift
         if: needs.setup.outputs.changed == 'true'
         run: pnpm build:drift
 
       # We need to build the console separately WITHOUT turbo repo because of strange
       # incompatibility issues with rust builds.
-    
+
       - name: Build Console
         if: needs.setup.outputs.changed == 'true'
         env:
@@ -167,25 +166,19 @@ jobs:
       - name: Upload MacOS Release Asset
         if: github.event_name == 'push' &&  matrix.platform == 'macos-12'
         run: |
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64.dmg
-
 
       - name: Upload Windows Release Asset
         if: github.event_name == 'push' && matrix.platform == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.zip
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.zip.sig
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.nsis.zip
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.nsis.zip.sig
 
   publish-release:
     runs-on: ubuntu-latest
     if: needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id != ''
-    needs: [ create-release, build-tauri, setup ]
+    needs: [create-release, build-tauri, setup]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
       PURE_VERSION: ${{ needs.setup.outputs.PURE_VERSION }}
@@ -281,5 +274,3 @@ jobs:
           message: "Auto Update JSON File"
           pull: "--commit --no-edit"
           push: "origin main --force"
-      
-
