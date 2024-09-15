@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"io"
 )
@@ -170,7 +171,15 @@ func (t *tapper) tapInto(
 	}
 	requests := confluence.NewStream[Request](defaultBuffer)
 	tp.InFrom(requests)
-	tp.OutTo(t.AbstractUnarySource.Out)
+
+	responses := confluence.NewStream[Response](defaultBuffer)
+	tp.OutTo(responses)
+
+	downSampler := confluence.DownSampler[Response]{Factor: 1, DownSample: downSample}
+
+	downSampler.InFrom(responses)
+	downSampler.OutTo(t.AbstractUnarySource.Out)
+
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.Instrumentation.Child(fmt.Sprintf("tap-%v", nodeKey))),
 	)
@@ -239,4 +248,35 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			}
 		}
 	}, o.Signal...)
+}
+
+func downSample (ctx context.Context, response Response) (Response) {
+	//
+	if(response.Frame == nil) {
+		return response, nil
+	}
+	return response, nil
+}
+
+func downSampleSeries(series telem.Series, factor int) (telem.Series) {
+	if factor <= 1 || len(series.Data) <= factor {
+		return series
+	}
+
+	seriesLength := (len(series.Data)/factor)/factor*int(series.DataType.Density())
+	downSampledData := make([]byte,0, seriesLength)
+
+	for i := int64(0); i < series.Len(); i+= int64(factor) {
+		start := i*int64(series.DataType.Density())
+		end := start + int64(series.DataType.Density())
+		downSampledData = append(downSampledData, series.Data[start:end]...)
+	}
+
+	downSampledSeries := telem.Series{
+		TimeRange: series.TimeRange,
+		DataType: series.DataType,
+		Data: series.Data,
+		Alignment: series.Alignment,
+	}
+	return downSampledSeries
 }
