@@ -328,8 +328,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onViewportChange={handleViewportChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
+          // Note on this. Turns out that setting the zoom value to 1 here
           viewport={{ ...schematic.viewport, zoom: 1 }}
-          // viewport={schematic.viewport}
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}
