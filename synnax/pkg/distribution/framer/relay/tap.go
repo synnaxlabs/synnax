@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	framer "github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	changex "github.com/synnaxlabs/x/change"
@@ -221,7 +222,7 @@ func (t *tapper) tapIntoFreeWrites() (tap, error) {
 
 type freeWriteTap struct {
 	confluence.AbstractUnarySink[Request]
-	confluence.AbstractUnarySource[Response]d
+	confluence.AbstractUnarySource[Response]
 	freeWrites confluence.Outlet[Response]
 	keys       channel.Keys
 }
@@ -250,32 +251,33 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func downSample (ctx context.Context, response Response) (Response) {
-	//
-	if(response.Frame == nil) {
-		return response, nil
+func downSample(ctx context.Context, response Response) Response {
+	dsFrame := framer.Frame{Keys: response.Frame.Keys, Series: []telem.Series{}}
+	for _, series := range response.Frame.Series {
+		dsFrame.Series = append(dsFrame.Series, downSampleSeries(series, 1))
 	}
-	return response, nil
+	dsResponse := Response{Frame: dsFrame, Error: nil}
+	return dsResponse
 }
 
-func downSampleSeries(series telem.Series, factor int) (telem.Series) {
+func downSampleSeries(series telem.Series, factor int) telem.Series {
 	if factor <= 1 || len(series.Data) <= factor {
 		return series
 	}
 
-	seriesLength := (len(series.Data)/factor)/factor*int(series.DataType.Density())
-	downSampledData := make([]byte,0, seriesLength)
+	seriesLength := (len(series.Data) / factor) / factor * int(series.DataType.Density())
+	downSampledData := make([]byte, 0, seriesLength)
 
-	for i := int64(0); i < series.Len(); i+= int64(factor) {
-		start := i*int64(series.DataType.Density())
+	for i := int64(0); i < series.Len(); i += int64(factor) {
+		start := i * int64(series.DataType.Density())
 		end := start + int64(series.DataType.Density())
 		downSampledData = append(downSampledData, series.Data[start:end]...)
 	}
 
 	downSampledSeries := telem.Series{
 		TimeRange: series.TimeRange,
-		DataType: series.DataType,
-		Data: series.Data,
+		DataType:  series.DataType,
+		Data:      series.Data,
 		Alignment: series.Alignment,
 	}
 	return downSampledSeries

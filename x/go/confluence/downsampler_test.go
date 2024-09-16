@@ -19,7 +19,7 @@ import (
 )
 
 var _ = Describe("Down sample", func() {
-	FIt("Should downsample values correctly", func() { // TODO: remove F for focus
+	It("Should downsample values correctly", func() { // TODO: remove F for focus
 		ctx, cancel := signal.WithCancel(context.Background())
 		inlet := NewStream[[]int](4)
 		outlet := NewStream[[]int](3)
