@@ -19,7 +19,6 @@ import (
 // outlets.
 type DownSampler[V Value] struct {
 	AbstractLinear[V, V]
-	Factor     int
 	DownSample DownSampleFunc[V]
 }
 

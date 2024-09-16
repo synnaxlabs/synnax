@@ -89,7 +89,6 @@ func Open(configs ...Config) (*Relay, error) {
 
 	// outlet-->[taps] --->[delta]---> inlet
 	// outlet-->[taps]-->[downsampler]-->[delta]---> inlet
-	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
 	r.delta.InFrom(writes)
 	tpr.OutTo(writes)

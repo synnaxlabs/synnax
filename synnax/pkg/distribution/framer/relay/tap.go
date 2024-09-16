@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -172,18 +173,19 @@ func (t *tapper) tapInto(
 	}
 	requests := confluence.NewStream[Request](defaultBuffer)
 	tp.InFrom(requests)
+	//tp.OutTo(t.AbstractUnarySource.Out)
 
 	responses := confluence.NewStream[Response](defaultBuffer)
 	tp.OutTo(responses)
 
-	downSampler := confluence.DownSampler[Response]{Factor: 1, DownSample: downSample}
-
+	downSampler := confluence.DownSampler[Response]{DownSample: downSample}
 	downSampler.InFrom(responses)
 	downSampler.OutTo(t.AbstractUnarySource.Out)
 
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.Instrumentation.Child(fmt.Sprintf("tap-%v", nodeKey))),
 	)
+	downSampler.Flow(sCtx, confluence.RecoverWithErrOnPanic())
 	tp.Flow(sCtx, confluence.RecoverWithErrOnPanic())
 	return tapController{Inlet: requests, closer: signal.NewShutdown(sCtx, cancel)}, nil
 }
@@ -261,24 +263,29 @@ func downSample(ctx context.Context, response Response) Response {
 }
 
 func downSampleSeries(series telem.Series, factor int) telem.Series {
-	if factor <= 1 || len(series.Data) <= factor {
+	// print function has been entered
+	length := len(series.Data)
+	if factor <= 1 || length <= factor {
 		return series
 	}
 
-	seriesLength := (len(series.Data) / factor) / factor * int(series.DataType.Density())
+	seriesLength := (len(series.Data) / factor) // / factor * int(series.DataType.Density())
 	downSampledData := make([]byte, 0, seriesLength)
 
 	for i := int64(0); i < series.Len(); i += int64(factor) {
 		start := i * int64(series.DataType.Density())
 		end := start + int64(series.DataType.Density())
 		downSampledData = append(downSampledData, series.Data[start:end]...)
+		logrus.Info("i = ", i)
 	}
 
 	downSampledSeries := telem.Series{
 		TimeRange: series.TimeRange,
 		DataType:  series.DataType,
-		Data:      series.Data,
+		Data:      downSampledData,
 		Alignment: series.Alignment,
 	}
+	logrus.Info("original series", telem.Unmarshal[int64](series))
+	logrus.Info("downsampled series", telem.Unmarshal[int64](downSampledSeries))
 	return downSampledSeries
 }
