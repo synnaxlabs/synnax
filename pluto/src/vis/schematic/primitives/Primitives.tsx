@@ -1841,25 +1841,36 @@ export const Compressor = ({
   </Toggle>
 );
 
-export interface ArrowProps extends DivProps, Pick<Text.TextProps, "level"> {
+export interface ArrowProps extends DivProps {
   text?: string;
+  level?: Text.TextProps["level"];
   color?: Color.Crude;
 }
 
 export const Arrow: React.FC<ArrowProps> = ({
   className,
-  text = "arrow",
+  orientation = "left",
+  text = "text",
   color = "black",
-  level,
+  level = "p",
   ...props
 }) => {
   const borderColor = Color.cssString(color);
   return (
-    <Div className={CSS(CSS.B("arrow"), className)} {...props}>
-      <Div style={{ borderColor }} className={CSS.BE("arrow", "box")}>
-        <Text.Text level={level}>{text}</Text.Text>
-      </Div>
-      <Div className={CSS.BE("arrow", "head")} style={{ borderColor }} />
+    <Div
+      style={{
+        // @ts-expect-error CSS variables
+        "--border-color": borderColor,
+        "--text-size": `var(--pluto-${level}-line-height)`,
+      }}
+      className={CSS(className, CSS.B("arrow"), CSS.BM("arrow", level))}
+      {...props}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      </HandleBoundary>
+      <Text.Text level={level}>{text}</Text.Text>
     </Div>
   );
 };

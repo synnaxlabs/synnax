@@ -177,19 +177,38 @@
 .pluto-arrow {
     display: flex;
     align-items: center;
+    --padding: 10px;
+    border: 2px solid black;
+    border-right: none; /* Remove right border */
+    border-radius: var(--pluto-border-radius);
+    height: calc(var(--text-size) + var(--padding));
+    padding: 0 2rem;
+    border-color: var(--border-color);
 
-    & .pluto-arrow__box {
-        padding: 10px;
-        border: 2px solid black;
-        border-right: none; /* Remove right border */
-        border-radius: var(--pluto-border-radius);
+    /* add an after pseudo element that will be the arrow */
+    &::before {
+        content: "";
+        display: block;
+        position: absolute;
+        right: 2px;
+        transform: translateX(100%);
+        --internal-bheight: calc((var(--text-size) + var(--padding)) / 2 + 1px);
+        border-top: var(--internal-bheight) solid transparent;
+        border-bottom: var(--internal-bheight) solid transparent;
+        border-left: var(--internal-bheight) solid var(--border-color);
+        border-radius: 3px;
+        top: -3px;
     }
-
-    & .pluto-arrow__head {
-        width: 0;
-        height: 0;
-        border-left: 20px solid black; /* Arrowhead size */
-        border-top: 20px solid transparent;
-        border-bottom: 20px solid transparent;
+    &::after {
+        content: "";
+        display: block;
+        position: absolute;
+        --internal-bheight: calc((var(--text-size) + var(--padding)) / 2);
+        right: 2.5px;
+        transform: translateX(100%);
+        border-top: calc(var(--internal-bheight) - 1px) solid transparent;
+        border-bottom: calc(var(--internal-bheight) - 1px) solid transparent;
+        border-left: calc(var(--internal-bheight) - 1px) solid var(--pluto-gray-l0);
+        top: -1px;
     }
 }
