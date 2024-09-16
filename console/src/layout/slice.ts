@@ -97,6 +97,11 @@ interface SetAltKeyPayload {
   altKey: string;
 }
 
+interface SetFocusPayload {
+  key: string | null;
+  windowKey: string;
+}
+
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface FileHandlerProps {
@@ -193,6 +198,7 @@ export const { actions, reducer } = createSlice({
         closable: true,
         ...tab,
         name,
+        icon: layout.icon,
         tabKey: key,
       };
       delete mosaicTab.location;
@@ -220,7 +226,11 @@ export const { actions, reducer } = createSlice({
       // and select it. Also rename it.
       if (prev?.location === "mosaic" && location === "mosaic") {
         mosaic.activeTab = key;
-        mosaic.root = Mosaic.renameTab(Mosaic.selectTab(mosaic.root, key), key, name);
+        mosaic.root = Mosaic.updateTab(
+          Mosaic.selectTab(mosaic.root, key),
+          key,
+          () => mosaicTab,
+        );
       }
 
       state.layouts[key] = layout;
@@ -239,7 +249,6 @@ export const { actions, reducer } = createSlice({
         const { location } = layout;
         if (location === "mosaic")
           [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, layout.key);
-
         delete state.layouts[layout.key];
         state.mosaics[layout.windowKey] = mosaic;
         purgeEmptyMosaics(state);
@@ -438,11 +447,26 @@ export const { actions, reducer } = createSlice({
       if (layout == null) return;
       layout.args = args;
     },
+    setFocus: (
+      state,
+      { payload: { key, windowKey } }: PayloadAction<SetFocusPayload>,
+    ) => {
+      if (key == null) {
+        const mosaic = state.mosaics[windowKey];
+        mosaic.focused = null;
+        return;
+      }
+      const layout = select(state, key);
+      if (layout == null) return;
+      const mosaic = state.mosaics[layout.windowKey];
+      mosaic.focused = key;
+    },
   },
 });
 
 export const {
   place,
+  setFocus,
   remove,
   setAltKey,
   toggleActiveTheme,
@@ -495,6 +519,7 @@ export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey
 export interface RendererProps {
   /** The unique key of the layout. */
   layoutKey: string;
+  visible: boolean;
   /**
    * onClose should be called when the layout is ready to be closed. This function is
    * polymorphic and may have different behavior depending on the location of the layout.
@@ -514,3 +539,9 @@ export interface OnCloseProps {
  * rendered by a layout renderer of a specific type.
  */
 export type Renderer = ComponentType<RendererProps>;
+
+export interface ContextMenuProps {
+  layoutKey: string;
+}
+
+export type ContextMenuRenderer = ComponentType<ContextMenuProps>;

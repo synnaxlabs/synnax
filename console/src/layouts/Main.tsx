@@ -52,6 +52,7 @@ const SideEffect = (): null => {
   Device.useListenForChanges();
   Workspace.useSyncLayout();
   Link.useDeep({ handlers: LINK_HANDLERS });
+  Layout.useTriggers();
   return null;
 };
 

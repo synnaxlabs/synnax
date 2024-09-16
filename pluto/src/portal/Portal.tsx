@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createRef, useEffect, useRef } from "react";
+import { createRef, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 type NodeProps = Record<string, string>;
@@ -63,6 +63,7 @@ export const Out = ({ node }: OutProps): React.ReactElement => {
     };
   }, []);
   useEffect(() => {
+    console.log("NEW NODE", node);
     if (portal.current != null && node !== portal.current) {
       portal.current.unmount(stub.current);
       portal.current = node;

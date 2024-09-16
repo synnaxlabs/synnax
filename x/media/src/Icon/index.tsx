@@ -59,6 +59,7 @@ import {
   MdEditOff,
   MdFiberManualRecord,
   MdFileUpload,
+  MdFilterCenterFocus,
   MdHardware,
   MdInsights,
   MdKeyboardAlt,
@@ -344,6 +345,7 @@ export const Icon: IconType = {
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
   JSON: wrapIcon(MdDataObject, "json"),
   Guide: wrapIcon(FaBookOpen, "guide"),
+  Focus: wrapIcon(MdFilterCenterFocus, "focus"),
 };
 
 export interface IconType {
@@ -471,4 +473,5 @@ export interface IconType {
   LinkExternal: IconFC;
   JSON: IconFC;
   Guide: IconFC;
+  Focus: IconFC;
 }

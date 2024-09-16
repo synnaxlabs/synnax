@@ -13,5 +13,7 @@ import { Canvas as Core } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 export const Canvas = ({ children }: PropsWithChildren): ReactElement => (
-  <Core.Canvas className="console-vis__canvas">{children}</Core.Canvas>
+  <Core.Canvas id="console-vis__canvas" className="console-vis__canvas">
+    {children}
+  </Core.Canvas>
 );

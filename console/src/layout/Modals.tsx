@@ -9,56 +9,12 @@
 
 import "@/layout/Modals.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
-import { CSSProperties } from "react";
+import { Nav } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
-import { Content } from "@/layout/Content";
 import { useRemover } from "@/layout/hooks";
+import { Modal } from "@/layout/Modal";
 import { useSelectModals } from "@/layout/selectors";
-import { State, WindowProps } from "@/layout/slice";
-import { DefaultContextMenu } from "@/layout/Window";
-
-const layoutCSS = (window?: WindowProps): CSSProperties => ({
-  width: "100%",
-  height: "100%",
-  maxWidth: window?.size?.width,
-  maxHeight: window?.size?.height,
-  minWidth: window?.minSize?.width,
-  minHeight: window?.minSize?.height,
-});
-
-interface ModalProps {
-  state: State;
-  remove: (key: string) => void;
-}
-
-const Modal = ({ state, remove }: ModalProps) => {
-  const { key, name, window, icon } = state;
-  const menuProps = Menu.useContextMenu();
-  return (
-    <Menu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
-      <Core.Modal key={key} visible close={() => remove(key)} style={layoutCSS(window)}>
-        {window?.navTop && (
-          <Nav.Bar location="top" size="6rem">
-            {(window?.showTitle ?? true) && (
-              <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-                <Breadcrumb.Breadcrumb icon={icon}>{name}</Breadcrumb.Breadcrumb>
-              </Nav.Bar.Start>
-            )}
-            <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-              <Button.Icon onClick={() => remove(key)} size="small">
-                <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
-              </Button.Icon>
-            </Nav.Bar.End>
-          </Nav.Bar>
-        )}
-        <Content layoutKey={key} />
-      </Core.Modal>
-    </Menu.ContextMenu>
-  );
-};
 
 export const Modals = () => {
   const layouts = useSelectModals();

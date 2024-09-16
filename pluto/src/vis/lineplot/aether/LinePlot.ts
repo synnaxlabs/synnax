@@ -27,6 +27,7 @@ export const linePlotStateZ = z.object({
   viewport: box.box,
   hold: z.boolean().optional().default(false),
   grid: z.record(gridEntrySpecZ),
+  visible: z.boolean().optional().default(true),
   clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });
 
@@ -148,6 +149,11 @@ export class LinePlot extends aether.Composite<
     if (this.deleted) {
       instrumentation.L.debug("deleted, skipping render", { key: this.key });
       return;
+    }
+    if (!this.state.visible) {
+      instrumentation.L.debug("not visible, skipping render", { key: this.key });
+      return async ({ canvases }) =>
+        renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
 
     const plot = this.calculatePlot();

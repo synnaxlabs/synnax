@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { LAYOUT_TYPE, Schematic } from "@/schematic/Schematic";
+import { ContextMenu, LAYOUT_TYPE, Schematic } from "@/schematic/Schematic";
 
 export * from "@/schematic/file";
 export * from "@/schematic/middleware";
@@ -20,4 +20,8 @@ export * from "@/schematic/toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Schematic,
+};
+
+export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
+  [LAYOUT_TYPE]: ContextMenu,
 };

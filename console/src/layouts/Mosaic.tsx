@@ -10,13 +10,20 @@
 import "@/layouts/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
+import { Icon, Logo } from "@synnaxlabs/media";
 import {
+  Breadcrumb,
+  Button,
+  componentRenderProp,
   Eraser,
+  Menu,
+  Modal,
   Mosaic as Core,
   Nav,
+  Portal,
   Status,
   Synnax,
+  Tabs,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
@@ -55,6 +62,53 @@ const emptyContent = <EmptyContent />;
 export const MOSAIC_TYPE = "mosaic";
 
 const FILE_HANDLERS = [Schematic.fileHandler, LinePlot.fileHandler];
+
+export const ContextMenu = ({
+  keys,
+}: Menu.ContextMenuMenuProps): ReactElement | null => {
+  if (keys.length === 0) return null;
+  const layoutKey = keys[0];
+  const layout = Layout.useSelect(layoutKey);
+  if (layout == null) return null;
+  const Menu = Layout.useContextMenuRenderer(layout?.type);
+  if (Menu == null) return null;
+  return <Menu layoutKey={layoutKey} />;
+};
+
+interface ContentCProps extends Tabs.Tab {
+  node: Portal.Node;
+}
+
+const ContentC = ({ node, tabKey }: ContentCProps) => {
+  const d = useDispatch();
+  const layout = Layout.useSelectRequired(tabKey);
+  const [windowKey, focusedKey] = Layout.useSelectFocused();
+  const focused = tabKey === focusedKey;
+  const handleClose = () => d(Layout.setFocus({ windowKey, key: null }));
+  return (
+    <Modal.Base visible close={handleClose} centered enabled={focused}>
+      <Nav.Bar
+        style={{ display: focused ? "flex" : "none" }}
+        location="top"
+        size="4.5rem"
+      >
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+          <Breadcrumb.Breadcrumb icon={layout.icon}>
+            {layout.name}
+          </Breadcrumb.Breadcrumb>
+        </Nav.Bar.Start>
+        <Nav.Bar.End style={{ paddingRight: "1rem" }}>
+          <Button.Icon onClick={handleClose} size="small">
+            <Icon.Subtract style={{ color: "var(--pluto-gray-l8)" }} />
+          </Button.Icon>
+        </Nav.Bar.End>
+      </Nav.Bar>
+      <Portal.Out node={node} />
+    </Modal.Base>
+  );
+};
+
+const contextMenu = componentRenderProp(ContextMenu);
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {
@@ -194,21 +248,42 @@ export const Mosaic = memo((): ReactElement => {
     [dispatch],
   );
 
+  const [portalRef, portalNodes] = Core.usePortal({
+    root: mosaic,
+    onSelect: handleSelect,
+    children: ({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />,
+  });
+
+  const renderProp = useCallback<Tabs.RenderProp>(
+    (props) => (
+      <ContentC
+        key={props.tabKey}
+        node={portalRef.current.get(props.tabKey) as Portal.Node}
+        {...props}
+      />
+    ),
+    [],
+  );
+
   return (
-    <Core.Mosaic
-      root={mosaic}
-      onDrop={handleDrop}
-      onClose={handleClose}
-      onSelect={handleSelect}
-      onResize={handleResize}
-      emptyContent={emptyContent}
-      onRename={handleRename}
-      onCreate={handleCreate}
-      activeTab={activeTab ?? undefined}
-      onFileDrop={handleFileDrop}
-    >
-      {({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />}
-    </Core.Mosaic>
+    <>
+      {portalNodes}
+      <Core.Mosaic
+        root={mosaic}
+        onDrop={handleDrop}
+        onClose={handleClose}
+        onSelect={handleSelect}
+        contextMenu={contextMenu}
+        onResize={handleResize}
+        emptyContent={emptyContent}
+        onRename={handleRename}
+        onCreate={handleCreate}
+        activeTab={activeTab ?? undefined}
+        onFileDrop={handleFileDrop}
+      >
+        {renderProp}
+      </Core.Mosaic>
+    </>
   );
 });
 Mosaic.displayName = "Mosaic";

@@ -22,6 +22,7 @@ export const diagramStateZ = z.object({
   zoom: z.number(),
   region: box.box,
   clearOverScan: xy.crudeZ.optional().default(10),
+  visible: z.boolean().optional().default(true),
 });
 
 interface ElementProps {
@@ -70,6 +71,8 @@ export class Diagram extends aether.Composite<
     const { renderCtx, addStatus } = this.internal;
     const { zoom, position } = this.state;
     const region = box.construct(this.state.region);
+    if (!this.state.visible)
+      return async () => renderCtx.erase(region, this.state.clearOverScan, ...CANVASES);
     const clearScissor = renderCtx.scissor(region, xy.ZERO, CANVASES);
     const viewportScale = scale.XY.magnify(xy.construct(zoom))
       .translate(box.topLeft(region))

@@ -16,9 +16,14 @@
     overflow: hidden;
 }
 
-.pluto-tabs-selector__btn--closable .pluto-text {
+.pluto-tabs-selector__btn--closable:not(.pluto-tabs-selector__btn--has-icon)
+    .pluto-text {
     margin: 0 1rem 0 2.5rem !important;
     padding: 0 0.25rem;
+}
+
+.pluto-tabs-selector__icon {
+    margin: 0 1rem;
 }
 
 .pluto-tabs-selector__btn.pluto--selected :is(.pluto-text, .pluto-text-icon) {

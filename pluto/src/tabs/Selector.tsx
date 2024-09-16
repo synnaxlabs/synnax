@@ -18,14 +18,18 @@ import {
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useTabsContext } from "@/tabs/Tabs";
+import { Icon as PIcon } from "@/icon";
+import { Menu } from "@/menu";
+import { useContext } from "@/tabs/Tabs";
 import { Spec } from "@/tabs/types";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
-export interface SelectorProps extends Omit<Align.SpaceProps, "children"> {
+export interface SelectorProps
+  extends Omit<Align.SpaceProps, "children" | "contextMenu"> {
   size?: ComponentSize;
   altColor?: boolean;
+  contextMenu?: Menu.ContextMenuProps["menu"];
 }
 
 const CLS = "tabs-selector";
@@ -35,6 +39,7 @@ export const Selector = ({
   altColor = false,
   size = "medium",
   direction = "x",
+  contextMenu,
   ...props
 }: SelectorProps): ReactElement | null => {
   const {
@@ -48,8 +53,9 @@ export const Selector = ({
     onDrop,
     onRename,
     onCreate,
-  } = useTabsContext();
-  return (
+  } = useContext();
+  const menuProps = Menu.useContextMenu();
+  const content = (
     <Align.Space
       className={CSS(CSS.B(CLS), CSS.size(size), className)}
       align="center"
@@ -76,7 +82,6 @@ export const Selector = ({
           />
         ))}
       </Align.Space>
-
       {onCreate != null && (
         <Align.Space className={CSS.BE(CLS, "actions")}>
           <Button.Icon size={size} sharp onClick={onCreate}>
@@ -86,6 +91,17 @@ export const Selector = ({
       )}
     </Align.Space>
   );
+  if (contextMenu != null)
+    return (
+      <Menu.ContextMenu
+        style={{ height: "fit-content" }}
+        {...menuProps}
+        menu={contextMenu}
+      >
+        {content}
+      </Menu.ContextMenu>
+    );
+  return content;
 };
 
 const SelectorButton = ({
@@ -123,16 +139,22 @@ const SelectorButton = ({
 
   const _onSelect = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
 
+  const isSelected = selected === tabKey;
+  const hasIcon = icon != null;
+
   return (
     <Align.Pack
       size={size}
       id={tabKey}
       className={CSS(
         CSS.BE(CLS, "btn"),
+        Menu.CONTEXT_TARGET,
         onRename == null && CSS.BEM(CLS, "btn", "uneditable"),
-        CSS.selected(selected === tabKey),
-        CSS.altColor(altColor), // TODO: this line
+        isSelected && Menu.CONTEXT_SELECTED,
+        CSS.selected(isSelected),
+        CSS.altColor(altColor),
         closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
+        hasIcon && CSS.BEM(CLS, "btn", "has-icon"),
       )}
       draggable
       direction="x"
@@ -144,11 +166,17 @@ const SelectorButton = ({
       bordered={false}
       rounded={false}
     >
+      {PIcon.resolve(icon, {
+        className: CSS(
+          CSS.BE(CLS, "icon"),
+          CSS.BM("text", Text.ComponentSizeLevels[size]),
+          CSS.shade(7),
+        ),
+      })}
       <Name
         name={name}
         tabKey={tabKey}
         onRename={onRename}
-        icon={icon as ReactElement}
         editable={editable}
         level={Text.ComponentSizeLevels[size]}
       />
@@ -176,7 +204,6 @@ interface NameProps extends Text.CoreProps<Text.Level> {
   onRename?: (key: string, name: string) => void;
   name: string;
   tabKey: string;
-  icon?: ReactElement;
   editable?: boolean;
 }
 
@@ -184,23 +211,15 @@ const Name = ({
   onRename,
   name,
   tabKey,
-  icon,
   editable = true,
   ...props
 }: NameProps): ReactElement => {
-  if (onRename == null || !editable) {
-    if (icon != null)
-      return (
-        <Text.WithIcon startIcon={icon} noWrap {...props}>
-          {name}
-        </Text.WithIcon>
-      );
+  if (onRename == null || !editable)
     return (
       <Text.Text noWrap {...props}>
         {name}
       </Text.Text>
     );
-  }
   return (
     <Text.Editable<Text.Level>
       onChange={(newText: string) => onRename(tabKey, newText)}

@@ -24,6 +24,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -33,6 +34,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -137,7 +139,22 @@ const SymbolRenderer = ({
   );
 };
 
-export const Loaded: Layout.Renderer = ({ layoutKey }) => {
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => {
+  const d = useDispatch();
+  return (
+    <PMenu.Menu level="small" iconSpacing="small">
+      <PMenu.Item
+        itemKey="focus"
+        startIcon={<Icon.Focus />}
+        onClick={() => d(Layout.setFocus({ key: layoutKey }))}
+      >
+        Focus
+      </PMenu.Item>
+    </PMenu.Menu>
+  );
+};
+
+export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const schematic = useSelect(layoutKey);
@@ -337,6 +354,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onDoubleClick={handleDoubleClick}
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
+          visible={visible}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
@@ -409,5 +427,16 @@ export const create =
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? uuidv4();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
-    return { key, location, name, type: LAYOUT_TYPE, window, tab };
+    return {
+      key,
+      location,
+      name,
+      icon: "Schematic",
+      type: LAYOUT_TYPE,
+      window: {
+        navTop: true,
+        showTitle: true,
+      },
+      tab,
+    };
   };

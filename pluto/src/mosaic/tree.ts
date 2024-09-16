@@ -78,6 +78,18 @@ export const insertTab = (
   return root;
 };
 
+export const updateTab = (
+  root: Node,
+  tabKey: string,
+  updater: (tab: Tabs.Tab) => Tabs.Tab,
+): Node => {
+  root = shallowCopyNode(root);
+  const [tab, node] = findTab(root, tabKey);
+  if (tab == null || node == null) throw TabNotFound;
+  node.tabs = node.tabs?.map((t) => (t.tabKey === tabKey ? updater(t) : t));
+  return root;
+};
+
 const insertAnywhere = (root: Node, tab: Tabs.Tab): Node => {
   root = shallowCopyNode(root);
   if (root.tabs != null) {
@@ -125,7 +137,7 @@ export const autoSelectTabs = (root: Node): [Node, string[]] => {
  */
 export const removeTab = (root: Node, tabKey: string): [Node, string | null] => {
   root = shallowCopyNode(root);
-  const [, node] = findMosaicTab(root, tabKey);
+  const [, node] = findTab(root, tabKey);
   if (node == null) return [root, null];
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
@@ -150,7 +162,7 @@ export const findSelected = (root: Node): string | null => {
  */
 export const selectTab = (root: Node, tabKey: string): Node => {
   root = shallowCopyNode(root);
-  const [tab, entry] = findMosaicTab(root, tabKey);
+  const [tab, entry] = findTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
   entry.selected = tabKey;
   return root;
@@ -172,7 +184,7 @@ export const moveTab = (
   to: number,
 ): [Node, string | null] => {
   root = shallowCopyNode(root);
-  const [tab, entry] = findMosaicTab(root, tabKey);
+  const [tab, entry] = findTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
   const [r2, selected] = removeTab(root, tabKey);
   const r3 = insertTab(r2, tab, loc, to);
@@ -221,7 +233,7 @@ export const resizeNode = (root: Node, key: number, size: number): Node => {
  */
 export const renameTab = (root: Node, tabKey: string, name: string): Node => {
   root = shallowCopyNode(root);
-  const [, leaf] = findMosaicTab(root, tabKey);
+  const [, leaf] = findTab(root, tabKey);
   if (leaf?.tabs == null) throw TabNotFound;
   leaf.tabs = Tabs.rename(tabKey, name, leaf?.tabs ?? []);
   return root;
@@ -271,7 +283,7 @@ const shouldGc = (node: Node): boolean =>
   node.last == null &&
   (node.tabs == null || node.tabs.length === 0);
 
-const findMosaicTab = (
+const findTab = (
   node: Node,
   tabKey: string,
 ): [Tabs.Tab | undefined, Node | undefined] => {
@@ -280,9 +292,9 @@ const findMosaicTab = (
     if (tab != null) return [tab, node];
   }
   if (node.first == null || node.last == null) return [undefined, undefined];
-  const [t1Tab, t2Tree] = findMosaicTab(node.first, tabKey);
+  const [t1Tab, t2Tree] = findTab(node.first, tabKey);
   if (t1Tab != null && t2Tree != null) return [t1Tab, t2Tree];
-  const [t2Tab, t2Tree2] = findMosaicTab(node.last, tabKey);
+  const [t2Tab, t2Tree2] = findTab(node.last, tabKey);
   return [t2Tab, t2Tree2];
 };
 

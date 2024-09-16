@@ -100,7 +100,12 @@ type LineState = LineSpec[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Partial<Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">>,
+    Partial<
+      Pick<
+        z.input<typeof lineplot.linePlotStateZ>,
+        "clearOverScan" | "hold" | "visible"
+      >
+    >,
     HTMLDivProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
@@ -116,11 +121,12 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     children,
     hold = false,
     onHold,
+    visible,
     ...props
   }): ReactElement => {
     const [lines, setLines] = useState<LineState>([]);
 
-    const memoProps = useMemoDeepEqualProps({ clearOverScan, hold });
+    const memoProps = useMemoDeepEqualProps({ clearOverScan, hold, visible });
 
     const [{ path }, { grid }, setState] = Aether.use({
       aetherKey,

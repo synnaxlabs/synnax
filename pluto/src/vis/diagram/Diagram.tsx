@@ -46,13 +46,14 @@ import ReactFlow, {
   useReactFlow,
   type Viewport as RFViewport,
 } from "reactflow";
+import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
-import { useMemoCompare } from "@/memo";
+import { useMemoCompare, useMemoDeepEqualProps } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
@@ -165,7 +166,8 @@ const PRO_OPTIONS: ProOptions = {
 
 export interface DiagramProps
   extends UseReturn,
-    Omit<ComponentPropsWithoutRef<"div">, "onError"> {
+    Omit<ComponentPropsWithoutRef<"div">, "onError">,
+    Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible"> {
   triggers?: CoreViewport.UseTriggers;
 }
 
@@ -204,7 +206,6 @@ const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
 const Core = Aether.wrap<DiagramProps>(
   diagram.Diagram.TYPE,
-
   ({
     aetherKey,
     children,
@@ -219,8 +220,10 @@ const Core = Aether.wrap<DiagramProps>(
     onViewportChange,
     fitViewOnResize,
     setFitViewOnResize,
+    visible,
     ...props
   }): ReactElement => {
+    const memoProps = useMemoDeepEqualProps({ visible });
     const [{ path }, , setState] = Aether.use({
       aetherKey,
       type: diagram.Diagram.TYPE,
@@ -229,8 +232,10 @@ const Core = Aether.wrap<DiagramProps>(
         position: viewport.position,
         region: box.ZERO,
         zoom: viewport.zoom,
+        ...memoProps,
       },
     });
+    useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
     const defaultEdgeColor = Theming.use().colors.gray.l9.hex;
 
