@@ -3,6 +3,10 @@ layout: "@/layouts/MainLayout.astro"
 title: "Writes"
 heading: "Writing Data"
 description: "Learn the process for writing data to a Synnax cluster."
+next: "Streams"
+nextURL: "/reference/concepts/streams"
+prev: "Reads"
+prevURL: "/reference/concepts/reads"
 ---
 
 import { Image } from "@/components/Media";
@@ -426,9 +430,6 @@ never share the same timestamp, and cannot share the same index.
 
 It's almost always necessary to use a separate index for each command channel, or use a
 virtual channel that does not require an index.
-
-<Divider.Divider direction="x" />
-
 
 <Divider.Divider direction="x" />
 

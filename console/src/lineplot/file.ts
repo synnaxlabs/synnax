@@ -141,16 +141,16 @@ export const useImport = (workspaceKey?: string): (() => void) => {
 
   return useMutation<void, Error>({
     mutationFn: async () => {
-      const fileResponses = await open({
+      const paths = await open({
         title: "Import line plot",
         filters,
         multiple: true,
         directory: false,
       });
-      if (fileResponses == null) return;
-      for (const fileResponse of fileResponses) {
-        const rawData = await readFile(fileResponse.path);
-        const fileName = fileResponse.path.split("/").pop();
+      if (paths == null) return;
+      for (const path of paths) {
+        const rawData = await readFile(path);
+        const fileName = path.split("/").pop();
         if (fileName == null) throw new UnexpectedError("File name is null");
         const file = JSON.parse(new TextDecoder().decode(rawData));
         if (

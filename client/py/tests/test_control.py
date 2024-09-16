@@ -287,7 +287,7 @@ class TestController:
         assert assertions["seq_second_ack"]
         assert assertions["remained_true"]
 
-    def test_while_true(self, client: sy.Synnax):
+    def test_wait_while(self, client: sy.Synnax):
         """Test that the controller can wait for a condition to be true for a certain amount of time"""
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
@@ -318,7 +318,7 @@ class TestController:
                     c += 1
                     return not auto[press_en.key]
 
-                remained_true = auto.while_true(is_closed)
+                remained_true = auto.wait_while(is_closed)
                 assertions["remained_true"] = remained_true
                 assertions["remained_true_count"] = c
 

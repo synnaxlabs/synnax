@@ -1,5 +1,5 @@
 {
-  "version": "0.28.0",
+  "version": "0.29.0",
   "private": true,
   "scripts": {
     "build": "npx turbo build --cache-dir=./.turbo-cache",
@@ -62,9 +62,9 @@
     "devtools": "npx turbo devtools --filter console"
   },
   "devDependencies": {
-    "@microsoft/api-extractor": "^7.47.9",
+    "@microsoft/api-extractor": "^7.47.5",
     "prettier": "3.3.3",
-    "turbo": "^2.1.2"
+    "turbo": "^2.0.14"
   },
   "engines": {
     "node": ">=18"
@@ -74,22 +74,22 @@
       "react": "^18.2.0",
       "react-dom": "^18.2.0",
       "uuid": "^9.0.1",
-      "@reduxjs/toolkit": "^2.2.3",
+      "@reduxjs/toolkit": "^2.2.7",
       "react-redux": "^9.1.0",
-      "vite": "5.3.0",
+      "vite": "5.4.4",
       "vite-tsconfig-paths": "5.0.1",
-      "vite-plugin-dts": "4.0.2",
+      "vite-plugin-dts": "4.2.1",
       "@vitejs/plugin-react": "^4.3.1",
-      "vitest": "^2.0.5",
-      "@vitest/coverage-v8": "^2.0.5",
-      "typescript": "^5.5.4",
+      "vitest": "^2.1.0",
+      "@vitest/coverage-v8": "^2.1.0",
+      "typescript": "^5.6.2",
       "proxy-memoize": "1.2.0",
-      "@tanstack/react-virtual": "3.8.6",
+      "@tanstack/react-virtual": "3.10.7",
       "zod": "3.23.8",
       "node-fetch": "2.6.11",
       "prettier": "3.3.3",
-      "@tauri-apps/api": "^2.0.0-rc.0",
-      "eslint": "^9.9.0"
+      "@tauri-apps/api": "^2.0.0-rc.4",
+      "eslint": "^9.10.0"
     }
   },
   "packageManager": "pnpm@9.7.0",

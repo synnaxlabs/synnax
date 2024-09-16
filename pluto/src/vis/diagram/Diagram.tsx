@@ -464,7 +464,12 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Align.PackProps {}
 
 export const Controls = ({ children, ...props }: ControlsProps): ReactElement => (
-  <Align.Pack direction="y" className={CSS.BE("diagram", "controls")} {...props}>
+  <Align.Pack
+    direction="y"
+    borderShade={4}
+    className={CSS.BE("diagram", "controls")}
+    {...props}
+  >
     {children}
   </Align.Pack>
 );

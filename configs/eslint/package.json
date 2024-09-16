@@ -8,12 +8,12 @@
     "access": "public"
   },
   "dependencies": {
-    "typescript": "^5.4.5"
+    "typescript": "^5.6.2"
   },
   "devDependencies": {
     "@eslint/compat": "^1.0.3",
     "@eslint/js": "^9.4.0",
-    "eslint": "^9.3.0",
+    "eslint": "^9.10.0",
     "eslint-plugin-react": "^7.34.2",
     "eslint-plugin-simple-import-sort": "^12.1.0",
     "globals": "^15.3.0",
