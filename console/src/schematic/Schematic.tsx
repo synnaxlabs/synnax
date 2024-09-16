@@ -328,9 +328,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onViewportChange={handleViewportChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
-          // Note on this. Turns out that setting the zoom value to 1 here doesn't have
-          // any negative effects on teh schematic sizing and ensures that we position
-          // all the lines in the correct place.
+          // Turns out that setting the zoom value to 1 here doesn't have any negative
+          // effects on teh schematic sizing and ensures that we position all the lines
+          // in the correct place.
           viewport={{ ...schematic.viewport, zoom: 1 }}
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
