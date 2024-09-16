@@ -329,28 +329,25 @@ export interface TankProps extends Omit<Primitives.TankProps, "boxBorderRadius">
   label?: LabelExtensionProps;
 }
 
-export const Tank = Aether.wrap<SymbolProps<TankProps>>(
-  "Tank",
-  ({
-    backgroundColor,
-    label,
-    onChange,
-    orientation,
-    color,
-    dimensions,
-    borderRadius,
-  }): ReactElement => (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.Tank
-        onResize={(dims) => onChange({ dimensions: dims })}
-        orientation={orientation}
-        color={color}
-        dimensions={dimensions}
-        borderRadius={borderRadius}
-        backgroundColor={backgroundColor}
-      />
-    </Labeled>
-  ),
+export const Tank = ({
+  backgroundColor,
+  label,
+  onChange,
+  orientation,
+  color,
+  dimensions,
+  borderRadius,
+}: SymbolProps<TankProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Tank
+      onResize={(dims) => onChange({ dimensions: dims })}
+      orientation={orientation}
+      color={color}
+      dimensions={dimensions}
+      borderRadius={borderRadius}
+      backgroundColor={backgroundColor}
+    />
+  </Labeled>
 );
 
 export const TankPreview = (props: TankProps): ReactElement => (
@@ -361,28 +358,25 @@ export interface BoxProps extends Omit<TankProps, "borderRadius"> {
   borderRadius?: number;
 }
 
-export const Box = Aether.wrap<SymbolProps<BoxProps>>(
-  "Box",
-  ({
-    backgroundColor,
-    borderRadius,
-    label,
-    onChange,
-    orientation,
-    color,
-    dimensions,
-  }): ReactElement => (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.Tank
-        onResize={(dims) => onChange({ dimensions: dims })}
-        orientation={orientation}
-        color={color}
-        dimensions={dimensions}
-        boxBorderRadius={borderRadius}
-        backgroundColor={backgroundColor}
-      />
-    </Labeled>
-  ),
+export const Box = ({
+  backgroundColor,
+  borderRadius,
+  label,
+  onChange,
+  orientation,
+  color,
+  dimensions,
+}: SymbolProps<BoxProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Tank
+      onResize={(dims) => onChange({ dimensions: dims })}
+      orientation={orientation}
+      color={color}
+      dimensions={dimensions}
+      boxBorderRadius={borderRadius}
+      backgroundColor={backgroundColor}
+    />
+  </Labeled>
 );
 
 export const BoxPreview = (props: BoxProps): ReactElement => (
@@ -1017,13 +1011,14 @@ export interface StaticMixerProps extends Primitives.StaticMixerProps {
   label?: LabelExtensionProps;
 }
 
-export const StaticMixer = Aether.wrap<SymbolProps<StaticMixerProps>>(
-  "statixMixer",
-  ({ label, onChange, ...rest }): ReactElement => (
-    <Labeled {...label} onChange={onChange}>
-      <Primitives.StaticMixer {...rest} />
-    </Labeled>
-  ),
+export const StaticMixer = ({
+  label,
+  onChange,
+  ...rest
+}: SymbolProps<StaticMixerProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.StaticMixer {...rest} />
+  </Labeled>
 );
 
 export const StaticMixerPreview = (props: StaticMixerProps): ReactElement => (
@@ -1374,33 +1369,25 @@ export const CompressorPreview = (props: CompressorProps): ReactElement => (
 
 export interface TextBoxProps extends Primitives.TextBoxProps {}
 
-export const TextBox = Aether.wrap<SymbolProps<TextBoxProps>>(
-  "textBox",
-  ({ ...rest }): ReactElement => <Primitives.TextBox {...rest} />,
+export const TextBox = (props: SymbolProps<TextBoxProps>): ReactElement => (
+  <Primitives.TextBox {...props} />
 );
 
 export const TextBoxPreview = ({
   text = "example text",
   level = "p",
+  width = 100,
   ...rest
 }: SymbolProps<TextBoxProps>): ReactElement => (
-  <Primitives.TextBox text={text} level={level} {...rest} />
+  <Primitives.TextBox text={text} level={level} width={width} {...rest} />
 );
 
-export interface ArrowProps extends Primitives.ArrowProps {
-  label?: LabelExtensionProps;
-}
+export interface ArrowProps extends Primitives.ArrowProps {}
 
-export const Arrow = ({
-  label,
-  onChange,
-  ...rest
-}: SymbolProps<ArrowProps>): ReactElement => (
-  <Labeled {...label} onChange={onChange}>
-    <Primitives.Arrow {...rest} />
-  </Labeled>
-);
-
-export const ArrowPreview = (props: ArrowProps): ReactElement => (
+export const Arrow = (props: SymbolProps<ArrowProps>): ReactElement => (
   <Primitives.Arrow {...props} />
+);
+
+export const ArrowPreview = (props: ArrowProps) => (
+  <Primitives.Arrow text="Arrow" {...props} />
 );

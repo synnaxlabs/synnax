@@ -14,6 +14,7 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
+  ArrowForm,
   ButtonForm,
   CommonStyleForm,
   CommonToggleForm,
@@ -506,20 +507,6 @@ const filter: Spec<FilterProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const arrow: Spec<ArrowProps> = {
-  name: "Arrow",
-  key: "arrow",
-  Form: CommonStyleForm,
-  Symbol: Arrow,
-  defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
-    ...zeroLabel("Arrow"),
-    ...ZERO_PROPS,
-  }),
-  Preview: ArrowPreview,
-  zIndex: Z_INDEX_UPPER,
-};
-
 const needleValve: Spec<NeedleValveProps> = {
   name: "Needle Valve",
   key: "needleValve",
@@ -831,12 +818,28 @@ const textBox: Spec<TextBoxProps> = {
     ...ZERO_BOX_PROPS,
     level: "p",
     text: "Text Box",
+    width: 75,
   }),
   Preview: TextBoxPreview,
   zIndex: Z_INDEX_LOWER,
 };
 
+const arrow: Spec<ArrowProps> = {
+  name: "Arrow",
+  key: "arrow",
+  Form: ArrowForm,
+  Symbol: Arrow,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    text: "Arrow",
+    level: "p",
+  }),
+  Preview: ArrowPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
+  arrow,
   value,
   light,
   switch: switch_,
@@ -845,7 +848,6 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   tank,
   box,
   textBox,
-  arrow,
   valve,
   solenoidValve,
   threeWayValve,

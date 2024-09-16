@@ -106,7 +106,7 @@ const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
 
 const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
   <Form.Field hideIfNull label="Scale" align="start" padHelpText={false} {...props}>
-    {(p) => <Input.Numeric dragScale={1} bounds={{ lower: 0.5, upper: 10 }} {...p} />}
+    {(p) => <Input.Numeric dragScale={1} bounds={{ lower: 0.5, upper: 15 }} {...p} />}
   </Form.Field>
 );
 
@@ -734,14 +734,40 @@ export const SetpointForm = (): ReactElement => {
 };
 
 export const TextBoxForm = (): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
+  <FormWrapper direction="x" align="stretch" grow>
     <Align.Space direction="y" grow>
-      <Align.Space direction="x">
-        <ColorControl path="color" />
-        <Form.Field<string> path="text" label="Text" align="start" padHelpText={false}>
-          {(p) => <Input.Text {...p} />}
+      <Align.Space direction="x" align="stretch">
+        <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
+          {(p) => <Input.Text selectOnFocus {...p} />}
+        </Form.Field>
+        <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
+          {(p) => <Text.SelectLevel {...p} />}
         </Form.Field>
       </Align.Space>
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        <Form.Field<number> path="width" label="Width" padHelpText={false}>
+          {(p) => (
+            <Input.Numeric {...p} bounds={{ lower: 0, upper: 2000 }} dragScale={5} />
+          )}
+        </Form.Field>
+      </Align.Space>
+    </Align.Space>
+  </FormWrapper>
+);
+
+export const ArrowForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <Align.Space direction="x" align="stretch">
+        <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
+          {(p) => <Input.Text selectOnFocus {...p} />}
+        </Form.Field>
+        <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
+          {(p) => <Text.SelectLevel {...p} />}
+        </Form.Field>
+      </Align.Space>
+      <ColorControl path="color" />
     </Align.Space>
   </FormWrapper>
 );
