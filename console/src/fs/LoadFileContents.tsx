@@ -33,7 +33,7 @@ export const InputFilePath = ({
     void (async () => {
       const path = await open({ directory: false });
       if (path == null) return;
-      onChange(path.path);
+      onChange(path);
     })();
   };
   return (

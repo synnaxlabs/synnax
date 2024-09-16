@@ -89,7 +89,10 @@ export const camelToSnake = createConverter(camelToSnakeStr);
  * @param str - The string to capitalize.
  * @returns The string with the first character capitalized.
  */
-export const capitalize = (str: string): string => str[0].toUpperCase() + str.slice(1);
+export const capitalize = (str: string): string => {
+  if (str.length === 0) return str;
+  return str[0].toUpperCase() + str.slice(1);
+};
 
 /**
  * Options parameter for convert function

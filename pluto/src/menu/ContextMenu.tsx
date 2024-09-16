@@ -12,6 +12,7 @@ import "@/menu/ContextMenu.css";
 import { box, position, unique, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
+  FC,
   type ForwardedRef,
   forwardRef,
   type ReactElement,
@@ -233,5 +234,7 @@ const ContextMenuCore = (
  * underlying div component acting as the root element.
  * @param props.menu - The menu to show when the user right clicks.
  */
-export const ContextMenu = forwardRef(ContextMenuCore);
+export const ContextMenu = forwardRef(
+  ContextMenuCore as React.ForwardRefRenderFunction<HTMLDivElement>,
+) as FC<ContextMenuProps>;
 ContextMenu.displayName = "ContextMenu";

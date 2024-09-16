@@ -23,10 +23,8 @@
     }
 }
 
-
 .react-flow__edge {
     z-index: 6;
-
 }
 
 .react-flow__edge.selected {

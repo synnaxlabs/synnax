@@ -153,9 +153,9 @@ export const useImport = (workspaceKey?: string): (() => void) => {
         directory: false,
       });
       if (fileResponses == null) return;
-      for (const fileResponse of fileResponses) {
-        const rawData = await readFile(fileResponse.path);
-        const fileName = fileResponse.path.split("/").pop();
+      for (const path of fileResponses) {
+        const rawData = await readFile(path);
+        const fileName = path.split("/").pop();
         if (fileName == null) throw new UnexpectedError("File name is null");
         const file = JSON.parse(new TextDecoder().decode(rawData));
         if (

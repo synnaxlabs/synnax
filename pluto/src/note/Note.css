@@ -21,7 +21,7 @@
 
     &.pluto--warning {
         background: var(--pluto-warning-z-10);
-        border-color: var(--pluto-warning-z-);
+        border-color: var(--pluto-warning-z-70);
     }
 
     &.pluto--error {

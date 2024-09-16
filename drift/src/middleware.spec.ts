@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type GetDefaultMiddleware } from "node_modules/@reduxjs/toolkit/dist/getDefaultMiddleware";
 import { describe, expect, it, vi } from "vitest";
 
 import { MockRuntime } from "@/mock/runtime";
-import { initialState, setWindowStage } from "@/state";
+import { initialState, setWindowStage, StoreState } from "@/state";
 
-import { configureMiddleware, middleware } from "./middleware";
+import { configureMiddleware, GetDefaultMiddleware, middleware } from "./middleware";
 
 const state = {
   drift: initialState,
@@ -102,7 +101,7 @@ describe("middleware", () => {
       const runtime = new MockRuntime(true);
       const mwF = configureMiddleware([], runtime);
       expect(typeof mwF).toBe("function");
-      expect(mwF([] as unknown as GetDefaultMiddleware<unknown>).length).toBe(1);
+      expect(mwF([] as unknown as GetDefaultMiddleware<StoreState>).length).toBe(1);
     });
     it("should call a middleware curry function when provided", () => {
       const runtime = new MockRuntime(true);
@@ -111,7 +110,7 @@ describe("middleware", () => {
         curry();
         return [];
       }, runtime);
-      mw([] as unknown as GetDefaultMiddleware<unknown>);
+      mw([] as unknown as GetDefaultMiddleware<StoreState>);
       expect(curry).toHaveBeenCalled();
     });
   });
