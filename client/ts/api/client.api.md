@@ -358,7 +358,7 @@ class Client_13 {
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_5> {
+class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_4> {
     constructor(client: UnaryClient, frameClient: framer.Client, ontologyClient: ontology.Client, rangeClient: ranger.Client);
     // (undocumented)
     copy(key: string, name: string, snapshot: boolean): Promise<Task>;
@@ -375,7 +375,7 @@ class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_5> {
     // (undocumented)
     openTracker(): Promise<signals.Observable<string, string>>;
     // (undocumented)
-    page(offset: number, limit: number): Promise<Payload_5[]>;
+    page(offset: number, limit: number): Promise<Payload_4[]>;
     // (undocumented)
     retrieve<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string>(rack: number, options?: RetrieveOptions_3): Promise<Task<C, D, T>[]>;
     // (undocumented)
@@ -385,7 +385,7 @@ class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_5> {
     // (undocumented)
     retrieveByName(name: string, rack?: number): Promise<Task>;
     // (undocumented)
-    search(term: string): Promise<Payload_5[]>;
+    search(term: string): Promise<Payload_4[]>;
     // (undocumented)
     readonly type: string;
 }
@@ -652,7 +652,25 @@ class Client_7 implements AsyncTermSearcher<string, Key_4, Range_2> {
 class Client_9 {
     constructor(client: UnaryClient);
     // (undocumented)
-    register(username: string, password: string): Promise<Payload_4>;
+    changeName(key: Key_6, firstName?: string, lastName?: string): Promise<void>;
+    // (undocumented)
+    changeUsername(key: Key_6, newUsername: string): Promise<void>;
+    // (undocumented)
+    create(user: NewUser): Promise<User>;
+    // (undocumented)
+    create(users: NewUser[]): Promise<User[]>;
+    // (undocumented)
+    delete(key: Key_6): Promise<void>;
+    // (undocumented)
+    delete(keys: Key_6[]): Promise<void>;
+    // (undocumented)
+    retrieve(key: Key_6): Promise<User>;
+    // (undocumented)
+    retrieve(keys: Key_6[]): Promise<User[]>;
+    // (undocumented)
+    retrieveByName(username: string): Promise<User>;
+    // (undocumented)
+    retrieveByName(usernames: string[]): Promise<User[]>;
 }
 
 // Warning: (ae-missing-release-tag) "ClusterOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1762,6 +1780,33 @@ const newTaskZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
     snapshot?: boolean | undefined;
 }>;
 
+// Warning: (ae-missing-release-tag) "NewUser" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type NewUser = z.infer<typeof newUserZ>;
+
+// Warning: (ae-missing-release-tag) "newUserZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const newUserZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
+    key: z.ZodString;
+    username: z.ZodString;
+    firstName: z.ZodOptional<z.ZodString>;
+    lastName: z.ZodOptional<z.ZodString>;
+}, "key">, {
+    password: z.ZodString;
+}>, "strip", z.ZodTypeAny, {
+    username: string;
+    password: string;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+}, {
+    username: string;
+    password: string;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+}>;
+
 // Warning: (ae-missing-release-tag) "NodeOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
@@ -2004,12 +2049,7 @@ type Payload_3 = z.infer<typeof payloadZ>;
 // Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Payload_4 = z.infer<typeof payloadZ_2>;
-
-// Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
-//
-// @public (undocumented)
-type Payload_5<C extends UnknownRecord = UnknownRecord, D extends {} = UnknownRecord, T extends string = string> = Omit<z.output<typeof taskZ>, "config" | "type" | "state"> & {
+type Payload_4<C extends UnknownRecord = UnknownRecord, D extends {} = UnknownRecord, T extends string = string> = Omit<z.output<typeof taskZ>, "config" | "type" | "state"> & {
     type: T;
     config: C;
     state?: State_2<D> | null;
@@ -2076,20 +2116,6 @@ const payloadZ: z.ZodObject<{
         };
     };
     color?: string | undefined;
-}>;
-
-// Warning: (ae-missing-release-tag) "payloadZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
-//
-// @public (undocumented)
-const payloadZ_2: z.ZodObject<{
-    key: z.ZodString;
-    username: z.ZodString;
-}, "strip", z.ZodTypeAny, {
-    key: string;
-    username: string;
-}, {
-    key: string;
-    username: string;
 }>;
 
 // Warning: (ae-missing-release-tag) "Policy" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -3085,7 +3111,7 @@ class Task<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRe
     // (undocumented)
     openStateObserver<D extends UnknownRecord_2 = UnknownRecord_2>(): Promise<StateObservable<D>>;
     // (undocumented)
-    get payload(): Payload_5<C, D>;
+    get payload(): Payload_4<C, D>;
     // (undocumented)
     readonly snapshot: boolean;
     // (undocumented)
@@ -3109,7 +3135,7 @@ declare namespace task {
         taskZ,
         newTaskZ,
         NewTask,
-        Payload_5 as Payload,
+        Payload_4 as Payload,
         commandZ,
         StateObservable,
         DeviceOntologyType,
@@ -3218,13 +3244,20 @@ export class UnexpectedError extends BaseTypedError {
     type: string;
 }
 
+// Warning: (ae-missing-release-tag) "User" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type User = z.infer<typeof userZ>;
+
 declare namespace user {
     export {
         Client_9 as Client,
         keyZ_6 as keyZ,
         Key_6 as Key,
-        payloadZ_2 as payloadZ,
-        Payload_4 as Payload,
+        userZ,
+        User,
+        newUserZ,
+        NewUser,
         UserOntologyType,
         ontologyID_4 as ontologyID
     }
@@ -3234,6 +3267,26 @@ declare namespace user {
 //
 // @public (undocumented)
 const UserOntologyType: ontology.ResourceType;
+
+// Warning: (ae-missing-release-tag) "userZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const userZ: z.ZodObject<{
+    key: z.ZodString;
+    username: z.ZodString;
+    firstName: z.ZodOptional<z.ZodString>;
+    lastName: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    key: string;
+    username: string;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+}, {
+    key: string;
+    username: string;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+}>;
 
 // Warning: (ae-missing-release-tag) "ValidationError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
