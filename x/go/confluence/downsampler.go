@@ -11,21 +11,20 @@ package confluence
 
 import (
 	"context"
-	//"github.com/synnaxlabs/synnax/pkg/distribution/channel" currently creates a cycle
 	"github.com/synnaxlabs/x/signal"
 )
 
 // Downsampler is a segment that reads values from an input Stream, downsamples them
 // using a provided downsampling function, and publishes the downsampled values to its
-// outlets. // TODO: make generic
+// outlets.
 type DownSampler[V Value] struct {
-	AbstractLinear[V, V] // TODO what is Abstract linear
-	Factor               int
-	DownSample           DownSampleFunc[V]
+	AbstractLinear[V, V]
+	Factor     int
+	DownSample DownSampleFunc[V]
 }
 
 // DownsampleFunc applies to each series in a frame and returns downsampled series.
-type DownSampleFunc[V Value] func(ctx context.Context, v V) (u V, err error)
+type DownSampleFunc[V Value] func(ctx context.Context, v V) (u V)
 
 func (d *DownSampler[V]) OutTo(inlets ...Inlet[V]) {
 	if len(inlets) != 1 {
@@ -42,9 +41,6 @@ func (d *DownSampler[V]) Flow(ctx signal.Context, opts ...Option) {
 }
 
 func (d *DownSampler[V]) downsample(ctx context.Context, v V) error {
-	downsampled, err := d.DownSample(ctx, v)
-	if err != nil {
-		return err
-	}
+	downsampled := d.DownSample(ctx, v)
 	return signal.SendUnderContext(ctx, d.Out.Inlet(), downsampled)
 }
