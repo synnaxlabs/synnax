@@ -12,7 +12,10 @@ from typing import Any, Generic, Literal, Type, MutableMapping
 from warnings import warn
 
 from pydantic import BaseModel
-from websockets.client import WebSocketClientProtocol, connect
+from websockets.asyncio.client import (
+    ClientProtocol as AsyncClientProtocol,
+    connect
+)
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from websockets.sync.client import (
     ClientConnection as SyncClientProtocol,
@@ -44,7 +47,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
     """An implementation of AsyncStream that is backed by a websocket."""
 
     __encoder: Codec
-    __internal: WebSocketClientProtocol
+    __internal: AsyncClientProtocol
     __server_closed: Exception | None
     __send_closed: bool
     __res_msg_t: Type[_Message[RS]]
@@ -52,7 +55,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
     def __init__(
         self,
         encoder: Codec,
-        ws: WebSocketClientProtocol,
+        ws: AsyncClientProtocol,
         res_t: Type[RS],
     ):
         self.__encoder = encoder
@@ -261,7 +264,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
             try:
                 ws = await connect(
                     self._endpoint.child(target).stringify(),
-                    extra_headers=self.additional_headers(ctx.params),
+                    additional_headers=self.additional_headers(ctx.params),
                     max_size=self._max_message_size,
                     **self._kwargs,
                 )

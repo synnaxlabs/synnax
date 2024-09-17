@@ -54,6 +54,6 @@ export const Create = (props: CreateProps): ReactElement => (
 
 export interface ImportProps extends CreateProps {}
 
-export const Import = (props: CreateProps): ReactElement => (
+export const Import = (props: ImportProps): ReactElement => (
   <Icon topRight={<MediaIcon.Import />} {...props} />
 );

@@ -36,12 +36,12 @@ class ReadFrameAdapter:
         normal = normalize_channel_params(channels)
         if normal.variant == "keys":
             self.__adapter = None
-            self.keys = normal.params
+            self.keys = normal.channels
             return
 
-        fetched = self.retriever.retrieve(normal.params)
+        fetched = self.retriever.retrieve(normal.channels)
         self.__adapter = dict[int, str]()
-        for name in normal.params:
+        for name in normal.channels:
             ch = next((c for c in fetched if c.name == name), None)
             if ch is None:
                 raise KeyError(f"Channel {name} not found.")
@@ -101,9 +101,9 @@ class WriteFrameAdapter:
     def __adapt_ch(
         self, ch: ChannelKey | ChannelName | ChannelPayload
     ) -> ChannelPayload:
-        if not isinstance(ch, (ChannelKey, ChannelName)):
-            return ch
-        return retrieve_required(self.retriever, ch)[0]
+        if isinstance(ch, (ChannelKey, ChannelName)):
+            return self.retriever.retrieve_one(ch)
+        return ch
 
     def adapt(
         self,

@@ -29,8 +29,13 @@ export const ZERO_SLICE_STATE: SliceState = {
 };
 
 type SetActivePayload = string | null;
+
 export interface AddPayload {
   workspaces: workspace.Workspace[];
+}
+
+export interface RemovePayload {
+  keys: string[];
 }
 
 export interface RenamePayload {
@@ -59,13 +64,19 @@ export const { actions, reducer } = createSlice({
         state.active = workspace.key;
       });
     },
+    remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
+      keys.forEach((key) => {
+        if (state.active === key) state.active = null;
+        delete state.workspaces[key];
+      });
+    },
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       state.workspaces[key].name = name;
     },
   },
 });
 
-export const { setActive, add, rename } = actions;
+export const { setActive, add, remove, rename } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

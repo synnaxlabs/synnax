@@ -37,9 +37,9 @@ typedef freighter::UnaryClient<
 class ChannelClient;
 
 /// @brief A channel is a logical collection of samples emitted by or representing the
-/// values of a single source, typically a sensor, actuator, or software generated value.
-/// See https:://docs.synnaxlabs.com/concepts/channels for an introduction to channels
-/// and how they work.
+/// values of a single source, typically a sensor, actuator, or software generated
+/// value. See https://docs.synnaxlabs.com/reference/concepts/channels for an
+/// introduction to channels and how they work.
 class Channel {
 public:
     /// @brief A human-readable name for the channel.

@@ -2,12 +2,15 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Write Data"
 description: "Use the TypeScript client to write to a Synnax cluster."
+next: "Stream Data"
+nextURL: "/reference/typescript-client/stream-data"
+prev: "Read Data"
+prevURL: "/reference/typescript-client/read-data"
 ---
 
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 import { Divider } from "@synnaxlabs/pluto";
-import Note from "@/components/Note.astro";
 
 The Synnax TypeScript client supports multiple methods for writing data to a cluster. We
 can write directly to a channel, or we can write to multiple channels in a streaming

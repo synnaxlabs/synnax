@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -15,7 +15,7 @@ import {
   Control,
   Diagram,
   Haul,
-  Legend,
+  type Legend,
   Schematic as Core,
   Text,
   Theming,
@@ -328,7 +328,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onViewportChange={handleViewportChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
-          viewport={schematic.viewport}
+          // Turns out that setting the zoom value to 1 here doesn't have any negative
+          // effects on teh schematic sizing and ensures that we position all the lines
+          // in the correct place.
+          viewport={{ ...schematic.viewport, zoom: 1 }}
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}

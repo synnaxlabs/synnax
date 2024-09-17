@@ -117,13 +117,6 @@ class StreamerConfig {
 public:
     /// @brief the channels to stream.
     std::vector<ChannelKey> channels;
-
-    /// @brief sets the timestamp that that the streamer should forward previous reads
-    /// from. On startup, the streamer will read all existing data from the provided
-    /// channels starting at this timestamp. If this timestamp is zero or in the future,
-    /// no samples will be read.
-    synnax::TimeStamp start;
-
 private:
     void toProto(api::v1::FrameStreamerRequest &f) const;
 
@@ -275,13 +268,13 @@ public:
     ///
     /// 1. The frame must have at most 1 series per channel.
     /// 2. The frame may not have series for any channel not specified in the
-    ///  WriterConfig when opening the writer.
+    /// WriterConfig when opening the writer.
     /// 3. All series' that are written to the same index must have the same number of
     /// samples.
     /// 4. When writing to an index, the series' for the index must have monotonically
     /// increasing int64 unix epoch timestamps.
     ///
-    /// For more information, see https://docs.synnaxlabs.com/concepts/write.
+    /// For more information, see https://docs.synnaxlabs.com/reference/concepts/writes.
     ///
     /// @returns false if an error occurred in the write pipeline. After an error occurs,
     /// the caller must acknowledge the error by calling error() or close() on the writer.

@@ -26,6 +26,7 @@ export type ToolbarState = latest.ToolbarState;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
+export const parser = latest.parser;
 
 export const SLICE_NAME = "schematic";
 

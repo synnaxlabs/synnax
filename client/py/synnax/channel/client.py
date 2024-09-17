@@ -43,8 +43,9 @@ CHANNEL_ONTOLOGY_TYPE = ID(type="channel")
 
 class Channel(ChannelPayload):
     """A channel is a logical collection of samples emitted by or representing the
-    values of a single source. See https://docs.synnaxlabs.com/concepts/channels for an
-    introduction to channels and how they work.
+    values of a single source. See
+    https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
+    channels and how they work.
     """
 
     ___frame_client: FrameClient | None = PrivateAttr(None)

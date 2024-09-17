@@ -102,9 +102,9 @@ public:
     [[nodiscard]] freighter::Error del(const std::string &key) const;
 };
 
-/// @brief a range is a user-defined region of a cluster's data. It's identified
-/// by a name, time range, and uniquely generated. See
-/// https://docs.synnaxlabs.com/concepts/read-ranges for an introduction to ranges
+/// @brief a range is a user-defined region of a cluster's data. It's identified by a
+/// name, time range, and uniquely generated. See
+/// https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to ranges
 /// and how they work.
 class Range {
 public:

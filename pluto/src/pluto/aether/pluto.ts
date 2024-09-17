@@ -20,6 +20,7 @@ import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
+import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
 import { range } from "@/vis/lineplot/range/aether";
@@ -42,6 +43,7 @@ export const render = (): void => {
     ...control.REGISTRY,
     ...diagram.REGISTRY,
     ...eraser.REGISTRY,
+    ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
     ...measure.REGISTRY,

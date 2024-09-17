@@ -74,7 +74,7 @@ valve_command_channels = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-rate = (sy.Rate.HZ * 40).period.seconds
+loop = sy.Loop(sy.Rate.HZ * 40)
 
 state = {
     **{ch.key: 0 for ch in valve_response_channels},
@@ -99,8 +99,7 @@ with client.open_streamer([c.key for c in valve_command_channels]) as streamer:
         enable_auto_commit=True,
     ) as writer:
         press = 0
-        while True:
-            time.sleep(rate)
+        while loop.wait():
             while True:
                 f = streamer.read(0)
                 if f is None:

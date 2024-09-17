@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
@@ -27,12 +27,12 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^20.14.9",
-    "@vitest/coverage-v8": "^1.6.0",
+    "@types/node": "^22.5.4",
+    "@vitest/coverage-v8": "^2.1.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.5.3",
-    "vite": "5.3.3",
-    "vitest": "^1.6.0"
+    "typescript": "^5.6.2",
+    "vite": "5.4.4",
+    "vitest": "^2.1.0"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

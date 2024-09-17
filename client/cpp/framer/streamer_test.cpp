@@ -78,6 +78,8 @@ TEST(FramerTests, testStreamSetChannels) {
     });
 
     auto setErr = streamer.setChannels({data.key});
+    // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_FALSE(setErr) << setErr.message();
 
     auto frame = synnax::Frame(1);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, forwardRef,type ReactElement } from "react";
+import { type FC, forwardRef, type ReactElement } from "react";
 
 import { Dialog, type DialogProps } from "@/tooltip/Dialog";
 
@@ -43,7 +43,7 @@ export const wrap = <P extends {} = {}, E extends HTMLElement = HTMLElement>(
 ): ReturnType<typeof forwardRef<E, P & WrapProps>> => {
   const C = forwardRef<E, P & WrapProps>(
     ({ tooltipDelay, tooltip, tooltipLocation, ...props }, ref): ReactElement => {
-      const c = <Component ref={ref} {...(props as P)} />;
+      const c = <Component ref={ref} {...(props as unknown as P)} />;
       if (tooltip == null) return c;
       return (
         <Dialog delay={tooltipDelay} location={tooltipLocation}>
