@@ -26,8 +26,8 @@ type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
 
 type streamer struct {
 	ts                 *ts.DB
-	sendControlDigests bool
-	controlStateKey    channel.Key
+	sendControlDigests bool        // TODO: what is this
+	controlStateKey    channel.Key // TODO: what is this
 	confluence.AbstractUnarySink[StreamerRequest]
 	confluence.AbstractUnarySource[StreamerResponse]
 	iter struct {
@@ -127,7 +127,8 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 type StreamerConfig struct {
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys             channel.Keys `json:"keys" msgpack:"keys"`
+	DownSampleFactor int          `json:"downSampleFactor" msgpack:"downSampleFactor"`
 }
 
 type StreamerRequest = StreamerConfig
@@ -138,7 +139,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		controlStateKey:    s.controlStateKey,
 		sendControlDigests: lo.Contains(cfg.Keys, s.controlStateKey),
 	}
-	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys})
+	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys, DownSampleFactor: cfg.DownSampleFactor})
 	if err != nil {
 		return nil, err
 	}

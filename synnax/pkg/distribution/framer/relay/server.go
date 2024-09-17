@@ -40,7 +40,7 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		sender       = &freightfluence.Sender[Response]{
 			Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 		}
-		reader, err = s.newStreamer(ctx, StreamerConfig{})
+		reader, err = s.newStreamer(ctx, StreamerConfig{}) // TODO: do i need to set the fields here? so DownSampling factor is not 0
 		pipe        = plumber.New()
 	)
 	defer cancel()

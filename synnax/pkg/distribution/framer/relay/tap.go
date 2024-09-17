@@ -59,6 +59,8 @@ type tapper struct {
 	confluence.AbstractUnarySource[Response]
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
+	// downSamplingFactors track the current down sampling factors for each channel.
+	downSamplingFactors map[channel.Key]int
 	// taps tracks the current taps we have open.
 	taps map[core.NodeKey]tapController
 	// freeWrites is where we receive writes from free channels in the distribution
@@ -90,6 +92,13 @@ func (t *tapper) updateDemands(d demand) map[core.NodeKey]channel.Keys {
 		delete(t.demands, d.Key)
 	} else {
 		t.demands[d.Key] = d.Value.Keys
+		for _, k := range d.Value.Keys {
+			if d.Value.DownSampleFactor == 0 {
+				t.downSamplingFactors[k] = 1
+			} else {
+				t.downSamplingFactors[k] = d.Value.DownSampleFactor
+			}
+		}
 	}
 	nodeDemands := make(map[core.NodeKey]channel.Keys, len(t.taps))
 	for _, d := range t.demands {
@@ -134,7 +143,6 @@ func (t *tapper) updateTaps(
 			}
 		}
 	}
-
 	// Update or close any taps we don't need
 	for nk, tc := range t.taps {
 		if keys, ok := nodeDemands[nk]; ok {
@@ -256,7 +264,7 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 func downSample(ctx context.Context, response Response) Response {
 	dsFrame := framer.Frame{Keys: response.Frame.Keys, Series: []telem.Series{}}
 	for _, series := range response.Frame.Series {
-		dsFrame.Series = append(dsFrame.Series, downSampleSeries(series, 1))
+		dsFrame.Series = append(dsFrame.Series, downSampleSeries(series, 2))
 	}
 	dsResponse := Response{Frame: dsFrame, Error: nil}
 	return dsResponse
