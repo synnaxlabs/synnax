@@ -49,7 +49,7 @@ export class Client {
   token: string | undefined;
   private readonly client: UnaryClient;
   private readonly credentials: InsecureCredentials;
-  private authenticating: Promise<Error | null> | undefined;
+  authenticating: Promise<Error | null> | undefined;
   authenticated: boolean;
   user: user.User | undefined;
   private retryCount: number;

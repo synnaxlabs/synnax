@@ -77,6 +77,7 @@ export const setCurrentUserPermissions = async (
 ): Promise<void> => {
   //This is super jank - we need to wait for when we expect the server to be
   //authenticated before we can get the key of the current user using the client
+  await client?.auth?.authenticating;
   await new Promise((resolve) => setTimeout(resolve, 1000));
   const key = client?.auth?.user?.key;
   dispatch(removeAll());

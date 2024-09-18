@@ -11,6 +11,7 @@ package lineplot
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -30,6 +31,12 @@ func OntologyID(k uuid.UUID) ontology.ID {
 func OntologyIDs(ids []uuid.UUID) []ontology.ID {
 	return lo.Map(ids, func(id uuid.UUID, _ int) ontology.ID {
 		return OntologyID(id)
+	})
+}
+
+func OntologyIDsFromLinePlots(lps []LinePlot) []ontology.ID {
+	return lo.Map(lps, func(lp LinePlot, _ int) ontology.ID {
+		return OntologyID(lp.Key)
 	})
 }
 

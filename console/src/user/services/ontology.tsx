@@ -8,16 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 
+import { overviewLayout } from "../Overview";
+
 const useSetPermissions =
   (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  ({ placeLayout, selection: { resources } }) => {
+  ({ placeLayout, selection: { resources } }) =>
     placeLayout(
       Permissions.layout({
         user: {
@@ -26,24 +28,29 @@ const useSetPermissions =
         },
       }),
     );
-  };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
-    selection: { resources },
+    selection: { nodes, resources },
   } = props;
   const setPermissions = useSetPermissions();
-  const handleSelect = { permissions: () => setPermissions(props) };
+  const handleSelect = {
+    permissions: () => setPermissions(props),
+    rename: () => Tree.startRenaming(nodes[0].key),
+  };
   const singleResource = resources.length === 1;
-  const canEditPermissions = Permissions.useSelectAdmin();
-  const showSetPermissions = singleResource && canEditPermissions;
+
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      {showSetPermissions && (
+      {singleResource && (
         <>
           <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
             Set Permissions
           </PMenu.Item>
+          <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+            Change Username
+          </PMenu.Item>
+          {/*TODO: Change Name*/}
           <PMenu.Divider />
         </>
       )}
@@ -52,13 +59,29 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   );
 };
 
+const handleSelect: Ontology.HandleSelect = async ({
+  selection,
+  client,
+  placeLayout,
+}): Promise<void> => {
+  if (selection.length === 0) return;
+  const user = await client.user.retrieve(selection[0].id.key);
+  placeLayout({ ...overviewLayout, name: user.username, key: user.key });
+};
+
+const handleRename: Ontology.HandleTreeRename = {
+  execute: async ({ client, id, name }) =>
+    await client.user.changeUsername(id.key, name),
+};
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "user",
   icon: <Icon.User />,
   hasChildren: true,
-  allowRename: () => false,
+  allowRename: () => true,
+  onRename: handleRename,
   haulItems: () => [],
   canDrop: () => false,
-  onSelect: () => {},
+  onSelect: handleSelect,
   TreeContextMenu,
 };

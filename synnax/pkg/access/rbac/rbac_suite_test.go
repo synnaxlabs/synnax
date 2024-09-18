@@ -11,12 +11,13 @@ package rbac_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,7 +29,7 @@ var (
 	changePasswordPolicy = rbac.Policy{
 		Subjects: []ontology.ID{userID},
 		Objects:  []ontology.ID{userID},
-		Actions:  []access.Action{"changePassword"},
+		Actions:  []action.Action{"changePassword"},
 	}
 )
 

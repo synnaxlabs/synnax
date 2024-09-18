@@ -11,7 +11,6 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { crudeIDZ, idZ } from "@/ontology/payload";
-import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -22,9 +21,14 @@ export const actionZ = z.union([
   z.literal("create"),
   z.literal("delete"),
   z.literal("retrieve"),
-  z.literal("rename"),
+  z.literal("update"),
 ]);
 export type Action = z.infer<typeof actionZ>;
+export const ALL_ACTION = "all" as const;
+export const CREATE_ACTION = "create" as const;
+export const DELETE_ACTION = "delete" as const;
+export const RETRIEVE_ACTION = "retrieve" as const;
+export const RENAME_ACTION = "update" as const;
 
 export const newPolicyZ = z.object({
   key: keyZ.optional().catch(undefined),
@@ -36,9 +40,9 @@ export type NewPolicy = z.input<typeof newPolicyZ>;
 
 export const policyZ = z.object({
   key: keyZ,
-  subjects: nullableArrayZ(idZ),
-  objects: nullableArrayZ(idZ),
-  actions: nullableArrayZ(actionZ),
+  subjects: idZ.array(),
+  objects: idZ.array(),
+  actions: actionZ.array(),
 });
 export type Policy = z.infer<typeof policyZ>;
 

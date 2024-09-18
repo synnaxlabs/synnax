@@ -125,7 +125,7 @@ type Transport struct {
 	AuthChangeUsername freighter.UnaryServer[AuthChangeUsernameRequest, types.Nil]
 	AuthChangePassword freighter.UnaryServer[AuthChangePasswordRequest, types.Nil]
 	// USER
-	UserChangeName     freighter.UnaryServer[UserChangeNameRequest, types.Nil]
+	UserRename         freighter.UnaryServer[UserRenameRequest, types.Nil]
 	UserChangeUsername freighter.UnaryServer[UserChangeUsernameRequest, types.Nil]
 	UserCreate         freighter.UnaryServer[UserCreateRequest, UserCreateResponse]
 	UserDelete         freighter.UnaryServer[UserDeleteRequest, types.Nil]
@@ -251,7 +251,7 @@ func (a *API) BindTo(t Transport) {
 		t.AuthChangePassword,
 
 		// USER
-		t.UserChangeName,
+		t.UserRename,
 		t.UserChangeUsername,
 		t.UserCreate,
 		t.UserDelete,
@@ -348,7 +348,7 @@ func (a *API) BindTo(t Transport) {
 	t.AuthChangeUsername.BindHandler(a.Auth.ChangeUsername)
 
 	// USER
-	t.UserChangeName.BindHandler(a.User.ChangeName)
+	t.UserRename.BindHandler(a.User.Rename)
 	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
 	t.UserCreate.BindHandler(a.User.Create)
 	t.UserDelete.BindHandler(a.User.Delete)
@@ -399,7 +399,7 @@ func (a *API) BindTo(t Transport) {
 	t.WorkspaceRename.BindHandler(a.Workspace.Rename)
 	t.WorkspaceSetLayout.BindHandler(a.Workspace.SetLayout)
 
-	// Schematic
+	// SCHEMATIC
 	t.SchematicCreate.BindHandler(a.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(a.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(a.Schematic.Delete)

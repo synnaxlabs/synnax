@@ -157,7 +157,7 @@ func start(cmd *cobra.Command) {
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
-		userSvc, err := user.NewService(ctx, user.Config{
+		userSvc, err := user.OpenService(ctx, user.Config{
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -452,7 +452,7 @@ func maybeProvisionRootUser(
 		if err = authSvc.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
 		}
-		userObj := user.User{Username: creds.Username}
+		userObj := user.User{Username: creds.Username, RootUser: true}
 		if err = userSvc.NewWriter(tx).Create(ctx, &userObj); err != nil {
 			return err
 		}

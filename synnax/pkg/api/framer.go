@@ -11,10 +11,11 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -27,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 type Frame = framer.Frame
@@ -60,13 +60,6 @@ func (s *FrameService) FrameDelete(
 	ctx context.Context,
 	req FrameDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: req.Keys.OntologyIDs(),
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		c := errors.NewCatcher(errors.WithAggregation())
 		w := s.Internal.NewDeleter()

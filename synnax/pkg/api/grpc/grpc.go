@@ -38,7 +38,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.ChannelRetrieveGroup = fnoop.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse]{}
 
 	// USER
-	a.UserChangeName = fnoop.UnaryServer[api.UserChangeNameRequest, types.Nil]{}
+	a.UserRename = fnoop.UnaryServer[api.UserRenameRequest, types.Nil]{}
 	a.UserChangeUsername = fnoop.UnaryServer[api.UserChangeUsernameRequest, types.Nil]{}
 	a.UserCreate = fnoop.UnaryServer[api.UserCreateRequest, api.UserCreateResponse]{}
 	a.UserDelete = fnoop.UnaryServer[api.UserDeleteRequest, types.Nil]{}

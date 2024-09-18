@@ -35,9 +35,9 @@ var _ = Describe("User", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
-		_, err := user.NewService(ctx, user.Config{})
+		_, err := user.OpenService(ctx, user.Config{})
 		Expect(err).To(HaveOccurred())
-		svc = MustSucceed(user.NewService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
+		svc = MustSucceed(user.OpenService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
 		w = svc.NewWriter(nil)
 	})
 	AfterAll(func() {
@@ -53,6 +53,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(u.Username).To(Equal("test1"))
 			Expect(u.FirstName).To(Equal(""))
 			Expect(u.LastName).To(Equal(""))
+			Expect(u.RootUser).To(BeFalse())
 			users = append(users, *u)
 		})
 		It("Should create a new user without a key", func() {
@@ -62,6 +63,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(u.Username).To(Equal("test2"))
 			Expect(u.FirstName).To(Equal(""))
 			Expect(u.LastName).To(Equal(""))
+			Expect(u.RootUser).To(BeFalse())
 			users = append(users, *u)
 		})
 		It("Should create a user with a name", func() {
@@ -71,6 +73,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(u.LastName).To(Equal("Star"))
 			Expect(u.Key).ToNot(Equal(uuid.Nil))
 			Expect(u.Username).To(Equal("test3"))
+			Expect(u.RootUser).To(BeFalse())
 			users = append(users, *u)
 		})
 		It("Should return an error if the user with the username already exists", func() {
@@ -173,6 +176,16 @@ var _ = Describe("User", Ordered, func() {
 			var u user.User
 			Expect(svc.NewRetrieve().WhereKeys(users[1].Key).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
 			Expect(svc.NewRetrieve().WhereKeys(users[2].Key).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
+		})
+		It("Should not delete the root user", func() {
+			u := &user.User{Username: "root", RootUser: true}
+			Expect(w.Create(ctx, u)).To(Succeed())
+			Expect(u.FirstName).To(Equal(""))
+			Expect(u.LastName).To(Equal(""))
+			Expect(u.Key).ToNot(Equal(uuid.Nil))
+			Expect(u.Username).To(Equal("root"))
+			Expect(u.RootUser).To(BeTrue())
+			Expect(errors.Is(w.Delete(ctx, u.Key), errors.New("cannot delete root user"))).To(BeTrue())
 		})
 	})
 })

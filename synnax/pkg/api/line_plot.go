@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
 	"github.com/synnaxlabs/x/gorp"
@@ -46,8 +47,8 @@ type LinePlotCreateResponse struct {
 func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest) (res LinePlotCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{lineplot.OntologyID(uuid.Nil)},
+		Action:  action.Create,
+		Objects: lineplot.OntologyIDsFromLinePlots(req.LinePlots),
 	}); err != nil {
 		return res, err
 	}
@@ -56,9 +57,9 @@ func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest)
 			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &lp); err != nil {
 				return err
 			}
-			res.LinePlots = append(res.LinePlots, lp)
 		}
-		return err
+		res.LinePlots = req.LinePlots
+		return nil
 	})
 }
 
@@ -70,7 +71,7 @@ type LinePlotRenameRequest struct {
 func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  action.Rename,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -88,7 +89,7 @@ type LinePlotSetDataRequest struct {
 func (s *LinePlotService) SetData(ctx context.Context, req LinePlotSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  action.SetData,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -110,14 +111,16 @@ type (
 func (s *LinePlotService) Retrieve(ctx context.Context, req LinePlotRetrieveRequest) (res LinePlotRetrieveResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  action.Retrieve,
 		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
-	err = s.internal.NewRetrieve().
-		WhereKeys(req.Keys...).Entries(&res.LinePlots).Exec(ctx, nil)
-	return res, err
+	if err = s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.LinePlots).
+		Exec(ctx, nil); err != nil {
+		return LinePlotRetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 type LinePlotDeleteRequest struct {
@@ -127,7 +130,7 @@ type LinePlotDeleteRequest struct {
 func (s *LinePlotService) Delete(ctx context.Context, req LinePlotDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  action.Delete,
 		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

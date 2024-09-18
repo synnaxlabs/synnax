@@ -28,7 +28,7 @@ import {
 export const SET_PERMISSIONS_TYPE = "permissions";
 
 interface ModalProps extends Partial<Layout.State> {
-  user: user.Payload;
+  user: user.User;
 }
 
 export const layout = ({ user, ...rest }: ModalProps): Layout.State => ({
@@ -57,7 +57,7 @@ const formSchema = permissionsZ.extend({
 // general implementations of access control.
 export const Modal = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey } = props;
-  const user = Layout.useSelectArgs<user.Payload>(layoutKey);
+  const user = Layout.useSelectArgs<user.User>(layoutKey);
   const client = Synnax.use();
   const [isRootUser, setIsRootUser] = useState(false);
 

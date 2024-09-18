@@ -13,10 +13,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
-	. "github.com/synnaxlabs/x/testutil"
 	"time"
 
+	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	securitymock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/user"
-	"github.com/synnaxlabs/synnax/pkg/access"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type Builder struct {
@@ -46,11 +46,11 @@ func (b *Builder) NewConfig(ctx context.Context) api.Config {
 		Framer:        dist.Framer,
 		Ontology:      dist.Ontology,
 		Storage:       dist.Storage,
-		User:          MustSucceed(user.NewService(ctx, user.Config{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology, Group: dist.Group})),
+		User:          MustSucceed(user.OpenService(ctx, user.Config{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology, Group: dist.Group})),
 		Token:         &token.Service{KeyProvider: securitymock.KeyProvider{Key: key}, Expiration: 10000 * time.Hour},
 		Authenticator: &auth.KV{DB: dist.Storage.Gorpify()},
-		RBAC:        MustSucceed(rbac.NewService(rbac.Config{DB: dist.Storage.Gorpify()})),
-		Enforcer:	   &access.AllowAll{},
+		RBAC:          MustSucceed(rbac.NewService(rbac.Config{DB: dist.Storage.Gorpify()})),
+		Enforcer:      &access.AllowAll{},
 		Cluster:       dist.Cluster,
 	}
 

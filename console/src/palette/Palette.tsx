@@ -54,7 +54,6 @@ import { type Mode, type TriggerConfig } from "@/palette/types";
 import { Permissions } from "@/permissions";
 import { SchematicServices } from "@/schematic/services";
 import { RootState, type RootStore } from "@/store";
-import { UserServices } from "@/user/services";
 
 export interface PaletteProps {
   commands: Command[];
@@ -117,7 +116,6 @@ export const Palette = ({
   const newCommands = commands.filter((command) => {
     if (command.key === SchematicServices.createCommand.key)
       return permissions.schematic;
-    if (command.key === UserServices.registerUserCommand.key) return permissions.admin;
     return true;
   });
   const dropdown = Dropdown.use();

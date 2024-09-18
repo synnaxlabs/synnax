@@ -24,7 +24,7 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.AuthChangeUsername = fhttp.UnaryServer[api.AuthChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/change-username")
 
 	// USER
-	t.UserChangeName = fhttp.UnaryServer[api.UserChangeNameRequest, types.Nil](router, false, "/api/v1/user/change-name")
+	t.UserRename = fhttp.UnaryServer[api.UserRenameRequest, types.Nil](router, false, "/api/v1/user/rename")
 	t.UserChangeUsername = fhttp.UnaryServer[api.UserChangeUsernameRequest, types.Nil](router, false, "/api/v1/user/change-username")
 	t.UserCreate = fhttp.UnaryServer[api.UserCreateRequest, api.UserCreateResponse](router, false, "/api/v1/user/create")
 	t.UserDelete = fhttp.UnaryServer[api.UserDeleteRequest, types.Nil](router, false, "/api/v1/user/delete")

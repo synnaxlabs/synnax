@@ -16,7 +16,7 @@ import Synnax from "@/client";
 import { AuthError } from "@/errors";
 import { LabelOntologyType } from "@/label/payload";
 import { HOST, newClient, PORT } from "@/setupspecs";
-import { UserOntologyType } from "@/user/payload";
+import { ONTOLOGY_TYPE } from "@/user/payload";
 import { SchematicOntologyType } from "@/workspace/schematic/payload";
 
 const client = newClient();
@@ -28,18 +28,18 @@ describe("Policy", () => {
     describe("one", () => {
       test("without key", async () => {
         const policy = await client.access.create({
-          subjects: UserOntologyType,
-          objects: [UserOntologyType, ChannelOntologyType],
+          subjects: ONTOLOGY_TYPE,
+          objects: [ONTOLOGY_TYPE, ChannelOntologyType],
           actions: "delete",
         });
         expect(policy.key).exist;
         expect(policy.subjects.length).toEqual(1);
         expect(policy.subjects[0].key).toEqual("");
-        expect(policy.subjects[0].type).toEqual(UserOntologyType);
+        expect(policy.subjects[0].type).toEqual(ONTOLOGY_TYPE);
         expect(policy.objects.length).toEqual(2);
         expect(policy.objects[0].key).toEqual("");
         expect(policy.objects[1].key).toEqual("");
-        expect(policy.objects[0].type).toEqual(UserOntologyType);
+        expect(policy.objects[0].type).toEqual(ONTOLOGY_TYPE);
         expect(policy.objects[1].type).toEqual(ChannelOntologyType);
         expect(policy.actions).toEqual(["delete"]);
         await client.access.delete(policy.key);
@@ -47,7 +47,7 @@ describe("Policy", () => {
       test("with key", async () => {
         const policy = await client.access.create({
           subjects: [
-            { type: UserOntologyType, key: "1" },
+            { type: ONTOLOGY_TYPE, key: "1" },
             { type: ChannelOntologyType, key: "2" },
           ],
           objects: { type: ChannelOntologyType, key: "3" },
@@ -56,7 +56,7 @@ describe("Policy", () => {
         expect(policy.key).exist;
         expect(policy.subjects.length).toEqual(2);
         expect(policy.subjects[0].key).toEqual("1");
-        expect(policy.subjects[0].type).toEqual(UserOntologyType);
+        expect(policy.subjects[0].type).toEqual(ONTOLOGY_TYPE);
         expect(policy.subjects[1].key).toEqual("2");
         expect(policy.subjects[1].type).toEqual(ChannelOntologyType);
         expect(policy.objects.length).toEqual(1);
@@ -70,20 +70,20 @@ describe("Policy", () => {
       test("with keys", async () => {
         const policiesToCreate: NewPolicy[] = [
           {
-            subjects: [{ type: UserOntologyType, key: "10" }],
+            subjects: [{ type: ONTOLOGY_TYPE, key: "10" }],
             objects: [
-              { type: UserOntologyType, key: "20" },
+              { type: ONTOLOGY_TYPE, key: "20" },
               { type: SchematicOntologyType, key: "21" },
             ],
             actions: ["retrieve"],
           },
           {
             subjects: [
-              { type: UserOntologyType, key: "20" },
+              { type: ONTOLOGY_TYPE, key: "20" },
               { type: SchematicOntologyType, key: "21" },
             ],
             objects: [
-              { type: UserOntologyType, key: "20" },
+              { type: ONTOLOGY_TYPE, key: "20" },
               { type: ChannelOntologyType, key: "30" },
             ],
             actions: ["delete"],
@@ -97,12 +97,12 @@ describe("Policy", () => {
       test("without keys", async () => {
         const policies = await client.access.create([
           {
-            subjects: UserOntologyType,
-            objects: [UserOntologyType, SchematicOntologyType],
+            subjects: ONTOLOGY_TYPE,
+            objects: [ONTOLOGY_TYPE, SchematicOntologyType],
             actions: ["retrieve"],
           },
           {
-            subjects: [UserOntologyType, SchematicOntologyType],
+            subjects: [ONTOLOGY_TYPE, SchematicOntologyType],
             objects: [ChannelOntologyType],
             actions: "retrieve",
           },
@@ -111,18 +111,18 @@ describe("Policy", () => {
         expect(policies[0].key).exist;
         expect(policies[0].subjects.length).toEqual(1);
         expect(policies[0].subjects[0].key).toEqual("");
-        expect(policies[0].subjects[0].type).toEqual(UserOntologyType);
+        expect(policies[0].subjects[0].type).toEqual(ONTOLOGY_TYPE);
         expect(policies[0].objects.length).toEqual(2);
         expect(policies[0].objects[0].key).toEqual("");
         expect(policies[0].objects[1].key).toEqual("");
-        expect(policies[0].objects[0].type).toEqual(UserOntologyType);
+        expect(policies[0].objects[0].type).toEqual(ONTOLOGY_TYPE);
         expect(policies[0].objects[1].type).toEqual(SchematicOntologyType);
         expect(policies[0].actions).toEqual(["retrieve"]);
         expect(policies[1].key).exist;
         expect(policies[1].subjects.length).toEqual(2);
         expect(policies[1].subjects[0].key).toEqual("");
         expect(policies[1].subjects[1].key).toEqual("");
-        expect(policies[1].subjects[0].type).toEqual(UserOntologyType);
+        expect(policies[1].subjects[0].type).toEqual(ONTOLOGY_TYPE);
         expect(policies[1].subjects[1].type).toEqual(SchematicOntologyType);
         expect(policies[1].objects.length).toEqual(1);
         expect(policies[1].objects[0].key).toEqual("");
@@ -136,12 +136,12 @@ describe("Policy", () => {
     test("by key", async () => {
       const policies = await client.access.create([
         {
-          subjects: UserOntologyType,
-          objects: [UserOntologyType, ChannelOntologyType],
+          subjects: ONTOLOGY_TYPE,
+          objects: [ONTOLOGY_TYPE, ChannelOntologyType],
           actions: "delete",
         },
         {
-          subjects: UserOntologyType,
+          subjects: ONTOLOGY_TYPE,
           objects: [SchematicOntologyType, ChannelOntologyType],
           actions: "retrieve",
         },
@@ -161,17 +161,17 @@ describe("Policy", () => {
       const created = await client.access.create([
         {
           subjects: [
-            { type: UserOntologyType, key: key1 },
-            { type: UserOntologyType, key: key2 },
+            { type: ONTOLOGY_TYPE, key: key1 },
+            { type: ONTOLOGY_TYPE, key: key2 },
           ],
           objects: [
-            { type: UserOntologyType, key: "234" },
+            { type: ONTOLOGY_TYPE, key: "234" },
             { type: ChannelOntologyType, key: "30" },
           ],
           actions: ["retrieve"],
         },
         {
-          subjects: { type: UserOntologyType, key: key1 },
+          subjects: { type: ONTOLOGY_TYPE, key: key1 },
           objects: [
             { type: LabelOntologyType, key: "23123" },
             { type: ChannelOntologyType, key: "30" },
@@ -180,12 +180,12 @@ describe("Policy", () => {
         },
       ]);
       const received = await client.access.retrieveFor({
-        type: UserOntologyType,
+        type: ONTOLOGY_TYPE,
         key: key2,
       });
       expect(created[0]).toMatchObject(received[0]);
       const received2 = await client.access.retrieveFor({
-        type: UserOntologyType,
+        type: ONTOLOGY_TYPE,
         key: key1,
       });
       expect(created.sort(sortByKey)).toMatchObject(received2.sort(sortByKey));
@@ -200,19 +200,19 @@ describe("Policy", () => {
       const policies: NewPolicy[] = [
         {
           subjects: [
-            { type: UserOntologyType, key: id1 },
-            { type: UserOntologyType, key: id2 },
+            { type: ONTOLOGY_TYPE, key: id1 },
+            { type: ONTOLOGY_TYPE, key: id2 },
           ],
           objects: [
-            { type: UserOntologyType, key: "20" },
+            { type: ONTOLOGY_TYPE, key: "20" },
             { type: ChannelOntologyType, key: "30" },
           ],
           actions: ["retrieve"],
         },
         {
           subjects: [
-            { type: UserOntologyType, key: id1 },
-            { type: UserOntologyType, key: id3 },
+            { type: ONTOLOGY_TYPE, key: id1 },
+            { type: ONTOLOGY_TYPE, key: id3 },
           ],
           objects: [
             { type: LabelOntologyType, key: "20" },
@@ -236,19 +236,19 @@ describe("Policy", () => {
       const policies: NewPolicy[] = [
         {
           subjects: [
-            { type: UserOntologyType, key: id1 },
-            { type: UserOntologyType, key: id2 },
+            { type: ONTOLOGY_TYPE, key: id1 },
+            { type: ONTOLOGY_TYPE, key: id2 },
           ],
           objects: [
-            { type: UserOntologyType, key: "20" },
+            { type: ONTOLOGY_TYPE, key: "20" },
             { type: ChannelOntologyType, key: "30" },
           ],
           actions: ["retrieve"],
         },
         {
           subjects: [
-            { type: UserOntologyType, key: id1 },
-            { type: UserOntologyType, key: id3 },
+            { type: ONTOLOGY_TYPE, key: id1 },
+            { type: ONTOLOGY_TYPE, key: id3 },
           ],
           objects: [
             { type: LabelOntologyType, key: "20" },
@@ -260,11 +260,11 @@ describe("Policy", () => {
 
       const created = await client.access.create(policies);
       await client.access.delete([created[0].key, created[1].key]);
-      let res = await client.access.retrieveFor({ type: UserOntologyType, key: id1 });
+      let res = await client.access.retrieveFor({ type: ONTOLOGY_TYPE, key: id1 });
       expect(res).toHaveLength(0);
-      res = await client.access.retrieveFor({ type: UserOntologyType, key: id2 });
+      res = await client.access.retrieveFor({ type: ONTOLOGY_TYPE, key: id2 });
       expect(res).toHaveLength(0);
-      res = await client.access.retrieveFor({ type: UserOntologyType, key: id3 });
+      res = await client.access.retrieveFor({ type: ONTOLOGY_TYPE, key: id3 });
       expect(res).toHaveLength(0);
     });
   });
@@ -309,7 +309,7 @@ describe("privilege", async () => {
     ).rejects.toThrow(AuthError);
 
     const policy = await client.access.create({
-      subjects: [{ type: UserOntologyType, key: user2.key }],
+      subjects: [{ type: ONTOLOGY_TYPE, key: user2.key }],
       objects: [{ type: ChannelOntologyType, key: "" }],
       actions: ["create"],
     });

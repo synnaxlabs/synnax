@@ -105,7 +105,7 @@ class TestAccessAuthClient:
     ):
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
-        client.user.register(username, "pwd2")
+        client.user.create(username, "pwd2")
         client2 = sy.Synnax(
             host=host,
             port=port,
@@ -114,14 +114,14 @@ class TestAccessAuthClient:
         )
 
         with pytest.raises(sy.AuthError):
-            client2.user.register(str(uuid.uuid4()), "pwd3")
+            client2.user.create(str(uuid.uuid4()), "pwd3")
 
     def test_user_privileges(
         self, client: sy.Synnax, login_info: tuple[str, int, str, str]
     ):
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
-        usr = client.user.register(username, "pwd3")
+        usr = client.user.create(username, "pwd3")
         client2 = sy.Synnax(
             host=host,
             port=port,

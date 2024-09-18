@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -30,7 +31,7 @@ type Policy struct {
 	// Objects is the list of objects that the policy applies to
 	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions that the policy applies to
-	Actions []access.Action `json:"actions" msgpack:"actions"`
+	Actions []action.Action `json:"actions" msgpack:"actions"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}
@@ -69,7 +70,7 @@ func allowRequest(req access.Request, policies []Policy) bool {
 				continue
 			}
 		}
-		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) && !lo.Contains(policy.Actions, access.All) {
+		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) && !lo.Contains(policy.Actions, action.All) {
 			// If the requested action is not described by the current policy,
 			// skip the policy.
 			// Unless the policy is an AllowAll, in which case do not skip.

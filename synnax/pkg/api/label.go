@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/x/gorp"
@@ -57,15 +58,18 @@ func (s *LabelService) Create(
 ) (res LabelCreateResponse, err error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{label.OntologyID(uuid.Nil)},
+		Action:  action.Create,
+		Objects: label.OntologyIDsFromLabels(req.Labels),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels)
+		if err != nil {
+			return err
+		}
 		res.Labels = req.Labels
-		return err
+		return nil
 	})
 }
 
@@ -116,10 +120,10 @@ func (s *LabelService) Retrieve(
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  action.Retrieve,
 		Objects: label.OntologyIDsFromLabels(res.Labels),
 	}); err != nil {
-		return res, err
+		return LabelRetrieveResponse{}, err
 	}
 	return res, nil
 }
@@ -134,7 +138,7 @@ func (s *LabelService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  action.Delete,
 		Objects: label.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -156,7 +160,7 @@ func (s *LabelService) Add(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  label.AddAction,
 		Objects: []ontology.ID{req.ID},
 	}); err != nil {
 		return types.Nil{}, err
@@ -183,7 +187,7 @@ func (s *LabelService) Remove(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  label.RemoveAction,
 		Objects: []ontology.ID{req.ID},
 	}); err != nil {
 		return types.Nil{}, err

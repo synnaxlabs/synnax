@@ -27,7 +27,7 @@ export const newUserZ = userZ
   .extend({ password: z.string().min(1) });
 export type NewUser = z.infer<typeof newUserZ>;
 
-export const UserOntologyType = "user" as ontology.ResourceType;
+export const ONTOLOGY_TYPE = "user" as ontology.ResourceType;
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: UserOntologyType, key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

@@ -11,13 +11,15 @@ package access
 
 import (
 	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 
 type Request struct {
 	Subject ontology.ID
 	Objects []ontology.ID
-	Action  Action
+	Action  action.Action
 }
 
 type Enforcer interface {

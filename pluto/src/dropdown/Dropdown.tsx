@@ -215,7 +215,6 @@ export const Dialog = ({
     <CoreDialog.Context.Provider value={ctxValue}>
       <C
         {...props}
-        borderShade={4}
         ref={combinedParentRef}
         className={CSS(
           className,

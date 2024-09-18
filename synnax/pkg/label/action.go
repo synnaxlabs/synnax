@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package access
+package label
 
-type Action string
+import "github.com/synnaxlabs/synnax/pkg/access/action"
 
 const (
-	All      Action = "all"
-	Create   Action = "create"
-	Retrieve Action = "retrieve"
-	Update   Action = "update"
-	Delete   Action = "delete"
+	AddAction    action.Action = "add_label"
+	RemoveAction action.Action = "remove_label"
 )

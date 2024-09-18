@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
@@ -63,7 +64,7 @@ type (
 func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (UserCreateResponse, error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  action.Create,
 		Objects: []ontology.ID{user.OntologyID(uuid.Nil)},
 	}); err != nil {
 		return UserCreateResponse{}, err
@@ -99,9 +100,12 @@ func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsername
 	if err := s.internal.NewRetrieve().WhereKeys(req.Key).Entry(&u).Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
 	}
+	if u.Username == req.Username {
+		return types.Nil{}, nil
+	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  user.ChangeUsernameAction,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
@@ -118,18 +122,18 @@ func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsername
 	})
 }
 
-type UserChangeNameRequest struct {
+type UserRenameRequest struct {
 	Key       uuid.UUID `json:"key" msgpack:"key"`
 	FirstName string    `json:"first_name" msgpack:"first_name"`
 	LastName  string    `json:"last_name" msgpack:"last_name"`
 }
 
-// ChangeName changes the name for the user with the provided key. If either the first
+// Rename changes the name for the user with the provided key. If either the first
 // or last name is empty, the corresponding field will not be updated.
-func (s *UserService) ChangeName(ctx context.Context, req UserChangeNameRequest) (types.Nil, error) {
+func (s *UserService) Rename(ctx context.Context, req UserRenameRequest) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  action.Rename,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
@@ -165,7 +169,7 @@ func (svc *UserService) Retrieve(ctx context.Context, req UserRetrieveRequest) (
 	}
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  action.Retrieve,
 		Objects: user.OntologyIDsFromUsers(users),
 	}); err != nil {
 		return UserRetrieveResponse{}, err
@@ -181,7 +185,7 @@ type UserDeleteRequest struct {
 func (s *UserService) Delete(ctx context.Context, req UserDeleteRequest) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  action.Delete,
 		Objects: user.OntologyIDsFromKeys(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err

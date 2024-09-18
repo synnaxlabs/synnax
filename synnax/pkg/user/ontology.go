@@ -28,6 +28,7 @@ func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: key.String()}
 }
 
+// OntologyIDsFromKeys returns a slice of unique identifiers from a slice of keys
 func OntologyIDsFromKeys(keys []uuid.UUID) []ontology.ID {
 	ids := make([]ontology.ID, len(keys))
 	for i, key := range keys {
@@ -59,6 +60,7 @@ var _schema = &ontology.Schema{
 		"username":  {Type: schema.String},
 		"firstName": {Type: schema.String},
 		"lastName":  {Type: schema.String},
+		"rootUser":  {Type: schema.Bool},
 	},
 }
 
@@ -118,5 +120,6 @@ func newResource(u User) schema.Resource {
 	schema.Set(e, "username", u.Username)
 	schema.Set(e, "firstName", u.FirstName)
 	schema.Set(e, "lastName", u.LastName)
+	schema.Set(e, "rootUser", u.RootUser)
 	return e
 }

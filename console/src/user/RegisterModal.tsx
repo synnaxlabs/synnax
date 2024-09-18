@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/EditLayout.css";
-
 import {
   Align,
   Button,
@@ -31,12 +29,16 @@ import { Permissions } from "@/permissions";
 const formSchema = z.object({
   username: z.string().min(1, "Username must not be empty"),
   password: z.string().min(1, "Password must not be empty"),
+  firstName: z.string().min(1, "First Name must not be empty"),
+  lastName: z.string().min(1, "Last Name must not be empty"),
 });
 type FormValues = z.infer<typeof formSchema>;
 
 const initialValues: FormValues = {
   username: "",
   password: "",
+  firstName: "",
+  lastName: "",
 };
 
 export const REGISTER_LAYOUT_TYPE = "registerUser";
@@ -72,7 +74,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
       if (!methods.validate()) return;
       const values = methods.value();
       if (client == null) throw new Error("No Cluster Connected");
-      const user = await client.user.register(values.username, values.password);
+      const user = await client.user.create({ ...values });
       Permissions.setBasePermissions(client, user.key);
       onClose();
     },
@@ -100,7 +102,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
                   autoFocus
                   level="h2"
                   variant="natural"
-                  placeholder="Username"
+                  placeholder="username"
                   {...p}
                 />
               )}
@@ -110,11 +112,24 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
                 <Input.Text
                   level="h2"
                   variant="natural"
-                  placeholder="Password"
+                  placeholder="password"
+                  type="password"
                   {...p}
                 />
               )}
             </Form.Field>
+            <Align.Space direction="x">
+              <Form.Field<string> path="firstName" label="First Name">
+                {(p) => (
+                  <Input.Text level="h3" variant="natural" placeholder="first" {...p} />
+                )}
+              </Form.Field>
+              <Form.Field<string> path="lastName" label="Last Name">
+                {(p) => (
+                  <Input.Text level="h3" variant="natural" placeholder="last" {...p} />
+                )}
+              </Form.Field>
+            </Align.Space>
           </Align.Space>
         </Form.Form>
       </Align.Space>
@@ -122,7 +137,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
           <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
-            To Save
+            To Register
           </Text.Text>
         </Nav.Bar.Start>
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
@@ -138,7 +153,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
             loading={isPending}
             triggers={[SAVE_TRIGGER]}
           >
-            Register to Synnax
+            Register in Synnax
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>

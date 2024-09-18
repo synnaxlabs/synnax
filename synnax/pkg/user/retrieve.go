@@ -13,13 +13,17 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// A Retrieve is used to retrieve users from the key-value store.
 type Retrieve struct {
+	// baseTX is the transaction that the Retrieve will use to atomically interact with
+	// the key-value store.
 	baseTX gorp.Tx
-	gorp   gorp.Retrieve[uuid.UUID, User]
+	// gorp is the underlying query that the Retrieve will use to get users from the
+	// key-value store.
+	gorp gorp.Retrieve[uuid.UUID, User]
 }
 
 // WhereKeys filters the query to only include users with the given keys.
@@ -51,7 +55,12 @@ func (r Retrieve) WhereUsername(username string) Retrieve {
 // WhereUsernames filters the query to only include users with the given usernames.
 func (r Retrieve) WhereUsernames(usernames ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(u *User) bool {
-		return lo.Contains(usernames, u.Username)
+		for _, username := range usernames {
+			if u.Username == username {
+				return true
+			}
+		}
+		return false
 	})
 	return r
 }

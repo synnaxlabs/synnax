@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -33,7 +34,7 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
+func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
 		keys[i], err = uuid.Parse(id.Key)
@@ -42,6 +43,12 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 		}
 	}
 	return keys, nil
+}
+
+func OntologyIDsFromSchematics(schematics []Schematic) []ontology.ID {
+	return lo.Map(schematics, func(s Schematic, _ int) ontology.ID {
+		return OntologyID(s.Key)
+	})
 }
 
 var _schema = &ontology.Schema{

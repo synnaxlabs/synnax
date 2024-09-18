@@ -13,6 +13,8 @@ package rack
 
 import (
 	"context"
+	"strconv"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -20,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"strconv"
 )
 
 const OntologyType ontology.Type = "rack"

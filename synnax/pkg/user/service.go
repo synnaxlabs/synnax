@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,18 +21,32 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Config is the configuration for opening a user.Service.
 type Config struct {
-	DB       *gorp.DB
+	// DB is the underlying database that the service will use to store Users.
+	DB *gorp.DB
+	// Ontology will be used to create relationships between users and other resources,
+	// such as workspaces, within the Synnax cluster.
 	Ontology *ontology.Ontology
-	Group    *group.Service
+	// Group is used to create the top level "Users" group that will be the default
+	// parent of all users.
+	Group *group.Service
 }
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	defaultConfig                       = Config{}
 )
 
-// Validate implements config.Properties.
+// Override implements [config.Config].
+func (c Config) Override(other Config) Config {
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
+	return c
+}
+
+// Validate implements [config.Config].
 func (c Config) Validate() error {
 	v := validate.New("user")
 	validate.NotNil(v, "DB", c.DB)
@@ -41,24 +55,18 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
-func (c Config) Override(other Config) Config {
-	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
-	return c
-}
-
+// A Service is how users are managed in the Synnax cluster.
 type Service struct {
+	// Config is the configuration for the service.
 	Config
 	group group.Group
 }
 
 const groupName = "Users"
 
-// NewService creates a new user service.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+// OpenService opens a new Service with the given context ctx and configurations configs.
+func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
+	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,28 +79,27 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	return s, nil
 }
 
-// NewWriter opens a new writer on a user service, capable of creating, updating, and
-// deleting Users.
-func (svc *Service) NewWriter(tx gorp.Tx) Writer {
+// NewWriter opens a new writer capable of creating, updating, and deleting Users. The
+// writer operates within the given transaction tx.
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(svc.DB, tx),
-		otg: svc.Ontology.NewWriter(tx),
-		svc: svc,
+		tx:  gorp.OverrideTx(s.DB, tx),
+		otg: s.Ontology.NewWriter(tx),
+		svc: s,
 	}
 }
 
-func (svc *Service) NewRetrieve() Retrieve {
+// NewRetrieve opens a new retrieve query capable of retrieving Users.
+func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   gorp.NewRetrieve[uuid.UUID, User](),
-		baseTX: svc.DB,
+		baseTX: s.DB,
 	}
 }
 
-// UsernameExists checks if a User with the given username exists.
+// UsernameExists reports whether a User with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
-	var u User
 	return gorp.NewRetrieve[uuid.UUID, User]().
 		Where(func(u *User) bool { return u.Username == username }).
-		Entry(&u).
 		Exists(ctx, s.DB)
 }

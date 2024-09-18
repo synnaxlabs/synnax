@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
@@ -42,8 +43,8 @@ type (
 func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
 	if err := a.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Objects: []ontology.ID{{Type: rbac.OntologyType}},
-		Action:  access.Create,
+		Objects: rbac.OntologyIDsFromPolicies(req.Policies),
+		Action:  action.Create,
 	}); err != nil {
 		return AccessCreatePolicyRequest{}, err
 	}
@@ -74,7 +75,7 @@ func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 	if err := a.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Objects: rbac.OntologyIDs(req.Keys),
-		Action:  access.Delete,
+		Action:  action.Delete,
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -134,7 +135,7 @@ func (svc *AccessService) RetrievePolicy(
 	}
 	if err = svc.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  action.Retrieve,
 		Objects: rbac.OntologyIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return AccessRetrievePolicyResponse{}, err

@@ -77,6 +77,14 @@ export class ID {
     return `${this.type}:${this.key}`;
   }
 
+  isType(): boolean {
+    return this.key === "";
+  }
+
+  matchesType(type: ResourceType): boolean {
+    return this.type === type && this.isType();
+  }
+
   get payload(): IDPayload {
     return {
       type: this.type,

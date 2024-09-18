@@ -20,8 +20,6 @@ import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
 
-export const OVERVIEW_TYPE = "overview";
-
 export const overviewLayout: Layout.State = {
   key: "overview",
   windowKey: "overview",
