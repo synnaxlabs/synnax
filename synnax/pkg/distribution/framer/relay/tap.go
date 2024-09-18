@@ -92,6 +92,9 @@ func (t *tapper) updateDemands(d demand) map[core.NodeKey]channel.Keys {
 		delete(t.demands, d.Key)
 	} else {
 		t.demands[d.Key] = d.Value.Keys
+		if t.downSamplingFactors == nil {
+			t.downSamplingFactors = make(map[channel.Key]int)
+		}
 		for _, k := range d.Value.Keys {
 			if d.Value.DownSampleFactor == 0 {
 				t.downSamplingFactors[k] = 1
@@ -186,7 +189,13 @@ func (t *tapper) tapInto(
 	responses := confluence.NewStream[Response](defaultBuffer)
 	tp.OutTo(responses)
 
-	downSampler := confluence.DownSampler[Response]{DownSample: downSample}
+	if t.downSamplingFactors == nil && len(keys) > 0 {
+		t.downSamplingFactors = make(map[channel.Key]int)
+		for _, key := range keys {
+			t.downSamplingFactors[key] = 1
+		}
+	}
+	downSampler := confluence.DownSampler[Response, channel.Key]{DownSample: downSample, DownSamplingFactors: t.downSamplingFactors}
 	downSampler.InFrom(responses)
 	downSampler.OutTo(t.AbstractUnarySource.Out)
 
@@ -261,7 +270,7 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func downSample(ctx context.Context, response Response) Response {
+func downSample(ctx context.Context, response Response, factors map[channel.Key]int) Response {
 	dsFrame := framer.Frame{Keys: response.Frame.Keys, Series: []telem.Series{}}
 	for _, series := range response.Frame.Series {
 		dsFrame.Series = append(dsFrame.Series, downSampleSeries(series, 2))
