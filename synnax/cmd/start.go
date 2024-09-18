@@ -460,7 +460,7 @@ func maybeProvisionRootUser(
 			ctx,
 			&rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},
-				Objects:  []ontology.ID{rbac.AllowAll},
+				Objects:  []ontology.ID{rbac.AllowAllOntologyID},
 			},
 		)
 	})

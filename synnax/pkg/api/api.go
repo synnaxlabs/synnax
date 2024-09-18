@@ -121,7 +121,7 @@ func (c Config) Override(other Config) Config {
 
 type Transport struct {
 	// AUTH
-	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	AuthLogin          freighter.UnaryServer[AuthLoginRequest, AuthLoginResponse]
 	AuthChangeUsername freighter.UnaryServer[AuthChangeUsernameRequest, types.Nil]
 	AuthChangePassword freighter.UnaryServer[AuthChangePasswordRequest, types.Nil]
 	// USER

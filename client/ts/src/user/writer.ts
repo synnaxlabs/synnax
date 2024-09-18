@@ -43,7 +43,7 @@ const deleteResZ = z.object({});
 
 const CREATE_ENDPOINT = "/user/create";
 const CHANGE_USERNAME_ENDPOINT = "/user/change-username";
-const CHANGE_NAME_ENDPOINT = "/user/change-name";
+const CHANGE_NAME_ENDPOINT = "/user/rename";
 const DELETE_ENDPOINT = "/user/delete";
 
 export class Writer {

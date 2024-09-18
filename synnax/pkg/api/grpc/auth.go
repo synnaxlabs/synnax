@@ -23,9 +23,9 @@ import (
 
 type (
 	authServer = fgrpc.UnaryServer[
-		auth.InsecureCredentials,
+		api.AuthLoginRequest,
 		*gapi.LoginRequest,
-		api.TokenResponse,
+		api.AuthLoginResponse,
 		*gapi.LoginResponse,
 	]
 )
@@ -36,27 +36,28 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[auth.InsecureCredentials, *gapi.LoginRequest] = (*loginRequestTranslator)(nil)
-	_ fgrpc.Translator[api.TokenResponse, *gapi.LoginResponse]       = (*loginResponseTranslator)(nil)
+	_ fgrpc.Translator[api.AuthLoginRequest, *gapi.LoginRequest]   = (*loginRequestTranslator)(nil)
+	_ fgrpc.Translator[api.AuthLoginResponse, *gapi.LoginResponse] = (*loginResponseTranslator)(nil)
 )
 
 func (l loginRequestTranslator) Forward(
 	_ context.Context,
-	creds auth.InsecureCredentials,
+	req api.AuthLoginRequest,
 ) (*gapi.LoginRequest, error) {
-	return &gapi.LoginRequest{Username: creds.Username, Password: string(creds.Password)}, nil
+	return &gapi.LoginRequest{Username: req.Username, Password: string(req.Password)}, nil
 }
 
 func (l loginRequestTranslator) Backward(
 	_ context.Context,
 	req *gapi.LoginRequest,
-) (auth.InsecureCredentials, error) {
-	return auth.InsecureCredentials{Username: req.Username, Password: password.Raw(req.Password)}, nil
+) (api.AuthLoginRequest, error) {
+	creds := auth.InsecureCredentials{Username: req.Username, Password: password.Raw(req.Password)}
+	return api.AuthLoginRequest{InsecureCredentials: creds}, nil
 }
 
 func (l loginResponseTranslator) Forward(
 	_ context.Context,
-	r api.TokenResponse,
+	r api.AuthLoginResponse,
 ) (*gapi.LoginResponse, error) {
 	return &gapi.LoginResponse{
 		Token: r.Token,
@@ -70,9 +71,9 @@ func (l loginResponseTranslator) Forward(
 func (l loginResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.LoginResponse,
-) (api.TokenResponse, error) {
+) (api.AuthLoginResponse, error) {
 	key, err := uuid.Parse(r.User.Key)
-	return api.TokenResponse{
+	return api.AuthLoginResponse{
 		Token: r.Token,
 		User: user.User{
 			Key:      key,

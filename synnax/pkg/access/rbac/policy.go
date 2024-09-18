@@ -74,13 +74,13 @@ func allowRequest(req access.Request, policies []Policy) bool {
 			// If the requested action is not described by the current policy,
 			// skip the policy.
 			// Unless the policy is an AllowAll, in which case do not skip.
-			if !lo.Contains(policy.Objects, AllowAll) {
+			if !lo.Contains(policy.Objects, AllowAllOntologyID) {
 				continue
 			}
 		}
 
 		for _, o := range policy.Objects {
-			if o.Type == AllowAll.Type {
+			if o.Type == AllowAllOntologyID.Type {
 				// If the subject has an AllowAll policy, allow all requests.
 				return true
 			}

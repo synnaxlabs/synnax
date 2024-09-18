@@ -14,12 +14,11 @@ import (
 
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/auth"
 )
 
 func New(router *fhttp.Router) (t api.Transport) {
 	// AUTH
-	t.AuthLogin = fhttp.UnaryServer[auth.InsecureCredentials, api.TokenResponse](router, false, "/api/v1/auth/login")
+	t.AuthLogin = fhttp.UnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, false, "/api/v1/auth/login")
 	t.AuthChangePassword = fhttp.UnaryServer[api.AuthChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/change-password")
 	t.AuthChangeUsername = fhttp.UnaryServer[api.AuthChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/change-username")
 

@@ -34,25 +34,29 @@ func NewAuthService(p Provider) *AuthService {
 	}
 }
 
-type TokenResponse struct {
+type AuthLoginResponse struct {
 	// User is the user the token is associated with.
 	User user.User `json:"user" msgpack:"user"`
 	// Token is the JWT.
 	Token string `json:"token" msgpack:"token"`
 }
 
+type AuthLoginRequest struct {
+	auth.InsecureCredentials
+}
+
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
-func (s *AuthService) Login(ctx context.Context, creds auth.InsecureCredentials) (TokenResponse, error) {
-	if err := s.authenticator.Authenticate(ctx, creds); err != nil {
-		return TokenResponse{}, err
+func (s *AuthService) Login(ctx context.Context, req AuthLoginRequest) (AuthLoginResponse, error) {
+	if err := s.authenticator.Authenticate(ctx, req.InsecureCredentials); err != nil {
+		return AuthLoginResponse{}, err
 	}
 	var u user.User
-	if err := s.user.NewRetrieve().WhereUsername(creds.Username).Entry(&u).Exec(ctx, nil); err != nil {
-		return TokenResponse{}, err
+	if err := s.user.NewRetrieve().WhereUsername(req.Username).Entry(&u).Exec(ctx, nil); err != nil {
+		return AuthLoginResponse{}, err
 	}
 	tk, err := s.token.New(u.Key)
-	return TokenResponse{User: u, Token: tk}, err
+	return AuthLoginResponse{User: u, Token: tk}, err
 }
 
 type AuthChangeUsernameRequest struct {

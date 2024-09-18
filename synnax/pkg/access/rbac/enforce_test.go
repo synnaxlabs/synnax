@@ -66,7 +66,7 @@ var _ = Describe("enforcer", func() {
 				},
 				{
 					Subjects: []ontology.ID{rbac3},
-					Objects:  []ontology.ID{rbac.AllowAll},
+					Objects:  []ontology.ID{rbac.AllowAllOntologyID},
 				},
 				{
 					Subjects: []ontology.ID{rbac1},

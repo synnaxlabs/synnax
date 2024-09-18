@@ -12,13 +12,14 @@ package rbac
 import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 
 const OntologyType ontology.Type = "policy"
 
-var AllowAll = ontology.ID{Type: access.AllowAllOntologyType, Key: ""}
+const AllowAllOntologyType = "allow_all"
+
+var AllowAllOntologyID = ontology.ID{Type: AllowAllOntologyType, Key: ""}
 
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
