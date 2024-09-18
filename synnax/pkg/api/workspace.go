@@ -43,6 +43,7 @@ type (
 )
 
 func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateRequest) (res WorkspaceCreateResponse, err error) {
+
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  action.Create,
@@ -55,12 +56,13 @@ func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateReques
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		for _, w := range req.Workspaces {
-			w.Author = userKey
-			err := s.internal.NewWriter(tx).Create(ctx, &w)
-			if err != nil {
+		w := s.internal.NewWriter(tx)
+		for i, ws := range req.Workspaces {
+			ws.Author = userKey
+			if err := w.Create(ctx, &ws); err != nil {
 				return err
 			}
+			req.Workspaces[i] = ws
 		}
 		res.Workspaces = req.Workspaces
 		return nil
