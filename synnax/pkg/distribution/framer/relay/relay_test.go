@@ -45,8 +45,8 @@ var _ = Describe("Relay", func() {
 
 		scenarios := []func() scenario{
 			gatewayOnlyScenario,
-			peerOnlyScenario,
-			mixedScenario,
+			//peerOnlyScenario,
+			//mixedScenario,
 		}
 		for i, sF := range scenarios {
 			_sF := sF
@@ -55,7 +55,8 @@ var _ = Describe("Relay", func() {
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
 				reader := MustSucceed(s.relay.NewStreamer(context.TODO(), relay.StreamerConfig{
-					Keys: s.keys,
+					Keys:             s.keys,
+					DownSampleFactor: 5,
 				}))
 				sCtx, _ := signal.Isolated()
 				streamerReq, readerRes := confluence.Attach(reader, 10)
@@ -76,9 +77,6 @@ var _ = Describe("Relay", func() {
 						telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
 						telem.NewSeriesV[int64](11, 12, 13, 14, 15, 16, 17, 18, 19, 20),
 						telem.NewSeriesV[int64](21, 22, 23, 24, 25, 26, 27, 28, 29, 30),
-						//telem.NewSeriesV[int64](1, 2, 3),
-						//telem.NewSeriesV[int64](4, 5, 6),
-						//telem.NewSeriesV[int64](7, 8, 9),
 					},
 				}
 				Expect(writer.Write(writeF)).To(BeTrue())

@@ -97,7 +97,7 @@ func (t *tapper) updateDemands(d demand) map[core.NodeKey]channel.Keys {
 		}
 		for _, k := range d.Value.Keys {
 			if d.Value.DownSampleFactor == 0 {
-				t.downSamplingFactors[k] = 2
+				t.downSamplingFactors[k] = 1
 			} else {
 				t.downSamplingFactors[k] = d.Value.DownSampleFactor
 			}
