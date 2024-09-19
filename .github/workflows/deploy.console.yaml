@@ -229,7 +229,7 @@ jobs:
 
             const darwinURL = baseURL + "Synnax.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
-            const windowsURL = baseURL + `Synnax_${pureVersion}_x64_en-US.msi.zip`;
+            const windowsURL = baseURL + `Synnax_${pureVersion}_x64_en-US.msi`;
             const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
             const ecd = new TextDecoder();

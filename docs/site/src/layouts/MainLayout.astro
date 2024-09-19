@@ -10,7 +10,7 @@ import Footer from "@/components/Footer.astro";
 import Article from "@/components/article/Article.astro";
 const {
     headings,
-    frontmatter: { title, heading, description },
+    frontmatter: { title, heading, description, url, next, nextURL, prev, prevURL },
 } = Astro.props;
 ---
 
@@ -42,7 +42,15 @@ const {
     <main>
         <section>
             <PageNav />
-            <Article title={heading ?? title} description={description}>
+            <Article
+                url={url}
+                title={heading ?? title}
+                description={description}
+                next={next}
+                prev={prev}
+                nextURL={nextURL}
+                prevURL={prevURL}
+            >
                 <slot />
             </Article>
             <OnThisPage headings={headings} url={Astro.url} />
