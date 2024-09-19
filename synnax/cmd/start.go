@@ -15,6 +15,7 @@ import (
 	"encoding/base64"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"os"
 	"os/signal"
@@ -206,6 +207,7 @@ func start(cmd *cobra.Command) {
 			Signals:      dist.Signals,
 			Channel:      dist.Channel,
 		})
+		frameSvc, err := framer.NewService(dist.Framer)
 		if err != nil {
 			return err
 		}
@@ -228,7 +230,7 @@ func start(cmd *cobra.Command) {
 			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
 			Channel:         dist.Channel,
-			Framer:          dist.Framer,
+			Framer:          frameSvc,
 			Storage:         dist.Storage,
 			User:            userSvc,
 			Token:           tokenSvc,

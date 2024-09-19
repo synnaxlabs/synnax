@@ -38,3 +38,9 @@ func (s *Service) NewDeleter() framer.Deleter {
 func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
 	return s.Internal.NewStreamer(ctx, cfg)
 }
+
+func NewService(framerSvc *framer.Service) (*Service, error) {
+	return &Service{
+		Internal: framerSvc,
+	}, nil
+}
