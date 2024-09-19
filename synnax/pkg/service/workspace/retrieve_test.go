@@ -12,7 +12,7 @@ package workspace_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
 var _ = Describe("Retrieve", func() {
