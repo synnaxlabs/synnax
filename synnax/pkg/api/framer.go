@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
+	access "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -60,9 +60,9 @@ func (s *FrameService) FrameDelete(
 	ctx context.Context,
 	req FrameDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Delete,
+		Action:  access.Delete,
 		Objects: req.Keys.OntologyIDs(),
 	}); err != nil {
 		return types.Nil{}, err

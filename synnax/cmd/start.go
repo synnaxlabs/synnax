@@ -14,7 +14,7 @@ import (
 	"context"
 	"encoding/base64"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	rbac2 "github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	rbac "github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"os"
 	"os/signal"
@@ -34,17 +34,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/hardware"
-	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
-	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/synnax/pkg/workspace"
-	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -165,7 +165,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		rbacSvc, err := rbac2.NewService(rbac2.Config{DB: gorpDB})
+		rbacSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
 		if err != nil {
 			return err
 		}
@@ -436,7 +436,7 @@ func maybeProvisionRootUser(
 	db *gorp.DB,
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
-	rbacSvc *rbac2.Service,
+	rbacSvc *rbac.Service,
 ) error {
 	creds := auth.InsecureCredentials{
 		Username: viper.GetString(usernameFlag),
@@ -458,9 +458,9 @@ func maybeProvisionRootUser(
 		}
 		return rbacSvc.NewWriter(tx).Create(
 			ctx,
-			&rbac2.Policy{
+			&rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},
-				Objects:  []ontology.ID{rbac2.AllowAll},
+				Objects:  []ontology.ID{rbac.AllowAll},
 			},
 		)
 	})

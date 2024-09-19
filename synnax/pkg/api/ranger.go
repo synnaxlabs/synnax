@@ -13,14 +13,14 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -54,9 +54,9 @@ type (
 )
 
 func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res RangeCreateResponse, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Create,
+		Action:  access.Create,
 		Objects: []ontology.ID{{Type: ranger.OntologyType}},
 	}); err != nil {
 		return res, err
@@ -113,9 +113,9 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	if err != nil {
 		return RangeRetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access2.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Retrieve,
+		Action:  access.Retrieve,
 		Objects: ranger.OntologyIDsFromRanges(resRanges),
 	}); err != nil {
 		return RangeRetrieveResponse{}, err
@@ -129,9 +129,9 @@ type RangeRenameRequest struct {
 }
 
 func (s *RangeService) Rename(ctx context.Context, req RangeRenameRequest) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Rename,
+		Action:  access.Rename,
 		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -146,9 +146,9 @@ type RangeDeleteRequest struct {
 }
 
 func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Delete,
+		Action:  access.Delete,
 		Objects: ranger.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -178,9 +178,9 @@ func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res Ra
 	if err = s.internal.NewRetrieve().Entry(&r).WhereKeys(req.Range).Exec(ctx, nil); err != nil {
 		return
 	}
-	if err = s.access.Enforce(ctx, access2.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Retrieve,
+		Action:  access.Retrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return RangeKVGetResponse{}, err
@@ -199,9 +199,9 @@ type RangeKVSetRequest struct {
 }
 
 func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Create,
+		Action:  access.Create,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return res, err
@@ -224,9 +224,9 @@ type RangeKVDeleteRequest struct {
 }
 
 func (s *RangeService) KVDelete(ctx context.Context, req RangeKVDeleteRequest) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Delete,
+		Action:  access.Delete,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return res, err
@@ -254,9 +254,9 @@ type RangeAliasSetRequest struct {
 }
 
 func (s *RangeService) AliasSet(ctx context.Context, req RangeAliasSetRequest) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Create,
+		Action:  access.Create,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return res, err
@@ -289,9 +289,9 @@ type (
 )
 
 func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRequest) (res RangeAliasResolveResponse, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Retrieve,
+		Action:  access.Retrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return res, err
@@ -322,9 +322,9 @@ type RangeAliasDeleteRequest struct {
 }
 
 func (s *RangeService) AliasDelete(ctx context.Context, req RangeAliasDeleteRequest) (res types.Nil, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Delete,
+		Action:  access.Delete,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return res, err
@@ -356,9 +356,9 @@ type (
 )
 
 func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest) (res RangeAliasListResponse, _ error) {
-	if err := s.access.Enforce(ctx, access2.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access2.Retrieve,
+		Action:  access.Retrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return res, err

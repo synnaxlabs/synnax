@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -30,7 +30,7 @@ type Policy struct {
 	// Objects is the list of objects that the policy applies to
 	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions that the policy applies to
-	Actions []access2.Action `json:"actions" msgpack:"actions"`
+	Actions []access.Action `json:"actions" msgpack:"actions"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}
@@ -49,7 +49,7 @@ func (p Policy) SetOptions() []interface{} { return nil }
 //   - An object-action pair is a pair with the specified action in the request and an
 //     object that is either a type object with the correct type, or an object that
 //     exactly matches one of the requested objects.
-func AllowRequest(req access2.Request, policies []Policy) bool {
+func AllowRequest(req access.Request, policies []Policy) bool {
 	requestedObjects := make(map[ontology.ID]struct{})
 	for _, o := range req.Objects {
 		requestedObjects[o] = struct{}{}

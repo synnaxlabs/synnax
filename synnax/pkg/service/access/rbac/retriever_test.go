@@ -12,7 +12,7 @@ package rbac_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rbac2 "github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -21,13 +21,13 @@ import (
 var _ = Describe("Writer", func() {
 	var (
 		db        *gorp.DB
-		writer    rbac2.Writer
-		retriever rbac2.Retriever
-		svc       *rbac2.Service
+		writer    rbac.Writer
+		retriever rbac.Retriever
+		svc       *rbac.Service
 	)
 	BeforeEach(func() {
 		db = gorp.Wrap(memkv.New())
-		svc = MustSucceed(rbac2.NewService(rbac2.Config{DB: db}))
+		svc = MustSucceed(rbac.NewService(rbac.Config{DB: db}))
 		writer = svc.NewWriter(nil)
 		retriever = svc.NewRetriever()
 	})
@@ -37,7 +37,7 @@ var _ = Describe("Writer", func() {
 	It("Should retrieve a policy", func() {
 		// Giving a user the rights to change their own password
 		Expect(writer.Create(ctx, &changePasswordPolicy)).To(Succeed())
-		var policy rbac2.Policy
+		var policy rbac.Policy
 		err := retriever.Entry(&policy).WhereSubject(userID).Exec(ctx, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(policy).To(Equal(changePasswordPolicy))

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	label2 "github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -26,8 +26,8 @@ import (
 var _ = Describe("Label", Ordered, func() {
 	var (
 		db  *gorp.DB
-		svc *label2.Service
-		w   label2.Writer
+		svc *label.Service
+		w   label.Writer
 		otg *ontology.Ontology
 		tx  gorp.Tx
 	)
@@ -35,7 +35,7 @@ var _ = Describe("Label", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(label2.OpenService(ctx, label2.Config{
+		svc = MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -54,7 +54,7 @@ var _ = Describe("Label", Ordered, func() {
 	})
 	Describe("Create", func() {
 		It("Should create a new label", func() {
-			l := &label2.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.Color("#000000"),
 			}
@@ -62,13 +62,13 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
 		It("Should create many labels", func() {
-			ls := []label2.Label{
+			ls := []label.Label{
 				{
 					Name:  "Label1",
 					Color: color.Color("#000000"),
 				},
 				{
-					Name:  "Label2",
+					Name:  "label",
 					Color: color.Color("#000000"),
 				},
 			}
@@ -80,7 +80,7 @@ var _ = Describe("Label", Ordered, func() {
 	})
 	Describe("Delete", func() {
 		It("Should delete a label", func() {
-			l := &label2.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.Color("#000000"),
 			}
@@ -89,13 +89,13 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.NotFound))
 		})
 		It("Should delete many labels", func() {
-			ls := []label2.Label{
+			ls := []label.Label{
 				{
 					Name:  "Label1",
 					Color: color.Color("#000000"),
 				},
 				{
-					Name:  "Label2",
+					Name:  "label",
 					Color: color.Color("#000000"),
 				},
 			}
@@ -108,61 +108,61 @@ var _ = Describe("Label", Ordered, func() {
 	})
 	Describe("Retrieve", func() {
 		It("Should get the labels for an ontology resource", func() {
-			l := &label2.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.Color("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &label2.Label{
+			labeled := &label.Label{
 				Name:  "Labeled",
 				Color: color.Color("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label2.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, label2.OntologyID(labeled.Key), tx))
+			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 		})
 	})
 	Describe("RemoveLabel", func() {
 		It("Should remove a label", func() {
-			l := &label2.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.Color("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &label2.Label{
+			labeled := &label.Label{
 				Name:  "Labeled",
 				Color: color.Color("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label2.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, label2.OntologyID(labeled.Key), tx))
+			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
-			Expect(w.RemoveLabel(ctx, label2.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
-			labels = MustSucceed(svc.RetrieveFor(ctx, label2.OntologyID(labeled.Key), tx))
+			Expect(w.RemoveLabel(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(0))
 		})
 	})
 	Describe("Clear", func() {
 		It("Should remove all labels on an object", func() {
-			l := &label2.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.Color("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &label2.Label{
+			labeled := &label.Label{
 				Name:  "Labeled",
 				Color: color.Color("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, label2.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, label2.OntologyID(labeled.Key), tx))
+			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
+			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
-			Expect(w.Clear(ctx, label2.OntologyID(labeled.Key))).To(Succeed())
-			labels = MustSucceed(svc.RetrieveFor(ctx, label2.OntologyID(labeled.Key), tx))
+			Expect(w.Clear(ctx, label.OntologyID(labeled.Key))).To(Succeed())
+			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(0))
 		})
 	})
