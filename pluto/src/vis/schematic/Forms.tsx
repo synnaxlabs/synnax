@@ -756,18 +756,12 @@ export const TextBoxForm = (): ReactElement => (
   </FormWrapper>
 );
 
-export const ArrowForm = (): ReactElement => (
+export const OffPageReferenceForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
     <Align.Space direction="y" grow>
-      <Align.Space direction="x" align="stretch">
-        <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
-          {(p) => <Input.Text selectOnFocus {...p} />}
-        </Form.Field>
-        <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
-          {(p) => <Text.SelectLevel {...p} />}
-        </Form.Field>
-      </Align.Space>
+      <LabelControls path="label" />
       <ColorControl path="color" />
     </Align.Space>
+    <OrientationControl path="" />
   </FormWrapper>
 );

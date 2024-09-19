@@ -1374,20 +1374,35 @@ export const TextBox = (props: SymbolProps<TextBoxProps>): ReactElement => (
 );
 
 export const TextBoxPreview = ({
-  text = "example text",
   level = "p",
   width = 100,
   ...rest
 }: SymbolProps<TextBoxProps>): ReactElement => (
-  <Primitives.TextBox text={text} level={level} width={width} {...rest} />
+  <Primitives.TextBox
+    className={CSS.B("symbol")}
+    level={level}
+    width={width}
+    {...rest}
+  />
 );
 
-export interface ArrowProps extends Primitives.ArrowProps {}
+export interface ArrowProps extends Omit<Primitives.OffPageReferenceProps, "label"> {
+  label: LabelExtensionProps;
+}
 
-export const Arrow = (props: SymbolProps<ArrowProps>): ReactElement => (
-  <Primitives.Arrow {...props} />
+export const OffPageReference = ({
+  label: { label, level },
+  position: _,
+  ...props
+}: SymbolProps<ArrowProps>): ReactElement => (
+  <Primitives.OffPageReference
+    label={label}
+    level={level}
+    {...props}
+    className={CSS.B("symbol")}
+  />
 );
 
-export const ArrowPreview = (props: ArrowProps) => (
-  <Primitives.Arrow text="Arrow" {...props} />
+export const OffPageReferencePreview = ({ label: _, ...props }: ArrowProps) => (
+  <Primitives.OffPageReference label="Off Page" {...props} />
 );

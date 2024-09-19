@@ -14,11 +14,11 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
-  ArrowForm,
   ButtonForm,
   CommonStyleForm,
   CommonToggleForm,
   LightForm,
+  OffPageReferenceForm,
   SetpointForm,
   type SymbolFormProps,
   TankForm,
@@ -36,8 +36,6 @@ import {
   AngledValve,
   AngledValvePreview,
   type AngledValveProps,
-  Arrow,
-  ArrowPreview,
   type ArrowProps,
   Box,
   BoxPreview,
@@ -84,6 +82,8 @@ import {
   NeedleValve,
   NeedleValvePreview,
   type NeedleValveProps,
+  OffPageReference,
+  OffPageReferencePreview,
   Orifice,
   OrificePreview,
   type OrificeProps,
@@ -161,7 +161,7 @@ const VARIANTS = [
   "agitator",
   "angledReliefValve",
   "angledValve",
-  "arrow",
+  "offPageReference",
   "box",
   "burstDisc",
   "button",
@@ -824,22 +824,21 @@ const textBox: Spec<TextBoxProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
-const arrow: Spec<ArrowProps> = {
-  name: "Arrow",
-  key: "arrow",
-  Form: ArrowForm,
-  Symbol: Arrow,
+const offPageReference: Spec<ArrowProps> = {
+  name: "Off Page Reference",
+  key: "offPageReference",
+  Form: OffPageReferenceForm,
+  Symbol: OffPageReference,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    text: "Arrow",
-    level: "p",
+    ...zeroLabel("Off Page Reference"),
   }),
-  Preview: ArrowPreview,
+  Preview: OffPageReferencePreview,
   zIndex: Z_INDEX_UPPER,
 };
 
 export const SYMBOLS: Record<Variant, Spec<any>> = {
-  arrow,
+  offPageReference,
   value,
   light,
   switch: switch_,

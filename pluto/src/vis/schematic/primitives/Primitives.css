@@ -187,18 +187,19 @@
     }
 }
 
-.pluto-arrow {
+/*
+ .pluto-arrow {
     display: flex;
     align-items: center;
     --padding: 10px;
     border: 2px solid black;
-    border-right: none; /* Remove right border */
+    border-right: none; Remove right border
     border-radius: var(--pluto-border-radius);
     height: calc(var(--text-size) + var(--padding));
     padding: 0 2rem;
     border-color: var(--border-color);
 
-    /* add an after pseudo element that will be the arrow */
+    add an after pseudo element that will be the arrow
     &::before {
         content: "";
         display: block;
@@ -223,5 +224,54 @@
         border-bottom: calc(var(--internal-bheight) - 1px) solid transparent;
         border-left: calc(var(--internal-bheight) - 1px) solid var(--pluto-gray-l0);
         top: -1px;
+    }
+} */
+
+.pluto-arrow {
+    &.pluto--top {
+        transform: rotate(-90deg);
+    }
+    &.pluto--bottom {
+        transform: rotate(90deg);
+    }
+    &.pluto--left {
+        transform: rotate(180deg);
+        .pluto-text {
+            transform: rotate(180deg);
+        }
+    }
+    .wrapper {
+        display: inline-block;
+        filter: url("#goo");
+        .outline {
+            padding: 1px;
+            clip-path: polygon(
+                0 0,
+                calc(100% - 2rem) 0,
+                100% 50%,
+                calc(100% - 2rem) 100%,
+                0 100%
+            );
+
+            .bg {
+                clip-path: polygon(
+                    0 0,
+                    calc(100% - 2rem) 0,
+                    calc(100% - 2px) 50%,
+                    calc(100% - 2rem) 100%,
+                    0 100%
+                );
+                margin-top: 1px;
+                margin-bottom: 1px;
+                margin-left: 1px;
+                padding-right: 2.5rem;
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+                padding-left: 1rem;
+                background-color: var(--pluto-gray-l0);
+                width: calc(100% - 1px);
+                height: calc(100% - 2px);
+            }
+        }
     }
 }

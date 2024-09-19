@@ -22,9 +22,9 @@
     border: var(--pluto-border-width) dashed var(--pluto-primary-z-40) !important;
 }
 
-.react-flow__node.selected {
+.react-flow__node.selected .pluto-symbol-primitive {
     /* make an inset box shadow to simulate a background */
-    box-shadow: 0 0 0 1000px var(--pluto-primary-z-20) inset !important;
+    box-shadow: 0 0 0 1000px var(--pluto-primary-z) inset !important;
 
     & .react-flow__resize-control {
         display: block;

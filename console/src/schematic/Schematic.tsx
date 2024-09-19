@@ -127,6 +127,7 @@ const SymbolRenderer = ({
 
   return (
     <C.Symbol
+      id={symbolKey}
       aetherKey={symbolKey}
       position={position}
       selected={selected}

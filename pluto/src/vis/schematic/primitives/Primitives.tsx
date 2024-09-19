@@ -96,7 +96,9 @@ const adjustHandle = (
   top: number,
   left: number,
   orientation: location.Outer,
+  prevent: boolean = false,
 ): { left: number; top: number } => {
+  if (prevent) return { left, top };
   if (orientation === "left") return { top, left };
   if (orientation === "right") return { top: 100 - top, left: 100 - left };
   if (orientation === "top") return { top: 100 - left, left: top };
@@ -140,6 +142,8 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
 interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {
   orientation: location.Outer;
   location: location.Outer;
+  position?: RFPosition;
+  preventAutoAdjust?: boolean;
   left: number;
   top: number;
   id: string;
@@ -148,11 +152,12 @@ interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {
 const Handle = ({
   location,
   orientation,
+  preventAutoAdjust,
   left,
   top,
   ...props
 }: HandleProps): ReactElement => {
-  const adjusted = adjustHandle(top, left, orientation);
+  const adjusted = adjustHandle(top, left, orientation, preventAutoAdjust);
   return (
     <RFHandle
       position={smartPosition(location, orientation)}
@@ -1841,36 +1846,83 @@ export const Compressor = ({
   </Toggle>
 );
 
-export interface ArrowProps extends DivProps {
-  text?: string;
+export interface OffPageReferenceProps extends DivProps {
+  label?: string;
   level?: Text.TextProps["level"];
   color?: Color.Crude;
 }
 
-export const Arrow: React.FC<ArrowProps> = ({
+export const OffPageReference: React.FC<OffPageReferenceProps> = ({
+  id,
   className,
-  orientation = "left",
-  text = "text",
+  orientation = "top",
+  label = "text",
   color = "black",
   level = "p",
   ...props
 }) => {
-  const borderColor = Color.cssString(color);
+  const element = document.querySelector(`[data-id="${id}"]`);
+  // add the orientation to the class list
+  if (element) {
+    element.classList.add(orientation);
+  }
+
   return (
     <Div
+      className={CSS(CSS.B("arrow"), CSS.loc(orientation), className)}
+      orientation={orientation}
       style={{
-        // @ts-expect-error CSS variables
-        "--border-color": borderColor,
-        "--text-size": `var(--pluto-${level}-line-height)`,
+        transform: orientation === "top" ? "rotate(-90deg)" : "",
       }}
-      className={CSS(className, CSS.B("arrow"), CSS.BM("arrow", level))}
       {...props}
     >
+      <div className="wrapper">
+        <div className="outline" style={{ backgroundColor: Color.cssString(color) }}>
+          <div className="bg">
+            <Text.Text level={level} className={CSS.BE("symbol", "label")}>
+              {label}
+            </Text.Text>
+          </div>
+        </div>
+      </div>
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+        <Handle
+          location="left"
+          orientation={orientation}
+          preventAutoAdjust
+          left={0}
+          top={50}
+          id="1"
+        />
+        <Handle
+          location="right"
+          preventAutoAdjust
+          orientation={orientation}
+          left={98}
+          top={50}
+          id="2"
+        />
       </HandleBoundary>
-      <Text.Text level={level}>{text}</Text.Text>
+      <svg
+        style={{ visibility: "hidden", position: "absolute" }}
+        width="0"
+        height="0"
+        xmlns="http://www.w3.org/2000/svg"
+        version="1.1"
+      >
+        <defs>
+          <filter id="goo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
+            <feColorMatrix
+              in="blur"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
+              result="goo"
+            />
+            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          </filter>
+        </defs>
+      </svg>
     </Div>
   );
 };
