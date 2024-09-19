@@ -19,7 +19,7 @@ const reqZ = z.object({
 });
 type Request = z.infer<typeof reqZ>;
 const resZ = z.object({ users: nullableArrayZ(userZ) });
-const RETRIEVE_ENDPOINT = "/user/retrieve";
+const ENDPOINT = "/user/retrieve";
 
 export class Retriever {
   private readonly client: UnaryClient;
@@ -31,7 +31,7 @@ export class Retriever {
   async retrieve(req: Request): Promise<User[]> {
     const res = await sendRequired<typeof reqZ, typeof resZ>(
       this.client,
-      RETRIEVE_ENDPOINT,
+      ENDPOINT,
       req,
       reqZ,
       resZ,

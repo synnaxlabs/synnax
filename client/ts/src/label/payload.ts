@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 
+import { type access } from "@/access";
 import { ontology } from "@/ontology";
 
 export const keyZ = z.string().uuid();
@@ -25,7 +26,10 @@ export const labelZ = z.object({
 
 export type Label = z.infer<typeof labelZ>;
 
-export const LabelOntologyType = "label" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "label";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: LabelOntologyType, key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+
+export const ADD_ACTION: access.Action = "add_label";
+export const REMOVE_ACTION: access.Action = "remove_label";

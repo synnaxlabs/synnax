@@ -46,8 +46,9 @@ func NewUserService(p Provider) *UserService {
 // and password are required, and the first and last name are optional.
 type NewUser struct {
 	auth.InsecureCredentials
-	FirstName string `json:"first_name" msgpack:"first_name"`
-	LastName  string `json:"last_name" msgpack:"last_name"`
+	FirstName string    `json:"first_name" msgpack:"first_name"`
+	LastName  string    `json:"last_name" msgpack:"last_name"`
+	Key       uuid.UUID `json:"key" msgpack:"key"`
 }
 
 type (

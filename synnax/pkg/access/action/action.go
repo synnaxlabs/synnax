@@ -18,8 +18,8 @@ const (
 	All      Action = "all"
 	Copy     Action = "copy"
 	Create   Action = "create"
-	Rename   Action = "rename"
-	SetData  Action = "set_data"
-	Retrieve Action = "retrieve"
 	Delete   Action = "delete"
+	Rename   Action = "rename"
+	Retrieve Action = "retrieve"
+	SetData  Action = "set_data"
 )

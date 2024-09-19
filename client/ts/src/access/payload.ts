@@ -10,43 +10,60 @@
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { crudeIDZ, idZ } from "@/ontology/payload";
 
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
-export type Params = Key | Key[];
 
 export const actionZ = z.union([
+  z.literal("add_children"),
+  z.literal("add_label"),
   z.literal("all"),
+  z.literal("change_username"),
+  z.literal("copy"),
   z.literal("create"),
   z.literal("delete"),
+  z.literal("delete_alias"),
+  z.literal("delete_key_value"),
+  z.literal("get_key_value"),
+  z.literal("list_aliases"),
+  z.literal("move_children"),
+  z.literal("remove_children"),
+  z.literal("remove_label"),
+  z.literal("rename"),
+  z.literal("resolve_alias"),
   z.literal("retrieve"),
-  z.literal("update"),
+  z.literal("set_alias"),
+  z.literal("set_data"),
+  z.literal("set_key_value"),
+  z.literal("set_layout"),
 ]);
 export type Action = z.infer<typeof actionZ>;
-export const ALL_ACTION = "all" as const;
-export const CREATE_ACTION = "create" as const;
-export const DELETE_ACTION = "delete" as const;
-export const RETRIEVE_ACTION = "retrieve" as const;
-export const RENAME_ACTION = "update" as const;
+
+export const ALL_ACTION: Action = "all";
+export const COPY_ACTION: Action = "copy";
+export const CREATE_ACTION: Action = "create";
+export const DELETE_ACTION: Action = "delete";
+export const RENAME_ACTION: Action = "rename";
+export const RETRIEVE_ACTION: Action = "retrieve";
+export const SET_DATA_ACTION: Action = "set_data";
 
 export const newPolicyZ = z.object({
-  key: keyZ.optional().catch(undefined),
-  subjects: crudeIDZ.array().or(crudeIDZ.transform((v) => [v])),
-  objects: crudeIDZ.array().or(crudeIDZ.transform((v) => [v])),
-  actions: actionZ.array().or(actionZ.transform((v) => [v])),
+  key: keyZ.optional(),
+  subjects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
+  objects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
+  actions: actionZ.array().or(actionZ),
 });
 export type NewPolicy = z.input<typeof newPolicyZ>;
 
 export const policyZ = z.object({
   key: keyZ,
-  subjects: idZ.array(),
-  objects: idZ.array(),
+  subjects: ontology.idZ.array(),
+  objects: ontology.idZ.array(),
   actions: actionZ.array(),
 });
 export type Policy = z.infer<typeof policyZ>;
 
-export const OntologyType = "policy" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "policy";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: OntologyType, key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

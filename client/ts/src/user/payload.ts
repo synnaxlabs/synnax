@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 
+import { type access } from "@/access";
 import { ontology } from "@/ontology";
 
 export const keyZ = z.string().uuid();
@@ -19,15 +20,19 @@ export const userZ = z.object({
   username: z.string().min(1),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  rootUser: z.boolean(),
 });
 export type User = z.infer<typeof userZ>;
 
 export const newUserZ = userZ
-  .omit({ key: true })
+  .partial({ key: true, firstName: true, lastName: true })
+  .omit({ rootUser: true })
   .extend({ password: z.string().min(1) });
 export type NewUser = z.infer<typeof newUserZ>;
 
-export const ONTOLOGY_TYPE = "user" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "user";
 
 export const ontologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key });
+
+export const CHANGE_USERNAME_ACTION: access.Action = "change_username";

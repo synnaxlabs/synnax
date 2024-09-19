@@ -14,31 +14,29 @@ import { AuthError, NotFoundError } from "@/errors";
 import { newClient } from "@/setupspecs";
 import { type user } from "@/user";
 
-type TestingUser = user.NewUser & { key?: string };
-
 type SortType = { username: string };
 
 const sort = (a: SortType, b: SortType) => a.username.localeCompare(b.username);
 
 const client = newClient();
 
-const userOne: TestingUser = {
+const userOne: user.NewUser = {
   username: id.id(),
   password: "test",
   firstName: "George",
   lastName: "Washington",
 };
 
-const userTwo: TestingUser = { username: id.id(), password: "test" };
+const userTwo: user.NewUser = { username: id.id(), password: "test" };
 
-const userThree: TestingUser = {
+const userThree: user.NewUser = {
   username: id.id(),
   password: "test",
   firstName: "John",
   lastName: "Adams",
 };
 
-const userArray: TestingUser[] = [
+const userArray: user.NewUser[] = [
   { username: id.id(), password: "secondTest", firstName: "Steve" },
   { username: id.id(), password: "testArray" },
 ].sort(sort);

@@ -23,10 +23,7 @@ import {
 const createReqZ = z.object({ users: newUserZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 
-const changeUsernameReqZ = z.object({
-  key: keyZ,
-  username: z.string().min(1),
-});
+const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
 const changeUsernameResZ = z.object({});
 
 const changeNameReqZ = z.object({
@@ -36,9 +33,7 @@ const changeNameReqZ = z.object({
 });
 const changeNameResZ = z.object({});
 
-const deleteReqZ = z.object({
-  keys: keyZ.array(),
-});
+const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
 const CREATE_ENDPOINT = "/user/create";
@@ -84,11 +79,11 @@ export class Writer {
     );
   }
 
-  async delete(keys: Key[]): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
-      { keys },
+      { keys: toArray(keys) },
       deleteReqZ,
       deleteResZ,
     );

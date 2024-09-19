@@ -7,37 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x/toArray";
-import { z } from "zod";
 
-import {
-  type Key,
-  keyZ,
-  type NewPolicy,
-  newPolicyZ,
-  type Policy,
-  policyZ,
-} from "@/access/payload";
+import { type Key, type NewPolicy, type Policy } from "@/access/payload";
 import { Retriever } from "@/access/retriever";
+import { Writer } from "@/access/writer";
 import { ontology } from "@/ontology";
 
-const CREATE_ENDPOINT = "/access/policy/create";
-const DELETE_ENDPOINT = "/access/policy/delete";
-
-const createReqZ = z.object({ policies: newPolicyZ.array() });
-const createResZ = z.object({ policies: policyZ.array() });
-
-const deleteReqZ = z.object({ keys: keyZ.array() });
-const deleteResZ = z.object({});
-
 export class Client {
-  private readonly client: UnaryClient;
   private readonly retriever: Retriever;
+  private readonly writer: Writer;
 
   constructor(client: UnaryClient) {
-    this.client = client;
     this.retriever = new Retriever(client);
+    this.writer = new Writer(client);
   }
 
   async create(policy: NewPolicy): Promise<Policy>;
@@ -46,18 +30,8 @@ export class Client {
 
   async create(policies: NewPolicy | NewPolicy[]): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
-    const { policies: created } = await sendRequired<
-      typeof createReqZ,
-      typeof createResZ
-    >(
-      this.client,
-      CREATE_ENDPOINT,
-      { policies: toArray(policies).map((policy) => newPolicyZ.parse(policy)) },
-      createReqZ,
-      createResZ,
-    );
-
-    return isMany ? created : created[0];
+    const createdPolicies = await this.writer.create(policies);
+    return isMany ? createdPolicies : createdPolicies[0];
   }
 
   async retrieve(key: Key): Promise<Policy>;
@@ -66,26 +40,26 @@ export class Client {
 
   async retrieve(keys: Key | Key[]): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(keys);
-    const res = await this.retriever.retrieve(keys);
+    const res = await this.retriever.retrieve({ keys: toArray(keys) });
     return isMany ? res : res[0];
   }
 
-  async retrieveFor(id: ontology.CrudeID): Promise<Policy[]>;
+  async retrieveFor(subject: ontology.CrudeID): Promise<Policy[]>;
 
-  async retrieveFor(ids: ontology.CrudeID[]): Promise<Policy[]>;
+  async retrieveFor(subjects: ontology.CrudeID[]): Promise<Policy[]>;
 
-  async retrieveFor(ids: ontology.CrudeID | ontology.CrudeID[]): Promise<Policy[]> {
-    const newIds = toArray(ids).map((id) => new ontology.ID(id).payload);
-    return await this.retriever.retrieveFor(newIds);
+  async retrieveFor(
+    subjects: ontology.CrudeID | ontology.CrudeID[],
+  ): Promise<Policy[]> {
+    const newIds = toArray(subjects).map((id) => new ontology.ID(id).payload);
+    return await this.retriever.retrieve({ subjects: newIds });
   }
 
+  async delete(key: Key): Promise<void>;
+
+  async delete(keys: Key[]): Promise<void>;
+
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-      this.client,
-      DELETE_ENDPOINT,
-      { keys: toArray(keys) },
-      deleteReqZ,
-      deleteResZ,
-    );
+    await this.writer.delete(keys);
   }
 }

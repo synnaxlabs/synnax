@@ -17,7 +17,7 @@ import (
 
 const OntologyType ontology.Type = "policy"
 
-const AllowAllOntologyType = "allow_all"
+const AllowAllOntologyType ontology.Type = "allow_all"
 
 var AllowAllOntologyID = ontology.ID{Type: AllowAllOntologyType, Key: ""}
 

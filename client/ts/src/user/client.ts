@@ -76,6 +76,6 @@ export class Client {
   async delete(keys: Key[]): Promise<void>;
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await this.writer.delete(toArray(keys));
+    await this.writer.delete(keys);
   }
 }

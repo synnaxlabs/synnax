@@ -13,19 +13,18 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import { framer } from "@/framer";
-import { Frame } from "@/framer/frame";
+import { type framer } from "@/framer";
 import { group } from "@/ontology/group";
 import {
-  CrudeID,
+  type CrudeID,
   ID,
-  IDPayload,
+  type IDPayload,
   idZ,
   parseRelationship,
-  RelationshipChange,
-  RelationshipDirection,
+  type RelationshipChange,
+  type RelationshipDirection,
   type Resource,
-  ResourceChange,
+  type ResourceChange,
   resourceSchemaZ,
   resourceTypeZ,
 } from "@/ontology/payload";
@@ -296,7 +295,7 @@ export class ChangeTracker {
     }
   }
 
-  private async update(frame: Frame): Promise<void> {
+  private async update(frame: framer.Frame): Promise<void> {
     const resSets = await this.parseResourceSets(frame);
     const resDeletes = this.parseResourceDeletes(frame);
     const allResources = resSets.concat(resDeletes);
@@ -308,7 +307,7 @@ export class ChangeTracker {
       this.relationshipObs.notify(relSets.concat(relDeletes));
   }
 
-  private parseRelationshipSets(frame: Frame): RelationshipChange[] {
+  private parseRelationshipSets(frame: framer.Frame): RelationshipChange[] {
     const relationships = frame.get(RELATIONSHIP_SET_NAME);
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
@@ -318,7 +317,7 @@ export class ChangeTracker {
     }));
   }
 
-  private parseRelationshipDeletes(frame: Frame): RelationshipChange[] {
+  private parseRelationshipDeletes(frame: framer.Frame): RelationshipChange[] {
     const relationships = frame.get(RELATIONSHIP_DELETE_NAME);
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
@@ -327,7 +326,7 @@ export class ChangeTracker {
     }));
   }
 
-  private async parseResourceSets(frame: Frame): Promise<ResourceChange[]> {
+  private async parseResourceSets(frame: framer.Frame): Promise<ResourceChange[]> {
     const sets = frame.get(RESOURCE_SET_NAME);
     if (sets.length === 0) return [];
     // We should only ever get one series of sets
@@ -345,7 +344,7 @@ export class ChangeTracker {
     }
   }
 
-  private parseResourceDeletes(frame: Frame): ResourceChange[] {
+  private parseResourceDeletes(frame: framer.Frame): ResourceChange[] {
     const deletes = frame.get(RESOURCE_DELETE_NAME);
     if (deletes.length === 0) return [];
     // We should only ever get one series of deletes

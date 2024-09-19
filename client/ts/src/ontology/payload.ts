@@ -10,6 +10,8 @@
 import { change, UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type access } from "@/access";
+
 export type ResourceChange = change.Change<ID, Resource>;
 export type ResourceSet = change.Set<ID, Resource>;
 export type ResourceDelete = change.Delete<ID, Resource>;
@@ -38,16 +40,16 @@ export const resourceTypeZ = z.union([
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
-export const BuiltinOntologyType = "builtin" as ResourceType;
-export const ClusterOntologyType = "cluster" as ResourceType;
-export const NodeOntologyType = "node" as ResourceType;
+export const BUILTIN_TYPE: ResourceType = "builtin";
+export const CLUSTER_TYPE: ResourceType = "cluster";
+export const NODE_TYPE: ResourceType = "node";
 
 export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
 export type IDPayload = z.infer<typeof idZ>;
 
 export const stringIDZ = z.string().transform((v) => {
   const [type, key] = v.split(":");
-  return { type: type as ResourceType, key: key ?? "" };
+  return { type: resourceTypeZ.parse(type), key: key ?? "" };
 });
 
 export const crudeIDZ = z.union([stringIDZ, idZ]);
@@ -86,10 +88,7 @@ export class ID {
   }
 
   get payload(): IDPayload {
-    return {
-      type: this.type,
-      key: this.key,
-    };
+    return { type: this.type, key: this.key };
   }
 
   static readonly z = z.union([z.instanceof(ID), crudeIDZ.transform((v) => new ID(v))]);
@@ -97,9 +96,7 @@ export class ID {
 
 export const Root = new ID({ type: "builtin", key: "root" });
 
-export const schemaFieldZ = z.object({
-  type: z.number(),
-});
+export const schemaFieldZ = z.object({ type: z.number() });
 
 export type SchemaField = z.infer<typeof schemaFieldZ>;
 
@@ -107,7 +104,6 @@ export const schemaZ = z.object({
   type: resourceTypeZ,
   fields: z.record(schemaFieldZ),
 });
-
 export type Schema = z.infer<typeof schemaZ>;
 
 export const resourceSchemaZ = z
@@ -117,12 +113,7 @@ export const resourceSchemaZ = z
     schema: schemaZ.optional().nullable(),
     data: z.record(z.unknown()).optional().nullable(),
   })
-  .transform((resource) => {
-    return {
-      key: resource.id.toString(),
-      ...resource,
-    };
-  });
+  .transform((resource) => ({ key: resource.id.toString(), ...resource }));
 
 export type Resource<T extends UnknownRecord = UnknownRecord> = Omit<
   z.output<typeof resourceSchemaZ>,
@@ -131,15 +122,14 @@ export type Resource<T extends UnknownRecord = UnknownRecord> = Omit<
 
 export type RelationshipDirection = "from" | "to";
 
-export const relationshipSchemaZ = z.object({
-  from: ID.z,
-  type: z.string(),
-  to: ID.z,
-});
-
+export const relationshipSchemaZ = z.object({ from: ID.z, type: z.string(), to: ID.z });
 export type Relationship = z.infer<typeof relationshipSchemaZ>;
 
 export const parseRelationship = (str: string): Relationship => {
   const [from, type, to] = str.split("->");
   return { from: new ID(from), type, to: new ID(to) };
 };
+
+export const ADD_CHILDREN_ACTION: access.Action = "add_children";
+export const MOVE_CHILDREN_ACTION: access.Action = "move_children";
+export const REMOVE_CHILDREN_ACTION: access.Action = "remove_children";

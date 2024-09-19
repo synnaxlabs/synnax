@@ -17,6 +17,6 @@ const (
 	DeleteKVAction     action.Action = "delete_key_value"
 	SetAliasAction     action.Action = "set_alias"
 	ResolveAliasAction action.Action = "resolve_alias"
-	ListAliasAction    action.Action = "list_alias"
+	ListAliasesAction  action.Action = "list_aliases"
 	DeleteAliasAction  action.Action = "delete_alias"
 )
