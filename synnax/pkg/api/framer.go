@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	framer2 "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -37,7 +38,7 @@ type FrameService struct {
 	authProvider
 	dbProvider
 	accessProvider
-	Internal *framer.Service
+	Internal *framer2.Service // TODO: this is the distribution layer service, remove and replace with service layer service
 }
 
 func NewFrameService(p Provider) *FrameService {
@@ -234,7 +235,7 @@ type (
 	FrameWriterStream   = freighter.ServerStream[FrameWriterRequest, FrameWriterResponse]
 )
 
-// Write exposes a high level api for writing segmented telemetry to the delta
+// Write exposes a high level api for writing segmented telemetry to the synnax
 // cluster. The client is expected to send an initial request containing the
 // keys of the channels to write to. The server will acquire an exclusive lock on
 // these channels. If the channels are already locked, Write will return with

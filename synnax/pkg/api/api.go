@@ -22,11 +22,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -48,7 +48,7 @@ type Config struct {
 	RBAC          *rbac.Service
 	Channel       channel.Service
 	Ranger        *ranger.Service
-	Framer        *framer.Service
+	Framer        *framer.Service // TODO: replace with service layer service
 	Ontology      *ontology.Ontology
 	Group         *group.Service
 	Storage       *storage.Storage
@@ -211,7 +211,7 @@ type API struct {
 	config       Config
 	Auth         *AuthService
 	User         *UserService
-	Telem        *FrameService
+	Frame        *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService
@@ -354,10 +354,10 @@ func (a *API) BindTo(t Transport) {
 	t.ChannelRetrieveGroup.BindHandler(a.Channel.RetrieveGroup)
 
 	// FRAME
-	t.FrameWriter.BindHandler(a.Telem.Write)
-	t.FrameIterator.BindHandler(a.Telem.Iterate)
-	t.FrameStreamer.BindHandler(a.Telem.Stream)
-	t.FrameDelete.BindHandler(a.Telem.FrameDelete)
+	t.FrameWriter.BindHandler(a.Frame.Write)
+	t.FrameIterator.BindHandler(a.Frame.Iterate)
+	t.FrameStreamer.BindHandler(a.Frame.Stream)
+	t.FrameDelete.BindHandler(a.Frame.FrameDelete)
 
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(a.Ontology.Retrieve)
@@ -441,7 +441,7 @@ func New(configs ...Config) (API, error) {
 	api.Auth = NewAuthService(api.provider)
 	api.User = NewUserService(api.provider)
 	api.Access = NewAccessService(api.provider)
-	api.Telem = NewFrameService(api.provider)
+	api.Frame = NewFrameService(api.provider)
 	api.Channel = NewChannelService(api.provider)
 	api.Connectivity = NewConnectivityService(api.provider)
 	api.Ontology = NewOntologyService(api.provider)
