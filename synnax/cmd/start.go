@@ -14,7 +14,7 @@ import (
 	"context"
 	"encoding/base64"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	rbac "github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"os"
 	"os/signal"

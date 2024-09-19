@@ -15,8 +15,8 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	access "github.com/synnaxlabs/synnax/pkg/service/access"
-	label "github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
 )

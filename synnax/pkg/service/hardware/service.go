@@ -14,10 +14,10 @@ package hardware
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/hardware/device"
-	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/hardware/state"
-	"github.com/synnaxlabs/synnax/pkg/hardware/task"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/state"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
