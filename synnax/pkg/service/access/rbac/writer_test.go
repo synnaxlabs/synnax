@@ -12,34 +12,36 @@ package rbac_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
+	rbac2 "github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
 	var (
 		db        *gorp.DB
-		writer    rbac.Writer
-		retriever rbac.Retriever
-		svc       *rbac.Service
+		writer    rbac2.Writer
+		retriever rbac2.Retriever
+		svc       *rbac2.Service
 	)
 	BeforeEach(func() {
 		db = gorp.Wrap(memkv.New())
-		svc = MustSucceed(rbac.NewService(rbac.Config{DB: db}))
+		svc = MustSucceed(rbac2.NewService(rbac2.Config{DB: db}))
 		writer = svc.NewWriter(nil)
 		retriever = svc.NewRetriever()
 	})
 	AfterEach(func() {
 		Expect(db.Close()).To(Succeed())
 	})
-	It("Should retrieve a policy", func() {
-		// Giving a user the rights to change their own password
+	It("Should create a new policy", func() {
 		Expect(writer.Create(ctx, &changePasswordPolicy)).To(Succeed())
-		var policy rbac.Policy
-		err := retriever.Entry(&policy).WhereSubject(userID).Exec(ctx, nil)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(policy).To(Equal(changePasswordPolicy))
+	})
+	It("Should delete a policy", func() {
+		Expect(writer.Create(ctx, &changePasswordPolicy)).To(Succeed())
+		Expect(writer.Delete(ctx, changePasswordPolicy.Key)).To(Succeed())
+		var p rbac2.Policy
+		Expect(retriever.Entry(&p).WhereSubject(userID).Exec(ctx, nil)).To(MatchError(query.NotFound))
 	})
 })

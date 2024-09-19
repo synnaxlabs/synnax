@@ -14,9 +14,9 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/label"
+	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
+	label2 "github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
 )
@@ -24,7 +24,7 @@ import (
 type LabelService struct {
 	dbProvider
 	accessProvider
-	internal *label.Service
+	internal *label2.Service
 }
 
 func NewLabelService(p Provider) *LabelService {
@@ -35,7 +35,7 @@ func NewLabelService(p Provider) *LabelService {
 	}
 }
 
-type Label = label.Label
+type Label = label2.Label
 
 // LabelCreateRequest is a request to create a Label in the cluster.
 type LabelCreateRequest struct {
@@ -54,10 +54,10 @@ func (s *LabelService) Create(
 	ctx context.Context,
 	req LabelCreateRequest,
 ) (res LabelCreateResponse, err error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{label.OntologyID(uuid.Nil)},
+		Action:  access2.Create,
+		Objects: []ontology.ID{label2.OntologyID(uuid.Nil)},
 	}); err != nil {
 		return res, err
 	}
@@ -113,10 +113,10 @@ func (s *LabelService) Retrieve(
 	if err = q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
 		return LabelRetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
-		Objects: label.OntologyIDsFromLabels(res.Labels),
+		Action:  access2.Retrieve,
+		Objects: label2.OntologyIDsFromLabels(res.Labels),
 	}); err != nil {
 		return res, err
 	}
@@ -131,10 +131,10 @@ func (s *LabelService) Delete(
 	ctx context.Context,
 	req LabelDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: label.OntologyIDs(req.Keys),
+		Action:  access2.Create,
+		Objects: label2.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -153,9 +153,9 @@ func (s *LabelService) Add(
 	ctx context.Context,
 	req LabelAddRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access2.Create,
 		Objects: []ontology.ID{req.ID},
 	}); err != nil {
 		return types.Nil{}, err
@@ -180,9 +180,9 @@ func (s *LabelService) Remove(
 	ctx context.Context,
 	req LabelRemoveRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access2.Delete,
 		Objects: []ontology.ID{req.ID},
 	}); err != nil {
 		return types.Nil{}, err

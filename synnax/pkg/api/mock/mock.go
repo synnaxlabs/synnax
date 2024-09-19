@@ -13,7 +13,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	. "github.com/synnaxlabs/x/testutil"
 	"time"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	securitymock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/user"
-	"github.com/synnaxlabs/synnax/pkg/access"
 )
 
 type Builder struct {
@@ -49,8 +49,8 @@ func (b *Builder) NewConfig(ctx context.Context) api.Config {
 		User:          MustSucceed(user.NewService(ctx, user.Config{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology, Group: dist.Group})),
 		Token:         &token.Service{KeyProvider: securitymock.KeyProvider{Key: key}, Expiration: 10000 * time.Hour},
 		Authenticator: &auth.KV{DB: dist.Storage.Gorpify()},
-		RBAC:        MustSucceed(rbac.NewService(rbac.Config{DB: dist.Storage.Gorpify()})),
-		Enforcer:	   &access.AllowAll{},
+		RBAC:          MustSucceed(rbac.NewService(rbac.Config{DB: dist.Storage.Gorpify()})),
+		Enforcer:      &access.AllowAll{},
 		Cluster:       dist.Cluster,
 	}
 

@@ -11,9 +11,9 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
 	"go/types"
 
 	"github.com/google/uuid"
@@ -77,9 +77,9 @@ func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access2.Create,
 		Objects: []ontology.ID{{Type: channel.OntologyType}},
 	}); err != nil {
 		return res, err
@@ -221,9 +221,9 @@ func (s *ChannelService) Retrieve(
 			}
 		}
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access2.Retrieve,
 		Objects: channel.OntologyIDsFromChannels(resChannels),
 	}); err != nil {
 		return ChannelRetrieveResponse{}, err
@@ -285,9 +285,9 @@ func (s *ChannelService) Delete(
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
-				if err := s.access.Enforce(ctx, access.Request{
+				if err := s.access.Enforce(ctx, access2.Request{
 					Subject: getSubject(ctx),
-					Action:  access.Delete,
+					Action:  access2.Delete,
 					Objects: req.Keys.OntologyIDs(),
 				}); err != nil {
 					return err
@@ -302,9 +302,9 @@ func (s *ChannelService) Delete(
 				if err != nil {
 					return err
 				}
-				if err = s.access.Enforce(ctx, access.Request{
+				if err = s.access.Enforce(ctx, access2.Request{
 					Subject: getSubject(ctx),
-					Action:  access.Delete,
+					Action:  access2.Delete,
 					Objects: channel.OntologyIDsFromChannels(res),
 				}); err != nil {
 					return err
@@ -325,9 +325,9 @@ func (s *ChannelService) Rename(
 	ctx context.Context,
 	req ChannelRenameRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access2.Rename,
 		Objects: req.Keys.OntologyIDs(),
 	}); err != nil {
 		return types.Nil{}, err
@@ -348,9 +348,9 @@ func (s *ChannelService) RetrieveGroup(
 	ctx context.Context,
 	req ChannelRetrieveGroupRequest,
 ) (ChannelRetrieveGroupResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access2.Retrieve,
 		Objects: []ontology.ID{{Type: channel.OntologyType}},
 	}); err != nil {
 		return ChannelRetrieveGroupResponse{}, err

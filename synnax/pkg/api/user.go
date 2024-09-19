@@ -11,8 +11,8 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/auth"

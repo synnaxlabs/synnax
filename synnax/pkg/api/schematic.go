@@ -12,8 +12,8 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
@@ -44,9 +44,9 @@ type (
 )
 
 func (s *SchematicService) Create(ctx context.Context, req SchematicCreateRequest) (res SchematicCreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access2.Create,
 		Objects: []ontology.ID{schematic.OntologyID(uuid.Nil)},
 	}); err != nil {
 		return res, err
@@ -68,9 +68,9 @@ type SchematicRenameRequest struct {
 }
 
 func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access2.Rename,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -86,9 +86,9 @@ type SchematicSetDataRequest struct {
 }
 
 func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access2.Create,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -113,9 +113,9 @@ func (s *SchematicService) Retrieve(ctx context.Context, req SchematicRetrieveRe
 	if err != nil {
 		return SchematicRetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access2.Retrieve,
 		Objects: schematic.OntologyIDs(req.Keys),
 	}); err != nil {
 		return SchematicRetrieveResponse{}, err
@@ -128,9 +128,9 @@ type SchematicDeleteRequest struct {
 }
 
 func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access2.Delete,
 		Objects: schematic.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -152,9 +152,9 @@ type (
 )
 
 func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (res SchematicCopyResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access2.Create,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return

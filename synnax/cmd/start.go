@@ -13,6 +13,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbac2 "github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"os"
 	"os/signal"
 	"time"
@@ -23,8 +26,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
-	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
@@ -35,7 +36,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/hardware"
 	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
-	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -165,7 +165,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		rbacSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
+		rbacSvc, err := rbac2.NewService(rbac2.Config{DB: gorpDB})
 		if err != nil {
 			return err
 		}
@@ -436,7 +436,7 @@ func maybeProvisionRootUser(
 	db *gorp.DB,
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
-	rbacSvc *rbac.Service,
+	rbacSvc *rbac2.Service,
 ) error {
 	creds := auth.InsecureCredentials{
 		Username: viper.GetString(usernameFlag),
@@ -458,9 +458,9 @@ func maybeProvisionRootUser(
 		}
 		return rbacSvc.NewWriter(tx).Create(
 			ctx,
-			&rbac.Policy{
+			&rbac2.Policy{
 				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},
-				Objects:  []ontology.ID{rbac.AllowAll},
+				Objects:  []ontology.ID{rbac2.AllowAll},
 			},
 		)
 	})

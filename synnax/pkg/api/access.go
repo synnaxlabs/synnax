@@ -12,15 +12,15 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
+	rbac2 "github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
 )
 
 type AccessService struct {
-	internal *rbac.Service
+	internal *rbac2.Service
 	dbProvider
 }
 
@@ -33,20 +33,20 @@ func NewAccessService(p Provider) *AccessService {
 
 type (
 	AccessCreatePolicyRequest struct {
-		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
+		Policies []rbac2.Policy `json:"policies" msgpack:"policies"`
 	}
 	AccessCreatePolicyResponse = AccessCreatePolicyRequest
 )
 
 func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
-	if err := a.internal.Enforce(ctx, access.Request{
+	if err := a.internal.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Objects: []ontology.ID{{Type: rbac.OntologyType}},
-		Action:  access.Create,
+		Objects: []ontology.ID{{Type: rbac2.OntologyType}},
+		Action:  access2.Create,
 	}); err != nil {
 		return AccessCreatePolicyRequest{}, err
 	}
-	results := make([]rbac.Policy, len(req.Policies))
+	results := make([]rbac2.Policy, len(req.Policies))
 	if err := a.WithTx(ctx, func(tx gorp.Tx) error {
 		w := a.internal.NewWriter(tx)
 		for i, p := range req.Policies {
@@ -70,10 +70,10 @@ type AccessDeletePolicyRequest struct {
 }
 
 func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
-	if err := a.internal.Enforce(ctx, access.Request{
+	if err := a.internal.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Objects: rbac.OntologyIDs(req.Keys),
-		Action:  access.Delete,
+		Objects: rbac2.OntologyIDs(req.Keys),
+		Action:  access2.Delete,
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -93,7 +93,7 @@ type (
 		Subject ontology.ID `json:"subject" msgpack:"subject"`
 	}
 	AccessRetrievePolicyResponse struct {
-		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
+		Policies []rbac2.Policy `json:"policies" msgpack:"policies"`
 	}
 )
 
@@ -101,7 +101,7 @@ func (a *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
-	res.Policies = make([]rbac.Policy, 0)
+	res.Policies = make([]rbac2.Policy, 0)
 
 	if err = a.internal.NewRetriever().
 		WhereSubject(req.Subject).
@@ -109,10 +109,10 @@ func (a *AccessService) RetrievePolicy(
 		Exec(ctx, nil); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
-	if err = a.internal.Enforce(ctx, access.Request{
+	if err = a.internal.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
-		Objects: rbac.OntologyIDsFromPolicies(res.Policies),
+		Action:  access2.Retrieve,
+		Objects: rbac2.OntologyIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/label"
+	label2 "github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -187,7 +187,7 @@ var _ = Describe("set", func() {
 			Describe("DeleteIncomingRelationshipsOfType", func() {
 				It("Should delete all incoming relationships of a type", func() {
 					Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
-					Expect(w.DefineRelationship(ctx, idOne, label.LabeledBy, idTwo)).To(Succeed())
+					Expect(w.DefineRelationship(ctx, idOne, label2.LabeledBy, idTwo)).To(Succeed())
 					Expect(w.DeleteIncomingRelationshipsOfType(ctx, idTwo, ontology.ParentOf)).To(Succeed())
 					var res []ontology.Resource
 					Expect(w.NewRetrieve().
@@ -199,7 +199,7 @@ var _ = Describe("set", func() {
 					var res2 []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idOne).
-						TraverseTo(label.Labels).
+						TraverseTo(label2.Labels).
 						Entries(&res2).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res2).To(HaveLen(1))
@@ -209,7 +209,7 @@ var _ = Describe("set", func() {
 			Describe("DeleteOutgoingRelationshipsOfType", func() {
 				It("Should delete all outgoing relationships of a type", func() {
 					Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
-					Expect(w.DefineRelationship(ctx, idOne, label.LabeledBy, idTwo)).To(Succeed())
+					Expect(w.DefineRelationship(ctx, idOne, label2.LabeledBy, idTwo)).To(Succeed())
 					Expect(w.DeleteOutgoingRelationshipsOfType(ctx, idOne, ontology.ParentOf)).To(Succeed())
 					var res []ontology.Resource
 					Expect(w.NewRetrieve().
@@ -221,7 +221,7 @@ var _ = Describe("set", func() {
 					var res2 []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idOne).
-						TraverseTo(label.Labels).
+						TraverseTo(label2.Labels).
 						Entries(&res2).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res2).To(HaveLen(1))

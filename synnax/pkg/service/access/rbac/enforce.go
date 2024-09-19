@@ -11,22 +11,22 @@ package rbac
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/access"
+	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
 )
 
-var _ access.Enforcer = (*Service)(nil)
+var _ access2.Enforcer = (*Service)(nil)
 
 // Enforce implements the access.Enforcer interface.
-func (s *Service) Enforce(ctx context.Context, req access.Request) error {
+func (s *Service) Enforce(ctx context.Context, req access2.Request) error {
 	var policies []Policy
 	if err := s.NewRetriever().Entries(&policies).WhereSubject(req.Subject).Exec(ctx, s.DB); err != nil {
 		return err
 	}
 	if len(policies) == 0 {
-		return access.Denied
+		return access2.Denied
 	}
 	if AllowRequest(req, policies) {
-		return access.Granted
+		return access2.Granted
 	}
-	return access.Denied
+	return access2.Denied
 }

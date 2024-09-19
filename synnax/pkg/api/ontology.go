@@ -12,11 +12,11 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	access2 "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
 )
@@ -86,9 +86,9 @@ func (o *OntologyService) Retrieve(
 	if err = q.Entries(&res.Resources).Exec(ctx, nil); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access2.Retrieve,
 		Objects: schema.ResourceIDs(res.Resources),
 	}); err != nil {
 		return OntologyRetrieveResponse{}, err
@@ -111,9 +111,9 @@ func (o *OntologyService) CreateGroup(
 	ctx context.Context,
 	req OntologyCreateGroupRequest,
 ) (res OntologyCreateGroupResponse, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access2.Create,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -134,9 +134,9 @@ func (o *OntologyService) DeleteGroup(
 	ctx context.Context,
 	req OntologyDeleteGroupRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access2.Delete,
 		Objects: group.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -156,9 +156,9 @@ func (o *OntologyService) RenameGroup(
 	ctx context.Context,
 	req OntologyRenameGroupRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access2.Rename,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -178,9 +178,9 @@ func (o *OntologyService) AddChildren(
 	ctx context.Context,
 	req OntologyAddChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access2.Create,
 		Objects: []ontology.ID{req.ID},
 	}); err != nil {
 		return res, err
@@ -205,9 +205,9 @@ func (o *OntologyService) RemoveChildren(
 	ctx context.Context,
 	req OntologyRemoveChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access2.Delete,
 		Objects: []ontology.ID{req.ID},
 	}); err != nil {
 		return res, err
@@ -233,16 +233,16 @@ func (o *OntologyService) MoveChildren(
 	ctx context.Context,
 	req OntologyMoveChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access2.Delete,
 		Objects: []ontology.ID{req.From},
 	}); err != nil {
 		return res, err
 	}
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.Enforce(ctx, access2.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access2.Create,
 		Objects: []ontology.ID{req.To},
 	}); err != nil {
 		return res, err
