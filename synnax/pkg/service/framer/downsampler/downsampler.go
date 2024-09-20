@@ -23,10 +23,11 @@ type DownSampler = framer.Streamer
 const defaultBuffer = 25
 
 type downsampledStreamer struct {
-	DownsampleFactor int
+	downsampleFactor int
 	confluence.AbstractUnarySink[framer.StreamerRequest]
 	confluence.AbstractUnarySource[framer.StreamerResponse]
-	streamer framer.Streamer
+	streamer    framer.Streamer
+	downsampler confluence.DownSampler[framer.StreamerResponse]
 }
 
 func NewDownsampledStreamer(ctx context.Context, cfg framer.StreamerConfig, service *framer.Service) (framer.Streamer, error) {
@@ -35,24 +36,24 @@ func NewDownsampledStreamer(ctx context.Context, cfg framer.StreamerConfig, serv
 		return nil, err
 	}
 	downsampledStreamer := &downsampledStreamer{
-		DownsampleFactor: cfg.DownsampleFactor,
+		downsampleFactor: cfg.DownsampleFactor,
 		streamer:         s,
 	}
-
 	// requests stream --> downsampledStreamer --> streamer
 	downsampledStreamer.streamer.InFrom(downsampledStreamer.In)
-	downsampler := confluence.DownSampler[framer.StreamerResponse]{DownSample: downSample, DownSamplingFactor: downsampledStreamer.DownsampleFactor}
+	downsampledStreamer.downsampler = confluence.DownSampler[framer.StreamerResponse]{DownSample: downSample, DownSamplingFactor: downsampledStreamer.downsampleFactor}
 	responses := confluence.NewStream[framer.StreamerResponse](defaultBuffer)
 
 	// streamer --> internal responses stream --> downsampler -->downsampledStreamer.Out (inlet)
 	downsampledStreamer.streamer.OutTo(responses)
-	downsampler.InFrom(responses)
-	downsampler.OutTo(downsampledStreamer.Out)
+	downsampledStreamer.downsampler.InFrom(responses)
+	downsampledStreamer.downsampler.OutTo(downsampledStreamer.Out)
 
 	return framer.Streamer(downsampledStreamer), nil
 }
 
 func (d *downsampledStreamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
+	d.downsampler.Flow(sCtx, opts...)
 	d.streamer.Flow(sCtx, opts...)
 }
 
