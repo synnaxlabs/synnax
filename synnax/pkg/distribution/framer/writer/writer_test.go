@@ -149,7 +149,7 @@ func newChannelSet() []channel.Channel {
 		},
 	}
 }
-
+c
 func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
 	builder, services := provision(1)

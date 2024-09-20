@@ -38,7 +38,7 @@ type FrameService struct {
 	authProvider
 	dbProvider
 	accessProvider
-	Internal *framer2.Service // TODO: this is the distribution layer service, remove and replace with service layer service
+	Internal *framer2.Service
 }
 
 func NewFrameService(p Provider) *FrameService {
@@ -178,7 +178,7 @@ func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) 
 	if err != nil {
 		return nil, err
 	}
-	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys})
+	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys, DownsampleFactor: req.DownsampleFactor})
 	return reader, err
 }
 

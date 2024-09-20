@@ -48,7 +48,6 @@ func NewDownsampledStreamer(ctx context.Context, cfg framer.StreamerConfig, serv
 	downsampledStreamer.streamer.OutTo(responses)
 	downsampledStreamer.downsampler.InFrom(responses)
 	downsampledStreamer.downsampler.OutTo(downsampledStreamer.Out)
-
 	return framer.Streamer(downsampledStreamer), nil
 }
 
