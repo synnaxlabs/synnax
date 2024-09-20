@@ -17,7 +17,8 @@ import (
 )
 
 type Request struct {
-	Keys channel.Keys
+	Keys             channel.Keys
+	DownsampleFactor int
 }
 
 type Response struct {
