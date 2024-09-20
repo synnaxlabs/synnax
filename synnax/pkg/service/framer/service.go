@@ -11,10 +11,8 @@ package framer
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/downsampler"
 )
 
 type Service struct {
@@ -39,50 +37,15 @@ func (s *Service) NewDeleter() framer.Deleter {
 }
 
 func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
-	return s.Internal.NewStreamer(ctx, cfg)
+	if cfg.DownsampleFactor >= 1 {
+		return downsampler.NewDownsampledStreamer(ctx, cfg, s.Internal)
+	} else {
+		return s.Internal.NewStreamer(ctx, cfg)
+	}
 }
 
 func NewService(framerSvc *framer.Service) (*Service, error) {
 	return &Service{
 		Internal: framerSvc,
 	}, nil
-}
-
-func downSample(ctx context.Context, response framer.StreamerResponse, factors map[channel.Key]int) framer.StreamerResponse {
-	dsFrame := framer.Frame{Keys: response.Frame.Keys, Series: []telem.Series{}}
-
-	// how to get the key from the frame
-	for _, k := range response.Frame.Keys {
-		dsFrame.Series = append(dsFrame.Series, downSampleSeries(response.Frame.Get(k)[0], factors[k]))
-	}
-	dsResponse := framer.StreamerResponse{Frame: dsFrame, Error: nil}
-	return dsResponse
-}
-
-func downSampleSeries(series telem.Series, factor int) telem.Series {
-	// print function has been entered
-	length := len(series.Data)
-	if factor <= 1 || length <= factor {
-		return series
-	}
-
-	seriesLength := (len(series.Data) / factor) // / factor * int(series.DataType.Density())
-	downSampledData := make([]byte, 0, seriesLength)
-
-	for i := int64(0); i < series.Len(); i += int64(factor) {
-		start := i * int64(series.DataType.Density())
-		end := start + int64(series.DataType.Density())
-		downSampledData = append(downSampledData, series.Data[start:end]...)
-		logrus.Info("i = ", i)
-	}
-
-	downSampledSeries := telem.Series{
-		TimeRange: series.TimeRange,
-		DataType:  series.DataType,
-		Data:      downSampledData,
-		Alignment: series.Alignment,
-	}
-	logrus.Info("original series", telem.Unmarshal[int64](series))
-	logrus.Info("downsampled series", telem.Unmarshal[int64](downSampledSeries))
-	return downSampledSeries
 }

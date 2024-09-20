@@ -54,7 +54,7 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	sCtx.Go(func(ctx context.Context) error {
 		if hasIter {
 			// start off by exhausting the iterator
-		o:
+		o: // What is this?
 			for {
 				l.iter.requests.Inlet() <- IteratorRequest{
 					Command: iterator.Next,
@@ -84,7 +84,7 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 
 		l.relay.flow.Flow(sCtx, append(opts, confluence.WithAddress("relay-reader"))...)
 
-		if l.sendControlDigests {
+		if l.sendControlDigests { // What are control digests?
 			u := l.ts.ControlUpdateToFrame(ctx, l.ts.ControlStates())
 			l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
 		}

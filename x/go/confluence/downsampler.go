@@ -17,16 +17,16 @@ import (
 // Downsampler is a segment that reads values from an input Stream, downsamples them
 // using a provided downsampling function, and publishes the downsampled values to its
 // outlets.
-type DownSampler[V Value, K comparable] struct {
+type DownSampler[V Value] struct {
 	AbstractLinear[V, V]
-	DownSample          DownSampleFunc[V, K]
-	DownSamplingFactors map[K]int
+	DownSample         DownSampleFunc[V]
+	DownSamplingFactor int
 }
 
 // DownsampleFunc applies to each series in a frame and returns downsampled series.
-type DownSampleFunc[V Value, K comparable] func(ctx context.Context, v V, factors map[K]int) V
+type DownSampleFunc[V Value] func(ctx context.Context, v V, factor int) V
 
-func (d *DownSampler[V, K]) OutTo(inlets ...Inlet[V]) {
+func (d *DownSampler[V]) OutTo(inlets ...Inlet[V]) {
 	if len(inlets) != 1 {
 		panic("[confluence.DownSampler] - must have exactly one inlet")
 	}
@@ -34,13 +34,13 @@ func (d *DownSampler[V, K]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Flow interface?
-func (d *DownSampler[V, K]) Flow(ctx signal.Context, opts ...Option) {
+func (d *DownSampler[V]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachClosables(d.Out)
 	d.GoRange(ctx, d.downsample, fo.Signal...)
 }
 
-func (d *DownSampler[V, K]) downsample(ctx context.Context, v V) error {
-	downsampled := d.DownSample(ctx, v, d.DownSamplingFactors)
+func (d *DownSampler[V]) downsample(ctx context.Context, v V) error {
+	downsampled := d.DownSample(ctx, v, d.DownSamplingFactor)
 	return signal.SendUnderContext(ctx, d.Out.Inlet(), downsampled)
 }
