@@ -27,7 +27,7 @@ type downsampledStreamer struct {
 	confluence.AbstractUnarySink[framer.StreamerRequest]
 	confluence.AbstractUnarySource[framer.StreamerResponse]
 	streamer    framer.Streamer
-	downsampler confluence.DownSampler[framer.StreamerResponse]
+	downsampler confluence.Downsampler[framer.StreamerResponse]
 }
 
 func NewDownsampledStreamer(ctx context.Context, cfg framer.StreamerConfig, service *framer.Service) (framer.Streamer, error) {
@@ -41,7 +41,7 @@ func NewDownsampledStreamer(ctx context.Context, cfg framer.StreamerConfig, serv
 	}
 	// requests stream --> downsampledStreamer --> streamer
 	downsampledStreamer.streamer.InFrom(downsampledStreamer.In)
-	downsampledStreamer.downsampler = confluence.DownSampler[framer.StreamerResponse]{DownSample: downSample, DownSamplingFactor: downsampledStreamer.downsampleFactor}
+	downsampledStreamer.downsampler = confluence.Downsampler[framer.StreamerResponse]{Downsample: downsample, DownsamplingFactor: downsampledStreamer.downsampleFactor}
 	responses := confluence.NewStream[framer.StreamerResponse](defaultBuffer)
 
 	// streamer --> internal responses stream --> downsampler -->downsampledStreamer.Out (inlet)
@@ -57,10 +57,9 @@ func (d *downsampledStreamer) Flow(sCtx signal.Context, opts ...confluence.Optio
 	d.streamer.Flow(sCtx, opts...)
 }
 
-func downSample(ctx context.Context, response framer.StreamerResponse, factor int) framer.StreamerResponse {
+func downsample(ctx context.Context, response framer.StreamerResponse, factor int) framer.StreamerResponse {
 	dsFrame := framer.Frame{Keys: response.Frame.Keys, Series: []telem.Series{}}
 
-	// how to get the key from the frame
 	for _, k := range response.Frame.Keys {
 		dsFrame.Series = append(dsFrame.Series, downsampleSeries(response.Frame.Get(k)[0], factor))
 	}
@@ -69,29 +68,28 @@ func downSample(ctx context.Context, response framer.StreamerResponse, factor in
 }
 
 func downsampleSeries(series telem.Series, factor int) telem.Series {
-	// print function has been entered
 	length := len(series.Data)
 	if factor <= 1 || length <= factor {
 		return series
 	}
 
 	seriesLength := (len(series.Data) / factor) // / factor * int(series.DataType.Density())
-	downSampledData := make([]byte, 0, seriesLength)
+	downsampledData := make([]byte, 0, seriesLength)
 
 	for i := int64(0); i < series.Len(); i += int64(factor) {
 		start := i * int64(series.DataType.Density())
 		end := start + int64(series.DataType.Density())
-		downSampledData = append(downSampledData, series.Data[start:end]...)
+		downsampledData = append(downsampledData, series.Data[start:end]...)
 		logrus.Info("i = ", i) //TODO: remove
 	}
 
-	downSampledSeries := telem.Series{
+	downsampledSeries := telem.Series{
 		TimeRange: series.TimeRange,
 		DataType:  series.DataType,
-		Data:      downSampledData,
+		Data:      downsampledData,
 		Alignment: series.Alignment,
 	}
 	logrus.Info("original series", telem.Unmarshal[int64](series))               // TODO: remove
-	logrus.Info("downsampled series", telem.Unmarshal[int64](downSampledSeries)) // TODO: remove
-	return downSampledSeries
+	logrus.Info("downsampled series", telem.Unmarshal[int64](downsampledSeries)) // TODO: remove
+	return downsampledSeries
 }
