@@ -308,7 +308,7 @@ export type UsePortalReturn = [
   ReactElement[],
 ];
 
-export const usePortal = ({
+export const usePortal_ = ({
   root,
   onSelect,
   children,
@@ -321,7 +321,6 @@ export const usePortal = ({
     const tab = node.tabs?.find((t) => t.tabKey === node.selected);
     if (tab == null) return null;
     if (pNode == null) {
-      console.log("NEW NODE");
       pNode = new Portal.Node({
         style: "width: 100%; height: 100%; position: relative;",
       });
@@ -337,6 +336,40 @@ export const usePortal = ({
       </Portal.In>
     );
   }).filter((v) => v != null) as ReactElement[];
-  ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
+  // ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
+  return [ref, portaledNodes];
+};
+
+export const usePortal = ({
+  root,
+  onSelect,
+  children,
+}: UsePortalProps): UsePortalReturn => {
+  const ref = useRef<Map<string, Portal.Node>>(new Map());
+  const existing = new Set<string>();
+  const portaledNodes = mapNodes(root, (node) =>
+    node.tabs?.map((tab) => {
+      let pNode: Portal.Node | undefined = ref.current.get(tab.tabKey);
+      if (tab == null) return null;
+      if (pNode == null) {
+        pNode = new Portal.Node({
+          style: "width: 100%; height: 100%; position: relative;",
+        });
+        // Events don't propagate upward from the portaled node, so we need to bind
+        // the onSelect handler here.
+        pNode.el.addEventListener("click", () => onSelect?.(tab.tabKey));
+        ref.current.set(tab.tabKey, pNode);
+      }
+      existing.add(tab.tabKey);
+      return (
+        <Portal.In key={tab.tabKey} node={pNode}>
+          {children({ ...tab, visible: tab.tabKey === node.selected })}
+        </Portal.In>
+      );
+    }),
+  )
+    .flat()
+    .filter((v) => v != null) as ReactElement[];
+  // ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
   return [ref, portaledNodes];
 };

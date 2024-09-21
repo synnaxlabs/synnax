@@ -23,7 +23,7 @@ import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { axis } from "@/vis/axis";
 import { type TickType } from "@/vis/axis/ticks";
-import { calculateGridPosition, type GridSpec } from "@/vis/lineplot/aether/grid";
+import { grid } from "@/vis/grid";
 import { render } from "@/vis/render";
 
 export const coreAxisStateZ = axis.axisStateZ
@@ -45,14 +45,14 @@ export const coreAxisStateZ = axis.axisStateZ
 
 export type BaseAxisState = z.output<typeof coreAxisStateZ>;
 
-const AXIS_SIZE_UPADTE_UPPER_THRESHOLD = 2; // px;
+const AXIS_SIZE_UPDATE_UPPER_THRESHOLD = 2; // px;
 const AXIS_SIZE_UPDATE_LOWER_THRESHOLD = 7; // px;
 
 export const withinSizeThreshold = (prev: number, next: number): boolean =>
   bounds.contains(
     {
       lower: prev - AXIS_SIZE_UPDATE_LOWER_THRESHOLD,
-      upper: prev + AXIS_SIZE_UPADTE_UPPER_THRESHOLD,
+      upper: prev + AXIS_SIZE_UPDATE_UPPER_THRESHOLD,
     },
     next,
   );
@@ -68,7 +68,7 @@ export const emptyBounds = (type: TickType): bounds.Bounds =>
   type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
 
 export interface AxisRenderProps {
-  grid: GridSpec;
+  grid: grid.Grid;
   plot: box.Box;
   viewport: box.Box;
   container: box.Box;
@@ -116,15 +116,16 @@ export class CoreAxis<
     this.internal.core = new axis.Canvas(this.internal.render, {
       color: theme.colors.gray.l8,
       font: fontString(theme, "small"),
-      gridColor: theme.colors.gray.l2,
+      gridColor: theme.colors.gray.l1,
       ...this.state,
     });
     render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
 
     if (this.internal.updateBounds == null) {
-      this.internal.updateBounds = throttle((b) => {
-        this.setState((p) => ({ ...p, bounds: b }));
-      }, this.state.autoBoundUpdateInterval.milliseconds);
+      this.internal.updateBounds = throttle(
+        (b) => this.setState((p) => ({ ...p, bounds: b })),
+        this.state.autoBoundUpdateInterval.milliseconds,
+      );
     }
   }
 
@@ -135,8 +136,8 @@ export class CoreAxis<
   renderAxis(props: AxisRenderProps, decimalToDataScale: scale.Scale): void {
     if (!props.canvases.includes("lower2d")) return;
     const { core } = this.internal;
-    const { grid, container } = props;
-    const position = calculateGridPosition(`${this.type}-${this.key}`, grid, container);
+    const { grid: g, container } = props;
+    const position = grid.position(`${this.type}-${this.key}`, g, container);
     const p = {
       ...props,
       position,
@@ -144,9 +145,8 @@ export class CoreAxis<
       size: this.state.size + this.state.labelSize,
     };
     const { size } = core.render(p);
-    if (!withinSizeThreshold(this.state.size, size)) {
+    if (!withinSizeThreshold(this.state.size, size))
       this.setState((p) => ({ ...p, size }));
-    }
   }
 
   async bounds(
@@ -155,9 +155,7 @@ export class CoreAxis<
   ): Promise<[bounds.Bounds, Error | null]> {
     if (hold && this.internal.boundSnapshot != null)
       return [this.internal.boundSnapshot, null];
-
     const { lower, upper } = parseAutoBounds(this.state.autoBounds);
-
     if (!lower && !upper && this.state.bounds != null) {
       this.internal.boundSnapshot = this.state.bounds;
       return [this.state.bounds, null];
@@ -181,9 +179,8 @@ export class CoreAxis<
       this.state.bounds == null ||
       (lower && this.state.bounds.lower !== bounds.lower) ||
       (upper && this.state.bounds.upper !== bounds.upper)
-    ) {
+    )
       this.internal.updateBounds?.(bounds);
-    }
     return [bounds, err];
   }
 

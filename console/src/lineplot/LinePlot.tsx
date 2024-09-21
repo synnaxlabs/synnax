@@ -105,7 +105,7 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => {
   );
 };
 
-const Loaded: Layout.Renderer = ({ layoutKey, visible }): ReactElement => {
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const placer = Layout.usePlacer();
@@ -417,6 +417,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }): ReactElement => {
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
+          legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}

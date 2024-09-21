@@ -68,6 +68,7 @@ export const configureWriteLayout = (
   type: WRITE_TYPE,
   windowKey: WRITE_TYPE,
   location: "mosaic",
+  icon: "Logo.OPC",
   window: {
     resizable: true,
     size: { width: 1200, height: 900 },

@@ -142,6 +142,8 @@ const SelectorButton = ({
   const isSelected = selected === tabKey;
   const hasIcon = icon != null;
 
+  const level = Text.ComponentSizeLevels[size];
+
   return (
     <Align.Pack
       size={size}
@@ -167,11 +169,11 @@ const SelectorButton = ({
       rounded={false}
     >
       {PIcon.resolve(icon, {
-        className: CSS(
-          CSS.BE(CLS, "icon"),
-          CSS.BM("text", Text.ComponentSizeLevels[size]),
-          CSS.shade(7),
-        ),
+        className: CSS(CSS.BE(CLS, "icon"), CSS.shade(7)),
+        style: {
+          height: `var(--pluto-${level}-size)`,
+          width: `var(--pluto-${level}-size)`,
+        },
       })}
       <Name
         name={name}

@@ -251,7 +251,9 @@ export const Mosaic = memo((): ReactElement => {
   const [portalRef, portalNodes] = Core.usePortal({
     root: mosaic,
     onSelect: handleSelect,
-    children: ({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />,
+    children: ({ tabKey, visible }) => (
+      <Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
+    ),
   });
 
   const renderProp = useCallback<Tabs.RenderProp>(

@@ -53,6 +53,7 @@ export const configureDigitalWriteLayout = (
 ): Layout.State<TaskLayoutArgs<DigitalWritePayload>> => ({
   name: "Configure NI Digital Write Task",
   key: id.id(),
+  icon: "Logo.NI",
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",

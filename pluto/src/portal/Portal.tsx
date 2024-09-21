@@ -63,7 +63,6 @@ export const Out = ({ node }: OutProps): React.ReactElement => {
     };
   }, []);
   useEffect(() => {
-    console.log("NEW NODE", node);
     if (portal.current != null && node !== portal.current) {
       portal.current.unmount(stub.current);
       portal.current = node;

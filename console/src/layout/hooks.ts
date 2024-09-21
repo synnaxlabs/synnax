@@ -226,6 +226,7 @@ export const useNavDrawer = (
 
 export const useTriggers = () => {
   const store = useStore<RootState>();
+  const remove = useRemover();
   Triggers.use({
     triggers: [["Control", "F"]],
     loose: true,
@@ -236,9 +237,19 @@ export const useTriggers = () => {
       const windowKey = selectWindowKey(state);
       const [, focused] = selectFocused(state);
       if (active == null || windowKey == null) return;
-      console.log("F", focused);
       if (focused != null) store.dispatch(setFocus({ key: null, windowKey }));
       else store.dispatch(setFocus({ key: active, windowKey }));
+    },
+  });
+  Triggers.use({
+    triggers: [["Control", "W"]],
+    loose: true,
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
+      const state = store.getState();
+      const active = selectActiveMosaicTabKey(state);
+      if (active == null) return;
+      remove(active);
     },
   });
 };

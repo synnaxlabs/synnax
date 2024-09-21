@@ -52,7 +52,7 @@ import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useCombinedRefs } from "@/hooks";
+import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
 import { useMemoCompare, useMemoDeepEqualProps } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -155,7 +155,6 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
 };
 
 const FIT_VIEW_OPTIONS: FitViewOptions = {
-  padding: 0,
   maxZoom: 1,
   minZoom: 0.5,
 };
@@ -246,13 +245,14 @@ const Core = Aether.wrap<DiagramProps>(
     );
 
     const { fitView } = useReactFlow();
+    const debouncedFitView = useDebouncedCallback(fitView, 100, [fitView]);
     const resizeRef = Canvas.useRegion(
       useCallback(
         (b) => {
-          if (fitViewOnResize) fitView({ maxZoom: 1 });
+          debouncedFitView({ maxZoom: 1, duration: 100 });
           setState((prev) => ({ ...prev, region: b }));
         },
-        [setState, fitView, fitViewOnResize],
+        [setState, debouncedFitView, fitViewOnResize],
       ),
     );
 
@@ -265,6 +265,7 @@ const Core = Aether.wrap<DiagramProps>(
         if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
           return;
         viewportRef.current = vp;
+        if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
         setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
         onViewportChange(translateViewportBackward(vp));
       },
@@ -421,40 +422,42 @@ const Core = Aether.wrap<DiagramProps>(
     return (
       <Context.Provider value={ctxValue}>
         <Aether.Composite path={path}>
-          <ReactFlow
-            {...triggerProps}
-            className={CSS(CSS.B("diagram"), CSS.editable(editable))}
-            nodes={nodes_}
-            edges={edges_}
-            nodeTypes={nodeTypes}
-            edgeTypes={EDGE_TYPES}
-            ref={combinedRefs}
-            fitView
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={handleConnect}
-            onEdgeUpdate={handleEdgeUpdate}
-            defaultViewport={translateViewportForward(viewport)}
-            connectionLineComponent={CustomConnectionLine}
-            elevateEdgesOnSelect
-            minZoom={0.5}
-            maxZoom={1.2}
-            isValidConnection={isValidConnection}
-            connectionMode={ConnectionMode.Loose}
-            snapGrid={[3, 3]}
-            fitViewOptions={FIT_VIEW_OPTIONS}
-            selectionMode={SelectionMode.Partial}
-            proOptions={PRO_OPTIONS}
-            deleteKeyCode={DELETE_KEY_CODES}
-            {...props}
-            style={{
-              [CSS.var("diagram-zoom")]: viewport.zoom,
-              ...props.style,
-            }}
-            {...editableProps}
-          >
-            {children}
-          </ReactFlow>
+          {visible && (
+            <ReactFlow
+              {...triggerProps}
+              className={CSS(CSS.B("diagram"), CSS.editable(editable))}
+              nodes={nodes_}
+              edges={edges_}
+              nodeTypes={nodeTypes}
+              edgeTypes={EDGE_TYPES}
+              ref={combinedRefs}
+              fitView
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={handleConnect}
+              onEdgeUpdate={handleEdgeUpdate}
+              defaultViewport={translateViewportForward(viewport)}
+              connectionLineComponent={CustomConnectionLine}
+              elevateEdgesOnSelect
+              minZoom={0.5}
+              maxZoom={1.2}
+              isValidConnection={isValidConnection}
+              connectionMode={ConnectionMode.Loose}
+              snapGrid={[3, 3]}
+              fitViewOptions={FIT_VIEW_OPTIONS}
+              selectionMode={SelectionMode.Partial}
+              proOptions={PRO_OPTIONS}
+              deleteKeyCode={DELETE_KEY_CODES}
+              {...props}
+              style={{
+                [CSS.var("diagram-zoom")]: viewport.zoom,
+                ...props.style,
+              }}
+              {...editableProps}
+            >
+              {children}
+            </ReactFlow>
+          )}
         </Aether.Composite>
       </Context.Provider>
     );

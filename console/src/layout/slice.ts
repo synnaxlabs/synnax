@@ -520,6 +520,7 @@ export interface RendererProps {
   /** The unique key of the layout. */
   layoutKey: string;
   visible: boolean;
+  focused: boolean;
   /**
    * onClose should be called when the layout is ready to be closed. This function is
    * polymorphic and may have different behavior depending on the location of the layout.

@@ -23,7 +23,8 @@
 }
 
 .pluto-tabs-selector__icon {
-    margin: 0 1rem;
+    margin-left: 1.5rem;
+    margin-right: 1rem;
 }
 
 .pluto-tabs-selector__btn.pluto--selected :is(.pluto-text, .pluto-text-icon) {
@@ -64,9 +65,14 @@
     cursor: pointer;
     border: none;
     transition: box-shadow 0.25s;
-    &.pluto--selected.pluto--altColor .pluto-text {
-        color: var(--pluto-primary-z);
-        font-weight: 500;
+    &.pluto--selected.pluto--alt-color {
+        .pluto-text {
+            color: var(--pluto-primary-z);
+            font-weight: 500;
+        }
+        .pluto-tabs-selector__icon {
+            fill: var(--pluto-primary-m1);
+        }
     }
     .pluto-btn-icon {
         opacity: 0;

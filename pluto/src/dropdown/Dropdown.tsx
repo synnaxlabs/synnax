@@ -190,7 +190,7 @@ export const Dialog = ({
       empty
       style={dialogStyle}
     >
-      {(keepMounted || visible) && children[1]}
+      {visible && children[1]}
     </Align.Space>
   );
   if (variant === "floating") child = createPortal(child, getRootElement());
@@ -234,7 +234,7 @@ export const Dialog = ({
         }}
       >
         {children[0]}
-        {child}
+        {(keepMounted || visible) && child}
       </C>
     </CoreDialog.Context.Provider>
   );

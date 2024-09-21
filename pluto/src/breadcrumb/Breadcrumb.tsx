@@ -15,6 +15,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
+import { isValidElement } from "@/util/children";
 
 /**
  * Props for the Breadcrumb component.

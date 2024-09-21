@@ -14,8 +14,8 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
+import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
-import { calculatePlotBox, gridEntrySpecZ } from "@/vis/lineplot/aether/grid";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
@@ -26,7 +26,7 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().optional().default(false),
-  grid: z.record(gridEntrySpecZ),
+  grid: z.record(grid.regionZ),
   visible: z.boolean().optional().default(true),
   clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });
@@ -138,7 +138,7 @@ export class LinePlot extends aether.Composite<
   }
 
   private calculatePlot(): box.Box {
-    return calculatePlotBox(this.state.grid, this.state.container);
+    return grid.visualizationBox(this.state.grid, this.state.container);
   }
 
   private async render(
