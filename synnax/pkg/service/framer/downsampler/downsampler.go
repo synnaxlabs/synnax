@@ -13,47 +13,36 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/telem"
 )
 
-type DownSampler = framer.Streamer
-
 const defaultBuffer = 25
-
-type downsampledStreamer struct {
-	downsampleFactor int
-	confluence.AbstractUnarySink[framer.StreamerRequest]
-	confluence.AbstractUnarySource[framer.StreamerResponse]
-	streamer    framer.Streamer
-	downsampler confluence.Downsampler[framer.StreamerResponse]
-}
 
 func NewDownsampledStreamer(ctx context.Context, cfg framer.StreamerConfig, service *framer.Service) (framer.Streamer, error) {
 	s, err := service.NewStreamer(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	downsampledStreamer := &downsampledStreamer{
-		downsampleFactor: cfg.DownsampleFactor,
-		streamer:         s,
+	downsampler := &confluence.LinearTransform[framer.StreamerResponse, framer.StreamerResponse]{
+		Transform: func(ctx context.Context, i framer.StreamerResponse) (o framer.StreamerResponse, ok bool, err error) {
+			i = downsample(ctx, i, cfg.DownsampleFactor)
+			return i, true, nil
+		},
 	}
-	// requests stream --> downsampledStreamer --> streamer
-	downsampledStreamer.streamer.InFrom(downsampledStreamer.In)
-	downsampledStreamer.downsampler = confluence.Downsampler[framer.StreamerResponse]{Downsample: downsample, DownsamplingFactor: downsampledStreamer.downsampleFactor}
-	responses := confluence.NewStream[framer.StreamerResponse](defaultBuffer)
+	pipe := plumber.New()
+	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](pipe, "dist-streamer", s)
+	plumber.SetSegment[framer.StreamerResponse, framer.StreamerResponse](pipe, "downsampler", downsampler)
+	plumber.MustConnect[framer.StreamerResponse](pipe, "dist-streamer", "downsampler", defaultBuffer)
+	seg := &plumber.Segment[framer.StreamerRequest, framer.StreamerResponse]{
+		Pipeline:         pipe,
+		RouteInletsTo:    []address.Address{"dist-streamer"},
+		RouteOutletsFrom: []address.Address{"downsampler"},
+	}
 
-	// streamer --> internal responses stream --> downsampler -->downsampledStreamer.Out (inlet)
-	downsampledStreamer.streamer.OutTo(responses)
-	downsampledStreamer.downsampler.InFrom(responses)
-	downsampledStreamer.downsampler.OutTo(downsampledStreamer.Out)
-	return framer.Streamer(downsampledStreamer), nil
-}
-
-func (d *downsampledStreamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	d.downsampler.Flow(sCtx, opts...)
-	d.streamer.Flow(sCtx, opts...)
+	return seg, nil
 }
 
 func downsample(ctx context.Context, response framer.StreamerResponse, factor int) framer.StreamerResponse {

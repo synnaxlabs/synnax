@@ -17,7 +17,7 @@ from freighter import (
     StreamClient,
 )
 
-from synnax.channel.payload import ChannelKeys, ChannelParams
+from synnax.channel.payload import ChannelKeys, ChannelParams,DownsampleFactor
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
@@ -27,7 +27,7 @@ from typing import overload
 
 class _Request(Payload):
     keys: ChannelKeys
-
+    downsample_factor: DownsampleFactor
 
 class _Response(Payload):
     frame: FramePayload
@@ -63,13 +63,16 @@ class Streamer:
         self,
         client: StreamClient,
         adapter: ReadFrameAdapter,
+        downsample_factor: DownsampleFactor,
     ) -> None:
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._adapter = adapter
+        self._downsample_factor = downsample_factor
         self.__open()
 
     def __open(self):
-        self._stream.send(_Request(keys=self._adapter.keys))
+        print("sending request")
+        self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor))
 
     @overload
     def read(self, timeout: float | int | TimeSpan) -> Frame | None:
@@ -123,7 +126,7 @@ class Streamer:
         :raises NotFoundError: If any of the channels in the list are not found.
         """
         self._adapter.update(channels)
-        self._stream.send(_Request(keys=self._adapter.keys))
+        self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=2))
 
     def close(self, timeout: float | int | TimeSpan | None = None):
         """Closes the streamer and frees all network resources.
@@ -200,7 +203,7 @@ class AsyncStreamer:
 
     async def _open(self):
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
-        await self._stream.send(_Request(keys=self._adapter.keys))
+        await self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=2))
 
     @property
     def received(self) -> bool:

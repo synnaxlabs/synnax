@@ -38,7 +38,7 @@ type FrameService struct {
 	authProvider
 	dbProvider
 	accessProvider
-	Internal *framer2.Service
+	Internal *framer2.Service // TODO: this is the distribution layer service, remove and replace with service layer service
 }
 
 func NewFrameService(p Provider) *FrameService {
