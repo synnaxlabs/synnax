@@ -10,7 +10,7 @@
 import "@/text/WithIcon.css";
 
 import { toArray } from "@synnaxlabs/x";
-import { Children, type ReactElement, type ReactNode } from "react";
+import { Children, Key, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -20,7 +20,7 @@ import { type CoreProps, evalColor, Text } from "@/text/Text";
 import { isValidElement } from "@/util/children";
 
 interface IconProps {
-  key?: string | number;
+  key?: Key | null;
   color?: string;
   style?: React.CSSProperties;
 }

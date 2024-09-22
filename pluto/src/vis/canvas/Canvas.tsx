@@ -29,10 +29,6 @@ type HTMLDivProps = DetailedHTMLProps<
   HTMLDivElement
 >;
 
-export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
-  resizeDebounce?: number;
-}
-
 const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() as runtime.OS };
 
 interface Canvases {
@@ -48,6 +44,10 @@ const ZERO_CANVASES: Canvases = {
   upper2d: null,
   bootstrapped: false,
 };
+
+export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
+  resizeDebounce?: number;
+}
 
 export const Canvas = Aether.wrap<CanvasProps>(
   canvas.Canvas.TYPE,

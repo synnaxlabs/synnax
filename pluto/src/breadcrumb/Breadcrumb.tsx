@@ -13,6 +13,7 @@ import { FC, ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
 import { isValidElement } from "@/util/children";
 
@@ -27,7 +28,7 @@ export type BreadcrumbProps<
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
-  icon?: string;
+  icon?: string | ReactElement;
   /** The breadcrumb items, either a single string or an array of strings. */
   children: string | string[];
   url?: string | string[];
@@ -101,7 +102,7 @@ export const Breadcrumb = <
       size={size}
       {...props}
     >
-      {iconC}
+      {PIcon.resolve(icon)}
       {...content}
     </Text.WithIcon>
   );

@@ -7,5 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const getRootElement = (root: string = "root"): HTMLElement =>
-  document.getElementById(root) ?? document.body;
+export * as grid from "@/vis/grid/grid";

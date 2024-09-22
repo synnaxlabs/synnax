@@ -63,6 +63,7 @@ export const configureDigitalReadLayout = (
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
   key: id.id(),
+  icon: "Logo.NI",
   windowKey: DIGITAL_READ_TYPE,
   location: "mosaic",
   args,

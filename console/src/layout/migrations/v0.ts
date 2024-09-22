@@ -146,6 +146,7 @@ export type PartialNavState = z.infer<typeof partialNavState>;
 export const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),
   root: Mosaic.nodeZ,
+  focused: z.string().optional().nullable().default(null),
 });
 
 export type MosaicState = z.infer<typeof mosaicStateZ>;
@@ -163,6 +164,7 @@ export const MAIN_LAYOUT: State = {
 
 export const ZERO_MOSAIC_STATE: MosaicState = {
   activeTab: null,
+  focused: null,
   root: {
     key: 1,
     tabs: [],

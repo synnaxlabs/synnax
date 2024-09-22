@@ -1,7 +1,6 @@
 ---
 import { Breadcrumb as B } from "@synnaxlabs/pluto";
 const { url } = Astro.props;
-console.log(url);
 ---
 
 <B.URL hideFirst level="small" url={url.slice(1)} separator="/" />

@@ -57,7 +57,7 @@ const newCSS = (prefix: string): CSSType => {
     return location != null ? CSS.M("bordered-" + location) : CSS.M("bordered");
   };
   CSS.selected = (selected) => selected && CSS.M("selected");
-  CSS.altColor = (secondary) => secondary && CSS.M("altColor");
+  CSS.altColor = (secondary) => secondary && CSS.M("alt-color");
   CSS.editable = (editable) => editable && CSS.M("editable");
   CSS.noSelect = CSS.M("no-select");
   CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");

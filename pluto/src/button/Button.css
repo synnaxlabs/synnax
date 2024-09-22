@@ -73,7 +73,7 @@
     }
 
     &.pluto-btn--custom-color {
-        --pluto-bg: rgba(var(--pluto-btn-color), 0.9);
+        --pluto-bg: rgba(var(--pluto-btn-color), 0.75);
         background: var(--pluto-bg);
         border-color: var(--pluto-bg) !important;
 
@@ -84,7 +84,7 @@
         }
 
         &:active:not(.pluto--disabled) {
-            --pluto-bg: rgba(var(--pluto-btn-color), 0.8);
+            --pluto-bg: rgba(var(--pluto-btn-color), 0.6);
             background: var(--pluto-bg);
             border-color: var(--pluto-bg) !important;
         }

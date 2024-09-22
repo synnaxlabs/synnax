@@ -19,7 +19,7 @@ import {
   type ParsedAxisState,
   type RenderResult,
 } from "@/vis/axis/axis";
-import { newTickFactory,type Tick, type TickFactory } from "@/vis/axis/ticks";
+import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 4;
@@ -81,7 +81,7 @@ export class Canvas implements Axis {
         p.y + 5 + d.height,
       );
     });
-    return { size: maxTickDims.height + TICK_LINE_SIZE };
+    return { size: maxTickDims.height + TICK_LINE_SIZE + 6 };
   }
 
   drawTop(ctx: AxisProps): RenderResult {

@@ -89,7 +89,23 @@ interface SyncPayload {
   key?: string;
 }
 
-const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => {
+  const d = useDispatch();
+  const win = useSelectWindowKey() as string;
+  return (
+    <PMenu.Menu level="small" iconSpacing="small">
+      <PMenu.Item
+        itemKey="focus"
+        startIcon={<Icon.Focus />}
+        onClick={() => d(Layout.setFocus({ key: layoutKey, windowKey: win }))}
+      >
+        Focus
+      </PMenu.Item>
+    </PMenu.Menu>
+  );
+};
+
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const placer = Layout.usePlacer();
@@ -387,6 +403,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={handleTitleChange}
+          visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
@@ -400,6 +417,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
+          legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
