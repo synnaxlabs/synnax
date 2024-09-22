@@ -92,6 +92,22 @@ const smartPosition = (
   orientation: location.Outer,
 ): RFPosition => ORIENTATION_RF_POSITIONS[orientation][position];
 
+const swapRF = (position: RFPosition, bypass: boolean = false): RFPosition => {
+  if (bypass) return position;
+  switch (position) {
+    case RFPosition.Left:
+      return RFPosition.Right;
+    case RFPosition.Right:
+      return RFPosition.Left;
+    case RFPosition.Top:
+      return RFPosition.Bottom;
+    case RFPosition.Bottom:
+      return RFPosition.Top;
+    default:
+      return RFPosition.Top;
+  }
+};
+
 const adjustHandle = (
   top: number,
   left: number,
@@ -144,6 +160,7 @@ interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {
   location: location.Outer;
   position?: RFPosition;
   preventAutoAdjust?: boolean;
+  swap?: boolean;
   left: number;
   top: number;
   id: string;
@@ -154,13 +171,14 @@ const Handle = ({
   orientation,
   preventAutoAdjust,
   left,
+  swap,
   top,
   ...props
 }: HandleProps): ReactElement => {
   const adjusted = adjustHandle(top, left, orientation, preventAutoAdjust);
   return (
     <RFHandle
-      position={smartPosition(location, orientation)}
+      position={swapRF(smartPosition(location, orientation), !swap)}
       {...props}
       type="source"
       onClick={(e) => e.stopPropagation()}
@@ -1146,18 +1164,6 @@ export const TextBox = ({
       <Text.Text color={newcolor} level={level}>
         {text}
       </Text.Text>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
-        <Handle
-          location="bottom"
-          orientation={orientation}
-          left={50}
-          top={100}
-          id="4"
-        />
-      </HandleBoundary>
     </Div>
   );
 };
@@ -1867,13 +1873,12 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
     element.classList.add(orientation);
   }
 
+  const swap = direction.construct(orientation) === "y";
+
   return (
     <Div
       className={CSS(CSS.B("arrow"), CSS.loc(orientation), className)}
       orientation={orientation}
-      style={{
-        transform: orientation === "top" ? "rotate(-90deg)" : "",
-      }}
       {...props}
     >
       <div className="wrapper">
@@ -1890,16 +1895,18 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
           location="left"
           orientation={orientation}
           preventAutoAdjust
-          left={0}
+          left={98}
           top={50}
+          swap={swap}
           id="1"
         />
         <Handle
           location="right"
           preventAutoAdjust
           orientation={orientation}
-          left={98}
+          left={1}
           top={50}
+          swap={swap}
           id="2"
         />
       </HandleBoundary>

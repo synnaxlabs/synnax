@@ -22,15 +22,29 @@ export interface OrientationValue {
   outer: location.Outer;
 }
 
-export interface SelectOrientationProps extends Input.Control<OrientationValue> {}
+export interface SelectOrientationProps
+  extends Input.Control<OrientationValue>,
+    Omit<Align.SpaceProps, "value" | "onChange"> {
+  showOuter?: boolean;
+}
 
 export const SelectOrientation = ({
   value,
+  showOuter = true,
   onChange,
 }: SelectOrientationProps): ReactElement => {
-  const { inner, outer } = value;
+  const { outer } = value;
   const handleChange = (next: Partial<OrientationValue>) => () =>
     onChange({ ...value, ...next });
+
+  if (!showOuter)
+    return (
+      <InternalOrientation
+        className={CSS.B("orientation-control")}
+        value={value}
+        onChange={onChange}
+      />
+    );
 
   return (
     <Align.Space
@@ -42,34 +56,7 @@ export const SelectOrientation = ({
       <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
       <Align.Space direction="x" align="center" justify="center" size={0.5}>
         <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
-        <Align.Space
-          className={CSS.B("value")}
-          direction="y"
-          align="center"
-          justify="center"
-          empty
-        >
-          <Button
-            className={CSS(CSS.dir("y"))}
-            selected={inner === "top"}
-            onClick={handleChange({ inner: "top" })}
-          />
-          <Align.Space direction="x" align="center" justify="center">
-            <Button
-              selected={inner === "left"}
-              onClick={handleChange({ inner: "left" })}
-            />
-            <Button
-              selected={inner === "right"}
-              onClick={handleChange({ inner: "right" })}
-            />
-          </Align.Space>
-          <Button
-            className={CSS(CSS.dir("y"))}
-            selected={inner === "bottom"}
-            onClick={handleChange({ inner: "bottom" })}
-          />
-        </Align.Space>
+        <InternalOrientation value={value} onChange={onChange} />
         <Button
           selected={outer === "right"}
           onClick={handleChange({ outer: "right" })}
@@ -78,6 +65,45 @@ export const SelectOrientation = ({
       <Button
         selected={outer === "bottom"}
         onClick={handleChange({ outer: "bottom" })}
+      />
+    </Align.Space>
+  );
+};
+
+const InternalOrientation = ({
+  value,
+  onChange,
+  className,
+  ...props
+}: SelectOrientationProps): ReactElement => {
+  const { inner } = value;
+  const handleChange = (next: Partial<OrientationValue>) => () =>
+    onChange({ ...value, ...next });
+  return (
+    <Align.Space
+      className={CSS(className, CSS.B("value"))}
+      direction="y"
+      align="center"
+      justify="center"
+      empty
+      {...props}
+    >
+      <Button
+        className={CSS(CSS.dir("y"))}
+        selected={inner === "top"}
+        onClick={handleChange({ inner: "top" })}
+      />
+      <Align.Space direction="x" align="center" justify="center">
+        <Button selected={inner === "left"} onClick={handleChange({ inner: "left" })} />
+        <Button
+          selected={inner === "right"}
+          onClick={handleChange({ inner: "right" })}
+        />
+      </Align.Space>
+      <Button
+        className={CSS(CSS.dir("y"))}
+        selected={inner === "bottom"}
+        onClick={handleChange({ inner: "bottom" })}
       />
     </Align.Space>
   );

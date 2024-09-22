@@ -252,6 +252,7 @@ const ZERO_BOOLEAN_SOURCE_PROPS = {
 
 const ZERO_BOOLEAN_SINK_PROPS = {
   ...ZERO_PROPS,
+  control: { show: true },
   sink: telem.sinkPipeline("boolean", {
     connections: [{ from: "setpoint", to: "setter" }],
     segments: {
@@ -267,7 +268,7 @@ const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_P
 type zeroLabelReturn = { label: LabelExtensionProps };
 
 const zeroLabel = (label: string): zeroLabelReturn => ({
-  label: { label, level: "p", orientation: "top" },
+  label: { label, level: "p", orientation: "top", maxInlineSize: 150, align: "center" },
 });
 
 const ZERO_DIMENSIONS = { width: 100, height: 100 };
@@ -382,7 +383,7 @@ const tank: Spec<TankProps> = {
   Symbol: Tank,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    backgroundColor: t.colors.gray.l1.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Tank"),
     borderRadius: DEFAULT_BORDER_RADIUS,
     ...ZERO_BOX_PROPS,
@@ -399,7 +400,7 @@ const box: Spec<BoxProps> = {
   Symbol: Box,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    backgroundColor: t.colors.gray.l1.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Box"),
     borderRadius: ZERO_BOX_BORDER_RADIUS,
     ...ZERO_BOX_PROPS,

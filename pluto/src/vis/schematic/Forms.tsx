@@ -19,6 +19,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
@@ -53,7 +54,10 @@ interface SymbolOrientation {
   orientation?: location.Outer;
 }
 
-const OrientationControl: Form.FieldT<SymbolOrientation> = (props): ReactElement => (
+const OrientationControl = ({
+  showOuter,
+  ...props
+}: Form.FieldProps<SymbolOrientation> & { showOuter?: boolean }): ReactElement => (
   <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
     {({ value, onChange }) => (
       <SelectOrientation
@@ -61,6 +65,7 @@ const OrientationControl: Form.FieldT<SymbolOrientation> = (props): ReactElement
           inner: value.orientation ?? "top",
           outer: value.label?.orientation ?? "top",
         }}
+        showOuter={showOuter}
         onChange={(v) =>
           onChange({
             ...value,
@@ -81,12 +86,26 @@ const LabelControls = ({ path }: { path: string }): ReactElement => (
     <Form.Field<string> path={path + ".label"} label="Label" padHelpText={false} grow>
       {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
+    <Form.NumericField
+      style={{ maxWidth: 125 }}
+      path={path + ".maxInlineSize"}
+      hideIfNull
+      label="Label Wrap Width"
+    />
     <Form.Field<Text.Level>
       path={path + ".level"}
       label="Label Size"
       padHelpText={false}
     >
       {(p) => <Text.SelectLevel {...p} />}
+    </Form.Field>
+    <Form.Field<Align.Alignment>
+      path={path + ".align"}
+      label="Label Alignment"
+      padHelpText={false}
+      hideIfNull
+    >
+      {(p) => <Select.TextAlignment {...p} />}
     </Form.Field>
   </Align.Space>
 );
@@ -191,13 +210,13 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
       ...value,
       sink: t,
       control: {
-        ...value.control,
         showChip: true,
+        showIndicator: true,
+        ...value.control,
         chip: {
           sink: controlChipSink,
           source: authSource,
         },
-        showIndicator: true,
         indicator: {
           statusSource: authSource,
         },
@@ -216,6 +235,12 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
       <Input.Item label="Command Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
+      <Form.SwitchField
+        path="control.show"
+        label="Show Control Chip"
+        hideIfNull
+        optional
+      />
     </FormWrapper>
   );
 };
@@ -333,7 +358,7 @@ export const TankForm = ({
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" />
+    <OrientationControl path="" showOuter={false} />
   </FormWrapper>
 );
 
@@ -488,7 +513,7 @@ export const ValueForm = (): ReactElement => {
                 </Form.Field>
               </Align.Space>
             </Align.Space>
-            <OrientationControl path="" />
+            <OrientationControl path="" showOuter={false} />
           </FormWrapper>
         );
     }
@@ -746,7 +771,7 @@ export const TextBoxForm = (): ReactElement => (
       </Align.Space>
       <Align.Space direction="x">
         <ColorControl path="color" />
-        <Form.Field<number> path="width" label="Width" padHelpText={false}>
+        <Form.Field<number> path="width" label="Label Width" padHelpText={false}>
           {(p) => (
             <Input.Numeric {...p} bounds={{ lower: 0, upper: 2000 }} dragScale={5} />
           )}

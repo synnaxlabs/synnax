@@ -31,6 +31,7 @@ import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
 
 export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
+  show?: boolean;
   showChip?: boolean;
   showIndicator?: boolean;
   chip?: Control.ChipProps;
@@ -50,6 +51,7 @@ const ControlState = ({
   orientation = "left",
   chip,
   children,
+  show = true,
   ...props
 }: ControlStateProps): ReactElement => (
   <Align.Space
@@ -65,8 +67,8 @@ const ControlState = ({
       className={CSS(CSS.B("control-state"))}
       size="small"
     >
-      {showChip && <Control.Chip size="small" {...chip} />}
-      {showIndicator && <Control.Indicator {...indicator} />}
+      {show && showChip && <Control.Chip size="small" {...chip} />}
+      {show && showIndicator && <Control.Indicator {...indicator} />}
     </Align.Space>
     {children}
   </Align.Space>
@@ -1404,5 +1406,5 @@ export const OffPageReference = ({
 );
 
 export const OffPageReferencePreview = ({ label: _, ...props }: ArrowProps) => (
-  <Primitives.OffPageReference label="Off Page" {...props} />
+  <Primitives.OffPageReference label="Off Page" {...props} orientation="right" />
 );
