@@ -19,6 +19,7 @@ import {
 
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
+import { text } from "@/text/core";
 import { Theming } from "@/theming";
 import { type ComponentSize } from "@/util/component";
 
@@ -66,6 +67,7 @@ export interface SpaceExtensionProps {
   wrap?: boolean;
   el?: SpaceElementType;
   bordered?: boolean;
+  borderShade?: text.Shade;
   rounded?: boolean;
   background?: Theming.Shade;
 }
@@ -95,6 +97,7 @@ const CoreSpace = <E extends SpaceElementType>(
     bordered = false,
     rounded = false,
     el = "div",
+    borderShade = 3,
     background,
     ...props
   }: SpaceProps<E>,
@@ -133,7 +136,10 @@ const CoreSpace = <E extends SpaceElementType>(
         typeof size === "string" && CSS.BM("space", size),
         className,
       )}
-      style={style}
+      style={{
+        ...style,
+        [CSS.var("space-border-shade")]: CSS.shadeVar(borderShade),
+      }}
       {...props}
     />
   );

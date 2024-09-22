@@ -510,6 +510,7 @@ export const Setpoint = Aether.wrap<SymbolProps<SetpointProps>>(
     units,
     source,
     sink,
+    color,
     onChange,
   }): ReactElement => {
     const { value, set } = CoreSetpoint.use({ aetherKey, source, sink });
@@ -524,6 +525,7 @@ export const Setpoint = Aether.wrap<SymbolProps<SetpointProps>>(
             value={value}
             onChange={set}
             units={units}
+            color={color}
             orientation={orientation}
           />
         </ControlState>

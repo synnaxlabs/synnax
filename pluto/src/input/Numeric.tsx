@@ -59,7 +59,6 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       selectOnFocus = true,
       bounds: propsBounds = bounds.INFINITE,
       resetValue,
-      style,
       variant = "outlined",
       className,
       children,
@@ -155,7 +154,6 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         value={value_.toString()}
         onChange={handleChange}
         disabled={disabled}
-        style={style}
         selectOnFocus={selectOnFocus}
         // When the user hits 'Enter', we should try to evaluate the input and update the
         // actual value.

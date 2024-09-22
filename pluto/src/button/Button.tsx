@@ -146,6 +146,8 @@ export const Button = Tooltip.wrap(
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
     else if (size == null) size = "medium";
 
+    console.log(className, endContent, endContent != null);
+
     return (
       <Text.WithIcon<"button", any>
         el="button"
@@ -169,11 +171,11 @@ export const Button = Tooltip.wrap(
         {...props}
       >
         {children}
-        {endContent != null && (
+        {endContent != null ? (
           <div className={CSS.BE("btn", "end-content")}>
             {Text.formatChildren(level ?? Text.ComponentSizeLevels[size], endContent)}
           </div>
-        )}
+        ) : undefined}
       </Text.WithIcon>
     );
   },

@@ -46,7 +46,6 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     {
       size = "medium",
       value,
-      style,
       onChange,
       className,
       onFocus,
@@ -63,6 +62,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       status,
       shade,
       weight,
+      style,
       color,
       onlyChangeOnBlur = false,
       endContent,

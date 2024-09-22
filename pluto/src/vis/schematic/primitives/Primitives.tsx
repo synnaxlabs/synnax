@@ -1186,9 +1186,11 @@ export const Setpoint = ({
   children,
   value,
   units,
+  color,
   onChange,
   ...props
 }: SetpointProps): ReactElement => {
+  console.log("COLOR", color);
   const [currValue, setCurrValue] = useState(value);
   return (
     <Div
@@ -1197,8 +1199,8 @@ export const Setpoint = ({
       {...props}
     >
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={-1} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={101} top={50} id="2" />
+        <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
         <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
         <Handle
           location="bottom"
@@ -1214,16 +1216,14 @@ export const Setpoint = ({
         onChange={setCurrValue}
         showDragHandle={false}
         selectOnFocus
+        endContent={units}
+        style={{ [CSS.var("pack-border-shade")]: Color.cssString(color) }}
       >
-        {units != "" && (
-          <Text.Text className={CSS.B("units")} noWrap={true} level="small">
-            {units}
-          </Text.Text>
-        )}
         <CoreButton.Button
           variant="outlined"
           size="small"
           onClick={() => onChange(currValue)}
+          color={Color.cssString(color)}
         >
           Set
         </CoreButton.Button>
@@ -1674,7 +1674,7 @@ export const PropellerAgitator = ({
 }: PropellerAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary>
-      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height: height }}

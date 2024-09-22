@@ -751,15 +751,18 @@ export const SetpointForm = (): ReactElement => {
         return (
           <FormWrapper direction="x" align="stretch">
             <Align.Space direction="y" grow>
-              <LabelControls path="label" />
-              <Form.Field<string>
-                path="units"
-                label="Units"
-                align="start"
-                padHelpText={false}
-              >
-                {(p) => <Input.Text {...p} />}
-              </Form.Field>
+              <Align.Space direction="x" align="stretch">
+                <LabelControls path="label" />
+                <Form.Field<string>
+                  path="units"
+                  label="Units"
+                  align="start"
+                  padHelpText={false}
+                >
+                  {(p) => <Input.Text {...p} />}
+                </Form.Field>
+                <ColorControl path="color" />
+              </Align.Space>
             </Align.Space>
             <OrientationControl path="" />
           </FormWrapper>
