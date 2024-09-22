@@ -258,7 +258,7 @@ class Client:
             )
         return series
 
-    def open_streamer(self, channels: ChannelParams, downsampleFactor: int = 2) -> Streamer:
+    def open_streamer(self, channels: ChannelParams, downsampleFactor: int = 1) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.
 
@@ -267,8 +267,6 @@ class Client:
 
         :param downsampleFactor: The downsample factor to use for the streamer.
         """
-        print("Opening streamer")
-        print("downsampleFactor: ", downsampleFactor)
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         return Streamer(

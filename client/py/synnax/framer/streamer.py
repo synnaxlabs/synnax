@@ -126,7 +126,7 @@ class Streamer:
         :raises NotFoundError: If any of the channels in the list are not found.
         """
         self._adapter.update(channels)
-        self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=2))
+        self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor))
 
     def close(self, timeout: float | int | TimeSpan | None = None):
         """Closes the streamer and frees all network resources.
@@ -203,7 +203,7 @@ class AsyncStreamer:
 
     async def _open(self):
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
-        await self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=2))
+        await self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=self._adapter.downsample_factor))
 
     @property
     def received(self) -> bool:

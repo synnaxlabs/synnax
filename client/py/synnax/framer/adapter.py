@@ -26,11 +26,13 @@ class ReadFrameAdapter:
     __adapter: dict[ChannelKey, ChannelName] | None
     retriever: ChannelRetriever
     keys: list[ChannelKey]
+    downsample_factor: int
 
     def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
         self.__adapter = None
         self.keys = list()
+        self.downsample_factor = 1
 
     def update(self, channels: ChannelParams):
         normal = normalize_channel_params(channels)
