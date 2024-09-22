@@ -65,6 +65,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       weight,
       color,
       onlyChangeOnBlur = false,
+      endContent,
       ...props
     },
     ref,
@@ -114,6 +115,8 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     const disabledCSS = disabled && CSS.BM("input", "disabled");
     if (variant === "preview") disabled = true;
 
+    const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
+
     return (
       <Align.Pack
         style={style}
@@ -132,7 +135,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         size={size}
       >
         <div className={CSS.BE("input", "internal")}>
-          {(value == null || value.length === 0) && tempValue == null && (
+          {showPlaceholder && (
             <div
               className={CSS(
                 CSS.BE("input", "placeholder"),
@@ -142,6 +145,14 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
               {CoreText.formatChildren(
                 level ?? CoreText.ComponentSizeLevels[size],
                 placeholder,
+              )}
+            </div>
+          )}
+          {endContent != null && (
+            <div className={CSS.BE("input", "end-content")}>
+              {CoreText.formatChildren(
+                level ?? CoreText.ComponentSizeLevels[size],
+                endContent,
               )}
             </div>
           )}

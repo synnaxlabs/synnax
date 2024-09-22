@@ -16,6 +16,7 @@
 }
 
 .pluto-btn {
+    position: relative;
     margin: 0;
     cursor: pointer;
     border-radius: var(--pluto-border-radius);
@@ -30,6 +31,22 @@
     transition:
         background 0.15s ease-in-out,
         border-color 0.15s ease-in-out;
+}
+
+.pluto-btn__end-content {
+    position: absolute;
+    right: -0.5rem;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-right: 1.5rem;
+    pointer-events: none;
+    z-index: 0;
+    & > * {
+        color: var(--pluto-gray-l7);
+        transform: scale(0.8);
+    }
 }
 
 /* |||| FILLED |||| */

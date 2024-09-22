@@ -39,6 +39,7 @@ export interface ExtensionProps<I extends Value = Value, O extends Value = I>
   level?: Text.Level;
   shade?: Text.Shade;
   weight?: Text.Weight;
+  endContent?: ReactNode;
 }
 
 export interface BaseProps<I extends Value = Value, O extends Value = I>

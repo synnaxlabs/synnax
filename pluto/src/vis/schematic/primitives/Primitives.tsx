@@ -1038,6 +1038,7 @@ export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
   units?: string;
+  inlineSize?: number;
 }
 
 export const Value = ({
@@ -1047,6 +1048,7 @@ export const Value = ({
   orientation,
   units = "psi",
   children,
+  inlineSize = 80,
   ...props
 }: ValueProps): ReactElement => {
   const borderColor = Color.cssString(color);
@@ -1072,7 +1074,7 @@ export const Value = ({
     >
       <div
         className={CSS.BE("value", "content")}
-        style={{ flexGrow: 1, minWidth: dimensions?.width, inlineSize: 80 }}
+        style={{ flexGrow: 1, minWidth: dimensions?.width, inlineSize }}
       >
         {children}
       </div>

@@ -124,6 +124,22 @@
     }
 }
 
+.pluto-input__end-content {
+    position: absolute;
+    right: -0.5rem;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-right: 1.5rem;
+    pointer-events: none;
+    z-index: 0;
+    * {
+        color: var(--pluto-gray-l6);
+        transform: scale(0.9);
+    }
+}
+
 .pluto-input--shadow {
     & .pluto-input__internal {
         background: var(--pluto-bg);

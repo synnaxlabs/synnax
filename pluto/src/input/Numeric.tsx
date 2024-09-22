@@ -25,6 +25,7 @@ export interface NumericProps
   showDragHandle?: boolean;
   bounds?: bounds.Crude;
   onBlur?: () => void;
+  units?: string;
 }
 
 /**
@@ -64,6 +65,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       children,
       disabled,
       onBlur,
+      units,
       ...props
     },
     ref,

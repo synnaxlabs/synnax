@@ -91,6 +91,7 @@ const LabelControls = ({ path }: { path: string }): ReactElement => (
       path={path + ".maxInlineSize"}
       hideIfNull
       label="Label Wrap Width"
+      inputProps={{ endContent: "px" }}
     />
     <Form.Field<Text.Level>
       path={path + ".level"}
@@ -298,6 +299,7 @@ export const TankForm = ({
               value={value}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
+              endContent="%"
               {...props}
             />
           )}
@@ -314,6 +316,7 @@ export const TankForm = ({
               value={value}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
+              endContent="%"
               {...props}
             />
           )}
@@ -342,6 +345,7 @@ export const TankForm = ({
               value={value ?? 200}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
               {...props}
             />
           )}
@@ -352,6 +356,7 @@ export const TankForm = ({
               value={value ?? 200}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
               {...props}
             />
           )}
@@ -511,6 +516,15 @@ export const ValueForm = (): ReactElement => {
                 >
                   {(p) => <Input.Text {...p} />}
                 </Form.Field>
+                <Form.NumericField
+                  path="inlineSize"
+                  label="Label Wrap Width"
+                  hideIfNull
+                  inputProps={{
+                    dragScale: { x: 1, y: 0.25 },
+                    bounds: { lower: 40, upper: 500 },
+                  }}
+                />
               </Align.Space>
             </Align.Space>
             <OrientationControl path="" showOuter={false} />

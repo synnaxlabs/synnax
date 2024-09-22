@@ -271,7 +271,7 @@ const zeroLabel = (label: string): zeroLabelReturn => ({
   label: { label, level: "p", orientation: "top", maxInlineSize: 150, align: "center" },
 });
 
-const ZERO_DIMENSIONS = { width: 100, height: 100 };
+const ZERO_DIMENSIONS = { width: 125, height: 200 };
 
 const ZERO_BOX_PROPS = { dimensions: ZERO_DIMENSIONS };
 
@@ -574,6 +574,7 @@ const value: Spec<ValueProps> = {
     color: t.colors.gray.l9.rgba255,
     units: "psi",
     level: "h5",
+    inlineSize: 70,
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,

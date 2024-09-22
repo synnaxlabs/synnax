@@ -19,7 +19,7 @@ interface Entry {
   icon: ReactElement;
 }
 
-export interface DirectionProps
+export interface AlignmentProps
   extends Omit<
     ButtonProps<Align.Alignment, Entry>,
     "data" | "entryRenderKey" | "allowMultiple"
@@ -60,7 +60,7 @@ const defaultSelectTextAlignmentButton = ({
 export const TextAlignment = ({
   children = defaultSelectTextAlignmentButton,
   ...props
-}: DirectionProps): ReactElement => {
+}: AlignmentProps): ReactElement => {
   return (
     <Button {...props} allowMultiple={false} data={DATA}>
       {children}

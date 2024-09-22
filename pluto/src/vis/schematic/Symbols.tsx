@@ -657,6 +657,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     units,
     onChange,
     tooltip,
+    inlineSize,
   }): ReactElement => {
     const font = Theming.useTypography(level);
     const [dimensions, setDimensions] = useState<ValueDimensionsState>({
@@ -702,7 +703,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
       level,
       box: adjustedBox,
       telem,
-      minWidth: 60,
+      minWidth: inlineSize,
     });
 
     return (
@@ -729,6 +730,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
               height: valueBoxHeight,
               width: oWidth,
             }}
+            inlineSize={inlineSize}
             units={units}
           />
         </Labeled>
