@@ -307,38 +307,6 @@ export type UsePortalReturn = [
   ReactElement[],
 ];
 
-export const usePortal_ = ({
-  root,
-  onSelect,
-  children,
-}: UsePortalProps): UsePortalReturn => {
-  const ref = useRef<Map<string, Portal.Node>>(new Map());
-  const existing = new Set<string>();
-  const portaledNodes = mapNodes(root, (node) => {
-    if (node.selected == null) return null;
-    let pNode: Portal.Node | undefined = ref.current.get(node.selected);
-    const tab = node.tabs?.find((t) => t.tabKey === node.selected);
-    if (tab == null) return null;
-    if (pNode == null) {
-      pNode = new Portal.Node({
-        style: "width: 100%; height: 100%; position: relative;",
-      });
-      // Events don't propagate upward from the portaled node, so we need to bind
-      // the onSelect handler here.
-      pNode.el.addEventListener("click", () => onSelect?.(tab.tabKey));
-      ref.current.set(node.selected, pNode);
-    }
-    existing.add(node.selected);
-    return (
-      <Portal.In key={tab.tabKey} node={pNode}>
-        {children(tab)}
-      </Portal.In>
-    );
-  }).filter((v) => v != null) as ReactElement[];
-  ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
-  return [ref, portaledNodes];
-};
-
 export const usePortal = ({
   root,
   onSelect,
@@ -369,6 +337,6 @@ export const usePortal = ({
   )
     .flat()
     .filter((v) => v != null) as ReactElement[];
-  // ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
+  ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
   return [ref, portaledNodes];
 };

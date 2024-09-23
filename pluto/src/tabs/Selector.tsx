@@ -172,8 +172,8 @@ const SelectorButton = ({
         className: CSS.BE(CLS, "icon"),
         style: {
           color: CSS.shadeVar(7),
-          height: `var(--pluto-${level}-size)`,
-          width: `var(--pluto-${level}-size)`,
+          height: CSS.levelSizeVar(level),
+          width: CSS.levelSizeVar(level),
         },
       })}
       <Name
