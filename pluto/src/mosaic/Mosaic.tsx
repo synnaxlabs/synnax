@@ -90,6 +90,7 @@ const MosaicInternal = memo((props: MosaicInternalProps): ReactElement | null =>
   else if (first != null && last != null)
     content = (
       <Resize.Multiple
+        id={`mosaic-${key}`}
         align="stretch"
         className={CSS.BE("mosaic", "resize")}
         {...resizeProps}
@@ -225,7 +226,7 @@ const TabLeaf = memo(
     const handleTabCreate = useCallback((): void => onCreate?.(key, "center"), [key]);
 
     return (
-      <div className={CSS.BE("mosaic", "leaf")}>
+      <div id={`mosaic-${key}`} className={CSS.BE("mosaic", "leaf")}>
         <Tabs.Tabs
           id={`tab-${key}`}
           tabs={tabs}
@@ -237,24 +238,22 @@ const TabLeaf = memo(
           {...props}
           {...haulProps}
         >
-          {(p) => (
-            <>
-              {children(p)}
-              {dragging && (
-                <div
-                  style={{
-                    zIndex: 1000,
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                  }}
-                />
-              )}
-            </>
+          {node.selected != null &&
+            children(tabs.find((t) => t.tabKey === node.selected) as Tabs.Spec)}
+          {dragging && (
+            <div
+              style={{
+                zIndex: 1000,
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+              }}
+            />
           )}
         </Tabs.Tabs>
+
         {dragMask != null && (
           <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
         )}

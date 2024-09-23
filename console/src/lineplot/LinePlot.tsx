@@ -89,21 +89,11 @@ interface SyncPayload {
   key?: string;
 }
 
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => {
-  const d = useDispatch();
-  const win = useSelectWindowKey() as string;
-  return (
-    <PMenu.Menu level="small" iconSpacing="small">
-      <PMenu.Item
-        itemKey="focus"
-        startIcon={<Icon.Focus />}
-        onClick={() => d(Layout.setFocus({ key: layoutKey, windowKey: win }))}
-      >
-        Focus
-      </PMenu.Item>
-    </PMenu.Menu>
-  );
-};
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <PMenu.Menu level="small" iconSpacing="small">
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </PMenu.Menu>
+);
 
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;

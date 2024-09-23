@@ -222,6 +222,74 @@ export const resizeNode = (root: Node, key: number, size: number): Node => {
   else node.size = size;
   return root;
 };
+/**
+ * Splits the node containing the tab with the given `tabKey`,
+ * moving the tab to a new child node in the specified direction.
+ *
+ * @param root - The root of the mosaic.
+ * @param tabKey - The key of the tab to move to the new split.
+ * @param dir - The direction to split ('x' for vertical, 'y' for horizontal).
+ * @returns A shallow copy of the root of the mosaic with the node split.
+ */
+export const split = (root: Node, tabKey: string, dir: direction.Direction): Node => {
+  root = shallowCopyNode(root);
+  const node = findTabNode(root, tabKey);
+  if (node == null) throw new Error("Tab not found");
+  if (node.tabs == null || node.tabs.length === 0) throw new Error("Node has no tabs");
+
+  const tabIndex = node.tabs.findIndex((t) => t.tabKey === tabKey);
+  if (tabIndex === -1) throw new Error("Tab not found in node");
+
+  // Remove the tab with tabKey from node.tabs
+  const tab = node.tabs[tabIndex];
+  node.tabs = node.tabs.filter((t) => t.tabKey !== tabKey);
+
+  // Create child nodes
+  const firstChildKey = node.key * 2;
+  const lastChildKey = node.key * 2 + 1;
+
+  const childWithTab: Node = {
+    key: lastChildKey,
+    tabs: [tab],
+    selected: tab.tabKey,
+  };
+
+  const childWithoutTab: Node = {
+    key: firstChildKey,
+    tabs: node.tabs,
+    selected: node.selected,
+  };
+  // Reset the selected tab in the child without tab if necessary
+  childWithoutTab.selected = Tabs.resetSelection(
+    childWithoutTab.selected,
+    childWithoutTab.tabs,
+  );
+
+  // Set node to be an internal node with direction dir
+  node.direction = dir;
+  node.first = childWithoutTab;
+  node.last = childWithTab;
+
+  // Clear the node's tabs and selected since it's now an internal node
+  node.tabs = undefined;
+  node.selected = undefined;
+
+  return root;
+};
+
+/**
+ * Determines if the node containing the tab with the given `tabKey` can be split
+ * without resulting in one of the new child nodes having no tabs.
+ *
+ * @param root - The root of the mosaic.
+ * @param tabKey - The key of the tab to move to the new split.
+ * @returns True if the split is possible, false otherwise.
+ */
+export const canSplit = (root: Node, tabKey: string): boolean => {
+  const node = findTabNode(root, tabKey);
+  if (node == null) return false; // Tab not found
+  return node.tabs != null && node.tabs.length > 1;
+};
 
 /**
  * Sets the title of a tab.

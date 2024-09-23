@@ -30,7 +30,7 @@
         width: 100%;
         height: 100%;
         z-index: 10;
-        background: var(--pluto-gray-l3-40);
+        background: var(--pluto-gray-l1-40);
         padding: 5rem;
         /* don't allow to select things underneath */
         user-select: none;

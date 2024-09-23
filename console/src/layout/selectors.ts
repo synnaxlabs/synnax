@@ -98,7 +98,7 @@ export const selectFocused = (
 ): [string, string | null] => {
   const win = selectWindow(state, windowKey);
   if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
-  return [win.key, selectSliceState(state).mosaics[win.key].focused];
+  return [win.key, selectSliceState(state).mosaics[win.key]?.focused ?? null];
 };
 
 export const useSelectFocused = (): [string, string | null] =>

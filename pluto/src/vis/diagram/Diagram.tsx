@@ -245,11 +245,11 @@ const Core = Aether.wrap<DiagramProps>(
     );
 
     const { fitView } = useReactFlow();
-    const debouncedFitView = useDebouncedCallback(fitView, 100, [fitView]);
+    const debouncedFitView = useDebouncedCallback(fitView, 50, [fitView]);
     const resizeRef = Canvas.useRegion(
       useCallback(
         (b) => {
-          debouncedFitView({ maxZoom: 1, duration: 100 });
+          debouncedFitView({ maxZoom: 1 });
           setState((prev) => ({ ...prev, region: b }));
         },
         [setState, debouncedFitView, fitViewOnResize],

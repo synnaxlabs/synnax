@@ -22,7 +22,7 @@ export const specZ = z.object({
 });
 
 export interface Spec extends Omit<z.infer<typeof specZ>, "icon"> {
-  icon?: ReactElement | string;
+  icon?: ReactElement | string | unknown;
 }
 export const tabZ = specZ.extend({
   content: z.unknown().optional(),

@@ -34,7 +34,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -139,21 +138,11 @@ const SymbolRenderer = ({
   );
 };
 
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => {
-  const d = useDispatch();
-  return (
-    <PMenu.Menu level="small" iconSpacing="small">
-      <PMenu.Item
-        itemKey="focus"
-        startIcon={<Icon.Focus />}
-        onClick={() => d(Layout.setFocus({ key: layoutKey }))}
-      >
-        Focus
-      </PMenu.Item>
-    </PMenu.Menu>
-  );
-};
-
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <PMenu.Menu level="small" iconSpacing="small">
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </PMenu.Menu>
+);
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);

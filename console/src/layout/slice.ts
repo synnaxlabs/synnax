@@ -17,7 +17,7 @@ import {
 import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic } from "@synnaxlabs/pluto";
-import { type deep, id, type location } from "@synnaxlabs/x";
+import { type deep, direction, id, type location } from "@synnaxlabs/x";
 import { ComponentType } from "react";
 
 import { CreateConfirmModal } from "@/confirm/Confirm";
@@ -67,7 +67,7 @@ export type SetActiveThemePayload = string | undefined;
 export interface MoveMosaicTabPayload {
   tabKey: string;
   windowKey?: string;
-  key: number;
+  key?: number;
   loc: location.Location;
 }
 
@@ -75,6 +75,12 @@ interface ResizeMosaicTabPayload {
   windowKey: string;
   key: number;
   size: number;
+}
+
+interface SplitMosaicNodePayload {
+  windowKey: string;
+  direction: direction.Direction;
+  tabKey: string;
 }
 
 interface SelectMosaicTabPayload {
@@ -271,6 +277,8 @@ export const { actions, reducer } = createSlice({
       if (layout == null) return;
       const prevWindowKey = layout.windowKey;
       if (windowKey == null || prevWindowKey === windowKey) {
+        // This is a redundant operation, so we leave everything as is.
+        if (key == null) return;
         const mosaic = state.mosaics[prevWindowKey];
         [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key);
         state.mosaics[prevWindowKey] = mosaic;
@@ -285,6 +293,7 @@ export const { actions, reducer } = createSlice({
 
       const mosaicTab = {
         closable: true,
+        icon: layout.icon,
         ...layout.tab,
         name: layout.name,
         tabKey: layout.key,
@@ -293,6 +302,16 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
       state.mosaics[windowKey] = mosaic;
       purgeEmptyMosaics(state);
+    },
+    splitMosaicNode: (
+      state,
+      {
+        payload: { windowKey, direction, tabKey },
+      }: PayloadAction<SplitMosaicNodePayload>,
+    ) => {
+      const mosaic = state.mosaics[windowKey];
+      mosaic.root = Mosaic.split(mosaic.root, tabKey, direction);
+      state.mosaics[windowKey] = mosaic;
     },
     selectMosaicTab: (
       state,
@@ -474,6 +493,7 @@ export const {
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,
+  splitMosaicNode,
   rename,
   setNavDrawer,
   resizeNavDrawer,
@@ -490,7 +510,7 @@ export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
-export const MOSAIC_WINDOW_TYPE = "mosaic";
+export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
 
 export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
   key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
@@ -500,7 +520,7 @@ export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey
   window: {
     ...window,
     size: { width: 800, height: 600 },
-    navTop: true,
+    navTop: false,
     visible: true,
     showTitle: false,
   },

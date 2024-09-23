@@ -24,6 +24,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { useOpenInNewWindow } from "@/layout/Menu";
 import {
   selectActiveMosaicTabKey,
   selectFocused,
@@ -227,6 +228,7 @@ export const useNavDrawer = (
 export const useTriggers = () => {
   const store = useStore<RootState>();
   const remove = useRemover();
+  const openInNewWindow = useOpenInNewWindow();
   Triggers.use({
     triggers: [["Control", "F"]],
     loose: true,
@@ -250,6 +252,17 @@ export const useTriggers = () => {
       const active = selectActiveMosaicTabKey(state);
       if (active == null) return;
       remove(active);
+    },
+  });
+  Triggers.use({
+    triggers: [["Control", "O"]],
+    loose: true,
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
+      const state = store.getState();
+      const active = selectActiveMosaicTabKey(state);
+      if (active == null) return;
+      openInNewWindow(active);
     },
   });
 };
