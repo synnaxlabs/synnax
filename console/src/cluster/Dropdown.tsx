@@ -56,7 +56,7 @@ export const List = (): ReactElement => {
     dispatch(remove({ keys }));
     if (active != null && keys.includes(active?.key)) {
       dispatch(setActive(null));
-      dispatch(Permissions.removeAll());
+      dispatch(Permissions.clear());
     }
   };
 

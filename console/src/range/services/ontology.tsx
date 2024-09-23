@@ -265,7 +265,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
   {
-    type: ranger.RangeOntologyType,
+    type: ranger.ONTOLOGY_TYPE,
     key: id.key,
   },
 ];

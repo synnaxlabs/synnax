@@ -19,7 +19,7 @@ from freighter import (
     UnaryClient,
 )
 
-from synnax.user.payload import UserPayload
+from synnax.user.payload import User
 from synnax.util.send_required import send_required
 
 
@@ -30,7 +30,7 @@ class InsecureCredentials(Payload):
 
 class TokenResponse(Payload):
     token: str
-    user: UserPayload
+    user: User
 
 
 AUTHORIZATION_HEADER = "Authorization"
@@ -77,7 +77,7 @@ class AuthenticationClient:
     username: str
     password: str
     token: str
-    user: UserPayload
+    user: User
 
     def __init__(
         self,

@@ -11,21 +11,25 @@ from uuid import UUID
 from freighter import Payload
 from synnax.ontology.payload import ID
 
-user_ontology_type = ID(type="user")
-
 
 class NewUser(Payload):
     username: str
     password: str
-    first_name: str | None
-    last_name: str | None
+    first_name: str = ""
+    last_name: str = ""
+    key: UUID | None = None
 
 
-class UserPayload(Payload):
+class User(Payload):
     key: UUID
     username: str
-    first_name: str | None
-    last_name: str | None
+    first_name: str
+    last_name: str
+    root_user: bool
 
     def ontology_id(self) -> ID:
         return ID(key=self.key, type="user")
+
+
+ontology_type = "user"
+change_username_action = "change_username"

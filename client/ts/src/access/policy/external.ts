@@ -7,14 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-
-import { policy } from "@/access/policy";
-
-export class Client {
-  readonly policy: policy.Client;
-
-  constructor(client: UnaryClient) {
-    this.policy = new policy.Client(client);
-  }
-}
+export * from "@/access/policy/client";
+export * from "@/access/policy/payload";

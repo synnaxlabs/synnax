@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
-import { Modal, SET_PERMISSIONS_TYPE } from "@/permissions/Modal";
+import { type Layout } from "@/layout";
+import { SET_LAYOUT_TYPE, SetModal } from "@/permissions/SetLayout";
 
-export * from "@/permissions/Modal";
-export * from "@/permissions/permissions";
 export * from "@/permissions/selectors";
+export * from "@/permissions/SetLayout";
 export * from "@/permissions/slice";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [SET_PERMISSIONS_TYPE]: Modal,
+  [SET_LAYOUT_TYPE]: SetModal,
 };

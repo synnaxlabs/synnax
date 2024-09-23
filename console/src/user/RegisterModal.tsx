@@ -24,7 +24,6 @@ import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { Layout } from "@/layout";
-import { Permissions } from "@/permissions";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username must not be empty"),
@@ -74,8 +73,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
       if (!methods.validate()) return;
       const values = methods.value();
       if (client == null) throw new Error("No Cluster Connected");
-      const user = await client.user.create({ ...values });
-      Permissions.setBasePermissions(client, user.key);
+      await client.user.create({ ...values });
       onClose();
     },
     onError: (e) =>

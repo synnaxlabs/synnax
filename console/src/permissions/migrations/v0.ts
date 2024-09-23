@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { policy } from "@synnaxlabs/client";
+import { z } from "zod";
 
-import { type Command } from "@/palette/Palette";
-import { create } from "@/schematic/Schematic";
+export const stateZ = z.object({
+  version: z.literal("0.0.0"),
+  policies: policy.policyZ.array(),
+});
 
-export const createCommand: Command = {
-  key: "create-schematic",
-  name: "Create a Schematic",
-  icon: <Icon.Schematic />,
-  onSelect: ({ placeLayout }) => placeLayout(create({})),
-};
+export type State = z.infer<typeof stateZ>;
 
-export const COMMANDS = [createCommand];
+export const ZERO_STATE: State = { version: "0.0.0", policies: [] };

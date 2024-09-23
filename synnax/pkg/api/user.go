@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"go/types"
 
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 // UserService is the core authentication service for the Synnax API.
@@ -81,6 +83,7 @@ func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (User
 			newUsers[i].Username = u.Username
 			newUsers[i].FirstName = u.FirstName
 			newUsers[i].LastName = u.LastName
+			newUsers[i].Key = u.Key
 			if err := w.Create(ctx, &newUsers[i]); err != nil {
 				return err
 			}
@@ -155,8 +158,8 @@ type (
 )
 
 // Retrieve returns the users with the provided keys or usernames.
-func (svc *UserService) Retrieve(ctx context.Context, req UserRetrieveRequest) (UserRetrieveResponse, error) {
-	q := svc.internal.NewRetrieve()
+func (s *UserService) Retrieve(ctx context.Context, req UserRetrieveRequest) (UserRetrieveResponse, error) {
+	q := s.internal.NewRetrieve()
 
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
@@ -168,7 +171,7 @@ func (svc *UserService) Retrieve(ctx context.Context, req UserRetrieveRequest) (
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
 		return UserRetrieveResponse{}, err
 	}
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  action.Retrieve,
 		Objects: user.OntologyIDsFromUsers(users),
@@ -191,9 +194,16 @@ func (s *UserService) Delete(ctx context.Context, req UserDeleteRequest) (types.
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	var users []user.User
-	if err := s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&users).Exec(ctx, nil); err != nil {
-		return types.Nil{}, err
+
+	// we have to retrieve individually here in case one of the users is already deleted
+	users := make([]user.User, 0, len(req.Keys))
+	for _, key := range req.Keys {
+		var u user.User
+		err := s.internal.NewRetrieve().WhereKeys(key).Entry(&u).Exec(ctx, nil)
+		if err != nil && !errors.Is(err, query.NotFound) {
+			return types.Nil{}, err
+		}
+		users = append(users, u)
 	}
 
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {

@@ -13,87 +13,55 @@ import {
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { Synnax } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { type policy, Synnax, user } from "@synnaxlabs/client";
 
-import {
-  allowAllPolicy,
-  consolePolicyMap,
-  consolePolicySet,
-  initialPermissions,
-  type Permissions,
-  policiesAreEqual,
-} from "@/permissions/permissions";
+import * as latest from "@/permissions/migrations";
+
+export type SliceState = latest.SliceState;
+export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const migrateSlice = latest.migrateSlice;
 
 export const SLICE_NAME = "permissions";
-
-export interface SliceState extends migrate.Migratable {
-  permissions: Permissions;
-}
 
 export type StoreState = {
   [SLICE_NAME]: SliceState;
 };
 
-const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
-  permissions: { ...initialPermissions },
-};
+export interface ClearPayload {}
 
-const MIGRATIONS = {};
-
-export const migrateSlice = migrate.migrator<SliceState, SliceState>({
-  name: "user.slice",
-  migrations: MIGRATIONS,
-  def: ZERO_SLICE_STATE,
-});
-
-interface SetPayload {
-  permissions: Permissions;
+export interface SetPayload {
+  policies: policy.Policy[];
 }
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    giveAll: (state) =>
-      consolePolicySet.forEach((policy) => (state.permissions[policy] = true)),
-    removeAll: (state) =>
-      consolePolicySet.forEach((policy) => (state.permissions[policy] = false)),
-    set: (state, { payload }: PayloadAction<SetPayload>) => {
-      const { permissions } = payload;
-      state.permissions = { ...permissions };
-    },
+    clear: (state) => void (state.policies = []),
+    set: (state, { payload: { policies } }: PayloadAction<SetPayload>) =>
+      void (state.policies = policies),
   },
 });
 
-export const { giveAll, removeAll, set } = actions;
+export const { clear, set } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
+export type Payload = Action["payload"];
 
 export const setCurrentUserPermissions = async (
   client: Synnax | null,
   dispatch: Dispatch<UnknownAction>,
 ): Promise<void> => {
-  //This is super jank - we need to wait for when we expect the server to be
-  //authenticated before we can get the key of the current user using the client
-  await client?.auth?.authenticating;
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  const key = client?.auth?.user?.key;
-  dispatch(removeAll());
-  if (key == null || client == null) return;
-
-  const policies = await client.access.retrieveFor({ type: "user", key });
-  const permissions = { ...initialPermissions };
-
-  consolePolicySet.forEach((consolePolicy) => {
-    permissions[consolePolicy] = policies.some((policy) =>
-      policiesAreEqual(policy, consolePolicyMap[consolePolicy]),
-    );
-  });
-
-  dispatch(set({ permissions }));
-
-  if (policies.some((policy) => policiesAreEqual(policy, allowAllPolicy)))
-    dispatch(giveAll());
+  console.log("setCurrentUserPermissions");
+  dispatch(clear());
+  if (client == null) {
+    // TODO: give current user all permissions?
+    return;
+  }
+  const username = client.props.username;
+  const user_ = await client.user.retrieveByName(username);
+  console.log("user_", user_);
+  const policies = await client.access.policy.retrieveFor(user.ontologyID(user_.key));
+  console.log("policies", policies);
+  dispatch(set({ policies }));
 };

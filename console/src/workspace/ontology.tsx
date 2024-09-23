@@ -22,7 +22,6 @@ import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { Permissions } from "@/permissions";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
 import { selectActiveKey } from "@/workspace/selectors";
@@ -177,7 +176,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       }),
   };
   const singleResource = resources.length === 1;
-  const canCreateSchematic = Permissions.useSelectSchematic();
+  const canCreateSchematic = Schematic.useSelectHasPermission();
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && (

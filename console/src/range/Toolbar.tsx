@@ -327,7 +327,7 @@ const List = (): ReactElement => {
           name: rng.name,
           ontologyID: {
             key: rng.key,
-            type: ranger.RangeOntologyType,
+            type: ranger.ONTOLOGY_TYPE,
           },
         }),
       addToActivePlot: () => addToActivePlot(key),

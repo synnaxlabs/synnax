@@ -9,11 +9,6 @@
 
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
-
-export const keyZ = z.string().uuid();
-export type Key = z.infer<typeof keyZ>;
-
 export const actionZ = z.union([
   z.literal("add_children"),
   z.literal("add_label"),
@@ -46,24 +41,3 @@ export const DELETE_ACTION: Action = "delete";
 export const RENAME_ACTION: Action = "rename";
 export const RETRIEVE_ACTION: Action = "retrieve";
 export const SET_DATA_ACTION: Action = "set_data";
-
-export const newPolicyZ = z.object({
-  key: keyZ.optional(),
-  subjects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
-  objects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
-  actions: actionZ.array().or(actionZ),
-});
-export type NewPolicy = z.input<typeof newPolicyZ>;
-
-export const policyZ = z.object({
-  key: keyZ,
-  subjects: ontology.idZ.array(),
-  objects: ontology.idZ.array(),
-  actions: actionZ.array(),
-});
-export type Policy = z.infer<typeof policyZ>;
-
-export const ONTOLOGY_TYPE: ontology.ResourceType = "policy";
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });

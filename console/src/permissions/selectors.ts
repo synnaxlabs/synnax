@@ -7,22 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { access, type ontology, policy } from "@synnaxlabs/client";
+
 import { useMemoSelect } from "@/hooks";
-import { type Permissions } from "@/permissions/permissions";
 import { SLICE_NAME, type SliceState, type StoreState } from "@/permissions/slice";
 
 const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-const selectAdmin = (state: StoreState): boolean =>
-  selectState(state).permissions.admin;
+export const selectPolicies = (state: StoreState): policy.Policy[] =>
+  selectState(state).policies;
 
-export const useSelectAdmin = (): boolean => useMemoSelect(selectAdmin, []);
+export const useSelectPolicies = (): policy.Policy[] =>
+  useMemoSelect(selectPolicies, []);
 
-export const selectSchematic = (state: StoreState): boolean =>
-  selectState(state).permissions.schematic;
+export const selectCanUseType = (
+  state: StoreState,
+  type: ontology.ResourceType,
+): boolean => {
+  const policies = selectPolicies(state);
+  return policies.some((p) =>
+    p.objects.some((object) => {
+      const oType = object.type;
+      return (
+        oType === policy.ALLOW_ALL_ONTOLOGY_TYPE ||
+        (oType === type && p.actions.includes(access.ALL_ACTION))
+      );
+    }),
+  );
+};
 
-export const useSelectSchematic = (): boolean => useMemoSelect(selectSchematic, []);
+export const useSelectCanUseType = (type: ontology.ResourceType): boolean =>
+  useMemoSelect((state: StoreState) => selectCanUseType(state, type), [type]);
 
-const selectAll = (state: StoreState): Permissions => selectState(state).permissions;
+export const selectCanEditPolicies = (state: StoreState): boolean =>
+  selectCanUseType(state, policy.ONTOLOGY_TYPE);
 
-export const useSelectAll = (): Permissions => useMemoSelect(selectAll, []);
+export const useSelectCanEditPolicies = (): boolean =>
+  useMemoSelect(selectCanEditPolicies, []);

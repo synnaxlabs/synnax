@@ -7,16 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { user } from "@synnaxlabs/client";
 
-import { type Command } from "@/palette/Palette";
-import { create } from "@/schematic/Schematic";
+import { useMemoSelect } from "@/hooks";
+import { Permissions } from "@/permissions";
 
-export const createCommand: Command = {
-  key: "create-schematic",
-  name: "Create a Schematic",
-  icon: <Icon.Schematic />,
-  onSelect: ({ placeLayout }) => placeLayout(create({})),
-};
+export const selectHasPermission = (state: Permissions.StoreState): boolean =>
+  Permissions.selectCanUseType(state, user.ONTOLOGY_TYPE);
 
-export const COMMANDS = [createCommand];
+export const useSelectHasPermission = (): boolean =>
+  useMemoSelect(selectHasPermission, []);

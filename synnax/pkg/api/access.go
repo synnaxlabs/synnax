@@ -40,8 +40,8 @@ type (
 	AccessCreatePolicyResponse = AccessCreatePolicyRequest
 )
 
-func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
-	if err := a.internal.Enforce(ctx, access.Request{
+func (s *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
+	if err := s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Objects: rbac.OntologyIDsFromPolicies(req.Policies),
 		Action:  action.Create,
@@ -49,8 +49,8 @@ func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicy
 		return AccessCreatePolicyRequest{}, err
 	}
 	results := make([]rbac.Policy, len(req.Policies))
-	if err := a.WithTx(ctx, func(tx gorp.Tx) error {
-		w := a.internal.NewWriter(tx)
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
 		for i, p := range req.Policies {
 			if p.Key == uuid.Nil {
 				p.Key = uuid.New()
@@ -65,29 +65,6 @@ func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicy
 		return AccessCreatePolicyRequest{}, err
 	}
 	return AccessCreatePolicyResponse{Policies: results}, nil
-}
-
-type AccessDeletePolicyRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
-}
-
-func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
-	if err := a.internal.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Objects: rbac.OntologyIDs(req.Keys),
-		Action:  action.Delete,
-	}); err != nil {
-		return types.Nil{}, err
-	}
-	return types.Nil{}, a.WithTx(ctx, func(tx gorp.Tx) error {
-		w := a.internal.NewWriter(tx)
-		for _, key := range req.Keys {
-			if err := w.Delete(ctx, key); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 }
 
 // AccessRetrievePolicyRequest is a request for retrieving a policy from the cluster.
@@ -115,7 +92,7 @@ type AccessRetrievePolicyResponse struct {
 // Returns:
 //   - res: The response containing the retrieved policies.
 //   - err: An error if the retrieval or access control enforcement fails.
-func (svc *AccessService) RetrievePolicy(
+func (s *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
@@ -123,7 +100,7 @@ func (svc *AccessService) RetrievePolicy(
 		hasSubjects = len(req.Subjects) > 0
 		hasKeys     = len(req.Keys) > 0
 	)
-	q := svc.internal.NewRetriever()
+	q := s.internal.NewRetriever()
 	if hasSubjects {
 		q = q.WhereSubjects(req.Subjects...)
 	}
@@ -133,7 +110,7 @@ func (svc *AccessService) RetrievePolicy(
 	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
-	if err = svc.internal.Enforce(ctx, access.Request{
+	if err = s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  action.Retrieve,
 		Objects: rbac.OntologyIDsFromPolicies(res.Policies),
@@ -141,4 +118,21 @@ func (svc *AccessService) RetrievePolicy(
 		return AccessRetrievePolicyResponse{}, err
 	}
 	return res, nil
+}
+
+type AccessDeletePolicyRequest struct {
+	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+}
+
+func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
+	if err := s.internal.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Objects: rbac.OntologyIDs(req.Keys),
+		Action:  action.Delete,
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	})
 }

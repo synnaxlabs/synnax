@@ -10,7 +10,7 @@
 from uuid import UUID
 from freighter import UnaryClient, send_required, Payload, Empty
 from typing import overload
-from synnax.user.payload import NewUser, UserPayload
+from synnax.user.payload import NewUser, User
 from synnax.util.normalize import normalize
 
 
@@ -19,7 +19,7 @@ class _CreateRequest(Payload):
 
 
 class _CreateResponse(Payload):
-    users: list[UserPayload]
+    users: list[User]
 
 
 class _RetrieveRequest(Payload):
@@ -28,7 +28,7 @@ class _RetrieveRequest(Payload):
 
 
 class _RetrieveResponse(Payload):
-    users: list[UserPayload] | None = None
+    users: list[User] | None = None
 
 
 class _DeleteRequest(Payload):
@@ -53,7 +53,7 @@ _DELETE_ENDPOINT = "/user/delete"
 _RETRIEVE_ENDPOINT = "/user/retrieve"
 
 
-class UserClient:
+class Client:
     client: UnaryClient
 
     def __init__(self, transport: UnaryClient) -> None:
@@ -61,30 +61,54 @@ class UserClient:
 
     @overload
     def create(
-        self, *, username: str, password: str, first_name: str = "", last_name: str = ""
-    ) -> UserPayload: ...
+        self,
+        *,
+        username: str,
+        password: str,
+        first_name: str = "",
+        last_name: str = "",
+        key: UUID | None = None,
+    ) -> User: ...
 
     @overload
-    def create(self, *, users: list[NewUser]) -> list[UserPayload]: ...
+    def create(self, *, user: NewUser) -> User: ...
+
+    @overload
+    def create(self, *, users: list[NewUser]) -> list[User]: ...
 
     def create(
         self,
         *,
-        username: str | None,
-        password: str | None,
-        first_name: str | None,
-        last_name: str | None,
-        users: list[NewUser] | None,
-    ) -> UserPayload | list[UserPayload]:
-        if user is not None:
-            users = normalize(user)
+        username: str | None = None,
+        password: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        key: UUID | None = None,
+        user: NewUser | None = None,
+        users: list[NewUser] | None = None,
+    ) -> User | list[User]:
+        if username is not None:
+            if first_name is None:
+                first_name = ""
+            if last_name is None:
+                last_name = ""
+            user = NewUser(
+                username=username,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                key=key,
+            )
+        single = user is not None
+        if single:
+            users = [user]
         res = send_required(
             self.client,
             _CREATE_ENDPOINT,
             _CreateRequest(users=users),
             _CreateResponse,
         ).users
-        if user is not None:
+        if single:
             return res[0]
         return res
 
@@ -97,12 +121,8 @@ class UserClient:
         )
 
     def change_name(
-        self, key: UUID, *, first_name: str | None = None, last_name: str | None = None
+        self, key: UUID, *, first_name: str = "", last_name: str = ""
     ) -> None:
-        if first_name is None:
-            first_name = ""
-        if last_name is None:
-            last_name = ""
         send_required(
             self.client,
             _CHANGE_NAME_ENDPOINT,
@@ -111,16 +131,16 @@ class UserClient:
         )
 
     @overload
-    def retrieve(self, *, key: UUID) -> UserPayload: ...
+    def retrieve(self, *, key: UUID) -> User: ...
 
     @overload
-    def retrieve(self, *, keys: list[UUID]) -> list[UserPayload]: ...
+    def retrieve(self, *, keys: list[UUID]) -> list[User]: ...
 
     @overload
-    def retrieve(self, *, username: str) -> UserPayload: ...
+    def retrieve(self, *, username: str) -> User: ...
 
     @overload
-    def retrieve(self, *, usernames: list[str]) -> list[UserPayload]: ...
+    def retrieve(self, *, usernames: list[str]) -> list[User]: ...
 
     def retrieve(
         self,
@@ -129,7 +149,7 @@ class UserClient:
         keys: list[UUID] | None = None,
         username: str | None = None,
         usernames: list[str] | None = None,
-    ) -> UserPayload | list[UserPayload]:
+    ) -> User | list[User]:
         if key is not None:
             keys = normalize(key)
         if username is not None:
@@ -141,20 +161,10 @@ class UserClient:
             _RetrieveResponse,
         ).users
 
-    @overload
-    def delete(self, *, key: UUID) -> None: ...
-
-    @overload
-    def delete(self, *, keys: list[UUID]) -> None: ...
-
-    def delete(
-        self, *, key: UUID | None = None, keys: list[UUID] | None = None
-    ) -> None:
-        if key is not None:
-            keys = normalize(key)
+    def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         send_required(
             self.client,
             _DELETE_ENDPOINT,
-            _DeleteRequest(keys=keys),
+            _DeleteRequest(keys=normalize(keys)),
             Empty,
         )

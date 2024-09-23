@@ -23,13 +23,6 @@ type Retriever struct {
 	gorp   gorp.Retrieve[uuid.UUID, Policy]
 }
 
-func (s *Service) NewRetriever() Retriever {
-	return Retriever{
-		baseTx: s.DB,
-		gorp:   gorp.NewRetrieve[uuid.UUID, Policy](),
-	}
-}
-
 func (r Retriever) WhereSubjects(subjects ...ontology.ID) Retriever {
 	r.gorp = r.gorp.Where(func(p *Policy) bool {
 		for _, subject := range p.Subjects {

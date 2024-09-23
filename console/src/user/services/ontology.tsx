@@ -14,43 +14,45 @@ import { type ReactElement } from "react";
 import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
-
-import { overviewLayout } from "../Overview";
+import { useSelectHasPermission } from "@/user/selectors";
 
 const useSetPermissions =
   (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  ({ placeLayout, selection: { resources } }) =>
-    placeLayout(
-      Permissions.layout({
-        user: {
-          username: resources[0].name,
-          key: resources[0].id.key,
-        },
-      }),
-    );
+  ({ placeLayout }) =>
+    placeLayout(Permissions.setLayout({}));
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
+    client,
     selection: { nodes, resources },
   } = props;
   const setPermissions = useSetPermissions();
   const handleSelect = {
     permissions: () => setPermissions(props),
-    rename: () => Tree.startRenaming(nodes[0].key),
+    rename: () => {
+      console.log("rename");
+      Tree.startRenaming(nodes[0].key);
+    },
   };
   const singleResource = resources.length === 1;
+  const isNotCurrentUser = resources[0].name !== client.props.username;
+  const canSetPermissions = Permissions.useSelectCanEditPolicies();
+  const canEdit = useSelectHasPermission();
 
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      {singleResource && (
+      {singleResource && isNotCurrentUser && (
         <>
-          <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
-            Set Permissions
-          </PMenu.Item>
-          <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
-            Change Username
-          </PMenu.Item>
-          {/*TODO: Change Name*/}
+          {canSetPermissions && (
+            <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
+              Set Permissions
+            </PMenu.Item>
+          )}
+          {canEdit && (
+            <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+              Change Username
+            </PMenu.Item>
+          )}
           <PMenu.Divider />
         </>
       )}
@@ -59,19 +61,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   );
 };
 
-const handleSelect: Ontology.HandleSelect = async ({
-  selection,
-  client,
-  placeLayout,
-}): Promise<void> => {
-  if (selection.length === 0) return;
-  const user = await client.user.retrieve(selection[0].id.key);
-  placeLayout({ ...overviewLayout, name: user.username, key: user.key });
-};
-
 const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) =>
-    await client.user.changeUsername(id.key, name),
+  eager: async () => console.log("eager"),
+  execute: async ({ client, id, name }) => {
+    console.log("execute");
+    await client.user.changeUsername(id.key, name);
+  },
+  rollback: async () => console.log("rollback"),
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
@@ -82,6 +78,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   onRename: handleRename,
   haulItems: () => [],
   canDrop: () => false,
-  onSelect: handleSelect,
+  onSelect: () => {},
   TreeContextMenu,
 };

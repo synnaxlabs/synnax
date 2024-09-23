@@ -16,10 +16,10 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { Permissions } from "@/permissions";
 import { useExport } from "@/schematic/file";
 import {
   useSelect,
+  useSelectHasPermission,
   useSelectControlStatus,
   useSelectToolbar,
 } from "@/schematic/selectors";
@@ -47,7 +47,7 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const canEdit = Permissions.useSelectSchematic();
+  const canEdit = useSelectHasPermission();
   const name = Layout.useSelectRequired(layoutKey).name;
 
   return (
@@ -101,7 +101,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [dispatch],
   );
 
-  const canEdit = Permissions.useSelectSchematic();
+  const canEdit = useSelectHasPermission();
   if (schematic == null) return null;
 
   return (

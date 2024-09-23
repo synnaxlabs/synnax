@@ -53,6 +53,8 @@ func OntologyIDsFromUsers(users []User) []ontology.ID {
 	return ids
 }
 
+var OntologyTypeID = ontology.ID{Type: ontologyType, Key: ""}
+
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{

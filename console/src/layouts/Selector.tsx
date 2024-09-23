@@ -14,7 +14,6 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { Permissions } from "@/permissions";
 import { Schematic } from "@/schematic";
 
 const SELECTABLES: Layout.Selectable[] = [
@@ -41,9 +40,10 @@ export const createSelector = (
 };
 
 export const Selector = (props: Layout.SelectorProps): ReactElement => {
-  const canCreateSchematic = Permissions.useSelectSchematic();
-  const selectables = canCreateSchematic
-    ? SELECTABLES
-    : SELECTABLES.filter((s) => s !== Schematic.SELECTABLE);
+  const canCreateSchematic = Schematic.useSelectHasPermission();
+  const selectables = SELECTABLES.filter((s) => {
+    if (s.key === Schematic.SELECTABLE.key) return canCreateSchematic;
+    return true;
+  });
   return Layout.createSelectorComponent(selectables)(props);
 };

@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -24,6 +25,7 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
@@ -215,6 +217,11 @@ func start(cmd *cobra.Command) {
 
 		// Provision the root user.
 		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil {
+			return err
+		}
+
+		// Set the base policies.
+		if err = maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil {
 			return err
 		}
 
@@ -429,6 +436,65 @@ func getIntegrations(enabled, disabled []string) []string {
 		})
 	}
 	return integrations // Ensure a return value in case both slices are empty
+}
+
+// sets the base permissions that need to exist in the server.
+func maybeSetBasePermission(
+	ctx context.Context,
+	db *gorp.DB,
+	rbacSvc *rbac.Service,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		// base policies that need to be created
+		basePolicies := map[ontology.Type]action.Action{
+			"label":       action.All,
+			"cluster":     action.All,
+			"channel":     action.All,
+			"node":        action.All,
+			"group":       action.All,
+			"range":       action.All,
+			"range-alias": action.All,
+			"workspace":   action.All,
+			"lineplot":    action.All,
+			"rack":        action.All,
+			"device":      action.All,
+			"task":        action.All,
+			"user":        action.Retrieve,
+			"schematic":   action.Retrieve,
+			"policy":      action.Retrieve,
+			"builtin":     action.Retrieve,
+		}
+		// for migration purposes, some old base policies that need to be deleted
+		oldBasePolicies := map[ontology.Type]action.Action{}
+
+		existingPolicies := make([]rbac.Policy, 0, len(basePolicies))
+		var policiesToDelete []uuid.UUID
+		if err := rbacSvc.NewRetriever().WhereSubjects(user.OntologyTypeID).Entries(&existingPolicies).Exec(ctx, tx); err != nil {
+			return err
+		}
+		for _, p := range existingPolicies {
+			if len(p.Subjects) != 1 || len(p.Objects) != 1 || len(p.Actions) != 1 {
+				continue
+			}
+			o := p.Objects[0]
+			a := p.Actions[0]
+			if basePolicies[o.Type] == a {
+				delete(basePolicies, o.Type)
+			} else if oldBasePolicies[o.Type] == a {
+				policiesToDelete = append(policiesToDelete, p.Key)
+			}
+		}
+		for o := range basePolicies {
+			if err := rbacSvc.NewWriter(tx).Create(ctx, &rbac.Policy{
+				Subjects: []ontology.ID{user.OntologyTypeID},
+				Objects:  []ontology.ID{{Type: o, Key: ""}},
+				Actions:  []action.Action{basePolicies[o]},
+			}); err != nil {
+				return err
+			}
+		}
+		return rbacSvc.NewWriter(tx).Delete(ctx, policiesToDelete...)
+	})
 }
 
 func maybeProvisionRootUser(

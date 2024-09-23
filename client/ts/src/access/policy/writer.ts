@@ -18,7 +18,7 @@ import {
   newPolicyZ,
   type Policy,
   policyZ,
-} from "@/access/payload";
+} from "@/access/policy/payload";
 
 const createReqZ = z.object({ policies: policyZ.partial({ key: true }).array() });
 const createResZ = z.object({ policies: policyZ.array() });

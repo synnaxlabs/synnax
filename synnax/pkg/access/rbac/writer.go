@@ -11,16 +11,13 @@ package rbac
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Writer struct {
 	tx gorp.Tx
-}
-
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.DB, tx)}
 }
 
 func (w Writer) Create(
@@ -35,7 +32,7 @@ func (w Writer) Create(
 
 func (w Writer) Delete(
 	ctx context.Context,
-	key uuid.UUID,
+	keys ...uuid.UUID,
 ) error {
-	return gorp.NewDelete[uuid.UUID, Policy]().WhereKeys(key).Exec(ctx, w.tx)
+	return gorp.NewDelete[uuid.UUID, Policy]().WhereKeys(keys...).Exec(ctx, w.tx)
 }

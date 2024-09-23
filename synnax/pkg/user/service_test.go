@@ -13,13 +13,13 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -78,7 +78,7 @@ var _ = Describe("User", Ordered, func() {
 		})
 		It("Should return an error if the user with the username already exists", func() {
 			u := &user.User{Username: "test1"}
-			Expect(errors.Is(w.Create(ctx, u), query.UniqueViolation)).To(BeTrue())
+			Expect(errors.Is(w.Create(ctx, u), auth.RepeatedUsername)).To(BeTrue())
 		})
 	})
 	Describe("Retrieve", func() {
@@ -133,7 +133,7 @@ var _ = Describe("User", Ordered, func() {
 			users[0].Username = newUsername
 		})
 		It("Should return an error if the username already exists", func() {
-			Expect(errors.Is(w.ChangeUsername(ctx, users[0].Key, users[1].Username), query.UniqueViolation)).To(BeTrue())
+			Expect(errors.Is(w.ChangeUsername(ctx, users[0].Key, users[1].Username), auth.RepeatedUsername)).To(BeTrue())
 		})
 	})
 	Describe("ChangeName", func() {

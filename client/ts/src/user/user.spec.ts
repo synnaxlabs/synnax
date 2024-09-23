@@ -221,6 +221,28 @@ describe("User", () => {
       await expect(
         client.user.changeUsername(userTwo.key as string, userOne.username),
       ).rejects.toThrow(AuthError));
+    test(
+      "Repeated usernames work",
+      async () => {
+        const oldUsername = id.id();
+        console.log("old username", oldUsername);
+        const user = await client.user.create({
+          username: oldUsername,
+          password: "test",
+        });
+        const newUsername = id.id();
+        console.log("new username", newUsername);
+        await client.user.changeUsername(user.key, newUsername);
+        console.log("username changed");
+        // below means username didn't actually change
+        // const newUser = await client.user.create({username: newUsername, password: "test"});
+
+        await expect(
+          client.user.changeUsername(user.key, user.username),
+        ).resolves.toBeUndefined();
+      },
+      1000 * 1000000,
+    );
   });
   describe("Change Name", () => {
     test("Successful", async () => {
@@ -264,10 +286,10 @@ describe("User", () => {
     });
     // Skipping this test because errors currently get thrown on this function - not
     // idempotent on server-side
-    test.skip("one that doesn't exist", async () => {
+    test("one that doesn't exist", async () => {
       await expect(client.user.delete(userOne.key as string)).resolves.toBeUndefined();
     });
-    test.skip("many where some don't exist", async () => {
+    test("many where some don't exist", async () => {
       await expect(
         client.user.delete([userOne.key as string, userTwo.key as string]),
       ).resolves.toBeUndefined();

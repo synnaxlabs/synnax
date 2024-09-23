@@ -37,10 +37,11 @@ import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { Permissions } from "@/permissions";
 import {
   select,
+  selectHasPermission,
   useSelect,
+  useSelectHasPermission,
   useSelectNodeProps,
   useSelectViewport,
   useSelectViewportMode,
@@ -88,7 +89,7 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
       } as unknown as UnknownRecord;
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await new Promise((r) => setTimeout(r, 1000));
-      const canSave = Permissions.selectSchematic(storeState);
+      const canSave = selectHasPermission(storeState);
       if (!canSave) return;
       await client.workspaces.schematic.create(ws, {
         key: layoutKey,
@@ -312,7 +313,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     [storeLegendPosition],
   );
 
-  const canEditSchematic = Permissions.useSelectSchematic() && !schematic.snapshot;
+  const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
 
   return (
     <div
@@ -411,7 +412,7 @@ export const SELECTABLE: Layout.Selectable = {
 export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch, store }) => {
-    const canEditSchematic = Permissions.selectSchematic(store.getState());
+    const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     const newTab = canEditSchematic ? tab : { ...tab, editable: false };
     const key = initial.key ?? uuidv4();

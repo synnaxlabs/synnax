@@ -9,16 +9,14 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { type Command, type CommandSelectionContext } from "@/palette/Palette";
+import { type Command } from "@/palette/Palette";
 import { registerLayout } from "@/user/RegisterModal";
 
 export const registerUserCommand: Command = {
   icon: <Icon.User />,
-  name: "Register User",
+  name: "Register a User",
   key: "register-user",
-  onSelect: (ctx: CommandSelectionContext) => {
-    ctx.placeLayout(registerLayout);
-  },
+  onSelect: ({ placeLayout }) => placeLayout(registerLayout({})),
 };
 
 export const COMMANDS = [registerUserCommand];

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { access } from "@/access";
+export { policy } from "@/access/policy";
 export * from "@/channel";
 export { Channel } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
@@ -35,28 +36,28 @@ export { ranger } from "@/ranger";
 export { signals } from "@/signals";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
-export type {
-  CrudeDataType,
-  CrudeDensity,
-  CrudeRate,
-  CrudeSize,
-  CrudeTimeSpan,
-  CrudeTimeStamp,
-  NumericTelemValue,
-  TelemValue,
-  TimeStampStringFormat,
-  TypedArray,
-  TZInfo,
-} from "@synnaxlabs/x/telem";
+export { linePlot } from "@/workspace/lineplot";
+export { schematic } from "@/workspace/schematic";
 export {
+  type CrudeDataType,
+  type CrudeDensity,
+  type CrudeRate,
+  type CrudeSize,
+  type CrudeTimeSpan,
+  type CrudeTimeStamp,
   DataType,
   Density,
   MultiSeries,
+  type NumericTelemValue,
   Rate,
   Series,
+  type TelemValue,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type TimeStampStringFormat,
+  type TypedArray,
+  type TZInfo,
 } from "@synnaxlabs/x/telem";
 import { control } from "@synnaxlabs/x";
 export const Authority = control.Authority;

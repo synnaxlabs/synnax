@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 )
 
 // A Writer is used to create, update, and delete users in the key-value store.
@@ -43,7 +43,7 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 		return err
 	}
 	if exists {
-		return query.UniqueViolation
+		return auth.RepeatedUsername
 	}
 	if err := gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(ctx, w.tx); err != nil {
 		return err
@@ -63,7 +63,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 		return err
 	}
 	if usernameExists {
-		return query.UniqueViolation
+		return auth.RepeatedUsername
 	}
 	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(u User) User {
 		u.Username = newUsername
