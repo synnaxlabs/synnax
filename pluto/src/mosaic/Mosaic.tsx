@@ -335,7 +335,7 @@ export const usePortal_ = ({
       </Portal.In>
     );
   }).filter((v) => v != null) as ReactElement[];
-  // ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
+  ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
   return [ref, portaledNodes];
 };
 

@@ -65,6 +65,7 @@ import {
   type AxisState,
   internalCreate,
   type LineState,
+  setActiveToolbarTab,
   setAxis,
   setControlState,
   setLegend,
@@ -290,13 +291,12 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     );
   }, [vis.viewport.renderTrigger]);
 
-  const handleDoubleClick = useCallback(
-    () =>
-      dispatch(
-        Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
-      ),
-    [windowKey, dispatch],
-  );
+  const handleDoubleClick = useCallback(() => {
+    dispatch(
+      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
+    );
+    dispatch(setActiveToolbarTab({ tab: "data" }));
+  }, [windowKey, dispatch]);
 
   const props = PMenu.useContextMenu();
 

@@ -11,7 +11,6 @@ import "@/layouts/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
 import { selectWindowKey } from "@synnaxlabs/drift";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Breadcrumb,
