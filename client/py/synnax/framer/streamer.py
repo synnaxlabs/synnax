@@ -71,7 +71,6 @@ class Streamer:
         self.__open()
 
     def __open(self):
-        print("sending request")
         self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor))
 
     @overload
@@ -197,13 +196,22 @@ class AsyncStreamer:
         self,
         client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
+        downsample_factor: DownsampleFactor,
     ) -> None:
         self._client = client
         self._adapter = adapter
+        self._downsample_factor = downsample_factor
 
     async def _open(self):
-        self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
-        await self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=self._adapter.downsample_factor))
+        self._stream = await self._client.stream(
+            _ENDPOINT,
+            _Request,
+            _Response
+        )
+        await self._stream.send(_Request(
+            keys=self._adapter.keys,
+            downsample_factor=self._downsample_factor,
+        ))
 
     @property
     def received(self) -> bool:

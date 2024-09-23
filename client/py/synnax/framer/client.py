@@ -275,10 +275,14 @@ class Client:
             downsample_factor=downsampleFactor,
         )
 
-    async def open_async_streamer(self, channels: ChannelParams) -> AsyncStreamer:
+    async def open_async_streamer(self, channels: ChannelParams, downsampleFactor: int = 1) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
-        s = AsyncStreamer(adapter=adapter, client=self.__async_client)
+        s = AsyncStreamer(
+            adapter=adapter,
+            client=self.__async_client,
+            downsample_factor=downsampleFactor,
+        )
         await s._open()
         return s
 
