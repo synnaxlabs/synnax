@@ -77,7 +77,5 @@ func downsampleSeries(series telem.Series, factor int) telem.Series {
 		Data:      downsampledData,
 		Alignment: series.Alignment,
 	}
-	logrus.Info("original series", telem.Unmarshal[int64](series))               // TODO: remove
-	logrus.Info("downsampled series", telem.Unmarshal[int64](downsampledSeries)) // TODO: remove
 	return downsampledSeries
 }
