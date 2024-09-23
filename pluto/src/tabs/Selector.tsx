@@ -169,8 +169,9 @@ const SelectorButton = ({
       rounded={false}
     >
       {PIcon.resolve(icon as ReactElement, {
-        className: CSS(CSS.BE(CLS, "icon"), CSS.shade(7)),
+        className: CSS.BE(CLS, "icon"),
         style: {
+          color: CSS.shadeVar(7),
           height: `var(--pluto-${level}-size)`,
           width: `var(--pluto-${level}-size)`,
         },
