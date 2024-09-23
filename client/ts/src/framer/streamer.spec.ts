@@ -47,4 +47,52 @@ describe("Streamer", () => {
   it("should not throw an error when the streamer is opened with zero channels", async () => {
     await expect(client.openStreamer([])).resolves.not.toThrow();
   });
+  test("downsample factor of 1", async () => {
+    const ch = await newChannel();
+    const streamer = await client.openStreamer({channels: ch.key, downsampleFactor: 1});
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: ch.key,
+    });
+    try {
+      await writer.write(ch.key, new Float64Array([1, 2, 3, 4, 5]));
+    } finally {
+      await writer.close();
+    }
+    const d = await streamer.read();
+    expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3, 4, 5]);
+  });
+test("downsample factor of 2", async () => {
+    const ch = await newChannel();
+    const streamer = await client.openStreamer({channels: ch.key, downsampleFactor: 2});
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: ch.key,
+    });
+    try {
+      await writer.write(ch.key, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+    } finally {
+      await writer.close();
+    }
+    const d = await streamer.read();
+    expect(Array.from(d.get(ch.key))).toEqual([1, 3, 5, 7, 9]);
+  });
+test("downsample factor of 10", async () => {
+    const ch = await newChannel();
+    const streamer = await client.openStreamer({channels: ch.key, downsampleFactor: 10});
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: ch.key,
+    });
+    try {
+      await writer.write(ch.key, new Float64Array([1, 2, 3, 4, 5, 6,7,8,9,10]));
+    } finally {
+      await writer.close();
+    }
+    const d = await streamer.read();
+    expect(Array.from(d.get(ch.key))).toEqual([1]);
+  });
 });
