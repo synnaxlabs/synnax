@@ -93,7 +93,7 @@ export class Client {
 
   async openStreamer(config: StreamerConfig | Params): Promise<Streamer> {
     if (Array.isArray(config) || typeof config !== "object")
-      config = { channels: config as Params };
+      config = { channels: config as Params, downsampleFactor: 1 };
     return await Streamer._open(this.retriever, this.streamClient, config);
   }
 

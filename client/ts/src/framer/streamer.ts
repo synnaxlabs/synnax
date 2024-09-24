@@ -28,7 +28,7 @@ const ENDPOINT = "/frame/stream";
 
 export interface StreamerConfig {
   channels: Params;
-  downsampleFactor: number;
+  downsampleFactor?: number;
 }
 
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
@@ -57,7 +57,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
-    stream.send({ keys: adapter.keys, downsampleFactor: downsampleFactor });
+    stream.send({ keys: adapter.keys, downsampleFactor: downsampleFactor ?? 1 });
     return streamer;
   }
 
