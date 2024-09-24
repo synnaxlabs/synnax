@@ -13,17 +13,20 @@ from uuid import uuid4 as uuid
 from synnax.user.payload import NewUser, User
 
 
-def pytest_configure():
-    new_user = NewUser(
+@pytest.fixture
+def new_user():
+    return NewUser(
         username="username",
         password="password",
         first_name="first",
         last_name="last",
         key=uuid(),
     )
-    repeated_user: User
 
-    new_user_list = [
+
+@pytest.fixture
+def new_user_list():
+    return [
         NewUser(
             username="username1",
             password="password1",
@@ -40,8 +43,6 @@ def pytest_configure():
         NewUser(username="username4", password="password4"),
     ]
 
-    repeated_user_list: list[User]
-
 
 def compare_users(user: User, new_user: NewUser):
     assert user.username == new_user.username
@@ -53,7 +54,6 @@ def compare_users(user: User, new_user: NewUser):
         assert user.key is not None
 
 
-@pytest.fixture
 class TestUserClient:
 
     def test_create_params(self, client: sy.Synnax):
@@ -72,7 +72,7 @@ class TestUserClient:
         )
         client.user.delete(user.key)
 
-    def test_create_user(self, client: sy.Synnax):
+    def test_create_user(self, client: sy.Synnax, new_user):
         repeated_user = client.user.create(user=new_user)
         compare_users(repeated_user, new_user)
 
@@ -80,7 +80,7 @@ class TestUserClient:
         with pytest.raises(sy.AuthError):
             client.user.create(username="username", password="test")
 
-    def test_create_many(self, client: sy.Synnax):
+    def test_create_many(self, client: sy.Synnax, new_user_list):
         repeated_user_list = client.user.create(users=new_user_list)
         assert len(repeated_user_list) == len(new_user_list)
         for i in range(len(repeated_user_list)):
