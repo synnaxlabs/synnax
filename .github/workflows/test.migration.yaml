@@ -61,6 +61,7 @@ jobs:
           pip install poetry
           poetry config virtualenvs.create false
           poetry install
+          poetry shell
         working-directory: ./client/py
 
       - name: Python Test with Main Server
@@ -106,6 +107,7 @@ jobs:
       - name: Install Poetry
         run: |
           poetry install
+          poetry shell
         working-directory: ./client/py
 
       - name: Python Test with Current Server
