@@ -14,6 +14,7 @@ import {
   Synnax as CSynnax,
   type SynnaxProps,
   synnaxPropsZ,
+  user,
 } from "@synnaxlabs/client";
 import {
   Align,
@@ -104,7 +105,11 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       );
       dispatch(setActive(state.clusterKey));
       const client = new CSynnax(data);
-      Permissions.setCurrentUserPermissions(client, dispatch);
+      const user_ = await client.user.retrieveByName(data.username);
+      const policies = await client.access.policy.retrieveFor(
+        user.ontologyID(user_.key),
+      );
+      dispatch(Permissions.set({ policies }));
       onClose();
     })();
   };

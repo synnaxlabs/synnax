@@ -12,9 +12,12 @@ import { z } from "zod";
 
 export const stateZ = z.object({
   version: z.literal("0.0.0"),
-  policies: policy.policyZ.array(),
+  policies: policy.policyZ.array().or(z.literal("ALLOW_ALL")),
 });
 
 export type State = z.infer<typeof stateZ>;
 
-export const ZERO_STATE: State = { version: "0.0.0", policies: [] };
+export const ZERO_STATE: State = {
+  version: "0.0.0",
+  policies: [],
+};

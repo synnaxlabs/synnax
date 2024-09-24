@@ -11,12 +11,14 @@ import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
 import { registerLayout } from "@/user/RegisterModal";
+import { selectHasPermission } from "@/user/selectors";
 
 export const registerUserCommand: Command = {
   icon: <Icon.User />,
   name: "Register a User",
   key: "register-user",
   onSelect: ({ placeLayout }) => placeLayout(registerLayout({})),
+  visible: (state) => selectHasPermission(state),
 };
 
 export const COMMANDS = [registerUserCommand];

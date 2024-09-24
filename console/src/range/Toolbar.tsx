@@ -173,13 +173,12 @@ const useViewDetails = (): ((key: string) => void) => {
       const rng = await fetchIfNotInState(store, client, key);
       placer({ ...overviewLayout, name: rng.name, key: rng.key });
     },
-    onError: (e) => {
+    onError: (e) =>
       addStatus({
         variant: "error",
         message: `Failed to view details`,
         description: e.message,
-      });
-    },
+      }),
   }).mutate;
 };
 

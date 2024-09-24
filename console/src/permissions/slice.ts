@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createSlice,
-  type Dispatch,
-  type PayloadAction,
-  type UnknownAction,
-} from "@reduxjs/toolkit";
-import { type policy, Synnax, user } from "@synnaxlabs/client";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { type policy } from "@synnaxlabs/client";
 
 import * as latest from "@/permissions/migrations";
 
@@ -27,8 +22,6 @@ export type StoreState = {
   [SLICE_NAME]: SliceState;
 };
 
-export interface ClearPayload {}
-
 export interface SetPayload {
   policies: policy.Policy[];
 }
@@ -37,31 +30,19 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    clear: (state) => void (state.policies = []),
-    set: (state, { payload: { policies } }: PayloadAction<SetPayload>) =>
-      void (state.policies = policies),
+    clear: (state) => {
+      state.policies = [];
+    },
+    giveAllPermissions: (state) => {
+      state.policies = "ALLOW_ALL";
+    },
+    set: (state, { payload: { policies } }: PayloadAction<SetPayload>) => {
+      state.policies = policies;
+    },
   },
 });
 
-export const { clear, set } = actions;
+export const { clear, giveAllPermissions, set } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
-
-export const setCurrentUserPermissions = async (
-  client: Synnax | null,
-  dispatch: Dispatch<UnknownAction>,
-): Promise<void> => {
-  console.log("setCurrentUserPermissions");
-  dispatch(clear());
-  if (client == null) {
-    // TODO: give current user all permissions?
-    return;
-  }
-  const username = client.props.username;
-  const user_ = await client.user.retrieveByName(username);
-  console.log("user_", user_);
-  const policies = await client.access.policy.retrieveFor(user.ontologyID(user_.key));
-  console.log("policies", policies);
-  dispatch(set({ policies }));
-};

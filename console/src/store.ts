@@ -67,8 +67,6 @@ export type RootAction =
   | Permissions.Action
   | Workspace.Action;
 
-export type Payload = RootAction["payload"];
-
 export type RootStore = Store<RootState, RootAction>;
 
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = { visible: false };

@@ -119,12 +119,22 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
             <Align.Space direction="x">
               <Form.Field<string> path="firstName" label="First Name">
                 {(p) => (
-                  <Input.Text level="h3" variant="natural" placeholder="first" {...p} />
+                  <Input.Text
+                    level="h3"
+                    variant="natural"
+                    placeholder="Richard"
+                    {...p}
+                  />
                 )}
               </Form.Field>
               <Form.Field<string> path="lastName" label="Last Name">
                 {(p) => (
-                  <Input.Text level="h3" variant="natural" placeholder="last" {...p} />
+                  <Input.Text
+                    level="h3"
+                    variant="natural"
+                    placeholder="Feynman"
+                    {...p}
+                  />
                 )}
               </Form.Field>
             </Align.Space>

@@ -100,6 +100,10 @@ type UserChangeUsernameRequest struct {
 
 // ChangeUsername changes the username for the user with the given key.
 func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsernameRequest) (types.Nil, error) {
+	subject := getSubject(ctx)
+	if subject.Key == req.Key.String() {
+		return types.Nil{}, errors.New("you cannot change your own username through the user service")
+	}
 	var u user.User
 	if err := s.internal.NewRetrieve().WhereKeys(req.Key).Entry(&u).Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
@@ -108,7 +112,7 @@ func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsername
 		return types.Nil{}, nil
 	}
 	if err := s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
+		Subject: subject,
 		Action:  user.ChangeUsernameAction,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {

@@ -14,23 +14,33 @@ import { SLICE_NAME, type SliceState, type StoreState } from "@/permissions/slic
 
 const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const selectPolicies = (state: StoreState): policy.Policy[] =>
-  selectState(state).policies;
+export const selectPolicies = (state: StoreState): policy.Policy[] => {
+  const policies = selectState(state).policies;
+  if (policies === "ALLOW_ALL") return [];
+  return policies;
+};
 
 export const useSelectPolicies = (): policy.Policy[] =>
   useMemoSelect(selectPolicies, []);
+
+export const selectHasAllPermissions = (state: StoreState): boolean =>
+  selectState(state).policies === "ALLOW_ALL";
+
+export const useSelectHasAllPermissions = (): boolean =>
+  useMemoSelect(selectHasAllPermissions, []);
 
 export const selectCanUseType = (
   state: StoreState,
   type: ontology.ResourceType,
 ): boolean => {
+  if (selectHasAllPermissions(state)) return true;
   const policies = selectPolicies(state);
   return policies.some((p) =>
     p.objects.some((object) => {
-      const oType = object.type;
+      const type_ = object.type;
       return (
-        oType === policy.ALLOW_ALL_ONTOLOGY_TYPE ||
-        (oType === type && p.actions.includes(access.ALL_ACTION))
+        type_ === policy.ALLOW_ALL_ONTOLOGY_TYPE ||
+        (type_ === type && p.actions.includes(access.ALL_ACTION))
       );
     }),
   );

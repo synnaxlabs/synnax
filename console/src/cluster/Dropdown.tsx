@@ -9,7 +9,7 @@
 
 import "@/cluster/Dropdown.css";
 
-import { Synnax as CSynnax } from "@synnaxlabs/client";
+import { Synnax as CSynnax, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -17,9 +17,11 @@ import {
   Dropdown as Core,
   List as CoreList,
   Menu as PMenu,
+  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { useMutation } from "@tanstack/react-query";
 import {
   type MouseEvent,
   type PropsWithChildren,
@@ -37,6 +39,38 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Permissions } from "@/permissions";
 
+const useHandleConnect = (): ((key: string | null) => void) => {
+  const dispatch = useDispatch();
+  const addStatus = Status.useAggregator();
+  const allClusters = useSelectMany();
+  return useMutation<void, Error, string | null>({
+    onMutate: (key) => {
+      dispatch(setActive(key));
+      dispatch(Permissions.giveAllPermissions());
+    },
+    mutationFn: async (key) => {
+      if (key == null) return;
+      const cluster = allClusters.find((c) => c.key === key);
+      if (cluster == null) throw new Error(`Cluster with key ${key} not found`);
+      const client = new CSynnax(cluster.props);
+      const username = client.props.username;
+      const user_ = await client.user.retrieveByName(username);
+      const policies = await client.access.policy.retrieveFor(
+        user.ontologyID(user_.key),
+      );
+      dispatch(Permissions.set({ policies }));
+    },
+    onError: (error) => {
+      dispatch(Permissions.clear());
+      addStatus({
+        variant: "error",
+        message: "Failed to connect to cluster",
+        description: error.message,
+      });
+    },
+  }).mutate;
+};
+
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
@@ -44,19 +78,13 @@ export const List = (): ReactElement => {
   const active = useSelect();
   const openWindow = Layout.usePlacer();
   const selected = active?.key ?? null;
-
-  const handleConnect = (key: string | null): void => {
-    dispatch(setActive(key));
-    const cluster = allClusters.find((c) => c.key === key);
-    const client = cluster == null ? null : new CSynnax(cluster.props);
-    Permissions.setCurrentUserPermissions(client, dispatch);
-  };
+  const handleConnect = useHandleConnect();
 
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
     if (active != null && keys.includes(active?.key)) {
       dispatch(setActive(null));
-      dispatch(Permissions.clear());
+      dispatch(Permissions.giveAllPermissions());
     }
   };
 
