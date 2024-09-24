@@ -48,7 +48,7 @@ type Config struct {
 	RBAC          *rbac.Service
 	Channel       channel.Service
 	Ranger        *ranger.Service
-	Framer        *framer.Service // TODO: replace with service layer service
+	Framer        *framer.Service
 	Ontology      *ontology.Ontology
 	Group         *group.Service
 	Storage       *storage.Storage

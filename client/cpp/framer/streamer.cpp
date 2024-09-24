@@ -17,6 +17,8 @@ using namespace synnax;
 
 void StreamerConfig::toProto(api::v1::FrameStreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
+    std::cout << "downsample_factor: " << downsample_factor << std::endl;
+    f.set_downsample_factor(downsample_factor);
 }
 
 std::pair<Streamer, freighter::Error> FrameClient::openStreamer(

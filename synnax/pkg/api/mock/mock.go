@@ -43,7 +43,6 @@ func (b *Builder) NewConfig(ctx context.Context) api.Config {
 	}
 	return api.Config{
 		Channel:       dist.Channel,
-		Framer:        dist.Framer,
 		Ontology:      dist.Ontology,
 		Storage:       dist.Storage,
 		User:          MustSucceed(user.NewService(ctx, user.Config{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology, Group: dist.Group})),
