@@ -13,6 +13,7 @@ import * as v0 from "@/permissions/migrations/v0";
 
 export type SliceState = v0.State;
 export type AnySliceState = v0.State;
+export const ALLOW_ALL = v0.ALLOW_ALL;
 
 export const ZERO_SLICE_STATE = v0.ZERO_STATE;
 

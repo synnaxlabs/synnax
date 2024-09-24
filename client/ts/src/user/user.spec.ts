@@ -247,7 +247,7 @@ describe("User", () => {
   describe("Change Name", () => {
     test("Successful", async () => {
       await expect(
-        client.user.changeName(userOne.key as string, "Thomas", "Jefferson"),
+        client.user.rename(userOne.key as string, "Thomas", "Jefferson"),
       ).resolves.toBeUndefined();
       const res = await client.user.retrieve(userOne.key as string);
       expect(res.username).toEqual(userOne.username);
@@ -259,7 +259,7 @@ describe("User", () => {
     });
     test("Only one name", async () => {
       await expect(
-        client.user.changeName(userOne.key as string, "James"),
+        client.user.rename(userOne.key as string, "James"),
       ).resolves.toBeUndefined();
       const res = await client.user.retrieve(userOne.key as string);
       expect(res.username).toEqual(userOne.username);
@@ -284,8 +284,6 @@ describe("User", () => {
         client.user.retrieve(userArray.map((u) => u.key as string)),
       ).rejects.toThrow(NotFoundError);
     });
-    // Skipping this test because errors currently get thrown on this function - not
-    // idempotent on server-side
     test("one that doesn't exist", async () => {
       await expect(client.user.delete(userOne.key as string)).resolves.toBeUndefined();
     });

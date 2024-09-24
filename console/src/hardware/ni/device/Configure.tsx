@@ -20,7 +20,7 @@ import { type ReactElement, useRef, useState } from "react";
 import { CSS } from "@/css";
 import {
   configurablePropertiesZ,
-  Properties,
+  type Properties,
   ZERO_PROPERTIES,
 } from "@/hardware/ni/device/types";
 import { type Layout } from "@/layout";

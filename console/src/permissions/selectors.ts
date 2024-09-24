@@ -10,13 +10,18 @@
 import { access, type ontology, policy } from "@synnaxlabs/client";
 
 import { useMemoSelect } from "@/hooks";
-import { SLICE_NAME, type SliceState, type StoreState } from "@/permissions/slice";
+import {
+  ALLOW_ALL,
+  SLICE_NAME,
+  type SliceState,
+  type StoreState,
+} from "@/permissions/slice";
 
 const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const selectPolicies = (state: StoreState): policy.Policy[] => {
   const policies = selectState(state).policies;
-  if (policies === "ALLOW_ALL") return [];
+  if (policies === ALLOW_ALL) return [];
   return policies;
 };
 
@@ -24,7 +29,7 @@ export const useSelectPolicies = (): policy.Policy[] =>
   useMemoSelect(selectPolicies, []);
 
 export const selectHasAllPermissions = (state: StoreState): boolean =>
-  selectState(state).policies === "ALLOW_ALL";
+  selectState(state).policies === ALLOW_ALL;
 
 export const useSelectHasAllPermissions = (): boolean =>
   useMemoSelect(selectHasAllPermissions, []);

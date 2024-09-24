@@ -220,7 +220,7 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		// Set the base policies.
+		// Set the base permissions for all users.
 		if err = maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil {
 			return err
 		}
@@ -468,27 +468,32 @@ func maybeSetBasePermission(
 		oldBasePolicies := map[ontology.Type]action.Action{}
 
 		existingPolicies := make([]rbac.Policy, 0, len(basePolicies))
-		var policiesToDelete []uuid.UUID
-		if err := rbacSvc.NewRetriever().WhereSubjects(user.OntologyTypeID).Entries(&existingPolicies).Exec(ctx, tx); err != nil {
+		policiesToDelete := make([]uuid.UUID, 0, len(oldBasePolicies))
+		if err := rbacSvc.NewRetriever().WhereSubjects(user.OntologyTypeID).
+			Entries(&existingPolicies).Exec(ctx, tx); err != nil {
 			return err
 		}
 		for _, p := range existingPolicies {
 			if len(p.Subjects) != 1 || len(p.Objects) != 1 || len(p.Actions) != 1 {
 				continue
 			}
+			s := p.Subjects[0]
 			o := p.Objects[0]
 			a := p.Actions[0]
+			if (s != user.OntologyTypeID) || (o.Key != "") {
+				continue
+			}
 			if basePolicies[o.Type] == a {
 				delete(basePolicies, o.Type)
 			} else if oldBasePolicies[o.Type] == a {
 				policiesToDelete = append(policiesToDelete, p.Key)
 			}
 		}
-		for o := range basePolicies {
+		for t := range basePolicies {
 			if err := rbacSvc.NewWriter(tx).Create(ctx, &rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyTypeID},
-				Objects:  []ontology.ID{{Type: o, Key: ""}},
-				Actions:  []action.Action{basePolicies[o]},
+				Objects:  []ontology.ID{{Type: t, Key: ""}},
+				Actions:  []action.Action{basePolicies[t]},
 			}); err != nil {
 				return err
 			}
@@ -509,11 +514,35 @@ func maybeProvisionRootUser(
 		Password: password.Raw(viper.GetString(passwordFlag)),
 	}
 	exists, err := userSvc.UsernameExists(ctx, creds.Username)
-	if err != nil || exists {
+	if err != nil {
 		return err
 	}
+	if exists {
+		// we want to make sure the root user still has the allow_all policy
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			var u user.User
+			if err = userSvc.NewRetrieve().WhereUsername(creds.Username).Entry(&u).Exec(ctx, db); err != nil {
+				return err
+			}
+			if !u.RootUser {
+				return nil
+			}
+			policies := make([]rbac.Policy, 0, 1)
+			rbacSvc.NewRetriever().WhereSubjects(user.OntologyID(u.Key)).Entries(&policies).Exec(ctx, tx)
+			for _, p := range policies {
+				if lo.Contains(p.Objects, rbac.AllowAllOntologyID) {
+					return nil
+				}
+			}
+			return rbacSvc.NewWriter(tx).Create(ctx, &rbac.Policy{
+				Subjects: []ontology.ID{user.OntologyID(u.Key)},
+				Objects:  []ontology.ID{rbac.AllowAllOntologyID},
+				Actions:  []action.Action{},
+			})
+		})
+	}
 
-	// Register the user first.
+	// Register the user first, then give them all permissions
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err = authSvc.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
@@ -527,6 +556,7 @@ func maybeProvisionRootUser(
 			&rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},
 				Objects:  []ontology.ID{rbac.AllowAllOntologyID},
+				Actions:  []action.Action{},
 			},
 		)
 	})

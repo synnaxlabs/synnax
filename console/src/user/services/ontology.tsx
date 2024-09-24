@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type user as cuser } from "@synnaxlabs/client";
+import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -17,12 +17,12 @@ import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { useSelectHasPermission } from "@/user/selectors";
 
-const useSetPermissions = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  return (props) =>
-    props.placeLayout(
-      Permissions.setLayout({ user: props.selection.resources[0].data as cuser.User }),
+const useSetPermissions =
+  (): ((props: Ontology.TreeContextMenuProps) => void) =>
+  ({ placeLayout, selection }) =>
+    placeLayout(
+      Permissions.setLayout({ user: selection.resources[0].data as user.User }),
     );
-};
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
@@ -62,12 +62,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
 };
 
 const handleRename: Ontology.HandleTreeRename = {
-  eager: async () => console.log("eager"),
-  execute: async ({ client, id, name }) => {
-    console.log("execute");
-    await client.user.changeUsername(id.key, name);
-  },
-  rollback: async () => console.log("rollback"),
+  execute: async ({ client, id, name }) =>
+    await client.user.changeUsername(id.key, name),
 };
 
 const allowRename: Ontology.AllowRename = (props): boolean => {
@@ -77,7 +73,7 @@ const allowRename: Ontology.AllowRename = (props): boolean => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "user",
+  type: user.ONTOLOGY_TYPE,
   icon: <Icon.User />,
   hasChildren: true,
   allowRename,

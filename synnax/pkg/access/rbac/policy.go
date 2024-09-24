@@ -80,7 +80,7 @@ func allowRequest(req access.Request, policies []Policy) bool {
 		}
 
 		for _, o := range policy.Objects {
-			if o.Type == AllowAllOntologyID.Type {
+			if o.Type == AllowAllOntologyType {
 				// If the subject has an AllowAll policy, allow all requests.
 				return true
 			}

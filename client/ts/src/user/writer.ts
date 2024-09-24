@@ -26,19 +26,19 @@ const createResZ = z.object({ users: userZ.array() });
 const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
 const changeUsernameResZ = z.object({});
 
-const changeNameReqZ = z.object({
+const renameReqZ = z.object({
   key: keyZ,
   firstName: z.string().optional(),
   lastName: z.string().optional(),
 });
-const changeNameResZ = z.object({});
+const renameResZ = z.object({});
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
 const CREATE_ENDPOINT = "/user/create";
 const CHANGE_USERNAME_ENDPOINT = "/user/change-username";
-const CHANGE_NAME_ENDPOINT = "/user/rename";
+const RENAME_ENDPOINT = "/user/rename";
 const DELETE_ENDPOINT = "/user/delete";
 
 export class Writer {
@@ -69,13 +69,13 @@ export class Writer {
     );
   }
 
-  async changeName(key: Key, firstName?: string, lastName?: string): Promise<void> {
-    await sendRequired<typeof changeNameReqZ, typeof changeNameResZ>(
+  async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
+    await sendRequired<typeof renameReqZ, typeof renameResZ>(
       this.client,
-      CHANGE_NAME_ENDPOINT,
+      RENAME_ENDPOINT,
       { key, firstName, lastName },
-      changeNameReqZ,
-      changeNameResZ,
+      renameReqZ,
+      renameResZ,
     );
   }
 

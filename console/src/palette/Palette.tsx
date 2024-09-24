@@ -51,7 +51,7 @@ import { type Ontology } from "@/ontology";
 import { type Service } from "@/ontology/service";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
-import { Permissions } from "@/permissions";
+import { type Permissions } from "@/permissions";
 import { type RootState, type RootStore } from "@/store";
 
 export interface PaletteProps {

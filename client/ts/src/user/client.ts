@@ -67,8 +67,8 @@ export class Client {
     return res[0];
   }
 
-  async changeName(key: Key, firstName?: string, lastName?: string): Promise<void> {
-    await this.writer.changeName(key, firstName, lastName);
+  async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
+    await this.writer.rename(key, firstName, lastName);
   }
 
   async delete(key: Key): Promise<void>;

@@ -17,6 +17,7 @@ export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 
 export const SLICE_NAME = "permissions";
+export const ALLOW_ALL = latest.ALLOW_ALL;
 
 export type StoreState = {
   [SLICE_NAME]: SliceState;
@@ -34,7 +35,7 @@ export const { actions, reducer } = createSlice({
       state.policies = [];
     },
     giveAllPermissions: (state) => {
-      state.policies = "ALLOW_ALL";
+      state.policies = ALLOW_ALL;
     },
     set: (state, { payload: { policies } }: PayloadAction<SetPayload>) => {
       state.policies = policies;

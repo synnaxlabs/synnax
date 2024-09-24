@@ -10,11 +10,12 @@
 import { policy } from "@synnaxlabs/client";
 import { z } from "zod";
 
+export const ALLOW_ALL = "ALLOW_ALL";
+
 export const stateZ = z.object({
   version: z.literal("0.0.0"),
-  policies: policy.policyZ.array().or(z.literal("ALLOW_ALL")),
+  policies: policy.policyZ.array().or(z.literal(ALLOW_ALL)),
 });
-
 export type State = z.infer<typeof stateZ>;
 
 export const ZERO_STATE: State = {
