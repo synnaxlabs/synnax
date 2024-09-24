@@ -43,7 +43,7 @@ type (
 func (s *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
 	if err := s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Objects: rbac.OntologyIDsFromPolicies(req.Policies),
+		Objects: rbac.PolicyOntologyIDsFromPolicies(req.Policies),
 		Action:  action.Create,
 	}); err != nil {
 		return AccessCreatePolicyRequest{}, err
@@ -113,7 +113,7 @@ func (s *AccessService) RetrievePolicy(
 	if err = s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  action.Retrieve,
-		Objects: rbac.OntologyIDsFromPolicies(res.Policies),
+		Objects: rbac.PolicyOntologyIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
@@ -127,7 +127,7 @@ type AccessDeletePolicyRequest struct {
 func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
 	if err := s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Objects: rbac.OntologyIDs(req.Keys),
+		Objects: rbac.PolicyOntologyIDs(req.Keys),
 		Action:  action.Delete,
 	}); err != nil {
 		return types.Nil{}, err

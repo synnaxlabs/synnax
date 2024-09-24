@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -49,10 +48,6 @@ func (id ID) Validate() error {
 		return errors.Wrapf(validate.Error, "[resource] - type is required")
 	}
 	return nil
-}
-
-func (id ID) ParsedKey() (uuid.UUID, error) {
-	return uuid.Parse(id.Key)
 }
 
 // String returns a string representation of the Resource.

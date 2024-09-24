@@ -13,7 +13,6 @@ export const actionZ = z.union([
   z.literal("add_children"),
   z.literal("add_label"),
   z.literal("all"),
-  z.literal("change_username"),
   z.literal("copy"),
   z.literal("create"),
   z.literal("delete"),
@@ -28,9 +27,8 @@ export const actionZ = z.union([
   z.literal("resolve_alias"),
   z.literal("retrieve"),
   z.literal("set_alias"),
-  z.literal("set_data"),
   z.literal("set_key_value"),
-  z.literal("set_layout"),
+  z.literal("update"),
 ]);
 export type Action = z.infer<typeof actionZ>;
 
@@ -40,4 +38,4 @@ export const CREATE_ACTION: Action = "create";
 export const DELETE_ACTION: Action = "delete";
 export const RENAME_ACTION: Action = "rename";
 export const RETRIEVE_ACTION: Action = "retrieve";
-export const SET_DATA_ACTION: Action = "set_data";
+export const UPDATE_ACTION: Action = "update";

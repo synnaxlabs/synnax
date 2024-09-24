@@ -52,7 +52,7 @@ func (s *AuthService) Login(ctx context.Context, req AuthLoginRequest) (AuthLogi
 		return AuthLoginResponse{}, err
 	}
 	var u user.User
-	if err := s.user.NewRetrieve().WhereUsername(req.Username).Entry(&u).Exec(ctx, nil); err != nil {
+	if err := s.user.NewRetrieve().WhereUsernames(req.Username).Entry(&u).Exec(ctx, nil); err != nil {
 		return AuthLoginResponse{}, err
 	}
 	tk, err := s.token.New(u.Key)
@@ -67,7 +67,7 @@ type AuthChangeUsernameRequest struct {
 // ChangeUsername changes the username of the user that logs in with the provided credentials.
 func (s *AuthService) ChangeUsername(ctx context.Context, req AuthChangeUsernameRequest) (types.Nil, error) {
 	var u user.User
-	if err := s.user.NewRetrieve().WhereUsername(req.Username).Entry(&u).Exec(ctx, nil); err != nil {
+	if err := s.user.NewRetrieve().WhereUsernames(req.Username).Entry(&u).Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {

@@ -159,7 +159,7 @@ func start(cmd *cobra.Command) {
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
-		userSvc, err := user.OpenService(ctx, user.Config{
+		userSvc, err := user.NewService(ctx, user.Config{
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -475,12 +475,14 @@ func maybeSetBasePermission(
 		}
 		for _, p := range existingPolicies {
 			if len(p.Subjects) != 1 || len(p.Objects) != 1 || len(p.Actions) != 1 {
+				// then this policy is not one of the policies created in maybeSetBasePermission
 				continue
 			}
 			s := p.Subjects[0]
 			o := p.Objects[0]
 			a := p.Actions[0]
 			if (s != user.OntologyTypeID) || (o.Key != "") {
+				// the policy does not apply to the general user ontology type
 				continue
 			}
 			if basePolicies[o.Type] == a {
@@ -521,7 +523,7 @@ func maybeProvisionRootUser(
 		// we want to make sure the root user still has the allow_all policy
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
 			var u user.User
-			if err = userSvc.NewRetrieve().WhereUsername(creds.Username).Entry(&u).Exec(ctx, db); err != nil {
+			if err = userSvc.NewRetrieve().WhereUsernames(creds.Username).Entry(&u).Exec(ctx, db); err != nil {
 				return err
 			}
 			if !u.RootUser {

@@ -9,7 +9,6 @@
 
 import { z } from "zod";
 
-import { type access } from "@/access";
 import { ontology } from "@/ontology";
 
 export const keyZ = z.string().uuid();
@@ -34,5 +33,3 @@ export const ONTOLOGY_TYPE: ontology.ResourceType = "user";
 
 export const ontologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key });
-
-export const CHANGE_USERNAME_ACTION: access.Action = "change_username";

@@ -46,7 +46,7 @@ func (b *Builder) NewConfig(ctx context.Context) api.Config {
 		Framer:        dist.Framer,
 		Ontology:      dist.Ontology,
 		Storage:       dist.Storage,
-		User:          MustSucceed(user.OpenService(ctx, user.Config{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology, Group: dist.Group})),
+		User:          MustSucceed(user.NewService(ctx, user.Config{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology, Group: dist.Group})),
 		Token:         &token.Service{KeyProvider: securitymock.KeyProvider{Key: key}, Expiration: 10000 * time.Hour},
 		Authenticator: &auth.KV{DB: dist.Storage.Gorpify()},
 		RBAC:          MustSucceed(rbac.NewService(rbac.Config{DB: dist.Storage.Gorpify()})),

@@ -44,14 +44,6 @@ func (r Retrieve) Entries(users *[]User) Retrieve {
 	return r
 }
 
-// WhereUsername filters the query to only include users with the given username.
-func (r Retrieve) WhereUsername(username string) Retrieve {
-	r.gorp = r.gorp.Where(func(u *User) bool {
-		return u.Username == username
-	})
-	return r
-}
-
 // WhereUsernames filters the query to only include users with the given usernames.
 func (r Retrieve) WhereUsernames(usernames ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(u *User) bool {

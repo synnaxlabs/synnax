@@ -91,7 +91,7 @@ type SchematicSetDataRequest struct {
 func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.SetData,
+		Action:  action.Update,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err

@@ -113,7 +113,7 @@ func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsername
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  user.ChangeUsernameAction,
+		Action:  action.Update,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err

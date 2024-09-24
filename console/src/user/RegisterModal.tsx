@@ -94,50 +94,20 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
       >
         <Form.Form {...methods}>
           <Align.Space direction="y">
-            <Form.Field<string> path="username">
-              {(p) => (
-                <Input.Text
-                  autoFocus
-                  level="h2"
-                  variant="natural"
-                  placeholder="username"
-                  {...p}
-                />
-              )}
-            </Form.Field>
-            <Form.Field<string> path="password">
-              {(p) => (
-                <Input.Text
-                  level="h2"
-                  variant="natural"
-                  placeholder="password"
-                  type="password"
-                  {...p}
-                />
-              )}
-            </Form.Field>
             <Align.Space direction="x">
               <Form.Field<string> path="firstName" label="First Name">
-                {(p) => (
-                  <Input.Text
-                    level="h3"
-                    variant="natural"
-                    placeholder="Richard"
-                    {...p}
-                  />
-                )}
+                {(p) => <Input.Text placeholder="Richard" {...p} />}
               </Form.Field>
               <Form.Field<string> path="lastName" label="Last Name">
-                {(p) => (
-                  <Input.Text
-                    level="h3"
-                    variant="natural"
-                    placeholder="Feynman"
-                    {...p}
-                  />
-                )}
+                {(p) => <Input.Text placeholder="Feynman" {...p} />}
               </Form.Field>
             </Align.Space>
+            <Form.Field<string> path="username">
+              {(p) => <Input.Text autoFocus placeholder="username" {...p} />}
+            </Form.Field>
+            <Form.Field<string> path="password">
+              {(p) => <Input.Text placeholder="password" type="password" {...p} />}
+            </Form.Field>
           </Align.Space>
         </Form.Form>
       </Align.Space>
@@ -161,7 +131,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
             loading={isPending}
             triggers={[SAVE_TRIGGER]}
           >
-            Register in Synnax
+            Register
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>

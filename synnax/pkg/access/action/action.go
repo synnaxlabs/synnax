@@ -21,5 +21,5 @@ const (
 	Delete   Action = "delete"
 	Rename   Action = "rename"
 	Retrieve Action = "retrieve"
-	SetData  Action = "set_data"
+	Update   Action = "update"
 )

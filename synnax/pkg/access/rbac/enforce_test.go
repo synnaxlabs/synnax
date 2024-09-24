@@ -43,9 +43,9 @@ var _ = Describe("enforcer", func() {
 
 	Describe("AllowRequest", func() {
 		var (
-			userObject, rbacObject = user.OntologyID(uuid.New()), rbac.OntologyID(uuid.New())
+			userObject, rbacObject = user.OntologyID(uuid.New()), rbac.PolicyOntologyID(uuid.New())
 			userTypeObject         = ontology.ID{Type: "user", Key: ""}
-			rbac1, rbac2, rbac3    = rbac.OntologyID(uuid.New()), rbac.OntologyID(uuid.New()), rbac.OntologyID(uuid.New())
+			rbac1, rbac2, rbac3    = rbac.PolicyOntologyID(uuid.New()), rbac.PolicyOntologyID(uuid.New()), rbac.PolicyOntologyID(uuid.New())
 		)
 		BeforeEach(func() {
 			policies := []rbac.Policy{

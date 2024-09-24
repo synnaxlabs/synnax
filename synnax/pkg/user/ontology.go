@@ -53,16 +53,20 @@ func OntologyIDsFromUsers(users []User) []ontology.ID {
 	return ids
 }
 
+func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) {
+	return uuid.Parse(id.Key)
+}
+
 var OntologyTypeID = ontology.ID{Type: ontologyType, Key: ""}
 
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":       {Type: schema.String},
-		"username":  {Type: schema.String},
-		"firstName": {Type: schema.String},
-		"lastName":  {Type: schema.String},
-		"rootUser":  {Type: schema.Bool},
+		"key":        {Type: schema.String},
+		"username":   {Type: schema.String},
+		"first_name": {Type: schema.String},
+		"last_name":  {Type: schema.String},
+		"root_user":  {Type: schema.Bool},
 	},
 }
 
@@ -120,8 +124,8 @@ func newResource(u User) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(u.Key), u.Username)
 	schema.Set(e, "key", u.Key.String())
 	schema.Set(e, "username", u.Username)
-	schema.Set(e, "firstName", u.FirstName)
-	schema.Set(e, "lastName", u.LastName)
-	schema.Set(e, "rootUser", u.RootUser)
+	schema.Set(e, "first_name", u.FirstName)
+	schema.Set(e, "last_name", u.LastName)
+	schema.Set(e, "root_user", u.RootUser)
 	return e
 }

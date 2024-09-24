@@ -35,9 +35,9 @@ var _ = Describe("User", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
-		_, err := user.OpenService(ctx, user.Config{})
+		_, err := user.NewService(ctx, user.Config{})
 		Expect(err).To(HaveOccurred())
-		svc = MustSucceed(user.OpenService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
+		svc = MustSucceed(user.NewService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
 		w = svc.NewWriter(nil)
 	})
 	AfterAll(func() {
@@ -100,7 +100,7 @@ var _ = Describe("User", Ordered, func() {
 		})
 		It("Should retrieve a user by its username", func() {
 			var user user.User
-			err := svc.NewRetrieve().WhereUsername(users[0].Username).Entry(&user).Exec(ctx, nil)
+			err := svc.NewRetrieve().WhereUsernames(users[0].Username).Entry(&user).Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(user).To(Equal(users[0]))
 		})
@@ -112,7 +112,7 @@ var _ = Describe("User", Ordered, func() {
 		})
 		It("Should return an error if the user does not exist", func() {
 			var user user.User
-			err := svc.NewRetrieve().WhereUsername("test5").Entry(&user).Exec(ctx, nil)
+			err := svc.NewRetrieve().WhereUsernames("test5").Entry(&user).Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
 		})
 	})

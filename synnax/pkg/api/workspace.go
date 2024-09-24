@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -51,7 +52,7 @@ func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateReques
 	}); err != nil {
 		return res, err
 	}
-	userKey, err := getSubject(ctx).ParsedKey()
+	userKey, err := user.KeyFromOntologyID(getSubject(ctx))
 	if err != nil {
 		return res, err
 	}
@@ -95,7 +96,7 @@ type WorkspaceSetLayoutRequest struct {
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  workspace.SetLayoutAction,
+		Action:  action.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err

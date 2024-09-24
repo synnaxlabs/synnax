@@ -86,7 +86,7 @@ func (r Range) ListKV() (res []KVPair, err error) {
 		Where(func(kv *KVPair) bool { return kv.Range == r.Key }).
 		Entries(&res).
 		Exec(context.Background(), r.tx)
-	return res, nil
+	return res, err
 }
 
 // SetKV sets the provided key-value pairs on the range.
@@ -183,7 +183,7 @@ func (r Range) Parent(ctx context.Context) (Range, error) {
 	if len(resources) == 0 {
 		return Range{}, errors.Wrapf(query.NotFound, "range %s has no parent", r.Key)
 	}
-	key, err := resources[0].ID.ParsedKey()
+	key, err := KeyFromOntologyID(resources[0].ID)
 	if err != nil {
 		return Range{}, err
 	}
