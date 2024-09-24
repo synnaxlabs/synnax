@@ -38,7 +38,7 @@ type FrameService struct {
 	authProvider
 	dbProvider
 	accessProvider
-	Internal *framer2.Service // TODO: this is the distribution layer service, remove and replace with service layer service
+	Internal *framer2.Service
 }
 
 func NewFrameService(p Provider) *FrameService {
@@ -235,7 +235,7 @@ type (
 	FrameWriterStream   = freighter.ServerStream[FrameWriterRequest, FrameWriterResponse]
 )
 
-// Write exposes a high level api for writing segmented telemetry to the synnax
+// Write exposes a high level api for writing segmented telemetry to the delta
 // cluster. The client is expected to send an initial request containing the
 // keys of the channels to write to. The server will acquire an exclusive lock on
 // these channels. If the channels are already locked, Write will return with

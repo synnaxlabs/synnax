@@ -60,7 +60,7 @@ func downsampleSeries(series telem.Series, factor int) telem.Series {
 		return series
 	}
 
-	seriesLength := (len(series.Data) / factor) // / factor * int(series.DataType.Density())
+	seriesLength := (len(series.Data) / factor)
 	downsampledData := make([]byte, 0, seriesLength)
 	for i := int64(0); i < series.Len(); i += int64(factor) {
 		start := i * int64(series.DataType.Density())
