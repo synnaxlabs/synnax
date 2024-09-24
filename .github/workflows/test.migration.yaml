@@ -32,9 +32,12 @@ jobs:
               - "x/**"
               - "freighter/**"
               - ".github/workflows/test.client.yaml"
+              - ".github/workflows/test.migration.yaml"
 
   test-on-both-servers:
+    needs: setup
     runs-on: ubuntu-latest
+    if: needs.setup.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -62,6 +65,10 @@ jobs:
 
       - name: Python Test with Main Server
         run: pytest --cov=freighter --cov-report xml:coverage.xml
+        working-directory: ./client/py
+
+      - name: Exit Poetry Shell
+        run: exit
         working-directory: ./client/py
 
       - name: Stop Main Server
@@ -95,6 +102,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: main
+
+      - name: Install Poetry
+        run: |
+          poetry install
+        working-directory: ./client/py
 
       - name: Python Test with Current Server
         run: pytest --cov=freighter --cov-report xml:coverage.xml
