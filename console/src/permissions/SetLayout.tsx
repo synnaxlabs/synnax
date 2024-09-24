@@ -7,13 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, user } from "@synnaxlabs/client";
-import { Align, Form } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { z } from "zod";
+import { user } from "@synnaxlabs/client";
+import {
+  Align,
+  Button,
+  Divider,
+  Form,
+  Nav,
+  Status,
+  Text,
+  Triggers,
+} from "@synnaxlabs/pluto";
+import { Fragment, type ReactElement } from "react";
 
 import { Layout } from "@/layout";
+import {
+  ConsolePolicy,
+  consolePolicyKeysZ,
+  consolePolicyRecord,
+  consolePolicySet,
+  convertKeysToPermissions,
+  convertPoliciesToKeys,
+  permissionsZ,
+} from "@/permissions/permissions";
 export const SET_LAYOUT_TYPE = "setPermissions";
 
 interface SetModalProps extends Partial<Layout.State> {
@@ -29,7 +45,7 @@ export const setLayout = ({ user, window, ...rest }: SetModalProps): Layout.Stat
   name: `${user.username}.Permissions`,
   window: {
     resizable: false,
-    size: { height: 370, width: 700 },
+    size: { height: 350, width: 700 },
     navTop: true,
     ...window,
   },
@@ -37,35 +53,27 @@ export const setLayout = ({ user, window, ...rest }: SetModalProps): Layout.Stat
   ...rest,
 });
 
-const permissionsZ = z.object({
-  schematic: z.boolean(),
-  userAndPolicies: z.boolean(),
-});
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-const keysZ = z.object({
-  schematic: z.string().optional(),
-  userAndPolicies: z
-    .object({
-      user: z.string(),
-      policies: z.string(),
-    })
-    .optional(),
-});
+const initialPermissions = {
+  schematic: false,
+  admin: false,
+  keys: {},
+};
 
 const formSchema = permissionsZ.extend({
-  keys: keysZ,
+  keys: consolePolicyKeysZ,
 });
 
 export const SetModal = (props: Layout.RendererProps): ReactElement => {
-  const { layoutKey } = props;
+  const { layoutKey, onClose } = props;
   const user_ = Layout.useSelectArgs<user.User>(layoutKey);
-
-  const isRootUser = user_.rootUser;
+  const addStatus = Status.useAggregator();
 
   const methods = Form.useSynced<typeof formSchema>({
     key: [user_.key],
     name: "Permissions",
-    values: { schematic: false, userAndPolicies: false, keys: {} },
+    values: { ...initialPermissions, keys: {} },
     queryFn: async ({ client }) => {
       if (client == null) throw new Error("Client is not available");
       const policies = await client.access.policy.retrieveFor(
@@ -74,115 +82,98 @@ export const SetModal = (props: Layout.RendererProps): ReactElement => {
       const userSpecificPolicies = policies.filter(
         (p) => p.subjects.length === 1 && p.subjects[0].key === user_.key,
       );
-      let schematicKey: string | undefined = undefined;
-      let userKey: string | undefined = undefined;
-      let policiesKey: string | undefined = undefined;
-      for (const policy of userSpecificPolicies) {
-        if (
-          policy.objects.length !== 1 ||
-          policy.objects[0].key !== "" ||
-          !deep.equal(policy.actions, [access.ALL_ACTION])
-        )
-          continue;
-        const type = policy.objects[0].type;
-        const key = policy.key;
-        if (type === "schematic") schematicKey = key;
-        if (type === "user") userKey = key;
-        if (type === "policy") policiesKey = key;
-      }
-      if (
-        (userKey != null && policiesKey == null) ||
-        (userKey == null && policiesKey != null)
-      )
-        throw new Error("User and policies must be set together");
+      const keys = convertPoliciesToKeys(userSpecificPolicies);
+      const permissions = convertKeysToPermissions(keys);
       return {
-        schematic: schematicKey != null,
-        userAndPolicies: userKey != null,
-        keys: {
-          schematic: schematicKey,
-          userAndPolicies:
-            userKey != null
-              ? { user: userKey, policies: policiesKey as string }
-              : undefined,
-        },
+        ...permissions,
+        keys,
       };
     },
     applyChanges: async ({ client, values, path, prev }) => {
       if (path === "") return;
-      const policy = path as "schematic" | "userAndPolicies";
+      const policy = path as ConsolePolicy;
       const previouslyActive = prev as boolean;
-
       if (previouslyActive) {
-        if (policy === "schematic")
-          await client.access.policy.delete(values.keys.schematic as string);
-        else
-          await client.access.policy.delete([
-            values.keys.userAndPolicies?.user as string,
-            values.keys.userAndPolicies?.policies as string,
-          ]);
+        const key = values.keys[policy];
+        if (key == null) return;
+        await client.access.policy.delete(key);
         return;
       }
-
-      if (policy === "schematic") {
-        const newPolicy = await client.access.policy.create({
-          subjects: {
-            type: "user",
-            key: user_.key,
-          },
-          objects: "schematic",
-          actions: access.ALL_ACTION,
-        });
-        values.keys.schematic = newPolicy.key;
-        return;
-      }
-
-      const newPolicies = await client.access.policy.create([
-        {
-          subjects: {
-            type: "user",
-            key: user_.key,
-          },
-          objects: "user",
-          actions: access.ALL_ACTION,
+      const newPolicy = await client.access.policy.create({
+        subjects: {
+          type: user.ONTOLOGY_TYPE,
+          key: user_.key,
         },
-        {
-          subjects: {
-            type: "user",
-            key: user_.key,
-          },
-          objects: "policy",
-          actions: access.ALL_ACTION,
-        },
-      ]);
-      let userKey;
-      let policyKey;
-
-      for (const policy of newPolicies) {
-        if (policy.objects[0].type === "user") {
-          userKey = policy.key;
-        } else if (policy.objects[0].type === "policy") {
-          policyKey = policy.key;
-        }
-      }
-      if (userKey == null || policyKey == null)
-        throw new Error("User and policies must be set together");
-      values.keys.userAndPolicies = { user: userKey, policies: policyKey };
+        ...consolePolicyRecord[policy],
+      });
+      values.keys[policy] = newPolicy.key;
     },
   });
 
-  if (isRootUser) return <p>Root user can't set permissions</p>;
+  const isRootUser = user_.rootUser;
+  if (isRootUser) {
+    addStatus({
+      variant: "error",
+      message: "Root user permissions cannot be modified",
+    });
+    onClose();
+    return <></>;
+  }
 
   return (
-    <Align.Space
-      className="console-form"
-      justify="center"
-      style={{ padding: "3rem" }}
-      grow
-    >
-      <Form.Form {...methods}>
-        <Form.SwitchField path={"schematic"} label="Schematic" />
-        <Form.SwitchField path={"userAndPolicies"} label="User and Policies" />
-      </Form.Form>
+    <Align.Space style={{ paddingTop: "2rem", height: "100%" }} grow empty>
+      <Align.Space
+        className="console-form"
+        justify="center"
+        style={{ padding: "3rem" }}
+        grow
+      >
+        <Form.Form {...methods}>
+          <Align.Space direction="y">
+            <Text.Text level="h2">Permissions for {user_.username}</Text.Text>
+            {Array.from(consolePolicySet).map((policy, index) => (
+              <Fragment key={index}>
+                {index > 0 && <Divider.Divider direction="x" />}
+                <Align.Space direction="x" key={policy} justify="center">
+                  <Form.SwitchField path={policy} label={foo[policy].label} />
+                  <Text.Text level="p">{foo[policy].description}</Text.Text>
+                </Align.Space>
+              </Fragment>
+            ))}
+          </Align.Space>
+        </Form.Form>
+      </Align.Space>
+      <Nav.Bar location="bottom" size="7.5rem">
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+          <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
+          <Text.Text level="small">To Close</Text.Text>
+        </Nav.Bar.Start>
+        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+          <Button.Button onClick={onClose} triggers={[SAVE_TRIGGER]}>
+            Close
+          </Button.Button>
+        </Nav.Bar.End>
+      </Nav.Bar>
     </Align.Space>
   );
+};
+
+type FormItems = {
+  [P in ConsolePolicy]: {
+    label: string;
+    description: string;
+  };
+};
+
+const foo: FormItems = {
+  admin: {
+    label: "Admin",
+    description:
+      "Admin permissions allow the user to manage other users, including registering users and setting permissions for those users.",
+  },
+  schematic: {
+    label: "Schematic",
+    description:
+      "Schematic permissions allow the user to create and edit schematics. If the user does not have schematic permissions, they will still be able to control the schematic.",
+  },
 };

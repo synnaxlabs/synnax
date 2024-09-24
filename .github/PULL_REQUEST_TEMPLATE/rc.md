@@ -249,6 +249,15 @@ I can successfully:
 - [ ] Open the documentation from the command search bar.
 - [ ] Open the documentation from the question mark icon.
 
+## Users
+
+I can successfully:
+
+- [ ] Register a new user from the command palette
+- [ ] Give the user permissions from the resources toolbar
+- [ ] Login as the new user and open a schematic without schematic permissions and then
+      with schematic permissions
+
 ### Devices
 
 I can successfully:
