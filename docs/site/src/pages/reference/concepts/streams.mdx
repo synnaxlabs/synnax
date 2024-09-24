@@ -38,6 +38,26 @@ To open a streamer, you'll need to provide a list of channels that you'd like to
 data from. The streamer will validate that the channels exists and are readable before
 starting the stream.
 
+#### Optional Arguments
+
+There are also a few optional arguments we can provide when opening a streamer:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Downsample Factor </td>
+      {/* prettier-ignore */}
+      <td>A positive integer that determines the reduction in the stream's original data rate. A value of n means only every nth sample is received. Defaults to 1, meaning no downsampling.</td>
+    </tr>
+  </tbody>
+</Table>
+
 ### Reading Data
 
 Once the streamer is open, you can read data from the stream using the `read` method.
