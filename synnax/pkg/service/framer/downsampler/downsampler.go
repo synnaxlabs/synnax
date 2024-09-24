@@ -11,7 +11,6 @@ package downsampler
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -63,12 +62,10 @@ func downsampleSeries(series telem.Series, factor int) telem.Series {
 
 	seriesLength := (len(series.Data) / factor) // / factor * int(series.DataType.Density())
 	downsampledData := make([]byte, 0, seriesLength)
-
 	for i := int64(0); i < series.Len(); i += int64(factor) {
 		start := i * int64(series.DataType.Density())
 		end := start + int64(series.DataType.Density())
 		downsampledData = append(downsampledData, series.Data[start:end]...)
-		logrus.Info("i = ", i) //TODO: remove
 	}
 
 	downsampledSeries := telem.Series{
