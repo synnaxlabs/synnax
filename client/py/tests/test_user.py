@@ -16,7 +16,7 @@ from synnax.user.payload import NewUser, User
 @pytest.fixture
 def new_user():
     return NewUser(
-        username="username",
+        username=uuid().__str__(),
         password="password",
         first_name="first",
         last_name="last",
@@ -28,19 +28,19 @@ def new_user():
 def new_user_list():
     return [
         NewUser(
-            username="username1",
+            username=uuid().__str__(),
             password="password1",
             first_name="first1",
             last_name="last1",
         ),
         NewUser(
-            username="username2",
+            username=uuid().__str__(),
             password="password2",
             first_name="first2",
             key=uuid(),
         ),
-        NewUser(username="username3", password="password3", key=uuid()),
-        NewUser(username="username4", password="password4"),
+        NewUser(username=uuid().__str__(), password="password3", key=uuid()),
+        NewUser(username=uuid().__str__(), password="password4"),
     ]
 
 
@@ -61,14 +61,13 @@ class TestUserClient:
         compare_users(user, NewUser(username="test", password="test"))
         client.user.delete(user.key)
         key = uuid()
+        username = uuid().__str__()
         user = client.user.create(
-            username="new_username", password="test", first_name="silly", key=key
+            username=username, password="test", first_name="silly", key=key
         )
         compare_users(
             user,
-            NewUser(
-                username="new_username", password="test", first_name="silly", key=key
-            ),
+            NewUser(username=username, password="test", first_name="silly", key=key),
         )
         client.user.delete(user.key)
 
@@ -78,7 +77,7 @@ class TestUserClient:
 
     def test_create_repeated(self, client: sy.Synnax):
         with pytest.raises(sy.AuthError):
-            client.user.create(username="username", password="test")
+            client.user.create(username="synnax", password="test")
 
     def test_create_many(self, client: sy.Synnax, new_user_list):
         repeated_user_list = client.user.create(users=new_user_list)
