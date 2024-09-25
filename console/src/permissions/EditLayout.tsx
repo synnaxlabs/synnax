@@ -8,21 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { user } from "@synnaxlabs/client";
-import {
-  Align,
-  Button,
-  Divider,
-  Form,
-  Nav,
-  Status,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Align, Divider, Form, Status, Text } from "@synnaxlabs/pluto";
 import { Fragment, type ReactElement } from "react";
 
 import { Layout } from "@/layout";
 import {
-  ConsolePolicy,
+  type ConsolePolicy,
   consolePolicyKeysZ,
   consolePolicyRecord,
   consolePolicySet,
@@ -30,19 +21,24 @@ import {
   convertPoliciesToKeys,
   permissionsZ,
 } from "@/permissions/permissions";
+
 export const SET_LAYOUT_TYPE = "setPermissions";
 
-interface SetModalProps extends Partial<Layout.State> {
+interface EditLayoutProps extends Partial<Layout.State> {
   user: user.User;
 }
 
-export const setLayout = ({ user, window, ...rest }: SetModalProps): Layout.State => ({
+export const editLayout = ({
+  user,
+  window,
+  ...rest
+}: EditLayoutProps): Layout.State => ({
   key: SET_LAYOUT_TYPE,
   type: SET_LAYOUT_TYPE,
   windowKey: SET_LAYOUT_TYPE,
   icon: "Access",
   location: "modal",
-  name: `${user.username}.Permissions`,
+  name: `Permissions.${user.username}`,
   window: {
     resizable: false,
     size: { height: 350, width: 700 },
@@ -52,8 +48,6 @@ export const setLayout = ({ user, window, ...rest }: SetModalProps): Layout.Stat
   args: user,
   ...rest,
 });
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 const initialPermissions = {
   schematic: false,
@@ -65,7 +59,7 @@ const formSchema = permissionsZ.extend({
   keys: consolePolicyKeysZ,
 });
 
-export const SetModal = (props: Layout.RendererProps): ReactElement => {
+export const EditModal = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey, onClose } = props;
   const user_ = Layout.useSelectArgs<user.User>(layoutKey);
   const addStatus = Status.useAggregator();
@@ -121,40 +115,46 @@ export const SetModal = (props: Layout.RendererProps): ReactElement => {
   }
 
   return (
-    <Align.Space style={{ paddingTop: "2rem", height: "100%" }} grow empty>
-      <Align.Space
-        className="console-form"
-        justify="center"
-        style={{ padding: "3rem" }}
-        grow
-      >
-        <Form.Form {...methods}>
-          <Align.Space direction="y">
-            <Text.Text level="h2">Permissions for {user_.username}</Text.Text>
-            {Array.from(consolePolicySet).map((policy, index) => (
-              <Fragment key={index}>
-                {index > 0 && <Divider.Divider direction="x" />}
-                <Align.Space direction="x" key={policy} justify="center">
-                  <Form.SwitchField path={policy} label={foo[policy].label} />
-                  <Text.Text level="p">{foo[policy].description}</Text.Text>
+    // <Align.Space style={{ paddingTop: "2rem", height: "100%" }} grow empty>
+    <Align.Space
+      // className="console-form"
+      // justify="center"
+      direction="y"
+      style={{ padding: "1rem" }}
+    >
+      <Text.Text level="h1" style={{ textAlign: "center", width: "100%" }}>
+        Permissions for {user_.username}
+      </Text.Text>
+      <Form.Form {...methods}>
+        <Align.Space direction="y">
+          {Array.from(consolePolicySet).map((policy, index) => (
+            <Fragment key={index}>
+              {index > 0 && <Divider.Divider direction="x" />}
+              <Align.Space
+                direction="x"
+                key={policy}
+                grow
+                justify="center"
+                style={{ paddingLeft: "3rem", paddingRight: "3rem" }}
+              >
+                <Align.Space direction="x" justify="center" style={{ width: "19.5%" }}>
+                  <Form.SwitchField
+                    path={policy}
+                    label={formItems[policy].label}
+                    style={{ width: "fit-content" }}
+                  />
                 </Align.Space>
-              </Fragment>
-            ))}
-          </Align.Space>
-        </Form.Form>
-      </Align.Space>
-      <Nav.Bar location="bottom" size="7.5rem">
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text level="small">To Close</Text.Text>
-        </Nav.Bar.Start>
-        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
-          <Button.Button onClick={onClose} triggers={[SAVE_TRIGGER]}>
-            Close
-          </Button.Button>
-        </Nav.Bar.End>
-      </Nav.Bar>
+                <Divider.Divider direction="y" />
+                <Align.Space direction="y" justify="center">
+                  <Text.Text level="p">{formItems[policy].description}</Text.Text>
+                </Align.Space>
+              </Align.Space>
+            </Fragment>
+          ))}
+        </Align.Space>
+      </Form.Form>
     </Align.Space>
+    // </Align.Space>
   );
 };
 
@@ -165,15 +165,15 @@ type FormItems = {
   };
 };
 
-const foo: FormItems = {
+const formItems: FormItems = {
   admin: {
     label: "Admin",
     description:
       "Admin permissions allow the user to manage other users, including registering users and setting permissions for those users.",
   },
   schematic: {
-    label: "Schematic",
+    label: "Edit Schematics",
     description:
-      "Schematic permissions allow the user to create and edit schematics. If the user does not have schematic permissions, they will still be able to control the schematic.",
+      "This permission allow the user to create and edit schematics. If the user does not have this permission, they will still be able to control symbols on the schematic.",
   },
 };

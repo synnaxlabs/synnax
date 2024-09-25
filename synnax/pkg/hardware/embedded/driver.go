@@ -27,15 +27,15 @@ type Config struct {
 	// Enabled is used to enable or disable the embedded driver.
 	Enabled *bool `json:"enabled"`
 	// Address
-	Address        address.Address `json:"address" msgpack:"address"`
-	RackName       string          `json:"rack_name" msgpack:"rack_name"`
-	Integrations   []string        `json:"integrations" msgpack:"integrations"`
-	CACertPath     string          `json:"ca_cert_path" msgpack:"ca_cert_path"`
-	ClientCertFile string          `json:"client_cert_file" msgpack:"client_cert_file"`
-	ClientKeyFile  string          `json:"client_key_file" msgpack:"client_key_file"`
-	Username       string          `json:"username" msgpack:"username"`
-	Password       string          `json:"password" msgpack:"password"`
-	Debug          *bool           `json:"debug" msgpack:"debug"`
+	Address        address.Address `json:"address"`
+	RackName       string          `json:"rack_name"`
+	Integrations   []string        `json:"integrations"`
+	CACertPath     string          `json:"ca_cert_path"`
+	ClientCertFile string          `json:"client_cert_file"`
+	ClientKeyFile  string          `json:"client_key_file"`
+	Username       string          `json:"username"`
+	Password       string          `json:"password"`
+	Debug          *bool           `json:"debug"`
 }
 
 func (c Config) format() map[string]interface{} {

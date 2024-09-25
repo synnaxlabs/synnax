@@ -21,7 +21,7 @@ const useSetPermissions =
   (): ((props: Ontology.TreeContextMenuProps) => void) =>
   ({ placeLayout, selection }) =>
     placeLayout(
-      Permissions.setLayout({ user: selection.resources[0].data as user.User }),
+      Permissions.editLayout({ user: selection.resources[0].data as user.User }),
     );
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {

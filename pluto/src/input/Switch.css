@@ -11,6 +11,7 @@
 
 .pluto-input-switch__container {
     display: flex;
+    justify-content: center;
     align-items: center;
 
     .pluto-input-switch__track {
