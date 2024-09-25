@@ -40,7 +40,7 @@ starting the stream.
 
 #### Optional Arguments
 
-There are also a few optional arguments we can provide when opening a streamer:
+There are also a few optional arguments we can provide when opening a writer:
 
 <Table>
   <thead>
@@ -51,9 +51,26 @@ There are also a few optional arguments we can provide when opening a streamer:
   </thead>
   <tbody>
     <tr>
-      <td>Downsample Factor </td>
+      <td>
+        <a href="#persistencestreaming-modes">Mode</a>
+      </td>
       {/* prettier-ignore */}
-      <td>A positive integer that determines the reduction in the stream's original data rate. A value of n means only every nth sample is received. Defaults to 1, meaning no downsampling.</td>
+      <td>The persistence/streaming mode of the writer. This can be persist only,
+                stream only, or stream + persist.</td>
+    </tr>
+    <tr>
+      <td>
+        <a href="#dynamic-control---write-authorities">Authority</a>
+      </td>
+      {/* prettier-ignore */}
+      <td>The authority to set for the writer. This is used for dynamic control
+                handoff between multiple writers.</td>
+    </tr>
+    <tr>
+      <td>Auto-Commit</td>
+      {/* prettier-ignore */}
+      <td>Whether writes should be immediately committed to the Synnax
+            Cluster.</td>
     </tr>
   </tbody>
 </Table>
