@@ -205,6 +205,7 @@ const SYNNAX_BASE: ThemeSpec = {
     black: "#000000",
     text: lightGrayScale.l9,
     textInverted: lightGrayScale.l0,
+    textOnPrimary: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
@@ -291,6 +292,7 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     border: DARK_GRAY_SCALE.l3,
     text: DARK_GRAY_SCALE.l9,
     textInverted: DARK_GRAY_SCALE.l0,
+    textOnPrimary: DARK_GRAY_SCALE.l10,
   },
 });
 

@@ -81,6 +81,7 @@ export class Canvas implements Axis {
         p.y + 5 + d.height,
       );
     });
+    // Add some extra padding to the bottom of the axis.
     return { size: maxTickDims.height + TICK_LINE_SIZE + 6 };
   }
 

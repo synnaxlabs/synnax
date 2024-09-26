@@ -19,8 +19,17 @@ export type KeyboardProps<L extends text.Level = "h1"> = TextProps<L>;
 
 export const Keyboard = <L extends text.Level = "p">({
   className,
+  level,
   ...props
 }: KeyboardProps<L>): ReactElement => (
   // @ts-expect-error - generic component errors
-  <Text<L> className={CSS(className, CSS.BM("text", "keyboard"))} {...props} />
+  <Text<L>
+    className={CSS(className, CSS.BM("text", "keyboard"))}
+    level={level}
+    style={{
+      width: `calc(var(--pluto-${level}-size) * 1.7)`,
+      height: `calc(var(--pluto-${level}-size) * 1.7)`,
+    }}
+    {...props}
+  />
 );

@@ -30,7 +30,9 @@ interface ToolbarProps {
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
   schematic: Schematic.Toolbar,
   lineplot: LinePlot.Toolbar,
-  vis: ({ layoutKey }) => <Selector layoutKey={layoutKey} onClose={() => {}} />,
+  vis: ({ layoutKey }) => (
+    <Selector layoutKey={layoutKey} visible focused={false} onClose={() => {}} />
+  ),
 };
 
 const NoVis = (): ReactElement => {

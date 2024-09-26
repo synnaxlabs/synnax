@@ -168,11 +168,12 @@ const SelectorButton = ({
       bordered={false}
       rounded={false}
     >
-      {PIcon.resolve(icon, {
-        className: CSS(CSS.BE(CLS, "icon"), CSS.shade(7)),
+      {PIcon.resolve(icon as ReactElement, {
+        className: CSS.BE(CLS, "icon"),
         style: {
-          height: `var(--pluto-${level}-size)`,
-          width: `var(--pluto-${level}-size)`,
+          color: CSS.shadeVar(7),
+          height: CSS.levelSizeVar(level),
+          width: CSS.levelSizeVar(level),
         },
       })}
       <Name
@@ -224,6 +225,7 @@ const Name = ({
     );
   return (
     <Text.Editable<Text.Level>
+      id={CSS.B(`tab-${tabKey}`)}
       onChange={(newText: string) => onRename(tabKey, newText)}
       value={name}
       noWrap

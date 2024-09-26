@@ -14,21 +14,21 @@ import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { Dialog } from "@/dialog";
+import { Dialog as Core } from "@/dialog";
 import { useClickOutside } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { findParent } from "@/util/findParent";
 import { getRootElement } from "@/util/rootElement";
 
 export interface ModalProps
-  extends Pick<Dialog.UseReturn, "visible" | "close">,
+  extends Pick<Core.UseReturn, "visible" | "close">,
     Align.SpaceProps {
   centered?: boolean;
   enabled?: boolean;
   root?: string;
 }
 
-export const Base = ({
+export const Dialog = ({
   children,
   centered,
   visible,
@@ -81,4 +81,4 @@ export const Base = ({
 };
 
 export const Modal = ({ root, ...props }: ModalProps): ReactElement =>
-  createPortal(<Base {...props} />, getRootElement(root));
+  createPortal(<Dialog {...props} />, getRootElement(root));

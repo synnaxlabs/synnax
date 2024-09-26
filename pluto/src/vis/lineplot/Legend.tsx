@@ -39,7 +39,7 @@ const Fixed = ({ onLineChange }: LegendProps) => {
   const gridStyle = useGridEntry(
     {
       key,
-      size: 36,
+      size: lines.length > 0 ? 36 : 0,
       loc: "top",
       order: 5,
     },

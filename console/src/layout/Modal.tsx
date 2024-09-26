@@ -29,12 +29,11 @@ const layoutCSS = (window?: WindowProps): CSSProperties => ({
 interface ModalProps {
   state: State;
   remove: (key: string) => void;
-  children: React.ReactNode;
   centered?: boolean;
   root?: string;
 }
 
-export const BaseModal = ({ state, remove, centered, children, root }: ModalProps) => {
+export const Modal = ({ state, remove, centered, root }: ModalProps) => {
   const { key, name, window, icon } = state;
   const menuProps = Menu.useContextMenu();
   return (
@@ -61,17 +60,8 @@ export const BaseModal = ({ state, remove, centered, children, root }: ModalProp
             </Nav.Bar.End>
           </Nav.Bar>
         )}
-        {children}
+        <Content layoutKey={key} />
       </Core.Modal>
     </Menu.ContextMenu>
-  );
-};
-
-export const Modal = ({ state, remove }: Omit<ModalProps, "children">) => {
-  const { key } = state;
-  return (
-    <BaseModal state={state} remove={remove}>
-      <Content layoutKey={key} />
-    </BaseModal>
   );
 };

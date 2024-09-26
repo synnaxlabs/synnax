@@ -65,6 +65,7 @@ import {
   type AxisState,
   internalCreate,
   type LineState,
+  setActiveToolbarTab,
   setAxis,
   setControlState,
   setLegend,
@@ -89,21 +90,11 @@ interface SyncPayload {
   key?: string;
 }
 
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => {
-  const d = useDispatch();
-  const win = useSelectWindowKey() as string;
-  return (
-    <PMenu.Menu level="small" iconSpacing="small">
-      <PMenu.Item
-        itemKey="focus"
-        startIcon={<Icon.Focus />}
-        onClick={() => d(Layout.setFocus({ key: layoutKey, windowKey: win }))}
-      >
-        Focus
-      </PMenu.Item>
-    </PMenu.Menu>
-  );
-};
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <PMenu.Menu level="small" iconSpacing="small">
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </PMenu.Menu>
+);
 
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
@@ -300,13 +291,12 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     );
   }, [vis.viewport.renderTrigger]);
 
-  const handleDoubleClick = useCallback(
-    () =>
-      dispatch(
-        Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
-      ),
-    [windowKey, dispatch],
-  );
+  const handleDoubleClick = useCallback(() => {
+    dispatch(
+      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
+    );
+    dispatch(setActiveToolbarTab({ tab: "data" }));
+  }, [windowKey, dispatch]);
 
   const props = PMenu.useContextMenu();
 

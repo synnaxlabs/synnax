@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createRef, useEffect, useLayoutEffect, useRef } from "react";
+import { createRef, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 type NodeProps = Record<string, string>;
