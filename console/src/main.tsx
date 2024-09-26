@@ -67,8 +67,9 @@ const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "W"],
 ];
 
-const triggersProps: Triggers.ProviderProps = {
+const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
+  preventDefaultOptions: { double: true },
 };
 
 const client = new QueryClient();
@@ -107,7 +108,7 @@ const MainUnderContext = (): ReactElement => {
         workerEnabled
         connParams={cluster?.props}
         workerURL={WorkerURL}
-        triggers={triggersProps}
+        triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
         alamos={{
           level: "debug",

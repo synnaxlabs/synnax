@@ -13,6 +13,7 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   type AsyncDestructor,
   type Nav,
+  Text,
   Theming,
   Triggers,
   useAsyncEffect,
@@ -263,6 +264,17 @@ export const useTriggers = () => {
       const active = selectActiveMosaicTabKey(state);
       if (active == null) return;
       openInNewWindow(active);
+    },
+  });
+  Triggers.use({
+    triggers: [["Control", "R"]],
+    loose: true,
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
+      const state = store.getState();
+      const active = selectActiveMosaicTabKey(state);
+      if (active == null) return;
+      Text.edit(`pluto-tab-${active}`);
     },
   });
 };

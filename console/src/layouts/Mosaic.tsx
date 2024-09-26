@@ -17,7 +17,7 @@ import {
   Button,
   componentRenderProp,
   Eraser,
-  Menu,
+  Menu as PMenu,
   Modal,
   Mosaic as Core,
   Nav,
@@ -34,6 +34,7 @@ import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Controls } from "@/components";
+import { Menu } from "@/components/menu";
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
 import { Confirm } from "@/confirm";
 import { Layout } from "@/layout";
@@ -70,17 +71,22 @@ const FILE_HANDLERS = [Schematic.fileHandler, LinePlot.fileHandler];
 
 export const ContextMenu = ({
   keys,
-}: Menu.ContextMenuMenuProps): ReactElement | null => {
-  if (keys.length === 0) return null;
+}: PMenu.ContextMenuMenuProps): ReactElement | null => {
+  if (keys.length === 0)
+    return (
+      <PMenu.Menu level="small" iconSpacing="small">
+        <Menu.HardReloadItem />
+      </PMenu.Menu>
+    );
   const layoutKey = keys[0];
   const layout = Layout.useSelect(layoutKey);
   if (layout == null) return null;
   const C = Layout.useContextMenuRenderer(layout?.type);
   if (C == null) {
     return (
-      <Menu.Menu level="small" iconSpacing="small">
+      <PMenu.Menu level="small" iconSpacing="small">
         <Layout.MenuItems layoutKey={layoutKey} />
-      </Menu.Menu>
+      </PMenu.Menu>
     );
   }
   const res = <C layoutKey={layoutKey} />;
@@ -379,9 +385,9 @@ export const NavTop = (): ReactElement | null => {
 export const MosaicWindow = memo(
   ({ layoutKey }: Layout.RendererProps): ReactElement => {
     const { menuItems, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
-    const d = useDispatch();
+    const dispatch = useDispatch();
     useLayoutEffect(() => {
-      d(
+      dispatch(
         setNavDrawer({
           windowKey: layoutKey,
           location: "bottom",

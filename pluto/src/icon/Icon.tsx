@@ -13,10 +13,10 @@ import { Icon as MediaIcon } from "@synnaxlabs/media";
 import { deep, location } from "@synnaxlabs/x";
 import {
   cloneElement,
-  ComponentPropsWithoutRef,
-  FC,
-  ReactElement,
-  SVGProps,
+  type ComponentPropsWithoutRef,
+  type FC,
+  type ReactElement,
+  type SVGProps,
 } from "react";
 
 import { CSS } from "@/css";
