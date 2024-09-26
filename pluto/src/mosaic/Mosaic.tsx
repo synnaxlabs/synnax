@@ -13,7 +13,7 @@ import { type box, type location } from "@synnaxlabs/x";
 import {
   DragEvent,
   memo,
-  type MutableRefObject,
+  MutableRefObject,
   type ReactElement,
   useCallback,
   useRef,
@@ -43,44 +43,6 @@ export interface MosaicProps
   activeTab?: string;
 }
 
-export const Mosaic = memo(({ children, ...props }: MosaicProps): ReactElement => {
-  const ref = useRef<Map<string, Portal.Node>>(new Map());
-  const existing = new Set<string>();
-  const portaledNodes = mapNodes(props.root, (node) => {
-    if (node.selected == null) return null;
-    let pNode: Portal.Node | undefined = ref.current.get(node.selected);
-    const tab = node.tabs?.find((t) => t.tabKey === node.selected);
-    if (tab == null) return null;
-    if (pNode == null) {
-      pNode = new Portal.Node({
-        style: "width: 100%; height: 100%; position: relative;",
-      });
-      // Events don't propagate upward from the portaled node, so we need to bind
-      // the onSelect handler here.
-      pNode.el.addEventListener("click", () => props.onSelect?.(tab.tabKey));
-      ref.current.set(node.selected, pNode);
-    }
-    existing.add(node.selected);
-    return (
-      <Portal.In key={tab.tabKey} node={pNode}>
-        {children(tab)}
-      </Portal.In>
-    );
-  });
-  ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
-
-  return (
-    <>
-      {portaledNodes}
-      <MosaicInternal portalNodes={ref} {...props} />
-    </>
-  );
-});
-
-interface MosaicInternalProps extends Omit<MosaicProps, "children"> {
-  portalNodes: MutableRefObject<Map<string, Portal.Node>>;
-}
-
 /***
  * Mosaic renders a tree of tab panes, with the ability to drag and drop tabs to
  * different locations in the tree as well as resize the panes (think of your typical
@@ -96,7 +58,7 @@ interface MosaicInternalProps extends Omit<MosaicProps, "children"> {
  * @param props.onResize - The callback executed when a pane is resized. This prop is
  *  provided by the Mosaic.use hook.
  */
-const MosaicInternal = memo((props: MosaicInternalProps): ReactElement | null => {
+export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
   const { onResize, ...tabsProps } = props;
   const {
     root: { tabs, direction, first, last, key, size },
@@ -122,22 +84,13 @@ const MosaicInternal = memo((props: MosaicInternalProps): ReactElement | null =>
   else if (first != null && last != null)
     content = (
       <Resize.Multiple
+        id={`mosaic-${key}`}
         align="stretch"
         className={CSS.BE("mosaic", "resize")}
         {...resizeProps}
       >
-        <MosaicInternal
-          key={first.key}
-          {...childProps}
-          root={first}
-          onResize={onResize}
-        />
-        <MosaicInternal
-          key={last.key}
-          {...childProps}
-          root={last}
-          onResize={onResize}
-        />
+        <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
+        <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
       </Resize.Multiple>
     );
   else {
@@ -148,9 +101,8 @@ const MosaicInternal = memo((props: MosaicInternalProps): ReactElement | null =>
   return key === 1 ? <Haul.Provider>{content}</Haul.Provider> : content;
 });
 Mosaic.displayName = "Mosaic";
-MosaicInternal.displayName = "Mosaic";
 
-interface TabLeafProps extends Omit<MosaicInternalProps, "onResize"> {}
+interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
 
 /**
  * This type should be used when the user wants to drop a tab in the mosaic.
@@ -183,8 +135,8 @@ const TabLeaf = memo(
     root: node,
     onDrop,
     onCreate,
-    portalNodes,
     activeTab,
+    children,
     onFileDrop,
     ...props
   }: TabLeafProps): ReactElement => {
@@ -257,7 +209,7 @@ const TabLeaf = memo(
     const handleTabCreate = useCallback((): void => onCreate?.(key, "center"), [key]);
 
     return (
-      <div className={CSS.BE("mosaic", "leaf")}>
+      <div id={`mosaic-${key}`} className={CSS.BE("mosaic", "leaf")}>
         <Tabs.Tabs
           id={`tab-${key}`}
           tabs={tabs}
@@ -269,9 +221,8 @@ const TabLeaf = memo(
           {...props}
           {...haulProps}
         >
-          <Portal.Out
-            node={portalNodes.current.get(node.selected as string) as Portal.Node}
-          />
+          {node.selected != null &&
+            children(tabs.find((t) => t.tabKey === node.selected) as Tabs.Spec)}
           {dragging && (
             <div
               style={{
@@ -285,6 +236,7 @@ const TabLeaf = memo(
             />
           )}
         </Tabs.Tabs>
+
         {dragMask != null && (
           <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
         )}
@@ -328,4 +280,46 @@ const insertLocation = ({ px, py }: { px: number; py: number }): location.Locati
   if (py > aY && py < bY) return "left";
   if (py < aY && py > bY) return "right";
   throw new Error("[bug] - invalid insert position");
+};
+
+export interface UsePortalProps
+  extends Pick<MosaicProps, "root" | "onSelect" | "children"> {}
+
+export type UsePortalReturn = [
+  MutableRefObject<Map<string, Portal.Node>>,
+  ReactElement[],
+];
+
+export const usePortal = ({
+  root,
+  onSelect,
+  children,
+}: UsePortalProps): UsePortalReturn => {
+  const ref = useRef<Map<string, Portal.Node>>(new Map());
+  const existing = new Set<string>();
+  const portaledNodes = mapNodes(root, (node) =>
+    node.tabs?.map((tab) => {
+      let pNode: Portal.Node | undefined = ref.current.get(tab.tabKey);
+      if (tab == null) return null;
+      if (pNode == null) {
+        pNode = new Portal.Node({
+          style: "width: 100%; height: 100%; position: relative;",
+        });
+        // Events don't propagate upward from the portaled node, so we need to bind
+        // the onSelect handler here.
+        pNode.el.addEventListener("click", () => onSelect?.(tab.tabKey));
+        ref.current.set(tab.tabKey, pNode);
+      }
+      existing.add(tab.tabKey);
+      return (
+        <Portal.In key={tab.tabKey} node={pNode}>
+          {children({ ...tab, visible: tab.tabKey === node.selected })}
+        </Portal.In>
+      );
+    }),
+  )
+    .flat()
+    .filter((v) => v != null);
+  ref.current.forEach((_, key) => !existing.has(key) && ref.current.delete(key));
+  return [ref, portaledNodes];
 };

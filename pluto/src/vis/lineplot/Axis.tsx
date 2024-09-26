@@ -111,9 +111,9 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           loc: location,
           key: `${aetherType}-${aetherKey}`,
           size: size + labelSize,
-          order: "last",
+          order: 1,
         },
-        "XAxis",
+        `${dir.toUpperCase()}Axis`,
       );
 
       const font = Theming.useTypography(labelLevel).toString();
@@ -135,10 +135,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           const prevSize = prevLabelSize.current;
           if (!withinSizeThreshold(prevSize, labelSize)) {
             prevLabelSize.current = labelSize;
-            setState((state) => ({
-              ...state,
-              labelSize,
-            }));
+            setState((state) => ({ ...state, labelSize }));
           }
         }
       }, [label, labelDirection, font]);

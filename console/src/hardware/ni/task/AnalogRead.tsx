@@ -63,6 +63,7 @@ export const configureAnalogReadLayout = (
   key: id.id(),
   type: ANALOG_READ_TYPE,
   windowKey: ANALOG_READ_TYPE,
+  icon: "Logo.NI",
   location: "mosaic",
   args,
 });

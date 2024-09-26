@@ -67,6 +67,7 @@ export const configureReadLayout = (
   key: uuid(),
   type: READ_TYPE,
   windowKey: READ_TYPE,
+  icon: "Logo.OPC",
   location: "mosaic",
   window: {
     resizable: true,

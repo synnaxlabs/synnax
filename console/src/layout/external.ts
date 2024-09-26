@@ -10,6 +10,7 @@
 export * from "@/layout/Content";
 export * from "@/layout/context";
 export * from "@/layout/hooks";
+export * from "@/layout/Menu";
 export * from "@/layout/middleware";
 export * from "@/layout/Modals";
 export * from "@/layout/palette";

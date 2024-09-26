@@ -91,6 +91,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   titleLevel?: Text.Level;
   // Legend
   showLegend?: boolean;
+  legendVariant?: Core.LegendProps["variant"];
   legendPosition?: xy.XY;
   onLegendPositionChange?: (value: xy.XY) => void;
   // Tooltip
@@ -133,6 +134,7 @@ export const LinePlot = ({
   enableTooltip = true,
   enableMeasure = false,
   initialViewport = box.DECIMAL,
+  legendVariant,
   onViewportChange,
   viewportTriggers,
   annotationProvider,
@@ -174,6 +176,7 @@ export const LinePlot = ({
           onLineChange={onLineChange}
           position={legendPosition}
           onPositionChange={onLegendPositionChange}
+          variant={legendVariant}
         />
       )}
       {showTitle && (
