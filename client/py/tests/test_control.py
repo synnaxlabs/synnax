@@ -365,7 +365,6 @@ class TestController:
                 v = auto[press_en.key]
                 assert v is None
 
-    @pytest.mark.focus
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 

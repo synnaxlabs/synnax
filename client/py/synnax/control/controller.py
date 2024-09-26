@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from threading import Event
+from threading import Event, Lock
 from typing import Any, Protocol, overload
 from asyncio import create_task, Future
 
@@ -281,13 +281,13 @@ class Controller:
             raise ValueError("First argument to wait_until must be a callable.")
         processor = WaitUntil(cond, reverse)
         try:
-            self._receiver.processors.add(processor)
+            self._receiver.add_processor(processor)
             timeout_seconds = (
                 TimeSpan.from_seconds(timeout).seconds if timeout else None
             )
             ok = processor.event.wait(timeout=timeout_seconds)
         finally:
-            self._receiver.processors.remove(processor)
+            self._receiver.remove_processor(processor)
         if processor.exc:
             raise processor.exc
         return ok
@@ -458,6 +458,7 @@ class _Receiver(AsyncThread):
     client: framer.Client
     streamer: framer.AsyncStreamer
     processors: set[Processor]
+    processor_lock: Lock
     retriever: ChannelRetriever
     controller: Controller
     startup_ack: Event
@@ -475,12 +476,22 @@ class _Receiver(AsyncThread):
         self.client = client
         self.state = dict()
         self.controller = controller
+        self.processor_lock = Lock()
         self.startup_ack = Event()
         self.processors = set()
 
+    def add_processor(self, processor: Processor):
+        with self.processor_lock:
+            self.processors.add(processor)
+
+    def remove_processor(self, processor: Processor):
+        with self.processor_lock:
+            self.processors.remove(processor)
+
     def _process(self):
-        for p in self.processors:
-            p.process(self.controller)
+        with self.processor_lock:
+            for p in self.processors:
+                p.process(self.controller)
 
     async def _listen_for_close(self):
         await self.shutdown_future

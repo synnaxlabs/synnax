@@ -403,6 +403,14 @@ class TestStreamer:
         with client.open_streamer([]):
             pass
 
+
+    @pytest.mark.focus
+    def test_open_streamer_channel_not_found(self, client: sy.Synnax):
+        """Should throw an exception when a streamer is opened with an unknown channel"""
+        with pytest.raises(sy.NotFoundError):
+            with client.open_streamer([123]):
+                pass
+
     def test_update_channels(self, channel: sy.Channel, client: sy.Synnax):
         """Should update the list of channels to stream"""
         with client.open_streamer([]) as s:

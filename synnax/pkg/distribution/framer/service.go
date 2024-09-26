@@ -116,6 +116,7 @@ func Open(configs ...Config) (*Service, error) {
 	freeWrites := confluence.NewStream[relay.Response](25)
 	s.Relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Instrumentation.Child("Relay"),
+		ChannelReader:   cfg.ChannelReader,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Relay(),
