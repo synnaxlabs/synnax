@@ -27,7 +27,7 @@ const useEditPermissions =
     );
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = Ontology.useConfirmDelete({ type: user.ONTOLOGY_TYPE });
+  const confirm = Ontology.useConfirmDelete({ type: "User" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       if (!(await confirm(resources))) throw errors.CANCELED;
@@ -67,6 +67,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     delete: () => handleDelete(props),
   };
   const singleResource = resources.length === 1;
+  const hasRootUser = resources.some((resource) => {
+    const user = resource.data as user.User;
+    return user.rootUser;
+  });
   const isNotCurrentUser = resources[0].name !== client.props.username;
   const canEditPermissions = Permissions.useSelectCanEditPolicies();
   const canEditOrDelete = useSelectHasPermission();
@@ -75,7 +79,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && isNotCurrentUser && (
         <>
-          {canEditPermissions && (
+          {canEditPermissions && !hasRootUser && (
             <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
               Edit Permissions
             </PMenu.Item>
@@ -88,7 +92,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Divider />
         </>
       )}
-      {canEditOrDelete && (
+      {canEditOrDelete && !hasRootUser && (
         <>
           <Menu.DeleteItem />
           <PMenu.Divider />
