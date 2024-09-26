@@ -28,7 +28,7 @@ std::pair<Streamer, freighter::Error> FrameClient::openStreamer(
     auto req = api::v1::FrameStreamerRequest();
     config.toProto(req);
     auto exc2 = s->send(req);
-    if (err) {Streamer(std::move(s)), exc2};
+    if (exc2) {Streamer(std::move(s)), exc2};
     auto [_, resExc] = s->receive();
     return {Streamer(std::move(s)), resExc};
 }
