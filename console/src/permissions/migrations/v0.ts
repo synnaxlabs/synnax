@@ -20,5 +20,5 @@ export type State = z.infer<typeof stateZ>;
 
 export const ZERO_STATE: State = {
   version: "0.0.0",
-  policies: [],
+  policies: ALLOW_ALL,
 };

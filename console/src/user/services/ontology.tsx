@@ -10,6 +10,8 @@
 import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
+import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
@@ -17,42 +19,78 @@ import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { useSelectHasPermission } from "@/user/selectors";
 
-const useSetPermissions =
+const useEditPermissions =
   (): ((props: Ontology.TreeContextMenuProps) => void) =>
   ({ placeLayout, selection }) =>
     placeLayout(
       Permissions.editLayout({ user: selection.resources[0].data as user.User }),
     );
 
+const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const confirm = Ontology.useConfirmDelete({ type: user.ONTOLOGY_TYPE });
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+      if (!(await confirm(resources))) throw errors.CANCELED;
+      const prevNodes = Tree.deepCopy(nodes);
+      setNodes([
+        ...Tree.removeNode({
+          tree: nodes,
+          keys: resources.map(({ id }) => id.toString()),
+        }),
+      ]);
+      return prevNodes;
+    },
+    mutationFn: async ({ selection: { resources }, client }) =>
+      await client.user.delete(resources.map(({ id }) => id.key)),
+    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      if (errors.CANCELED.matches(e)) return;
+      addStatus({
+        variant: "error",
+        message: "Failed to delete users.",
+        description: e.message,
+      });
+    },
+  }).mutate;
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     client,
     selection: { nodes, resources },
   } = props;
-  const setPermissions = useSetPermissions();
+  const editPermissions = useEditPermissions();
+  const handleDelete = useDelete();
   const handleSelect = {
-    permissions: () => setPermissions(props),
+    permissions: () => editPermissions(props),
     rename: () => Tree.startRenaming(nodes[0].key),
+    delete: () => handleDelete(props),
   };
   const singleResource = resources.length === 1;
   const isNotCurrentUser = resources[0].name !== client.props.username;
-  const canSetPermissions = Permissions.useSelectCanEditPolicies();
-  const canEdit = useSelectHasPermission();
+  const canEditPermissions = Permissions.useSelectCanEditPolicies();
+  const canEditOrDelete = useSelectHasPermission();
 
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && isNotCurrentUser && (
         <>
-          {canSetPermissions && (
+          {canEditPermissions && (
             <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
               Edit Permissions
             </PMenu.Item>
           )}
-          {canEdit && (
+          {canEditOrDelete && (
             <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
               Change Username
             </PMenu.Item>
           )}
+          <PMenu.Divider />
+        </>
+      )}
+      {canEditOrDelete && (
+        <>
+          <Menu.DeleteItem />
           <PMenu.Divider />
         </>
       )}
@@ -66,17 +104,11 @@ const handleRename: Ontology.HandleTreeRename = {
     await client.user.changeUsername(id.key, name),
 };
 
-const allowRename: Ontology.AllowRename = (props): boolean => {
-  console.log("allowRename");
-  console.log(props);
-  return true;
-};
-
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: user.ONTOLOGY_TYPE,
   icon: <Icon.User />,
   hasChildren: true,
-  allowRename,
+  allowRename: () => true,
   onRename: handleRename,
   haulItems: () => [],
   canDrop: () => false,

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
-import { ontology, Synnax } from "@synnaxlabs/client";
+import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
+import { type ontology, Synnax, user } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
@@ -20,11 +20,13 @@ import {
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
+import { Permissions } from "@/permissions";
+import { type RootState } from "@/store";
 
 export interface HandlerProps {
   addStatus: (status: Status.CrudeSpec) => void;
@@ -44,6 +46,7 @@ export interface UseDeepProps {
 
 const openUrlErrorMessage =
   "Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>";
+const scheme = "synnax://";
 
 export const useDeep = ({ handlers }: UseDeepProps): void => {
   const client = PSynnax.use();
@@ -51,57 +54,43 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
   const addStatus = Status.useAggregator();
   const dispatch = useDispatch();
   const placer = Layout.usePlacer();
-  const store = useStore();
+  const store = useStore<RootState>();
   const windowKey = useSelectWindowKey() as string;
-  const addOpenUrlErrorStatus = () => {
+  const addOpenUrlErrorStatus = () =>
     addStatus({
       variant: "error",
       message: openUrlErrorMessage,
     });
-  };
 
   useAsyncEffect(async () => {
     const unlisten = await onOpenUrl(async (urls) => {
       dispatch(Drift.focusWindow({}));
 
       // Processing URL, making sure is has valid form
-      const scheme = "synnax://";
-      if (urls.length === 0 || !urls[0].startsWith(scheme)) {
-        addOpenUrlErrorStatus();
-        return;
-      }
+      if (urls.length === 0 || !urls[0].startsWith(scheme))
+        return addOpenUrlErrorStatus();
       const urlParts = urls[0].slice(scheme.length).split("/");
-      if (urlParts.length !== 2 && urlParts.length !== 4) {
-        addOpenUrlErrorStatus();
-        return;
-      }
-      if (urlParts[0] !== "cluster") {
-        addOpenUrlErrorStatus();
-        return;
-      }
+      if ((urlParts.length !== 2 && urlParts.length !== 4) || urlParts[0] !== "cluster")
+        return addOpenUrlErrorStatus();
 
       // Connecting to the cluster
       const clusterKey = urlParts[1];
-      const connParams = Cluster.select(
-        store.getState() as Cluster.StoreState,
-        clusterKey,
-      )?.props;
-      const addClusterErrorStatus = () => {
+      const connParams = Cluster.select(store.getState(), clusterKey)?.props;
+      const addClusterErrorStatus = () =>
         addStatus({
           variant: "error",
           message: `Cannot open URL, Cluster with key ${clusterKey} not found`,
         });
-      };
-      if (connParams == null) {
-        addClusterErrorStatus();
-        return;
-      }
+      if (connParams == null) return addClusterErrorStatus();
       dispatch(Cluster.setActive(clusterKey));
       clientRef.current = new Synnax(connParams);
-      if (clientRef.current == null) {
-        addClusterErrorStatus();
-        return;
-      }
+      if (clientRef.current == null) return addClusterErrorStatus();
+      const username = clientRef.current.props.username;
+      const user_ = await clientRef.current.user.retrieveByName(username);
+      const policies = await clientRef.current.access.policy.retrieveFor(
+        user.ontologyID(user_.key),
+      );
+      dispatch(Permissions.set({ policies }));
       if (urlParts.length === 2) return;
 
       // Processing the resource part of URL
@@ -147,14 +136,12 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
   return ({ ontologyID, name, clusterKey }) => {
     let url = "synnax://cluster/";
     const key = clusterKey ?? activeClusterKey;
-    if (key == null) {
-      addStatus({
+    if (key == null)
+      return addStatus({
         variant: "error",
         message: `Failed to copy link to ${name} to clipboard`,
         description: "No active cluster found",
       });
-      return;
-    }
     url += key;
     if (ontologyID != undefined) url += `/${ontologyID.type}/${ontologyID.key}`;
     navigator.clipboard.writeText(url).then(

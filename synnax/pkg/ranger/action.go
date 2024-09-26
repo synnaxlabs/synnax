@@ -11,12 +11,4 @@ package ranger
 
 import "github.com/synnaxlabs/synnax/pkg/access/action"
 
-const (
-	SetKVAction        action.Action = "set_key_value"
-	GetKVAction        action.Action = "get_key_value"
-	DeleteKVAction     action.Action = "delete_key_value"
-	SetAliasAction     action.Action = "set_alias"
-	ResolveAliasAction action.Action = "resolve_alias"
-	ListAliasesAction  action.Action = "list_aliases"
-	DeleteAliasAction  action.Action = "delete_alias"
-)
+const ResolveAliasAction action.Action = "resolve"

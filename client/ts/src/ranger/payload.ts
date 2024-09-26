@@ -85,10 +85,4 @@ export const rangeOntologyID = (key: Key): ontology.ID =>
 export const rangeAliasOntologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key: key });
 
-export const SET_KV_ACTION: access.Action = "set_key_value";
-export const GET_KV_ACTION: access.Action = "get_key_value";
-export const DELETE_KV_ACTION: access.Action = "delete_key_value";
-export const LIST_ALIASES_ACTION: access.Action = "list_aliases";
-export const SET_ALIAS_ACTION: access.Action = "set_alias";
-export const DELETE_ALIAS_ACTION: access.Action = "delete_alias";
-export const RESOLVE_ALIAS_ACTION: access.Action = "resolve_alias";
+export const RESOLVE_ALIAS_ACTION: access.Action = "resolve";
