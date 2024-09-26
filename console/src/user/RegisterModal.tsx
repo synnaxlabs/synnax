@@ -57,7 +57,7 @@ export const registerLayout = ({
   name: "User.Register",
   window: {
     resizable: false,
-    size: { height: 370, width: 700 },
+    size: { height: 425, width: 650 },
     navTop: true,
     ...window,
   },
@@ -96,10 +96,24 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
           <Align.Space direction="y">
             <Align.Space direction="x">
               <Form.Field<string> path="firstName" label="First Name">
-                {(p) => <Input.Text placeholder="Richard" {...p} />}
+                {(p) => (
+                  <Input.Text
+                    variant="natural"
+                    level="h2"
+                    placeholder="Richard"
+                    {...p}
+                  />
+                )}
               </Form.Field>
               <Form.Field<string> path="lastName" label="Last Name">
-                {(p) => <Input.Text placeholder="Feynman" {...p} />}
+                {(p) => (
+                  <Input.Text
+                    variant="natural"
+                    level="h2"
+                    placeholder="Feynman"
+                    {...p}
+                  />
+                )}
               </Form.Field>
             </Align.Space>
             <Form.Field<string> path="username">
