@@ -11,6 +11,7 @@ package relay
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
@@ -34,7 +35,9 @@ type StreamerConfig = Request
 func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
 	keys := lo.Uniq(cfg.Keys)
 	// Check that all keys exist.
-	if err := r.cfg.ChannelReader.NewRetrieve().WhereKeys(keys...).Exec(ctx, nil); err != nil {
+	if err := r.cfg.ChannelReader.
+		NewRetrieve().
+		WhereKeys(keys...).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	return &streamer{keys: keys, addr: address.Rand(), demands: r.demands, relay: r}, nil
