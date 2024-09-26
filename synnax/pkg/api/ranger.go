@@ -303,14 +303,6 @@ type (
 )
 
 func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRequest) (res RangeAliasResolveResponse, _ error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  ranger.ResolveAliasAction,
-		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
-	}); err != nil {
-		return res, err
-	}
-
 	var r ranger.Range
 	if err := s.internal.NewRetrieve().Entry(&r).
 		WhereKeys(req.Range).
