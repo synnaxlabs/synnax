@@ -9,7 +9,7 @@
 
 import { createContext, useContext } from "react";
 
-import { ContextMenuRenderer, type Renderer } from "@/layout/slice";
+import { type ContextMenuRenderer, type Renderer } from "@/layout/slice";
 
 export type Renderers = Record<string, Renderer>;
 
@@ -32,6 +32,5 @@ const ContextMenuContext = createContext<ContextMenus>({});
 
 export const ContextMenuProvider = ContextMenuContext.Provider;
 
-export const useContextMenuRenderer = (type: string): ContextMenuRenderer | null => {
-  return useContext(ContextMenuContext)[type] ?? null;
-};
+export const useContextMenuRenderer = (type: string): ContextMenuRenderer | null =>
+  useContext(ContextMenuContext)[type] ?? null;

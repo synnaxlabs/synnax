@@ -10,7 +10,7 @@
 import "@/text/WithIcon.css";
 
 import { toArray } from "@synnaxlabs/x";
-import { Children, Key, type ReactElement, type ReactNode } from "react";
+import { Children, type Key, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";

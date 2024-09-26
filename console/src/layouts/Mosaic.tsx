@@ -379,9 +379,9 @@ export const NavTop = (): ReactElement | null => {
 export const MosaicWindow = memo(
   ({ layoutKey }: Layout.RendererProps): ReactElement => {
     const { menuItems, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
-    const d = useDispatch();
+    const dispatch = useDispatch();
     useLayoutEffect(() => {
-      d(
+      dispatch(
         setNavDrawer({
           windowKey: layoutKey,
           location: "bottom",

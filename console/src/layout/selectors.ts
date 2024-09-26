@@ -96,9 +96,9 @@ export const selectFocused = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
 ): [string, string | null] => {
-  const win = selectWindow(state, windowKey);
-  if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
-  return [win.key, selectSliceState(state).mosaics[win.key]?.focused ?? null];
+  const window = selectWindow(state, windowKey);
+  if (window == null) throw new Error(`Window ${windowKey ?? ""} not found`);
+  return [window.key, selectSliceState(state).mosaics[window.key]?.focused ?? null];
 };
 
 export const useSelectFocused = (): [string, string | null] =>

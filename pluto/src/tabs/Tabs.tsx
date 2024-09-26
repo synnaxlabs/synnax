@@ -22,8 +22,8 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
-import { Selector, SelectorProps } from "@/tabs/Selector";
-import { RenderProp, type Spec, Tab } from "@/tabs/types";
+import { Selector, type SelectorProps } from "@/tabs/Selector";
+import { type RenderProp, type Spec, Tab } from "@/tabs/types";
 import { type ComponentSize } from "@/util/component";
 
 /**

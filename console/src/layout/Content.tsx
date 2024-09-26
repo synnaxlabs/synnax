@@ -28,10 +28,10 @@ export interface ContentProps {
  */
 export const Content = memo(
   ({ layoutKey, forceHidden }: ContentProps): ReactElement | null => {
-    const p = useSelect(layoutKey);
+    const layout = useSelect(layoutKey);
     const [, focused] = useSelectFocused();
     const handleClose = useRemover(layoutKey);
-    const type = p?.type ?? "";
+    const type = layout?.type ?? "";
     const Renderer = useOptionalRenderer(type);
     if (Renderer == null) throw new Error(`layout renderer ${type} not found`);
     const isFocused = focused === layoutKey;
