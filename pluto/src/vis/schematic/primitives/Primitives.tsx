@@ -1219,6 +1219,7 @@ export const Setpoint = ({
         endContent={units}
         color={color}
         style={{ [CSS.var("pack-border-shade")]: Color.cssString(color) }}
+        borderWidth={2}
       >
         <CoreButton.Button
           variant="outlined"

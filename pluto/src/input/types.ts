@@ -9,6 +9,7 @@
 
 import { type ComponentPropsWithoutRef, type ReactNode } from "react";
 
+import { Align } from "@/align";
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
@@ -44,4 +45,5 @@ export interface ExtensionProps<I extends Value = Value, O extends Value = I>
 
 export interface BaseProps<I extends Value = Value, O extends Value = I>
   extends HTMLInputProps,
-    ExtensionProps<I, O> {}
+    ExtensionProps<I, O>,
+    Pick<Align.PackProps, "borderWidth" | "borderShade"> {}

@@ -132,7 +132,7 @@ const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
 
 export const CommonStyleForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow>
+    <Align.Space direction="y" grow empty>
       <LabelControls path="label" />
       <Align.Space direction="x" grow>
         <ColorControl path="color" optional />
@@ -504,7 +504,7 @@ export const ValueForm = (): ReactElement => {
       default:
         return (
           <FormWrapper direction="x">
-            <Align.Space direction="y" grow>
+            <Align.Space direction="y" grow empty>
               <LabelControls path="label" />
               <Align.Space direction="x">
                 <ColorControl path="color" />
@@ -518,11 +518,12 @@ export const ValueForm = (): ReactElement => {
                 </Form.Field>
                 <Form.NumericField
                   path="inlineSize"
-                  label="Label Wrap Width"
+                  label="Value Width"
                   hideIfNull
                   inputProps={{
                     dragScale: { x: 1, y: 0.25 },
                     bounds: { lower: 40, upper: 500 },
+                    endContent: "px",
                   }}
                 />
               </Align.Space>
@@ -796,7 +797,7 @@ export const TextBoxForm = (): ReactElement => (
 
 export const OffPageReferenceForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow>
+    <Align.Space direction="y" grow empty>
       <LabelControls path="label" />
       <ColorControl path="color" />
     </Align.Space>

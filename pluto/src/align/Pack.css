@@ -20,6 +20,7 @@
     --tl: var(--pluto-pack-br) 0 0 0;
     --pluto-pack--middle: 0 !important;
     --all: var(--pluto-pack-br);
+    --pluto-pack-border-width: 1px;
 
     &.pluto--rounded {
         --pluto-pack-br: var(--pluto-back-br, var(--pluto-border-radius));
@@ -32,6 +33,7 @@
         &:not(.pluto-pack--shadow) > * {
             border: var(--pluto-border);
             border-color: var(--pluto-pack-border-shade);
+            border-width: var(--pluto-pack-border-width);
         }
 
         &.pluto-pack--shadow {
@@ -50,7 +52,7 @@
         --pluto-pack--first: var(--l);
         --pluto-pack--last: var(--r);
         --pluto-pack--only: var(--all);
-        --pluto-pack--x-margin: 0 0 0 -1px !important;
+        --pluto-pack--x-margin: 0 0 0 calc(-1 * var(--pluto-pack-border-width)) !important;
         --pluto-pack--x-first-y-first: var(--tl);
         --pluto-pack--x-first-y-last: var(--bl);
         --pluto-pack--x-first-y-only: var(--l);
@@ -61,7 +63,7 @@
         .pluto-pack--reverse {
             --pluto-pack--first: var(--r);
             --pluto-pack--last: var(--l);
-            --pluto-pack--x-margin: 0 -1px 0 0 !important;
+            --pluto-pack--x-margin: 0 calc(-1 * var(--pluto-pack-border-width)) 0 0 !important;
             --pluto-pack--x-first-y-first: var(--tr);
             --pluto-pack--x-first-y-last: var(--br);
             --pluto-pack--x-first-y-only: var(--r);
@@ -144,7 +146,7 @@
         --pluto-pack--first: var(--t);
         --pluto-pack--last: var(--b);
         --pluto-pack--only: var(--all);
-        --pluto-pack--y-margin: -1px 0 0 0 !important;
+        --pluto-pack--y-margin: calc(-1 * var(--pluto-pack-border-width)) 0 0 0 !important;
         --pluto-pack--y-first-x-first: var(--tl);
         --pluto-pack--y-first-x-last: var(--tr);
         --pluto-pack--y-first-x-only: var(--t);
@@ -155,7 +157,7 @@
         &.pluto-pack--reverse {
             --pluto-pack--first: 0 0 var(--pluto-pack-br) var(--pluto-pack-br) !important;
             --pluto-pack--last: var(--pluto-pack-br) var(--pluto-pack-br) 0 0 !important;
-            --pluto-pack--y-margin: 0 0 -1px 0 !important;
+            --pluto-pack--y-margin: 0 0 calc(-1 * var(--pluto-pack-border-width)) 0 !important;
             --pluto-pack--y-first-x-first: var(--bl);
             --pluto-pack--y-first-x-last: var(--br);
             --pluto-pack--y-first-x-only: var(--b);

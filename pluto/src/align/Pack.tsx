@@ -21,6 +21,7 @@ export type PackProps<E extends SpaceElementType = "div"> = Omit<
   "empty"
 > & {
   shadow?: boolean;
+  borderWidth?: number;
 };
 
 const CorePack = <E extends SpaceElementType = "div">(
@@ -33,35 +34,43 @@ const CorePack = <E extends SpaceElementType = "div">(
     borderShade = 3 as text.Shade,
     rounded = true,
     shadow = false,
+    borderWidth,
     style,
     ...props
   }: PackProps<E>,
   // select the correct type for the ref
   ref: ForwardedRef<JSX.IntrinsicElements[E]>,
-): ReactElement => (
-  // @ts-expect-error - generic element issues
-  <Space<E>
-    ref={ref}
-    direction={direction}
-    reverse={reverse}
-    className={CSS(
-      CSS.B("pack"),
-      shadow && CSS.BM("pack", "shadow"),
-      CSS.dir(direction),
-      typeof size !== "number" && CSS.BM("pack", size),
-      reverse && CSS.BM("pack", "reverse"),
-      className,
-    )}
-    style={{
-      [CSS.var("pack-border-shade")]: CSS.shadeVar(borderShade),
-      ...style,
-    }}
-    bordered={bordered}
-    rounded={rounded}
-    {...props}
-    empty
-  />
-);
+): ReactElement => {
+  const pStyle = {
+    [CSS.var("pack-border-shade")]: CSS.shadeVar(borderShade),
+    ...style,
+  };
+  if (borderWidth != null)
+    // @ts-expect-error - generic element issues
+    pStyle[CSS.var("pack-border-width")] = `${borderWidth}px`;
+
+  return (
+    // @ts-expect-error - generic element issues
+    <Space<E>
+      ref={ref}
+      direction={direction}
+      reverse={reverse}
+      className={CSS(
+        CSS.B("pack"),
+        shadow && CSS.BM("pack", "shadow"),
+        CSS.dir(direction),
+        typeof size !== "number" && CSS.BM("pack", size),
+        reverse && CSS.BM("pack", "reverse"),
+        className,
+      )}
+      style={pStyle}
+      bordered={bordered}
+      rounded={rounded}
+      {...props}
+      empty
+    />
+  );
+};
 
 /**
  * Packs elements together, setting their size and styling the borders between them so

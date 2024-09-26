@@ -68,6 +68,8 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       color,
       onlyChangeOnBlur = false,
       endContent,
+      borderWidth,
+      borderShade = 4,
       ...props
     },
     ref,
@@ -134,7 +136,8 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           status != null && CSS.M(status),
           className,
         )}
-        borderShade={4}
+        borderShade={borderShade}
+        borderWidth={borderWidth}
         align="center"
         size={size}
       >

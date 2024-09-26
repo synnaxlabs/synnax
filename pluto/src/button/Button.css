@@ -73,20 +73,20 @@
     }
 
     &.pluto-btn--custom-color {
-        --pluto-bg: rgba(var(--pluto-btn-color), 0.75);
+        --pluto-bg: rgba(var(--pluto-btn-color), 1);
         background: var(--pluto-bg);
-        border-color: var(--pluto-bg) !important;
+        border-color: transparent !important;
 
         &:hover:not(.pluto--disabled) {
-            --pluto-bg: rgba(var(--pluto-btn-color), 1);
+            --pluto-bg: rgba(var(--pluto-btn-color), 0.85);
             background: var(--pluto-bg);
-            border-color: var(--pluto-bg) !important;
+            border-color: transparent !important;
         }
 
         &:active:not(.pluto--disabled) {
-            --pluto-bg: rgba(var(--pluto-btn-color), 0.6);
+            --pluto-bg: rgba(var(--pluto-btn-color), 0.7);
             background: var(--pluto-bg);
-            border-color: var(--pluto-bg) !important;
+            border-color: transparent !important;
         }
     }
 
