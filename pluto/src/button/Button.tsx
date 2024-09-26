@@ -131,7 +131,8 @@ export const Button = Tooltip.wrap(
 
     const pStyle = { ...style };
     const res = Color.Color.z.safeParse(color);
-    const hasCustomColor = res.success && variant === "filled";
+    const hasCustomColor =
+      res.success && (variant === "filled" || variant === "outlined");
     if (hasCustomColor) {
       // @ts-expect-error - css variable
       pStyle[CSS.var("btn-color")] = res.data.rgbString;
@@ -145,8 +146,6 @@ export const Button = Tooltip.wrap(
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
     else if (size == null) size = "medium";
-
-    console.log(className, endContent, endContent != null);
 
     return (
       <Text.WithIcon<"button", any>

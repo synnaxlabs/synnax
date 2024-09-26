@@ -134,6 +134,21 @@
     background: var(--pluto-bg);
     border: var(--pluto-border-width) solid var(--pluto-gray-l4);
 
+    &.pluto-btn--custom-color {
+        --pluto-bg: rgba(var(--pluto-btn-color), 1);
+        border-color: var(--pluto-bg) !important;
+
+        &:hover:not(.pluto--disabled) {
+            --pluto-bg: rgba(var(--pluto-btn-color), 0.75);
+            border-color: var(--pluto-bg) !important;
+        }
+
+        &:active:not(.pluto--disabled) {
+            --pluto-bg: rgba(var(--pluto-btn-color), 1);
+            border-color: var(--pluto-bg) !important;
+        }
+    }
+
     &.pluto--warning {
         border-color: var(--pluto-warning-z) !important;
         color: var(--pluto-warning-z);

@@ -82,7 +82,7 @@ const OrientationControl = ({
 );
 
 const LabelControls = ({ path }: { path: string }): ReactElement => (
-  <Align.Space direction="x" align="stretch">
+  <Align.Space direction="x" align="stretch" grow>
     <Form.Field<string> path={path + ".label"} label="Label" padHelpText={false} grow>
       {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
@@ -750,19 +750,15 @@ export const SetpointForm = (): ReactElement => {
       default:
         return (
           <FormWrapper direction="x" align="stretch">
-            <Align.Space direction="y" grow>
-              <Align.Space direction="x" align="stretch">
-                <LabelControls path="label" />
-                <Form.Field<string>
-                  path="units"
-                  label="Units"
-                  align="start"
-                  padHelpText={false}
-                >
-                  {(p) => <Input.Text {...p} />}
-                </Form.Field>
-                <ColorControl path="color" />
-              </Align.Space>
+            <Align.Space direction="x" align="stretch" grow>
+              <LabelControls path="label" />
+              <Form.TextField
+                path="units"
+                label="Units"
+                align="start"
+                padHelpText={false}
+              />
+              <ColorControl path="color" />
             </Align.Space>
             <OrientationControl path="" />
           </FormWrapper>

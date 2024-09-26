@@ -249,7 +249,7 @@ const Core = Aether.wrap<DiagramProps>(
     const resizeRef = Canvas.useRegion(
       useCallback(
         (b) => {
-          debouncedFitView({ maxZoom: 1 });
+          if (fitViewOnResize) debouncedFitView({ maxZoom: 1 });
           setState((prev) => ({ ...prev, region: b }));
         },
         [setState, debouncedFitView, fitViewOnResize],

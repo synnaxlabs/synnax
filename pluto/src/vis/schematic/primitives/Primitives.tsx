@@ -1217,13 +1217,14 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
         endContent={units}
+        color={color}
         style={{ [CSS.var("pack-border-shade")]: Color.cssString(color) }}
       >
         <CoreButton.Button
           variant="outlined"
           size="small"
           onClick={() => onChange(currValue)}
-          color={Color.cssString(color)}
+          color={color}
         >
           Set
         </CoreButton.Button>

@@ -179,9 +179,6 @@
     .pluto-btn {
         background: var(--pluto-gray-l2) !important;
     }
-    .pluto-input__internal:not(:active):not(:focus-within) {
-        border-right: none !important;
-    }
     .pluto-units {
         padding: 0 1rem;
     }

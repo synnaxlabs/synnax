@@ -12,6 +12,7 @@ import "@/input/Input.css";
 import { forwardRef, useRef, useState } from "react";
 
 import { Align } from "@/align";
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
@@ -24,9 +25,10 @@ export interface TextExtraProps {
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
   onlyChangeOnBlur?: boolean;
+  color?: Color.Crude;
 }
 
-export interface TextProps extends BaseProps<string>, TextExtraProps {}
+export interface TextProps extends Omit<BaseProps<string>, "color">, TextExtraProps {}
 
 /**
  * A controlled string input component.
@@ -114,6 +116,8 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
 
     const disabledCSS = disabled && CSS.BM("input", "disabled");
     if (variant === "preview") disabled = true;
+    if (color != null)
+      style = { ...style, [CSS.var("input-color")]: Color.cssString(color) };
 
     const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
@@ -171,7 +175,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}
             placeholder={typeof placeholder === "string" ? placeholder : undefined}
-            style={{ fontWeight: weight, color }}
+            style={{ fontWeight: weight }}
             {...props}
           />
         </div>

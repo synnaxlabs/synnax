@@ -18,7 +18,7 @@ import { type BaseProps } from "@/input/types";
 import { Triggers } from "@/triggers";
 
 export interface NumericProps
-  extends Omit<BaseProps<number>, "type" | "onBlur">,
+  extends Omit<BaseProps<number>, "type" | "onBlur" | "color">,
     DragButtonExtraProps,
     TextExtraProps {
   selectOnFocus?: boolean;
@@ -38,7 +38,7 @@ export interface NumericProps
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @default "medium"
  * @param props.selectOnFocus - Whether the input should select its contents when focused.
- * @defaul true
+ * @default true
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
  * @default false
  * @param props.showDragHandle - Whether or not to show a drag handle to set the time.
