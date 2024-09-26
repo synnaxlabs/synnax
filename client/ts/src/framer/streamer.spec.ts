@@ -49,6 +49,7 @@ describe("Streamer", () => {
   });
   it("should throw an error when the streamer is opened with a channel that does not exist", async () => {
     await expect(client.openStreamer([5678])).rejects.toThrow("not found");
+  });
   test("downsample factor of 1", async () => {
     const ch = await newChannel();
     const streamer = await client.openStreamer({channels: ch.key, downsampleFactor: 1});
