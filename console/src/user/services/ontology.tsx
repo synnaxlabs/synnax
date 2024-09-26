@@ -45,7 +45,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         <>
           {canSetPermissions && (
             <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
-              Set Permissions
+              Edit Permissions
             </PMenu.Item>
           )}
           {canEdit && (

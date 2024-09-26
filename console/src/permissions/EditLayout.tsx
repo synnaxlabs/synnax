@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { user } from "@synnaxlabs/client";
-import { Align, Divider, Form, Status, Text } from "@synnaxlabs/pluto";
-import { Fragment, type ReactElement } from "react";
+import { Icon } from "@synnaxlabs/media";
+import { Align, Divider, Form, Nav, Status, Text } from "@synnaxlabs/pluto";
+import { Fragment, type ReactElement, useState } from "react";
 
 import { Layout } from "@/layout";
 import {
   type ConsolePolicy,
   consolePolicyKeysZ,
   consolePolicyRecord,
-  consolePolicySet,
   convertKeysToPermissions,
   convertPoliciesToKeys,
   permissionsZ,
@@ -41,7 +41,7 @@ export const editLayout = ({
   name: `Permissions.${user.username}`,
   window: {
     resizable: false,
-    size: { height: 350, width: 700 },
+    size: { height: 400, width: 700 },
     navTop: true,
     ...window,
   },
@@ -63,6 +63,7 @@ export const EditModal = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey, onClose } = props;
   const user_ = Layout.useSelectArgs<user.User>(layoutKey);
   const addStatus = Status.useAggregator();
+  const [isPending, setIsPending] = useState(false);
 
   const methods = Form.useSynced<typeof formSchema>({
     key: [user_.key],
@@ -84,23 +85,28 @@ export const EditModal = (props: Layout.RendererProps): ReactElement => {
       };
     },
     applyChanges: async ({ client, values, path, prev }) => {
-      if (path === "") return;
-      const policy = path as ConsolePolicy;
-      const previouslyActive = prev as boolean;
-      if (previouslyActive) {
-        const key = values.keys[policy];
-        if (key == null) return;
-        await client.access.policy.delete(key);
-        return;
+      setIsPending(true);
+      try {
+        if (path === "") return;
+        const policy = path as ConsolePolicy;
+        const previouslyActive = prev as boolean;
+        if (previouslyActive) {
+          const key = values.keys[policy];
+          if (key == null) return;
+          await client.access.policy.delete(key);
+          return;
+        }
+        const newPolicy = await client.access.policy.create({
+          subjects: {
+            type: user.ONTOLOGY_TYPE,
+            key: user_.key,
+          },
+          ...consolePolicyRecord[policy],
+        });
+        values.keys[policy] = newPolicy.key;
+      } finally {
+        setTimeout(() => setIsPending(false), 100);
       }
-      const newPolicy = await client.access.policy.create({
-        subjects: {
-          type: user.ONTOLOGY_TYPE,
-          key: user_.key,
-        },
-        ...consolePolicyRecord[policy],
-      });
-      values.keys[policy] = newPolicy.key;
     },
   });
 
@@ -115,65 +121,70 @@ export const EditModal = (props: Layout.RendererProps): ReactElement => {
   }
 
   return (
-    // <Align.Space style={{ paddingTop: "2rem", height: "100%" }} grow empty>
-    <Align.Space
-      // className="console-form"
-      // justify="center"
-      direction="y"
-      style={{ padding: "1rem" }}
-    >
-      <Text.Text level="h1" style={{ textAlign: "center", width: "100%" }}>
-        Permissions for {user_.username}
-      </Text.Text>
-      <Form.Form {...methods}>
-        <Align.Space direction="y">
-          {Array.from(consolePolicySet).map((policy, index) => (
-            <Fragment key={index}>
-              {index > 0 && <Divider.Divider direction="x" />}
+    <Align.Space direction="y" grow>
+      <Align.Space direction="y" grow style={{ padding: "5rem" }}>
+        <Form.Form {...methods}>
+          <Align.Space direction="y" size="large">
+            <Align.Space direction="x" align="center" size={8}>
+              <Align.Space direction="y">
+                <Text.WithIcon
+                  startIcon={<Icon.Access />}
+                  level="h4"
+                  shade={8}
+                  weight={450}
+                >
+                  Admin
+                </Text.WithIcon>
+                <Text.Text level="p" shade={7}>
+                  Allows the user to manage other users, including registering users and
+                  setting permissions for those users.
+                </Text.Text>
+              </Align.Space>
+              <Form.SwitchField path="admin" showLabel={false} padHelpText={false} />
+            </Align.Space>
+            <Divider.Divider direction="x" />
+            <Align.Space direction="y">
+              <Text.WithIcon
+                startIcon={<Icon.Schematic />}
+                level="h4"
+                shade={8}
+                weight={450}
+              >
+                Schematics
+              </Text.WithIcon>
               <Align.Space
                 direction="x"
-                key={policy}
-                grow
-                justify="center"
-                style={{ paddingLeft: "3rem", paddingRight: "3rem" }}
+                size={8}
+                align="center"
+                style={{ marginLeft: "2rem" }}
               >
-                <Align.Space direction="x" justify="center" style={{ width: "19.5%" }}>
-                  <Form.SwitchField
-                    path={policy}
-                    label={formItems[policy].label}
-                    style={{ width: "fit-content" }}
-                  />
+                <Align.Space direction="y">
+                  <Text.Text level="h5" shade={8}>
+                    Edit
+                  </Text.Text>
+                  <Text.Text level="p" shade={7}>
+                    Allow the user to create and edit schematics. If the user does not
+                    have this permission, they will still be able to control symbols on
+                    the schematic.
+                  </Text.Text>
                 </Align.Space>
-                <Divider.Divider direction="y" />
-                <Align.Space direction="y" justify="center">
-                  <Text.Text level="p">{formItems[policy].description}</Text.Text>
-                </Align.Space>
+                <Form.SwitchField
+                  path="schematic"
+                  showLabel={false}
+                  padHelpText={false}
+                />
               </Align.Space>
-            </Fragment>
-          ))}
-        </Align.Space>
-      </Form.Form>
+            </Align.Space>
+          </Align.Space>
+        </Form.Form>
+      </Align.Space>
+      <Layout.BottomNavBar>
+        <Nav.Bar.Start align="center" size="large">
+          <Status.Text variant={isPending ? "loading" : "success"}>
+            {isPending ? "Saving" : "Saved"}
+          </Status.Text>
+        </Nav.Bar.Start>
+      </Layout.BottomNavBar>
     </Align.Space>
-    // </Align.Space>
   );
-};
-
-type FormItems = {
-  [P in ConsolePolicy]: {
-    label: string;
-    description: string;
-  };
-};
-
-const formItems: FormItems = {
-  admin: {
-    label: "Admin",
-    description:
-      "Admin permissions allow the user to manage other users, including registering users and setting permissions for those users.",
-  },
-  schematic: {
-    label: "Edit Schematics",
-    description:
-      "This permission allow the user to create and edit schematics. If the user does not have this permission, they will still be able to control symbols on the schematic.",
-  },
 };
