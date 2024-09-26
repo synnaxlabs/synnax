@@ -42,12 +42,12 @@ func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, 
 		return nil, err
 	}
 	return &streamer{
-    keys: keys, 
-    addr: address.Rand(), 
-    demands: r.demands, 
-    relay: r
-    downsampleFactor: cfg.DownsampleFactor,
-  }, nil
+		keys:             keys,
+		addr:             address.Rand(),
+		demands:          r.demands,
+		relay:            r,
+		downsampleFactor: cfg.DownsampleFactor,
+	}, nil
 }
 
 // Flow implements confluence.Flow.
