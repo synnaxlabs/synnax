@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -54,7 +55,7 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	sCtx.Go(func(ctx context.Context) error {
 		if hasIter {
 			// start off by exhausting the iterator
-		o: // What is this?
+		o:
 			for {
 				l.iter.requests.Inlet() <- IteratorRequest{
 					Command: iterator.Next,
@@ -84,7 +85,7 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 
 		l.relay.flow.Flow(sCtx, append(opts, confluence.WithAddress("relay-reader"))...)
 
-		if l.sendControlDigests { // What are control digests?
+		if l.sendControlDigests {
 			u := l.ts.ControlUpdateToFrame(ctx, l.ts.ControlStates())
 			l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
 		}
