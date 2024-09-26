@@ -38,7 +38,7 @@ func (s *Service) NewDeleter() framer.Deleter {
 
 func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
 	if cfg.DownsampleFactor >= 1 {
-		return downsampler.NewDownsampledStreamer(ctx, cfg, s.Internal)
+		return downsampler.NewStreamer(ctx, cfg, s.Internal)
 	} else {
 		return s.Internal.NewStreamer(ctx, cfg)
 	}

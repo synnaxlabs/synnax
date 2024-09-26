@@ -20,7 +20,7 @@ import (
 
 const defaultBuffer = 25
 
-func NewDownsampledStreamer(ctx context.Context, cfg framer.StreamerConfig, service *framer.Service) (framer.Streamer, error) {
+func NewStreamer(ctx context.Context, cfg framer.StreamerConfig, service *framer.Service) (framer.Streamer, error) {
 	s, err := service.NewStreamer(ctx, cfg)
 	if err != nil {
 		return nil, err
