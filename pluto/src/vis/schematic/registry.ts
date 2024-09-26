@@ -702,7 +702,7 @@ const setpoint: Spec<SetpointProps> = {
   Form: SetpointForm,
   defaultProps: (t) => ({
     units: "mV",
-    color: t.colors.gray.l4.rgba255,
+    color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Setpoint"),
     ...ZERO_NUMERIC_SOURCE_PROPS,
     ...ZERO_NUMERIC_SINK_PROPS,
@@ -834,6 +834,7 @@ const offPageReference: Spec<ArrowProps> = {
   Symbol: OffPageReference,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    orientation: "right",
     ...zeroLabel("Off Page Reference"),
   }),
   Preview: OffPageReferencePreview,

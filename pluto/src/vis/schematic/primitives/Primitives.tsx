@@ -1190,7 +1190,6 @@ export const Setpoint = ({
   onChange,
   ...props
 }: SetpointProps): ReactElement => {
-  console.log("COLOR", color);
   const [currValue, setCurrValue] = useState(value);
   return (
     <Div
@@ -1865,7 +1864,7 @@ export interface OffPageReferenceProps extends DivProps {
 export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   id,
   className,
-  orientation = "top",
+  orientation = "right",
   label = "text",
   color = "black",
   level = "p",
