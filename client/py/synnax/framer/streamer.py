@@ -70,6 +70,10 @@ class Streamer:
 
     def __open(self):
         self._stream.send(_Request(keys=self._adapter.keys))
+        _, exc = self._stream.receive()
+        if exc is not None:
+            raise exc
+
 
     @overload
     def read(self, timeout: float | int | TimeSpan) -> Frame | None:
@@ -201,6 +205,9 @@ class AsyncStreamer:
     async def _open(self):
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(_Request(keys=self._adapter.keys))
+        _, exc = await self._stream.receive()
+        if exc is not None:
+            raise exc
 
     @property
     def received(self) -> bool:
