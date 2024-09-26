@@ -59,6 +59,7 @@ import {
   MdEditOff,
   MdFiberManualRecord,
   MdFileUpload,
+  MdFilterCenterFocus,
   MdHardware,
   MdInsights,
   MdKeyboardAlt,
@@ -80,7 +81,9 @@ import {
   MdOutlineDeviceHub,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
+  MdOutlineOpenInNew,
   MdOutlineTableRows,
+  MdOutlineWebAsset,
   MdPause,
   MdPerson,
   MdPictureInPicture,
@@ -121,6 +124,7 @@ import {
   TbRadarFilled,
   TbVariable,
 } from "react-icons/tb";
+import { VscSplitHorizontal, VscSplitVertical } from "react-icons/vsc";
 
 export interface IconProps extends React.SVGProps<SVGSVGElement> {}
 type IconFC = FC<IconProps>;
@@ -344,6 +348,11 @@ export const Icon: IconType = {
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
   JSON: wrapIcon(MdDataObject, "json"),
   Guide: wrapIcon(FaBookOpen, "guide"),
+  Focus: wrapIcon(MdFilterCenterFocus, "focus"),
+  OpenInNewWindow: wrapIcon(MdOutlineOpenInNew, "open-in-new-window"),
+  MoveToMainWindow: wrapIcon(MdOutlineWebAsset, "move-to-main-window"),
+  SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
+  SplitY: wrapIcon(VscSplitVertical, "split-y"),
 };
 
 export interface IconType {
@@ -471,4 +480,9 @@ export interface IconType {
   LinkExternal: IconFC;
   JSON: IconFC;
   Guide: IconFC;
+  Focus: IconFC;
+  OpenInNewWindow: IconFC;
+  MoveToMainWindow: IconFC;
+  SplitX: IconFC;
+  SplitY: IconFC;
 }

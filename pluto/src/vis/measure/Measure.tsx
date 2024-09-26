@@ -28,7 +28,6 @@ const MEASURE_TRIGGERS: Triggers.ModeConfig<ClickMode> = {
 
 const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
 
- 
 export interface MeasureProps {}
 
 export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
@@ -56,7 +55,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
         const measureMode = Triggers.determineMode<ClickMode>(
           MEASURE_TRIGGERS,
           triggers.current.triggers,
-          true,
+          { loose: true },
         );
         if (["one", "two"].includes(measureMode))
           return setState((p) => ({ ...p, [measureMode]: cursor }));

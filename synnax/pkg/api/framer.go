@@ -180,7 +180,10 @@ func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) 
 		return nil, err
 	}
 	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys, DownsampleFactor: req.DownsampleFactor})
-	return reader, err
+	if err != nil {
+		return nil, err
+	}
+	return reader, stream.Send(framer.StreamerResponse{})
 }
 
 type FrameWriterConfig struct {

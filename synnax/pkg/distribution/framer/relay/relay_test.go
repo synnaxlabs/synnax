@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -98,6 +99,19 @@ var _ = Describe("Relay", func() {
 				confluence.Drain(readerRes)
 			})
 		}
+	})
+	Describe("Errors", func() {
+		It("Should raise an error if a channel is not found", func() {
+			builder, services := provision(1)
+			defer func() {
+				Expect(builder.Close()).To(Succeed())
+			}()
+			svc := services[1]
+			_, err := svc.relay.NewStreamer(context.TODO(), relay.StreamerConfig{
+				Keys: []channel.Key{12345},
+			})
+			Expect(err).To(HaveOccurredAs(query.NotFound))
+		})
 	})
 })
 

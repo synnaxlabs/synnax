@@ -11,15 +11,23 @@ import "@/menu/Item.css";
 
 import { type FunctionComponent, type ReactElement } from "react";
 
+import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useMenuContext } from "@/menu/Menu";
+import { Text as TriggersText } from "@/triggers/Text";
+import { Trigger } from "@/triggers/triggers";
+
+export interface MenuItemExtraProps {
+  itemKey: string;
+  trigger?: Trigger;
+}
 
 const menuItemFactory =
   <E extends Pick<Button.ButtonProps, "className" | "onClick" | "size">>(
     Base: FunctionComponent<E>,
     defaultProps?: Partial<E>,
-  ): FunctionComponent<E & { itemKey: string }> =>
+  ): FunctionComponent<E & MenuItemExtraProps> =>
   // eslint-disable-next-line react/display-name
   (props): ReactElement => {
     const { itemKey, className, onClick, size, ...rest } = {
@@ -27,7 +35,12 @@ const menuItemFactory =
       ...props,
     };
 
-    const { onClick: ctxOnClick, selected, level, iconSpacing } = useMenuContext();
+    const {
+      onClick: ctxOnClick,
+      selected,
+      level = "p",
+      iconSpacing,
+    } = useMenuContext();
 
     const handleClick: Button.ButtonProps["onClick"] = (e) => {
       ctxOnClick(itemKey);
@@ -43,6 +56,17 @@ const menuItemFactory =
         variant="text"
         className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
         size={size ?? iconSpacing}
+        endIcon={
+          props.trigger && (
+            <Align.Space
+              className={CSS(CSS.BE("menu-item", "trigger"))}
+              direction="x"
+              size={0.5}
+            >
+              <TriggersText level={level} trigger={props.trigger} />
+            </Align.Space>
+          )
+        }
       />
     );
   };

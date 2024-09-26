@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { caseconv, deep, Optional, toArray } from "@synnaxlabs/x";
-import { FC, ReactElement } from "react";
+import { caseconv, type Optional, toArray } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
 import { isValidElement } from "@/util/children";
 
@@ -27,7 +28,7 @@ export type BreadcrumbProps<
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
-  icon?: string;
+  icon?: string | ReactElement;
   /** The breadcrumb items, either a single string or an array of strings. */
   children: string | string[];
   url?: string | string[];
@@ -82,14 +83,6 @@ export const Breadcrumb = <
   ...props
 }: BreadcrumbProps<E, L>): ReactElement => {
   if (url != null) children = url;
-  let iconC: ReactElement | undefined = undefined;
-  if (icon) {
-    if (isValidElement(icon)) iconC = icon;
-    else {
-      const IconC = deep.get<FC, typeof Icon>(Icon, icon);
-      iconC = <IconC />;
-    }
-  }
   const content = getContent(children, separator, shade);
   if (hideFirst) content.shift();
   return (
@@ -101,7 +94,7 @@ export const Breadcrumb = <
       size={size}
       {...props}
     >
-      {iconC}
+      {PIcon.resolve(icon)}
       {...content}
     </Text.WithIcon>
   );
