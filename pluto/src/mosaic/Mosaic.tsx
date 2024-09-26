@@ -43,12 +43,6 @@ export interface MosaicProps
   activeTab?: string;
 }
 
-export const Mosaic = memo((props: MosaicProps): ReactElement => {
-  return <MosaicInternal {...props} />;
-});
-
-interface MosaicInternalProps extends MosaicProps {}
-
 /***
  * Mosaic renders a tree of tab panes, with the ability to drag and drop tabs to
  * different locations in the tree as well as resize the panes (think of your typical
@@ -64,7 +58,7 @@ interface MosaicInternalProps extends MosaicProps {}
  * @param props.onResize - The callback executed when a pane is resized. This prop is
  *  provided by the Mosaic.use hook.
  */
-const MosaicInternal = memo((props: MosaicInternalProps): ReactElement | null => {
+export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
   const { onResize, ...tabsProps } = props;
   const {
     root: { tabs, direction, first, last, key, size },
@@ -95,18 +89,8 @@ const MosaicInternal = memo((props: MosaicInternalProps): ReactElement | null =>
         className={CSS.BE("mosaic", "resize")}
         {...resizeProps}
       >
-        <MosaicInternal
-          key={first.key}
-          {...childProps}
-          root={first}
-          onResize={onResize}
-        />
-        <MosaicInternal
-          key={last.key}
-          {...childProps}
-          root={last}
-          onResize={onResize}
-        />
+        <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
+        <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
       </Resize.Multiple>
     );
   else {
@@ -117,9 +101,8 @@ const MosaicInternal = memo((props: MosaicInternalProps): ReactElement | null =>
   return key === 1 ? <Haul.Provider>{content}</Haul.Provider> : content;
 });
 Mosaic.displayName = "Mosaic";
-MosaicInternal.displayName = "Mosaic";
 
-interface TabLeafProps extends Omit<MosaicInternalProps, "onResize"> {}
+interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
 
 /**
  * This type should be used when the user wants to drop a tab in the mosaic.
