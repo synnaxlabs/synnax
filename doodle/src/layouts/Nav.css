@@ -1,0 +1,118 @@
+/*
+ * Copyright 2024 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-main-nav-top {
+    max-width: 100vw;
+    & > * *:not(.pluto-text) {
+        -webkit-app-region: no-drag;
+    }
+}
+
+.console-main-nav {
+    .pluto-menu-item {
+        position: relative;
+        &.pluto--selected {
+            background: var(--pluto-gray-l3-80);
+            transition: background 0.3s;
+
+            &::after {
+                top: 3px;
+                height: calc(100% - 6px);
+                opacity: 1;
+                transition: all 0.15s;
+            }
+        }
+        &::after {
+            content: "";
+            position: absolute;
+            width: 3px;
+            background: var(--pluto-primary-z);
+            top: 50%;
+            opacity: 0;
+            height: 0;
+            transition: all 0.15s;
+        }
+    }
+}
+
+.console-main-nav.pluto--left {
+    .pluto-menu-item {
+        &::after {
+            left: -1.5rem;
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+    }
+}
+
+.console-main-nav.pluto--right {
+    .pluto-menu-item {
+        &::after {
+            right: -1.5rem;
+            border-top-left-radius: 0.5rem;
+            border-bottom-left-radius: 0.5rem;
+        }
+    }
+}
+
+.pluto-navbar__content {
+    z-index: 2;
+}
+
+.console-main-nav-top__start {
+    padding: 0rem 2rem;
+    @media (min-width: 1200px) {
+        flex-basis: 350px;
+    }
+}
+
+.console-main-nav-top__end {
+    @media (min-width: 1200px) {
+        flex-basis: 350px;
+    }
+    flex-basis: 250px;
+}
+
+.console-main-nav-top__center {
+    flex-shrink: 0;
+}
+
+.console-main:not(.console-main--windows) .console-main-nav-top__end {
+    padding: 0 2rem;
+}
+
+.console-main-nav-left__start {
+    padding: 2rem 1rem;
+}
+
+.console-main-nav-left__end {
+    padding: 2rem 1rem;
+}
+
+.console-main-nav-bottom__end {
+    padding: 0 1rem;
+}
+
+.console-main-nav-bottom__start {
+    padding: 0 3rem;
+}
+
+.console-main-nav-drawer--x {
+    overflow-x: hidden;
+}
+
+.console-main-nav-drawer {
+    flex: 0 0 auto;
+}
+
+.console-main-nav__content {
+    padding: 2.5rem 0;
+}
