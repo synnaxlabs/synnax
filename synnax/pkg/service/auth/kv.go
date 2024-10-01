@@ -11,7 +11,7 @@ package auth
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"

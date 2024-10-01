@@ -10,7 +10,7 @@
 package access
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/auth/base"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/base"
 	"github.com/synnaxlabs/x/errors"
 )
 

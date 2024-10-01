@@ -11,7 +11,7 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 

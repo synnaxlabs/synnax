@@ -12,7 +12,7 @@ package password_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 )
 
 var _ = Describe("Password", func() {

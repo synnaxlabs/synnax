@@ -10,11 +10,11 @@
 package http
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"go/types"
 
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/auth"
 )
 
 func New(router *fhttp.Router) (t api.Transport) {
