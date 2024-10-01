@@ -9,6 +9,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 
+import { Code } from "@/code";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -17,6 +18,10 @@ import { Schematic } from "@/schematic";
 
 const SELECTABLES: Layout.Selectable[] = [
   LinePlot.SELECTABLE,
+  Schematic.SELECTABLE,
+  Code.EDITOR_SELECTABLE,
+  ...NI.SELECTABLES,
+  ...OPC.SELECTABLES,
 ];
 
 export const SELECTOR_TYPE = "visLayoutSelector";

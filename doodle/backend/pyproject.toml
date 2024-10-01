@@ -11,6 +11,7 @@ flask = "^3.0.3"
 synnax = { path = "../../client/py", develop = true }
 nptdms = "^1.9.0"
 pandas = "^2.2.3"
+flask-cors = "^5.0.0"
 
 
 [build-system]

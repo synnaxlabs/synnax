@@ -14,6 +14,7 @@ import {
   axis,
   Channel,
   Color,
+  Doodle,
   Legend,
   Menu as PMenu,
   Synnax,
@@ -385,7 +386,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
       menu={() => <ContextMenuContent layoutKey={layoutKey} />}
     >
       <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
-        <Channel.LinePlot
+        <Doodle.LinePlot
           hold={hold}
           title={name}
           axes={axes}
@@ -458,45 +459,27 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
 const buildLines = (
   vis: State,
   sug: MultiXAxisRecord<Range.Range>,
-): Array<Channel.LineProps & { key: string }> =>
-  Object.entries(sug).flatMap(([xAxis, ranges]) =>
-    ranges.flatMap((range) =>
-      Object.entries(vis.channels)
-        .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
-        .flatMap(([yAxis, yChannels]) => {
-          const xChannel = vis.channels[xAxis as XAxisKey];
-          const variantArg =
-            range.variant === "dynamic"
-              ? {
-                  variant: "dynamic",
-                  timeSpan: range.span,
-                }
-              : {
-                  variant: "static",
-                  timeRange: range.timeRange,
-                };
-
-          return (yChannels as number[]).map((channel) => {
-            const key = typedLineKeyToString({
-              xAxis: xAxis as XAxisKey,
-              yAxis: yAxis as YAxisKey,
-              range: range.key,
-              channels: { x: xChannel, y: channel },
-            });
-            const line = vis.lines.find((l) => l.key === key);
-            if (line == null) throw new Error("Line not found");
-            const v: Channel.LineProps = {
-              ...line,
-              key,
-              axes: { x: xAxis, y: yAxis },
-              channels: { x: xChannel, y: channel },
-              ...variantArg,
-            } as unknown as Channel.LineProps;
-            return v;
-          });
-        }),
-    ),
-  );
+): Array<Doodle.LineProps & { key: string }> =>
+  Object.entries(vis.channels)
+    .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
+    .flatMap(([yAxis, yChannels]) => {
+      const xChannel = vis.channels["x1"];
+      return (yChannels as number[]).map((channel) => {
+        const key = typedLineKeyToString({
+          xAxis: "x1" as XAxisKey,
+          yAxis: yAxis as YAxisKey,
+          range: "abc2",
+          channels: { x: xChannel, y: channel },
+        });
+        const v: Doodle.LineProps = {
+          color: "#000000",
+          key,
+          axes: { x: "x1", y: yAxis },
+          channels: { x: xChannel.toString(), y: channel.toString() },
+        } as unknown as Doodle.LineProps;
+        return v;
+      });
+    });
 
 export type LayoutType = "lineplot";
 export const LAYOUT_TYPE = "lineplot";

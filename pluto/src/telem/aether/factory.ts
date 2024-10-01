@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type telem } from "@/telem/aether";
+import { DoodleFactory } from "@/telem/aether/doodle";
 import { NoopFactory } from "@/telem/aether/noop";
 import { PipelineFactory } from "@/telem/aether/pipeline";
 import { RemoteFactory } from "@/telem/aether/remote";
@@ -48,7 +49,11 @@ export class CompoundTelemFactory {
 export const factory = (client?: client.Client): CompoundTelemFactory => {
   const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
   const f = new CompoundTelemFactory(base);
-  if (client != null) f.add(new RemoteFactory(client));
+  if (client != null) {
+    f.add(new RemoteFactory(client));
+    f.add(new DoodleFactory(client));
+  }
+
   f.add(new PipelineFactory(f));
   return f;
 };

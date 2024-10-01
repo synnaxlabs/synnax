@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/telem/aether/context";
+export * from "@/telem/aether/doodle";
 export * from "@/telem/aether/factory";
 export * from "@/telem/aether/noop";
 export * from "@/telem/aether/pipeline";

@@ -20,6 +20,7 @@ import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
+import { Code } from "@/code";
 import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
@@ -39,7 +40,7 @@ import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
-const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
+const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Layouts.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Workspace.LAYOUTS,
@@ -53,23 +54,17 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Confirm.LAYOUTS,
   ...Label.LAYOUTS,
-};
-
-const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
-  ...Schematic.CONTEXT_MENUS,
-  ...LinePlot.CONTEXT_MENUS,
+  ...Code.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
   ["Control", "Shift", "P"],
   ["Control", "MouseLeft"],
-  ["Control", "W"],
 ];
 
-const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
+const triggersProps: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
-  preventDefaultOptions: { double: true },
 };
 
 const client = new QueryClient();
@@ -108,7 +103,7 @@ const MainUnderContext = (): ReactElement => {
         workerEnabled
         connParams={cluster?.props}
         workerURL={WorkerURL}
-        triggers={TRIGGERS_PROVIDER_PROPS}
+        triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
           level: "debug",
@@ -127,12 +122,10 @@ const Main = (): ReactElement => (
   <ErrorOverlayWithoutStore>
     <Provider store={store}>
       <ErrorOverlayWithStore>
-        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-            <Ontology.ServicesProvider services={SERVICES}>
-              <MainUnderContext />
-            </Ontology.ServicesProvider>
-          </Layout.ContextMenuProvider>
+        <Layout.RendererProvider value={layoutRenderers}>
+          <Ontology.ServicesProvider services={SERVICES}>
+            <MainUnderContext />
+          </Ontology.ServicesProvider>
         </Layout.RendererProvider>
       </ErrorOverlayWithStore>
     </Provider>

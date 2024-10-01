@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Align } from "@synnaxlabs/pluto";
+import { Align, Input, Select } from "@synnaxlabs/pluto";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -57,13 +58,42 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
     [dispatch, layoutKey],
   );
 
-  const handleRangeSelect = (key: XAxisKey, value: string[]): void => {
-    dispatch(setRanges({ key: layoutKey, axisKey: key, ranges: value }));
-  };
+  const channels = useQuery({
+    queryKey: ["channels"],
+    queryFn: async () => {
+        const result = await fetch("http://127.0.0.1:5000/api/v1/list", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        const json = await result.json();
+        console.log(json);
+        return json.channels.map((ch) => ({
+          key: ch,
+          name: ch,
+        }))
+    }
+  })
+
 
   return (
     <Align.Space style={{ padding: "2rem", width: "100%" }}>
-      <SelectMultipleAxesInputItem
+      <Input.Item direction="x" label="Y1" grow>
+        <Select.Multiple<{key: string, name: string}>
+          value={vis.channels.y1}
+          grow
+          columns={[
+            {
+              key: "name",
+              name: "name",
+            }
+          ]}
+          onChange={(v) => handleYChannelSelect("y1", v)}
+          data={channels.data ?? []}
+        />
+      </Input.Item>
+      {/* <SelectMultipleAxesInputItem
         axis={"y1"}
         onChange={handleYChannelSelect}
         value={vis.channels.y1}
@@ -78,21 +108,13 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
         grow
         select={{ location: "top" }}
       />
-      <Align.Space direction="x" grow wrap>
-        <Range.SelectMultipleInputItem
-          data={allRanges}
-          onChange={(v) => handleRangeSelect("x1", v)}
-          value={vis.ranges.x1}
-          grow
-        />
-        <SelectAxisInputItem
-          axis={"x1"}
-          onChange={handleXChannelSelect}
-          value={vis.channels.x1}
-          grow
-          select={{ location: "top" }}
-        />
-      </Align.Space>
+      <SelectAxisInputItem
+        axis={"x1"}
+        onChange={handleXChannelSelect}
+        value={vis.channels.x1}
+        grow
+        select={{ location: "top" }}
+      /> */}
     </Align.Space>
   );
 };
