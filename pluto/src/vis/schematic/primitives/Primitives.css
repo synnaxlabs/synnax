@@ -178,6 +178,7 @@
     .pluto-units,
     .pluto-btn {
         background: var(--pluto-gray-l2) !important;
+        transition: none !important;
     }
     .pluto-units {
         padding: 0 1rem;

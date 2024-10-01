@@ -21,13 +21,13 @@ export const Recent = (): ReactElement | null => {
   const d = useDispatch();
   if (client == null) return null;
   const key = client.auth?.user?.key;
-  if (key == null) return null;
   const [data, setData] = useState<workspace.Workspace[]>([]);
 
   useAsyncEffect(async () => {
+    if (key == null) return;
     const workspaces = await client.workspaces.retrieveByAuthor(key);
     setData(workspaces);
-  }, [client]);
+  }, [client, key]);
 
   const handleClick = (key: string): void => {
     void (async () => {
