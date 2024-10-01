@@ -63,6 +63,6 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
         )}
       </List.Core>
     </List.List>,
-    document.getElementById("root"),
+    document.getElementById("root") as HTMLElement,
   );
 };
