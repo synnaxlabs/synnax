@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 
@@ -44,7 +45,7 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
     }
     return status;
   });
-  return (
+  return createPortal(
     <List.List<string, Status.NotificationSpec | SugaredNotification> data={sugared}>
       <List.Core<string, SugaredNotification>
         className={CSS(CSS.B("notifications"))}
@@ -61,6 +62,7 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
           </Status.Notification>
         )}
       </List.Core>
-    </List.List>
+    </List.List>,
+    document.getElementById("root"),
   );
 };
