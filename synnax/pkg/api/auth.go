@@ -12,7 +12,7 @@ package api
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/user"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 // AuthService is the core authentication service for the delta API.
