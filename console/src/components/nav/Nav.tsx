@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Menu as PMenu, Nav } from "@synnaxlabs/pluto";
+import { CSS as PCSS } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -26,15 +27,23 @@ export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Task.Toolbar,
 ];
 
+interface NavMenuProps extends Omit<PMenu.MenuProps, "children"> {
+  children: Layout.NavMenuItem[];
+  activeItem?: Layout.NavDrawerItem;
+}
+
 export const NavMenu = ({
   children,
+  activeItem,
   ...props
-}: {
-  children: Layout.NavMenuItem[];
-} & Omit<PMenu.MenuProps, "children">): ReactElement => (
+}: NavMenuProps): ReactElement => (
   <PMenu.Menu {...props}>
     {children.map(({ key, tooltip, icon }) => (
       <PMenu.Item.Icon
+        className={CSS(
+          CSS.BE("main-nav", "item"),
+          PCSS.selected(activeItem?.key === key),
+        )}
         key={key}
         itemKey={key}
         size="large"

@@ -66,6 +66,7 @@ export interface SpaceExtensionProps {
   wrap?: boolean;
   el?: SpaceElementType;
   bordered?: boolean;
+  borderShade?: Theming.Shade;
   rounded?: boolean;
   background?: Theming.Shade;
 }
@@ -93,6 +94,7 @@ const CoreSpace = <E extends SpaceElementType>(
     direction: direction_ = "y",
     wrap = false,
     bordered = false,
+    borderShade,
     rounded = false,
     el = "div",
     background,

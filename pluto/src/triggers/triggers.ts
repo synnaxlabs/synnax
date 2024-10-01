@@ -223,6 +223,21 @@ const MOUSE_BUTTONS: Record<number, MouseKey> = {
  */
 export const mouseKey = (button: number): Key => MOUSE_BUTTONS[button] ?? "MouseLeft";
 
+export interface MatchOptions {
+  /**
+   * If true, triggers in actual that are a superset of those in expected will still be
+   * considered a match i.e. if expected is [["Control"]] and actual is [["Control", "A"]],
+   * then match will return true.
+   */
+  loose?: boolean;
+  /**
+   * If true, triggers in actual that are a double press of those in expected will still
+   * be considered a match i.e. if expected is [["Control", "W"]] and actual is
+   * [["Control", "W", "W"]], then match will return true.
+   */
+  double?: boolean;
+}
+
 /**
  * Match compares the expected triggers against the actual triggers.
  *
@@ -234,8 +249,11 @@ export const mouseKey = (button: number): Key => MOUSE_BUTTONS[button] ?? "Mouse
  * @returns true if any triggers in expected match those in actual.
  *
  */
-export const match = (expected: Trigger[], actual: Trigger[], loose = false): boolean =>
-  filter(expected, actual, loose).length > 0;
+export const match = (
+  expected: Trigger[],
+  actual: Trigger[],
+  opts?: MatchOptions,
+): boolean => filter(expected, actual, opts).length > 0;
 
 export const matchCallback =
   <E extends KeyboardEvent | MouseEvent | React.KeyboardEvent | React.MouseEvent>(
@@ -259,9 +277,9 @@ export const matchCallback =
 export const filter = (
   expected: Trigger[],
   actual: Trigger[],
-  loose = false,
+  opts?: MatchOptions,
 ): Trigger[] => {
-  const f = compareF(loose);
+  const f = compareF(opts);
   return expected.filter((o) => actual.some((t) => f(o, t) === compare.EQUAL));
 };
 
@@ -287,7 +305,7 @@ export const purge = (source: Trigger[], toPurge: Trigger[]): Trigger[] =>
  * and the second element is the triggers in b that are not in a.
  */
 export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
-  const f = compareF(false);
+  const f = compareF();
   const added = a.filter((ta) => !b.some((tb) => f(ta, tb) === compare.EQUAL));
   const removed = b.filter((tb) => !a.some((ta) => f(tb, ta) === compare.EQUAL));
   return [added, removed];
@@ -299,8 +317,11 @@ export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
  * the triggers will be considered equal.
  * @returns a comparison function that determines if two triggers are semantically equal.
  */
-const compareF = (loose: boolean): compare.CompareF<Trigger> =>
-  loose ? _looseCompare : compare.unorderedPrimitiveArrays;
+const compareF = (opts?: MatchOptions): compare.CompareF<Trigger> => {
+  if (opts?.loose === true) return _looseCompare;
+  if (opts?.double === true) return compare.uniqueUnorderedPrimitiveArrays;
+  return compare.unorderedPrimitiveArrays;
+};
 
 const _looseCompare: compare.CompareF<Trigger> = (a, b) =>
   a.every((k) => b.includes(k)) ? compare.EQUAL : compare.LESS_THAN;
@@ -324,14 +345,14 @@ export type ModeConfig<M extends string | number | symbol> = Record<M, Trigger[]
 export const determineMode = <K extends string | number | symbol>(
   config: ModeConfig<K>,
   triggers: Trigger[],
-  loose = false,
+  opts?: MatchOptions,
 ): K => {
   const e = Object.entries(config).filter(
     ([k]) => k !== "defaultMode",
   ) as unknown as Array<[K, Trigger[]]>;
   const flat = e.map(([k, v]) => v.map((t) => [k, t])).flat() as Array<[K, Trigger]>;
   const complexitySorted = flat.sort(([, a], [, b]) => b.length - a.length);
-  const match_ = complexitySorted.find(([, v]) => match([v], triggers, loose));
+  const match_ = complexitySorted.find(([, v]) => match([v], triggers, opts));
   if (match_ != null) return match_[0];
   return config.defaultMode;
 };

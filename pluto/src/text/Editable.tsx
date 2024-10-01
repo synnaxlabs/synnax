@@ -49,10 +49,10 @@ export const edit = (
     d.setAttribute("contenteditable", "true");
     if (onChange == null) return;
     d.addEventListener(RENAMED_EVENT_NAME, (e) =>
-      onChange(getInnerText((e.target as HTMLElement)), true),
+      onChange(getInnerText(e.target as HTMLElement), true),
     );
     d.addEventListener(ESCAPED_EVENT_NAME, (e) =>
-      onChange(getInnerText((e.target as HTMLElement)), false),
+      onChange(getInnerText(e.target as HTMLElement), false),
     );
   };
   tryEdit();
@@ -66,7 +66,6 @@ export const asyncEdit = (id: string): Promise<[string, boolean]> =>
   });
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
-
 
 export const Editable = <L extends text.Level = text.Level>({
   onChange,
@@ -95,7 +94,7 @@ export const Editable = <L extends text.Level = text.Level>({
       onChange?.(innerText);
       el.dispatchEvent(new Event(RENAMED_EVENT_NAME));
     }
-  }
+  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {
     if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key) || ref.current == null) return;

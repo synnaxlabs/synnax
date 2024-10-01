@@ -32,12 +32,9 @@ export const use = ({ aetherKey, source }: UseProps): UseReturn => {
       ...memoProps,
     },
   });
-  console.log("use.ts: enabled", enabled);
-
   useEffect(
     () => setState((state) => ({ ...state, ...memoProps })),
     [memoProps, setState],
   );
-
   return { enabled };
 };

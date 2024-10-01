@@ -13,7 +13,6 @@ import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 
 import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
-import { Text } from "@/text";
 
 /** Props for the {@link Pack} component. */
 export type PackProps<E extends SpaceElementType = "div"> = Omit<
@@ -21,7 +20,6 @@ export type PackProps<E extends SpaceElementType = "div"> = Omit<
   "empty"
 > & {
   shadow?: boolean;
-  borderShade?: Text.Shade;
 };
 
 const CorePack = <E extends SpaceElementType = "div">(

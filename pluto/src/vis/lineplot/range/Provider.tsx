@@ -42,7 +42,7 @@ export const Provider = Aether.wrap<ProviderProps>(
         key: aetherKey,
         loc: "top",
         size: count > 0 ? 32 : 0,
-        order: "last",
+        order: 3,
       },
       "Annotation.Provider",
     );

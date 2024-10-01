@@ -20,10 +20,12 @@
 
     .pluto-canvas--gl {
         z-index: -2;
+        pointer-events: none;
     }
 
     .pluto-canvas--lower2d {
         z-index: -3;
+        pointer-events: none;
     }
 
     .pluto-canvas--upper2d {

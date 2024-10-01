@@ -10,8 +10,14 @@
 import "@/icon/Icon.css";
 
 import { Icon as MediaIcon } from "@synnaxlabs/media";
-import { location } from "@synnaxlabs/x";
-import { cloneElement, ComponentPropsWithoutRef, ReactElement, SVGProps } from "react";
+import { deep, location } from "@synnaxlabs/x";
+import {
+  cloneElement,
+  type ComponentPropsWithoutRef,
+  type FC,
+  type ReactElement,
+  type SVGProps,
+} from "react";
 
 import { CSS } from "@/css";
 
@@ -57,3 +63,29 @@ export interface ImportProps extends CreateProps {}
 export const Import = (props: ImportProps): ReactElement => (
   <Icon topRight={<MediaIcon.Import />} {...props} />
 );
+
+interface Resolve {
+  (
+    icon: ReactElement<BaseIconProps> | string,
+    overrides?: BaseIconProps,
+  ): ReactElement<BaseIconProps>;
+  (
+    icon?: ReactElement<BaseIconProps> | string,
+    overrides?: BaseIconProps,
+  ): ReactElement<BaseIconProps> | undefined;
+}
+
+export const resolve = ((
+  icon?: ReactElement<BaseIconProps> | string,
+  overrides?: BaseIconProps,
+): ReactElement<BaseIconProps> | undefined => {
+  if (icon == null) return;
+  if (typeof icon === "string") {
+    const C = deep.get<FC<BaseIconProps>>(
+      MediaIcon as unknown as Record<string, FC<BaseIconProps>>,
+      icon,
+    );
+    return <C {...overrides} />;
+  }
+  return cloneElement(icon, overrides);
+}) as Resolve;
