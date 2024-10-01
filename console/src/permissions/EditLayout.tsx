@@ -178,7 +178,7 @@ export const EditModal = (props: Layout.RendererProps): ReactElement => {
           </Align.Space>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Layout.BottomNavBar size="6rem">
         <Nav.Bar.Start align="center" size="large">
           <Status.Text variant={isPending ? "loading" : "success"}>
             {isPending ? "Saving" : "Saved"}
