@@ -28,6 +28,8 @@ const grayScaleZ = z.object({
 
 type GrayScale = z.input<typeof grayScaleZ>;
 
+export type Shade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
 const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
   color[0],
   color[1],
@@ -122,7 +124,7 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
 // Warning
 
-const WARNING_HSLA: color.HSLA = [42, 100, 50, 1];
+const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 
 // Grayscale
 
@@ -232,9 +234,9 @@ const SYNNAX_BASE: ThemeSpec = {
       lineHeight: 3.5 * 1.5,
     },
     h4: {
-      size: 2.5,
+      size: 2.6666,
       weight: "medium",
-      lineHeight: 2.5 * 1.5,
+      lineHeight: 2.6666 * 1.5,
     },
     h5: {
       size: 2.333333,
@@ -262,15 +264,15 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 
 const DARK_SCALE = [
   "#020202",
-  "#080808",
-  "#141414",
-  "#1a1a1a",
+  "#060606",
+  "#0D0D0D",
+  "#191919",
   "#242424",
-  "#515151",
-  "#7f7f7f",
-  "#9D9D9D",
-  "#BFBFBF",
-  "#EDEDED",
+  "#434343",
+  "#646464",
+  "#8A8A8A",
+  "#AFAFAF",
+  "#D5D5D5",
   "#FDFDFD",
 ];
 

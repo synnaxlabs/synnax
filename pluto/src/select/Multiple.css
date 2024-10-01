@@ -17,6 +17,9 @@
         flex-shrink: 0;
         flex-grow: 0 !important;
     }
+    &:not(:focus-within) input {
+        cursor: pointer !important;
+    }
 }
 
 .pluto-select-multiple__input.pluto-haul-drop-region > * {
@@ -25,7 +28,7 @@
 }
 
 .pluto-select-multiple__tags {
-    background: var(--pluto-gray-l1);
+    background: var(--pluto-gray-l2);
     padding: 0.25rem 1rem;
     overflow-x: scroll;
     flex-wrap: wrap;

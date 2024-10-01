@@ -19,6 +19,7 @@ import {
 
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
+import { Theming } from "@/theming";
 import { type ComponentSize } from "@/util/component";
 
 /** All possible alignments for the cross axis of a space */
@@ -66,6 +67,7 @@ export interface SpaceExtensionProps {
   el?: SpaceElementType;
   bordered?: boolean;
   rounded?: boolean;
+  background?: Theming.Shade;
 }
 
 export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
@@ -93,6 +95,7 @@ const CoreSpace = <E extends SpaceElementType>(
     bordered = false,
     rounded = false,
     el = "div",
+    background,
     ...props
   }: SpaceProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>,
@@ -115,6 +118,7 @@ const CoreSpace = <E extends SpaceElementType>(
 
   if (grow != null) style.flexGrow = Number(grow);
   if (shrink != null) style.flexShrink = Number(shrink);
+  if (background != null) style.backgroundColor = CSS.shadeVar(background);
 
   return (
     // @ts-expect-error - TODO: fix generic element props

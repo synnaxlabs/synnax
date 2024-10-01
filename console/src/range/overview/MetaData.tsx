@@ -199,7 +199,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
   const sorted = useMemo(() => arr.value.sort(), [arr.value]);
   return (
     <Align.Space direction="y">
-      <Text.Text level="h4" shade={8} weight={500}>
+      <Text.Text level="h4" shade={9} weight={450}>
         Meta Data
       </Text.Text>
       <Form.Form {...formCtx}>

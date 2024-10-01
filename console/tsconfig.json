@@ -12,7 +12,9 @@
       "@synnaxlabs/pluto": [
         "../../pluto/src/index.ts"
       ]
-    }
+    },
+    "declaration": false,
+    "declarationMap": false,
   },
   "include": ["src/**/*"]
 }

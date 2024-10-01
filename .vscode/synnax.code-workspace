@@ -119,6 +119,9 @@
         "mode": "auto"
       }
     ],
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "always"
+    },
     "files.associations": {
       "xstring": "cpp",
       "algorithm": "cpp",
@@ -238,6 +241,7 @@
       "OPCUA",
       "reduxjs",
       "renderable",
+      "Snapshotted",
       "Swatinem",
       "syncer",
       "Syncer",

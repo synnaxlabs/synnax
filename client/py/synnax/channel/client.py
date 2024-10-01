@@ -6,6 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 from __future__ import annotations
 
 from typing import overload
@@ -25,7 +26,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
 from synnax.exceptions import NotFoundError, MultipleFoundError, ValidationError
 from synnax.framer.client import Client as FrameClient
-from synnax.ontology import OntologyID
+from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
     CrudeRate,
@@ -35,17 +36,16 @@ from synnax.telem import (
     Series,
     TimeRange,
 )
-
 from synnax.util.normalize import normalize
 
-
-channel_ontology_type = OntologyID(type="channel")
+CHANNEL_ONTOLOGY_TYPE = ID(type="channel")
 
 
 class Channel(ChannelPayload):
     """A channel is a logical collection of samples emitted by or representing the
-    values of a single source. See https://docs.synnaxlabs.com/concepts/channels for an
-    introduction to channels and how they work.
+    values of a single source. See
+    https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
+    channels and how they work.
     """
 
     ___frame_client: FrameClient | None = PrivateAttr(None)
@@ -107,16 +107,14 @@ class Channel(ChannelPayload):
     def read(
         self,
         start_or_range: TimeRange,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     @overload
     def read(
         self,
         start_or_range: CrudeTimeStamp,
         end: CrudeTimeStamp,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     def read(
         self,
@@ -210,20 +208,17 @@ class ChannelClient:
         is_index: bool = False,
         leaseholder: int = 0,
         retrieve_if_name_exists: bool = False,
-    ) -> Channel:
-        ...
+    ) -> Channel: ...
 
     @overload
     def create(
         self, channels: Channel, *, retrieve_if_name_exists: bool = False
-    ) -> Channel:
-        ...
+    ) -> Channel: ...
 
     @overload
     def create(
         self, channels: list[Channel], *, retrieve_if_name_exists: bool = False
-    ) -> list[Channel]:
-        ...
+    ) -> list[Channel]: ...
 
     def create(
         self,
@@ -266,6 +261,8 @@ class ChannelClient:
         """
 
         if channels is None:
+            if is_index and data_type == DataType.UNKNOWN:
+                data_type = DataType.TIMESTAMP
             _channels = [
                 ChannelPayload(
                     name=name,
@@ -295,15 +292,13 @@ class ChannelClient:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel:
-        ...
+    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel: ...
 
     @overload
     def retrieve(
         self,
         channel: ChannelKeys | ChannelNames,
-    ) -> list[Channel]:
-        ...
+    ) -> list[Channel]: ...
 
     def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.

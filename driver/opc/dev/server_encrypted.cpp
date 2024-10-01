@@ -59,7 +59,8 @@ loadFile(const char *const path) {
     fileContents.data = (UA_Byte *) UA_malloc(fileContents.length * sizeof(UA_Byte));
     if (fileContents.data) {
         fseek(fp, 0, SEEK_SET);
-        size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
+        size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length,
+                            fp);
         if (read != fileContents.length)
             UA_ByteString_clear(&fileContents);
     } else {
@@ -139,7 +140,8 @@ static UA_UsernamePasswordLogin userNamePW[2] = {
 static void setCustomAccessControl(UA_ServerConfig *config) {
     /* Use the default AccessControl plugin as the starting point */
     UA_Boolean allowAnonymous = false;
-    UA_String encryptionPolicy = UA_STRING_STATIC("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256");
+    UA_String encryptionPolicy = UA_STRING_STATIC(
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256");
     //config->securityPolicies[config->securityPoliciesSize-1].policyUri;
     config->accessControl.clear(&config->accessControl);
     UA_AccessControl_default(config, allowAnonymous, &encryptionPolicy, 2, userNamePW);
@@ -171,10 +173,10 @@ int main(int argc, char *argv[]) {
 
     /* Loading of an issuer list, not used in this application */
     size_t issuerListSize = 0;
-    UA_ByteString * issuerList = NULL;
+    UA_ByteString *issuerList = NULL;
 
     /* Loading of a revocation list currently unsupported */
-    UA_ByteString * revocationList = NULL;
+    UA_ByteString *revocationList = NULL;
     size_t revocationListSize = 0;
 
     UA_Server *server = UA_Server_new();
@@ -182,10 +184,14 @@ int main(int argc, char *argv[]) {
     // config->allowNonePolicyPassword = true;
 
     UA_StatusCode retval = UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4841,
-                                                                          &certificate, &privateKey,
-                                                                          trustList, trustListSize,
-                                                                          issuerList, issuerListSize,
-                                                                          revocationList, revocationListSize);
+                                                                          &certificate,
+                                                                          &privateKey,
+                                                                          trustList,
+                                                                          trustListSize,
+                                                                          issuerList,
+                                                                          issuerListSize,
+                                                                          revocationList,
+                                                                          revocationListSize);
     if (retval != UA_STATUSCODE_GOOD) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
                      "Error setting up the server with security policies");
@@ -219,6 +225,19 @@ int main(int argc, char *argv[]) {
                               parentReferenceNodeId, myDoubleName,
                               UA_NODEID_NULL, attr2, NULL, NULL);
 
+    // add a uint8 variable node to the adresspace
+    UA_VariableAttributes attr3 = UA_VariableAttributes_default;
+    UA_Byte myUInt8 = 0;
+    UA_Variant_setScalarCopy(&attr3.value, &myUInt8, &UA_TYPES[UA_TYPES_BYTE]);
+    attr3.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer 3");
+    attr3.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the answer 3");
+    attr3.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+    UA_NodeId myUInt8NodeId = UA_NODEID_STRING_ALLOC(1, "the.answer3");
+    UA_QualifiedName myUInt8Name = UA_QUALIFIEDNAME_ALLOC(1, "the answer 3");
+    UA_Server_addVariableNode(server, myUInt8NodeId, parentNodeId,
+                              parentReferenceNodeId, myUInt8Name,
+                              UA_NODEID_NULL, attr3, NULL, NULL);
+                              
 
     setCustomAccessControl(config);
     UA_ByteString_clear(&certificate);

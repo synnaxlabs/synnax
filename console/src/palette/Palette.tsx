@@ -85,7 +85,7 @@ const useDropOutsideMacOS = ({
         if (layout?.windowKey == null) return;
         const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
         if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
-        const win = Window.getByLabel(winLabel);
+        const win = await Window.getByLabel(winLabel);
         if (win == null) return;
         const sf = await win.scaleFactor();
         const rawCursor = xy.construct(x, y);
@@ -200,7 +200,7 @@ export const Palette = ({
           >
             Quick Search & Command
           </Button.Button>
-          <PalletteDialogContent
+          <PaletteDialogContent
             value={value}
             onChange={setValue}
             commands={commands}
@@ -255,7 +255,7 @@ export interface PaletteDialogProps extends Input.Control<string> {
   close: () => void;
 }
 
-const PalletteDialogContent = ({
+const PaletteDialogContent = ({
   value,
   onChange,
   commands,

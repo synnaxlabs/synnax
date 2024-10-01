@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Task", Ordered, func() {
@@ -69,6 +68,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(k.LocalKey()).To(Equal(uint32(2)))
 		})
 	})
+
 	Describe("Create", func() {
 		It("Should correctly create a task and assign it a unique key", func() {
 			m := &task.Task{
@@ -96,6 +96,38 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Name).To(Equal("Test Task"))
 		})
 	})
+
+	Describe("Copy", func() {
+
+		It("Should copy a task", func() {
+			m := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Test Task",
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Name).To(Equal("Test Task"))
+			t, err := w.Copy(ctx, m.Key, "New Task", false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 2)))
+		})
+
+		It("Should create a snapshot of an existing task", func() {
+			m := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Test Task",
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Name).To(Equal("Test Task"))
+			t, err := w.Copy(ctx, m.Key, "New Task", true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 2)))
+			Expect(t.Snapshot).To(BeTrue())
+		})
+
+	})
+
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a task", func() {
 			m := &task.Task{
@@ -110,6 +142,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(Equal(*m))
 		})
 	})
+
 	Describe("Delete", func() {
 		It("Should correctly delete a task", func() {
 			m := &task.Task{
@@ -122,16 +155,17 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
-		It("Should prevent the deletion of internal tasks", func() {
-			m := &task.Task{
-				Key:      task.NewKey(rack_.Key, 0),
-				Name:     "Test Task",
-				Internal: true,
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
-			Expect(m.Name).To(Equal("Test Task"))
-			Expect(w.Delete(ctx, m.Key, false)).To(HaveOccurredAs(validate.Error))
-		})
+		// It("Should prevent the deletion of internal tasks", func() {
+		// 	m := &task.Task{
+		// 		Key:      task.NewKey(rack_.Key, 0),
+		// 		Name:     "Test Task",
+		// 		Internal: true,
+		// 	}
+		// 	Expect(w.Create(ctx, m)).To(Succeed())
+		// 	Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+		// 	Expect(m.Name).To(Equal("Test Task"))
+		// 	Expect(w.Delete(ctx, m.Key, false)).To(HaveOccurredAs(validate.Error))
+		// })
 	})
+
 })

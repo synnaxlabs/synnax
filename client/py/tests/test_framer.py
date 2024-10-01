@@ -395,8 +395,47 @@ class TestStreamer:
             with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))
-                frame = s.read()
+                frame = s.read(timeout=1)
                 all(frame[channel.key] == data)
+
+    def test_open_streamer_no_channels(self, client: sy.Synnax):
+        """Should not throw an exception when a streamer is opened with no channels"""
+        with client.open_streamer([]):
+            pass
+
+
+    @pytest.mark.focus
+    def test_open_streamer_channel_not_found(self, client: sy.Synnax):
+        """Should throw an exception when a streamer is opened with an unknown channel"""
+        with pytest.raises(sy.NotFoundError):
+            with client.open_streamer([123]):
+                pass
+
+    def test_update_channels(self, channel: sy.Channel, client: sy.Synnax):
+        """Should update the list of channels to stream"""
+        with client.open_streamer([]) as s:
+            s.update_channels([channel.key])
+            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                data = np.random.rand(1).astype(np.float64)
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = s.read(timeout=1)
+                all(frame[channel.key] == data)
+
+    def test_timeout_seconds(self, channel: sy.Channel, client: sy.Synnax):
+        """Should return None after the specified timeout is exceeded"""
+        with client.open_streamer([]) as s:
+            start = sy.TimeStamp.now()
+            f = s.read(timeout=0.1)
+            assert f is None
+            assert abs(TimeSpan.since(start).seconds - 0.1) < 0.05
+
+    def test_timeout_timespan(self, channel: sy.Channel, client: sy.Synnax):
+        """Should return None after the specified timeout is exceeded"""
+        with client.open_streamer([]) as s:
+            start = sy.TimeStamp.now()
+            f = s.read(timeout=100 * TimeSpan.MILLISECOND)
+            assert f is None
+            assert abs(TimeSpan.since(start).seconds - 0.1) < 0.05
 
 
 @pytest.mark.framer

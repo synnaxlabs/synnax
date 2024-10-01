@@ -41,6 +41,10 @@ export class SugaredOffscreenCanvasRenderingContext2D
     this.wrapped.fontVariantCaps = value;
   }
 
+  isContextLost(): boolean {
+    return this.wrapped.isContextLost();
+  }
+
   get wordSpacing(): string {
     return this.wrapped.wordSpacing;
   }
@@ -115,10 +119,6 @@ export class SugaredOffscreenCanvasRenderingContext2D
 
   set strokeStyle(value: string | CanvasGradient | CanvasPattern) {
     this.wrapped.strokeStyle = value;
-  }
-
-  commit(): void {
-    this.wrapped.commit();
   }
 
   drawImage(image: CanvasImageSource, dx: number, dy: number): void;

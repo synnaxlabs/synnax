@@ -109,35 +109,57 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Open create range dialog from command search bar.
-- [ ] Open create range dialog from range toolbar.
-- [ ] Open create range dialog from context menu in range toolbar.
-- [ ] Create a new local range.
-- [ ] Create a new persisted range.
-- [ ] Set a parent range for a range.
-- [ ] Attach labels to a range.
-- [ ] Open the range overview dialog from the resources view.
-- [ ] Edit range properties from the overview dialog.
-- [ ] Edit meta-data properties on the range.
-- [ ] Add child ranges to a range.
-- [ ] Navigate to and from child ranges on a range.
-- [ ] Make a change to the range in the edit dialog and see the changes propagate to the
-      overview dialog.
-- [ ] Save a local range to Synnax in the range toolbar.
-- [ ] Switch the active range in the range toolbar.
-- [ ] Load a local range from the search bar.
-- [ ] Load a persisted range from the search bar.
-- [ ] Rename a range from the range toolbar.
-- [ ] Edit a range from the range toolbar.
-- [ ] Remove a range from the range toolbar.
-- [ ] Delete a persisted range from the range toolbar.
-- [ ] Delete a range in the resources view.
-- [ ] Delete multiple ranges in the resources view.
-- [ ] Set a range as an active range from the resources view.
-- [ ] Edit a range from the resources view.
-- [ ] Add a range to a plot from the resources view.
-- [ ] Copy a link to a range and open it from the resources view.
-- [ ] Rename a range from the range toolbar.
+- [ ] Create Range Modal
+  - [ ] Create a new local range.
+  - [ ] Create a new persisted range.
+  - [ ] Set parent range
+  - [ ] Add labels
+  - [ ] Rename existing range
+  - [ ] Change times on existing range
+- [ ] Range Layout
+  - [ ] Rename range.
+  - [ ] Rename range from tab.
+  - [ ] Change start and end times.
+  - [ ] Add labels.
+  - [ ] Set metadata.
+  - [ ] Delete metadata.
+  - [ ] Add child ranges.
+  - [ ] Open snapshots.
+  - [ ] Navigate to and from child ranges
+- [ ] Search and Command Palette
+  - [ ] Open an existing range window
+  - [ ] Open create range dialog
+- [ ] Range Toolbar
+  - [ ] Open create range modal from toolbar link when no range exists
+  - [ ] Switch the active range by clicking
+  - [ ] Context Menu
+    - [ ] Open create range modal
+    - [ ] Rename range
+    - [ ] Set active range
+    - [ ] Open create range modal with child range
+    - [ ] Add to active line plot
+    - [ ] Add to new line plot
+    - [ ] Remove from range toolbar
+    - [ ] Delete persisted range
+    - [ ] Copy link of persisted range
+    - [ ] Save local range to Synnax
+- [ ] Resources Toolbar
+  - [ ] Open the range overview dialog by clicking on a range
+  - [ ] Context Menu
+    - [ ] Set active range
+    - [ ] Rename range
+    - [ ] Open create range modal with child range
+    - [ ] Group ranges
+    - [ ] Add to active line plot
+    - [ ] Add multiple ranges to active line plot
+    - [ ] Add to new line plot
+    - [ ] Add multiple ranges to new line plot
+    - [ ] Delete range
+    - [ ] Delete multiple ranges
+    - [ ] Copy link to range
+- [ ] Open a range from its url
+- [ ] Make changes to a range with resources toolbar, overview, and ranges toolbar open
+      and see changes propagate to all three.
 
 ### Channels
 
@@ -227,13 +249,29 @@ I can successfully:
 - [ ] Open the documentation from the command search bar.
 - [ ] Open the documentation from the question mark icon.
 
+### Devices
+
+I can successfully:
+
+- [ ] Group devices in the resources view.
+- [ ] Rename a device in the resources view.
+- [ ] Delete a device in the resources view.
+
+### Tasks
+
+I can successfully:
+
+- [ ] Group tasks in the resources view.
+- [ ] Rename a task in the resources view.
+- [ ] Delete a task in the resources view.
+
 ### OPC UA
 
 #### Configuration
 
 I successfully:
 
-- [ ] Updated the license on TC before continuing QA
+- [ ] Updated the license on TwinCat/Beckhoff before continuing QA
 
 I can successfully:
 
@@ -267,6 +305,16 @@ I can successfully:
       removed from the device while it is running.
 - [ ] Enable and disable data saving at will.
 - [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
+
+#### Write Task
+
+I can successfully:
+
+- [ ] Perform control and see changes reflected on the connected OPC UA server.
+- [ ] Stop, start and reconfigure task at will.
+- [ ] Enable and disable data saving at will.
+- [ ] Leave a write tasking played but idle for an hour and perform control without losing connection.
+- [ ] Perform a write on an encrypted server.
 
 ### National Instruments
 
@@ -388,3 +436,4 @@ I can successfully:
 I can successfully:
 
 - [ ] Toggle the color theme from the command search bar.
+- [ ] Run the driver for long periods of time with minimal memory leakage.

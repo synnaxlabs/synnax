@@ -1,0 +1,94 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Channels"
+heading: "Channels"
+description: "Store data in channels."
+prev: "UI Overview"
+prevURL: "/reference/console/ui-overview"
+next: "Workspaces"
+nextURL: "/reference/console/workspaces"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+import Table from "@/components/Table.astro";
+
+A [channel](/reference/concepts/channels) is a  collection of time-ordered data in
+Synnax. Channels are commonly used to store data from sources such as sensors, but can
+also be used to store data as disparate as actuator commands, post-processed analysis
+results, or any other time-ordered data.
+
+<Divider.Divider direction="x" />
+
+## Creating Channels
+
+You can create a channel using the "Create Channel" command in the Command Palette. To
+open the palette, click on the search bar at the top and type ">". You can also open the
+palette by pressing `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (MacOS).
+
+<Video client:only="react" id="console/channels/create" />
+
+### Channel Creation Parameters
+
+When creating a channel, you will be prompted to fill in the following fields:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Name</td>
+      <td>A name for the channel.</td>
+    </tr>
+    <tr>
+      <td>Virtual</td>
+      <td>If true, the channel will be
+      [virtual](/reference/concepts/channels#virtual-channels), meaning no data will be
+      permanently stored.</td>
+    </tr>
+    <tr>
+      <td>Is Index</td>
+      <td>If true, the channel will be an [index
+      channel](/reference/concepts/channels#index-channels). Otherwise, the channel will
+      be a [data channel](/reference/concepts/channels#data-channels).</td>
+    </tr>
+    <tr>
+      <td>Data Type</td>
+      <td>What data type the channel stores. If the channel is an index channel, then
+      the data type must be a timestamp.</td>
+    </tr>
+    <tr>
+      <td>Index</td>
+      <td>For data channels, the index channel used to store timestamps for the data
+      channels.</td>
+    </tr>
+  </tbody>
+</Table>
+
+### Index vs. Data Channels
+
+Index channels are used to store timestamps for data channels. When creating a data
+channel, it must be associated with an index channel. When a data channel records a data
+point, that index channel will then store the timestamp for that data point. The
+difference between the two types of channels is explained more in the [channel concepts
+page](/reference/concepts/channels).
+
+<Divider.Divider direction="x" />
+
+## Aliasing Channels
+
+Channels can be [aliased](/reference/concepts/ranges#channel-aliases) under a particular
+range. This is useful for naming a channel to something specific for that range. For
+example, a channel might represent a port on a specific data acquisition computer and be
+called "digital_input_1". However, for a certain test, the channel is used to store
+pressure readings, so the name "pressure_01" is more appropriate. To alias a channel,
+open the resources toolbar and right-click on the channel you want to alias.
+
+<Video client:only="react" id="console/channels/alias" />
+
+Now, the alias will be shown when the active range matches the one the channel is
+aliased for, and the normal channel name will be shown otherwise.

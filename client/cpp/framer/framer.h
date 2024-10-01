@@ -78,10 +78,7 @@ struct Frame {
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
-    Frame(
-        const ChannelKey &chan,
-        synnax::Series ser
-    );
+    Frame(const ChannelKey &chan, synnax::Series ser);
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
@@ -95,7 +92,10 @@ struct Frame {
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void add(const ChannelKey &chan, synnax::Series ser) const; //TODO: Why do we a non pass by ref version of this?
+    void add(
+        const ChannelKey &chan,
+        synnax::Series ser
+    ) const; //TODO: Why do we a non pass by ref version of this?
 
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
@@ -117,13 +117,6 @@ class StreamerConfig {
 public:
     /// @brief the channels to stream.
     std::vector<ChannelKey> channels;
-
-    /// @brief sets the timestamp that that the streamer should forward previous reads
-    /// from. On startup, the streamer will read all existing data from the provided
-    /// channels starting at this timestamp. If this timestamp is zero or in the future,
-    /// no samples will be read.
-    synnax::TimeStamp start;
-
 private:
     void toProto(api::v1::FrameStreamerRequest &f) const;
 
@@ -158,7 +151,8 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with close(),
     /// but it is safe to call concurrently with read().
-    [[nodiscard]] freighter::Error setChannels(std::vector<ChannelKey> channels) const;
+    [[nodiscard]] freighter::Error
+    setChannels(std::vector<ChannelKey> channels) const;
 
     /// @brief closes the streamer and releases any resources associated with it. If any
     /// errors occurred during the stream, they will be returned. A streamer MUST be
@@ -242,9 +236,9 @@ struct WriterConfig {
     /// that it does not have authority to write to. If false, the writer will silently ignore
     bool err_on_unauthorized = false;
 
-    /// @brief sets the interval at which commits will be flushed to disk and durable 
-    /// when auto commit is enabled. Setting this value to zero will make all writes 
-    /// durable immediately. Lower values will decrease write throughput. Defaults to 
+    /// @brief sets the interval at which commits will be flushed to disk and durable
+    /// when auto commit is enabled. Setting this value to zero will make all writes
+    /// durable immediately. Lower values will decrease write throughput. Defaults to
     /// 1s when auto commit is enabled.
     synnax::TimeSpan auto_index_persist_interval = 1 * synnax::SECOND;
 
@@ -253,6 +247,7 @@ private:
     void toProto(api::v1::FrameWriterConfig *f) const;
 
     friend class FrameClient;
+
     friend class Writer;
 };
 
@@ -273,13 +268,13 @@ public:
     ///
     /// 1. The frame must have at most 1 series per channel.
     /// 2. The frame may not have series for any channel not specified in the
-    ///  WriterConfig when opening the writer.
+    /// WriterConfig when opening the writer.
     /// 3. All series' that are written to the same index must have the same number of
     /// samples.
     /// 4. When writing to an index, the series' for the index must have monotonically
     /// increasing int64 unix epoch timestamps.
     ///
-    /// For more information, see https://docs.synnaxlabs.com/concepts/write.
+    /// For more information, see https://docs.synnaxlabs.com/reference/concepts/writes.
     ///
     /// @returns false if an error occurred in the write pipeline. After an error occurs,
     /// the caller must acknowledge the error by calling error() or close() on the writer.

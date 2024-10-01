@@ -12,14 +12,15 @@ from __future__ import annotations
 import uuid
 
 from freighter import Payload
-from synnax.ontology import OntologyID
+from synnax.ontology.payload import ID
 
-ALLOW_ALL = OntologyID(type="allow_all", key="")
+ALLOW_ALL = ID(type="allow_all", key="")
+
 
 class Policy(Payload):
     key: uuid.UUID | None = None
-    subjects: list[OntologyID] = None
-    objects: list[OntologyID] = None
+    subjects: list[ID] = None
+    objects: list[ID] = None
     actions: list[str] = None
 
     def __str__(self):

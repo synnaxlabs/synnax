@@ -11,6 +11,7 @@ package relay
 
 import (
 	"fmt"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -27,10 +28,11 @@ import (
 
 type Config struct {
 	alamos.Instrumentation
-	Transport    Transport
-	HostResolver core.HostResolver
-	TS           *ts.DB
-	FreeWrites   confluence.Outlet[Response]
+	Transport     Transport
+	HostResolver  core.HostResolver
+	TS            *ts.DB
+	FreeWrites    confluence.Outlet[Response]
+	ChannelReader channel.Readable
 }
 
 var (
@@ -45,6 +47,7 @@ func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
+	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	return c
 }
 
@@ -55,10 +58,12 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
+	validate.NotNil(v, "ChannelReader", c.ChannelReader)
 	return v.Error()
 }
 
 type Relay struct {
+	cfg     Config
 	ins     alamos.Instrumentation
 	delta   *confluence.DynamicDeltaMultiplier[Response]
 	demands confluence.Inlet[demand]
@@ -75,7 +80,7 @@ func Open(configs ...Config) (*Relay, error) {
 		return nil, err
 	}
 
-	r := &Relay{ins: cfg.Instrumentation}
+	r := &Relay{cfg: cfg, ins: cfg.Instrumentation}
 
 	tpr := newTapper(cfg)
 	demands := confluence.NewStream[demand](defaultBuffer)

@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
@@ -28,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 type Frame = framer.Frame
@@ -197,17 +198,11 @@ func (s *FrameService) openStreamer(
 	}); err != nil {
 		return nil, err
 	}
-	streamer, err = s.Internal.NewStreamer(ctx, framer.StreamerConfig{
-		Start: req.Start,
-		Keys:  req.Keys,
-	})
+	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys})
 	if err != nil {
-		return
+		return nil, err
 	}
-
-	// Send an empty frame to acknowledge successful creation of streamer.
-	err = stream.Send(FrameStreamerResponse{})
-	return
+	return reader, stream.Send(framer.StreamerResponse{})
 }
 
 type FrameWriterConfig struct {

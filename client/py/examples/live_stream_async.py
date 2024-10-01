@@ -20,11 +20,11 @@ import asyncio
 import synnax as sy
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/python-client/get-started for more information.
+# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
 # We can just specify the names of the channels we'd like to stream from.
-read_from = [
+channels = [
     "stream_write_example_time",
     "stream_write_example_data_1",
     "stream_write_example_data_2",
@@ -35,7 +35,7 @@ async def run():
     # Open the streamer as a context manager. This will make sure the streamer is
     # properly closed when we're done reading. We'll read from both the time and data
     # channels.
-    async with await client.open_async_streamer(read_from) as s:
+    async with await client.open_async_streamer(channels) as s:
         # Loop through the frames in the streamer. Each iteration will block until a new
         # frame is available, then we'll just print it out.
         async for frame in s:

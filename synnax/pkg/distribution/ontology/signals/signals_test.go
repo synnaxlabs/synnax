@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"time"
 )
@@ -91,8 +90,7 @@ var _ = Describe("Signals", Ordered, func() {
 			var resCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_resource_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-				Start: telem.Now(),
-				Keys:  channel.Keys{resCh.Key()},
+				Keys: channel.Keys{resCh.Key()},
 			}))
 			requests, responses := confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
@@ -125,8 +123,7 @@ var _ = Describe("Signals", Ordered, func() {
 			var resCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_resource_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-				Start: telem.Now(),
-				Keys:  channel.Keys{resCh.Key()},
+				Keys: channel.Keys{resCh.Key()},
 			}))
 			requests, responses := confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
@@ -159,8 +156,7 @@ var _ = Describe("Signals", Ordered, func() {
 		var resCh channel.Channel
 		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_relationship_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Start: telem.Now(),
-			Keys:  channel.Keys{resCh.Key()},
+			Keys: channel.Keys{resCh.Key()},
 		}))
 		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
@@ -196,8 +192,7 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_relationship_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		By("Opening a streamer on the deletion channel")
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Start: telem.Now(),
-			Keys:  channel.Keys{resCh.Key()},
+			Keys: channel.Keys{resCh.Key()},
 		}))
 		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()

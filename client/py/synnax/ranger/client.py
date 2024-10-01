@@ -28,7 +28,6 @@ from synnax.ranger.payload import (
     RangeNames,
     RangeParams,
     RangePayload,
-    normalize_range_params,
 )
 from synnax.ranger.retrieve import RangeRetriever
 from synnax.ranger.writer import RangeWriter
@@ -42,16 +41,20 @@ from synnax.telem import (
     Rate,
     CrudeSeries,
 )
-from synnax.ontology.id import OntologyID
+from synnax.ontology.payload import ID
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
     ChannelPayload,
     ChannelKeys,
     ChannelNames,
-    ChannelParams
+    ChannelParams,
 )
 from synnax.util.interop import overload_comparison_operators
+from synnax.hardware.task import Task, Client as TaskClient
+from synnax.ontology import Client as OntologyClient
+from synnax.hardware.ni import AnalogReadTask
+from synnax.util.normalize import check_for_none, normalize
 
 from uuid import UUID
 from typing import overload
@@ -71,6 +74,8 @@ class _InternalScopedChannel(ChannelPayload):
     """An aliaser for setting the channel's alias."""
     __cache: Series | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
+    __tasks: TaskClient | None = PrivateAttr(None)
+    __ontology: OntologyClient | None = PrivateAttr(None)
 
     def __new__(cls, *args, **kwargs):
         cls = overload_comparison_operators(cls, "__array__")
@@ -83,6 +88,8 @@ class _InternalScopedChannel(ChannelPayload):
         self,
         rng: Range,
         frame_client: Client,
+        tasks: TaskClient,
+        ontology: OntologyClient,
         payload: ChannelPayload,
         aliaser: Aliaser | None = None,
     ):
@@ -90,10 +97,23 @@ class _InternalScopedChannel(ChannelPayload):
         self.__range = rng
         self.__frame_client = frame_client
         self.__aliaser = aliaser
+        self.__tasks = tasks
+        self.__ontology = ontology
 
     @property
     def time_range(self) -> TimeRange:
         return self.__range.time_range
+
+    @property
+    def calibrations(self):
+        snapshots = self.__range.snapshots()
+        ni_tasks = [AnalogReadTask(t) for t in snapshots]
+        for t in ni_tasks:
+            for chan in t.config.channels:
+                if chan.channel == self.key:
+                    return chan
+
+        return None
 
     def __array__(self, *args, **kwargs) -> np.ndarray:
         """Converts the channel to a numpy array. This method is necessary
@@ -210,6 +230,11 @@ class ScopedChannel:
         self.__guard()
         return self.__internal[0].rate
 
+    @property
+    def calibrations(self):
+        self.__guard()
+        return self.__internal[0].calibrations
+
     def set_alias(self, alias: str):
         self.__guard()
         self.__internal[0].set_alias(alias)
@@ -230,21 +255,23 @@ Please call client.ranges.create(range) before attempting to read from a range."
 class Range(RangePayload):
     """A range is a user-defined region of a cluster's data. It's identified by a name,
     time range, and uniquely generated key. See
-    https://docs.synnaxlabs.com/concepts/read-ranges for an introduction to ranges and
-    how they work.
+    https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to ranges
+    and how they work.
     """
 
     __frame_client: Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
-    __channel_retriever: ChannelRetriever | None = PrivateAttr(None)
+    _channels: ChannelRetriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
-    __kv: KV | None = PrivateAttr(None)
+    _kv: KV | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
     __aliaser: Aliaser | None = PrivateAttr(None)
     """For setting and resolving aliases."""
-    __cache: dict[ChannelKey, _InternalScopedChannel] = PrivateAttr(dict())
+    _cache: dict[ChannelKey, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
-    __client: RangeClient | None = PrivateAttr(None)
+    _client: RangeClient | None = PrivateAttr(None)
+    _tasks: TaskClient | None = PrivateAttr(None)
+    _ontology: OntologyClient | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -261,6 +288,8 @@ class Range(RangePayload):
         _kv: KV | None = None,
         _aliaser: Aliaser | None = None,
         _client: RangeClient | None = None,
+        _tasks: TaskClient | None = None,
+        _ontology: OntologyClient | None = None,
     ):
         """Initializes a new Range using the given parameters. It's important to note
         that this does not create the Range in the cluster. To create the range, call
@@ -283,10 +312,12 @@ class Range(RangePayload):
         """
         super().__init__(name=name, time_range=time_range, key=key, color=color)
         self.__frame_client = _frame_client
-        self.__channel_retriever = _channel_retriever
-        self.__kv = _kv
+        self._channels = _channel_retriever
+        self._kv = _kv
         self.__aliaser = _aliaser
-        self.__client = _client
+        self._client = _client
+        self._tasks = _tasks
+        self._ontology = _ontology
 
     def __getattr__(self, query: str) -> ScopedChannel:
         channels = self._channel_retriever.retrieve(query)
@@ -305,22 +336,28 @@ class Range(RangePayload):
     ) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:
-            cached = self.__cache.get(pld.key, None)
+            cached = self._cache.get(pld.key, None)
             if cached is None:
                 cached = _InternalScopedChannel(
                     rng=self,
                     frame_client=self._frame_client,
                     payload=pld,
+                    tasks=self._tasks,
+                    ontology=self._ontology,
                 )
-                self.__cache[pld.key] = cached
+                self._cache[pld.key] = cached
             results.append(cached)
         return results
 
     @property
+    def ontology_id(self) -> ID:
+        return ID(type="range", key=str(self.key))
+
+    @property
     def meta_data(self):
-        if self.__kv is None:
+        if self._kv is None:
             raise _RANGE_NOT_CREATED
-        return self.__kv
+        return self._kv
 
     @property
     def _aliaser(self):
@@ -336,13 +373,15 @@ class Range(RangePayload):
 
     @property
     def _channel_retriever(self) -> ChannelRetriever:
-        if self.__channel_retriever is None:
+        if self._channels is None:
             raise _RANGE_NOT_CREATED
-        return self.__channel_retriever
+        return self._channels
 
+    @overload
     def set_alias(self, channel: ChannelKey | ChannelName, alias: str):
         ...
 
+    @overload
     def set_alias(self, channel: dict[ChannelKey | ChannelName, str]):
         ...
 
@@ -355,7 +394,6 @@ class Range(RangePayload):
             if alias is None:
                 raise ValueError("Alias must be provided if channel is not a dict")
             channel = {channel: alias}
-
         corrected = {}
         for ch, alias in channel.items():
             if isinstance(ch, ChannelName):
@@ -399,24 +437,31 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         color: str = "",
-        key: RangeKey = UUID(int=0)
+        key: RangeKey = UUID(int=0),
     ) -> Range:
-        return self.__client.create(
+        return self._client.create(
             name=name,
             time_range=time_range,
             color=color,
             key=key,
-            parent=OntologyID(type="range", key=str(self.key))
+            parent=ID(type="range", key=str(self.key)),
         )
+
+    def snapshots(self) -> list[Task]:
+        res = self._ontology.retrieve_children(self.ontology_id)
+        tasks = [t for t in res if t.id.type == "task"]
+        return self._tasks.retrieve(keys=[t.id.key for t in tasks])
 
 
 class RangeClient:
-    __frame_client: Client
-    __channel_retriever: ChannelRetriever
-    __retriever: RangeRetriever
-    __writer: RangeWriter
-    __unary_client: UnaryClient
-    __signals: Registry
+    _frame_client: Client
+    _channels: ChannelRetriever
+    _retriever: RangeRetriever
+    _writer: RangeWriter
+    _unary_client: UnaryClient
+    _signals: Registry
+    _tasks: TaskClient
+    _ontology: OntologyClient
 
     def __init__(
         self,
@@ -426,13 +471,17 @@ class RangeClient:
         retriever: RangeRetriever,
         channel_retriever: ChannelRetriever,
         signals: Registry,
+        tasks: TaskClient,
+        ontology: OntologyClient,
     ) -> None:
-        self.__unary_client = unary_client
-        self.__frame_client = frame_client
-        self.__writer = writer
-        self.__retriever = retriever
-        self.__channel_retriever = channel_retriever
-        self.__signals = signals
+        self._unary_client = unary_client
+        self._frame_client = frame_client
+        self._writer = writer
+        self._retriever = retriever
+        self._channels = channel_retriever
+        self._signals = signals
+        self._tasks = tasks
+        self._ontology = ontology
 
     @overload
     def create(
@@ -442,8 +491,8 @@ class RangeClient:
         time_range: TimeRange,
         color: str = "",
         retrieve_if_name_exists: bool = False,
-        parent: OntologyID | None = None,
-        key: RangeKey = RangeKey(int=0),
+        parent: ID | None = None,
+        key: RangeKey = UUID(int=0),
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
         to the cluster and is visible to all clients.
@@ -464,7 +513,7 @@ class RangeClient:
         self,
         ranges: Range,
         retrieve_if_name_exists: bool = False,
-        parent: OntologyID | None = None,
+        parent: ID | None = None,
     ) -> Range:
         """Creates the given range. This range is persisted to the cluster and is
         visible to all clients.
@@ -483,7 +532,7 @@ class RangeClient:
         self,
         ranges: list[Range],
         retrieve_if_name_exists: bool = False,
-        parent: OntologyID | None = None,
+        parent: ID | None = None,
     ) -> list[Range]:
         """Creates the given ranges. These ranges are persisted to the cluster and are
         visible to all clients.
@@ -500,21 +549,18 @@ class RangeClient:
         self,
         ranges: Range | list[Range] = None,
         *,
-        key: RangeKey = RangeKey(int=0),
+        key: RangeKey = UUID(int=0),
         name: str = "",
         time_range: TimeRange | None = None,
         color: str = "",
         retrieve_if_name_exists: bool = False,
-        parent: OntologyID | None = None,
+        parent: ID | None = None,
     ) -> Range | list[Range]:
         is_single = True
         if ranges is None:
-            to_create = [RangePayload(
-                key=key,
-                name=name,
-                time_range=time_range,
-                color=color
-            )]
+            to_create = [
+                RangePayload(key=key, name=name, time_range=time_range, color=color)
+            ]
         elif isinstance(ranges, Range):
             to_create = [ranges.to_payload()]
         else:
@@ -523,7 +569,7 @@ class RangeClient:
 
         res: list[Range] = list()
         if retrieve_if_name_exists:
-            res = self.retrieve([r.name for r in to_create])
+            res = self.retrieve(names=[r.name for r in to_create])
             if is_single and len(res) > 1:
                 filtered = [r for r in res if r.time_range == time_range]
                 if len(filtered) == 0:
@@ -546,61 +592,68 @@ class RangeClient:
             existing_names = {r.name for r in res}
             to_create = [r for r in to_create if r.name not in existing_names]
         if len(to_create) > 0:
-            res.extend(self.__sugar(self.__writer.create(to_create, parent=parent)))
+            res.extend(self.__sugar(self._writer.create(to_create, parent=parent)))
         return res if not is_single else res[0]
 
     @overload
-    def retrieve(
-        self,
-        key_or_name: RangeKey | RangeName,
-    ) -> Range:
+    def retrieve(self, *, key: RangeKey) -> Range:
         ...
 
     @overload
-    def retrieve(
-        self,
-        keys_or_names: RangeKeys | RangeNames,
-    ) -> list[Range]:
+    def retrieve(self, *, name: RangeName) -> Range:
+        ...
+
+    @overload
+    def retrieve(self, *, names: RangeNames) -> list[Range]:
+        ...
+
+    @overload
+    def retrieve(self, *, keys: RangeKeys) -> list[Range]:
         ...
 
     def retrieve(
         self,
-        params: RangeParams,
+        *,
+        key: RangeKey | None = None,
+        name: RangeName | None = None,
+        names: RangeNames | None = None,
+        keys: RangeKeys | None = None,
     ) -> Range | list[Range]:
-        normal = normalize_range_params(params)
-        _ranges = self.__retriever.retrieve(normal.params)
+        is_single = check_for_none(keys, names)
+        _ranges = self._retriever.retrieve(key=key, name=name, names=names, keys=keys)
         sug = self.__sugar(_ranges)
-        if not normal.single:
+        if not is_single:
             return sug
         if len(sug) == 0:
-            raise QueryError(f"Range {normal} not found")
+            raise QueryError(f"Range {names} not found")
         elif len(sug) > 1:
-            raise QueryError(f"Multiple ranges matching {normal} found")
+            raise QueryError(f"Multiple ranges matching {names} found")
         return sug[0]
 
     def delete(
         self,
-        params: RangeParams,
+        key: RangeKey | RangeKeys,
     ) -> None:
-        _ranges = self.__retriever.retrieve(params)
-        self.__writer.delete([r.key for r in _ranges])
+        self._writer.delete(normalize(key))
 
     def search(
         self,
         term: str,
     ) -> list[Range]:
-        _ranges = self.__retriever.search(term)
+        _ranges = self._retriever.search(term)
         return self.__sugar(_ranges)
 
     def __sugar(self, ranges: list[RangePayload]):
         return [
             Range(
                 **r.dict(),
-                _frame_client=self.__frame_client,
-                _channel_retriever=self.__channel_retriever,
-                _kv=KV(r.key, self.__unary_client),
-                _aliaser=Aliaser(r.key, self.__unary_client),
+                _frame_client=self._frame_client,
+                _channel_retriever=self._channels,
+                _kv=KV(r.key, self._unary_client),
+                _aliaser=Aliaser(r.key, self._unary_client),
                 _client=self,
+                _ontology=self._ontology,
+                _tasks=self._tasks,
             )
             for r in ranges
         ]
@@ -617,11 +670,11 @@ class RangeClient:
                         start=d["time_range"]["start"],
                         end=d["time_range"]["end"],
                     ),
-                    _frame_client=self.__frame_client,
-                    _channel_retriever=self.__channel_retriever,
-                    _kv=KV(d["key"], self.__unary_client),
-                    _aliaser=Aliaser(d["key"], self.__unary_client),
+                    _frame_client=self._frame_client,
+                    _channel_retriever=self._channels,
+                    _kv=KV(d["key"], self._unary_client),
+                    _aliaser=Aliaser(d["key"], self._unary_client),
                 )
             )
 
-        return self.__signals.on([RANGE_SET_CHANNEL], lambda s: True)(wrapper)
+        return self._signals.on([RANGE_SET_CHANNEL], lambda s: True)(wrapper)

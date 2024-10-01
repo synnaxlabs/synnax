@@ -20,7 +20,6 @@ import {
   Input,
   List,
   Text,
-  Theming,
 } from "@synnaxlabs/pluto";
 import { change } from "@synnaxlabs/x";
 import { ReactElement } from "react";
@@ -54,7 +53,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
           padHelpText={false}
           showLabel={false}
         >
-          {({ onChange, ...p }) => (
+          {({ onChange, variant: _, ...p }) => (
             <Color.Swatch onChange={(color) => onChange(color.hex)} {...p} />
           )}
         </Form.Field>
@@ -126,7 +125,7 @@ export const Edit: Layout.Renderer = (): ReactElement => {
   });
 
   const arr = Form.useFieldArray<label.Label>({ path: "labels", ctx: methods });
-  const theme = Theming.use();
+  const theme = Layout.useSelectTheme();
 
   return (
     <Align.Space direction="y" style={{ padding: "2rem" }} grow>
@@ -152,13 +151,15 @@ export const Edit: Layout.Renderer = (): ReactElement => {
               )}
             </List.Filter>
             <Button.Button
-              onClick={() =>
+              onClick={() => {
+                const newColors = theme?.colors.visualization.palettes.default ?? [];
+                const color = newColors[arr.value.length % newColors.length].hex;
                 arr.push({
                   key: uuid(),
                   name: "New Label",
-                  color: theme.colors.primary.z,
-                })
-              }
+                  color,
+                });
+              }}
               startIcon={<Icon.Add />}
               style={{ width: "fit-content" }}
               iconSpacing="small"

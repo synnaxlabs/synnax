@@ -16,7 +16,7 @@ import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
 import { Status } from "@/status";
-import { Text as BaseText, Text as CoreText } from "@/text";
+import { Text as CoreText } from "@/text";
 
 export interface TextExtraProps {
   selectOnFocus?: boolean;
@@ -24,8 +24,6 @@ export interface TextExtraProps {
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
   onlyChangeOnBlur?: boolean;
-  shade?: BaseText.Shade;
-  weight?: BaseText.Weight;
 }
 
 export interface TextProps extends BaseProps<string>, TextExtraProps {}
@@ -108,12 +106,15 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     const internalRef = useRef<HTMLInputElement>(null);
     const combinedRef = useCombinedRefs(ref, internalRef);
 
+    const disabledCSS = disabled && CSS.BM("input", "disabled");
+    if (variant === "preview") disabled = true;
+
     return (
       <Align.Pack
         style={style}
         className={CSS(
           CSS.B("input"),
-          disabled && CSS.BM("input", "disabled"),
+          disabledCSS,
           level == null && CSS.size(size),
           shade != null && CSS.shade(shade),
           CSS.BM("input", variant),
@@ -121,6 +122,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           status != null && CSS.M(status),
           className,
         )}
+        borderShade={4}
         align="center"
         size={size}
       >

@@ -1,7 +1,7 @@
 <br />
 <p align="center">
     <a href="https://synnaxlabs.com/">
-        <img src="../x/media/static/logo/icon-white-on-black.png" width="20%"/>
+        <img src="../x/media/static/logo/icon-white-padded.png" width="20%"/>
     </a>
     <br />
     <br />
@@ -31,29 +31,28 @@ synchronizing changes when it rejoins the cluster.
 
 # Stability and Important Considerations
 
-* Aspen is in active development and is not yet ready for production use. The key-value
-API is stable, but the cluster API will likely change.
+- Aspen is in active development and is not yet ready for production use. The key-value
+  API is stable, but the cluster API will likely change.
 
-* Aspen maintains an entire copy of the key-value store on each node in the cluster. This
-results in excellent read performance, but also means total storage requirements scale
-linearly with cluster size.
+- Aspen maintains an entire copy of the key-value store on each node in the cluster. This
+  results in excellent read performance, but also means total storage requirements scale
+  linearly with cluster size.
 
-* Aspen is eventually consistent, meaning that reads may be stale for some period of time.
+- Aspen is eventually consistent, meaning that reads may be stale for some period of time.
 
-* The gossip protocol lacks three essential features: failure detection, failure recovery,
-and efficient propagation guarantees. These are features that are currently in active
-development.
+- The gossip protocol lacks three essential features: failure detection, failure recovery,
+  and efficient propagation guarantees. These are features that are currently in active
+  development.
 
-* While multi-node writes batched writes are supported, they are not yet transactional.
-Single node batch writes are transactional (if the underlying key-value store supports
-them).
+- While multi-node writes batched writes are supported, they are not yet transactional.
+  Single node batch writes are transactional (if the underlying key-value store supports
+  them).
 
 ## Installation
 
 ```
 go get github.com/synnaxlabs/aspen
 ```
-
 
 ## Usage
 

@@ -10,6 +10,8 @@
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
+  Button,
+  Header,
   Icon as PIcon,
   Status,
   Synnax,
@@ -19,8 +21,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useCallback, useEffect, useState } from "react";
 
+import { CSS } from "@/css";
 import {
   Device as OPCDevice,
   ScannerScanCommandResult,
@@ -106,12 +109,16 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
 
   const [initialLoading, setInitialLoading] = useState(false);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     if (device == null || scanTask == null) return;
     setInitialLoading(true);
     expand.mutate({ action: "expand", current: [], delay: 200 });
     treeProps.clearExpanded();
   }, [device, scanTask?.key, treeProps.clearExpanded]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   let content: ReactElement | null = null;
   if (initialLoading)
@@ -146,8 +153,33 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
     );
 
   return (
-    <Align.Space direction="y" grow style={{ height: "100%", overflow: "hidden" }}>
-      {content}
+    <Align.Space
+      className={CSS.B("browser")}
+      direction="y"
+      grow
+      bordered
+      rounded
+      style={{
+        overflow: "hidden",
+        height: "100%",
+      }}
+      empty
+      background={1}
+    >
+      <Header.Header level="h4">
+        <Header.Title weight={500}>Browser</Header.Title>
+        <Header.Actions>
+          <Button.Icon
+            onClick={refresh}
+            disabled={device == null || scanTask == null || initialLoading}
+          >
+            <Icon.Refresh style={{ color: "var(--pluto-gray-l9)" }} />
+          </Button.Icon>
+        </Header.Actions>
+      </Header.Header>
+      <Align.Space direction="y" grow style={{ height: "100%", overflow: "hidden" }}>
+        {content}
+      </Align.Space>
     </Align.Space>
   );
 };

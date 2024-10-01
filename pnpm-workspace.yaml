@@ -4,6 +4,7 @@ packages:
   - "console"
   - "my-app"
   - "pluto"
+  - "pluto/examples"
   - "console-electron"
   - "drift"
   - "configs/ts"

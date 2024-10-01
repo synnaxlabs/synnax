@@ -1,10 +1,7 @@
 {
   "name": "@synnaxlabs/client",
-  "private": false,
-  "version": "0.27.0",
-  "type": "module",
-  "description": "The Client Library for Synnax",
-  "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
+  "version": "0.30.0",
+  "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
     "grpc",
@@ -15,6 +12,17 @@
     "telemetry",
     "control systems"
   ],
+  "homepage": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
+  "bugs": {
+    "url": "https://github.com/synnaxlabs/synnax/issues"
+  },
+  "license": "BUSL-1.1",
+  "main": "dist/client.cjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synnaxlabs/synnax.git",
+    "directory": "client/ts"
+  },
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "watch": "tsc --noEmit && vite build --watch",
@@ -34,18 +42,18 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^22.2.0",
-    "@vitest/coverage-v8": "^2.0.5",
-    "eslint": "^9.9.0",
+    "@types/node": "^22.5.4",
+    "@vitest/coverage-v8": "^2.1.0",
+    "eslint": "^9.10.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.5.4",
-    "vite": "5.4.0",
-    "vitest": "^2.0.5"
+    "typescript": "^5.6.2",
+    "vite": "5.4.4",
+    "vitest": "^2.1.0"
   },
   "peerDependencies": {
-    "zod": "^3.23.8"
+    "zod": "3.23.8"
   },
-  "main": "dist/client.cjs",
-  "module": "dist/client.js",
-  "types": "dist/index.d.ts"
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "module": "dist/client.js"
 }

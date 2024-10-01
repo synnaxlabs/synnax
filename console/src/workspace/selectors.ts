@@ -28,3 +28,9 @@ export const selectActive = (state: StoreState): workspace.Workspace | null => {
 
 export const useSelectActive = (): workspace.Workspace | null =>
   useMemoSelect(selectActive, []);
+
+export const select = (state: StoreState, key: string): workspace.Workspace | null =>
+  selectState(state).workspaces[key];
+
+export const useSelect = (key: string): workspace.Workspace | null =>
+  useMemoSelect((state: StoreState) => select(state, key), [key]);

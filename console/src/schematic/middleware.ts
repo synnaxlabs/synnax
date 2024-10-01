@@ -24,12 +24,12 @@ export const deleteEffect: MiddlewareEffect<
   RemovePayload
 > = ({ action, dispatch, getState }) => {
   const state = getState();
-  const schematicSLice = selectSliceState(state);
+  const schematicSlice = selectSliceState(state);
   const layoutSlice = Layout.selectSliceState(state);
   // This is the case where the action does an explicit removal.
   const keys = "keys" in action.payload ? action.payload.keys : [];
-  // We also just do a genera purpose garbage collection if necessary.
-  const toRemove = Object.keys(schematicSLice.schematics).filter(
+  // We also just do a general purpose garbage collection if necessary.
+  const toRemove = Object.keys(schematicSlice.schematics).filter(
     (p) => keys.includes(p) || layoutSlice.layouts[p] == null,
   );
   if (toRemove.length > 0) dispatch(remove({ keys: toRemove }));

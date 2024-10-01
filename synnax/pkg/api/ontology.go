@@ -39,14 +39,15 @@ func NewOntologyService(p Provider) *OntologyService {
 
 type (
 	OntologyRetrieveRequest struct {
-		IDs              []ontology.ID `json:"ids" msgpack:"ids" validate:"required"`
-		Children         bool          `json:"children" msgpack:"children"`
-		Parents          bool          `json:"parents" msgpack:"parents"`
-		IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema"`
-		ExcludeFieldData bool          `json:"exclude_field_data" msgpack:"exclude_field_data"`
-		Term             string        `json:"term" msgpack:"term"`
-		Limit            int           `json:"limit" msgpack:"limit"`
-		Offset           int           `json:"offset" msgpack:"offset"`
+		IDs              []ontology.ID   `json:"ids" msgpack:"ids" validate:"required"`
+		Children         bool            `json:"children" msgpack:"children"`
+		Parents          bool            `json:"parents" msgpack:"parents"`
+		IncludeSchema    bool            `json:"include_schema" msgpack:"include_schema"`
+		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		Types            []ontology.Type `json:"types" msgpack:"types"`
+		Term             string          `json:"term" msgpack:"term"`
+		Limit            int             `json:"limit" msgpack:"limit"`
+		Offset           int             `json:"offset" msgpack:"offset"`
 	}
 	OntologyRetrieveResponse struct {
 		Resources []ontology.Resource `json:"resources" msgpack:"resources"`
@@ -71,6 +72,9 @@ func (o *OntologyService) Retrieve(
 	}
 	if req.Parents {
 		q = q.TraverseTo(ontology.Parents)
+	}
+	if len(req.Types) > 0 {
+		q = q.WhereTypes(req.Types...)
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)

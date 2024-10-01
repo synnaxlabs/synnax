@@ -154,7 +154,13 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
-	keys := lo.Map(children, func(r ontology.Resource, _ int) string { return r.ID.Key })
+	keys := lo.FilterMap(children, func(r ontology.Resource, _ int) (string, bool) {
+		// Don't delete anything that's not a child range
+		if r.ID.Type != OntologyType {
+			return "", false
+		}
+		return r.ID.Key, true
+	})
 	for _, k := range keys {
 		uK, err := uuid.Parse(k)
 		if err != nil {

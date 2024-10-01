@@ -30,11 +30,17 @@ from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import Writer, WriterMode, CrudeWriterMode
 from synnax.framer.deleter import Deleter
-from synnax.ontology import OntologyID
-from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeSpan, CrudeSeries
+from synnax.ontology import ID
+from synnax.telem import (
+    CrudeTimeStamp,
+    TimeRange,
+    TimeSpan,
+    CrudeSeries,
+    MultiSeries,
+)
 from synnax.telem.control import Authority, CrudeAuthority
 
-framer_ontology_type = OntologyID(type="framer")
+framer_ontology_type = ID(type="framer")
 
 
 class Client:
@@ -129,19 +135,19 @@ class Client:
     def open_iterator(
         self,
         tr: TimeRange,
-        params: ChannelParams,
+        channels: ChannelParams,
         chunk_size: int = 1e5,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
-        :param params: A list of channel keys to iterator over.
+        :param channels: A list of channel keys to iterator over.
         :param tr: A time range to iterate over.
         :param chunk_size: The number of samples to read in a chunk with AutoSpan. Defaults to 100000
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
         adapter = ReadFrameAdapter(self.__channels)
-        adapter.update(params)
+        adapter.update(channels)
         return Iterator(
             tr=tr,
             adapter=adapter,
@@ -156,20 +162,19 @@ class Client:
         start: CrudeTimeStamp,
         frame: CrudeFrame,
         strict: bool = False,
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
         self,
         start: CrudeTimeStamp,
-        to: ChannelKey | ChannelName | ChannelPayload,
+        channel: ChannelKey | ChannelName | ChannelPayload,
         data: CrudeSeries,
         strict: bool = False,
     ):
         """Writes telemetry to the given channel starting at the given timestamp.
 
-        :param to: The key of the channel to write to.
+        :param channel: The key of the channel to write to.
         :param start: The starting timestamp of the first sample in data.
         :param data: The telemetry to write to the channel.
         :returns: None.
@@ -180,109 +185,96 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        to: ChannelKeys | ChannelNames | list[ChannelPayload],
+        channel: ChannelKeys | ChannelNames | list[ChannelPayload],
         series: list[CrudeSeries],
         strict: bool = False,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
         start: CrudeTimeStamp,
-        to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        channels: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
         strict: bool = False,
     ):
-        channels = list()
-        if isinstance(to, (list, ChannelKey, ChannelPayload, ChannelName)):
-            channels = to
-        elif isinstance(to, dict):
-            channels = list(to.keys())
-        elif isinstance(to, Frame):
-            channels = to.channels
-        elif isinstance(to, pd.DataFrame):
-            channels = list(to.columns)
+        parsed_channels = list()
+        if isinstance(channels, (list, ChannelKey, ChannelPayload, ChannelName)):
+            parsed_channels = channels
+        elif isinstance(channels, dict):
+            parsed_channels = list(channels.keys())
+        elif isinstance(channels, Frame):
+            parsed_channels = channels.channels
+        elif isinstance(channels, pd.DataFrame):
+            parsed_channels = list(channels.columns)
         with self.open_writer(
             start=start,
-            channels=channels,
+            channels=parsed_channels,
             strict=strict,
             mode=WriterMode.PERSIST,
             err_on_unauthorized=True,
             enable_auto_commit=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
-            w.write(to, series)
+            w.write(channels, series)
 
     @overload
     def read(
         self,
         tr: TimeRange,
-        params: ChannelKeys | ChannelNames,
-    ) -> Frame:
-        ...
+        channels: ChannelKeys | ChannelNames,
+    ) -> Frame: ...
 
     @overload
     def read(
         self,
         tr: TimeRange,
-        params: ChannelKey | ChannelName,
-    ) -> Series:
-        ...
+        channels: ChannelKey | ChannelName,
+    ) -> MultiSeries: ...
 
     def read(
         self,
         tr: TimeRange,
-        params: ChannelParams,
-    ) -> Series | Frame:
+        channels: ChannelParams,
+    ) -> MultiSeries | Frame:
         """
         Reads telemetry from the channel between the two timestamps.
 
         :param tr: The time range to read from.
-        :param params: The key or name of the channel to read from.
+        :param channels: The key or name of the channel to read from.
 
         :returns: A tuple where the first item is a numpy array containing the telemetry
         and the second item is the time range occupied by that array.
-
-        :raises ContiguityError: If the telemetry between start and end is
-        non-contiguous.
         """
-        normal = normalize_channel_params(params)
-        frame = self.__read_frame(tr, params)
-        if len(normal.params) > 1:
+        normal = normalize_channel_params(channels)
+        frame = self._read_frame(tr, channels)
+        if len(normal.channels) > 1:
             return frame
-        series = frame.get(normal.params[0], None)
+        series = frame.get(normal.channels[0], None)
         if series is None:
             raise QueryError(
-                f"""No data found for channel {normal.params[0]} between {tr}"""
+                f"""No data found for channel {normal.channels[0]} between {tr}"""
             )
         return series
 
-    def open_streamer(
-        self,
-        params: ChannelParams,
-        from_: CrudeTimeStamp | None = None,
-    ) -> Streamer:
+    def open_streamer(self, channels: ChannelParams) -> Streamer:
+        """Opens a new streamer on the given channels. The streamer will immediately
+        being receiving frames of data from the given channels.
+
+        :param channels: The channels to stream from. This can be a single channel name,
+        a list of channel names, a single channel key, or a list of channel keys.
+        """
         adapter = ReadFrameAdapter(self.__channels)
-        adapter.update(params)
+        adapter.update(channels)
         return Streamer(
-            from_=from_,
             adapter=adapter,
             client=self.__stream_client,
         )
 
-    async def open_async_streamer(
-        self,
-        params: ChannelParams,
-        from_: CrudeTimeStamp | None = None,
-    ) -> AsyncStreamer:
+    async def open_async_streamer(self, channels: ChannelParams) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
-        adapter.update(params)
-        s = AsyncStreamer(
-            from_=from_,
-            adapter=adapter,
-            client=self.__async_client,
-        )
-        await s.open()
+        adapter.update(channels)
+        s = AsyncStreamer(adapter=adapter, client=self.__async_client)
+        await s._open()
         return s
 
     def delete(self, channels: ChannelParams, tr: TimeRange) -> None:
@@ -296,13 +288,13 @@ class Client:
         """
         self.__deleter.delete(channels, tr)
 
-    def __read_frame(
+    def _read_frame(
         self,
         tr: TimeRange,
-        params: ChannelParams,
+        channels: ChannelParams,
     ) -> Frame:
-        fr = Frame()
-        with self.open_iterator(tr, params) as i:
-            for frame in i:
-                fr.append(frame)
-        return fr
+        aggregate = Frame()
+        with self.open_iterator(tr, channels) as it:
+            for fr in it:
+                aggregate.append(fr)
+        return aggregate

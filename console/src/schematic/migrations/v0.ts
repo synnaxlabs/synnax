@@ -27,7 +27,7 @@ export const nodePropsZ = z.object({}).and(
   z
     .object({
       key: Schematic.typeZ,
-      color: Color.crudeZ,
+      color: Color.crudeZ.optional(),
     })
     .passthrough(),
 );

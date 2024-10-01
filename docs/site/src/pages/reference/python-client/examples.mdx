@@ -2,24 +2,30 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Python Examples"
 description: "View examples for using the Synnax Python client."
+next: "Troubleshooting"
+nextURL: "/reference/python-client/troubleshooting"
+prev: "Series and Frames"
+prevURL: "/reference/python-client/series-and-frames"
 ---
-import { Divider } from "@synnaxlabs/pluto"
 
-One of the best ways to learn how to use the Synnax Python client is to look
-over and run examples. This page contains a list of links to examples that
-demonstrate how to perform various tasks.
+import { Divider } from "@synnaxlabs/pluto";
+
+One of the best ways to learn how to use the Synnax Python client is to look over and
+run examples. This page contains a list of links to examples that demonstrate how to
+perform various tasks.
 
 <Divider.Divider direction="x" />
 
 ## Examples
 
-| Name | Description |
-|------|-------------|
-| [Basic Read and Write](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/basic_read_write.py) | Demonstrates a basic read and write of channel data. |
-| [Stream Write](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/stream_write.py) | Shows how to stream simulated sensor data to a set of channels. |
-| [Live Stream](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/live_stream.py) | Shows how to live stream sensor data from a set of channels. Use this in conjunction with the `stream_write.py` example. |
-| [Async Live Stream](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/live_stream_async.py) | Shows how to live stream sensor data from a set of channels in an asynchronous fashion. Use this in conjunction with the `stream_write.py` example. |
-| [Create Range](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/create_range.py) | Creates a range and reads data from it. |
-| [Load](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/load.py) | Creates a simulated data acquisition computer that writes a large amount of data to a set of channels. |
-| [Create Many Channels](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/create_many_channels.py) | Shows how to create large numbers of channels in a cluster. |
-| [Control](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control) | Sets up a simulated data acquistion computer and then controls a simulated system with a control sequence. |
+| Name                                                                                                              | Description                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Basic Read and Write](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/basic_read_write.py)     | Demonstrates a basic read and write of channel data.                                                                                                |
+| [Stream Write](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/stream_write.py)                 | Shows how to stream simulated sensor data to a set of channels.                                                                                     |
+| [Live Stream](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/live_stream.py)                   | Shows how to live stream sensor data from a set of channels. Use this in conjunction with the `stream_write.py` example.                            |
+| [Async Live Stream](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/live_stream_async.py)       | Shows how to live stream sensor data from a set of channels in an asynchronous fashion. Use this in conjunction with the `stream_write.py` example. |
+| [Calculated Channels](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/calculated_channels.py)   | Shows how to create and write to channels that are calculated from other channels.                                                                  |
+| [Create Range](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/create_range.py)                 | Creates a range and reads data from it.                                                                                                             |
+| [Load](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/load.py)                                 | Creates a simulated data acquisition computer that writes a large amount of data to a set of channels.                                              |
+| [Create Many Channels](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/create_many_channels.py) | Shows how to create large numbers of channels in a cluster.                                                                                         |
+| [Control](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control)                              | Sets up a simulated data acquistion computer and then controls a simulated system with a control sequence.                                          |

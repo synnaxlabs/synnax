@@ -63,5 +63,10 @@ export const typescriptClientNav: PageNavNode = {
       href: "/reference/typescript-client/examples",
       name: "Examples",
     },
+    {
+      key: "/reference/typescript-client/troubleshooting",
+      href: "/reference/typescript-client/troubleshooting",
+      name: "Troubleshooting",
+    },
   ],
 };

@@ -73,7 +73,11 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   } as const as UseSelectProps<K, E>);
 
   return (
-    <Align.Pack className={CSS(CSS.B("select-button"), className)} {...props}>
+    <Align.Pack
+      borderShade={4}
+      className={CSS(CSS.B("select-button"), className)}
+      {...props}
+    >
       {data.map((e) => {
         return children({
           key: e.key,
@@ -111,13 +115,17 @@ export interface DropdownButtonButtonProps<K extends Key, E extends Keyed<K>>
 }
 
 export interface DropdownButtonProps<K extends Key, E extends Keyed<K>>
-  extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "close">,
+  extends Omit<
+      Dropdown.DialogProps,
+      "onChange" | "visible" | "children" | "close" | "variant"
+    >,
     Input.Control<K>,
     Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<CoreButton.ButtonProps, "disabled"> {
+    Pick<CoreButton.ButtonProps, "disabled" | "variant"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   children?: RenderProp<DropdownButtonButtonProps<K, E>>;
   entryRenderKey?: keyof E;
+  dropdownVariant?: Dropdown.Variant;
   allowNone?: boolean;
   hideColumnHeader?: boolean;
   disabled?: boolean;
@@ -158,6 +166,8 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
   onChange,
   disabled,
   hideColumnHeader = true,
+  variant,
+  dropdownVariant,
   ...props
 }: DropdownButtonProps<K, E>): ReactElement => {
   const { close, visible, toggle } = Dropdown.use();
@@ -183,6 +193,14 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
     [onChange, value, close, setSelected],
   );
 
+  const childrenProps: DropdownButtonButtonProps<K, E> = {
+    selected,
+    renderKey: entryRenderKey,
+    toggle,
+    visible,
+  };
+  if (variant != null) childrenProps.variant = variant;
+
   return (
     <Core<K, E>
       close={close}
@@ -194,17 +212,8 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
       allowNone={allowNone}
       columns={columns}
       hideColumnHeader={hideColumnHeader}
-      trigger={
-        <>
-          {children({
-            selected,
-            renderKey: entryRenderKey,
-            toggle,
-            visible,
-            disabled,
-          })}
-        </>
-      }
+      variant={dropdownVariant}
+      trigger={<>{children(childrenProps)}</>}
       {...props}
     />
   );

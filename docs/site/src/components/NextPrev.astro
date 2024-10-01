@@ -1,0 +1,72 @@
+---
+import { Icon } from "@synnaxlabs/media";
+import { Align, Button, Divider, Text } from "@synnaxlabs/pluto";
+const { next, prev, nextURL, prevURL } = Astro.props;
+---
+
+<Align.Space className="next-prev" empty>
+    {(next != null || prev != null) && <Divider.Divider direction="x" />}
+    <Align.Space direction="x" justify="spaceBetween">
+        <Align.Space direction="x" el="a" className="link" href={prevURL}>
+            {
+                prev != null && (
+                    <>
+                        <Icon.Caret.Left />
+                        <Align.Space direction="y" size="small">
+                            <Text.Text level="small" shade={7} weight={400}>
+                                Previous
+                            </Text.Text>
+                            <Text.Text level="p">{prev}</Text.Text>
+                        </Align.Space>
+                    </>
+                )
+            }
+        </Align.Space>
+        <Align.Space direction="x" el="a" className="link" href={nextURL}>
+            {
+                next != null && (
+                    <>
+                        <Align.Space direction="y" size="small">
+                            <Text.Text level="small" shade={7} weight={400}>
+                                Next
+                            </Text.Text>
+                            <Text.Text level="p">{next}</Text.Text>
+                        </Align.Space>
+                        <Icon.Caret.Right />
+                    </>
+                )
+            }
+        </Align.Space>
+    </Align.Space>
+</Align.Space>
+
+<style is:global>
+    .next-prev {
+        margin: 8rem 0;
+
+        .link {
+            cursor: pointer;
+            &:hover {
+                text-decoration: none !important;
+                .pluto-text {
+                    color: var(--pluto-gray-l10);
+                }
+                .synnax-icon {
+                    color: var(--pluto-gray-l10);
+                    transform: scale(1.2) !important;
+                }
+            }
+        }
+
+        .pluto-text {
+            color: var(--pluto-gray-l7);
+            font-weight: 400;
+        }
+        .synnax-icon {
+            transition: all 0.2s ease;
+            color: var(--pluto-gray-l7);
+            width: 3rem;
+            height: 3rem;
+        }
+    }
+</style>

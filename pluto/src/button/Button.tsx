@@ -24,7 +24,13 @@ import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
 
 /** The variant of button */
-export type Variant = "filled" | "outlined" | "text" | "suggestion";
+export type Variant =
+  | "filled"
+  | "outlined"
+  | "text"
+  | "suggestion"
+  | "preview"
+  | "shadow";
 
 export interface ButtonExtensionProps {
   variant?: Variant;
@@ -33,11 +39,12 @@ export interface ButtonExtensionProps {
   loading?: boolean;
   triggers?: Triggers.Trigger[];
   status?: status.Variant;
+  color?: Color.Crude;
 }
 
 /** The base props accepted by all button types in this directory. */
 export interface BaseProps
-  extends ComponentPropsWithoutRef<"button">,
+  extends Omit<ComponentPropsWithoutRef<"button">, "color">,
     ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */
@@ -71,7 +78,7 @@ export type ButtonProps = Omit<
  */
 export const Button = Tooltip.wrap(
   ({
-    size = "medium",
+    size,
     variant = "filled",
     type = "button",
     className,
@@ -87,13 +94,17 @@ export const Button = Tooltip.wrap(
     onClick,
     color,
     status,
+    style,
     ...props
   }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+    // We implement the shadow variant to maintain compatibility with the input
+    // component API.
+    if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
-      if (disabled) return;
+      if (disabled || variant === "preview") return;
       const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
       if (span.isZero) return onClick?.(e);
     };
@@ -102,14 +113,31 @@ export const Button = Tooltip.wrap(
       triggers,
       callback: useCallback<(e: Triggers.UseEvent) => void>(
         ({ stage }) => {
-          if (stage === "end")
-            handleClick(
-              new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
-            );
+          if (stage !== "end" || disabled || variant === "preview") return;
+          handleClick(
+            new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
+          );
         },
-        [handleClick],
+        [handleClick, disabled],
       ),
     });
+
+    const pStyle = { ...style };
+    const res = Color.Color.z.safeParse(color);
+    const hasCustomColor = res.success && variant === "filled";
+    if (hasCustomColor) {
+      // @ts-expect-error - css variable
+      pStyle[CSS.var("btn-color")] = res.data.rgbString;
+      // @ts-expect-error - css variable
+      pStyle[CSS.var("btn-text-color")] = res.data.pickByContrast(
+        "#000000",
+        "#ffffff",
+      ).rgbCSS;
+    }
+
+    if (size == null && level != null) size = Text.LevelComponentSizes[level];
+    else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
+    else if (size == null) size = "medium";
 
     return (
       <Text.WithIcon<"button", any>
@@ -118,9 +146,10 @@ export const Button = Tooltip.wrap(
           CSS.B("btn"),
           CSS.size(size),
           CSS.sharp(sharp),
-          CSS.disabled(disabled),
+          variant !== "preview" && CSS.disabled(disabled),
           status != null && CSS.M(status),
           CSS.BM("btn", variant),
+          hasCustomColor && CSS.BM("btn", "custom-color"),
           className,
         )}
         type={type}
@@ -128,7 +157,7 @@ export const Button = Tooltip.wrap(
         size={iconSpacing}
         onClick={handleClick}
         noWrap
-        color={Color.cssString(color)}
+        style={pStyle}
         startIcon={startIcon}
         {...props}
       >

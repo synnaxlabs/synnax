@@ -25,8 +25,8 @@ export class Retriever {
     this.client = client;
   }
 
-  async retrieve(params: Params): Promise<LinePlot[]> {
-    const normalized = toArray(params);
+  async retrieve(linePlots: Params): Promise<LinePlot[]> {
+    const normalized = toArray(linePlots);
     return (
       await sendRequired(this.client, this.ENDPOINT, { keys: normalized }, reqZ, resZ)
     ).linePlots;

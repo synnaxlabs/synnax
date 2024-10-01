@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 import synnax as sy
 from synnax.control.controller import Controller
 
@@ -56,10 +55,10 @@ try:
         write=[TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD],
         read=[TPC_CMD_ACK, PRESS_TANK_PT, FUEL_TANK_PT],
         write_authorities=[250],
-    ) as auto:
+    ) as ctrl:
         try:
             print("Starting TPC Test. Setting initial system state.")
-            auto.set(
+            ctrl.set(
                 {
                     TPC_CMD: 0,
                     MPV_CMD: 0,
@@ -68,28 +67,28 @@ try:
                 }
             )
 
-            time.sleep(2)
+            ctrl.sleep(2)
 
             print(f"Pressing SCUBA and L-Stand to 50 PSI")
 
             # Pressurize l-stand and scuba to 50 PSI
             # Open TPC Valve
-            auto[TPC_CMD] = True
+            ctrl[TPC_CMD] = True
 
             dual_press_start = sy.TimeStamp.now()
 
             curr_target = PRESS_1_STEP
             while True:
                 print(f"Pressing L-Stand to {curr_target} PSI")
-                auto[PRESS_ISO_CMD] = True
-                auto.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
-                auto[PRESS_ISO_CMD] = False
+                ctrl[PRESS_ISO_CMD] = True
+                ctrl.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
+                ctrl[PRESS_ISO_CMD] = False
                 curr_target += PRESS_1_STEP
                 curr_target = min(curr_target, L_STAND_PRESS_TARGET)
-                if auto[FUEL_TANK_PT] > L_STAND_PRESS_TARGET:
+                if ctrl[FUEL_TANK_PT] > L_STAND_PRESS_TARGET:
                     break
                 print("Taking a nap")
-                time.sleep(PRESS_STEP_DELAY)
+                ctrl.sleep(PRESS_STEP_DELAY)
 
             dual_press_end = sy.TimeStamp.now()
             client.ranges.create(
@@ -102,24 +101,24 @@ try:
             press_tank_start = sy.TimeStamp.now()
 
             print("Pressurized. Waiting for five seconds")
-            time.sleep(PRESS_STEP_DELAY)
+            ctrl.sleep(PRESS_STEP_DELAY)
             # ISO off TESCOM and press scuba with ISO
-            auto[TPC_CMD] = False
+            ctrl[TPC_CMD] = False
 
             curr_target = L_STAND_PRESS_TARGET + PRESS_2_STEP
             while True:
-                auto[PRESS_ISO_CMD] = True
-                auto.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
-                auto[PRESS_ISO_CMD] = False
+                ctrl[PRESS_ISO_CMD] = True
+                ctrl.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
+                ctrl[PRESS_ISO_CMD] = False
                 curr_target += PRESS_2_STEP
                 curr_target = min(curr_target, SCUBA_PRESS_TARGET)
-                if auto[PRESS_TANK_PT] > SCUBA_PRESS_TARGET:
+                if ctrl[PRESS_TANK_PT] > SCUBA_PRESS_TARGET:
                     break
                 print("Taking a nap")
-                time.sleep(PRESS_STEP_DELAY)
+                ctrl.sleep(PRESS_STEP_DELAY)
 
             print("Pressurized. Waiting for five seconds")
-            time.sleep(2)
+            ctrl.sleep(2)
 
             press_tank_end = sy.TimeStamp.now()
             client.ranges.create(
@@ -132,8 +131,8 @@ try:
             start = sy.TimeStamp.now()
 
             print("Opening MPV")
-            auto[MPV_CMD] = 1
-            auto.wait_until(lambda c: run_tpc(c))
+            ctrl[MPV_CMD] = 1
+            ctrl.wait_until(lambda c: run_tpc(c))
             print("Test complete. Safeing System")
 
             rng = client.ranges.create(
@@ -142,7 +141,7 @@ try:
                 color="#bada55",
             )
 
-            auto.set(
+            ctrl.set(
                 {
                     TPC_CMD: 1,
                     PRESS_ISO_CMD: 0,
@@ -153,7 +152,7 @@ try:
             )
         except KeyboardInterrupt:
             print("Test interrupted. Safeing System")
-            auto.set(
+            ctrl.set(
                 {
                     TPC_CMD: 1,
                     PRESS_ISO_CMD: 0,
@@ -162,4 +161,4 @@ try:
                 }
             )
 finally:
-    time.sleep(100)
+    ctrl.sleep(100)
