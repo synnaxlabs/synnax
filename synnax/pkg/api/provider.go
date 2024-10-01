@@ -10,7 +10,7 @@
 package api
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -54,7 +54,7 @@ type userProvider struct {
 
 // AccessProvider provides access control information and utilities to services.
 type accessProvider struct {
-	access access.Enforcer
+	access *rbac.Service
 }
 
 // authProvider provides authentication and token utilities to services. In most cases

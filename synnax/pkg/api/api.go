@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package api implements the client interfaces for interacting with the delta cluster.
-// The top level package is completely transport agnostic, and provides freighter compatible
-// interfaces for all of its services. sub-packages in this directory wrap the core API
-// services to provide transport specific implementations.
+// Package api implements the client interfaces for interacting with the Synnax cluster.
+// The top level package is completely transport agnostic, and provides freighter
+// compatible interfaces for all of its services. sub-packages in this directory wrap
+// the core API services to provide transport specific implementations.
 package api
 
 import (
+	"go/types"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -38,11 +40,10 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go/types"
 )
 
-// Config is all required configuration parameters and services necessary to
-// instantiate the API.
+// Config is all required configuration parameters and services necessary to instantiate
+// the API.
 type Config struct {
 	alamos.Instrumentation
 	RBAC          *rbac.Service
@@ -120,14 +121,14 @@ func (c Config) Override(other Config) Config {
 
 type Transport struct {
 	// AUTH
-	AuthLogin freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
-	// User
-	UserChangeUsernameOld freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	UserChangePasswordOld freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	UserRegistrationOld   freighter.UnaryServer[RegistrationRequest, TokenResponse]
-	UserChangeUsername    freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	UserChangePassword    freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	UserRegistration      freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	AuthLogin          freighter.UnaryServer[AuthLoginRequest, AuthLoginResponse]
+	AuthChangePassword freighter.UnaryServer[AuthChangePasswordRequest, types.Nil]
+	// USER
+	UserRename         freighter.UnaryServer[UserRenameRequest, types.Nil]
+	UserChangeUsername freighter.UnaryServer[UserChangeUsernameRequest, types.Nil]
+	UserCreate         freighter.UnaryServer[UserCreateRequest, UserCreateResponse]
+	UserDelete         freighter.UnaryServer[UserDeleteRequest, types.Nil]
+	UserRetrieve       freighter.UnaryServer[UserRetrieveRequest, UserRetrieveResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
@@ -204,8 +205,8 @@ type Transport struct {
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
-// API wraps all implemented API services into a single container. Protocol-specific
-// API implementations should use this struct during instantiation.
+// API wraps all implemented API services into a single container. Protocol-specific API
+// implementations should use this struct during instantiation.
 type API struct {
 	provider     Provider
 	config       Config
@@ -244,10 +245,15 @@ func (a *API) BindTo(t Transport) {
 	freighter.UseOnAll(
 		secureMiddleware,
 
+		// AUTH
+		t.AuthChangePassword,
+
 		// USER
+		t.UserRename,
 		t.UserChangeUsername,
-		t.UserChangePassword,
-		t.UserRegistration,
+		t.UserCreate,
+		t.UserDelete,
+		t.UserRetrieve,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -293,7 +299,7 @@ func (a *API) BindTo(t Transport) {
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
 
-		// Schematic
+		// SCHEMATIC
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
@@ -336,14 +342,14 @@ func (a *API) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(a.Auth.Login)
+	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
 
 	// USER
-	t.UserRegistrationOld.BindHandler(a.User.Register)
-	t.UserChangeUsernameOld.BindHandler(a.User.ChangeUsername)
-	t.UserChangePasswordOld.BindHandler(a.User.ChangePassword)
-	t.UserRegistration.BindHandler(a.User.Register)
+	t.UserRename.BindHandler(a.User.Rename)
 	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
-	t.UserChangePassword.BindHandler(a.User.ChangePassword)
+	t.UserCreate.BindHandler(a.User.Create)
+	t.UserDelete.BindHandler(a.User.Delete)
+	t.UserRetrieve.BindHandler(a.User.Retrieve)
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(a.Channel.Create)
@@ -390,7 +396,7 @@ func (a *API) BindTo(t Transport) {
 	t.WorkspaceRename.BindHandler(a.Workspace.Rename)
 	t.WorkspaceSetLayout.BindHandler(a.Workspace.SetLayout)
 
-	// Schematic
+	// SCHEMATIC
 	t.SchematicCreate.BindHandler(a.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(a.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(a.Schematic.Delete)
@@ -430,8 +436,8 @@ func (a *API) BindTo(t Transport) {
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 }
 
-// New instantiates the delta API using the provided Config. This should probably
-// only be called once.
+// New instantiates the server API using the provided Config. This should only be called
+// once.
 func New(configs ...Config) (API, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {

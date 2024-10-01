@@ -12,6 +12,8 @@ package ranger
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"strings"
 )
 
 const aliasKeySeparator = "---"
@@ -67,6 +68,14 @@ const aliasOntologyType ontology.Type = "range-alias"
 
 func AliasOntologyID(r uuid.UUID, c channel.Key) ontology.ID {
 	return ontology.ID{Type: aliasOntologyType, Key: aliasKey(r, c)}
+}
+
+func AliasOntologyIDs(r uuid.UUID, chs []channel.Key) []ontology.ID {
+	ids := make([]ontology.ID, 0, len(chs))
+	for _, ch := range chs {
+		ids = append(ids, AliasOntologyID(r, ch))
+	}
+	return ids
 }
 
 var _aliasSchema = &ontology.Schema{

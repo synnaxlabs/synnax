@@ -51,7 +51,8 @@ import { type Ontology } from "@/ontology";
 import { type Service } from "@/ontology/service";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
-import { RootState, type RootStore } from "@/store";
+import { type Permissions } from "@/permissions";
+import { type RootState, type RootStore } from "@/store";
 
 export interface PaletteProps {
   commands: Command[];
@@ -113,6 +114,12 @@ export const Palette = ({
   const dropdown = Dropdown.use();
 
   const [value, setValue] = useState("");
+  const store = useStore<RootState>();
+
+  const newCommands = commands.filter((c) => {
+    if (c.visible == null) return true;
+    return c.visible(store.getState());
+  });
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
@@ -132,8 +139,7 @@ export const Palette = ({
   Triggers.use({ triggers, callback: handleTrigger });
 
   const placer = Layout.usePlacer();
-  const d = useDispatch();
-  const store = useStore<RootState>();
+  const dispatch = useDispatch();
 
   const handleDrop = useCallback(
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
@@ -147,7 +153,7 @@ export const Palette = ({
           position: cursor ? xy.translate(cursor, { x: -80, y: -45 }) : undefined,
         }),
       );
-      d(
+      dispatch(
         Layout.moveMosaicTab({
           windowKey: key,
           key: 1,
@@ -203,7 +209,7 @@ export const Palette = ({
           <PaletteDialogContent
             value={value}
             onChange={setValue}
-            commands={commands}
+            commands={newCommands}
             services={services}
             commandSymbol={commandSymbol}
             resourceTypes={services}
@@ -465,6 +471,7 @@ export interface Command {
   key: string;
   name: ReactElement | string;
   icon?: ReactElement;
+  visible?: (state: Permissions.StoreState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   actions?: CommandActionProps[];
 }

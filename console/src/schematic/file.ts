@@ -18,9 +18,9 @@ import { useDispatch, useStore } from "react-redux";
 import { Confirm } from "@/confirm";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/Schematic";
-import { select } from "@/schematic/selectors";
+import { select, selectHasPermission } from "@/schematic/selectors";
 import { parser, remove, type State, type StateWithName } from "@/schematic/slice";
-import { RootState } from "@/store";
+import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const fileHandler: Layout.FileHandler = async ({
@@ -36,6 +36,11 @@ export const fileHandler: Layout.FileHandler = async ({
 }): Promise<boolean> => {
   const state = parser(file);
   if (state == null) return false;
+  const canCreate = selectHasPermission(store.getState());
+  if (!canCreate)
+    throw new Error(
+      "You do not have permission to create a schematic. Please contact an admin to change your permissions.",
+    );
   const key = state.key;
   let name = file?.name;
   if (typeof name !== "string" || name.length === 0)

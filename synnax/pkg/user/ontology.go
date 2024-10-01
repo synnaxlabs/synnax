@@ -11,6 +11,7 @@ package user
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -22,19 +23,50 @@ import (
 
 const ontologyType ontology.Type = "user"
 
+// OntologyID returns a unique identifier for a User for use within a resource ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: key.String()}
 }
 
-func FromOntologyID(id ontology.ID) (uuid.UUID, error) {
+// OntologyIDsFromKeys returns a slice of unique identifiers from a slice of keys
+func OntologyIDsFromKeys(keys []uuid.UUID) []ontology.ID {
+	ids := make([]ontology.ID, len(keys))
+	for i, key := range keys {
+		ids[i] = OntologyID(key)
+	}
+	return ids
+}
+
+// OntologyIDFromUser returns a unique identifier for a User for use within a resource
+// ontology.
+func OntologyIDFromUser(u *User) ontology.ID {
+	return OntologyID(u.Key)
+}
+
+// OntologyIDsFromUsers returns a slice of unique identifiers for a slice of Users for
+// use within a resource ontology.
+func OntologyIDsFromUsers(users []User) []ontology.ID {
+	ids := make([]ontology.ID, len(users))
+	for i, u := range users {
+		ids[i] = OntologyIDFromUser(&u)
+	}
+	return ids
+}
+
+func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) {
 	return uuid.Parse(id.Key)
 }
+
+var OntologyTypeID = ontology.ID{Type: ontologyType, Key: ""}
 
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":      {Type: schema.String},
-		"username": {Type: schema.String},
+		"key":        {Type: schema.String},
+		"username":   {Type: schema.String},
+		"first_name": {Type: schema.String},
+		"last_name":  {Type: schema.String},
+		"root_user":  {Type: schema.Bool},
 	},
 }
 
@@ -49,7 +81,11 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	if err != nil {
 		return schema.Resource{}, err
 	}
-	u, err := s.Retrieve(ctx, uuidKey)
+	var u User
+	err = s.NewRetrieve().Entry(&u).WhereKeys(uuidKey).Exec(ctx, tx)
+	if err != nil {
+		return schema.Resource{}, err
+	}
 	return newResource(u), err
 }
 
@@ -78,19 +114,18 @@ func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, User](s.DB).OpenNexter()
-	return newNextCloser(n), err
-}
-
-func newNextCloser(i iter.NexterCloser[User]) iter.NexterCloser[schema.Resource] {
 	return iter.NexterCloserTranslator[User, schema.Resource]{
-		Wrap:      i,
+		Wrap:      n,
 		Translate: newResource,
-	}
+	}, err
 }
 
 func newResource(u User) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(u.Key), u.Username)
 	schema.Set(e, "key", u.Key.String())
 	schema.Set(e, "username", u.Username)
+	schema.Set(e, "first_name", u.FirstName)
+	schema.Set(e, "last_name", u.LastName)
+	schema.Set(e, "root_user", u.RootUser)
 	return e
 }

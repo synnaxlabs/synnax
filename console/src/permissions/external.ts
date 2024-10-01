@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { type Layout } from "@/layout";
+import { EditModal, SET_LAYOUT_TYPE } from "@/permissions/EditLayout";
 
-import { type Ontology } from "@/ontology";
+export * from "@/permissions/EditLayout";
+export * from "@/permissions/hooks";
+export * from "@/permissions/selectors";
+export * from "@/permissions/slice";
 
-export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "user",
-  icon: <Icon.User />,
-  hasChildren: true,
-  allowRename: () => false,
-  haulItems: () => [],
-  canDrop: () => false,
-  onSelect: () => {},
+export const LAYOUTS: Record<string, Layout.Renderer> = {
+  [SET_LAYOUT_TYPE]: EditModal,
 };

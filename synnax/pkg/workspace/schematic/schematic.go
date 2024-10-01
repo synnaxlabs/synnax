@@ -24,7 +24,7 @@ type Schematic struct {
 var _ gorp.Entry[uuid.UUID] = Schematic{}
 
 // GorpKey implements gorp.Entry.
-func (p Schematic) GorpKey() uuid.UUID { return p.Key }
+func (s Schematic) GorpKey() uuid.UUID { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (p Schematic) SetOptions() []interface{} { return nil }
+func (s Schematic) SetOptions() []interface{} { return nil }

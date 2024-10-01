@@ -47,16 +47,53 @@ import { UnknownRecord } from "@synnaxlabs/x";
 import { UnknownRecord as UnknownRecord_2 } from "@synnaxlabs/x/record";
 import { z } from "zod";
 
+declare namespace access {
+    export {
+        Client,
+        keyZ_2 as keyZ,
+        Key_3 as Key,
+        Params_3 as Params,
+        actionZ,
+        Action,
+        newPolicyZ,
+        NewPolicy,
+        policyZ,
+        Policy,
+        OntologyType,
+        ontologyID,
+        Retriever_2 as Retriever
+    }
+}
+
+// Warning: (ae-missing-release-tag) "Action" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type Action = z.infer<typeof actionZ>;
+
+// Warning: (ae-missing-release-tag) "actionZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const actionZ: z.ZodUnion<[z.ZodLiteral<"all">, z.ZodLiteral<"create">, z.ZodLiteral<"delete">, z.ZodLiteral<"retrieve">, z.ZodLiteral<"rename">]>;
+
 // Warning: (ae-missing-release-tag) "Alias" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 interface Alias {
+<<<<<<< HEAD
   // (undocumented)
   alias: string;
   // (undocumented)
   channel: channel.Key;
   // (undocumented)
   range: Key_3;
+=======
+    // (undocumented)
+    alias: string;
+    // (undocumented)
+    channel: channel.Key;
+    // (undocumented)
+    range: Key_4;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "AliasChange" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -73,9 +110,13 @@ const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan;
 // Warning: (ae-missing-release-tag) "analyzeChannelParams" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const analyzeChannelParams: (channels: Params_2) => ParamAnalysisResult_2<
   KeyOrName,
   {
+=======
+const analyzeChannelParams: (channels: Params_2) => ParamAnalysisResult_2<KeyOrName, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     number: "keys";
     string: "names";
   }
@@ -84,7 +125,7 @@ const analyzeChannelParams: (channels: Params_2) => ParamAnalysisResult_2<
 // Warning: (ae-missing-release-tag) "analyzeParams" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const analyzeParams_2: (ranges: Params_4) => ParamAnalysisResult_3;
+const analyzeParams_2: (ranges: Params_5) => ParamAnalysisResult_3;
 
 // Warning: (ae-missing-release-tag) "AuthError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -126,6 +167,7 @@ const BuiltinOntologyType: ResourceType;
 //
 // @public (undocumented)
 class CacheRetriever implements Retriever {
+<<<<<<< HEAD
   constructor(wrapped: Retriever);
   // (undocumented)
   delete(channels: Params_2): void;
@@ -139,6 +181,21 @@ class CacheRetriever implements Retriever {
   search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
   // (undocumented)
   set(channels: Payload_2[]): void;
+=======
+    constructor(wrapped: Retriever);
+    // (undocumented)
+    delete(channels: Params_2): void;
+    // (undocumented)
+    page(offset: number, limit: number, options?: PageOptions): Promise<Payload_2[]>;
+    // (undocumented)
+    rename(keys: Key_2[], names: string[]): void;
+    // (undocumented)
+    retrieve(channels: Params_2, options?: RetrieveOptions_2): Promise<Payload_2[]>;
+    // (undocumented)
+    search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
+    // (undocumented)
+    set(channels: Payload_2[]): void;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "ChangeTracker" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -158,6 +215,7 @@ class ChangeTracker {
 //
 // @public
 export class Channel {
+<<<<<<< HEAD
   constructor({
     dataType,
     rate,
@@ -222,6 +280,60 @@ declare namespace channel {
     RenameProps,
     Writer_2 as Writer,
   };
+=======
+    constructor({ dataType, rate, name, leaseholder, key, isIndex, index, internal, virtual, frameClient, alias, }: NewPayload & {
+        frameClient?: framer.Client;
+        density?: CrudeDensity;
+    });
+    readonly alias: string | undefined;
+    readonly dataType: DataType;
+    readonly index: Key_2;
+    readonly internal: boolean;
+    readonly isIndex: boolean;
+    readonly key: Key_2;
+    readonly leaseholder: number;
+    readonly name: string;
+    // (undocumented)
+    get ontologyID(): ontology.ID;
+    get payload(): Payload_2;
+    readonly rate: Rate;
+    read(tr: TimeRange): Promise<MultiSeries>;
+    readonly virtual: boolean;
+    write(start: CrudeTimeStamp, data: TypedArray): Promise<void>;
+}
+
+declare namespace channel {
+    export {
+        Channel,
+        Client_5 as Client,
+        keyZ_4 as keyZ,
+        Key_2 as Key,
+        Keys_2 as Keys,
+        Name_2 as Name,
+        Names_2 as Names,
+        KeyOrName,
+        KeysOrNames,
+        Params_2 as Params,
+        payload,
+        Payload_2 as Payload,
+        newPayload,
+        NewPayload,
+        ChannelOntologyType,
+        ontologyID_2 as ontologyID,
+        RetrieveOptions_2 as RetrieveOptions,
+        PageOptions,
+        analyzeChannelParams,
+        Retriever,
+        ClusterRetriever,
+        CacheRetriever,
+        PromiseFns,
+        DebouncedBatchRetriever,
+        retrieveRequired,
+        DeleteProps,
+        RenameProps,
+        Writer_2 as Writer
+    }
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "ChannelOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -283,6 +395,7 @@ class Checker {
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
+<<<<<<< HEAD
 // @public
 class Client implements AsyncTermSearcher<string, string, Resource> {
   constructor(unary: UnaryClient, framer: framer.Client);
@@ -346,6 +459,25 @@ class Client implements AsyncTermSearcher<string, string, Resource> {
   search(term: string, options?: RetrieveOptions): Promise<Resource[]>;
   // (undocumented)
   readonly type: string;
+=======
+// @public (undocumented)
+class Client {
+    constructor(client: UnaryClient);
+    // (undocumented)
+    create(policy: NewPolicy): Promise<Policy>;
+    // (undocumented)
+    create(policies: NewPolicy[]): Promise<Policy[]>;
+    // (undocumented)
+    delete(keys: Key_3 | Key_3[]): Promise<void>;
+    // (undocumented)
+    retrieve(key: Key_3): Promise<Policy>;
+    // (undocumented)
+    retrieve(keys: Key_3[]): Promise<Policy[]>;
+    // (undocumented)
+    retrieveFor(id: ontology.CrudeID): Promise<Policy[]>;
+    // (undocumented)
+    retrieveFor(ids: ontology.CrudeID[]): Promise<Policy[]>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -401,6 +533,7 @@ class Client_13 {
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_5> {
   constructor(
     client: UnaryClient,
@@ -458,6 +591,38 @@ class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_5> {
   search(term: string): Promise<Payload_5[]>;
   // (undocumented)
   readonly type: string;
+=======
+class Client_14 implements AsyncTermSearcher<string, TaskKey, Payload_4> {
+    constructor(client: UnaryClient, frameClient: framer.Client, ontologyClient: ontology.Client, rangeClient: ranger.Client);
+    // (undocumented)
+    copy(key: string, name: string, snapshot: boolean): Promise<Task>;
+    // (undocumented)
+    create<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string>(task: NewTask<C, T>): Promise<Task<C, D, T>>;
+    // (undocumented)
+    create<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string>(tasks: NewTask<C, T>[]): Promise<Task<C, D, T>[]>;
+    // (undocumented)
+    delete(keys: bigint | bigint[]): Promise<void>;
+    // (undocumented)
+    list(options?: RetrieveOptions_3): Promise<Task[]>;
+    // (undocumented)
+    openStateObserver<D extends UnknownRecord_2 = UnknownRecord_2>(): Promise<StateObservable<D>>;
+    // (undocumented)
+    openTracker(): Promise<signals.Observable<string, string>>;
+    // (undocumented)
+    page(offset: number, limit: number): Promise<Payload_4[]>;
+    // (undocumented)
+    retrieve<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string>(rack: number, options?: RetrieveOptions_3): Promise<Task<C, D, T>[]>;
+    // (undocumented)
+    retrieve<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string>(keys: string[], options?: RetrieveOptions_3): Promise<Task<C, D, T>[]>;
+    // (undocumented)
+    retrieve<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string>(key: string, options?: RetrieveOptions_3): Promise<Task<C, D, T>>;
+    // (undocumented)
+    retrieveByName(name: string, rack?: number): Promise<Task>;
+    // (undocumented)
+    search(term: string): Promise<Payload_4[]>;
+    // (undocumented)
+    readonly type: string;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -531,6 +696,7 @@ class Client_17 {
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
+<<<<<<< HEAD
 // @public (undocumented)
 class Client_3 {
   constructor(stream: StreamClient, unary: UnaryClient, retriever: Retriever);
@@ -612,11 +778,82 @@ class Client_3 {
   ): Promise<void>;
   // (undocumented)
   write(start: CrudeTimeStamp_2, data: Record<KeyOrName, CrudeSeries_2>): Promise<void>;
+=======
+// @public
+class Client_2 implements AsyncTermSearcher<string, string, Resource> {
+    constructor(unary: UnaryClient, framer: framer.Client);
+    addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void>;
+    // (undocumented)
+    groups: group.Client;
+    moveChildren(from: CrudeID, to: CrudeID, ...children: CrudeID[]): Promise<void>;
+    // (undocumented)
+    newSearcherWithOptions(options: RetrieveOptions): AsyncTermSearcher<string, string, Resource>;
+    openChangeTracker(): Promise<ChangeTracker>;
+    // Warning: (ae-forgotten-export) The symbol "DependentTrackerProps" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    openDependentTracker(props: DependentTrackerProps): Promise<observe.ObservableAsyncCloseable<Resource[]>>;
+    page(offset: number, limit: number, options?: RetrieveOptions): Promise<Resource[]>;
+    removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    retrieve(id: CrudeID, options?: RetrieveOptions): Promise<Resource>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    retrieve(ids: CrudeID[], options?: RetrieveOptions): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    retrieveChildren(ids: CrudeID | CrudeID[], options?: RetrieveOptions): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    retrieveParents(ids: CrudeID | CrudeID[], options?: RetrieveOptions): Promise<Resource[]>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    search(term: string, options?: RetrieveOptions): Promise<Resource[]>;
+    // (undocumented)
+    readonly type: string;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
+}
+
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+class Client_4 {
+    constructor(stream: StreamClient, unary: UnaryClient, retriever: Retriever);
+    // (undocumented)
+    delete(channels: Params_2, timeRange: TimeRange_2): Promise<void>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "IteratorConfig"
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Iterator"
+    openIterator(tr: CrudeTimeRange, channels: Params_2, opts?: IteratorConfig): Promise<Iterator_2>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Streamer"
+    openStreamer(channels: Params_2): Promise<Streamer>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    openStreamer(config: StreamerConfig | Params_2): Promise<Streamer>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "Writer"
+    openWriter(config: WriterConfig | Params_2): Promise<Writer>;
+    // (undocumented)
+    read(tr: CrudeTimeRange, channel: KeyOrName): Promise<MultiSeries_2>;
+    // (undocumented)
+    read(tr: CrudeTimeRange, channels: Params_2): Promise<Frame>;
+    // (undocumented)
+    write(start: CrudeTimeStamp_2, channel: KeyOrName, data: CrudeSeries_2): Promise<void>;
+    // (undocumented)
+    write(start: CrudeTimeStamp_2, channels: KeysOrNames, data: CrudeSeries_2[]): Promise<void>;
+    // (undocumented)
+    write(start: CrudeTimeStamp_2, data: Record<KeyOrName, CrudeSeries_2>): Promise<void>;
 }
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public
+<<<<<<< HEAD
 class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
   constructor(
     frameClient: framer.Client,
@@ -670,11 +907,56 @@ class Client_4 implements AsyncTermSearcher<string, Key, Channel> {
   readonly type = "channel";
   // (undocumented)
   readonly writer: Writer_2;
+=======
+class Client_5 implements AsyncTermSearcher<string, Key_2, Channel> {
+    constructor(frameClient: framer.Client, retriever: Retriever, client: UnaryClient, writer: Writer_2);
+    // Warning: (tsdoc-tag-should-not-have-braces) The TSDoc tag "@see" is not an inline tag; it must not be enclosed in "{ }" braces
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    // Warning: (ae-forgotten-export) The symbol "CreateOptions" needs to be exported by the entry point index.d.ts
+    create(channel: NewPayload, options?: CreateOptions): Promise<Channel>;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    create(channels: NewPayload[], options?: CreateOptions): Promise<Channel[]>;
+    // (undocumented)
+    createDebouncedBatchRetriever(deb?: number): Retriever;
+    delete(channels: Params_2): Promise<void>;
+    // (undocumented)
+    newSearcherWithOptions(options: RetrieveOptions_2): AsyncTermSearcher<string, Key_2, Channel>;
+    // (undocumented)
+    page(offset: number, limit: number, options?: Omit<RetrieveOptions_2, "limit" | "offset">): Promise<Channel[]>;
+    // (undocumented)
+    rename(key: Key_2, name: string): Promise<void>;
+    // (undocumented)
+    rename(keys: Key_2[], names: string[]): Promise<void>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    // Warning: (tsdoc-escape-right-brace) The "}" character should be escaped using a backslash to avoid confusion with a TSDoc inline tag
+    // Warning: (tsdoc-malformed-inline-tag) Expecting a TSDoc tag starting with "{@"
+    retrieve(channel: KeyOrName, options?: RetrieveOptions_2): Promise<Channel>;
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    retrieve(channels: Params_2, options?: RetrieveOptions_2): Promise<Channel[]>;
+    // Warning: (ae-forgotten-export) The symbol "group" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    retrieveGroup(): Promise<group.Group>;
+    // (undocumented)
+    readonly retriever: Retriever;
+    // (undocumented)
+    search(term: string, options?: RetrieveOptions_2): Promise<Channel[]>;
+    // (undocumented)
+    readonly type = "channel";
+    // (undocumented)
+    readonly writer: Writer_2;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 class Client_5 implements AsyncTermSearcher<string, Key_4, Label> {
   constructor(
     client: UnaryClient,
@@ -711,11 +993,44 @@ class Client_5 implements AsyncTermSearcher<string, Key_4, Label> {
   ): Promise<observe.ObservableAsyncCloseable<Label[]>>;
   // (undocumented)
   readonly type: string;
+=======
+class Client_6 implements AsyncTermSearcher<string, Key_5, Label> {
+    constructor(client: UnaryClient, frameClient: framer.Client, ontology: ontology.Client);
+    // (undocumented)
+    create(label: NewLabelPayload): Promise<Label>;
+    // (undocumented)
+    create(labels: NewLabelPayload[]): Promise<Label[]>;
+    // (undocumented)
+    delete(key: Key_5): Promise<void>;
+    // (undocumented)
+    delete(keys: Key_5[]): Promise<void>;
+    // (undocumented)
+    label(id: ontology.CrudeID, labels: Key_5[], opts?: SetOptions): Promise<void>;
+    // (undocumented)
+    openChangeTracker(): Promise<signals.Observable<string, Label>>;
+    // (undocumented)
+    page(offset: number, limit: number): Promise<Label[]>;
+    // (undocumented)
+    removeLabels(id: ontology.CrudeID, labels: Key_5[]): Promise<void>;
+    // (undocumented)
+    retrieve(key: Key_5): Promise<Label>;
+    // (undocumented)
+    retrieve(keys: Key_5[]): Promise<Label[]>;
+    // (undocumented)
+    retrieveFor(id: ontology.CrudeID): Promise<Label[]>;
+    // (undocumented)
+    search(term: string): Promise<Label[]>;
+    // (undocumented)
+    trackLabelsOf(id: ontology.CrudeID): Promise<observe.ObservableAsyncCloseable<Label[]>>;
+    // (undocumented)
+    readonly type: string;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 class Client_6 implements AsyncTermSearcher<string, Key_3, Range_2> {
   constructor(
     frameClient: framer.Client,
@@ -759,6 +1074,71 @@ class Client_6 implements AsyncTermSearcher<string, Key_3, Range_2> {
   sugarOne(payload: Payload_3): Range_2;
   // (undocumented)
   readonly type: string;
+=======
+class Client_7 implements AsyncTermSearcher<string, Key_4, Range_2> {
+    constructor(frameClient: framer.Client, writer: Writer_4, unary: UnaryClient, channels: Retriever, labelClient: label.Client, ontologyClient: ontology.Client);
+    // (undocumented)
+    create(range: NewPayload_2, options?: CreateOptions_2): Promise<Range_2>;
+    // (undocumented)
+    create(ranges: NewPayload_2[], options?: CreateOptions_2): Promise<Range_2[]>;
+    // (undocumented)
+    delete(key: Key_4 | Keys_3): Promise<void>;
+    // (undocumented)
+    getKV(range: Key_4): KV;
+    // (undocumented)
+    openTracker(): Promise<signals.Observable<string, Range_2>>;
+    // (undocumented)
+    page(offset: number, limit: number): Promise<Range_2[]>;
+    // (undocumented)
+    rename(key: Key_4, name: Name_3): Promise<void>;
+    // (undocumented)
+    resourcesToRanges(resources: Resource[]): Range_2[];
+    // (undocumented)
+    resourceToRange(resource: Resource): Range_2;
+    // (undocumented)
+    retrieve(range: CrudeTimeRange): Promise<Range_2[]>;
+    // (undocumented)
+    retrieve(range: Key_4 | Name_3): Promise<Range_2>;
+    // (undocumented)
+    retrieve(range: Keys_3 | Names_3): Promise<Range_2[]>;
+    // (undocumented)
+    retrieveParent(range: Key_4): Promise<Range_2 | null>;
+    // (undocumented)
+    search(term: string): Promise<Range_2[]>;
+    // (undocumented)
+    sugarMany(payloads: Payload_3[]): Range_2[];
+    // (undocumented)
+    sugarOne(payload: Payload_3): Range_2;
+    // (undocumented)
+    readonly type: string;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
+}
+
+// Warning: (ae-missing-release-tag) "Client" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+class Client_9 {
+    constructor(client: UnaryClient);
+    // (undocumented)
+    changeName(key: Key_6, firstName?: string, lastName?: string): Promise<void>;
+    // (undocumented)
+    changeUsername(key: Key_6, newUsername: string): Promise<void>;
+    // (undocumented)
+    create(user: NewUser): Promise<User>;
+    // (undocumented)
+    create(users: NewUser[]): Promise<User[]>;
+    // (undocumented)
+    delete(key: Key_6): Promise<void>;
+    // (undocumented)
+    delete(keys: Key_6[]): Promise<void>;
+    // (undocumented)
+    retrieve(key: Key_6): Promise<User>;
+    // (undocumented)
+    retrieve(keys: Key_6[]): Promise<User[]>;
+    // (undocumented)
+    retrieveByName(username: string): Promise<User>;
+    // (undocumented)
+    retrieveByName(usernames: string[]): Promise<User[]>;
 }
 
 // Warning: (ae-missing-release-tag) "ClusterOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -770,6 +1150,7 @@ const ClusterOntologyType: ResourceType;
 //
 // @public (undocumented)
 class ClusterRetriever implements Retriever {
+<<<<<<< HEAD
   constructor(client: UnaryClient);
   // (undocumented)
   page(offset: number, limit: number, options?: PageOptions): Promise<Payload_2[]>;
@@ -777,6 +1158,15 @@ class ClusterRetriever implements Retriever {
   retrieve(channels: Params_2, options?: RetrieveOptions_2): Promise<Payload_2[]>;
   // (undocumented)
   search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
+=======
+    constructor(client: UnaryClient);
+    // (undocumented)
+    page(offset: number, limit: number, options?: PageOptions): Promise<Payload_2[]>;
+    // (undocumented)
+    retrieve(channels: Params_2, options?: RetrieveOptions_2): Promise<Payload_2[]>;
+    // (undocumented)
+    search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "commandZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -794,18 +1184,28 @@ const commandZ: z.ZodObject<
     type: z.ZodString;
     key: z.ZodString;
     args: z.ZodType<UnknownRecord>;
+<<<<<<< HEAD
   },
   "strip",
   z.ZodTypeAny,
   {
     type: string;
+=======
+}, "strip", z.ZodTypeAny, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     key: string;
+    type: string;
     task: string;
     args: UnknownRecord;
+<<<<<<< HEAD
   },
   {
     type: string;
+=======
+}, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     key: string;
+    type: string;
     task: string | number | bigint;
     args: UnknownRecord;
   }
@@ -862,16 +1262,21 @@ type CrudeFrame =
 // Warning: (ae-missing-release-tag) "CrudeID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 type CrudeID =
   | {
       type: ResourceType;
       key: string;
     }
   | string;
+=======
+type CrudeID = z.input<typeof crudeIDZ>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "crudeIDZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const crudeIDZ: z.ZodUnion<
   [
     z.ZodEffects<
@@ -957,6 +1362,21 @@ const crudeIDZ: z.ZodUnion<
     >,
   ]
 >;
+=======
+const crudeIDZ: z.ZodUnion<[z.ZodEffects<z.ZodString, {
+    type: ResourceType;
+    key: string;
+}, string>, z.ZodObject<{
+    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+    key: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    key: string;
+    type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+}, {
+    key: string;
+    type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+}>]>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 export { CrudeRate };
 
@@ -977,6 +1397,7 @@ export { DataType };
 //
 // @public (undocumented)
 class DebouncedBatchRetriever implements Retriever {
+<<<<<<< HEAD
   constructor(wrapped: Retriever, deb: number);
   // (undocumented)
   page(
@@ -990,6 +1411,17 @@ class DebouncedBatchRetriever implements Retriever {
   run(): Promise<void>;
   // (undocumented)
   search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
+=======
+    constructor(wrapped: Retriever, deb: number);
+    // (undocumented)
+    page(offset: number, limit: number, options?: RetrieveOptions_2): Promise<Payload_2[]>;
+    // (undocumented)
+    retrieve(channels: Params_2): Promise<Payload_2[]>;
+    // (undocumented)
+    run(): Promise<void>;
+    // (undocumented)
+    search(term: string, options?: RetrieveOptions_2): Promise<Payload_2[]>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Decoder" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1118,6 +1550,7 @@ const deviceZ: z.ZodObject<
 //
 // @public
 export class Frame {
+<<<<<<< HEAD
   constructor(columnsOrData?: Params_2 | CrudeFrame, series?: Series | Series[]);
   // (undocumented)
   at(index: number, required: true): Record<KeyOrName, TelemValue>;
@@ -1189,6 +1622,79 @@ export class Frame {
   get uniqueKeys(): Keys_2;
   // (undocumented)
   get uniqueNames(): Names_2;
+=======
+    constructor(columnsOrData?: Params_2 | CrudeFrame, series?: Series | Series[]);
+    // (undocumented)
+    at(index: number, required: true): Record<KeyOrName, TelemValue>;
+    // (undocumented)
+    at(index: number, required?: false): Record<KeyOrName, TelemValue | undefined>;
+    // (undocumented)
+    get byteLength(): Size;
+    // Warning: (ae-forgotten-export) The symbol "ColumnType" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    get colType(): ColumnType;
+    // (undocumented)
+    readonly columns: Keys_2 | Names_2;
+    // (undocumented)
+    concat(frame: Frame): Frame;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
+    // (undocumented)
+    filter(fn: (k: KeyOrName, arr: Series, i: number) => boolean): Frame;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    forEach(fn: (k: KeyOrName, arr: Series, i: number) => void): void;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
+    // (undocumented)
+    get(key: KeyOrName): MultiSeries;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
+    // (undocumented)
+    get(keys: Keys_2 | Names_2): Frame;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
+    // (undocumented)
+    has(channel: KeyOrName): boolean;
+    // (undocumented)
+    get isHorizontal(): boolean;
+    // (undocumented)
+    get isSquare(): boolean;
+    // (undocumented)
+    get isVertical(): boolean;
+    // (undocumented)
+    get isWeaklyAligned(): boolean;
+    // (undocumented)
+    get keys(): Keys_2;
+    // (undocumented)
+    latest(): Record<string, TelemValue | undefined>;
+    // (undocumented)
+    get length(): number;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    //
+    // (undocumented)
+    map(fn: (k: KeyOrName, arr: Series, i: number) => [KeyOrName, Series]): Frame;
+    // (undocumented)
+    get names(): Names_2;
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    // Warning: (tsdoc-param-tag-missing-hyphen) The @param block should be followed by a parameter name and then a hyphen
+    push(key: KeyOrName, ...v: Series[]): void;
+    push(frame: Frame): void;
+    // (undocumented)
+    readonly series: Series[];
+    // (undocumented)
+    timeRange(col?: KeyOrName): TimeRange;
+    // (undocumented)
+    get timeRanges(): TimeRange[];
+    // (undocumented)
+    toPayload(): FramePayload;
+    // (undocumented)
+    get uniqueColumns(): Keys_2 | Names_2;
+    // (undocumented)
+    get uniqueKeys(): Keys_2;
+    // (undocumented)
+    get uniqueNames(): Names_2;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "FramePayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1197,6 +1703,7 @@ export class Frame {
 type FramePayload = z.infer<typeof frameZ>;
 
 declare namespace framer {
+<<<<<<< HEAD
   export {
     FramerOntologyType,
     ontologyID,
@@ -1221,6 +1728,30 @@ declare namespace framer {
     WriterConfig,
     Writer,
   };
+=======
+    export {
+        Client_4 as Client,
+        CrudeFrame,
+        Frame,
+        series,
+        SeriesPayload,
+        frameZ,
+        FramePayload,
+        seriesFromPayload,
+        seriesToPayload,
+        AUTO_SPAN,
+        IteratorConfig,
+        Iterator_2 as Iterator,
+        StreamerConfig,
+        Streamer,
+        ObservableStreamer,
+        WriterMode,
+        CrudeWriterMode,
+        ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
+        WriterConfig,
+        Writer
+    }
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "FramerOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1490,6 +2021,7 @@ declare namespace hardware {
 //
 // @public (undocumented)
 class ID {
+<<<<<<< HEAD
   constructor(args: z.input<typeof crudeIDZ> | ID);
   // (undocumented)
   key: string;
@@ -1617,6 +2149,34 @@ class ID {
         key: string;
       }
   >;
+=======
+    constructor(args: z.input<typeof crudeIDZ> | ID);
+    // (undocumented)
+    key: string;
+    // (undocumented)
+    get payload(): IDPayload;
+    // (undocumented)
+    toString(): string;
+    // (undocumented)
+    type: ResourceType;
+    // (undocumented)
+    static readonly z: z.ZodUnion<[z.ZodType<ID, z.ZodTypeDef, ID>, z.ZodEffects<z.ZodUnion<[z.ZodEffects<z.ZodString, {
+        type: ResourceType;
+        key: string;
+    }, string>, z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>, ID, string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "IDPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1627,6 +2187,7 @@ type IDPayload = z.infer<typeof idZ>;
 // Warning: (ae-missing-release-tag) "idZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const idZ: z.ZodObject<
   {
     type: z.ZodUnion<
@@ -1700,11 +2261,24 @@ const idZ: z.ZodObject<
     key: string;
   }
 >;
+=======
+const idZ: z.ZodObject<{
+    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+    key: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    key: string;
+    type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+}, {
+    key: string;
+    type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+}>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "Iterator" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public
 class Iterator_2 {
+<<<<<<< HEAD
   // (undocumented)
   [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined>;
   close(): Promise<void>;
@@ -1726,6 +2300,23 @@ class Iterator_2 {
   valid(): Promise<boolean>;
   // (undocumented)
   value: Frame;
+=======
+    // (undocumented)
+    [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined>;
+    close(): Promise<void>;
+    next(span?: CrudeTimeSpan): Promise<boolean>;
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@synnaxlabs/client" does not have an export "IteratorConfig"
+    static _open(tr: CrudeTimeRange_2, channels: Params_2, retriever: Retriever, client: StreamClient, opts?: IteratorConfig): Promise<Iterator_2>;
+    prev(span?: CrudeTimeSpan): Promise<boolean>;
+    seekFirst(): Promise<boolean>;
+    seekGE(stamp: CrudeTimeStamp): Promise<boolean>;
+    seekLast(): Promise<boolean>;
+    seekLE(stamp: CrudeTimeStamp): Promise<boolean>;
+    // (undocumented)
+    valid(): Promise<boolean>;
+    // (undocumented)
+    value: Frame;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "IteratorConfig" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -1739,7 +2330,7 @@ interface IteratorConfig {
 // Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Key = number;
+type Key_2 = number;
 
 // Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1749,7 +2340,17 @@ type Key_3 = z.infer<typeof keyZ_2>;
 // Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Key_4 = z.infer<typeof keyZ_4>;
+type Key_4 = z.infer<typeof keyZ_3>;
+
+// Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type Key_5 = z.infer<typeof keyZ_5>;
+
+// Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type Key_6 = z.infer<typeof keyZ_6>;
 
 // Warning: (ae-missing-release-tag) "Key" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1759,7 +2360,11 @@ type Key_7 = z.infer<typeof keyZ_7>;
 // Warning: (ae-missing-release-tag) "KeyOrName" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 type KeyOrName = Key | Name_2;
+=======
+type KeyOrName = Key_2 | Name_2;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "Keys" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1769,7 +2374,7 @@ type Keys_2 = number[];
 // Warning: (ae-missing-release-tag) "Keys" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Keys_3 = Key_3[];
+type Keys_3 = Key_4[];
 
 // Warning: (ae-missing-release-tag) "KeysOrNames" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1784,12 +2389,22 @@ const keyZ_2: z.ZodString;
 // Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const keyZ_3: z.ZodNumber;
+const keyZ_3: z.ZodString;
 
 // Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const keyZ_4: z.ZodString;
+const keyZ_4: z.ZodNumber;
+
+// Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const keyZ_5: z.ZodString;
+
+// Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const keyZ_6: z.ZodString;
 
 // Warning: (ae-missing-release-tag) "keyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -1800,6 +2415,7 @@ const keyZ_7: z.ZodString;
 //
 // @public (undocumented)
 class KV {
+<<<<<<< HEAD
   constructor(rng: Key_3, client: UnaryClient, frameClient: framer.Client);
   // (undocumented)
   delete(key: string | string[]): Promise<void>;
@@ -1815,6 +2431,23 @@ class KV {
   set(key: string, value: string): Promise<void>;
   // (undocumented)
   set(kv: Record<string, string>): Promise<void>;
+=======
+    constructor(rng: Key_4, client: UnaryClient, frameClient: framer.Client);
+    // (undocumented)
+    delete(key: string | string[]): Promise<void>;
+    // (undocumented)
+    get(key: string): Promise<string>;
+    // (undocumented)
+    get(keys: string[]): Promise<Record<string, string>>;
+    // (undocumented)
+    list(): Promise<Record<string, string>>;
+    // (undocumented)
+    openTracker(): Promise<signals.Observable<string, KVPair>>;
+    // (undocumented)
+    set(key: string, value: string): Promise<void>;
+    // (undocumented)
+    set(kv: Record<string, string>): Promise<void>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-forgotten-export) The symbol "kvPairZ" needs to be exported by the entry point index.d.ts
@@ -1829,6 +2462,7 @@ type KVPair = z.infer<typeof kvPairZ>;
 type Label = z.infer<typeof labelZ>;
 
 declare namespace label {
+<<<<<<< HEAD
   export {
     Client_5 as Client,
     keyZ_4 as keyZ,
@@ -1844,6 +2478,23 @@ declare namespace label {
     SetOptions,
     Writer_3 as Writer,
   };
+=======
+    export {
+        Client_6 as Client,
+        keyZ_5 as keyZ,
+        Key_5 as Key,
+        Params_4 as Params,
+        labelZ,
+        Label,
+        LabelOntologyType,
+        ontologyID_3 as ontologyID,
+        Retriever_3 as Retriever,
+        newLabelPayloadZ,
+        NewLabelPayload,
+        SetOptions,
+        Writer_3 as Writer
+    }
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "LabelOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -2002,6 +2653,7 @@ type NewPayload = z.input<typeof newPayload>;
 // Warning: (ae-missing-release-tag) "newPayload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const newPayload: z.ZodObject<
   z.objectUtil.extendShape<
     {
@@ -2052,25 +2704,49 @@ const newPayload: z.ZodObject<
   {
     virtual: boolean;
     internal: boolean;
+=======
+const newPayload: z.ZodObject<z.objectUtil.extendShape<{
+    name: z.ZodString;
+    key: z.ZodNumber;
+    rate: z.ZodUnion<[z.ZodEffects<z.ZodNumber, Rate, number>, z.ZodEffects<z.ZodType<Number, z.ZodTypeDef, Number>, Rate, Number>, z.ZodType<Rate, z.ZodTypeDef, Rate>]>;
+    dataType: z.ZodUnion<[z.ZodEffects<z.ZodString, DataType, string>, z.ZodType<DataType, z.ZodTypeDef, DataType>]>;
+    leaseholder: z.ZodNumber;
+    index: z.ZodNumber;
+    isIndex: z.ZodBoolean;
+    internal: z.ZodBoolean;
+    virtual: z.ZodBoolean;
+    alias: z.ZodOptional<z.ZodString>;
+}, {
+    key: z.ZodOptional<z.ZodNumber>;
+    leaseholder: z.ZodOptional<z.ZodNumber>;
+    index: z.ZodOptional<z.ZodNumber>;
+    rate: z.ZodDefault<z.ZodOptional<z.ZodUnion<[z.ZodEffects<z.ZodNumber, Rate, number>, z.ZodEffects<z.ZodType<Number, z.ZodTypeDef, Number>, Rate, Number>, z.ZodType<Rate, z.ZodTypeDef, Rate>]>>>;
+    isIndex: z.ZodOptional<z.ZodBoolean>;
+    internal: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+    virtual: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+}>, "strip", z.ZodTypeAny, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     name: string;
     rate: Rate;
     dataType: DataType;
-    leaseholder?: number | undefined;
-    isIndex?: boolean | undefined;
+    internal: boolean;
+    virtual: boolean;
     key?: number | undefined;
+    leaseholder?: number | undefined;
     index?: number | undefined;
+    isIndex?: boolean | undefined;
     alias?: string | undefined;
   },
   {
     name: string;
     dataType: string | DataType;
-    leaseholder?: number | undefined;
-    virtual?: boolean | undefined;
-    isIndex?: boolean | undefined;
-    internal?: boolean | undefined;
     key?: number | undefined;
     rate?: number | Number | Rate | undefined;
+    leaseholder?: number | undefined;
     index?: number | undefined;
+    isIndex?: boolean | undefined;
+    internal?: boolean | undefined;
+    virtual?: boolean | undefined;
     alias?: string | undefined;
   }
 >;
@@ -2245,6 +2921,121 @@ const newPayloadZ: z.ZodObject<
   }
 >;
 
+// Warning: (ae-missing-release-tag) "NewPolicy" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type NewPolicy = z.input<typeof newPolicyZ>;
+
+// Warning: (ae-missing-release-tag) "newPolicyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const newPolicyZ: z.ZodObject<{
+    key: z.ZodCatch<z.ZodOptional<z.ZodString>>;
+    subjects: z.ZodUnion<[z.ZodArray<z.ZodUnion<[z.ZodEffects<z.ZodString, {
+        type: ontology.ResourceType;
+        key: string;
+    }, string>, z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>, "many">, z.ZodEffects<z.ZodUnion<[z.ZodEffects<z.ZodString, {
+        type: ontology.ResourceType;
+        key: string;
+    }, string>, z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>, ({
+        type: ontology.ResourceType;
+        key: string;
+    } | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    })[], string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>;
+    objects: z.ZodUnion<[z.ZodArray<z.ZodUnion<[z.ZodEffects<z.ZodString, {
+        type: ontology.ResourceType;
+        key: string;
+    }, string>, z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>, "many">, z.ZodEffects<z.ZodUnion<[z.ZodEffects<z.ZodString, {
+        type: ontology.ResourceType;
+        key: string;
+    }, string>, z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>, ({
+        type: ontology.ResourceType;
+        key: string;
+    } | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    })[], string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>;
+    actions: z.ZodUnion<[z.ZodArray<z.ZodUnion<[z.ZodLiteral<"all">, z.ZodLiteral<"create">, z.ZodLiteral<"delete">, z.ZodLiteral<"retrieve">, z.ZodLiteral<"rename">]>, "many">, z.ZodEffects<z.ZodUnion<[z.ZodLiteral<"all">, z.ZodLiteral<"create">, z.ZodLiteral<"delete">, z.ZodLiteral<"retrieve">, z.ZodLiteral<"rename">]>, ("delete" | "all" | "create" | "retrieve" | "rename")[], "delete" | "all" | "create" | "retrieve" | "rename">]>;
+}, "strip", z.ZodTypeAny, {
+    subjects: ({
+        type: ontology.ResourceType;
+        key: string;
+    } | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    })[];
+    objects: ({
+        type: ontology.ResourceType;
+        key: string;
+    } | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    })[];
+    actions: ("delete" | "all" | "create" | "retrieve" | "rename")[];
+    key?: string | undefined;
+}, {
+    subjects: string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    } | (string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    })[];
+    objects: string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    } | (string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    })[];
+    actions: "delete" | "all" | "create" | "retrieve" | "rename" | ("delete" | "all" | "create" | "retrieve" | "rename")[];
+    key?: unknown;
+}>;
+
 // Warning: (ae-missing-release-tag) "NewRack" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
@@ -2284,6 +3075,7 @@ type NewTask<C extends UnknownRecord = UnknownRecord, T extends string = string>
 // Warning: (ae-missing-release-tag) "newTaskZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const newTaskZ: z.ZodObject<
   z.objectUtil.extendShape<
     Omit<
@@ -2371,10 +3163,40 @@ const newTaskZ: z.ZodObject<
   z.ZodTypeAny,
   {
     type: string;
+=======
+const newTaskZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
+    key: z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>;
+    name: z.ZodString;
+    type: z.ZodString;
+    internal: z.ZodOptional<z.ZodBoolean>;
+    config: z.ZodType<UnknownRecord>;
+    state: z.ZodNullable<z.ZodOptional<z.ZodObject<{
+        task: z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>;
+        variant: z.ZodString;
+        key: z.ZodOptional<z.ZodString>;
+        details: z.ZodUnion<[z.ZodUnion<[z.ZodUnion<[z.ZodRecord<z.ZodString, z.ZodUnknown>, z.ZodEffects<z.ZodString, any, string>]>, z.ZodArray<z.ZodUnknown, "many">]>, z.ZodNull]>;
+    }, "strip", z.ZodTypeAny, {
+        task: string;
+        variant: string;
+        key?: string | undefined;
+        details?: any;
+    }, {
+        task: string | number | bigint;
+        variant: string;
+        details: string | unknown[] | Record<string, unknown> | null;
+        key?: string | undefined;
+    }>>>;
+    snapshot: z.ZodOptional<z.ZodBoolean>;
+}, "key">, {
+    key: z.ZodOptional<z.ZodEffects<z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>, string, string | number | bigint>>;
+    config: z.ZodEffects<z.ZodUnknown, string, unknown>;
+}>, "strip", z.ZodTypeAny, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     name: string;
+    type: string;
     config: string;
-    internal?: boolean | undefined;
     key?: string | undefined;
+<<<<<<< HEAD
     state?:
       | {
           variant: string;
@@ -2388,10 +3210,23 @@ const newTaskZ: z.ZodObject<
   },
   {
     type: string;
-    name: string;
+=======
     internal?: boolean | undefined;
+    state?: {
+        task: string;
+        variant: string;
+        key?: string | undefined;
+        details?: any;
+    } | null | undefined;
+    snapshot?: boolean | undefined;
+}, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
+    name: string;
+    type: string;
     key?: string | number | bigint | undefined;
+    internal?: boolean | undefined;
     config?: unknown;
+<<<<<<< HEAD
     state?:
       | {
           variant: string;
@@ -2401,9 +3236,44 @@ const newTaskZ: z.ZodObject<
         }
       | null
       | undefined;
+=======
+    state?: {
+        task: string | number | bigint;
+        variant: string;
+        details: string | unknown[] | Record<string, unknown> | null;
+        key?: string | undefined;
+    } | null | undefined;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     snapshot?: boolean | undefined;
   }
 >;
+
+// Warning: (ae-missing-release-tag) "NewUser" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type NewUser = z.infer<typeof newUserZ>;
+
+// Warning: (ae-missing-release-tag) "newUserZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const newUserZ: z.ZodObject<z.objectUtil.extendShape<Omit<{
+    key: z.ZodString;
+    username: z.ZodString;
+    firstName: z.ZodOptional<z.ZodString>;
+    lastName: z.ZodOptional<z.ZodString>;
+}, "key">, {
+    password: z.ZodString;
+}>, "strip", z.ZodTypeAny, {
+    username: string;
+    password: string;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+}, {
+    username: string;
+    password: string;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+}>;
 
 // Warning: (ae-missing-release-tag) "NodeOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2443,6 +3313,7 @@ class ObservableStreamer<V = Frame>
 }
 
 declare namespace ontology {
+<<<<<<< HEAD
   export {
     RetrieveOptions,
     parseIDs,
@@ -2478,12 +3349,49 @@ declare namespace ontology {
     Relationship,
     parseRelationship,
   };
+=======
+    export {
+        RetrieveOptions,
+        parseIDs,
+        Client_2 as Client,
+        ChangeTracker,
+        DependentTracker,
+        ResourceChange,
+        ResourceSet,
+        ResourceDelete,
+        RelationshipChange,
+        RelationshipSet,
+        RelationshipDelete,
+        resourceTypeZ,
+        ResourceType,
+        BuiltinOntologyType,
+        ClusterOntologyType,
+        NodeOntologyType,
+        idZ,
+        IDPayload,
+        stringIDZ,
+        crudeIDZ,
+        CrudeID,
+        ID,
+        Root,
+        schemaFieldZ,
+        SchemaField,
+        schemaZ,
+        Schema,
+        resourceSchemaZ,
+        Resource,
+        RelationshipDirection,
+        relationshipSchemaZ,
+        Relationship,
+        parseRelationship
+    }
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const ontologyID: (key: Key) => ontology.ID;
+const ontologyID: (key: Key_3) => ontology.ID;
 
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2493,7 +3401,21 @@ const ontologyID_10: (key: RackKey) => ontology.ID;
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const ontologyID_11: (key: DeviceKey) => ontology.ID;
+=======
+const ontologyID_2: (key: Key_2) => ontology.ID;
+
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const ontologyID_3: (key: Key_5) => ontology.ID;
+
+// Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const ontologyID_4: (key: Key_6) => ontology.ID;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "ontologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2515,6 +3437,11 @@ const ontologyID_8: (key: Key_7) => ontology.ID;
 // @public (undocumented)
 const ontologyID_9: (key: TaskKey) => ontology.ID;
 
+// Warning: (ae-missing-release-tag) "OntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const OntologyType: ontology.ResourceType;
+
 // Warning: (ae-missing-release-tag) "openObservable" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
@@ -2533,6 +3460,7 @@ type PageOptions = Omit<RetrieveOptions_2, "offset" | "limit">;
 // Warning: (ae-missing-release-tag) "ParamAnalysisResult" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 type ParamAnalysisResult_3 =
   | {
       single: true;
@@ -2562,21 +3490,57 @@ type ParamAnalysisResult_3 =
       actual: Names_3;
       empty: boolean;
     };
+=======
+type ParamAnalysisResult_3 = {
+    single: true;
+    variant: "keys";
+    normalized: Keys_3;
+    actual: Key_4;
+    empty: never;
+} | {
+    single: true;
+    variant: "names";
+    normalized: Names_3;
+    actual: Name_3;
+    empty: never;
+} | {
+    single: false;
+    variant: "keys";
+    normalized: Keys_3;
+    actual: Keys_3;
+    empty: boolean;
+} | {
+    single: false;
+    variant: "names";
+    normalized: Names_3;
+    actual: Names_3;
+    empty: boolean;
+};
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 type Params_2 = Key | Name_2 | Keys_2 | Names_2;
+=======
+type Params_2 = Key_2 | Name_2 | Keys_2 | Names_2;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Params_3 = Key_4 | Key_4[];
+type Params_3 = Key_3 | Key_3[];
 
 // Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Params_4 = Key_3 | Name_3 | Keys_3 | Names_3;
+type Params_4 = Key_5 | Key_5[];
+
+// Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type Params_5 = Key_4 | Name_3 | Keys_3 | Names_3;
 
 // Warning: (ae-missing-release-tag) "Params" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2619,6 +3583,7 @@ const payload: z.ZodObject<
     internal: z.ZodBoolean;
     virtual: z.ZodBoolean;
     alias: z.ZodOptional<z.ZodString>;
+<<<<<<< HEAD
   },
   "strip",
   z.ZodTypeAny,
@@ -2627,26 +3592,44 @@ const payload: z.ZodObject<
     virtual: boolean;
     isIndex: boolean;
     internal: boolean;
+=======
+}, "strip", z.ZodTypeAny, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     name: string;
     key: number;
     rate: Rate;
     dataType: DataType;
+<<<<<<< HEAD
     index: number;
     alias?: string | undefined;
   },
   {
+=======
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     leaseholder: number;
-    virtual: boolean;
+    index: number;
     isIndex: boolean;
     internal: boolean;
+    virtual: boolean;
+    alias?: string | undefined;
+}, {
     name: string;
     key: number;
     rate: number | Number | Rate;
     dataType: string | DataType;
+    leaseholder: number;
     index: number;
+    isIndex: boolean;
+    internal: boolean;
+    virtual: boolean;
     alias?: string | undefined;
   }
 >;
+
+// Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type Payload_2 = z.infer<typeof payload>;
 
 // Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -2661,6 +3644,7 @@ type Payload_3 = z.infer<typeof payloadZ>;
 // Warning: (ae-missing-release-tag) "Payload" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 type Payload_5<
   C extends UnknownRecord = UnknownRecord,
   D extends {} = UnknownRecord,
@@ -2669,6 +3653,12 @@ type Payload_5<
   type: T;
   config: C;
   state?: State_2<D> | null;
+=======
+type Payload_4<C extends UnknownRecord = UnknownRecord, D extends {} = UnknownRecord, T extends string = string> = Omit<z.output<typeof taskZ>, "config" | "type" | "state"> & {
+    type: T;
+    config: C;
+    state?: State_2<D> | null;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 };
 
 // Warning: (ae-missing-release-tag) "payloadZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -2831,6 +3821,67 @@ const payloadZ: z.ZodObject<
   }
 >;
 
+// Warning: (ae-missing-release-tag) "Policy" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type Policy = z.infer<typeof policyZ>;
+
+// Warning: (ae-missing-release-tag) "policyZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const policyZ: z.ZodObject<{
+    key: z.ZodString;
+    subjects: z.ZodUnion<[z.ZodEffects<z.ZodNull, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }[], null>, z.ZodArray<z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>, "many">]>;
+    objects: z.ZodUnion<[z.ZodEffects<z.ZodNull, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }[], null>, z.ZodArray<z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>, "many">]>;
+    actions: z.ZodUnion<[z.ZodEffects<z.ZodNull, ("delete" | "all" | "create" | "retrieve" | "rename")[], null>, z.ZodArray<z.ZodUnion<[z.ZodLiteral<"all">, z.ZodLiteral<"create">, z.ZodLiteral<"delete">, z.ZodLiteral<"retrieve">, z.ZodLiteral<"rename">]>, "many">]>;
+}, "strip", z.ZodTypeAny, {
+    key: string;
+    subjects: {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }[];
+    objects: {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }[];
+    actions: ("delete" | "all" | "create" | "retrieve" | "rename")[];
+}, {
+    key: string;
+    subjects: {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }[] | null;
+    objects: {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }[] | null;
+    actions: ("delete" | "all" | "create" | "retrieve" | "rename")[] | null;
+}>;
+
 // Warning: (ae-missing-release-tag) "PromiseFns" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
@@ -2935,6 +3986,7 @@ const rackZ: z.ZodObject<
 //
 // @public (undocumented)
 class Range_2 {
+<<<<<<< HEAD
   // Warning: (ae-forgotten-export) The symbol "Aliaser" needs to be exported by the entry point index.d.ts
   constructor(
     name: string,
@@ -2993,12 +4045,60 @@ class Range_2 {
   setAlias(channel: Key | Name_3, alias: string): Promise<void>;
   // (undocumented)
   readonly timeRange: TimeRange_2;
+=======
+    // Warning: (ae-forgotten-export) The symbol "Aliaser" needs to be exported by the entry point index.d.ts
+    constructor(name: string, timeRange: TimeRange_2 | undefined, key: string, color: string | undefined, _frameClient: framer.Client, _kv: KV, _aliaser: Aliaser, _channels: Retriever, _labelClient: label.Client, _ontologyClient: ontology.Client, _rangeClient: Client_7);
+    // (undocumented)
+    addLabel(...labels: label.Key[]): Promise<void>;
+    // (undocumented)
+    readonly channels: Retriever;
+    // (undocumented)
+    readonly color: string | undefined;
+    // (undocumented)
+    deleteAlias(...channels: Key_2[]): Promise<void>;
+    // (undocumented)
+    key: string;
+    // (undocumented)
+    readonly kv: KV;
+    // (undocumented)
+    labels(): Promise<Label[]>;
+    // (undocumented)
+    listAliases(): Promise<Record<Key_2, string>>;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    get ontologyID(): ontology.ID;
+    // (undocumented)
+    openAliasTracker(): Promise<signals.Observable<string, Alias>>;
+    // (undocumented)
+    openChildRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range_2[]>>;
+    // (undocumented)
+    openParentRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range_2> | null>;
+    // (undocumented)
+    get payload(): Payload_3;
+    // (undocumented)
+    read(channel: Key_4 | Name_3): Promise<Series>;
+    // (undocumented)
+    read(channels: Params_5): Promise<framer.Frame>;
+    // (undocumented)
+    removeLabel(...labels: label.Key[]): Promise<void>;
+    // (undocumented)
+    resolveAlias(alias: string): Promise<Key_2>;
+    // (undocumented)
+    retrieveChildren(): Promise<Range_2[]>;
+    // (undocumented)
+    retrieveParent(): Promise<Range_2 | null>;
+    // (undocumented)
+    setAlias(channel: Key_2 | Name_3, alias: string): Promise<void>;
+    // (undocumented)
+    readonly timeRange: TimeRange_2;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "rangeAliasOntologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const rangeAliasOntologyID: (key: Key_3) => ontology.ID;
+const rangeAliasOntologyID: (key: Key_4) => ontology.ID;
 
 // Warning: (ae-missing-release-tag) "RangeAliasOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -3008,7 +4108,7 @@ const RangeAliasOntologyType: ontology.ResourceType;
 // Warning: (ae-missing-release-tag) "rangeOntologyID" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const rangeOntologyID: (key: Key_3) => ontology.ID;
+const rangeOntologyID: (key: Key_4) => ontology.ID;
 
 // Warning: (ae-missing-release-tag) "RangeOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -3016,6 +4116,7 @@ const rangeOntologyID: (key: Key_3) => ontology.ID;
 const RangeOntologyType: ontology.ResourceType;
 
 declare namespace ranger {
+<<<<<<< HEAD
   export {
     Alias,
     AliasChange,
@@ -3046,6 +4147,38 @@ declare namespace ranger {
     CreateOptions_2 as CreateOptions,
     Writer_4 as Writer,
   };
+=======
+    export {
+        Alias,
+        AliasChange,
+        Range_2 as Range,
+        RetrieveRequest_2 as RetrieveRequest,
+        Client_7 as Client,
+        GetRequest,
+        SetRequest,
+        DeleteRequest,
+        KVPair,
+        KV,
+        keyZ_3 as keyZ,
+        Key_4 as Key,
+        Name_3 as Name,
+        Keys_3 as Keys,
+        Names_3 as Names,
+        Params_5 as Params,
+        payloadZ,
+        Payload_3 as Payload,
+        newPayloadZ,
+        NewPayload_2 as NewPayload,
+        ParamAnalysisResult_3 as ParamAnalysisResult,
+        analyzeParams_2 as analyzeParams,
+        RangeOntologyType,
+        RangeAliasOntologyType,
+        rangeOntologyID,
+        rangeAliasOntologyID,
+        CreateOptions_2 as CreateOptions,
+        Writer_4 as Writer
+    }
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 export { Rate };
@@ -3073,6 +4206,7 @@ type RelationshipDirection = "from" | "to";
 // Warning: (ae-missing-release-tag) "relationshipSchemaZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const relationshipSchemaZ: z.ZodObject<
   {
     from: z.ZodEffects<
@@ -3314,12 +4448,50 @@ const relationshipSchemaZ: z.ZodObject<
   "strip",
   z.ZodTypeAny,
   {
+=======
+const relationshipSchemaZ: z.ZodObject<{
+    from: z.ZodUnion<[z.ZodType<ID, z.ZodTypeDef, ID>, z.ZodEffects<z.ZodUnion<[z.ZodEffects<z.ZodString, {
+        type: ResourceType;
+        key: string;
+    }, string>, z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>, ID, string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>;
+    type: z.ZodString;
+    to: z.ZodUnion<[z.ZodType<ID, z.ZodTypeDef, ID>, z.ZodEffects<z.ZodUnion<[z.ZodEffects<z.ZodString, {
+        type: ResourceType;
+        key: string;
+    }, string>, z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>, ID, string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>;
+}, "strip", z.ZodTypeAny, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     type: string;
     from: ID;
     to: ID;
   },
   {
     type: string;
+<<<<<<< HEAD
     from:
       | string
       | ID
@@ -3372,6 +4544,17 @@ const relationshipSchemaZ: z.ZodObject<
         };
   }
 >;
+=======
+    from: string | ID | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    };
+    to: string | ID | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    };
+}>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "RelationshipSet" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -3407,6 +4590,7 @@ type ResourceDelete = change.Delete<ID, Resource>;
 // Warning: (ae-missing-release-tag) "resourceSchemaZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const resourceSchemaZ: z.ZodEffects<
   z.ZodObject<
     {
@@ -3763,10 +4947,85 @@ const resourceSchemaZ: z.ZodEffects<
         }
       | null
       | undefined;
+=======
+const resourceSchemaZ: z.ZodEffects<z.ZodObject<{
+    id: z.ZodUnion<[z.ZodType<ID, z.ZodTypeDef, ID>, z.ZodEffects<z.ZodUnion<[z.ZodEffects<z.ZodString, {
+        type: ResourceType;
+        key: string;
+    }, string>, z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }, {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>, ID, string | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    }>]>;
+    name: z.ZodString;
+    schema: z.ZodNullable<z.ZodOptional<z.ZodObject<{
+        type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+        fields: z.ZodRecord<z.ZodString, z.ZodObject<{
+            type: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            type: number;
+        }, {
+            type: number;
+        }>>;
+    }, "strip", z.ZodTypeAny, {
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        fields: Record<string, {
+            type: number;
+        }>;
+    }, {
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        fields: Record<string, {
+            type: number;
+        }>;
+    }>>>;
+    data: z.ZodNullable<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>>;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    id: ID;
+    data?: Record<string, unknown> | null | undefined;
+    schema?: {
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        fields: Record<string, {
+            type: number;
+        }>;
+    } | null | undefined;
+}, {
+    name: string;
+    id: string | ID | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    };
+    data?: Record<string, unknown> | null | undefined;
+    schema?: {
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        fields: Record<string, {
+            type: number;
+        }>;
+    } | null | undefined;
+}>, {
+    name: string;
+    id: ID;
+    data?: Record<string, unknown> | null | undefined;
+    schema?: {
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        fields: Record<string, {
+            type: number;
+        }>;
+    } | null | undefined;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     key: string;
   },
   {
     name: string;
+<<<<<<< HEAD
     id:
       | string
       | ID
@@ -3825,6 +5084,20 @@ const resourceSchemaZ: z.ZodEffects<
       | undefined;
   }
 >;
+=======
+    id: string | ID | {
+        key: string;
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    };
+    data?: Record<string, unknown> | null | undefined;
+    schema?: {
+        type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+        fields: Record<string, {
+            type: number;
+        }>;
+    } | null | undefined;
+}>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "ResourceSet" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -3839,6 +5112,7 @@ type ResourceType = z.infer<typeof resourceTypeZ>;
 // Warning: (ae-missing-release-tag) "resourceTypeZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const resourceTypeZ: z.ZodUnion<
   [
     z.ZodLiteral<"label">,
@@ -3865,15 +5139,28 @@ const resourceTypeZ: z.ZodUnion<
 //
 // @public (undocumented)
 type RetrieveOptions = Omit<Request_2, "keys" | "names" | "search">;
+=======
+const resourceTypeZ: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-forgotten-export) The symbol "RetrieveRequest" needs to be exported by the entry point index.d.ts
 // Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 type RetrieveOptions_2 = Pick<
   RetrieveRequest,
   "includeSchema" | "excludeFieldData" | "types"
 >;
+=======
+type RetrieveOptions = Pick<RetrieveRequest, "includeSchema" | "excludeFieldData" | "types">;
+
+// Warning: (ae-forgotten-export) The symbol "Request_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type RetrieveOptions_2 = Omit<Request_2, "keys" | "names" | "search">;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 // Warning: (ae-missing-release-tag) "RetrieveOptions" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -3893,18 +5180,28 @@ type RetrieveOptions_4 = Pick<RetrieveRequest_4, "limit" | "offset" | "makes">;
 //
 // @public (undocumented)
 interface Retriever {
+<<<<<<< HEAD
   // (undocumented)
   page: (offset: number, limit: number, opts?: PageOptions) => Promise<Payload_2[]>;
   // (undocumented)
   retrieve: (channels: Params_2, opts?: RetrieveOptions_2) => Promise<Payload_2[]>;
   // (undocumented)
   search: (term: string, opts?: RetrieveOptions_2) => Promise<Payload_2[]>;
+=======
+    // (undocumented)
+    page: (offset: number, limit: number, opts?: PageOptions) => Promise<Payload_2[]>;
+    // (undocumented)
+    retrieve: (channels: Params_2, opts?: RetrieveOptions_2) => Promise<Payload_2[]>;
+    // (undocumented)
+    search: (term: string, opts?: RetrieveOptions_2) => Promise<Payload_2[]>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Retriever" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 class Retriever_2 {
+<<<<<<< HEAD
   constructor(client: UnaryClient);
   // (undocumented)
   page(offset: number, limit: number): Promise<Label[]>;
@@ -3914,6 +5211,28 @@ class Retriever_2 {
   retrieveFor(id: ontology.ID): Promise<Label[]>;
   // (undocumented)
   search(term: string): Promise<Label[]>;
+=======
+    constructor(client: UnaryClient);
+    // (undocumented)
+    retrieve(params: Params_3): Promise<Policy[]>;
+    // (undocumented)
+    retrieveFor(ids: ontology.IDPayload[]): Promise<Policy[]>;
+}
+
+// Warning: (ae-missing-release-tag) "Retriever" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+class Retriever_3 {
+    constructor(client: UnaryClient);
+    // (undocumented)
+    page(offset: number, limit: number): Promise<Label[]>;
+    // (undocumented)
+    retrieve(labels: Params_4): Promise<Label[]>;
+    // (undocumented)
+    retrieveFor(id: ontology.ID): Promise<Label[]>;
+    // (undocumented)
+    search(term: string): Promise<Label[]>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-forgotten-export) The symbol "retrieveReqZ_2" needs to be exported by the entry point index.d.ts
@@ -3931,7 +5250,7 @@ type RetrieveRequest_3 = z.infer<typeof retrieveReqZ_3>;
 // Warning: (ae-missing-release-tag) "retrieveRequired" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-const retrieveRequired: (r: Retriever, channels: Params) => Promise<Payload[]>;
+const retrieveRequired: (r: Retriever, channels: Params_2) => Promise<Payload_2[]>;
 
 // Warning: (ae-missing-release-tag) "Root" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -3983,6 +5302,7 @@ const schemaFieldZ: z.ZodObject<
 // Warning: (ae-missing-release-tag) "schemaZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 const schemaZ: z.ZodObject<
   {
     type: z.ZodUnion<
@@ -4049,6 +5369,13 @@ const schemaZ: z.ZodObject<
     fields: Record<
       string,
       {
+=======
+const schemaZ: z.ZodObject<{
+    type: z.ZodUnion<[z.ZodLiteral<"label">, z.ZodLiteral<"allow_all">, z.ZodLiteral<"builtin">, z.ZodLiteral<"cluster">, z.ZodLiteral<"channel">, z.ZodLiteral<"node">, z.ZodLiteral<"group">, z.ZodLiteral<"range">, z.ZodLiteral<"range-alias">, z.ZodLiteral<"user">, z.ZodLiteral<"workspace">, z.ZodLiteral<"schematic">, z.ZodLiteral<"lineplot">, z.ZodLiteral<"rack">, z.ZodLiteral<"device">, z.ZodLiteral<"task">, z.ZodLiteral<"policy">]>;
+    fields: z.ZodRecord<z.ZodString, z.ZodObject<{
+        type: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
         type: number;
       }
     >;
@@ -4077,10 +5404,25 @@ const schemaZ: z.ZodObject<
       string,
       {
         type: number;
+<<<<<<< HEAD
       }
     >;
   }
 >;
+=======
+    }>>;
+}, "strip", z.ZodTypeAny, {
+    type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    fields: Record<string, {
+        type: number;
+    }>;
+}, {
+    type: "label" | "allow_all" | "builtin" | "cluster" | "channel" | "node" | "group" | "range" | "range-alias" | "user" | "workspace" | "schematic" | "lineplot" | "rack" | "device" | "task" | "policy";
+    fields: Record<string, {
+        type: number;
+    }>;
+}>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 
 export { Series };
 
@@ -4335,7 +5677,7 @@ type State_2<D extends {} = UnknownRecord> = Omit<z.infer<typeof stateZ>, "detai
 // Warning: (ae-missing-release-tag) "State" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type State_3 = control_2.State<Key>;
+type State_3 = control_2.State<Key_2>;
 
 // Warning: (ae-missing-release-tag) "StateObservable" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -4346,6 +5688,7 @@ type StateObservable<D extends UnknownRecord = UnknownRecord> =
 // Warning: (ae-missing-release-tag) "StateTracker" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 class StateTracker
   extends framer.ObservableStreamer<Transfer[]>
   implements observe_2.ObservableAsyncCloseable<Transfer[]>
@@ -4355,6 +5698,14 @@ class StateTracker
   readonly states: Map<Key, State_3>;
   // (undocumented)
   subjects(): Subject[];
+=======
+class StateTracker extends framer.ObservableStreamer<Transfer[]> implements observe_2.ObservableAsyncCloseable<Transfer[]> {
+    constructor(streamer: Streamer);
+    // (undocumented)
+    readonly states: Map<Key_2, State_3>;
+    // (undocumented)
+    subjects(): Subject[];
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "stateZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -4371,6 +5722,7 @@ const stateZ: z.ZodObject<
     >;
     variant: z.ZodString;
     key: z.ZodOptional<z.ZodString>;
+<<<<<<< HEAD
     details: z.ZodUnion<
       [
         z.ZodUnion<
@@ -4392,13 +5744,23 @@ const stateZ: z.ZodObject<
   z.ZodTypeAny,
   {
     variant: string;
+=======
+    details: z.ZodUnion<[z.ZodUnion<[z.ZodUnion<[z.ZodRecord<z.ZodString, z.ZodUnknown>, z.ZodEffects<z.ZodString, any, string>]>, z.ZodArray<z.ZodUnknown, "many">]>, z.ZodNull]>;
+}, "strip", z.ZodTypeAny, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     task: string;
+    variant: string;
     key?: string | undefined;
     details?: any;
+<<<<<<< HEAD
   },
   {
     variant: string;
+=======
+}, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     task: string | number | bigint;
+    variant: string;
     details: string | unknown[] | Record<string, unknown> | null;
     key?: string | undefined;
   }
@@ -4472,6 +5834,7 @@ const status_2: z.ZodEnum<["disconnected", "connecting", "connected", "failed"]>
 //
 // @public (undocumented)
 class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
+<<<<<<< HEAD
   // (undocumented)
   [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined>;
   // (undocumented)
@@ -4490,14 +5853,35 @@ class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   read(): Promise<Frame>;
   // (undocumented)
   update(channels: Params): Promise<void>;
+=======
+    // (undocumented)
+    [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined>;
+    // (undocumented)
+    close(): void;
+    // (undocumented)
+    get keys(): Key_2[];
+    // (undocumented)
+    next(): Promise<IteratorResult<Frame, any>>;
+    // (undocumented)
+    static _open(retriever: Retriever, client: StreamClient, { channels }: StreamerConfig): Promise<Streamer>;
+    // (undocumented)
+    read(): Promise<Frame>;
+    // (undocumented)
+    update(channels: Params_2): Promise<void>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "StreamerConfig" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 interface StreamerConfig {
+<<<<<<< HEAD
   // (undocumented)
   channels: Params;
+=======
+    // (undocumented)
+    channels: Params_2;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "stringIDZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -4525,6 +5909,7 @@ type Subject = control_2.Subject;
 //
 // @public
 export class Synnax extends framer.Client {
+<<<<<<< HEAD
   // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
   // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
   // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
@@ -4573,6 +5958,52 @@ export class Synnax extends framer.Client {
   readonly user: user.Client;
   // (undocumented)
   readonly workspaces: workspace.Client;
+=======
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    // Warning: (tsdoc-param-tag-with-invalid-name) The @param block should be followed by a valid parameter name: The identifier cannot non-word characters
+    constructor(props_: SynnaxProps);
+    // (undocumented)
+    readonly access: access.Client;
+    // Warning: (ae-forgotten-export) The symbol "auth" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly auth: auth.Client | undefined;
+    // (undocumented)
+    readonly channels: channel.Client;
+    readonly clientVersion: string;
+    // (undocumented)
+    close(): void;
+    // (undocumented)
+    readonly connectivity: connection.Checker;
+    // (undocumented)
+    static readonly connectivity: typeof connection.Checker;
+    // (undocumented)
+    readonly control: control.Client;
+    // (undocumented)
+    readonly createdAt: TimeStamp;
+    // (undocumented)
+    readonly hardware: hardware.Client;
+    // (undocumented)
+    get key(): string;
+    // (undocumented)
+    readonly labels: label.Client;
+    // (undocumented)
+    readonly ontology: ontology.Client;
+    // Warning: (ae-forgotten-export) The symbol "ParsedSynnaxProps" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly props: ParsedSynnaxProps;
+    // (undocumented)
+    readonly ranges: ranger.Client;
+    // (undocumented)
+    readonly user: user.Client;
+    // (undocumented)
+    readonly workspaces: workspace.Client;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "SynnaxProps" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -4654,6 +6085,7 @@ export const synnaxPropsZ: z.ZodObject<
 // Warning: (ae-missing-release-tag) "Task" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
+<<<<<<< HEAD
 class Task<
   C extends UnknownRecord_2 = UnknownRecord_2,
   D extends {} = UnknownRecord_2,
@@ -4724,6 +6156,57 @@ declare namespace task {
     DeviceOntologyType,
     ontologyID_9 as ontologyID,
   };
+=======
+class Task<C extends UnknownRecord_2 = UnknownRecord_2, D extends {} = UnknownRecord_2, T extends string = string> {
+    constructor(key: TaskKey, name: string, type: T, config: C, internal?: boolean, snapshot?: boolean, state?: State_2<D> | null, frameClient?: framer.Client | null, ontologyClient?: ontology.Client | null, rangeClient?: ranger.Client | null);
+    // (undocumented)
+    readonly config: C;
+    // (undocumented)
+    executeCommand(type: string, args?: UnknownRecord_2): Promise<string>;
+    // (undocumented)
+    executeCommandSync<D extends UnknownRecord_2 = UnknownRecord_2>(type: string, args: UnknownRecord_2, timeout: CrudeTimeSpan): Promise<State_2<D>>;
+    // (undocumented)
+    readonly internal: boolean;
+    // (undocumented)
+    readonly key: TaskKey;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    get ontologyID(): ontology.ID;
+    // (undocumented)
+    openStateObserver<D extends UnknownRecord_2 = UnknownRecord_2>(): Promise<StateObservable<D>>;
+    // (undocumented)
+    get payload(): Payload_4<C, D>;
+    // (undocumented)
+    readonly snapshot: boolean;
+    // (undocumented)
+    snapshottedTo(): Promise<ontology.Resource | null>;
+    // (undocumented)
+    state?: State_2<D>;
+    // (undocumented)
+    readonly type: T;
+}
+
+declare namespace task {
+    export {
+        Task,
+        RetrieveRequest_3 as RetrieveRequest,
+        RetrieveOptions_3 as RetrieveOptions,
+        Client_14 as Client,
+        taskKeyZ,
+        TaskKey,
+        stateZ,
+        State_2 as State,
+        taskZ,
+        newTaskZ,
+        NewTask,
+        Payload_4 as Payload,
+        commandZ,
+        StateObservable,
+        DeviceOntologyType,
+        ontologyID_8 as ontologyID
+    }
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "TaskKey" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -4758,6 +6241,7 @@ const taskZ: z.ZodObject<
     type: z.ZodString;
     internal: z.ZodOptional<z.ZodBoolean>;
     config: z.ZodType<UnknownRecord>;
+<<<<<<< HEAD
     state: z.ZodNullable<
       z.ZodOptional<
         z.ZodObject<
@@ -4811,10 +6295,32 @@ const taskZ: z.ZodObject<
   z.ZodTypeAny,
   {
     type: string;
+=======
+    state: z.ZodNullable<z.ZodOptional<z.ZodObject<{
+        task: z.ZodUnion<[z.ZodString, z.ZodEffects<z.ZodBigInt, string, bigint>, z.ZodEffects<z.ZodNumber, string, number>]>;
+        variant: z.ZodString;
+        key: z.ZodOptional<z.ZodString>;
+        details: z.ZodUnion<[z.ZodUnion<[z.ZodUnion<[z.ZodRecord<z.ZodString, z.ZodUnknown>, z.ZodEffects<z.ZodString, any, string>]>, z.ZodArray<z.ZodUnknown, "many">]>, z.ZodNull]>;
+    }, "strip", z.ZodTypeAny, {
+        task: string;
+        variant: string;
+        key?: string | undefined;
+        details?: any;
+    }, {
+        task: string | number | bigint;
+        variant: string;
+        details: string | unknown[] | Record<string, unknown> | null;
+        key?: string | undefined;
+    }>>>;
+    snapshot: z.ZodOptional<z.ZodBoolean>;
+}, "strip", z.ZodTypeAny, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     name: string;
     key: string;
+    type: string;
     config: UnknownRecord;
     internal?: boolean | undefined;
+<<<<<<< HEAD
     state?:
       | {
           variant: string;
@@ -4828,10 +6334,22 @@ const taskZ: z.ZodObject<
   },
   {
     type: string;
+=======
+    state?: {
+        task: string;
+        variant: string;
+        key?: string | undefined;
+        details?: any;
+    } | null | undefined;
+    snapshot?: boolean | undefined;
+}, {
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     name: string;
     key: string | number | bigint;
+    type: string;
     config: UnknownRecord;
     internal?: boolean | undefined;
+<<<<<<< HEAD
     state?:
       | {
           variant: string;
@@ -4841,6 +6359,14 @@ const taskZ: z.ZodObject<
         }
       | null
       | undefined;
+=======
+    state?: {
+        task: string | number | bigint;
+        variant: string;
+        details: string | unknown[] | Record<string, unknown> | null;
+        key?: string | undefined;
+    } | null | undefined;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
     snapshot?: boolean | undefined;
   }
 >;
@@ -4858,7 +6384,7 @@ export { TimeStampStringFormat };
 // Warning: (ae-missing-release-tag) "Transfer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
-type Transfer = control_2.Transfer<Key>;
+type Transfer = control_2.Transfer<Key_2>;
 
 // Warning: (ae-missing-release-tag) "transferString" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -4881,6 +6407,50 @@ export class UnexpectedError extends BaseTypedError {
   // (undocumented)
   type: string;
 }
+
+// Warning: (ae-missing-release-tag) "User" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+type User = z.infer<typeof userZ>;
+
+declare namespace user {
+    export {
+        Client_9 as Client,
+        keyZ_6 as keyZ,
+        Key_6 as Key,
+        userZ,
+        User,
+        newUserZ,
+        NewUser,
+        UserOntologyType,
+        ontologyID_4 as ontologyID
+    }
+}
+
+// Warning: (ae-missing-release-tag) "UserOntologyType" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const UserOntologyType: ontology.ResourceType;
+
+// Warning: (ae-missing-release-tag) "userZ" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+const userZ: z.ZodObject<{
+    key: z.ZodString;
+    username: z.ZodString;
+    firstName: z.ZodOptional<z.ZodString>;
+    lastName: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    key: string;
+    username: string;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+}, {
+    key: string;
+    username: string;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+}>;
 
 // Warning: (ae-missing-release-tag) "ValidationError" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
@@ -4989,6 +6559,7 @@ const workspaceZ: z.ZodObject<
 //
 // @public
 class Writer {
+<<<<<<< HEAD
   close(): Promise<void>;
   commit(): Promise<boolean>;
   // (undocumented)
@@ -5030,12 +6601,40 @@ class Writer {
     channelsOrData: Params_2 | Record<KeyOrName, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean>;
+=======
+    close(): Promise<void>;
+    commit(): Promise<boolean>;
+    // (undocumented)
+    error(): Promise<Error | null>;
+    // Warning: (ae-forgotten-export) The symbol "Request_3" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "Response_2" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    execute(req: Request_3): Promise<Response_2>;
+    // (undocumented)
+    static _open(retriever: Retriever, client: StreamClient, { channels, start, authorities, controlSubject: subject, mode, errOnUnauthorized, enableAutoCommit, autoIndexPersistInterval, }: WriterConfig): Promise<Writer>;
+    // (undocumented)
+    setAuthority(value: number): Promise<boolean>;
+    // (undocumented)
+    setAuthority(key: KeyOrName, authority: control_2.Authority): Promise<boolean>;
+    // (undocumented)
+    setAuthority(value: Record<KeyOrName, control_2.Authority>): Promise<boolean>;
+    // (undocumented)
+    write(channel: KeyOrName, data: CrudeSeries): Promise<boolean>;
+    // (undocumented)
+    write(channel: KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
+    // (undocumented)
+    write(frame: CrudeFrame | Record<KeyOrName, CrudeSeries>): Promise<boolean>;
+    // (undocumented)
+    write(channelsOrData: Params_2 | Record<KeyOrName, CrudeSeries> | CrudeFrame, series?: CrudeSeries | CrudeSeries[]): Promise<boolean>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 class Writer_2 {
+<<<<<<< HEAD
   constructor(client: UnaryClient, cache: CacheRetriever);
   // (undocumented)
   create(channels: NewPayload[]): Promise<Payload_2[]>;
@@ -5043,12 +6642,22 @@ class Writer_2 {
   delete(props: DeleteProps): Promise<void>;
   // (undocumented)
   rename(keys: Key[], names: string[]): Promise<void>;
+=======
+    constructor(client: UnaryClient, cache: CacheRetriever);
+    // (undocumented)
+    create(channels: NewPayload[]): Promise<Payload_2[]>;
+    // (undocumented)
+    delete(props: DeleteProps): Promise<void>;
+    // (undocumented)
+    rename(keys: Key_2[], names: string[]): Promise<void>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
 // @public (undocumented)
 class Writer_3 {
+<<<<<<< HEAD
   constructor(client: UnaryClient);
   // (undocumented)
   create(labels: NewLabelPayload | NewLabelPayload[]): Promise<Label[]>;
@@ -5058,6 +6667,17 @@ class Writer_3 {
   remove(id: ontology.ID, labels: Key_4[]): Promise<void>;
   // (undocumented)
   set(id: ontology.ID, labels: Key_4[], { replace }?: SetOptions): Promise<void>;
+=======
+    constructor(client: UnaryClient);
+    // (undocumented)
+    create(labels: NewLabelPayload | NewLabelPayload[]): Promise<Label[]>;
+    // (undocumented)
+    delete(keys: Key_5 | Key_5[]): Promise<void>;
+    // (undocumented)
+    remove(id: ontology.ID, labels: Key_5[]): Promise<void>;
+    // (undocumented)
+    set(id: ontology.ID, labels: Key_5[], { replace }?: SetOptions): Promise<void>;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "Writer" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
@@ -5079,6 +6699,7 @@ class Writer_4 {
 //
 // @public (undocumented)
 interface WriterConfig {
+<<<<<<< HEAD
   // (undocumented)
   authorities?: control_2.Authority | control_2.Authority[];
   // (undocumented)
@@ -5095,6 +6716,24 @@ interface WriterConfig {
   mode?: CrudeWriterMode;
   // (undocumented)
   start?: CrudeTimeStamp;
+=======
+    // (undocumented)
+    authorities?: control_2.Authority | control_2.Authority[];
+    // (undocumented)
+    autoIndexPersistInterval?: TimeSpan;
+    // (undocumented)
+    channels: Params_2;
+    // (undocumented)
+    controlSubject?: control_2.Subject;
+    // (undocumented)
+    enableAutoCommit?: boolean;
+    // (undocumented)
+    errOnUnauthorized?: boolean;
+    // (undocumented)
+    mode?: CrudeWriterMode;
+    // (undocumented)
+    start?: CrudeTimeStamp;
+>>>>>>> sy-881-console-logic-for-setting-user-permissions
 }
 
 // Warning: (ae-missing-release-tag) "WriterMode" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)

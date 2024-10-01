@@ -89,7 +89,6 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       const state = await testConnection(data);
       setLoading(null);
       if (state.status !== "connected") return setConnState(state);
-      // if (isLocalCluster(data)) state.clusterKey = LOCAL_CLUSTER_KEY;
       dispatch(
         set({
           key: state.clusterKey,

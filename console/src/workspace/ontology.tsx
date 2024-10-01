@@ -176,6 +176,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       }),
   };
   const singleResource = resources.length === 1;
+  const canCreateSchematic = Schematic.useSelectHasPermission();
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {singleResource && (
@@ -198,15 +199,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           >
             Import Line Plot
           </PMenu.Item>
-          <PMenu.Item itemKey="schematic" startIcon={<SchematicServices.CreateIcon />}>
-            Create New Schematic
-          </PMenu.Item>
-          <PMenu.Item
-            itemKey="importSchematic"
-            startIcon={<SchematicServices.ImportIcon />}
-          >
-            Import Schematic
-          </PMenu.Item>
+          {canCreateSchematic && (
+            <>
+              <PMenu.Item
+                itemKey="schematic"
+                startIcon={<SchematicServices.CreateIcon />}
+              >
+                Create New Schematic
+              </PMenu.Item>
+              <PMenu.Item
+                itemKey="importSchematic"
+                startIcon={<SchematicServices.ImportIcon />}
+              >
+                Import Schematic
+              </PMenu.Item>
+            </>
+          )}
           <PMenu.Divider />
           <Link.CopyMenuItem />
           <PMenu.Divider />

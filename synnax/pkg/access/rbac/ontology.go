@@ -15,24 +15,24 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 
-const (
-	OntologyType ontology.Type = "policy"
-)
+const PolicyOntologyType ontology.Type = "policy"
 
-var AllowAll = ontology.ID{Type: "allow_all", Key: ""}
+const AllowAllOntologyType ontology.Type = "allow_all"
 
-func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+var AllowAllOntologyID = ontology.ID{Type: AllowAllOntologyType, Key: ""}
+
+func PolicyOntologyID(k uuid.UUID) ontology.ID {
+	return ontology.ID{Type: PolicyOntologyType, Key: k.String()}
 }
 
-func OntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
+func PolicyOntologyIDs(keys []uuid.UUID) (ids []ontology.ID) {
 	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID {
-		return OntologyID(k)
+		return PolicyOntologyID(k)
 	})
 }
 
-func OntologyIDsFromPolicies(policies []Policy) (ids []ontology.ID) {
+func PolicyOntologyIDsFromPolicies(policies []Policy) (ids []ontology.ID) {
 	return lo.Map(policies, func(p Policy, _ int) ontology.ID {
-		return OntologyID(p.Key)
+		return PolicyOntologyID(p.Key)
 	})
 }

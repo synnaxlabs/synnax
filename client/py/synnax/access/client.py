@@ -7,22 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
+from uuid import UUID
 from typing import overload
 
-from alamos import Instrumentation, NOOP, trace
+from alamos import Instrumentation, NOOP
 from freighter import Payload, UnaryClient, send_required, Empty
 from synnax.access.payload import Policy
 from synnax.ontology.payload import ID
 from synnax.util.normalize import normalize
-
-
-class _RetrieveRequest(Payload):
-    subject: ID
-
-
-class _RetrieveResponse(Payload):
-    policies: list[Policy] | None
 
 
 class _CreateRequest(Payload):
@@ -32,8 +24,17 @@ class _CreateRequest(Payload):
 _CreateResponse = _CreateRequest
 
 
+class _RetrieveRequest(Payload):
+    keys: list[UUID] | None
+    subjects: list[ID] | None
+
+
+class _RetrieveResponse(Payload):
+    policies: list[Policy] | None
+
+
 class _DeleteRequest(Payload):
-    keys: list[uuid.UUID]
+    keys: list[UUID]
 
 
 ONTOLOGY_TYPE = ID(type="policy")
@@ -76,7 +77,6 @@ class PolicyClient:
         policies: list[Policy],
     ) -> list[Policy]: ...
 
-    @trace("debug")
     def create(
         self,
         policies: Policy | list[Policy] | None = None,
@@ -96,16 +96,17 @@ class PolicyClient:
         res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
         return res.policies[0] if is_single else res.policies
 
-    @trace("debug")
-    def retrieve(self, subject: ID) -> list[Policy]:
-        return send_required(
+    def retrieve(
+        self, keys: list[UUID] | None = None, subjects: list[ID] | None = None
+    ) -> list[Policy]:
+        res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(subject=subject),
+            _RetrieveRequest(keys=keys, subjects=subjects),
             _RetrieveResponse,
-        ).policies
+        )
+        return [] if res is None else res.policies
 
-    @trace("debug")
-    def delete(self, keys: uuid.UUID | list[uuid.UUID]) -> None:
+    def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         send_required(self._client, _DELETE_ENDPOINT, req, Empty)
