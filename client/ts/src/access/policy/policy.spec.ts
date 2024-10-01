@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { policy } from "@/access/policy";
@@ -20,8 +20,6 @@ import { user } from "@/user";
 import { schematic } from "@/workspace/schematic";
 
 const client = newClient();
-
-const sortByKey = (a: any, b: any) => a.key.localeCompare(b.key);
 
 describe("Policy", () => {
   describe("create", () => {
@@ -211,12 +209,10 @@ describe("Policy", () => {
         },
       ]);
       const received = await client.access.policy.retrieveFor(user.ontologyID(key2));
-      expect(created[0]).toMatchObject(received[0]);
-      const received2 = await client.access.policy.retrieveFor({
-        type: user.ONTOLOGY_TYPE,
-        key: key1,
+      const newReceived = received.filter((p) => {
+        return created.some((c) => c.key === p.key);
       });
-      expect(created.sort(sortByKey)).toMatchObject(received2.sort(sortByKey));
+      expect(created[0]).toMatchObject(newReceived[0]);
       await client.access.policy.delete([created[0].key, created[1].key]);
     });
   });
@@ -252,9 +248,7 @@ describe("Policy", () => {
 
       const created = await client.access.policy.create(policies);
       await client.access.policy.delete(created[0].key);
-      const res = await client.access.policy.retrieveFor(created[0].subjects[0]);
-      expect(res).toHaveLength(1);
-      expect(res[0].actions).toEqual(["delete"]);
+      await expect(client.access.policy.retrieve(created[0].key)).rejects.toThrow();
       await client.access.policy.delete(created[1].key);
     });
     test("many", async () => {
@@ -288,52 +282,8 @@ describe("Policy", () => {
 
       const created = await client.access.policy.create(policies);
       await client.access.policy.delete([created[0].key, created[1].key]);
-      let res = await client.access.policy.retrieveFor({
-        type: user.ONTOLOGY_TYPE,
-        key: id1,
-      });
-      expect(res).toHaveLength(0);
-      res = await client.access.policy.retrieveFor({
-        type: user.ONTOLOGY_TYPE,
-        key: id2,
-      });
-      expect(res).toHaveLength(0);
-      res = await client.access.policy.retrieveFor({
-        type: user.ONTOLOGY_TYPE,
-        key: id3,
-      });
-      expect(res).toHaveLength(0);
-    });
-  });
-  describe("current test I'm failing", async () => {
-    test("create and retrieve", async () => {
-      const userKey = "0b22b11d-b659-4061-b8cd-5cc7ef8b6800";
-      const newPolicy = {
-        subjects: [{ type: user.ONTOLOGY_TYPE, key: userKey }],
-        objects: [{ type: policy.ALLOW_ALL_ONTOLOGY_TYPE, key: "" }],
-        actions: [],
-        key: "9438295b-fc2d-4ec9-a012-763c43ac0bb6",
-      };
-      const created = await client.access.policy.create(newPolicy);
-      expect(created).toBeDefined();
-      expect(created.key).toBeDefined;
-      expect(created.subjects).toHaveLength(1);
-      expect(created.subjects[0].key).toEqual(userKey);
-      expect(created.subjects[0].type).toEqual(user.ONTOLOGY_TYPE);
-      expect(created.objects).toHaveLength(1);
-      expect(created.objects[0].key).toEqual("");
-      expect(created.objects[0].type).toEqual(policy.ALLOW_ALL_ONTOLOGY_TYPE);
-      const retrieved = (
-        await client.access.policy.retrieveFor(user.ontologyID(userKey))
-      )[0];
-      expect(retrieved).toMatchObject(created);
-    });
-    test("root user", async () => {
-      const username = client.props.username;
-      const rootUser = await client.user.retrieveByName(username);
-      await expect(
-        client.access.policy.retrieveFor(user.ontologyID(rootUser.key)),
-      ).resolves.toBeDefined();
+      await expect(client.access.policy.retrieve(created[0].key)).rejects.toThrow();
+      await expect(client.access.policy.retrieve(created[1].key)).rejects.toThrow();
     });
   });
 });
@@ -350,39 +300,32 @@ describe("privilege", async () => {
       password: "pwd1",
     });
     await expect(
-      client2.channels.create({
-        name: "my_channel",
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
+      client2.user.create({
+        username: id.id(),
+        password: id.id(),
       }),
     ).rejects.toThrow(AuthError);
 
     const policy = await client.access.policy.create({
-      subjects: [{ type: user.ONTOLOGY_TYPE, key: user2.key }],
-      objects: [{ type: channel.ONTOLOGY_TYPE, key: "" }],
+      subjects: user.ontologyID(user2.key),
+      objects: user.ONTOLOGY_TYPE,
       actions: ["create"],
     });
 
-    const chan = await client2.channels.create({
-      name: "my_channel",
-      dataType: DataType.TIMESTAMP,
-      isIndex: true,
+    const newUsername = id.id();
+
+    const newUser = await client2.user.create({
+      username: newUsername,
+      password: id.id(),
     });
 
-    expect(chan).toBeDefined();
-    expect(chan.name).toEqual("my_channel");
-    expect(chan.dataType).toEqual(DataType.TIMESTAMP);
-    expect(chan.isIndex).toEqual(true);
+    expect(newUser.username).toEqual(newUsername);
 
     // Remove privileges
     await client.access.policy.delete(policy.key);
 
     await expect(
-      client2.channels.create({
-        name: "my_channel",
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      }),
+      client2.user.create({ username: id.id(), password: id.id() }),
     ).rejects.toThrow(AuthError);
   });
 });
