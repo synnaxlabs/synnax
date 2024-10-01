@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
@@ -52,17 +51,17 @@ var _ = Describe("enforcer", func() {
 				{
 					Subjects: []ontology.ID{rbac1},
 					Objects:  []ontology.ID{userObject},
-					Actions:  []action.Action{"create"},
+					Actions:  []access.Action{"create"},
 				},
 				{
 					Subjects: []ontology.ID{rbac1, rbac2},
 					Objects:  []ontology.ID{rbacObject},
-					Actions:  []action.Action{"create", "update"},
+					Actions:  []access.Action{"create", "update"},
 				},
 				{
 					Subjects: []ontology.ID{rbac1, rbac2},
 					Objects:  []ontology.ID{userTypeObject, rbacObject},
-					Actions:  []action.Action{"delete", "retrieve"},
+					Actions:  []access.Action{"delete", "retrieve"},
 				},
 				{
 					Subjects: []ontology.ID{rbac3},
@@ -75,12 +74,12 @@ var _ = Describe("enforcer", func() {
 				{
 					Subjects: []ontology.ID{rbac1},
 					Objects:  []ontology.ID{{Key: "label2", Type: "label"}},
-					Actions:  []action.Action{"all"},
+					Actions:  []access.Action{"all"},
 				},
 				{
 					Subjects: []ontology.ID{userTypeObject},
 					Objects:  []ontology.ID{{Key: "label3", Type: "label"}},
-					Actions:  []action.Action{"create"},
+					Actions:  []access.Action{"create"},
 				},
 			}
 			for _, p := range policies {
@@ -189,12 +188,12 @@ var _ = Describe("enforcer", func() {
 				user1Change2     = rbac.Policy{
 					Subjects: []ontology.ID{userID1},
 					Objects:  []ontology.ID{userID2},
-					Actions:  []action.Action{"changePassword"},
+					Actions:  []access.Action{"changePassword"},
 				}
 				user2Change1 = rbac.Policy{
 					Subjects: []ontology.ID{userID2},
 					Objects:  []ontology.ID{userID1},
-					Actions:  []action.Action{"changePassword", "erasePassword"},
+					Actions:  []access.Action{"changePassword", "erasePassword"},
 				}
 			)
 			Expect(writer.Create(ctx, &user1Change2)).To(Succeed())

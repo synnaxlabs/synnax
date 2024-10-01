@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
@@ -47,7 +46,7 @@ func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateReques
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: workspace.OntologyIDsFromWorkspaces(req.Workspaces),
 	}); err != nil {
 		return res, err
@@ -78,7 +77,7 @@ type WorkspaceRenameRequest struct {
 func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -96,7 +95,7 @@ type WorkspaceSetLayoutRequest struct {
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Update,
+		Action:  access.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -139,7 +138,7 @@ func (s *WorkspaceService) Retrieve(
 	err = q.Entries(&res.Workspaces).Exec(ctx, nil)
 	if eErr := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: workspace.OntologyIDsFromWorkspaces(res.Workspaces),
 	}); eErr != nil {
 		return WorkspaceRetrieveResponse{}, eErr
@@ -154,7 +153,7 @@ type WorkspaceDeleteRequest struct {
 func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: workspace.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

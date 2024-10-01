@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
@@ -28,15 +29,15 @@ type Writer struct {
 func (w Writer) Create(
 	ctx context.Context,
 	ws uuid.UUID,
-	p *Schematic,
+	s *Schematic,
 ) (err error) {
-	if p.Key == uuid.Nil {
-		p.Key = uuid.New()
+	if s.Key == uuid.Nil {
+		s.Key = uuid.New()
 	}
-	if err = gorp.NewCreate[uuid.UUID, Schematic]().Entry(p).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[uuid.UUID, Schematic]().Entry(s).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	otgID := OntologyID(p.Key)
+	otgID := OntologyID(s.Key)
 	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
@@ -84,12 +85,12 @@ func (w Writer) Copy(
 	result *Schematic,
 ) error {
 	newKey := uuid.New()
-	if err := gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).Change(func(p Schematic) Schematic {
-		p.Key = newKey
-		p.Name = name
-		p.Snapshot = snapshot
-		*result = p
-		return p
+	if err := gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).Change(func(s Schematic) Schematic {
+		s.Key = newKey
+		s.Name = name
+		s.Snapshot = snapshot
+		*result = s
+		return s
 	}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -117,12 +118,12 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).ChangeErr(func(p Schematic) (Schematic, error) {
-		if p.Snapshot {
-			return p, errors.Wrapf(validate.Error, "[Schematic] - cannot set data on snapshot %s:%s", key, p.Name)
+	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).ChangeErr(func(s Schematic) (Schematic, error) {
+		if s.Snapshot {
+			return s, errors.Wrapf(validate.Error, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
 		}
-		p.Data = data
-		return p, nil
+		s.Data = data
+		return s, nil
 	}).Exec(ctx, w.tx)
 }
 

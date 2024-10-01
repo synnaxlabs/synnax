@@ -60,11 +60,11 @@ var _schema = &ontology.Schema{
 	},
 }
 
-func newResource(schematic Schematic) schema.Resource {
-	e := schema.NewResource(_schema, OntologyID(schematic.Key), schematic.Name)
-	schema.Set(e, "key", schematic.Key.String())
-	schema.Set(e, "name", schematic.Name)
-	schema.Set(e, "snapshot", schematic.Snapshot)
+func newResource(s Schematic) schema.Resource {
+	e := schema.NewResource(_schema, OntologyID(s.Key), s.Name)
+	schema.Set(e, "key", s.Key.String())
+	schema.Set(e, "name", s.Name)
+	schema.Set(e, "snapshot", s.Snapshot)
 	return e
 }
 

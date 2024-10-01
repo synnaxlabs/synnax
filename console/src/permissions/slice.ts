@@ -31,10 +31,7 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    clear: (state) => {
-      state.policies = [];
-    },
-    giveAllPermissions: (state) => {
+    giveAll: (state) => {
       state.policies = ALLOW_ALL;
     },
     set: (state, { payload: { policies } }: PayloadAction<SetPayload>) => {
@@ -43,7 +40,7 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-export const { clear, giveAllPermissions, set } = actions;
+export const { giveAll, set } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

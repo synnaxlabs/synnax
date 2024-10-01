@@ -59,25 +59,6 @@ func (s *AuthService) Login(ctx context.Context, req AuthLoginRequest) (AuthLogi
 	return AuthLoginResponse{User: u, Token: tk}, err
 }
 
-type AuthChangeUsernameRequest struct {
-	auth.InsecureCredentials
-	NewUsername string `json:"new_username" msgpack:"new_username"`
-}
-
-// ChangeUsername changes the username of the user that logs in with the provided credentials.
-func (s *AuthService) ChangeUsername(ctx context.Context, req AuthChangeUsernameRequest) (types.Nil, error) {
-	var u user.User
-	if err := s.user.NewRetrieve().WhereUsernames(req.Username).Entry(&u).Exec(ctx, nil); err != nil {
-		return types.Nil{}, err
-	}
-	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.authenticator.NewWriter(tx).UpdateUsername(ctx, req.InsecureCredentials, req.NewUsername); err != nil {
-			return err
-		}
-		return s.user.NewWriter(tx).ChangeUsername(ctx, u.Key, req.NewUsername)
-	})
-}
-
 type AuthChangePasswordRequest struct {
 	auth.InsecureCredentials
 	NewPassword password.Raw `json:"new_password" msgpack:"new_password" validate:"required"`

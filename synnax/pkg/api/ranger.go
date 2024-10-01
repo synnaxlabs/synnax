@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
@@ -57,7 +56,7 @@ type (
 func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res RangeCreateResponse, _ error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: []ontology.ID{{Type: ranger.OntologyType}},
 	}); err != nil {
 		return res, err
@@ -119,7 +118,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: ranger.OntologyIDsFromRanges(resRanges),
 	}); err != nil {
 		return RangeRetrieveResponse{}, err
@@ -135,7 +134,7 @@ type RangeRenameRequest struct {
 func (s *RangeService) Rename(ctx context.Context, req RangeRenameRequest) (res types.Nil, _ error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -152,7 +151,7 @@ type RangeDeleteRequest struct {
 func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res types.Nil, _ error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: ranger.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -184,7 +183,7 @@ func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res Ra
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return RangeKVGetResponse{}, err
@@ -211,7 +210,7 @@ type RangeKVSetRequest struct {
 func (s *RangeService) KVSet(ctx context.Context, req RangeKVSetRequest) (res types.Nil, _ error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Update,
+		Action:  access.Update,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return res, err
@@ -236,7 +235,7 @@ type RangeKVDeleteRequest struct {
 func (s *RangeService) KVDelete(ctx context.Context, req RangeKVDeleteRequest) (res types.Nil, _ error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Update,
+		Action:  access.Update,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return res, err
@@ -270,7 +269,7 @@ func (s *RangeService) AliasSet(ctx context.Context, req RangeAliasSetRequest) (
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: ranger.AliasOntologyIDs(req.Range, keys),
 	}); err != nil {
 		return res, err
@@ -328,7 +327,7 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  ranger.ResolveAliasAction,
+		Action:  access.Retrieve,
 		Objects: ranger.AliasOntologyIDs(req.Range, keys),
 	}); err != nil {
 		return res, err
@@ -345,7 +344,7 @@ type RangeAliasDeleteRequest struct {
 func (s *RangeService) AliasDelete(ctx context.Context, req RangeAliasDeleteRequest) (res types.Nil, _ error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return res, err
@@ -394,7 +393,7 @@ func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest)
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: ranger.AliasOntologyIDs(req.Range, keys),
 	}); err != nil {
 		return res, err

@@ -16,7 +16,6 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/hardware"
 	"github.com/synnaxlabs/synnax/pkg/hardware/device"
@@ -57,7 +56,7 @@ type (
 func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRackRequest) (res HardwareCreateRackResponse, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: rack.OntologyIDsFromRacks(req.Racks),
 	}); err != nil {
 		return res, err
@@ -121,7 +120,7 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	}
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: rack.OntologyIDsFromRacks(resRacks),
 	}); err != nil {
 		return res, err
@@ -137,7 +136,7 @@ type HardwareDeleteRackRequest struct {
 func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRackRequest) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: rack.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -165,7 +164,7 @@ type (
 func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTaskRequest) (res HardwareCreateTaskResponse, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: task.OntologyIDsFromTasks(req.Tasks),
 	}); err != nil {
 		return res, err
@@ -244,7 +243,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	}
 	if err = svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: task.OntologyIDsFromTasks(res.Tasks),
 	}); err != nil {
 		return HardwareRetrieveTaskResponse{}, err
@@ -259,7 +258,7 @@ type HardwareDeleteTaskRequest struct {
 func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTaskRequest) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: task.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -289,7 +288,7 @@ type (
 func (svc *HardwareService) CopyTask(ctx context.Context, req HardwareCopyTaskRequest) (res HardwareCopyTaskResponse, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Copy,
+		Action:  access.Retrieve,
 		Objects: []ontology.ID{task.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -306,6 +305,13 @@ func (svc *HardwareService) CopyTask(ctx context.Context, req HardwareCopyTaskRe
 	if err != nil {
 		return HardwareCopyTaskResponse{}, err
 	}
+	if err := svc.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{task.OntologyID(res.Task.Key)},
+	}); err != nil {
+		return HardwareCopyTaskResponse{}, err
+	}
 	return res, nil
 }
 
@@ -320,7 +326,7 @@ type HardwareCreateDeviceResponse struct {
 func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreateDeviceRequest) (res HardwareCreateDeviceResponse, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: device.OntologyIDsFromDevices(req.Devices),
 	}); err != nil {
 		return res, err
@@ -394,7 +400,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	}
 	if err = svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: device.OntologyIDsFromDevices(res.Devices),
 	}); err != nil {
 		return HardwareRetrieveDeviceResponse{}, err
@@ -409,7 +415,7 @@ type HardwareDeleteDeviceRequest struct {
 func (svc *HardwareService) DeleteDevice(ctx context.Context, req HardwareDeleteDeviceRequest) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: device.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

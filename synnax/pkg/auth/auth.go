@@ -38,10 +38,10 @@ type Writer interface {
 	// Authenticator uses the Node's local storage, they can use the provided tx to
 	// perform the update.
 	UpdatePassword(ctx context.Context, creds InsecureCredentials, newPass password.Raw) error
-	// ChangeUsername changes the name of one user to another name. This method does not
+	// InsecureUpdateUsername changes the name of one user to another name. This method does not
 	// validate the credentials of the user.
-	ChangeUsername(ctx context.Context, oldUsername string, newUsername string) error
-	// Deactive deletes the given credentials in the authenticator. This method does not
+	InsecureUpdateUsername(ctx context.Context, oldUsername string, newUsername string) error
+	// InsecureDeactivate deletes the given credentials in the authenticator. This method does not
 	// validate the credentials of the person calling it.
-	Deactivate(ctx context.Context, usernames ...string) error
+	InsecureDeactivate(ctx context.Context, usernames ...string) error
 }

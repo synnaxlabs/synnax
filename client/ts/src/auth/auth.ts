@@ -28,15 +28,7 @@ const LOGIN_ENDPOINT = "/auth/login";
 
 const MAX_RETRIES = 3;
 
-const CHANGE_USERNAME_ENDPOINT = "/auth/change-username";
 const CHANGE_PASSWORD_ENDPOINT = "/auth/change-password";
-
-const changeUsernameReqZ = z.object({
-  username: z.string(),
-  password: z.string(),
-  newUsername: z.string().min(1),
-});
-const changeUsernameResZ = z.object({});
 
 const changePasswordReqZ = z.object({
   username: z.string(),
@@ -59,23 +51,6 @@ export class Client {
     this.authenticated = false;
     this.credentials = credentials;
     this.retryCount = 0;
-  }
-
-  async changeUsername(newUsername: string): Promise<void> {
-    if (!this.authenticated || this.user == null) throw new Error("Not authenticated");
-    await sendRequired<typeof changeUsernameReqZ, typeof changeUsernameResZ>(
-      this.client,
-      CHANGE_USERNAME_ENDPOINT,
-      {
-        username: this.credentials.username,
-        password: this.credentials.password,
-        newUsername,
-      },
-      changeUsernameReqZ,
-      changeUsernameResZ,
-    );
-    this.credentials.username = newUsername;
-    this.user.username = newUsername;
   }
 
   async changePassword(newPassword: string): Promise<void> {

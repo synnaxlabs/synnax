@@ -104,6 +104,13 @@ export const EditModal = (props: Layout.RendererProps): ReactElement => {
           ...consolePolicyRecord[policy],
         });
         values.keys[policy] = newPolicy.key;
+      } catch (e) {
+        if (!(e instanceof Error)) throw e;
+        addStatus({
+          variant: "error",
+          message: `Failed to set ${path}`,
+          description: e.message,
+        });
       } finally {
         setTimeout(() => setIsPending(false), 100);
       }

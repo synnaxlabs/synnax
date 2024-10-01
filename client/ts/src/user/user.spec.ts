@@ -221,28 +221,18 @@ describe("User", () => {
       await expect(
         client.user.changeUsername(userTwo.key as string, userOne.username),
       ).rejects.toThrow(AuthError));
-    test(
-      "Repeated usernames work",
-      async () => {
-        const oldUsername = id.id();
-        console.log("old username", oldUsername);
-        const user = await client.user.create({
-          username: oldUsername,
-          password: "test",
-        });
-        const newUsername = id.id();
-        console.log("new username", newUsername);
-        await client.user.changeUsername(user.key, newUsername);
-        console.log("username changed");
-        // below means username didn't actually change
-        // const newUser = await client.user.create({username: newUsername, password: "test"});
-
-        await expect(
-          client.user.changeUsername(user.key, user.username),
-        ).resolves.toBeUndefined();
-      },
-      1000 * 1000000,
-    );
+    test("Repeated usernames fail", async () => {
+      const oldUsername = id.id();
+      const user = await client.user.create({
+        username: oldUsername,
+        password: "test",
+      });
+      const newUsername = id.id();
+      await client.user.changeUsername(user.key, newUsername);
+      await expect(
+        client.user.create({ username: newUsername, password: "test" }),
+      ).rejects.toThrow(AuthError);
+    });
   });
   describe("Change Name", () => {
     test("Successful", async () => {

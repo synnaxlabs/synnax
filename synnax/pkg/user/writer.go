@@ -100,3 +100,23 @@ func (w Writer) Delete(
 	}
 	return w.otg.DeleteManyResources(ctx, OntologyIDsFromKeys(keys))
 }
+
+// MaybeSetRootUser will set the only user in the key-value store as the root user. This
+// function is implemented to provide backwards compatibility with older versions of the
+// key-value store from before v0.31.0.
+func (w Writer) MaybeSetRootUser(
+	ctx context.Context,
+	username string,
+) error {
+	var users []User
+	if err := w.svc.NewRetrieve().WhereKeys().Entries(&users).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if len(users) != 1 {
+		return nil
+	}
+	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(users[0].Key).Change(func(u User) User {
+		u.RootUser = true
+		return u
+	}).Exec(ctx, w.tx)
+}

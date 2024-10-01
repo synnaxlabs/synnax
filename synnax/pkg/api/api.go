@@ -122,7 +122,6 @@ func (c Config) Override(other Config) Config {
 type Transport struct {
 	// AUTH
 	AuthLogin          freighter.UnaryServer[AuthLoginRequest, AuthLoginResponse]
-	AuthChangeUsername freighter.UnaryServer[AuthChangeUsernameRequest, types.Nil]
 	AuthChangePassword freighter.UnaryServer[AuthChangePasswordRequest, types.Nil]
 	// USER
 	UserRename         freighter.UnaryServer[UserRenameRequest, types.Nil]
@@ -247,7 +246,6 @@ func (a *API) BindTo(t Transport) {
 		secureMiddleware,
 
 		// AUTH
-		t.AuthChangeUsername,
 		t.AuthChangePassword,
 
 		// USER
@@ -345,7 +343,6 @@ func (a *API) BindTo(t Transport) {
 	// AUTH
 	t.AuthLogin.BindHandler(a.Auth.Login)
 	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
-	t.AuthChangeUsername.BindHandler(a.Auth.ChangeUsername)
 
 	// USER
 	t.UserRename.BindHandler(a.User.Rename)

@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
@@ -446,26 +445,26 @@ func maybeSetBasePermission(
 ) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
 		// base policies that need to be created
-		basePolicies := map[ontology.Type]action.Action{
-			"label":       action.All,
-			"cluster":     action.All,
-			"channel":     action.All,
-			"node":        action.All,
-			"group":       action.All,
-			"range":       action.All,
-			"range-alias": action.All,
-			"workspace":   action.All,
-			"lineplot":    action.All,
-			"rack":        action.All,
-			"device":      action.All,
-			"task":        action.All,
-			"user":        action.Retrieve,
-			"schematic":   action.Retrieve,
-			"policy":      action.Retrieve,
-			"builtin":     action.Retrieve,
+		basePolicies := map[ontology.Type]access.Action{
+			"label":       access.All,
+			"cluster":     access.All,
+			"channel":     access.All,
+			"node":        access.All,
+			"group":       access.All,
+			"range":       access.All,
+			"range-alias": access.All,
+			"workspace":   access.All,
+			"lineplot":    access.All,
+			"rack":        access.All,
+			"device":      access.All,
+			"task":        access.All,
+			"user":        access.Retrieve,
+			"schematic":   access.Retrieve,
+			"policy":      access.Retrieve,
+			"builtin":     access.Retrieve,
 		}
 		// for migration purposes, some old base policies that need to be deleted
-		oldBasePolicies := map[ontology.Type]action.Action{}
+		oldBasePolicies := map[ontology.Type]access.Action{}
 
 		existingPolicies := make([]rbac.Policy, 0, len(basePolicies))
 		policiesToDelete := make([]uuid.UUID, 0, len(oldBasePolicies))
@@ -495,7 +494,7 @@ func maybeSetBasePermission(
 			if err := rbacSvc.NewWriter(tx).Create(ctx, &rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyTypeID},
 				Objects:  []ontology.ID{{Type: t, Key: ""}},
-				Actions:  []action.Action{basePolicies[t]},
+				Actions:  []access.Action{basePolicies[t]},
 			}); err != nil {
 				return err
 			}
@@ -520,10 +519,18 @@ func maybeProvisionRootUser(
 		return err
 	}
 	if exists {
+		// we potentially need to update the root user flag
+
 		// we want to make sure the root user still has the allow_all policy
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			// For cluster versions before v0.31.0, the root user flag was not set. We
+			// need to set it here.
+			if err = userSvc.NewWriter(tx).MaybeSetRootUser(ctx, creds.Username); err != nil {
+				return err
+			}
+
 			var u user.User
-			if err = userSvc.NewRetrieve().WhereUsernames(creds.Username).Entry(&u).Exec(ctx, db); err != nil {
+			if err = userSvc.NewRetrieve().WhereUsernames(creds.Username).Entry(&u).Exec(ctx, tx); err != nil {
 				return err
 			}
 			if !u.RootUser {
@@ -539,7 +546,7 @@ func maybeProvisionRootUser(
 			return rbacSvc.NewWriter(tx).Create(ctx, &rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyID(u.Key)},
 				Objects:  []ontology.ID{rbac.AllowAllOntologyID},
-				Actions:  []action.Action{},
+				Actions:  []access.Action{},
 			})
 		})
 	}
@@ -558,7 +565,7 @@ func maybeProvisionRootUser(
 			&rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyID(userObj.Key)},
 				Objects:  []ontology.ID{rbac.AllowAllOntologyID},
-				Actions:  []action.Action{},
+				Actions:  []access.Action{},
 			},
 		)
 	})

@@ -11,6 +11,7 @@ import { type Layout } from "@/layout";
 import { EditModal, SET_LAYOUT_TYPE } from "@/permissions/EditLayout";
 
 export * from "@/permissions/EditLayout";
+export * from "@/permissions/hooks";
 export * from "@/permissions/selectors";
 export * from "@/permissions/slice";
 

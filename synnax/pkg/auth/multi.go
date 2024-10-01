@@ -90,28 +90,28 @@ func (w multiWriter) UpdatePassword(
 	return err
 }
 
-func (w multiWriter) ChangeUsername(
+func (w multiWriter) InsecureUpdateUsername(
 	ctx context.Context,
 	oldUsername string,
 	newUsername string,
 ) error {
 	var err error
 	for _, auth := range w {
-		if err = auth.ChangeUsername(ctx, oldUsername, newUsername); err == nil {
+		if err = auth.InsecureUpdateUsername(ctx, oldUsername, newUsername); err == nil {
 			return nil
 		}
 	}
 	return err
 }
 
-// Deactivate implements the Authenticator interface.
-func (w multiWriter) Deactivate(
+// InsecureDeactivate implements the Authenticator interface.
+func (w multiWriter) InsecureDeactivate(
 	ctx context.Context,
 	usernames ...string,
 ) error {
 	var err error
 	for _, auth := range w {
-		if err = auth.Deactivate(ctx, usernames...); err == nil {
+		if err = auth.InsecureDeactivate(ctx, usernames...); err == nil {
 			return nil
 		}
 	}

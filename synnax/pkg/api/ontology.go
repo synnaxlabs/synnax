@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -90,7 +89,7 @@ func (o *OntologyService) Retrieve(
 	}
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: schema.ResourceIDs(res.Resources),
 	}); err != nil {
 		return OntologyRetrieveResponse{}, err
@@ -115,7 +114,7 @@ func (o *OntologyService) CreateGroup(
 ) (res OntologyCreateGroupResponse, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -141,7 +140,7 @@ func (o *OntologyService) DeleteGroup(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: group.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -163,7 +162,7 @@ func (o *OntologyService) RenameGroup(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -185,8 +184,8 @@ func (o *OntologyService) AddChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  ontology.AddChildrenAction,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
@@ -212,8 +211,8 @@ func (o *OntologyService) RemoveChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  ontology.RemoveChildrenAction,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
@@ -240,8 +239,8 @@ func (o *OntologyService) MoveChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  ontology.MoveChildrenAction,
-		Objects: []ontology.ID{req.From, req.To},
+		Action:  access.Update,
+		Objects: append(req.Children, req.From, req.To),
 	}); err != nil {
 		return res, err
 	}

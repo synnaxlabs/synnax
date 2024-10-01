@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package label
+package access
 
-import "github.com/synnaxlabs/synnax/pkg/access/action"
+type Action string
 
 const (
-	AddAction    action.Action = "add_label"
-	RemoveAction action.Action = "remove_label"
+	All      Action = "all"
+	Create   Action = "create"
+	Delete   Action = "delete"
+	Retrieve Action = "retrieve"
+	Update   Action = "update"
 )

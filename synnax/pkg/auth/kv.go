@@ -85,8 +85,8 @@ func (w *kvWriter) UpdateUsername(ctx context.Context, creds InsecureCredentials
 	return w.changeUsername(ctx, secureCreds.Username, newUser)
 }
 
-// ChangeUsername implements Authenticator.
-func (w *kvWriter) ChangeUsername(ctx context.Context, oldUsername, newUsername string) error {
+// InsecureUpdateUsername implements Authenticator.
+func (w *kvWriter) InsecureUpdateUsername(ctx context.Context, oldUsername, newUsername string) error {
 	return w.changeUsername(ctx, oldUsername, newUsername)
 }
 
@@ -103,8 +103,8 @@ func (w *kvWriter) UpdatePassword(ctx context.Context, creds InsecureCredentials
 	return w.set(ctx, secureCreds)
 }
 
-// Deactivate implements Authenticator.
-func (w *kvWriter) Deactivate(ctx context.Context, usernames ...string) error {
+// InsecureDeactivate implements Authenticator.
+func (w *kvWriter) InsecureDeactivate(ctx context.Context, usernames ...string) error {
 	return w.delete(ctx, usernames...)
 }
 

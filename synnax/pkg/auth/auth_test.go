@@ -40,7 +40,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		Expect(authenticator.NewWriter(nil).Register(ctx, creds)).To(Succeed())
 	})
 	AfterEach(func() {
-		Expect(authenticator.NewWriter(nil).Deactivate(ctx, creds.Username)).To(Succeed())
+		Expect(authenticator.NewWriter(nil).InsecureDeactivate(ctx, creds.Username)).To(Succeed())
 	})
 	Describe("Registering", func() {
 		It("Should register the credentials", func() {
@@ -79,7 +79,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			}
 		})
 		AfterEach(func() {
-			Expect(authenticator.NewWriter(nil).Deactivate(ctx, newCreds.Username)).To(Succeed())
+			Expect(authenticator.NewWriter(nil).InsecureDeactivate(ctx, newCreds.Username)).To(Succeed())
 		})
 		When("using credentials", func() {
 			It("Should update the username", func() {
@@ -110,17 +110,17 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		})
 		When("using usernames", func() {
 			It("Should update the username", func() {
-				Expect(authenticator.NewWriter(nil).ChangeUsername(ctx, creds.Username, newCreds.Username)).To(Succeed())
+				Expect(authenticator.NewWriter(nil).InsecureUpdateUsername(ctx, creds.Username, newCreds.Username)).To(Succeed())
 				Expect(authenticator.Authenticate(ctx, newCreds)).To(Succeed())
 				Expect(authenticator.Authenticate(ctx, creds)).To(MatchError(auth.InvalidCredentials))
 			})
 			It("Should do nothing when the username is the same", func() {
-				Expect(authenticator.NewWriter(nil).ChangeUsername(ctx, creds.Username, creds.Username)).To(Succeed())
+				Expect(authenticator.NewWriter(nil).InsecureUpdateUsername(ctx, creds.Username, creds.Username)).To(Succeed())
 				Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 			})
 			It("Should return an RepeatedUsername error when the username is already registered", func() {
 				Expect(authenticator.NewWriter(nil).Register(ctx, newCreds)).To(Succeed())
-				Expect(errors.Is(authenticator.NewWriter(nil).ChangeUsername(ctx, creds.Username, newCreds.Username), auth.RepeatedUsername)).To(BeTrue())
+				Expect(errors.Is(authenticator.NewWriter(nil).InsecureUpdateUsername(ctx, creds.Username, newCreds.Username), auth.RepeatedUsername)).To(BeTrue())
 				Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 				Expect(authenticator.Authenticate(ctx, newCreds)).To(Succeed())
 			})
@@ -150,23 +150,23 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			Expect(authenticator.NewWriter(nil).UpdatePassword(ctx, invalUserCreds, newCreds.Password)).To(MatchError(auth.InvalidCredentials))
 			Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 			Expect(authenticator.Authenticate(ctx, newCreds)).To(MatchError(auth.InvalidCredentials))
-			Expect(authenticator.NewWriter(nil).Deactivate(ctx, creds.Username)).To(Succeed())
+			Expect(authenticator.NewWriter(nil).InsecureDeactivate(ctx, creds.Username)).To(Succeed())
 		})
 	})
 	Describe("Deactivating", func() {
 		It("Should delete the credentials", func() {
-			Expect(authenticator.NewWriter(nil).Deactivate(ctx, creds.Username)).To(Succeed())
+			Expect(authenticator.NewWriter(nil).InsecureDeactivate(ctx, creds.Username)).To(Succeed())
 			Expect(authenticator.Authenticate(ctx, creds)).To(MatchError(auth.InvalidCredentials))
 		})
 		It("Should be idempotent", func() {
 			for range 2 {
-				Expect(authenticator.NewWriter(nil).Deactivate(ctx, creds.Username)).To(Succeed())
+				Expect(authenticator.NewWriter(nil).InsecureDeactivate(ctx, creds.Username)).To(Succeed())
 			}
 		})
 		It("Should delete multiple credentials", func() {
 			creds2 := auth.InsecureCredentials{Username: "username2", Password: "password"}
 			Expect(authenticator.NewWriter(nil).Register(ctx, creds2)).To(Succeed())
-			Expect(authenticator.NewWriter(nil).Deactivate(ctx, creds.Username, creds2.Username)).To(Succeed())
+			Expect(authenticator.NewWriter(nil).InsecureDeactivate(ctx, creds.Username, creds2.Username)).To(Succeed())
 			Expect(authenticator.Authenticate(ctx, creds)).To(MatchError(auth.InvalidCredentials))
 			Expect(authenticator.Authenticate(ctx, creds2)).To(MatchError(auth.InvalidCredentials))
 		})

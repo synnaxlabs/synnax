@@ -93,6 +93,10 @@ const useBlockDefaultDropBehavior = (): void =>
     const doc = document.documentElement;
     doc.addEventListener("dragover", (e) => e.preventDefault());
     doc.addEventListener("drop", (e) => e.preventDefault());
+    return () => {
+      doc.removeEventListener("dragover", (e) => e.preventDefault());
+      doc.removeEventListener("drop", (e) => e.preventDefault());
+    };
   }, []);
 
 const MainUnderContext = (): ReactElement => {
@@ -107,7 +111,7 @@ const MainUnderContext = (): ReactElement => {
         channelAlias={{
           // Set the alias active range to undefined if the range is not saved in Synnax,
           // otherwise it will try to pull aliases from a range that doesn't exist.
-          activeRange: activeRange?.persisted ? activeRange?.key : undefined,
+          activeRange: activeRange?.persisted ? activeRange.key : undefined,
         }}
         workerEnabled
         connParams={cluster?.props}

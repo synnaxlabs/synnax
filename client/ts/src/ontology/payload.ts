@@ -10,8 +10,6 @@
 import { change, UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type access } from "@/access";
-
 export type ResourceChange = change.Change<ID, Resource>;
 export type ResourceSet = change.Set<ID, Resource>;
 export type ResourceDelete = change.Delete<ID, Resource>;
@@ -129,7 +127,3 @@ export const parseRelationship = (str: string): Relationship => {
   const [from, type, to] = str.split("->");
   return { from: new ID(from), type, to: new ID(to) };
 };
-
-export const ADD_CHILDREN_ACTION: access.Action = "add_children";
-export const MOVE_CHILDREN_ACTION: access.Action = "move_children";
-export const REMOVE_CHILDREN_ACTION: access.Action = "remove_children";

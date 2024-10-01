@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Reducer, Store } from "@reduxjs/toolkit";
-import { combineReducers, Tuple } from "@reduxjs/toolkit";
+import { combineReducers, type Reducer, type Store, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep } from "@synnaxlabs/x";
@@ -27,6 +26,7 @@ import { Workspace } from "@/workspace";
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   ...Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
+  Permissions.SLICE_NAME,
 ];
 
 const reducer = combineReducers({

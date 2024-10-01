@@ -28,7 +28,6 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
-	a.AuthChangeUsername = fnoop.UnaryServer[api.AuthChangeUsernameRequest, types.Nil]{}
 
 	// HARDWARE
 	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}

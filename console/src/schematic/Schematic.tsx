@@ -158,6 +158,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
 
+  const canBeEditable = useSelectHasPermission();
+  if (!canBeEditable && schematic.editable)
+    dispatch(setEditable({ key: layoutKey, editable: false }));
+
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => {
       dispatch(setEdges({ key: layoutKey, edges }));

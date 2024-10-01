@@ -11,7 +11,6 @@ import { TimeRange } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { type access } from "@/access";
 import { ontology } from "@/ontology";
 
 export const keyZ = z.string().uuid();
@@ -84,5 +83,3 @@ export const rangeOntologyID = (key: Key): ontology.ID =>
 
 export const rangeAliasOntologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key: key });
-
-export const RESOLVE_ALIAS_ACTION: access.Action = "resolve";

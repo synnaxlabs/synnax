@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { type ontology, Synnax, user } from "@synnaxlabs/client";
+import { type ontology, Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
@@ -25,7 +25,6 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
-import { Permissions } from "@/permissions";
 import { type RootState } from "@/store";
 
 export interface HandlerProps {
@@ -85,12 +84,6 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
       dispatch(Cluster.setActive(clusterKey));
       clientRef.current = new Synnax(connParams);
       if (clientRef.current == null) return addClusterErrorStatus();
-      const username = clientRef.current.props.username;
-      const user_ = await clientRef.current.user.retrieveByName(username);
-      const policies = await clientRef.current.access.policy.retrieveFor(
-        user.ontologyID(user_.key),
-      );
-      dispatch(Permissions.set({ policies }));
       if (urlParts.length === 2) return;
 
       // Processing the resource part of URL

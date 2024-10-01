@@ -17,7 +17,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/x/gorp"
@@ -58,7 +57,7 @@ func (s *LabelService) Create(
 ) (res LabelCreateResponse, err error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: label.OntologyIDsFromLabels(req.Labels),
 	}); err != nil {
 		return res, err
@@ -120,7 +119,7 @@ func (s *LabelService) Retrieve(
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: label.OntologyIDsFromLabels(res.Labels),
 	}); err != nil {
 		return LabelRetrieveResponse{}, err
@@ -138,7 +137,7 @@ func (s *LabelService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: label.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -160,8 +159,8 @@ func (s *LabelService) Add(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  label.AddAction,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -187,8 +186,8 @@ func (s *LabelService) Remove(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  label.RemoveAction,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err
 	}

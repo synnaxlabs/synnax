@@ -24,7 +24,7 @@ const client = newClient();
 const sortByKey = (a: any, b: any) => a.key.localeCompare(b.key);
 
 describe("Policy", () => {
-  describe.skip("create", () => {
+  describe("create", () => {
     describe("one", () => {
       test("without key", async () => {
         const policy = await client.access.policy.create({
@@ -50,7 +50,6 @@ describe("Policy", () => {
           objects: [],
           actions: [],
         });
-        console.log("policy", policy);
         expect(policy.key).exist;
         expect(policy.subjects).toHaveLength(0);
         expect(policy.objects).toHaveLength(0);
@@ -161,7 +160,7 @@ describe("Policy", () => {
       });
     });
   });
-  describe.skip("retrieve", async () => {
+  describe("retrieve", async () => {
     test("by key", async () => {
       const policies = await client.access.policy.create([
         {
@@ -221,7 +220,7 @@ describe("Policy", () => {
       await client.access.policy.delete([created[0].key, created[1].key]);
     });
   });
-  describe.skip("delete", async () => {
+  describe("delete", async () => {
     test("one", async () => {
       const id1 = id.id();
       const id2 = id.id();
@@ -307,7 +306,7 @@ describe("Policy", () => {
     });
   });
   describe("current test I'm failing", async () => {
-    test.skip("create and retrieve", async () => {
+    test("create and retrieve", async () => {
       const userKey = "0b22b11d-b659-4061-b8cd-5cc7ef8b6800";
       const newPolicy = {
         subjects: [{ type: user.ONTOLOGY_TYPE, key: userKey }],
@@ -328,8 +327,6 @@ describe("Policy", () => {
         await client.access.policy.retrieveFor(user.ontologyID(userKey))
       )[0];
       expect(retrieved).toMatchObject(created);
-      console.log("createdPolicy", created);
-      console.log("retrievedPolicy", retrieved);
     });
     test("root user", async () => {
       const username = client.props.username;
@@ -341,7 +338,7 @@ describe("Policy", () => {
   });
 });
 
-describe.skip("privilege", async () => {
+describe("privilege", async () => {
   test("new user", async () => {
     const username = id.id();
     const user2 = await client.user.create({ username, password: "pwd1" });

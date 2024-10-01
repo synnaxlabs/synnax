@@ -233,17 +233,22 @@ const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
   const placer = Layout.usePlacer();
-  const removeLayout = Layout.useRemover();
+  const remover = Layout.useRemover();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const activeRange = useSelect();
 
-  const handleCreate = (key?: string): void =>
-    void placer(createLayout({ initial: { key } }));
+  const handleCreate = (key?: string): void => {
+    placer(createLayout({ initial: { key } }));
+  };
 
-  const handleRemove = (keys: string[]): void => void dispatch(remove({ keys }));
+  const handleRemove = (keys: string[]): void => {
+    dispatch(remove({ keys }));
+  };
 
-  const handleSelect = (key: string): void => void dispatch(setActive(key));
+  const handleSelect = (key: string): void => {
+    dispatch(setActive(key));
+  };
 
   const addStatus = Status.useAggregator();
 
@@ -261,7 +266,7 @@ const List = (): ReactElement => {
       )
         throw errors.CANCELED;
       handleRemove([key]);
-      removeLayout(key);
+      remover(key);
       return rng;
     },
     mutationFn: async (key: string) => await client?.ranges.delete(key),
@@ -306,10 +311,13 @@ const List = (): ReactElement => {
     const addToActivePlot = useAddToActivePlot();
     const addToNewPlot = useAddToNewPlot();
     const placer = Layout.usePlacer();
-    const handleSetActive = () => void dispatch(setActive(key));
+    const handleSetActive = () => {
+      dispatch(setActive(key));
+    };
     const handleViewDetails = useViewDetails();
-    const handleAddChildRange = () =>
-      void placer(createLayout({ initial: { parent: key } }));
+    const handleAddChildRange = () => {
+      placer(createLayout({ initial: { parent: key } }));
+    };
 
     const rangeExists = rng != null;
 

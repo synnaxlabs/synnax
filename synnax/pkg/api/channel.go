@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -84,7 +83,7 @@ func (s *ChannelService) Create(
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: channel.OntologyIDsFromChannels(translated),
 	}); err != nil {
 		return res, err
@@ -224,7 +223,7 @@ func (s *ChannelService) Retrieve(
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: channel.OntologyIDsFromChannels(resChannels),
 	}); err != nil {
 		return ChannelRetrieveResponse{}, err
@@ -288,7 +287,7 @@ func (s *ChannelService) Delete(
 			c.Exec(func() error {
 				if err := s.access.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
-					Action:  action.Delete,
+					Action:  access.Delete,
 					Objects: req.Keys.OntologyIDs(),
 				}); err != nil {
 					return err
@@ -305,7 +304,7 @@ func (s *ChannelService) Delete(
 				}
 				if err = s.access.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
-					Action:  action.Delete,
+					Action:  access.Delete,
 					Objects: channel.OntologyIDsFromChannels(res),
 				}); err != nil {
 					return err
@@ -328,7 +327,7 @@ func (s *ChannelService) Rename(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Rename,
+		Action:  access.Update,
 		Objects: req.Keys.OntologyIDs(),
 	}); err != nil {
 		return types.Nil{}, err
@@ -352,7 +351,7 @@ func (s *ChannelService) RetrieveGroup(
 	var group = s.internal.Group()
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: []ontology.ID{group.OntologyID()},
 	}); err != nil {
 		return ChannelRetrieveGroupResponse{}, err

@@ -9,7 +9,6 @@
 
 import "@/cluster/Dropdown.css";
 
-import { Synnax as CSynnax, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -17,11 +16,9 @@ import {
   Dropdown as Core,
   List as CoreList,
   Menu as PMenu,
-  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { useMutation } from "@tanstack/react-query";
 import {
   type MouseEvent,
   type PropsWithChildren,
@@ -37,39 +34,6 @@ import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { Permissions } from "@/permissions";
-
-const useHandleConnect = (): ((key: string | null) => void) => {
-  const dispatch = useDispatch();
-  const addStatus = Status.useAggregator();
-  const allClusters = useSelectMany();
-  return useMutation<void, Error, string | null>({
-    onMutate: (key) => {
-      dispatch(setActive(key));
-      dispatch(Permissions.giveAllPermissions());
-    },
-    mutationFn: async (key) => {
-      if (key == null) return;
-      const cluster = allClusters.find((c) => c.key === key);
-      if (cluster == null) throw new Error(`Cluster with key ${key} not found`);
-      const client = new CSynnax(cluster.props);
-      const username = client.props.username;
-      const user_ = await client.user.retrieveByName(username);
-      const policies = await client.access.policy.retrieveFor(
-        user.ontologyID(user_.key),
-      );
-      dispatch(Permissions.set({ policies }));
-    },
-    onError: (error) => {
-      dispatch(Permissions.clear());
-      addStatus({
-        variant: "error",
-        message: "Failed to connect to cluster",
-        description: error.message,
-      });
-    },
-  }).mutate;
-};
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -78,14 +42,14 @@ export const List = (): ReactElement => {
   const active = useSelect();
   const openWindow = Layout.usePlacer();
   const selected = active?.key ?? null;
-  const handleConnect = useHandleConnect();
 
-  const handleRemove = (keys: string[]): void => {
-    dispatch(remove({ keys }));
-    if (active != null && keys.includes(active?.key)) {
-      dispatch(setActive(null));
-      dispatch(Permissions.giveAllPermissions());
-    }
+  const handleConnect = (key: string | null): void => {
+    dispatch(setActive(key));
+  };
+
+  const handleRemove = (key: string): void => {
+    dispatch(remove({ keys: [key] }));
+    if (key === active?.key) dispatch(setActive(null));
   };
 
   const handleRename = (key: string): void => Text.edit(`cluster-dropdown-${key}`);
@@ -99,7 +63,7 @@ export const List = (): ReactElement => {
       const handleSelect = (menuKey: string): void => {
         switch (menuKey) {
           case "remove":
-            return handleRemove([key]);
+            return handleRemove(key);
           case "connect":
             return handleConnect(key);
           case "disconnect":
@@ -198,8 +162,9 @@ export const List = (): ReactElement => {
 
 const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   const dispatch = useDispatch();
-  const handleChange = (value: string) =>
-    void dispatch(rename({ key: props.entry.key, name: value }));
+  const handleChange = (value: string) => {
+    dispatch(rename({ key: props.entry.key, name: value }));
+  };
 
   return (
     <CoreList.ItemFrame

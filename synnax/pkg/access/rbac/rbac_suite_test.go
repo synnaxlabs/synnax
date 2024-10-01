@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
@@ -28,7 +28,7 @@ var (
 	changePasswordPolicy = rbac.Policy{
 		Subjects: []ontology.ID{userID},
 		Objects:  []ontology.ID{userID},
-		Actions:  []action.Action{"changePassword"},
+		Actions:  []access.Action{"changePassword"},
 	}
 )
 

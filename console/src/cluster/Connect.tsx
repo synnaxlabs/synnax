@@ -9,13 +9,7 @@
 
 import "@/cluster/Connect.css";
 
-import {
-  type connection,
-  Synnax as CSynnax,
-  type SynnaxProps,
-  synnaxPropsZ,
-  user,
-} from "@synnaxlabs/client";
+import { type connection, type SynnaxProps, synnaxPropsZ } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -38,7 +32,6 @@ import { set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Permissions } from "@/permissions";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
@@ -104,12 +97,6 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
         }),
       );
       dispatch(setActive(state.clusterKey));
-      const client = new CSynnax(data);
-      const user_ = await client.user.retrieveByName(data.username);
-      const policies = await client.access.policy.retrieveFor(
-        user.ontologyID(user_.key),
-      );
-      dispatch(Permissions.set({ policies }));
       onClose();
     })();
   };

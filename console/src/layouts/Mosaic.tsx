@@ -209,8 +209,9 @@ export const Mosaic = memo((): ReactElement => {
   );
 
   const handleRename = useCallback(
-    (tabKey: string, name: string): void =>
-      void dispatch(rename({ key: tabKey, name })),
+    (tabKey: string, name: string): void => {
+      dispatch(rename({ key: tabKey, name }));
+    },
     [dispatch],
   );
 

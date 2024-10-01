@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
@@ -44,7 +43,7 @@ func (s *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicy
 	if err := s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Objects: rbac.PolicyOntologyIDsFromPolicies(req.Policies),
-		Action:  action.Create,
+		Action:  access.Create,
 	}); err != nil {
 		return AccessCreatePolicyRequest{}, err
 	}
@@ -112,7 +111,7 @@ func (s *AccessService) RetrievePolicy(
 	}
 	if err = s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: rbac.PolicyOntologyIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return AccessRetrievePolicyResponse{}, err
@@ -128,7 +127,7 @@ func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 	if err := s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Objects: rbac.PolicyOntologyIDs(req.Keys),
-		Action:  action.Delete,
+		Action:  access.Delete,
 	}); err != nil {
 		return types.Nil{}, err
 	}

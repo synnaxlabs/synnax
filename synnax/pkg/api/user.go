@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
+	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
@@ -67,7 +67,7 @@ type (
 func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (UserCreateResponse, error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: []ontology.ID{user.OntologyID(uuid.Nil)},
 	}); err != nil {
 		return UserCreateResponse{}, err
@@ -85,6 +85,15 @@ func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (User
 			newUsers[i].LastName = u.LastName
 			newUsers[i].Key = u.Key
 			if err := w.Create(ctx, &newUsers[i]); err != nil {
+				return err
+			}
+
+			// Let the user update information about themselves
+			if err := svc.access.NewWriter(tx).Create(ctx, &rbac.Policy{
+				Subjects: []ontology.ID{user.OntologyID(u.Key)},
+				Actions:  []access.Action{access.Update},
+				Objects:  []ontology.ID{user.OntologyID(u.Key)},
+			}); err != nil {
 				return err
 			}
 		}
@@ -113,13 +122,13 @@ func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsername
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  action.Update,
+		Action:  access.Update,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.authenticator.NewWriter(tx).ChangeUsername(
+		if err := s.authenticator.NewWriter(tx).InsecureUpdateUsername(
 			ctx,
 			u.Username,
 			req.Username,
@@ -141,7 +150,7 @@ type UserRenameRequest struct {
 func (s *UserService) Rename(ctx context.Context, req UserRenameRequest) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
@@ -177,7 +186,7 @@ func (s *UserService) Retrieve(ctx context.Context, req UserRetrieveRequest) (Us
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: user.OntologyIDsFromUsers(users),
 	}); err != nil {
 		return UserRetrieveResponse{}, err
@@ -193,7 +202,7 @@ type UserDeleteRequest struct {
 func (s *UserService) Delete(ctx context.Context, req UserDeleteRequest) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: user.OntologyIDsFromKeys(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -212,7 +221,7 @@ func (s *UserService) Delete(ctx context.Context, req UserDeleteRequest) (types.
 
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.authenticator.NewWriter(tx).
-			Deactivate(ctx, lo.Map(users, func(u user.User, _ int) string {
+			InsecureDeactivate(ctx, lo.Map(users, func(u user.User, _ int) string {
 				return u.Username
 			})...); err != nil {
 			return err

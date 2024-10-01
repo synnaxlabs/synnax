@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/action"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
 	"github.com/synnaxlabs/x/gorp"
@@ -47,7 +46,7 @@ type LinePlotCreateResponse struct {
 func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest) (res LinePlotCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Create,
+		Action:  access.Create,
 		Objects: lineplot.OntologyIDsFromLinePlots(req.LinePlots),
 	}); err != nil {
 		return res, err
@@ -72,7 +71,7 @@ type LinePlotRenameRequest struct {
 func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -90,7 +89,7 @@ type LinePlotSetDataRequest struct {
 func (s *LinePlotService) SetData(ctx context.Context, req LinePlotSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Update,
+		Action:  access.Update,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -112,7 +111,7 @@ type (
 func (s *LinePlotService) Retrieve(ctx context.Context, req LinePlotRetrieveRequest) (res LinePlotRetrieveResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Retrieve,
+		Action:  access.Retrieve,
 		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -131,7 +130,7 @@ type LinePlotDeleteRequest struct {
 func (s *LinePlotService) Delete(ctx context.Context, req LinePlotDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  action.Delete,
+		Action:  access.Delete,
 		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

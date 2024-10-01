@@ -20,7 +20,6 @@ func New(router *fhttp.Router) (t api.Transport) {
 	// AUTH
 	t.AuthLogin = fhttp.UnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, false, "/api/v1/auth/login")
 	t.AuthChangePassword = fhttp.UnaryServer[api.AuthChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/change-password")
-	t.AuthChangeUsername = fhttp.UnaryServer[api.AuthChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/change-username")
 
 	// USER
 	t.UserRename = fhttp.UnaryServer[api.UserRenameRequest, types.Nil](router, false, "/api/v1/user/rename")
