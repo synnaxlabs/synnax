@@ -24,6 +24,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -138,7 +139,12 @@ const SymbolRenderer = ({
   );
 };
 
-export const Loaded: Layout.Renderer = ({ layoutKey }) => {
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <PMenu.Menu level="small" iconSpacing="small">
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </PMenu.Menu>
+);
+export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const schematic = useSelect(layoutKey);
@@ -343,6 +349,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onDoubleClick={handleDoubleClick}
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
+          visible={visible}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
@@ -417,5 +424,16 @@ export const create =
     const newTab = canEditSchematic ? tab : { ...tab, editable: false };
     const key = initial.key ?? uuidv4();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
-    return { key, location, name, type: LAYOUT_TYPE, window, tab: newTab };
+    return {
+      key,
+      location,
+      name,
+      icon: "Schematic",
+      type: LAYOUT_TYPE,
+      window: {
+        navTop: true,
+        showTitle: true,
+      },
+      tab: newTab,
+    };
   };

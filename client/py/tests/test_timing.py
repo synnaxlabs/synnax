@@ -39,7 +39,6 @@ class TestTiming:
 
         assert sum(accumulated_precise) < sum(accumulated_standard)
 
-    @pytest.mark.focus
     def test_sleep_rate(self):
         """Should sleep correctly based on a rate argument
         """

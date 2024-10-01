@@ -9,6 +9,7 @@
 
 import { isStringer, type Primitive } from "@/primitive";
 import { type spatial } from "@/spatial";
+import { unique } from "@/unique";
 
 export type CompareF<T> = (a: T, b: T) => number;
 
@@ -92,6 +93,15 @@ export const unorderedPrimitiveArrays = <T extends Primitive>(
   const aSorted = [...a].sort(compareF);
   const bSorted = [...b].sort(compareF);
   return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
+};
+
+export const uniqueUnorderedPrimitiveArrays = <T extends Primitive>(
+  a: readonly T[] | T[],
+  b: readonly T[] | T[],
+): number => {
+  const uniqueA = unique(a);
+  const uniqueB = unique(b);
+  return unorderedPrimitiveArrays(uniqueA, uniqueB);
 };
 
 export const order = (a: spatial.Order, b: spatial.Order): number => {

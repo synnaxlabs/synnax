@@ -124,7 +124,7 @@ export const NavTop = (): ReactElement => {
  * presentational.
  */
 export const NavLeft = (): ReactElement => {
-  const { onSelect, menuItems } = Layout.useNavDrawer("left", NAV_DRAWERS);
+  const { onSelect, menuItems, activeItem } = Layout.useNavDrawer("left", NAV_DRAWERS);
   const os = OS.use();
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="left" size={NAV_SIZES.side}>
@@ -134,7 +134,9 @@ export const NavLeft = (): ReactElement => {
         </Nav.Bar.Start>
       )}
       <Nav.Bar.Content className="console-main-nav__content">
-        <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
+        <NavMenu activeItem={activeItem} onChange={onSelect}>
+          {menuItems}
+        </NavMenu>
       </Nav.Bar.Content>
     </Nav.Bar>
   );
@@ -145,19 +147,24 @@ export const NavLeft = (): ReactElement => {
  * presentational.
  */
 export const NavRight = (): ReactElement | null => {
-  const { menuItems, onSelect } = Layout.useNavDrawer("right", NAV_DRAWERS);
-  const { menuItems: bottomMenuItems, onSelect: onBottomSelect } = Layout.useNavDrawer(
-    "bottom",
-    NAV_DRAWERS,
-  );
+  const { activeItem, menuItems, onSelect } = Layout.useNavDrawer("right", NAV_DRAWERS);
+  const {
+    menuItems: bottomMenuItems,
+    activeItem: bottomActiveItem,
+    onSelect: onBottomSelect,
+  } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="right" size={NAV_SIZES.side}>
       <Nav.Bar.Content className="console-main-nav__content" size="medium">
-        <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
+        <NavMenu activeItem={activeItem} onChange={onSelect}>
+          {menuItems}
+        </NavMenu>
       </Nav.Bar.Content>
       {bottomMenuItems.length > 0 && (
         <Nav.Bar.End className="console-main-nav__content" bordered>
-          <NavMenu onChange={onBottomSelect}>{bottomMenuItems}</NavMenu>
+          <NavMenu activeItem={bottomActiveItem} onChange={onBottomSelect}>
+            {bottomMenuItems}
+          </NavMenu>
         </Nav.Bar.End>
       )}
     </Nav.Bar>

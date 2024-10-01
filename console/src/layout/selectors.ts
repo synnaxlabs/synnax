@@ -92,6 +92,18 @@ export const selectMosaic = (
   return [win.key, selectSliceState(state).mosaics[win.key].root];
 };
 
+export const selectFocused = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): [string, string | null] => {
+  const window = selectWindow(state, windowKey);
+  if (window == null) throw new Error(`Window ${windowKey ?? ""} not found`);
+  return [window.key, selectSliceState(state).mosaics[window.key]?.focused ?? null];
+};
+
+export const useSelectFocused = (): [string, string | null] =>
+  useMemoSelect(selectFocused, []);
+
 /**
  * Selects the central layout mosaic from the store.
  *

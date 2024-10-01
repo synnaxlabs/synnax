@@ -340,7 +340,11 @@ const PaletteDialogContent = ({
   return (
     <List.Selector value={null} onChange={handleSelect} allowMultiple={false}>
       <List.Hover initialHover={0}>
-        <Align.Pack className={CSS.BE("palette", "content")} direction="y">
+        <Align.Pack
+          className={CSS.BE("palette", "content")}
+          direction="y"
+          borderShade={4}
+        >
           <Input.Text
             className={CSS(CSS.BE("palette", "input"))}
             placeholder={

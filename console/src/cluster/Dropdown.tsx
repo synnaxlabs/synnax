@@ -144,8 +144,14 @@ export const List = (): ReactElement => {
   );
 
   return (
-    <Align.Pack className={CSS.B("cluster-list")} direction="y">
-      <Align.Pack direction="x" justify="spaceBetween" size="large" grow>
+    <Align.Pack borderShade={4} className={CSS.B("cluster-list")} direction="y">
+      <Align.Pack
+        borderShade={4}
+        direction="x"
+        justify="spaceBetween"
+        size="large"
+        grow
+      >
         <Align.Space
           className={CSS.B("cluster-list-title")}
           direction="y"

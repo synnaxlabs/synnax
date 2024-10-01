@@ -10,55 +10,72 @@
  */
 
 .pluto-modal__bg {
-    &:not(.pluto--visible) {
-        display: none;
-    }
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
-    z-index: 10;
-    background: var(--pluto-gray-l3-40);
-    padding: 0 5rem;
-    /* don't allow to select things underneath */
-    user-select: none;
-
     .pluto-modal__dialog {
-        container-type: inline-size;
-        position: relative;
-        top: 30%;
-        z-index: 11;
-        transform: translateY(-25%);
-        background: var(--pluto-gray-l0);
-        backdrop-filter: saturate(300%) blur(5rem);
-        box-shadow: var(--pluto-shadow-menu);
-        border-radius: 1rem;
-        min-width: 400px;
-        min-height: 150px;
-
+        width: 100%;
+        height: 100%;
         & > div {
-            border: var(--pluto-border-l4);
-            border-radius: 1rem;
+            width: 100%;
             height: 100%;
+        }
+    }
+    &.pluto--enabled-modal {
+        &:not(.pluto--visible) {
+            display: none;
+        }
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+        background: var(--pluto-gray-l1-40);
+        padding: 5rem;
+        /* don't allow to select things underneath */
+        user-select: none;
 
-            & > div:first-child {
-                border-radius: 1rem 1rem 0 0;
-            }
+        .pluto-modal__dialog {
+            container-type: inline-size;
+            position: relative;
+            top: 30%;
+            z-index: 11;
+            transform: translateY(-25%);
+            background: var(--pluto-gray-l0);
+            backdrop-filter: saturate(300%) blur(5rem);
+            box-shadow: var(--pluto-shadow-menu);
+            border-radius: 1rem;
+            min-width: 400px;
+            min-height: 150px;
 
-            & > div:last-child {
-                border-radius: 0 0 1rem 1rem;
+            &.pluto--centered {
+                top: 50%;
+                transform: translateY(-50%);
             }
 
             & > div {
-                overflow: hidden;
+                border: var(--pluto-border-l4);
+                border-radius: 1rem;
+                height: 100%;
+
+                & > div:first-child {
+                    border-radius: 1rem 1rem 0 0;
+                }
+
+                & > div:last-child {
+                    border-radius: 0 0 1rem 1rem;
+                }
+
+                & > div {
+                    overflow: hidden;
+                }
             }
         }
-    }
 
-    @media (max-height: 800px) {
-        .pluto-dropdown__dialog {
-            top: 10%;
+        @media (max-height: 800px) {
+            .pluto-dropdown__dialog {
+                top: 10%;
+            }
         }
     }
 }

@@ -41,7 +41,7 @@ import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
-const layoutRenderers: Record<string, Layout.Renderer> = {
+const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Layouts.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Workspace.LAYOUTS,
@@ -59,14 +59,21 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Permissions.LAYOUTS,
 };
 
+const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
+  ...Schematic.CONTEXT_MENUS,
+  ...LinePlot.CONTEXT_MENUS,
+};
+
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
   ["Control", "Shift", "P"],
   ["Control", "MouseLeft"],
+  ["Control", "W"],
 ];
 
-const triggersProps: Triggers.ProviderProps = {
+const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
+  preventDefaultOptions: { double: true },
 };
 
 const client = new QueryClient();
@@ -105,7 +112,7 @@ const MainUnderContext = (): ReactElement => {
         workerEnabled
         connParams={cluster?.props}
         workerURL={WorkerURL}
-        triggers={triggersProps}
+        triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
         alamos={{
           level: "debug",
@@ -124,10 +131,12 @@ const Main = (): ReactElement => (
   <ErrorOverlayWithoutStore>
     <Provider store={store}>
       <ErrorOverlayWithStore>
-        <Layout.RendererProvider value={layoutRenderers}>
-          <Ontology.ServicesProvider services={SERVICES}>
-            <MainUnderContext />
-          </Ontology.ServicesProvider>
+        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
+          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+            <Ontology.ServicesProvider services={SERVICES}>
+              <MainUnderContext />
+            </Ontology.ServicesProvider>
+          </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
       </ErrorOverlayWithStore>
     </Provider>

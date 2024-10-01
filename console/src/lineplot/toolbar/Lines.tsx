@@ -35,7 +35,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
     dispatch(setLine({ key: layoutKey, line }));
   };
 
-  const { onSelect } = Tabs.useTabsContext();
+  const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
     <Align.Center direction="x" size="small">

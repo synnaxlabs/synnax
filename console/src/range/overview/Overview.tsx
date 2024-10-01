@@ -26,6 +26,7 @@ export const overviewLayout: Layout.State = {
   type: "overview",
   name: "Overview",
   location: "mosaic",
+  icon: "Range",
 };
 
 export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => (

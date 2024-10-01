@@ -45,7 +45,7 @@ export interface Node {
    *                 /   \
    *                 2    3
    *               /  \  / \
-   *              4  5  6  7
+   *              4   5  6  7
    *
    * The first child of a node is assigned the key 2 * key, the second child is assigned
    * the key 2 * key + 1. The root node is assigned the key 1.

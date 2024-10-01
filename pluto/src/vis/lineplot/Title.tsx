@@ -28,7 +28,7 @@ export const Title = <L extends Text.Level = "h2">({
       key,
       size: (font.lineHeight + 2) * font.baseSize,
       loc: "top",
-      order: "first",
+      order: 10,
     },
     "Title",
   );

@@ -24,6 +24,7 @@ import {
   type Callback,
   eventKey,
   match,
+  MatchOptions,
   MOUSE_KEYS,
   type MouseKey,
   type Trigger,
@@ -59,6 +60,7 @@ const EXCLUDE_TRIGGERS = ["CapsLock"];
 
 export interface ProviderProps extends PropsWithChildren {
   preventDefaultOn?: Trigger[];
+  preventDefaultOptions?: MatchOptions;
 }
 
 const shouldNotTriggerOnKeyDown = (key: string, e: KeyboardEvent): boolean => {
@@ -73,6 +75,7 @@ const shouldNotTriggerOnKeyDown = (key: string, e: KeyboardEvent): boolean => {
 export const Provider = ({
   children,
   preventDefaultOn,
+  preventDefaultOptions,
 }: ProviderProps): ReactElement => {
   // We track mouse movement to allow for cursor position on keybord events;
   const cursor = useRef<xy.XY>(xy.ZERO);
@@ -115,7 +118,8 @@ export const Provider = ({
         prev: prev.next,
         last: new TimeStamp(),
       };
-      if (shouldPreventDefault(next, preventDefaultOn)) e.preventDefault();
+      if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
+        e.preventDefault();
       updateListeners(nextState, e.target as HTMLElement);
       return nextState;
     });
@@ -132,12 +136,9 @@ export const Provider = ({
         (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),
       );
       const prev = prevS.next;
-      const nextS: RefState = {
-        ...prevS,
-        next,
-        prev,
-      };
-      if (shouldPreventDefault(next, preventDefaultOn)) e.preventDefault();
+      const nextS: RefState = { ...prevS, next, prev };
+      if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
+        e.preventDefault();
       updateListeners(nextS, e.target as HTMLElement);
       return nextS;
     });
@@ -151,11 +152,7 @@ export const Provider = ({
   const handlePageVisibility = useCallback((event: Event): void => {
     setCurr((prevS) => {
       const prev = prevS.next;
-      const nextS: RefState = {
-        ...prevS,
-        next: [],
-        prev,
-      };
+      const nextS: RefState = { ...prevS, next: [], prev };
       updateListeners(nextS, event.target as HTMLElement);
       return nextS;
     });
@@ -190,5 +187,9 @@ export const Provider = ({
   return <Context.Provider value={{ listen }}>{children}</Context.Provider>;
 };
 
-const shouldPreventDefault = (t: Trigger, preventDefaultOn?: Trigger[]): boolean =>
-  preventDefaultOn != null && match([t], preventDefaultOn);
+const shouldPreventDefault = (
+  t: Trigger,
+  preventDefaultOn?: Trigger[],
+  preventDefaultOptions?: MatchOptions,
+): boolean =>
+  preventDefaultOn != null && match([t], preventDefaultOn, preventDefaultOptions);
