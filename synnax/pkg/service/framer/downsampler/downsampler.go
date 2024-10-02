@@ -75,16 +75,12 @@ func downsample(
 	response framer.StreamerResponse,
 	factor int,
 ) framer.StreamerResponse {
-	dsFrame := framer.Frame{Keys: response.Frame.Keys, Series: []telem.Series{}}
-
-	for _, k := range response.Frame.Keys {
-		dsFrame.Series = append(
-			dsFrame.Series,
-			downsampleSeries(response.Frame.Get(k)[0], factor),
-		)
+	for i, k := range response.Frame.Keys {
+		series := response.Frame.Get(k)[0]
+		downsampledSeries := downsampleSeries(series, factor)
+		response.Frame.Series[i] = downsampledSeries
 	}
-	dsResponse := framer.StreamerResponse{Frame: dsFrame, Error: nil}
-	return dsResponse
+	return response
 }
 
 func downsampleSeries(series telem.Series, factor int) telem.Series {
@@ -93,19 +89,22 @@ func downsampleSeries(series telem.Series, factor int) telem.Series {
 		return series
 	}
 
-	seriesLength := (len(series.Data) / factor)
-	downsampledData := make([]byte, 0, seriesLength)
-	for i := int64(0); i < series.Len(); i += int64(factor) {
-		start := i * int64(series.DataType.Density())
-		end := start + int64(series.DataType.Density())
-		downsampledData = append(downsampledData, series.Data[start:end]...)
+	densitySize := int(series.DataType.Density())
+	numPoints := length / densitySize
+	newNumPoints := numPoints / factor
+
+	j := 0
+	// Overwrite already allocated series with downsampled data
+	for i := 0; i < newNumPoints; i++ {
+		srcIndex := i * factor * densitySize
+		if srcIndex != j*densitySize {
+			copy(series.Data[j*densitySize:(j+1)*densitySize], series.Data[srcIndex:srcIndex+densitySize])
+		}
+		j++
 	}
 
-	downsampledSeries := telem.Series{
-		TimeRange: series.TimeRange,
-		DataType:  series.DataType,
-		Data:      downsampledData,
-		Alignment: series.Alignment,
-	}
-	return downsampledSeries
+	// Truncate the slice to the new length
+	series.Data = series.Data[:newNumPoints*densitySize]
+
+	return series
 }
