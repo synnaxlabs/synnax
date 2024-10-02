@@ -49,11 +49,6 @@ export const typescriptClientNav: PageNavNode = {
       name: "Series and Frames",
     },
     {
-      key: "/reference/typescript-client/access-control",
-      href: "/reference/typescript-client/access-control",
-      name: "Access Control",
-    },
-    {
       key: "/reference/typescript-client/timestamps",
       href: "/reference/typescript-client/timestamps",
       name: "Timestamps",

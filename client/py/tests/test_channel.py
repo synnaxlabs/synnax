@@ -213,6 +213,8 @@ class TestChannel:
         assert len(results) == 0
 
     def test_delete_and_recreate_with_same_name(self, client: sy.Synnax):
+        """Should be able to delete, recreate, and then query a channel with the same
+        name."""
         name = str(uuid.uuid4())
         ch = client.channels.create(
             sy.Channel(

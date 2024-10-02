@@ -54,11 +54,6 @@ export const pythonClientNav: PageNavNode = {
       name: "Series and Frames",
     },
     {
-      key: "/reference/python-client/access-control",
-      href: "/reference/python-client/access-control",
-      name: "Access Control",
-    },
-    {
       key: "/reference/python-client/examples",
       href: "/reference/python-client/examples",
       name: "Examples",

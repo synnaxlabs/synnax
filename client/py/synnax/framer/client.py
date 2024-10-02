@@ -40,7 +40,7 @@ from synnax.telem import (
 )
 from synnax.telem.control import Authority, CrudeAuthority
 
-framer_ontology_type = ID(type="framer")
+ontology_type = ID(type="framer")
 
 
 class Client:

@@ -36,7 +36,6 @@ export const resourceTypeZ = z.union([
   z.literal("device"),
   z.literal("task"),
   z.literal("policy"),
-  z.literal("allow_all"),
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
