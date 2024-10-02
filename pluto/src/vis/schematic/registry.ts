@@ -844,13 +844,13 @@ const offPageReference: Spec<ArrowProps> = {
 };
 
 export const SYMBOLS: Record<Variant, Spec<any>> = {
-  offPageReference,
   value,
-  light,
-  switch: switch_,
   button,
-  setpoint,
   tank,
+  switch: switch_,
+  offPageReference,
+  light,
+  setpoint,
   box,
   textBox,
   valve,
