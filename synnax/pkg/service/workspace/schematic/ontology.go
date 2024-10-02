@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -33,7 +34,7 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
+func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
 		keys[i], err = uuid.Parse(id.Key)
@@ -42,6 +43,12 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 		}
 	}
 	return keys, nil
+}
+
+func OntologyIDsFromSchematics(schematics []Schematic) []ontology.ID {
+	return lo.Map(schematics, func(s Schematic, _ int) ontology.ID {
+		return OntologyID(s.Key)
+	})
 }
 
 var _schema = &ontology.Schema{
@@ -53,11 +60,11 @@ var _schema = &ontology.Schema{
 	},
 }
 
-func newResource(schematic Schematic) schema.Resource {
-	e := schema.NewResource(_schema, OntologyID(schematic.Key), schematic.Name)
-	schema.Set(e, "key", schematic.Key.String())
-	schema.Set(e, "name", schematic.Name)
-	schema.Set(e, "snapshot", schematic.Snapshot)
+func newResource(s Schematic) schema.Resource {
+	e := schema.NewResource(_schema, OntologyID(s.Key), s.Name)
+	schema.Set(e, "key", s.Key.String())
+	schema.Set(e, "name", s.Name)
+	schema.Set(e, "snapshot", s.Snapshot)
 	return e
 }
 

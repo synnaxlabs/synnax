@@ -19,13 +19,10 @@ var _ access.Enforcer = (*Service)(nil)
 // Enforce implements the access.Enforcer interface.
 func (s *Service) Enforce(ctx context.Context, req access.Request) error {
 	var policies []Policy
-	if err := s.NewRetriever().Entries(&policies).WhereSubject(req.Subject).Exec(ctx, s.DB); err != nil {
+	if err := s.NewRetriever().Entries(&policies).WhereSubjects(req.Subject).Exec(ctx, s.DB); err != nil {
 		return err
 	}
-	if len(policies) == 0 {
-		return access.Denied
-	}
-	if AllowRequest(req, policies) {
+	if allowRequest(req, policies) {
 		return access.Granted
 	}
 	return access.Denied

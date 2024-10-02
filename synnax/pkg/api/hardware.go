@@ -57,11 +57,11 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{rack.OntologyID(0)},
+		Objects: rack.OntologyIDsFromRacks(req.Racks),
 	}); err != nil {
 		return res, err
 	}
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
+	if err := svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Rack.NewWriter(tx)
 		for i, r := range req.Racks {
 			if err := w.Create(ctx, &r); err != nil {
@@ -71,7 +71,10 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 		}
 		res.Racks = req.Racks
 		return nil
-	})
+	}); err != nil {
+		return HardwareCreateRackResponse{}, err
+	}
+	return res, nil
 }
 
 type (
@@ -162,7 +165,7 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{task.OntologyID(0)},
+		Objects: task.OntologyIDsFromTasks(req.Tasks),
 	}); err != nil {
 		return res, err
 	}
@@ -285,8 +288,8 @@ type (
 func (svc *HardwareService) CopyTask(ctx context.Context, req HardwareCopyTaskRequest) (res HardwareCopyTaskResponse, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{task.OntologyID(0)},
+		Action:  access.Retrieve,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -299,7 +302,17 @@ func (svc *HardwareService) CopyTask(ctx context.Context, req HardwareCopyTaskRe
 		)
 		return err
 	})
-	return res, err
+	if err != nil {
+		return HardwareCopyTaskResponse{}, err
+	}
+	if err := svc.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{task.OntologyID(res.Task.Key)},
+	}); err != nil {
+		return HardwareCopyTaskResponse{}, err
+	}
+	return res, nil
 }
 
 type HardwareCreateDeviceRequest struct {
@@ -314,7 +327,7 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{device.OntologyID("")},
+		Objects: device.OntologyIDsFromDevices(req.Devices),
 	}); err != nil {
 		return res, err
 	}
@@ -383,7 +396,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	}
 	err := q.Entries(&res.Devices).Exec(ctx, nil)
 	if err != nil {
-		return res, err
+		return HardwareRetrieveDeviceResponse{}, err
 	}
 	if err = svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),

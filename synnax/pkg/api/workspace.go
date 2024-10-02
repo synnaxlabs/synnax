@@ -11,13 +11,14 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type WorkspaceService struct {
@@ -42,26 +43,28 @@ type (
 )
 
 func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateRequest) (res WorkspaceCreateResponse, err error) {
+
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{workspace.OntologyID(uuid.Nil)},
+		Objects: workspace.OntologyIDsFromWorkspaces(req.Workspaces),
 	}); err != nil {
 		return res, err
 	}
-	userKey, err := user.FromOntologyID(getSubject(ctx))
+	userKey, err := user.KeyFromOntologyID(getSubject(ctx))
 	if err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		for _, w := range req.Workspaces {
-			w.Author = userKey
-			err := s.internal.NewWriter(tx).Create(ctx, &w)
-			if err != nil {
+		w := s.internal.NewWriter(tx)
+		for i, ws := range req.Workspaces {
+			ws.Author = userKey
+			if err := w.Create(ctx, &ws); err != nil {
 				return err
 			}
-			res.Workspaces = append(res.Workspaces, w)
+			req.Workspaces[i] = ws
 		}
+		res.Workspaces = req.Workspaces
 		return nil
 	})
 }
@@ -74,7 +77,7 @@ type WorkspaceRenameRequest struct {
 func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -92,7 +95,7 @@ type WorkspaceSetLayoutRequest struct {
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err

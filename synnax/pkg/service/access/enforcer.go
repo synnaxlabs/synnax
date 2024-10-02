@@ -11,6 +11,7 @@ package access
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 )
 

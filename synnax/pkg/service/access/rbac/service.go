@@ -10,32 +10,33 @@
 package rbac
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
+type Config struct {
+	DB *gorp.DB
+}
+
 var (
 	_             config.Config[Config] = Config{}
 	DefaultConfig                       = Config{}
 )
 
-// Validate implements config.Config.
-func (c Config) Validate() error {
-	v := validate.New("gorp")
-	validate.NotNil(v, "db", c.DB)
-	return v.Error()
-}
-
-// Override implements config.Config.
+// Override implements [config.Config].
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
-type Config struct {
-	DB *gorp.DB `json:"db" msgpack:"db"`
+// Validate implements [config.Config].
+func (c Config) Validate() error {
+	v := validate.New("policy")
+	validate.NotNil(v, "db", c.DB)
+	return v.Error()
 }
 
 type Service struct {
@@ -48,4 +49,15 @@ func NewService(configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	return &Service{Config: cfg}, nil
+}
+
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{tx: gorp.OverrideTx(s.DB, tx)}
+}
+
+func (s *Service) NewRetriever() Retriever {
+	return Retriever{
+		baseTx: s.DB,
+		gorp:   gorp.NewRetrieve[uuid.UUID, Policy](),
+	}
 }

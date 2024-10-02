@@ -11,12 +11,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type LinePlotService struct {
@@ -46,18 +47,19 @@ func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest)
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{lineplot.OntologyID(uuid.Nil)},
+		Objects: lineplot.OntologyIDsFromLinePlots(req.LinePlots),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		for _, lp := range req.LinePlots {
+		for i, lp := range req.LinePlots {
 			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &lp); err != nil {
 				return err
 			}
-			res.LinePlots = append(res.LinePlots, lp)
+			req.LinePlots[i] = lp
 		}
-		return err
+		res.LinePlots = req.LinePlots
+		return nil
 	})
 }
 
@@ -69,7 +71,7 @@ type LinePlotRenameRequest struct {
 func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -87,7 +89,7 @@ type LinePlotSetDataRequest struct {
 func (s *LinePlotService) SetData(ctx context.Context, req LinePlotSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.Update,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -114,9 +116,11 @@ func (s *LinePlotService) Retrieve(ctx context.Context, req LinePlotRetrieveRequ
 	}); err != nil {
 		return res, err
 	}
-	err = s.internal.NewRetrieve().
-		WhereKeys(req.Keys...).Entries(&res.LinePlots).Exec(ctx, nil)
-	return res, err
+	if err = s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.LinePlots).
+		Exec(ctx, nil); err != nil {
+		return LinePlotRetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 type LinePlotDeleteRequest struct {

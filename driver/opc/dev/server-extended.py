@@ -35,15 +35,23 @@ async def main():
         idx,
         "my_time_array",
         [
-            datetime.datetime.utcnow(),
-            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=1),
-            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=2),
-            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=3),
-            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=4),
-            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=5),
-            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=6),
-            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=7),
-            datetime.datetime.utcnow() + datetime.timedelta(milliseconds=8),
+            datetime.datetime.now(datetime.timezone.utc),
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(milliseconds=1),
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(milliseconds=2),
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(milliseconds=3),
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(milliseconds=4),
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(milliseconds=5),
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(milliseconds=6),
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(milliseconds=7),
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(milliseconds=8),
         ],
         ua.VariantType.DateTime,
     )
@@ -59,11 +67,11 @@ async def main():
         await myobj.add_variable(idx, f"my_float_{i}", i)
 
     i = 0
-    start_ref = datetime.datetime.utcnow()
+    start_ref = datetime.datetime.now(datetime.timezone.utc)
     async with server:
         while True:
             i += 1
-            start = datetime.datetime.utcnow()
+            start = datetime.datetime.now(datetime.timezone.utc)
             timestamps = [
                 start + datetime.timedelta(seconds=j * ((1 / RATE)))
                 for j in range(ARRAY_SIZE)
@@ -75,7 +83,9 @@ async def main():
             for arr in arrays:
                 await arr.set_value(values, varianttype=ua.VariantType.Float)
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
-            duration = (datetime.datetime.utcnow() - start).total_seconds()
+            duration = (
+                datetime.datetime.now(datetime.timezone.utc) - start
+            ).total_seconds()
             await asyncio.sleep((1 / RATE) - duration)
 
 

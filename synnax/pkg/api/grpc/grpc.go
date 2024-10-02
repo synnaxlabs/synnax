@@ -10,10 +10,11 @@
 package grpc
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fnoop"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"go/types"
 )
 
 func New() (a api.Transport, transports []fgrpc.BindableTransport) {
@@ -25,20 +26,22 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = append(transports, newRanger(&a))
 	transports = append(transports, newHardware(&a))
 
-	// Hardware
+	// AUTH
+	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
+
+	// HARDWARE
 	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
 
-	// Channel
+	// CHANNEL
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
 	a.ChannelRetrieveGroup = fnoop.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse]{}
 
-	// User
-	a.UserRegistrationOld = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
-	a.UserChangeUsernameOld = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
-	a.UserChangePasswordOld = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
-	a.UserChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
-	a.UserChangePassword = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}
-	a.UserRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
+	// USER
+	a.UserRename = fnoop.UnaryServer[api.UserRenameRequest, types.Nil]{}
+	a.UserChangeUsername = fnoop.UnaryServer[api.UserChangeUsernameRequest, types.Nil]{}
+	a.UserCreate = fnoop.UnaryServer[api.UserCreateRequest, api.UserCreateResponse]{}
+	a.UserDelete = fnoop.UnaryServer[api.UserDeleteRequest, types.Nil]{}
+	a.UserRetrieve = fnoop.UnaryServer[api.UserRetrieveRequest, api.UserRetrieveResponse]{}
 
 	// RANGE
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}
@@ -61,7 +64,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.WorkspaceRename = fnoop.UnaryServer[api.WorkspaceRenameRequest, types.Nil]{}
 	a.WorkspaceSetLayout = fnoop.UnaryServer[api.WorkspaceSetLayoutRequest, types.Nil]{}
 
-	// Schematic
+	// SCHEMATIC
 	a.SchematicCreate = fnoop.UnaryServer[api.SchematicCreateRequest, api.SchematicCreateResponse]{}
 	a.SchematicDelete = fnoop.UnaryServer[api.SchematicDeleteRequest, types.Nil]{}
 	a.SchematicRetrieve = fnoop.UnaryServer[api.SchematicRetrieveRequest, api.SchematicRetrieveResponse]{}

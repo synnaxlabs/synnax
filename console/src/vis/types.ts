@@ -9,6 +9,5 @@
 
 import { type LinePlot } from "@/lineplot";
 import { type Schematic } from "@/schematic";
-// import { type Table } from "@/table";
 
 export type LayoutType = LinePlot.LayoutType | Schematic.LayoutType;

@@ -49,7 +49,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
+export const PERSIST_EXCLUDE = ["hauling", "alreadyCheckedGetStarted"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<StoreState>>;
 

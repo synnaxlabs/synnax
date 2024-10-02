@@ -38,8 +38,16 @@ var _ = Describe("Writer", func() {
 		// Giving a user the rights to change their own password
 		Expect(writer.Create(ctx, &changePasswordPolicy)).To(Succeed())
 		var policy rbac.Policy
-		err := retriever.Entry(&policy).WhereSubject(userID).Exec(ctx, nil)
+		err := retriever.Entry(&policy).WhereSubjects(userID).Exec(ctx, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(policy).To(Equal(changePasswordPolicy))
+	})
+	It("Should retrieve a policy by key", func() {
+		Expect(writer.Create(ctx, &changePasswordPolicy)).To(Succeed())
+		var policy rbac.Policy
+		err := retriever.Entry(&policy).WhereKeys(changePasswordPolicy.Key).Exec(ctx, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(policy).To(Equal(changePasswordPolicy))
+
 	})
 })

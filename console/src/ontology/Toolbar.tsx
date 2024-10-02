@@ -13,21 +13,19 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { Tree } from "@/ontology/Tree";
 
-const ResourcesTree = (): ReactElement => {
-  return (
-    <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
-      </ToolbarHeader>
-      <Cluster.NoneConnectedBoundary>
-        <Tree />
-      </Cluster.NoneConnectedBoundary>
-    </Align.Space>
-  );
-};
+const ResourcesTree = (): ReactElement => (
+  <Align.Space empty style={{ height: "100%", position: "relative" }}>
+    <ToolbarHeader>
+      <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
+    </ToolbarHeader>
+    <Cluster.NoneConnectedBoundary>
+      <Tree />
+    </Cluster.NoneConnectedBoundary>
+  </Align.Space>
+);
 
 export const Toolbar: Layout.NavDrawerItem = {
   key: "resources",

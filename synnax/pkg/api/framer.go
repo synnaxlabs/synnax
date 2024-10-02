@@ -62,13 +62,6 @@ func (s *FrameService) FrameDelete(
 	ctx context.Context,
 	req FrameDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: req.Keys.OntologyIDs(),
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		c := errors.NewCatcher(errors.WithAggregation())
 		w := s.Internal.NewDeleter()

@@ -38,7 +38,7 @@ export const workspaceRemoteZ = workspaceZ.omit({ layout: true }).extend({
 
 export type Workspace = z.infer<typeof workspaceZ>;
 
-export const WorkspaceOntologyType = "workspace" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "workspace";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: WorkspaceOntologyType, key: key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key });

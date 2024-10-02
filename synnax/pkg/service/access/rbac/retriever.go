@@ -11,6 +11,7 @@ package rbac
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -22,15 +23,27 @@ type Retriever struct {
 	gorp   gorp.Retrieve[uuid.UUID, Policy]
 }
 
-func (s *Service) NewRetriever() Retriever {
-	return Retriever{
-		baseTx: s.DB,
-		gorp:   gorp.NewRetrieve[uuid.UUID, Policy](),
-	}
+func (r Retriever) WhereSubjects(subjects ...ontology.ID) Retriever {
+	r.gorp = r.gorp.Where(func(p *Policy) bool {
+		for _, subject := range p.Subjects {
+			if lo.Contains(subjects, subject) {
+				return true
+			}
+			if subject.IsType() {
+				for _, s := range subjects {
+					if s.Type == subject.Type {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	})
+	return r
 }
 
-func (r Retriever) WhereSubject(subject ontology.ID) Retriever {
-	r.gorp = r.gorp.Where(func(p *Policy) bool { return lo.Contains(p.Subjects, subject) })
+func (r Retriever) WhereKeys(keys ...uuid.UUID) Retriever {
+	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
 }
 
