@@ -17,7 +17,7 @@ import {
 import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic } from "@synnaxlabs/pluto";
-import { type deep, direction, id, type location } from "@synnaxlabs/x";
+import { direction, id, type location } from "@synnaxlabs/x";
 import { ComponentType } from "react";
 
 import { CreateConfirmModal } from "@/confirm/Confirm";
@@ -49,9 +49,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["hauling", "alreadyCheckedGetStarted"].map(
-  (key) => `${SLICE_NAME}.${key}`,
-) as Array<deep.Key<StoreState>>;
+export const PERSIST_EXCLUDE = `${SLICE_NAME}.alreadyCheckedGetStarted`;
 
 /** Signature for the placeLayout action. */
 export type PlacePayload = State;
