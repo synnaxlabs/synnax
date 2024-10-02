@@ -20,6 +20,7 @@ import { useExport } from "@/schematic/file";
 import {
   useSelect,
   useSelectControlStatus,
+  useSelectHasPermission,
   useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
@@ -46,22 +47,28 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
+  const canEdit = useSelectHasPermission();
+  const name = Layout.useSelectRequired(layoutKey).name;
+
   return (
     <Align.Center direction="x" size="small">
       <Status.Text variant="disabled" hideIcon>
-        Schematic is not editable. To make changes,
+        {name} is not editable.
+        {canEdit ? " To make changes," : ""}
       </Status.Text>
-      <Text.Link
-        onClick={(e) => {
-          e.stopPropagation();
-          dispatch(setEditable({ key: layoutKey, editable: true }));
-        }}
-        level="p"
-      >
-        {controlState === "acquired"
-          ? "release control and enable edit mode."
-          : "enable edit mode."}
-      </Text.Link>
+      {canEdit && (
+        <Text.Link
+          onClick={(e) => {
+            e.stopPropagation();
+            dispatch(setEditable({ key: layoutKey, editable: true }));
+          }}
+          level="p"
+        >
+          {controlState === "acquired"
+            ? "release control and enable edit mode."
+            : "enable edit mode."}
+        </Text.Link>
+      )}
     </Align.Center>
   );
 };
@@ -94,6 +101,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [dispatch],
   );
 
+  const canEdit = useSelectHasPermission();
   if (schematic == null) return null;
 
   return (
@@ -133,7 +141,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               <Icon.Link />
             </Button.Icon>
           </Align.Space>
-          <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />}
         </Align.Space>
       </ToolbarHeader>
       <Tabs.Content />

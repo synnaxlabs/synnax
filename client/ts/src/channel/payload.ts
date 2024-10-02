@@ -48,7 +48,7 @@ export const newPayload = payload.extend({
 
 export type NewPayload = z.input<typeof newPayload>;
 
-export const ChannelOntologyType = "channel" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "channel";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ChannelOntologyType, key: key.toString() });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });

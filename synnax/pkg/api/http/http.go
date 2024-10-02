@@ -14,22 +14,19 @@ import (
 
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/auth"
 )
 
 func New(router *fhttp.Router) (t api.Transport) {
 	// AUTH
-	t.AuthLogin = fhttp.UnaryServer[auth.InsecureCredentials, api.TokenResponse](router, false, "/api/v1/auth/login")
+	t.AuthLogin = fhttp.UnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, false, "/api/v1/auth/login")
+	t.AuthChangePassword = fhttp.UnaryServer[api.AuthChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/change-password")
 
 	// USER
-	// Each endpoint has two routes since the route with /auth was used before Synnax
-	// V0.26.0, and were reclassified into the /user route after V0.26.0
-	t.UserRegistration = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/user/register")
-	t.UserRegistrationOld = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/auth/register")
-	t.UserChangePassword = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/user/protected/change-password")
-	t.UserChangePasswordOld = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/protected/change-password")
-	t.UserChangeUsername = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/user/protected/change-username")
-	t.UserChangeUsernameOld = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/protected/change-username")
+	t.UserRename = fhttp.UnaryServer[api.UserRenameRequest, types.Nil](router, false, "/api/v1/user/rename")
+	t.UserChangeUsername = fhttp.UnaryServer[api.UserChangeUsernameRequest, types.Nil](router, false, "/api/v1/user/change-username")
+	t.UserCreate = fhttp.UnaryServer[api.UserCreateRequest, api.UserCreateResponse](router, false, "/api/v1/user/create")
+	t.UserDelete = fhttp.UnaryServer[api.UserDeleteRequest, types.Nil](router, false, "/api/v1/user/delete")
+	t.UserRetrieve = fhttp.UnaryServer[api.UserRetrieveRequest, api.UserRetrieveResponse](router, false, "/api/v1/user/retrieve")
 
 	// CHANNEL
 	t.ChannelCreate = fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, false, "/api/v1/channel/create")
@@ -78,7 +75,7 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.WorkspaceRename = fhttp.UnaryServer[api.WorkspaceRenameRequest, types.Nil](router, false, "/api/v1/workspace/rename")
 	t.WorkspaceSetLayout = fhttp.UnaryServer[api.WorkspaceSetLayoutRequest, types.Nil](router, false, "/api/v1/workspace/set-layout")
 
-	// Schematic
+	// SCHEMATIC
 	t.SchematicCreate = fhttp.UnaryServer[api.SchematicCreateRequest, api.SchematicCreateResponse](router, false, "/api/v1/workspace/schematic/create")
 	t.SchematicRetrieve = fhttp.UnaryServer[api.SchematicRetrieveRequest, api.SchematicRetrieveResponse](router, false, "/api/v1/workspace/schematic/retrieve")
 	t.SchematicDelete = fhttp.UnaryServer[api.SchematicDeleteRequest, types.Nil](router, false, "/api/v1/workspace/schematic/delete")

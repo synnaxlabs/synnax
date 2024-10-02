@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type OntologyService struct {
@@ -121,8 +122,11 @@ func (o *OntologyService) CreateGroup(
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
 		g, err_ := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
+		if err_ != nil {
+			return err_
+		}
 		res.Group = g
-		return err_
+		return nil
 	})
 }
 
@@ -158,7 +162,7 @@ func (o *OntologyService) RenameGroup(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -180,8 +184,8 @@ func (o *OntologyService) AddChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
@@ -207,8 +211,8 @@ func (o *OntologyService) RemoveChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
@@ -235,15 +239,8 @@ func (o *OntologyService) MoveChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: []ontology.ID{req.From},
-	}); err != nil {
-		return res, err
-	}
-	if err = o.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{req.To},
+		Action:  access.Update,
+		Objects: append(req.Children, req.From, req.To),
 	}); err != nil {
 		return res, err
 	}

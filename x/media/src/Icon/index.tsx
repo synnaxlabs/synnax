@@ -91,6 +91,7 @@ import {
   MdQuestionMark,
   MdSaveAlt,
   MdSensors,
+  MdShield,
   MdSquareFoot,
   MdTypeSpecimen,
   MdWorkspacesFilled,
@@ -346,6 +347,7 @@ export const Icon: IconType = {
   Label: wrapIcon(MdLabel, "label"),
   Details: wrapIcon(MdOutlineTableRows, "details"),
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
+  Access: wrapIcon(MdShield, "access"),
   JSON: wrapIcon(MdDataObject, "json"),
   Guide: wrapIcon(FaBookOpen, "guide"),
   Focus: wrapIcon(MdFilterCenterFocus, "focus"),
@@ -478,6 +480,7 @@ export interface IconType {
   Label: IconFC;
   Details: IconFC;
   LinkExternal: IconFC;
+  Access: IconFC;
   JSON: IconFC;
   Guide: IconFC;
   Focus: IconFC;

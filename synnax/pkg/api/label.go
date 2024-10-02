@@ -13,12 +13,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type LabelService struct {
@@ -57,14 +58,17 @@ func (s *LabelService) Create(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{label.OntologyID(uuid.Nil)},
+		Objects: label.OntologyIDsFromLabels(req.Labels),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels)
+		if err != nil {
+			return err
+		}
 		res.Labels = req.Labels
-		return err
+		return nil
 	})
 }
 
@@ -118,7 +122,7 @@ func (s *LabelService) Retrieve(
 		Action:  access.Retrieve,
 		Objects: label.OntologyIDsFromLabels(res.Labels),
 	}); err != nil {
-		return res, err
+		return LabelRetrieveResponse{}, err
 	}
 	return res, nil
 }
@@ -133,7 +137,7 @@ func (s *LabelService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.Delete,
 		Objects: label.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -155,8 +159,8 @@ func (s *LabelService) Add(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -182,8 +186,8 @@ func (s *LabelService) Remove(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err
 	}

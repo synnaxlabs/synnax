@@ -20,9 +20,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
-import { useExport } from "@/schematic/file";
-import { create } from "@/schematic/Schematic";
-import { type State } from "@/schematic/slice";
+import { Schematic } from "@/schematic";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Schematic" });
@@ -133,7 +131,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useRangeSnapshot();
-  const handleExport = useExport(resources[0].name);
+  const handleExport = Schematic.useExport(resources[0].name);
   const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu("schematic.menu", {
     delete: () => del(props),
@@ -147,12 +145,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         ontologyID: resources[0].id.payload,
       }),
   });
+  const canEditSchematic = Schematic.useSelectHasPermission();
   const isSingle = resources.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Menu.RenameItem />
-      <Menu.DeleteItem />
-      <PMenu.Divider />
+      {canEditSchematic && (
+        <>
+          <Menu.RenameItem />
+          <Menu.DeleteItem />
+          <PMenu.Divider />
+        </>
+      )}
       {resources.every((r) => r.data?.snapshot === false) && (
         <Range.SnapshotMenuItem range={activeRange} />
       )}
@@ -189,11 +192,12 @@ const loadSchematic = async (
 ) => {
   const schematic = await client.workspaces.schematic.retrieve(id.key);
   placeLayout(
-    create({
-      ...(schematic.data as unknown as State),
+    Schematic.create({
+      ...(schematic.data as unknown as Schematic.State),
       key: schematic.key,
       name: schematic.name,
       snapshot: schematic.snapshot,
+      editable: false,
     }),
   );
 };
@@ -214,9 +218,9 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   void (async () => {
     const schematic = await client.workspaces.schematic.retrieve(id.key);
     placeLayout(
-      create({
+      Schematic.create({
         name: schematic.name,
-        ...(schematic.data as unknown as State),
+        ...(schematic.data as unknown as Schematic.State),
         location: "mosaic",
         tab: {
           mosaicKey: nodeKey,

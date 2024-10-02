@@ -10,14 +10,15 @@
 package embedded
 
 import (
+	"io"
+	"os/exec"
+	"sync"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"io"
-	"os/exec"
-	"sync"
 )
 
 type Config struct {

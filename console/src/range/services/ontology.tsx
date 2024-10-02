@@ -215,8 +215,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const placer = Layout.usePlacer();
-  const handleAddChildRange = () =>
-    void placer(createLayout({ initial: { parent: resources[0].id.key } }));
+  const handleAddChildRange = () => {
+    placer(createLayout({ initial: { parent: resources[0].id.key } }));
+  };
   const viewDetails = useViewDetails();
   const handleSelect = {
     delete: () => handleDelete(props),
@@ -265,7 +266,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
   {
-    type: ranger.RangeOntologyType,
+    type: ranger.ONTOLOGY_TYPE,
     key: id.key,
   },
 ];
