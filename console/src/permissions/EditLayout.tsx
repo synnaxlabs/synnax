@@ -10,7 +10,7 @@
 import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Divider, Form, Nav, Status, Text } from "@synnaxlabs/pluto";
-import { Fragment, type ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Layout } from "@/layout";
 import {
