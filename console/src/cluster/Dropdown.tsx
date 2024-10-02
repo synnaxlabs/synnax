@@ -47,13 +47,12 @@ export const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const handleRemove = (keys: string[]): void => {
-    dispatch(remove({ keys }));
+  const handleRemove = (key: string): void => {
+    dispatch(remove({ keys: [key] }));
+    if (key === active?.key) dispatch(setActive(null));
   };
 
-  const handleRename = (key: string): void => {
-    Text.edit(`cluster-dropdown-${key}`);
-  };
+  const handleRename = (key: string): void => Text.edit(`cluster-dropdown-${key}`);
 
   const handleLink = Link.useCopyToClipboard();
 
@@ -64,7 +63,7 @@ export const List = (): ReactElement => {
       const handleSelect = (menuKey: string): void => {
         switch (menuKey) {
           case "remove":
-            return handleRemove([key]);
+            return handleRemove(key);
           case "connect":
             return handleConnect(key);
           case "disconnect":
@@ -163,7 +162,6 @@ export const List = (): ReactElement => {
 
 const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   const dispatch = useDispatch();
-
   const handleChange = (value: string) => {
     dispatch(rename({ key: props.entry.key, name: value }));
   };

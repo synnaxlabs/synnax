@@ -11,12 +11,12 @@ package schema
 
 import (
 	"fmt"
-	"github.com/synnaxlabs/x/validate"
 	"strings"
 
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // ID is a unique identifier for a Resource. An example:
@@ -56,6 +56,7 @@ func (id ID) String() string { return string(id.Type) + ":" + id.Key }
 // IsZero true if the ID is the zero value for its type.
 func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
 
+// IsType returns true if the ID is a type ID.
 func (id ID) IsType() bool { return id.Type != "" && id.Key == "" }
 
 // ParseID parses the given string into an ID.

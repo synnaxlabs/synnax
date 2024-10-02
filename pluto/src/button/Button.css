@@ -177,6 +177,7 @@
         color: var(--pluto-gray-l5) !important;
     }
     color: var(--pluto-gray-l5);
+    cursor: not-allowed;
 }
 
 .pluto-btn--filled,

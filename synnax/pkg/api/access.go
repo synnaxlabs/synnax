@@ -11,12 +11,13 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type AccessService struct {
@@ -38,17 +39,17 @@ type (
 	AccessCreatePolicyResponse = AccessCreatePolicyRequest
 )
 
-func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
-	if err := a.internal.Enforce(ctx, access.Request{
+func (s *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
+	if err := s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Objects: []ontology.ID{{Type: rbac.OntologyType}},
+		Objects: rbac.PolicyOntologyIDsFromPolicies(req.Policies),
 		Action:  access.Create,
 	}); err != nil {
 		return AccessCreatePolicyRequest{}, err
 	}
 	results := make([]rbac.Policy, len(req.Policies))
-	if err := a.WithTx(ctx, func(tx gorp.Tx) error {
-		w := a.internal.NewWriter(tx)
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
 		for i, p := range req.Policies {
 			if p.Key == uuid.Nil {
 				p.Key = uuid.New()
@@ -65,56 +66,72 @@ func (a *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicy
 	return AccessCreatePolicyResponse{Policies: results}, nil
 }
 
-type AccessDeletePolicyRequest struct {
+// AccessRetrievePolicyRequest is a request for retrieving a policy from the cluster.
+type AccessRetrievePolicyRequest struct {
+	// Subjects are the ontology IDs of subjects of the policy.
+	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+	// Keys is an optional parameter for the list of keys in the ontology.
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (a *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
-	if err := a.internal.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Objects: rbac.OntologyIDs(req.Keys),
-		Action:  access.Delete,
-	}); err != nil {
-		return types.Nil{}, err
-	}
-	return types.Nil{}, a.WithTx(ctx, func(tx gorp.Tx) error {
-		w := a.internal.NewWriter(tx)
-		for _, key := range req.Keys {
-			if err := w.Delete(ctx, key); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+// AccessRetrievePolicyResponse is the response containing the retrieved policies.
+type AccessRetrievePolicyResponse struct {
+	// Policies is a list of policies retrieved from the cluster.
+	Policies []rbac.Policy `json:"policies" msgpack:"policies"`
 }
 
-type (
-	AccessRetrievePolicyRequest struct {
-		Subject ontology.ID `json:"subject" msgpack:"subject"`
-	}
-	AccessRetrievePolicyResponse struct {
-		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
-	}
-)
-
-func (a *AccessService) RetrievePolicy(
+// RetrievePolicy retrieves policies from the cluster based on the provided request.
+// It filters policies by subjects and keys if they are provided in the request.
+// It enforces access control to ensure the subject has permission to retrieve the policies.
+//
+// Parameters:
+//   - ctx: The context for the request.
+//   - req: The request containing the subjects and keys to filter the policies.
+//
+// Returns:
+//   - res: The response containing the retrieved policies.
+//   - err: An error if the retrieval or access control enforcement fails.
+func (s *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
-	res.Policies = make([]rbac.Policy, 0)
-
-	if err = a.internal.NewRetriever().
-		WhereSubject(req.Subject).
-		Entries(&res.Policies).
-		Exec(ctx, nil); err != nil {
+	var (
+		hasSubjects = len(req.Subjects) > 0
+		hasKeys     = len(req.Keys) > 0
+	)
+	q := s.internal.NewRetriever()
+	if hasSubjects {
+		q = q.WhereSubjects(req.Subjects...)
+	}
+	if hasKeys {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
-	if err = a.internal.Enforce(ctx, access.Request{
+	if err = s.internal.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: rbac.OntologyIDsFromPolicies(res.Policies),
+		Objects: rbac.PolicyOntologyIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
 	return res, nil
+}
+
+type AccessDeletePolicyRequest struct {
+	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+}
+
+func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
+	if err := s.internal.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Objects: rbac.PolicyOntologyIDs(req.Keys),
+		Action:  access.Delete,
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	})
 }

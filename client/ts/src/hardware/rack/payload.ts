@@ -26,7 +26,7 @@ export const newRackZ = rackZ.partial({ key: true });
 
 export type NewRack = z.input<typeof newRackZ>;
 
-export const RackOntologyType = "rack" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "rack";
 
 export const ontologyID = (key: RackKey): ontology.ID =>
-  new ontology.ID({ type: RackOntologyType, key: key.toString() });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });

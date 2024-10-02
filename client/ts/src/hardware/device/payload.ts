@@ -47,7 +47,7 @@ export type NewDevice<P extends UnknownRecord = UnknownRecord> = Omit<
   "properties"
 > & { properties: P };
 
-export const DeviceOntologyType = "device" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "device";
 
 export const ontologyID = (key: DeviceKey): ontology.ID =>
-  new ontology.ID({ type: DeviceOntologyType, key: key.toString() });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });

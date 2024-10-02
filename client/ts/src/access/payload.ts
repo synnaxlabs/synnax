@@ -9,27 +9,17 @@
 
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
-import { idZ } from "@/ontology/payload";
+export const actionZ = z.union([
+  z.literal("all"),
+  z.literal("create"),
+  z.literal("delete"),
+  z.literal("retrieve"),
+  z.literal("update"),
+]);
+export type Action = z.infer<typeof actionZ>;
 
-export const keyZ = z.string().uuid();
-
-export type Key = z.infer<typeof keyZ>;
-
-export type Params = Key | Key[];
-
-export const policyZ = z.object({
-  key: keyZ,
-  subjects: idZ.array(),
-  objects: idZ.array(),
-  actions: z.string().array(),
-});
-export type Policy = z.infer<typeof policyZ>;
-
-export const newPolicyPayloadZ = policyZ.extend({ key: keyZ.optional() });
-export type NewPolicyPayload = z.infer<typeof newPolicyPayloadZ>;
-
-export const PolicyOntologyType = "policy" as ontology.ResourceType;
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: PolicyOntologyType, key });
+export const ALL_ACTION: Action = "all";
+export const CREATE_ACTION: Action = "create";
+export const DELETE_ACTION: Action = "delete";
+export const RETRIEVE_ACTION: Action = "retrieve";
+export const UPDATE_ACTION: Action = "update";

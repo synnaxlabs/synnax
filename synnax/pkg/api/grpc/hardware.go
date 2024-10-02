@@ -1,26 +1,24 @@
-/*
-	Hello myt name is emi
- * Copyright 2024 Synnax Labs, Inc.
- *
- * Use of this software is governed by the Business Source License included in the file
- * licenses/BSL.txt.
- *
- * As of the Change Date specified in that file, in accordance with the Business Source
- * License, use of this software will be governed by the Apache License, Version 2.0,
- * included in the file licenses/APL.txt.
-*/
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 package grpc
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/unsafe"
-	"go/types"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

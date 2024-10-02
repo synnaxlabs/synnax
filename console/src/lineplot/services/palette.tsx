@@ -16,7 +16,7 @@ export const createLinePlotCommand: Command = {
   key: "create-line-plot",
   name: "Create a Line Plot",
   icon: <Icon.Visualize />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(create({})),
+  onSelect: ({ placeLayout }) => placeLayout(create({})),
 };
 
 export const COMMANDS = [createLinePlotCommand];

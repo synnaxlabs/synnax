@@ -11,15 +11,15 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -77,15 +77,15 @@ func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ error) {
+	translated, err := translateChannelsBackward(req.Channels)
+	if err != nil {
+		return res, err
+	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{{Type: channel.OntologyType}},
+		Objects: channel.OntologyIDsFromChannels(translated),
 	}); err != nil {
-		return res, err
-	}
-	translated, err := translateChannelsBackward(req.Channels)
-	if err != nil {
 		return res, err
 	}
 	for i := range translated {
@@ -327,7 +327,7 @@ func (s *ChannelService) Rename(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: req.Keys.OntologyIDs(),
 	}); err != nil {
 		return types.Nil{}, err
@@ -348,12 +348,13 @@ func (s *ChannelService) RetrieveGroup(
 	ctx context.Context,
 	req ChannelRetrieveGroupRequest,
 ) (ChannelRetrieveGroupResponse, error) {
+	var group = s.internal.Group()
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: []ontology.ID{{Type: channel.OntologyType}},
+		Objects: []ontology.ID{group.OntologyID()},
 	}); err != nil {
 		return ChannelRetrieveGroupResponse{}, err
 	}
-	return ChannelRetrieveGroupResponse{Group: s.internal.Group()}, nil
+	return ChannelRetrieveGroupResponse{Group: group}, nil
 }

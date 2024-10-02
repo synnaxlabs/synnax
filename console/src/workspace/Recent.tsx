@@ -18,35 +18,36 @@ import { add } from "@/workspace/slice";
 
 export const Recent = (): ReactElement | null => {
   const client = Synnax.use();
-  const d = useDispatch();
-  if (client == null) return null;
-  const key = client.auth?.user?.key;
+  const dispatch = useDispatch();
   const [data, setData] = useState<workspace.Workspace[]>([]);
+  const key = client?.auth?.user?.key;
 
   useAsyncEffect(async () => {
-    if (key == null) return;
-    const workspaces = await client.workspaces.retrieveByAuthor(key);
-    setData(workspaces);
-  }, [client, key]);
+    const workspaces =
+      key != null ? await client?.workspaces.retrieveByAuthor(key) : [];
+    setData(workspaces ?? []);
+  }, [client]);
+
+  if (client == null || key == null) return null;
 
   const handleClick = (key: string): void => {
     void (async () => {
       const ws = await client.workspaces.retrieve(key);
-      d(add({ workspaces: [ws] }));
-      d(Layout.setWorkspace({ slice: ws.layout as unknown as Layout.SliceState }));
+      dispatch(add({ workspaces: [ws] }));
+      dispatch(
+        Layout.setWorkspace({ slice: ws.layout as unknown as Layout.SliceState }),
+      );
     })();
   };
 
   return (
     <List.List<workspace.Key, workspace.Workspace> data={data}>
-      <List.Core<workspace.Key, workspace.Workspace> style={{ height: 200 }}>
-        {({ entry: { key, name } }) => {
-          return (
-            <Text.Link level="h4" onClick={() => handleClick(key)}>
-              {name}
-            </Text.Link>
-          );
-        }}
+      <List.Core<workspace.Key, workspace.Workspace>>
+        {({ entry: { key, name } }) => (
+          <Text.Link key={key} level="h4" onClick={() => handleClick(key)}>
+            {name}
+          </Text.Link>
+        )}
       </List.Core>
     </List.List>
   );

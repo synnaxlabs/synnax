@@ -11,6 +11,7 @@
 
 .pluto-input-switch__container {
     display: flex;
+    justify-content: center;
     align-items: center;
 
     .pluto-input-switch__track {
@@ -62,9 +63,26 @@
     &.pluto--disabled {
         .pluto-input-switch__slider {
             background: var(--pluto-gray-l3);
+            cursor: not-allowed;
         }
         .pluto-input-switch__slider::before {
             background: var(--pluto-gray-l4);
+        }
+
+        .pluto-input-switch__input:checked + .pluto-input-switch__slider {
+            background: color-mix(
+                in srgb,
+                var(--pluto-gray-l3),
+                var(--pluto-primary-m1)
+            );
+        }
+
+        .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
+            background: color-mix(
+                in srgb,
+                var(--pluto-gray-l4),
+                var(--pluto-primary-p1)
+            );
         }
     }
 }
