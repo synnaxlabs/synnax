@@ -117,7 +117,7 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					u := l.ts.ControlUpdateToFrame(ctx, l.ts.ControlStates())
 					l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
 				}
-				if err := signal.SendUnderContext(ctx, l.relay.requests.Inlet(), relay.Request{Keys: req.Keys, DownsampleFactor: req.DownsampleFactor}); err != nil {
+				if err := signal.SendUnderContext(ctx, l.relay.requests.Inlet(), relay.Request{Keys: req.Keys}); err != nil {
 					l.relay.requests.Close()
 					confluence.Drain(l.relay.responses)
 					return err
@@ -140,7 +140,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		controlStateKey:    s.controlStateKey,
 		sendControlDigests: lo.Contains(cfg.Keys, s.controlStateKey),
 	}
-	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys, DownsampleFactor: cfg.DownsampleFactor})
+	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys})
 	if err != nil {
 		return nil, err
 	}

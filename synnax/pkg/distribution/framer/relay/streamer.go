@@ -24,11 +24,10 @@ type Streamer = confluence.Segment[Request, Response]
 
 type streamer struct {
 	confluence.AbstractLinear[Request, Response]
-	addr             address.Address
-	demands          confluence.Inlet[demand]
-	keys             channel.Keys
-	relay            *Relay
-	downsampleFactor int
+	addr    address.Address
+	demands confluence.Inlet[demand]
+	keys    channel.Keys
+	relay   *Relay
 }
 
 type StreamerConfig = Request
@@ -42,11 +41,10 @@ func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, 
 		return nil, err
 	}
 	return &streamer{
-		keys:             keys,
-		addr:             address.Rand(),
-		demands:          r.demands,
-		relay:            r,
-		downsampleFactor: cfg.DownsampleFactor,
+		keys:    keys,
+		addr:    address.Rand(),
+		demands: r.demands,
+		relay:   r,
 	}, nil
 }
 
@@ -63,7 +61,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		r.demands.Inlet() <- demand{
 			Variant: change.Set,
 			Key:     r.addr,
-			Value:   Request{Keys: r.keys, DownsampleFactor: r.downsampleFactor},
+			Value:   Request{Keys: r.keys},
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
