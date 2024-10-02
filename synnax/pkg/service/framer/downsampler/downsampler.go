@@ -20,21 +20,47 @@ import (
 
 const defaultBuffer = 25
 
-func NewStreamer(ctx context.Context, cfg framer.StreamerConfig, service *framer.Service) (framer.Streamer, error) {
+func NewStreamer(
+	ctx context.Context,
+	cfg framer.StreamerConfig,
+	service *framer.Service,
+) (framer.Streamer, error) {
 	s, err := service.NewStreamer(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	downsampler := &confluence.LinearTransform[framer.StreamerResponse, framer.StreamerResponse]{
-		Transform: func(ctx context.Context, i framer.StreamerResponse) (o framer.StreamerResponse, ok bool, err error) {
+	downsampler := &confluence.LinearTransform[
+		framer.StreamerResponse,
+		framer.StreamerResponse,
+	]{
+		Transform: func(ctx context.Context, i framer.StreamerResponse) (
+			o framer.StreamerResponse,
+			ok bool,
+			err error,
+		) {
 			i = downsample(ctx, i, cfg.DownsampleFactor)
 			return i, true, nil
 		},
 	}
+
 	pipe := plumber.New()
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](pipe, "dist-streamer", s)
-	plumber.SetSegment[framer.StreamerResponse, framer.StreamerResponse](pipe, "downsampler", downsampler)
-	plumber.MustConnect[framer.StreamerResponse](pipe, "dist-streamer", "downsampler", defaultBuffer)
+	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](
+		pipe,
+		"dist-streamer",
+		s,
+	)
+
+	plumber.SetSegment[framer.StreamerResponse, framer.StreamerResponse](
+		pipe,
+		"downsampler",
+		downsampler,
+	)
+	plumber.MustConnect[framer.StreamerResponse](
+		pipe,
+		"dist-streamer",
+		"downsampler",
+		defaultBuffer,
+	)
 	seg := &plumber.Segment[framer.StreamerRequest, framer.StreamerResponse]{
 		Pipeline:         pipe,
 		RouteInletsTo:    []address.Address{"dist-streamer"},
@@ -44,11 +70,18 @@ func NewStreamer(ctx context.Context, cfg framer.StreamerConfig, service *framer
 	return seg, nil
 }
 
-func downsample(ctx context.Context, response framer.StreamerResponse, factor int) framer.StreamerResponse {
+func downsample(
+	ctx context.Context,
+	response framer.StreamerResponse,
+	factor int,
+) framer.StreamerResponse {
 	dsFrame := framer.Frame{Keys: response.Frame.Keys, Series: []telem.Series{}}
 
 	for _, k := range response.Frame.Keys {
-		dsFrame.Series = append(dsFrame.Series, downsampleSeries(response.Frame.Get(k)[0], factor))
+		dsFrame.Series = append(
+			dsFrame.Series,
+			downsampleSeries(response.Frame.Get(k)[0], factor),
+		)
 	}
 	dsResponse := framer.StreamerResponse{Frame: dsFrame, Error: nil}
 	return dsResponse
