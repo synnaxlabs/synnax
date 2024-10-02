@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/downsampler"
 )
@@ -37,7 +38,7 @@ func (s *Service) NewDeleter() framer.Deleter {
 }
 
 func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
-	if cfg.DownsampleFactor >= 1 {
+	if cfg.DownsampleFactor > 1 {
 		return downsampler.NewStreamer(ctx, cfg, s.Internal)
 	} else {
 		return s.Internal.NewStreamer(ctx, cfg)

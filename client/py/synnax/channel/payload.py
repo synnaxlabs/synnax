@@ -22,7 +22,6 @@ ChannelName = str
 ChannelKeys = list[int]
 ChannelNames = list[str]
 ChannelParams = ChannelKeys | ChannelNames | ChannelKey | ChannelName
-DownsampleFactor = int
 
 class ChannelPayload(Payload):
     """A payload container that represent the properties of a channel exchanged to and

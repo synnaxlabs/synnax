@@ -17,7 +17,7 @@ from freighter import (
     StreamClient,
 )
 
-from synnax.channel.payload import ChannelKeys, ChannelParams,DownsampleFactor
+from synnax.channel.payload import ChannelKeys, ChannelParams
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
@@ -27,7 +27,7 @@ from typing import overload
 
 class _Request(Payload):
     keys: ChannelKeys
-    downsample_factor: DownsampleFactor
+    downsample_factor: int 
 
 class _Response(Payload):
     frame: FramePayload
@@ -63,7 +63,7 @@ class Streamer:
         self,
         client: StreamClient,
         adapter: ReadFrameAdapter,
-        downsample_factor: DownsampleFactor,
+        downsample_factor: int,
     ) -> None:
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._adapter = adapter
@@ -199,7 +199,7 @@ class AsyncStreamer:
         self,
         client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
-        downsample_factor: DownsampleFactor,
+        downsample_factor: int,
     ) -> None:
         self._client = client
         self._adapter = adapter
